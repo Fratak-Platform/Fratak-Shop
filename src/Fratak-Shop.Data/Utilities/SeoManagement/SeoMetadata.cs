@@ -2,6 +2,12 @@
 
 using System.ComponentModel.DataAnnotations;
 
+/// <summary>
+/// Central SEO metadata shared by every SEO-managed entity (products, categories,
+/// blog posts, blog categories and site pages). Every field is optional so an admin
+/// can create content without touching SEO and an SEO specialist can fill the
+/// details later.
+/// </summary>
 public class SeoMetadata
 {
     // =========================================================
@@ -27,11 +33,24 @@ public class SeoMetadata
     public string? CanonicalUrl { get; set; }
 
     /// <summary>
+    /// Meta keywords for the page. Kept as a management tool for the SEO
+    /// specialist even though modern search engines ignore the keywords tag.
+    /// </summary>
+    [MaxLength(500)]
+    public string? MetaKeywords { get; set; }
+
+    /// <summary>
     /// Main keyword or key phrase used internally by the SEO manager.
     /// This is not rendered as a meta keywords tag.
     /// </summary>
     [MaxLength(200)]
     public string? FocusKeyword { get; set; }
+
+    /// <summary>
+    /// Custom breadcrumb title override for the page.
+    /// </summary>
+    [MaxLength(200)]
+    public string? BreadcrumbTitle { get; set; }
 
     /// <summary>
     /// Author or content creator name.
@@ -139,11 +158,11 @@ public class SeoMetadata
     /// </summary>
     public string? OgLocaleAlternatesJson { get; set; }
 
-    [MaxLength(2048)]
-    public string? OgImageUrl { get; set; }
-
-    [MaxLength(2048)]
-    public string? OgImageSecureUrl { get; set; }
+    /// <summary>
+    /// File name of the Open Graph image stored on the server.
+    /// </summary>
+    [MaxLength(250)]
+    public string? OgImageName { get; set; }
 
     [MaxLength(100)]
     public string? OgImageType { get; set; }
@@ -181,8 +200,11 @@ public class SeoMetadata
     [MaxLength(2048)]
     public string? XUrl { get; set; }
 
-    [MaxLength(2048)]
-    public string? XImageUrl { get; set; }
+    /// <summary>
+    /// File name of the X / Twitter card image stored on the server.
+    /// </summary>
+    [MaxLength(250)]
+    public string? XImageName { get; set; }
 
     [MaxLength(500)]
     public string? XImageAlt { get; set; }
@@ -268,10 +290,10 @@ public class SeoMetadata
     // =========================================================
 
     /// <summary>
-    /// Default image used when sharing the page.
+    /// File name of the default image used when sharing the page.
     /// </summary>
-    [MaxLength(2048)]
-    public string? SocialImageUrl { get; set; }
+    [MaxLength(250)]
+    public string? SocialImageName { get; set; }
 
     [MaxLength(500)]
     public string? SocialImageAlt { get; set; }
