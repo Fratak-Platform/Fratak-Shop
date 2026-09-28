@@ -7,4 +7,8 @@
     <RootNamespace>Fratak_Shop.Web</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Fratak-Shop.Data\Fratak-Shop.Data.csproj" />
+  </ItemGroup>
+
 </Project>
