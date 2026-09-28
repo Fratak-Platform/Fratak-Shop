@@ -11,7 +11,7 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
         builder.HasOne(l => l.Parent)
             .WithMany(l => l.Children)
             .HasForeignKey(l => l.ParentId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(l => l.Code)
             .IsUnique();
