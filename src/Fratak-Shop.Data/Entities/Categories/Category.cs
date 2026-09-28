@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Data.Utilities;
 using Fratak_Shop.Data.Utilities.SeoManagement;
 
@@ -10,24 +11,21 @@ public class Category : BaseEntity
     public Guid? ParentId { get; set; }
 
     [Required] 
-    [MaxLength(50)]
+    [MaxLength(250)]
     public string Name { get; set; } = null!;
 
     [Required]
-    [MaxLength(100)]
+    [MaxLength(250)]
     public string Slug { get; set; } = null!;
 
-    [Required]
-    [MaxLength(1000)]
-    public string Description { get; set; } = null!;
+    public string? Description { get; set; }
 
-    [Required]
-    [MaxLength(100)]
-    public string ImageName { get; set; } = null!;
+    [MaxLength(250)]
+    public string? ImageName { get; set; }
 
     public int DisplayOrder { get; set; }
 
-    public bool IsActive { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public SeoMetadata? Seo { get; set; }
 
@@ -35,4 +33,6 @@ public class Category : BaseEntity
     public Category? ParentCategory { get; set; }
 
     public List<Category> SubCategories { get; set; } = [];
+
+    public List<Product> Products { get; set; } = [];
 }
