@@ -1,4 +1,4 @@
-﻿namespace Fratak_Shop.Data.Utilities.SeoMangement;
+﻿namespace Fratak_Shop.Data.Utilities.SeoManagement;
 
 using System.ComponentModel.DataAnnotations;
 

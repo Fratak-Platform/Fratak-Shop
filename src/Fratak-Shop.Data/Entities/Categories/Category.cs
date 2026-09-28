@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Utilities;
-using Fratak_Shop.Data.Utilities.SeoMangement;
+using Fratak_Shop.Data.Utilities.SeoManagement;
 
 namespace Fratak_Shop.Data.Entities.Categories;
 
