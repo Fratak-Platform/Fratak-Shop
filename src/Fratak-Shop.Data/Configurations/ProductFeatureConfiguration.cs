@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Products;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,7 +15,6 @@ public class ProductFeatureConfiguration : IEntityTypeConfiguration<ProductFeatu
 
         // A product can hold each feature key only once.
         builder.HasIndex(f => new { f.ProductId, f.Key })
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
     }
 }

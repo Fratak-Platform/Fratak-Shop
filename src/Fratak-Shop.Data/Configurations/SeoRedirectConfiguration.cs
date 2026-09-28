@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.SeoRedirects;
+using Fratak_Shop.Data.Entities.SeoRedirects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,8 +9,7 @@ public class SeoRedirectConfiguration : IEntityTypeConfiguration<SeoRedirect>
     public void Configure(EntityTypeBuilder<SeoRedirect> builder)
     {
         builder.HasIndex(r => r.FromPath)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
 
         builder.HasIndex(r => r.IsActive);
     }

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Blogs;
+using Fratak_Shop.Data.Entities.Blogs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -20,8 +20,7 @@ public class BlogPostConfiguration : IEntityTypeConfiguration<BlogPost>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(p => p.Slug)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
 
         builder.HasIndex(p => p.AuthorId);
         builder.HasIndex(p => p.BlogCategoryId);

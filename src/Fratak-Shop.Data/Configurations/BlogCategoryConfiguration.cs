@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Blogs;
+using Fratak_Shop.Data.Entities.Blogs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,8 +9,7 @@ public class BlogCategoryConfiguration : IEntityTypeConfiguration<BlogCategory>
     public void Configure(EntityTypeBuilder<BlogCategory> builder)
     {
         builder.HasIndex(c => c.Slug)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
 
         builder.OwnsOne(c => c.Seo);
     }

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Locations;
+using Fratak_Shop.Data.Entities.Locations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,8 +14,7 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(l => l.Code)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
 
         builder.HasIndex(l => l.ParentId);
         builder.HasIndex(l => l.Type);

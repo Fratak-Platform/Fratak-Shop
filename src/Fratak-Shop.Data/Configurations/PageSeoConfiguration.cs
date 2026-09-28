@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Pages;
+using Fratak_Shop.Data.Entities.Pages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -10,8 +10,7 @@ public class PageSeoConfiguration : IEntityTypeConfiguration<PageSeo>
     {
         // Exactly one SEO record per site page.
         builder.HasIndex(s => s.Page)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
 
         builder.OwnsOne(s => s.Seo);
     }

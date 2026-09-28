@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Users;
+using Fratak_Shop.Data.Entities.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,7 +9,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.HasIndex(u => u.PhoneNumber)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
     }
 }

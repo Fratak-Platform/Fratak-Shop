@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Favorites;
+using Fratak_Shop.Data.Entities.Favorites;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -19,7 +19,6 @@ public class FavoriteConfiguration : IEntityTypeConfiguration<Favorite>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(f => new { f.UserId, f.ProductId })
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
     }
 }

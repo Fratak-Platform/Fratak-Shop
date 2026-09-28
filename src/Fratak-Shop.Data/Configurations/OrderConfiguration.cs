@@ -15,8 +15,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasIndex(o => o.OrderNumber)
-            .IsUnique()
-            .HasFilter("[IsDeleted] = 0");
+            .IsUnique();
 
         builder.HasIndex(o => o.UserId);
         builder.HasIndex(o => o.Status);
