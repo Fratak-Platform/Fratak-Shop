@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Products;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -30,9 +30,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.DiscountPrice)
             .HasPrecision(18, 0);
 
-        builder.HasCheckConstraint(
+        builder.ToTable(t => t.HasCheckConstraint(
             "CK_Products_PriceAndStock",
-            "[Price] >= 0 AND ([DiscountPrice] IS NULL OR [DiscountPrice] >= 0) AND [StockQuantity] >= 0 AND ([WarrantyMonths] IS NULL OR [WarrantyMonths] >= 0)");
+            "[Price] >= 0 AND ([DiscountPrice] IS NULL OR [DiscountPrice] >= 0) AND [StockQuantity] >= 0 AND ([WarrantyMonths] IS NULL OR [WarrantyMonths] >= 0)"));
 
         builder.OwnsOne(p => p.Seo);
     }

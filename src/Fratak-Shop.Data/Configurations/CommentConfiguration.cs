@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Comments;
+using Fratak_Shop.Data.Entities.Comments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -34,12 +34,15 @@ public class CommentConfiguration : IEntityTypeConfiguration<Comment>
         builder.HasIndex(c => c.BlogPostId);
         builder.HasIndex(c => c.Status);
 
-        builder.HasCheckConstraint(
-            "CK_Comments_ProductOrBlogPost",
-            "([ProductId] IS NOT NULL AND [BlogPostId] IS NULL) OR ([ProductId] IS NULL AND [BlogPostId] IS NOT NULL)");
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint(
+                "CK_Comments_ProductOrBlogPost",
+                "([ProductId] IS NOT NULL AND [BlogPostId] IS NULL) OR ([ProductId] IS NULL AND [BlogPostId] IS NOT NULL)");
 
-        builder.HasCheckConstraint(
-            "CK_Comments_Rating",
-            "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
+            t.HasCheckConstraint(
+                "CK_Comments_Rating",
+                "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
+        });
     }
 }

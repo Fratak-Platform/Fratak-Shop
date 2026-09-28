@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Shopping;
+using Fratak_Shop.Data.Entities.Shopping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -23,6 +23,6 @@ public class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");
 
-        builder.HasCheckConstraint("CK_CartItems_Quantity", "[Quantity] > 0");
+        builder.ToTable(t => t.HasCheckConstraint("CK_CartItems_Quantity", "[Quantity] > 0"));
     }
 }

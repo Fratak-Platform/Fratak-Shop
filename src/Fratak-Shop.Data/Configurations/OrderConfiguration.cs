@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Orders;
+using Fratak_Shop.Data.Entities.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,8 +26,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.ShippingAmount).HasPrecision(18, 0);
         builder.Property(o => o.PayableAmount).HasPrecision(18, 0);
 
-        builder.HasCheckConstraint(
+        builder.ToTable(t => t.HasCheckConstraint(
             "CK_Orders_Amounts",
-            "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0");
+            "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0"));
     }
 }
