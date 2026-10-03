@@ -8,16 +8,16 @@ public class SeoAuditRecordConfiguration : IEntityTypeConfiguration<SeoAuditReco
 {
     public void Configure(EntityTypeBuilder<SeoAuditRecord> builder)
     {
-        // SetNull: audit history survives the removal of the staff account.
+        // Audit records retain both references without database cascade paths.
         builder.HasOne(r => r.CreatedByUser)
             .WithMany()
             .HasForeignKey(r => r.CreatedByUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne(r => r.AppliedByUser)
             .WithMany()
             .HasForeignKey(r => r.AppliedByUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(r => new { r.EntityType, r.EntityId });
         builder.HasIndex(r => r.Status);

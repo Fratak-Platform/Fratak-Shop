@@ -14,11 +14,11 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // SetNull: the system user that sent a broadcast can be removed safely.
+        // Non-cascading author reference avoids a second delete path from Users.
         builder.HasOne(n => n.CreatedByUser)
             .WithMany()
             .HasForeignKey(n => n.CreatedByUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(n => new { n.UserId, n.IsRead });
         builder.HasIndex(n => n.Type);

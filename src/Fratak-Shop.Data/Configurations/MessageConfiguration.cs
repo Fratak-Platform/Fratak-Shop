@@ -15,11 +15,12 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasForeignKey(m => m.UserId)
             .OnDelete(DeleteBehavior.NoAction);
 
-        // SetNull: the agent who answered can be removed from the panel safely.
+        // Keep both user references non-cascading so SQL Server cannot build
+        // multiple cascade paths from Users to Messages.
         builder.HasOne(m => m.RepliedByUser)
             .WithMany()
             .HasForeignKey(m => m.RepliedByUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(m => m.UserId);
         builder.HasIndex(m => m.Status);
