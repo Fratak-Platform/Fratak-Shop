@@ -18,4 +18,13 @@ jobs:
       - name: Restore
         run: dotnet restore Fratak-Shop.slnx
       - name: Build
-        run: dotnet build Fratak-Shop.slnx --no-restore --configuration Release
+        shell: pwsh
+        run: |
+          dotnet build Fratak-Shop.slnx --no-restore --configuration Release 2>&1 | Tee-Object build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
