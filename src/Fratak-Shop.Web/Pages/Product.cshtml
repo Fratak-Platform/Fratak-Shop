@@ -1,4 +1,4 @@
-﻿@page "{slug}"
+@page "{slug}"
 @model Fratak_Shop.Web.Pages.ProductModel
 @{
     ViewData["Title"] = Model.Product.Name;
@@ -56,7 +56,7 @@
         }
 
         <ul class="mb-5 flex flex-col gap-y-2 text-xs text-zinc-600">
-            @foreach (var feature in product.Features.Where(item => item.ValueType != Core.DTOs.Products.Query.FeatureValueType.Text).Take(6))
+            @foreach (var feature in product.Features.Where(item => item.ValueType != FeatureValueType.Text).Take(6))
             {
                 <li class="flex items-center gap-x-2">
                     <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>

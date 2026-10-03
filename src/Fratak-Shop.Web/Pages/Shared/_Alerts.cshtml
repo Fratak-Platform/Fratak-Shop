@@ -1,4 +1,5 @@
-﻿@{
+@using Fratak_Shop.Core.DTOs.Pages.Query
+@{
     var message = TempData[ViewDataKeys.Message] as string;
     var type = TempData[ViewDataKeys.MessageType] as string ?? "success";
     var alertClass = type switch

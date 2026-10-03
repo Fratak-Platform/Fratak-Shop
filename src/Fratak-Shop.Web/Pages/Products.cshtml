@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model Fratak_Shop.Web.Pages.ProductsModel
 @{
     ViewData["Title"] = "فروشگاه";
@@ -15,7 +15,7 @@
     };
     string QueryUrl(object overrides)
     {
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Context.Request.QueryString.Value ?? string.Empty)
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(HttpContext.Request.QueryString.Value ?? string.Empty)
             .ToDictionary(item => item.Key, item => item.Value.ToString());
         foreach (var property in overrides.GetType().GetProperties())
         {
