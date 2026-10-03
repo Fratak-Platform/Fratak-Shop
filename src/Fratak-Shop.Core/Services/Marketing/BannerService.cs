@@ -84,7 +84,7 @@ public class BannerService(FratakShopDbContext context) : IBannerService
         return context.Banners
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.CreatedAt)
-            .Select(x => new BannerDto
+            .Select(x => new BannerDto()
             {
                 Id = x.Id,
                 CreatedAt = x.CreatedAt,
