@@ -721,6 +721,12 @@ namespace Fratak_Shop.Data.Migrations
                         .HasForeignKey("ShippingMethodId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasMany("Fratak_Shop.Data.Entities.Orders.OrderStatusHistory", "StatusHistory")
+                        .WithOne("Order")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Coupon");
                     b.Navigation("ShippingMethod");
                     b.Navigation("StatusHistory");
