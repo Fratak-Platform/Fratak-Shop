@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Fratak_Shop.Data.Entities.Audit;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Categories;
@@ -124,6 +124,18 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
         // Entity-specific rules (relationships, indexes, check constraints, ...)
         // live in the Configuration classes and stay there.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FratakShopDbContext).Assembly);
+
+        // Users are retained as audit principals. Making every FK that points
+        // to Users non-cascading is intentional: it prevents SQL Server's
+        // multiple-cascade-path failure when an entity has both UserId and a
+        // second staff/author/reviewer user reference. Individual services can
+        // still implement the desired business action explicitly.
+        foreach (var foreignKey in modelBuilder.Model.GetEntityTypes()
+                     .SelectMany(entityType => entityType.GetForeignKeys())
+                     .Where(foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(User)))
+        {
+            foreignKey.DeleteBehavior = DeleteBehavior.NoAction;
+        }
 
         // Cross-cutting soft-delete rules are applied once here so no
         // configuration has to repeat them.
