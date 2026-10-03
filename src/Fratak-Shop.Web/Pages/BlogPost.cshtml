@@ -5,7 +5,7 @@
     var post = Model.Post;
 }
 
-<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"مجله\", Url = \"/blog\" }, new() { Title = post.Title, Url = $\"/blog/{post.Slug}\" } }" />
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = "مجله", Url = "/blog" }, new() { Title = post.Title, Url = $"/blog/{post.Slug}" } }" />
 
 <article class="grid gap-6 lg:grid-cols-12">
     <div class="lg:col-span-8">

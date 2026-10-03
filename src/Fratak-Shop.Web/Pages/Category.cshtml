@@ -12,7 +12,7 @@
     };
 }
 
-<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"فروشگاه\", Url = \"/products\" }, new() { Title = Model.Category.Name, Url = $\"/category/{Model.Category.Slug}\" } }" />
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = "فروشگاه", Url = "/products" }, new() { Title = Model.Category.Name, Url = $"/category/{Model.Category.Slug}" } }" />
 
 <div class="card mb-6 flex flex-wrap items-center gap-5 p-5">
     <img class="h-20 w-20 rounded-2xl object-cover" src="@Ui.CategoryImage(Model.Category.ImageName)" alt="@Model.Category.Name" />
