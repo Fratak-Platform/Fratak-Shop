@@ -68,8 +68,4 @@
     <EmbeddedResource Include="Seeders\Data\locations.json" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Migrations\" />
-  </ItemGroup>
-
 </Project>
