@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Messages;
+using Fratak_Shop.Data.Entities.Messages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,11 +8,12 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
 {
     public void Configure(EntityTypeBuilder<Message> builder)
     {
-        // SetNull: deleting the user preserves the message history.
+        // NoAction avoids SQL Server multiple cascade/set-null paths while
+        // preserving the message history as an explicit retention record.
         builder.HasOne(m => m.User)
             .WithMany(u => u.Messages)
             .HasForeignKey(m => m.UserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         // SetNull: the agent who answered can be removed from the panel safely.
         builder.HasOne(m => m.RepliedByUser)
