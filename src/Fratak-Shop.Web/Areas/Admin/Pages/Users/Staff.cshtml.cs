@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Core.DTOs.Users.Command;
 using Fratak_Shop.Core.DTOs.Users.Query;
 using Fratak_Shop.Core.Services.Messaging;
@@ -88,7 +89,7 @@ public class StaffModel(
         var command = new SaveStaffUserCommand
         {
             Id = Input.Id,
-            PhoneNumber = PriceHelper.ToEnglishDigits(Input.PhoneNumber).Trim(),
+            PhoneNumber = SlugHelper.ToLatinDigits(Input.PhoneNumber).Trim(),
             Email = Input.Email,
             FirstName = Input.FirstName,
             LastName = Input.LastName,

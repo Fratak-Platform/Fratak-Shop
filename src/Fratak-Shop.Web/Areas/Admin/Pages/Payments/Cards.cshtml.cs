@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Payments.Query;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Messaging;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
@@ -63,7 +64,7 @@ public class CardsModel(
         var result = await bankTransfers.SaveCardAsync(Input.Id, new PaymentCardDto
         {
             BankName = Input.BankName,
-            CardNumber = Core.Utilities.PriceHelper.ToEnglishDigits(Input.CardNumber),
+            CardNumber = SlugHelper.ToLatinDigits(Input.CardNumber),
             AccountHolder = Input.AccountHolder,
             ShebaNumber = string.IsNullOrWhiteSpace(Input.ShebaNumber) ? null : Core.Utilities.PriceHelper.ToEnglishDigits(Input.ShebaNumber),
             BranchName = Input.BranchName,

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Categories.Query;
+using Fratak_Shop.Core.DTOs.Categories.Query;
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Mappers.Seo;
@@ -13,6 +13,7 @@ using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Entities.Seo;
 using Fratak_Shop.Data.Utilities.SeoManagement;
 using Fratak_Shop.Web.Infrastructure;

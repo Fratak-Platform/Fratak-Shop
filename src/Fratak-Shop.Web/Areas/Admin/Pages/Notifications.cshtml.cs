@@ -63,7 +63,7 @@ public class NotificationsModel(
         }
 
         var result = await notifications.BroadcastAsync(Broadcast.Title, Broadcast.Message, Broadcast.Url,
-            CurrentUserId, Broadcast.Type);
+            CurrentUserId);
 
         Notify(result.Message, result.IsSuccess() ? "success" : "error");
         return RedirectToPage("/Notifications", new { area = "Admin" });
