@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Messages;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
@@ -40,7 +40,7 @@ public class ContactModel(
             UserId = CurrentUserId,
             Type = MessageType.Contact,
             FullName = Contact.FullName,
-            PhoneNumber = Core.Utilities.PriceHelper.ToEnglishDigits(Contact.PhoneNumber),
+            PhoneNumber = Contact.PhoneNumber,
             Subject = Contact.Subject,
             Content = Contact.Content,
         });

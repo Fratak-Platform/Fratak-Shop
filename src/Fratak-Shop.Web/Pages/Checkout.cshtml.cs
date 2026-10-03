@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Checkout.Query;
 using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Seo.Query;
@@ -10,6 +10,7 @@ using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Services.Shopping;
 using Fratak_Shop.Core.Services.Users;
+using Fratak_Shop.Data.Entities.Locations;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Seo;
 using Fratak_Shop.Web.Infrastructure;
@@ -56,8 +57,8 @@ public class CheckoutModel(
             : summary.AvailablePaymentMethods.FirstOrDefault();
 
         var roots = await locations.GetActiveLocationsAsync();
-        var country = roots.FirstOrDefault(item => item.ParentId is null);
-        Provinces = country is null ? roots : await locations.GetChildrenByParentIdAsync(country.Id);
+        var country = roots.FirstOrDefault(item => item.Type == LocationType.Country);
+        Provinces = country is null ? roots.Where(item => item.Type == LocationType.Province).ToList() : await locations.GetChildrenByParentIdAsync(country.Id);
         if (CurrentUserId is { } userId)
             SavedAddresses = await addresses.GetAddressesByUserAsync(userId);
 

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Comments.Command;
 using Fratak_Shop.Core.DTOs.Comments.Query;
 using Fratak_Shop.Core.DTOs.Pages.Query;
@@ -17,6 +17,7 @@ using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.Seo;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Utilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages;

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.DTOs.Categories.Query;
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.Services.Categories;
@@ -89,8 +89,8 @@ public class ProductsModel(
             }))).FirstOrDefault(item => item.Id == CategoryId.Value)?.Name
             : null;
 
-        var pageSeo = await pageSeo.GetAsync(SitePage.Products);
-        ApplySeo(pageSeo?.Seo, new SeoFallback
+        var pageSeoModel = await pageSeo.GetAsync(SitePage.Products);
+        ApplySeo(pageSeoModel?.Seo, new SeoFallback
         {
             SiteName = Site.SiteName,
             SiteUrl = Site.SiteUrl,

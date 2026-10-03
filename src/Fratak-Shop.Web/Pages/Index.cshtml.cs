@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Banners.Query;
+using Fratak_Shop.Core.DTOs.Banners.Query;
+using Fratak_Shop.Data.Entities.Seo;
 using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 using Fratak_Shop.Core.DTOs.Categories.Query;
 using Fratak_Shop.Core.DTOs.Faqs.Query;

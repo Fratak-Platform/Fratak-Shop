@@ -1,6 +1,7 @@
-﻿using Fratak_Shop.Web.Utilities;
+using Fratak_Shop.Web.Utilities;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.Mappers.Seo;
 using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 using Fratak_Shop.Core.DTOs.Comments.Command;
 using Fratak_Shop.Core.DTOs.Comments.Query;
@@ -57,7 +58,7 @@ public class BlogPostModel(
         if (alerts.Count > 0)
             ViewData["PageAlertsTop"] = alerts;
 
-        ApplySeo(post.Seo, new SeoFallback
+        ApplySeo(post.Seo?.ToEntity(), new SeoFallback
         {
             SiteName = Site.SiteName,
             SiteUrl = Site.SiteUrl,

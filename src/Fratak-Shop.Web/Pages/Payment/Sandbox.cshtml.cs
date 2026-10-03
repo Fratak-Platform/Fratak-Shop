@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
@@ -58,7 +58,7 @@ public class SandboxModel(
 
     public async Task<IActionResult> OnPostAsync(string authority, bool success)
     {
-        var result = await payments.HandleCallbackAsync(authority, success, CurrentUserId, HttpContext.Connection.RemoteIpAddress?.ToString());
+        var result = await payments.HandleCallbackAsync(authority, success);
 
         Notify(result.Message, result.IsSuccess() ? "success" : "error");
 

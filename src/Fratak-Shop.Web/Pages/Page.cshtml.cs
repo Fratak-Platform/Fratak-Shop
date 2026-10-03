@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.DTOs.Content.Query;
 using Fratak_Shop.Core.DTOs.Faqs.Query;
 using Fratak_Shop.Core.Services.Content;
@@ -12,6 +12,7 @@ using Fratak_Shop.Core.Services.Shopping;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.Seo;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Utilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages;
