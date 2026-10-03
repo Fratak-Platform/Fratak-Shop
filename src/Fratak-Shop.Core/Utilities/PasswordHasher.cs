@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using Konscious.Security.Cryptography;
 
@@ -34,9 +34,10 @@ public static class PasswordHasher
 
     public static bool Verify(string password, string? passwordHash)
     {
-        if (string.IsNullOrWhiteSpace(passwordHash)) // در این سیستم امکان اینکه کاربر پسووردی برای خود تنظیم نکرده باشد هست
-            return true;                                      // گذاشتن این شرط یعنی اگر پسووردی که در دیتابیس ذخیره شده نال هست یعنی کاربر
-                                                              // کلمه عبوری ندارد وباید بگذاریم پسوورد خود را بدون وارد کردن پسوورد فعلی تنظیم کند
+        // Passwordless accounts must use the OTP flow; a missing hash must
+        // never make password login succeed for an arbitrary password.
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            return false;
         var parts = passwordHash.Split(':');
 
         if (parts.Length != 2)

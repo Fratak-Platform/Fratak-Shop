@@ -1,5 +1,6 @@
 using System.Text;
 using Fratak_Shop.Core;
+using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Content;
 using Fratak_Shop.Core.Services.Media;
 using Fratak_Shop.Core.Services.Navigation;
@@ -169,6 +170,14 @@ app.MapRazorPages()
 
 // ------------------------------------------------------------- database startup
 await app.Services.InitializeFratakShopDataAsync();
+
+// Create the initial owner account once. It uses the existing passwordless
+// one-time-code flow and is never overwritten on subsequent application starts.
+using (var adminScope = app.Services.CreateScope())
+{
+    var dataContext = adminScope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>();
+    await DefaultAdminSeeder.EnsureAsync(dataContext);
+}
 
 // Defaults of the shop are created on the first run so the panel and the storefront
 // never start empty (settings, menus, content pages and page-SEO records).
