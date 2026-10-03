@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.DTOs.Categories.Query;
+using Fratak_Shop.Core.DTOs.Products.Command;
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Mappers.Seo;

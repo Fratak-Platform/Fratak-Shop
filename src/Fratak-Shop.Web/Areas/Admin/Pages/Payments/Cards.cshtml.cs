@@ -66,7 +66,7 @@ public class CardsModel(
             BankName = Input.BankName,
             CardNumber = SlugHelper.ToLatinDigits(Input.CardNumber),
             AccountHolder = Input.AccountHolder,
-            ShebaNumber = string.IsNullOrWhiteSpace(Input.ShebaNumber) ? null : Core.Utilities.PriceHelper.ToEnglishDigits(Input.ShebaNumber),
+            ShebaNumber = string.IsNullOrWhiteSpace(Input.ShebaNumber) ? null : SlugHelper.ToLatinDigits(Input.ShebaNumber),
             BranchName = Input.BranchName,
             Instructions = Input.Instructions,
             IsDefault = Input.IsDefault,

@@ -64,7 +64,7 @@ public class PageModel(
             ShortDescription = content.Summary,
             EntityType = SeoEntityType.Page,
             AutoSchemaJsonLd = page == SitePage.Faq && FaqItems.Count > 0
-                ? SeoJsonLd.FaqPage(FaqItems)
+                ? SeoJsonLd.FaqPage(FaqItems.Select(item => (item.Question, item.Answer)))
                 : null,
         });
 
