@@ -232,7 +232,7 @@ public class EditModel(
                 {
                     SeoFindingSeverity.Critical => "بحرانی",
                     SeoFindingSeverity.Warning => "هشدار",
-                    SeoFindingSeverity.Success => "بررسی‌شده",
+                    SeoFindingSeverity.Good => "بررسی‌شده",
                     _ => "اطلاع",
                 },
             }),

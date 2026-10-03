@@ -1,4 +1,4 @@
-﻿@model LayoutViewModel
+@model LayoutViewModel
 @{
     var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? Model;
     var page = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
@@ -27,11 +27,11 @@
 
     <div class="flex items-center gap-x-2 border-r border-zinc-200 pr-3">
         <span class="grid h-9 w-9 place-items-center rounded-full bg-sky-50 text-sm font-bold text-sky-600">
-            @(string.IsNullOrWhiteSpace(CurrentUserName) ? "؟" : CurrentUserName.Trim()[..1])
+            @(string.IsNullOrWhiteSpace(layout.UserFullName) ? "؟" : layout.UserFullName.Trim()[..1])
         </span>
         <div class="hidden md:block">
-            <p class="text-xs font-semibold text-zinc-700">@CurrentUserName</p>
-            <p class="text-[10px] text-zinc-400">@CurrentRoleTitle</p>
+            <p class="text-xs font-semibold text-zinc-700">@(layout.UserFullName ?? "کاربر پنل")</p>
+            <p class="text-[10px] text-zinc-400">مدیر پنل</p>
         </div>
     </div>
 </header>

@@ -1,11 +1,11 @@
-﻿using Fratak_Shop.Core.Services.Locations;
+using Fratak_Shop.Core.Services.Locations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fratak_Shop.Web.Pages.Api;
 
 /// <summary>City list of a province for the cascading selects of the checkout/address forms.</summary>
-public class LocationsModel(ILocationService locations) : PageModel
+public class LocationsModel(ILocationService locations) : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
 {
     public async Task<IActionResult> OnGetProvincesAsync()
     {

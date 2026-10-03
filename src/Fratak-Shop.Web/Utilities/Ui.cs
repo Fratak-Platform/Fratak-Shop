@@ -241,7 +241,7 @@ public static class Ui
     {
         SeoFindingSeverity.Critical => "badge-red",
         SeoFindingSeverity.Warning => "badge-amber",
-        SeoFindingSeverity.Success => "badge-green",
+        SeoFindingSeverity.Good => "badge-green",
         _ => "badge-gray",
     };
 
