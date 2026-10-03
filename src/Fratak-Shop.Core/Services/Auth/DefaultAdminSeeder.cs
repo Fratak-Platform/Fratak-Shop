@@ -47,7 +47,7 @@ public static class DefaultAdminSeeder
         // Idempotent and non-destructive: never reset a password, name, status,
         // or roles if the owner has already customized this account.
         var changed = false;
-        if (user.Role == UserRole.None)
+        if (user.Role != UserRole.SuperAdmin)
         {
             user.Role = UserRole.SuperAdmin;
             changed = true;
