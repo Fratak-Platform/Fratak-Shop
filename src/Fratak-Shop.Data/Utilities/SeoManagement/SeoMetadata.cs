@@ -304,6 +304,28 @@ namespace Fratak_Shop.Data.Utilities.SeoManagement
         // =========================================================
 
         /// <summary>
+        /// JSON array of secondary/supporting keywords the content also targets.
+        /// </summary>
+        public string? SecondaryKeywordsJson { get; set; }
+
+        /// <summary>
+        /// JSON array of hreflang entries ({"lang":"en-US","url":"https://..."})
+        /// for multilingual pages.
+        /// </summary>
+        public string? HreflangJson { get; set; }
+
+        /// <summary>
+        /// Cached SEO score (0..100) of the last audit so list screens can sort
+        /// content by SEO quality without reading the audit payload.
+        /// </summary>
+        public int? SeoScore { get; set; }
+
+        /// <summary>
+        /// Moment the SEO record was audited last.
+        /// </summary>
+        public DateTimeOffset? LastAuditedAt { get; set; }
+
+        /// <summary>
         /// Internal SEO notes. Not rendered on the website.
         /// </summary>
         public string? Notes { get; set; }

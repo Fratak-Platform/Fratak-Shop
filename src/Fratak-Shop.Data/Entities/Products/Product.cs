@@ -53,6 +53,18 @@ public class Product : BaseEntity
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Featured products are shown in the «پیشنهاد ویژه» / «پرفروش‌ترین‌ها»
+    /// sliders of the home page.
+    /// </summary>
+    public bool IsFeatured { get; set; }
+
+    /// <summary>
+    /// Aggregated page views, incremented by the product page and used by the
+    /// SEO centre to spot popular and forgotten content.
+    /// </summary>
+    public int ViewCount { get; set; }
+
     public DateTimeOffset? PublishedAt { get; set; }
 
     [ForeignKey(nameof(CategoryId))]

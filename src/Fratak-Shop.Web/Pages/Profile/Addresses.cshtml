@@ -1,0 +1,174 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Profile.AddressesModel
+@{
+    ViewData["Title"] = "آدرس‌های من";
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <aside class="lg:col-span-3">
+        <partial name="_ProfileSidebar" />
+    </aside>
+
+    <section class="flex flex-col gap-6 lg:col-span-9">
+        <div class="card p-5">
+            <h1 class="section-title">آدرس‌های من</h1>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <p class="font-semibold text-zinc-700">هنوز آدرسی ثبت نکرده‌اید</p>
+                    <p class="text-xs text-zinc-500">با ثبت آدرس، فرآیند تسویه حساب سریع‌تر انجام می‌شود.</p>
+                </div>
+            }
+            else
+            {
+                <div class="grid gap-4 md:grid-cols-2">
+                    @foreach (var address in Model.Items)
+                    {
+                        <div class="rounded-2xl border border-zinc-100 p-4 text-xs text-zinc-600">
+                            <div class="mb-2 flex items-center justify-between">
+                                <span class="font-semibold text-zinc-800">@address.Title</span>
+                                @if (address.IsDefault)
+                                {
+                                    <span class="badge badge-green">پیش‌فرض</span>
+                                }
+                            </div>
+                            <p class="leading-6">
+                                @address.Province?.Name، @address.City?.Name<br />
+                                @address.AddressLine
+                                @if (!string.IsNullOrWhiteSpace(address.BuildingNumber))
+                                {
+                                    <span>، پلاک @PriceHelper.ToPersianDigits(address.BuildingNumber)</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(address.Unit))
+                                {
+                                    <span>، واحد @PriceHelper.ToPersianDigits(address.Unit)</span>
+                                }
+                            </p>
+                            <p class="mt-2 text-zinc-400">کد پستی: <span class="fa-num">@PriceHelper.ToPersianDigits(address.PostalCode)</span></p>
+                            <p class="text-zinc-400">تلفن: <span class="fa-num">@PriceHelper.ToPersianDigits(address.PhoneNumber)</span></p>
+
+                            <div class="mt-3 flex items-center gap-3">
+                                <a class="text-sky-600 hover:text-sky-700" href="/profile/addresses?edit=@address.Id">ویرایش</a>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@address.Id" data-confirm="این آدرس حذف شود؟">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-rose-500 hover:text-rose-600">حذف</button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="card p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش آدرس" : "افزودن آدرس جدید")</h2>
+
+            <form method="post" asp-page-handler="Save" class="grid gap-4 md:grid-cols-2" data-cities="@Url.Page("/Api/Locations", new { handler = "Cities" })">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div asp-validation-summary="ModelOnly" class="form-error md:col-span-2"></div>
+
+                <div>
+                    <label class="form-label" asp-for="Input.Title">عنوان آدرس</label>
+                    <input class="form-input" asp-for="Input.Title" placeholder="مثلاً خانه، محل کار" />
+                    <span class="form-error" asp-validation-for="Input.Title"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.PhoneNumber">شماره تماس</label>
+                    <input class="form-input text-left" asp-for="Input.PhoneNumber" dir="ltr" inputmode="numeric" />
+                    <span class="form-error" asp-validation-for="Input.PhoneNumber"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.FirstName">نام گیرنده</label>
+                    <input class="form-input" asp-for="Input.FirstName" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.LastName">نام خانوادگی گیرنده</label>
+                    <input class="form-input" asp-for="Input.LastName" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.ProvinceId">استان</label>
+                    <select class="form-input" asp-for="Input.ProvinceId" id="addressProvince">
+                        <option value="">انتخاب استان...</option>
+                        @foreach (var province in Model.Provinces)
+                        {
+                            <option value="@province.Id">@province.Name</option>
+                        }
+                    </select>
+                    <span class="form-error" asp-validation-for="Input.ProvinceId"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.CityId">شهر</label>
+                    <select class="form-input" asp-for="Input.CityId" id="addressCity">
+                        <option value="">انتخاب شهر...</option>
+                    </select>
+                    <span class="form-error" asp-validation-for="Input.CityId"></span>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="form-label" asp-for="Input.AddressLine">نشانی کامل</label>
+                    <textarea class="form-input" asp-for="Input.AddressLine" rows="2"></textarea>
+                    <span class="form-error" asp-validation-for="Input.AddressLine"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.BuildingNumber">پلاک</label>
+                    <input class="form-input" asp-for="Input.BuildingNumber" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Unit">واحد</label>
+                    <input class="form-input" asp-for="Input.Unit" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.PostalCode">کد پستی</label>
+                    <input class="form-input text-left" asp-for="Input.PostalCode" dir="ltr" inputmode="numeric" maxlength="10" />
+                    <span class="form-error" asp-validation-for="Input.PostalCode"></span>
+                </div>
+                <label class="flex items-end gap-x-2 pb-3 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.IsDefault" />
+                    آدرس پیش‌فرض من باشد
+                </label>
+
+                <div class="md:col-span-2">
+                    <button type="submit" class="btn-primary px-8">ذخیره آدرس</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const province = document.getElementById("addressProvince");
+            const city = document.getElementById("addressCity");
+            const selectedCity = "@Model.Input.CityId";
+
+            async function loadCities(preselect) {
+                city.innerHTML = '<option value="">انتخاب شهر...</option>';
+                if (!province.value) {
+                    return;
+                }
+
+                const response = await fetch("/api/locations?handler=Cities&provinceId=" + province.value);
+                if (!response.ok) {
+                    return;
+                }
+
+                const items = await response.json();
+                items.forEach(item => {
+                    const option = document.createElement("option");
+                    option.value = item.id;
+                    option.textContent = item.name;
+                    if (item.id === preselect) {
+                        option.selected = true;
+                    }
+                    city.appendChild(option);
+                });
+            }
+
+            province.addEventListener("change", () => loadCities(null));
+            loadCities(selectedCity);
+        })();
+    </script>
+}

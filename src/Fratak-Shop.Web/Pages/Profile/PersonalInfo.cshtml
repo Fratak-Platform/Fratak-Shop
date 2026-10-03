@@ -1,0 +1,53 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Profile.PersonalInfoModel
+@{
+    ViewData["Title"] = "اطلاعات شخصی";
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <aside class="lg:col-span-3">
+        <partial name="_ProfileSidebar" />
+    </aside>
+
+    <section class="lg:col-span-9">
+        <div class="card p-5 md:p-6">
+            <h1 class="section-title">اطلاعات شخصی</h1>
+
+            <form method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
+                <div asp-validation-summary="ModelOnly" class="form-error md:col-span-2"></div>
+
+                <div class="flex items-center gap-4 md:col-span-2">
+                    <img class="h-20 w-20 rounded-full border object-cover" src="@Ui.AvatarImage(Model.Profile.AvatarImageName)" alt="تصویر پروفایل" />
+                    <div class="flex-1">
+                        <label class="form-label" asp-for="Avatar">تصویر پروفایل</label>
+                        <input class="form-input" asp-for="Avatar" type="file" accept="image/*" />
+                        <p class="mt-1 text-[11px] text-zinc-400">فرمت JPG یا PNG، حداکثر ۲ مگابایت.</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label" asp-for="Input.FirstName">نام</label>
+                    <input class="form-input" asp-for="Input.FirstName" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.LastName">نام خانوادگی</label>
+                    <input class="form-input" asp-for="Input.LastName" />
+                </div>
+                <div>
+                    <label class="form-label">شماره موبایل</label>
+                    <input class="form-input text-left" value="@PriceHelper.ToEnglishDigits(Model.Profile.PhoneNumber)" dir="ltr" disabled />
+                    <p class="mt-1 text-[11px] text-zinc-400">شماره موبایل قابل ویرایش نیست.</p>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Email">ایمیل</label>
+                    <input class="form-input text-left" asp-for="Input.Email" dir="ltr" />
+                    <span class="form-error" asp-validation-for="Input.Email"></span>
+                </div>
+
+                <div class="md:col-span-2">
+                    <button type="submit" class="btn-primary px-8">ذخیره تغییرات</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>

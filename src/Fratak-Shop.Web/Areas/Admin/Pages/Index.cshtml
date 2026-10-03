@@ -1,0 +1,238 @@
+﻿@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.IndexModel
+@{
+    var data = Model.Data;
+}
+
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h2 class="text-base font-bold text-zinc-800">خوش آمدید، @Model.CurrentUserName 👋</h2>
+        <p class="mt-1 text-xs text-zinc-500">خلاصه وضعیت فروشگاه، سفارش‌ها و سئو در یک نگاه.</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a class="btn-primary px-5 text-xs" href="/admin/products/edit">افزودن محصول</a>
+        <a class="btn-secondary px-5 text-xs" href="/admin/seo">مرکز سئو</a>
+    </div>
+</div>
+
+@* ------------------------------------------------------------------- KPI cards *@
+<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("green")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M230.14,58.87A8,8,0,0,0,224,56H62.68L56.6,22.57A8,8,0,0,0,48.73,16H24a8,8,0,0,0,0,16h18L67.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,160,204a28,28,0,1,0,28-28H91.17a8,8,0,0,1-7.87-6.57L80.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,230.14,58.87Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.Orders.TotalOrders.ToString("N0")</p>
+            <p class="stat-label">کل سفارش‌ها (@data.Orders.TodayOrders.ToString("N0") امروز)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("sky")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@PriceHelper.ToPersianDigits(data.Orders.TotalRevenue.ToString("N0"))</p>
+            <p class="stat-label">درآمد کل (تومان)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("amber")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.ProductCount.ToString("N0")</p>
+            <p class="stat-label">محصول (@data.ActiveProductCount فعال)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("violet")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.Seo.AverageScore.ToString("N0")</p>
+            <p class="stat-label">میانگین امتیاز سئو</p>
+        </div>
+    </div>
+</div>
+
+<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <a class="stat-card hover:border-sky-300" href="/admin/payments/bank-transfers">
+        <span class="stat-icon @Ui.StatTile("amber")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.PendingBankTransfers.ToString("N0")</p>
+            <p class="stat-label">فیش در انتظار بررسی</p>
+        </div>
+    </a>
+    <a class="stat-card hover:border-sky-300" href="/admin/messages">
+        <span class="stat-icon @Ui.StatTile("sky")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.NewMessagesCount.ToString("N0")</p>
+            <p class="stat-label">پیام پاسخ‌نداده</p>
+        </div>
+    </a>
+    <a class="stat-card hover:border-sky-300" href="/admin/comments">
+        <span class="stat-icon @Ui.StatTile("orange")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.PendingCommentsCount.ToString("N0")</p>
+            <p class="stat-label">دیدگاه در انتظار تأیید</p>
+        </div>
+    </a>
+    <a class="stat-card hover:border-sky-300" href="/admin/seo/audits">
+        <span class="stat-icon @Ui.StatTile("red")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.PendingSeoAudits.ToString("N0")</p>
+            <p class="stat-label">پیشنهاد سئو در انتظار</p>
+        </div>
+    </a>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-12">
+    @* ----------------------------------------------------------------- orders *@
+    <div class="card overflow-hidden lg:col-span-7">
+        <div class="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h3 class="text-sm font-bold text-zinc-800">آخرین سفارش‌ها</h3>
+            <a class="text-xs text-sky-600" href="/admin/orders">همه سفارش‌ها</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>شماره</th>
+                        <th>مشتری</th>
+                        <th>مبلغ</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (data.LatestOrders.Count == 0)
+                    {
+                        <tr><td colspan="4" class="py-6 text-center text-xs text-zinc-400">سفارشی ثبت نشده است.</td></tr>
+                    }
+                    @foreach (var order in data.LatestOrders)
+                    {
+                        <tr>
+                            <td>
+                                <a class="fa-num text-xs font-semibold text-sky-600" href="/admin/orders/detail/@order.Id">@PriceHelper.ToEnglishDigits(order.OrderNumber)</a>
+                                <span class="block text-[10px] text-zinc-400">@order.CreatedAt.ToPersianDateTime()</span>
+                            </td>
+                            <td class="text-xs text-zinc-600">@order.CustomerName</td>
+                            <td class="text-xs font-semibold text-zinc-700">@order.PayableAmount.ToToman()</td>
+                            <td><span class="badge @Ui.OrderStatusClass(order.Status)">@Ui.OrderStatusTitle(order.Status)</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* -------------------------------------------------------------------- SEO *@
+    <div class="card p-5 lg:col-span-5">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-zinc-800">وضعیت سئو</h3>
+            <a class="text-xs text-sky-600" href="/admin/seo">مرکز سئو</a>
+        </div>
+
+        <div class="mb-4 flex items-center gap-4">
+            <div class="score-ring" style="--score: @data.Seo.AverageScore">
+                <span>@data.Seo.AverageScore.ToString("N0")</span>
+            </div>
+            <div class="flex-1 text-xs text-zinc-600">
+                <p class="mb-1">@data.Seo.OptimizedCount محتوا سئوی کامل دارد.</p>
+                <p class="mb-1 text-amber-600">@data.Seo.MissingTitleCount محتوا بدون عنوان سئو</p>
+                <p class="text-rose-500">@data.Seo.MissingDescriptionCount محتوا بدون توضیحات متا</p>
+            </div>
+        </div>
+
+        <ul class="flex flex-col gap-y-2 border-t border-zinc-100 pt-4 text-xs text-zinc-600">
+            <li class="flex items-center justify-between">
+                <span>محتوای ضعیف (امتیاز زیر ۶۰)</span>
+                <span class="font-semibold text-rose-500">@data.Seo.LowScoreCount</span>
+            </li>
+            <li class="flex items-center justify-between">
+                <span>بررسی‌نشده توسط کارشناس</span>
+                <span class="font-semibold text-amber-500">@data.Seo.NotReviewedCount</span>
+            </li>
+            <li class="flex items-center justify-between">
+                <span>بازدید ۳۰ روز گذشته</span>
+                <span class="font-semibold text-zinc-800">@PriceHelper.ToPersianDigits(data.Seo.VisitsLastThirtyDays.ToString("N0"))</span>
+            </li>
+            <li class="flex items-center justify-between">
+                <span>ریدایرکت‌های فعال</span>
+                <span class="font-semibold text-zinc-800">@PriceHelper.ToPersianDigits(data.Seo.RedirectCount.ToString())</span>
+            </li>
+            <li class="flex items-center justify-between">
+                <span>خطای ۴۰۴ ثبت‌شده</span>
+                <span class="font-semibold text-zinc-800">@PriceHelper.ToPersianDigits(data.Seo.NotFoundCount.ToString())</span>
+            </li>
+        </ul>
+    </div>
+
+    @* ---------------------------------------------------------------- low stock *@
+    <div class="card overflow-hidden lg:col-span-6">
+        <div class="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h3 class="text-sm font-bold text-zinc-800">کالاهای کم‌موجود</h3>
+            <a class="text-xs text-sky-600" href="/admin/products?lowStock=true">مدیریت موجودی</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>کالا</th>
+                        <th>دسته</th>
+                        <th>موجودی</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (data.LowStockProducts.Count == 0)
+                    {
+                        <tr><td colspan="3" class="py-6 text-center text-xs text-zinc-400">موجودی همه کالاها مناسب است.</td></tr>
+                    }
+                    @foreach (var product in data.LowStockProducts)
+                    {
+                        <tr>
+                            <td class="text-xs text-zinc-700">@product.Name</td>
+                            <td class="text-xs text-zinc-500">@product.CategoryName</td>
+                            <td>
+                                <span class="badge @(product.StockQuantity <= 0 ? "badge-red" : "badge-amber")">
+                                    @PriceHelper.ToPersianDigits(product.StockQuantity.ToString())
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ---------------------------------------------------------------- messages *@
+    <div class="card overflow-hidden lg:col-span-6">
+        <div class="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+            <h3 class="text-sm font-bold text-zinc-800">آخرین پیام‌ها</h3>
+            <a class="text-xs text-sky-600" href="/admin/messages">صندوق پیام‌ها</a>
+        </div>
+        <div class="divide-y divide-zinc-100">
+            @if (data.LatestMessages.Count == 0)
+            {
+                <p class="py-6 text-center text-xs text-zinc-400">پیامی ثبت نشده است.</p>
+            }
+            @foreach (var message in data.LatestMessages)
+            {
+                <a class="flex items-center justify-between px-5 py-3 text-xs hover:bg-zinc-50" href="/admin/messages?search=@message.Id">
+                    <span>
+                        <span class="block font-semibold text-zinc-700">@(message.Subject ?? "بدون موضوع")</span>
+                        <span class="text-[11px] text-zinc-400">@message.FullName — @message.CreatedAt.ToRelativeTime()</span>
+                    </span>
+                    <span class="badge @Ui.MessageStatusClass(message.Status)">@Ui.MessageStatusTitle(message.Status)</span>
+                </a>
+            }
+        </div>
+    </div>
+</div>

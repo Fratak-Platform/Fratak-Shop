@@ -1,0 +1,67 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.BlogModel
+@{
+    ViewData["Title"] = "مجله فراتک";
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <section class="lg:col-span-9">
+        @if (Model.Result.Data.Count == 0)
+        {
+            <div class="card empty-state">
+                <p class="font-semibold text-zinc-700">مقاله‌ای یافت نشد</p>
+                <a class="btn-primary" href="/blog">مشاهده همه مقالات</a>
+            </div>
+        }
+        else
+        {
+            <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                @foreach (var post in Model.Result.Data)
+                {
+                    <article class="card group overflow-hidden">
+                        <a class="block overflow-hidden" href="/blog/@post.Slug">
+                            <img class="h-44 w-full object-cover transition duration-500 group-hover:scale-105" src="@Ui.BlogImage(post.ImageName)" alt="@(post.ImageAlt ?? post.Title)" loading="lazy" />
+                        </a>
+                        <div class="p-4">
+                            @if (post.CategoryPostDto is not null)
+                            {
+                                <a class="mb-2 inline-block rounded-lg bg-sky-50 px-2 py-1 text-[11px] text-sky-600" href="/blog?category=@post.CategoryPostDto.Slug">@post.CategoryPostDto.Name</a>
+                            }
+                            <a class="mb-2 block text-sm font-bold leading-6 text-zinc-800 hover:text-sky-600" href="/blog/@post.Slug">@post.Title</a>
+                            <p class="line-clamp-2 text-xs leading-6 text-zinc-500">@post.Excerpt</p>
+                            <div class="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-zinc-400">
+                                <span>@post.PublishedAt.ToPersianDate()</span>
+                                <span>@Ui.Number(post.ViewCount) بازدید</span>
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+
+            <partial name="_Pagination" model="Model.Result" />
+        }
+    </section>
+
+    <aside class="lg:col-span-3">
+        <div class="card sticky top-40 p-5">
+            <h2 class="mb-4 text-sm font-bold text-zinc-800">جستجو در مقالات</h2>
+            <form method="get" action="/blog" class="mb-5">
+                <input class="form-input" name="q" value="@Model.Search" placeholder="عبارت مورد نظر..." />
+                <button type="submit" class="btn-primary mt-3 w-full">جستجو</button>
+            </form>
+
+            <h3 class="mb-3 text-xs font-semibold text-zinc-500">دسته‌بندی مقالات</h3>
+            <ul class="flex flex-col gap-y-1 text-xs">
+                <li>
+                    <a class="block rounded-lg px-2 py-1.5 @(Model.CategorySlug is null ? "bg-sky-50 text-sky-700" : "text-zinc-600 hover:bg-zinc-100")" href="/blog">همه مقالات</a>
+                </li>
+                @foreach (var category in Model.Categories)
+                {
+                    <li>
+                        <a class="block rounded-lg px-2 py-1.5 @(Model.CategorySlug == category.Slug ? "bg-sky-50 text-sky-700" : "text-zinc-600 hover:bg-zinc-100")" href="/blog?category=@category.Slug">@category.Name</a>
+                    </li>
+                }
+            </ul>
+        </div>
+    </aside>
+</div>

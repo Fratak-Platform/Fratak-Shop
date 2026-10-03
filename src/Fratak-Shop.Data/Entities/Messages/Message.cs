@@ -34,8 +34,18 @@ public class Message : BaseEntity
 
     public DateTimeOffset? RepliedAt { get; set; }
 
+    /// <summary>
+    /// Answer written by a support agent and (optionally) sent to the customer.
+    /// </summary>
+    public string? Reply { get; set; }
+
+    public Guid? RepliedByUserId { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
+
+    [ForeignKey(nameof(RepliedByUserId))]
+    public User? RepliedByUser { get; set; }
 }
 
 public enum MessageType

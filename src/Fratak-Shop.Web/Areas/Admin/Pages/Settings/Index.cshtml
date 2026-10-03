@@ -1,0 +1,131 @@
+﻿@page "/admin/settings"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.IndexModel
+@{
+    var activeGroup = Request.Query["group"].FirstOrDefault() ?? Model.Groups.FirstOrDefault()?.Group;
+    string InputType(SettingValueType type) => type switch
+    {
+        SettingValueType.Number => "number",
+        SettingValueType.Color => "color",
+        SettingValueType.Bool => "checkbox",
+        _ => "text",
+    };
+}
+
+<div class="card mb-6 p-5">
+    <h1 class="text-sm font-bold text-zinc-800">تنظیمات سایت</h1>
+    <p class="mt-1 text-[11px] text-zinc-400">
+        تمام متن‌ها، شماره‌ها، شبکه‌های اجتماعی و گزینه‌های هدر و فوتر از همین‌جا مدیریت می‌شوند؛ هیچ مقدار ثابتی در قالب وجود ندارد.
+    </p>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="lg:col-span-3">
+        <div class="card sticky top-24 p-3">
+            <nav class="flex flex-col gap-1">
+                @foreach (var group in Model.Groups)
+                {
+                    <a class="admin-nav-item @(group.Group == activeGroup ? "admin-nav-item-active" : "")"
+                       href="/admin/settings?group=@group.Group">
+                        <span>@group.Title</span>
+                        <span class="badge badge-gray">@PriceHelper.ToPersianDigits(group.Settings.Count.ToString())</span>
+                    </a>
+                }
+            </nav>
+        </div>
+    </div>
+
+    <div class="lg:col-span-9">
+        @foreach (var group in Model.Groups.Where(item => item.Group == activeGroup))
+        {
+            <form method="post" enctype="multipart/form-data" class="card p-5">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="group" value="@group.Group" />
+                <h2 class="section-title">@group.Title</h2>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    @for (var index = 0; index < group.Settings.Count; index++)
+                    {
+                        var item = group.Settings[index];
+                        var wide = item.ValueType is SettingValueType.Textarea or SettingValueType.Html or SettingValueType.Json;
+                        <div class="@(wide || item.ValueType == SettingValueType.Bool ? "md:col-span-2" : "")">
+                            <input type="hidden" name="Values[@index].Key" value="@item.Key" />
+                            <input type="hidden" name="Values[@index].ValueType" value="@((int)item.ValueType)" />
+
+                            @if (item.ValueType == SettingValueType.Bool)
+                            {
+                                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                                    <input type="hidden" name="Values[@index].Value" value="false" />
+                                    <input type="checkbox" class="form-checkbox" name="Values[@index].BoolValue" value="true" checked="@item.BoolValue" />
+                                    @(item.Title ?? item.Key)
+                                </label>
+                            }
+                            else
+                            {
+                                <label class="form-label">@(item.Title ?? item.Key)</label>
+                                @if (item.ValueType is SettingValueType.Textarea or SettingValueType.Html or SettingValueType.Json)
+                                {
+                                    <textarea class="form-input" name="Values[@index].Value" rows="5">@item.Value</textarea>
+                                }
+                                else if (item.ValueType == SettingValueType.Select)
+                                {
+                                    <select class="form-input" name="Values[@index].Value">
+                                        @foreach (var option in item.SelectOptions)
+                                        {
+                                            <option value="@option.Value" selected="@(option.Value == item.Value)">@option.Text</option>
+                                        }
+                                    </select>
+                                }
+                                else if (item.ValueType == SettingValueType.Image)
+                                {
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <input class="form-input flex-1" type="text" name="Values[@index].Value" value="@item.Value" dir="ltr" />
+                                        @if (!string.IsNullOrWhiteSpace(item.Value))
+                                        {
+                                            <img class="h-10 w-16 rounded-lg border object-cover" src="@item.Value" alt="@item.Title" />
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <input class="form-input @(item.ValueType == SettingValueType.Number || item.ValueType == SettingValueType.Color ? "w-40" : "")"
+                                           type="@InputType(item.ValueType)" name="Values[@index].Value" value="@item.Value"
+                                           dir="@(item.ValueType == SettingValueType.Text ? "rtl" : "ltr")" />
+                                }
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(item.Description))
+                            {
+                                <span class="mt-1 block text-[11px] text-zinc-400">@item.Description</span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (group.Group == "Header")
+                {
+                    <div class="mt-5 grid gap-4 border-t border-zinc-100 pt-5 md:grid-cols-2">
+                        <div>
+                            <label class="form-label" asp-for="Logo">بارگذاری لوگوی هدر</label>
+                            <input class="form-input" asp-for="Logo" type="file" accept="image/*" />
+                        </div>
+                        <div>
+                            <label class="form-label" asp-for="Favicon">بارگذاری فاوآیکون</label>
+                            <input class="form-input" asp-for="Favicon" type="file" accept="image/*" />
+                        </div>
+                    </div>
+                }
+                @if (group.Group == "Footer")
+                {
+                    <div class="mt-5 border-t border-zinc-100 pt-5">
+                        <label class="form-label" asp-for="FooterLogo">بارگذاری لوگوی فوتر</label>
+                        <input class="form-input" asp-for="FooterLogo" type="file" accept="image/*" />
+                    </div>
+                }
+
+                <div class="mt-5 flex justify-end">
+                    <button type="submit" class="btn-primary px-8 text-xs">ذخیره تنظیمات این بخش</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>

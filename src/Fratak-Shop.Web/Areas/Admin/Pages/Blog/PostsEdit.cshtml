@@ -1,0 +1,201 @@
+﻿@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Blog.PostsEditModel
+@{
+    var entityType = ((int)SeoEntityType.BlogPost).ToString();
+}
+
+<form method="post" enctype="multipart/form-data" class="flex flex-col gap-6">
+    @Html.AntiForgeryToken()
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-lg font-bold text-zinc-800">ویرایش مقاله</h1>
+            <p class="mt-1 text-xs text-zinc-500">محتوای مقاله، تصویر شاخص و تنظیمات سئو.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button type="submit" class="btn-primary px-6 text-xs">ذخیره مقاله</button>
+            <a class="btn-secondary px-6 text-xs" href="/admin/blog/posts">بازگشت</a>
+        </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-12">
+        <div class="flex flex-col gap-6 lg:col-span-8">
+            <section class="card p-5">
+                <h3 class="section-title">محتوای مقاله</h3>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Input.Title">عنوان <span class="text-rose-500">*</span></label>
+                        <input class="form-input" asp-for="Input.Title" />
+                        <span class="form-error" asp-validation-for="Input.Title"></span>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.Slug">نامک</label>
+                        <input class="form-input text-left" dir="ltr" asp-for="Input.Slug" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.BlogCategoryId">دسته‌بندی</label>
+                        <select class="form-input" asp-for="Input.BlogCategoryId">
+                            <option value="">انتخاب دسته...</option>
+                            @foreach (var category in Model.Categories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        </select>
+                        <span class="form-error" asp-validation-for="Input.BlogCategoryId"></span>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Input.Excerpt">خلاصه مقاله</label>
+                        <textarea class="form-input" asp-for="Input.Excerpt" rows="2" data-content-short-description></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <label class="form-label mb-0" asp-for="Input.Content">متن مقاله</label>
+                            <button type="button" class="btn-secondary px-4 py-1.5 text-[11px]" data-smart-write data-entity-type="@entityType" data-entity-id="@Model.Id"
+                                data-endpoint="@Url.Page("/Blog/PostsEdit", "Enhance", new { area = "Admin", id = Model.Id })">
+                                ✨ هوشمندسازی نوشته‌ها
+                            </button>
+                        </div>
+                        <textarea class="form-input" asp-for="Input.Content" rows="14" data-content-description></textarea>
+                        <span class="form-error" asp-validation-for="Input.Content"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card p-5">
+                <div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4">
+                    <div>
+                        <h3 class="section-title mb-0">تنظیمات سئو</h3>
+                        <p class="mt-1 text-[11px] text-zinc-400">با «سئوی هوشمند» فیلدها پیشنهاد می‌شوند؛ تا زمانی که ذخیره نکنید چیزی تغییر نمی‌کند.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-zinc-500">امتیاز سئو:</span>
+                        <span class="badge badge-gray" data-seo-score>?</span>
+                        <button type="button" class="btn-primary px-5 text-xs" data-smart-seo data-entity-type="@entityType" data-entity-id="@Model.Id"
+                            data-endpoint="@Url.Page("/Blog/PostsEdit", "SmartSeo", new { area = "Admin", id = Model.Id })">
+                            ✨ سئوی هوشمند
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.Title">عنوان سئو (Title)</label>
+                        <input class="form-input" asp-for="Seo.Title" data-seo-title />
+                        <div class="mt-1 flex items-center justify-between">
+                            <span class="form-error" asp-validation-for="Seo.Title"></span>
+                            <span class="text-zinc-400 text-[11px]" data-seo-title-count></span>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.MetaDescription">توضیحات متا</label>
+                        <textarea class="form-input" asp-for="Seo.MetaDescription" rows="3" data-seo-meta-description data-seo-description></textarea>
+                        <div class="mt-1 flex items-center justify-between">
+                            <span class="form-error" asp-validation-for="Seo.MetaDescription"></span>
+                            <span class="text-zinc-400 text-[11px]" data-seo-description-count></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.FocusKeyword">کلمه کلیدی اصلی</label>
+                        <input class="form-input" asp-for="Seo.FocusKeyword" data-seo-focus-keyword />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.MetaKeywords">کلمات کلیدی</label>
+                        <input class="form-input" asp-for="Seo.MetaKeywords" data-seo-meta-keywords />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.CanonicalUrl">آدرس کانونیکال</label>
+                        <input class="form-input text-left" dir="ltr" asp-for="Seo.CanonicalUrl" data-seo-canonical />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.BreadcrumbTitle">عنوان مسیر (Breadcrumb)</label>
+                        <input class="form-input" asp-for="Seo.BreadcrumbTitle" data-seo-breadcrumb />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.OgTitle">عنوان اشتراک‌گذاری (OG)</label>
+                        <input class="form-input" asp-for="Seo.OgTitle" data-seo-og-title />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.OgDescription">توضیح اشتراک‌گذاری (OG)</label>
+                        <input class="form-input" asp-for="Seo.OgDescription" data-seo-og-description />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.XTitle">عنوان X (توییتر)</label>
+                        <input class="form-input" asp-for="Seo.XTitle" data-seo-x-title />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.XDescription">توضیح X (توییتر)</label>
+                        <input class="form-input" asp-for="Seo.XDescription" data-seo-x-description />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.SchemaType">نوع اسکیمای محتوا</label>
+                        <select class="form-input" asp-for="Seo.SchemaType" data-seo-schema-type>
+                            <option value="">BlogPosting (پیش‌فرض)</option>
+                            <option value="BlogPosting">BlogPosting</option>
+                            <option value="Article">Article</option>
+                            <option value="NewsArticle">NewsArticle</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.ImageAlt">متن جایگزین تصویر</label>
+                        <input class="form-input" asp-for="Seo.ImageAlt" data-seo-image-alt />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.StructuredDataJsonLd">داده ساخت‌یافته (JSON-LD)</label>
+                        <textarea class="form-input text-left" dir="ltr" asp-for="Seo.StructuredDataJsonLd" rows="4" data-seo-structured-data></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.Notes">یادداشت کارشناس سئو</label>
+                        <textarea class="form-input" asp-for="Seo.Notes" rows="2"></textarea>
+                    </div>
+                    <ul data-seo-findings class="md:col-span-2 flex flex-col text-xs">
+                        <li class="py-2 text-[11px] text-zinc-400">پس از اجرای «سئوی هوشمند»، یافته‌های تحلیل و پیشنهادها اینجا نمایش داده می‌شود.</li>
+                    </ul>
+                    <div class="flex flex-wrap items-center gap-5 md:col-span-2">
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Seo.NoIndex" />
+                            noindex
+                        </label>
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Seo.NoFollow" />
+                            nofollow
+                        </label>
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Seo.IncludeInSitemap" />
+                            درج در نقشه سایت
+                        </label>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="lg:col-span-4">
+            <section class="card sticky top-24 p-5">
+                <h3 class="section-title">انتشار</h3>
+                <div class="flex flex-col gap-4">
+                    <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsPublished" />
+                        انتشار در مجله
+                    </label>
+                    <div>
+                        <label class="form-label" asp-for="Input.PublishedAt">زمان انتشار</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.PublishedAt" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Image">تصویر شاخص</label>
+                        <input class="form-input" asp-for="Image" type="file" accept="image/*" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Input.ImageName))
+                    {
+                        <img class="w-full rounded-xl border object-cover" src="@Ui.BlogImage(Model.Input.ImageName)" alt="@Model.Input.Title" />
+                    }
+                    <input type="hidden" asp-for="Input.ImageName" />
+                    <div>
+                        <label class="form-label" asp-for="Input.ImageAlt">متن جایگزین تصویر</label>
+                        <input class="form-input" asp-for="Input.ImageAlt" />
+                    </div>
+                    <a class="btn-secondary text-center text-xs" href="/blog/@Model.Input.Slug" target="_blank">مشاهده در سایت</a>
+                </div>
+            </section>
+        </div>
+    </div>
+</form>

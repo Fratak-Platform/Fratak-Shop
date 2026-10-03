@@ -15,6 +15,12 @@ public class Cart : BaseEntity
     [MaxLength(100)]
     public string? SessionKey { get; set; }
 
+    /// <summary>
+    /// کد تخفیف اعمال‌شده روی سبد خرید؛ در مرحله تسویه حساب دوباره اعتبارسنجی می‌شود.
+    /// </summary>
+    [MaxLength(50)]
+    public string? CouponCode { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 

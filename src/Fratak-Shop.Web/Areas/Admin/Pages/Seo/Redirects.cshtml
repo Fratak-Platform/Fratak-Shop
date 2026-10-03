@@ -1,0 +1,117 @@
+﻿@page "/admin/seo/redirects"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.RedirectsModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="flex flex-col gap-6 lg:col-span-8">
+        <div class="card overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+                <h2 class="text-sm font-bold text-zinc-800">ریدایرکت‌های فعال</h2>
+                <form method="get" action="/admin/seo/redirects" class="flex items-center gap-2">
+                    <input class="form-input w-48 py-1.5 text-xs" name="q" value="@Model.Search" placeholder="جستجوی مسیر..." />
+                    <button type="submit" class="btn-secondary px-4 py-1.5 text-xs">جستجو</button>
+                </form>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table-admin w-full">
+                    <thead>
+                        <tr>
+                            <th>از مسیر</th>
+                            <th>به مسیر</th>
+                            <th>نوع</th>
+                            <th>بازدید</th>
+                            <th>وضعیت</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Items.Count == 0)
+                        {
+                            <tr><td colspan="6" class="py-8 text-center text-xs text-zinc-400">ریدایرکتی ثبت نشده است.</td></tr>
+                        }
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td class="text-xs text-zinc-700" dir="ltr">@item.FromPath</td>
+                                <td class="text-xs text-zinc-600" dir="ltr">@item.ToUrl</td>
+                                <td class="text-xs text-zinc-500">@((int)item.Type == 301 ? "دائمی (301)" : "موقت (302)")</td>
+                                <td class="text-xs text-zinc-500">@PriceHelper.ToPersianDigits(item.HitCount.ToString())</td>
+                                <td><span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span></td>
+                                <td>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این ریدایرکت حذف شود؟">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card overflow-hidden">
+            <h2 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">خطاهای ۴۰۴ اخیر (بازنشده)</h2>
+            <div class="divide-y divide-zinc-100">
+                @if (Model.NotFoundLogs.Count == 0)
+                {
+                    <p class="px-5 py-6 text-xs text-zinc-400">خطای ۴۰۴ بازنشده‌ای وجود ندارد.</p>
+                }
+                @foreach (var log in Model.NotFoundLogs)
+                {
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                        <div class="text-xs">
+                            <p class="text-zinc-700" dir="ltr">@log.Path</p>
+                            <span class="text-[10px] text-zinc-400">@PriceHelper.ToPersianDigits(log.HitCount.ToString()) بازدید — @log.CreatedAt.ToRelativeTime()</span>
+                        </div>
+                        <form method="post" asp-page-handler="Resolve" class="flex items-center gap-2">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="path" value="@log.Path" />
+                            <input class="form-input w-44 py-1 text-xs" name="toUrl" dir="ltr" placeholder="/products" />
+                            <button type="submit" class="btn-secondary px-3 py-1 text-[11px]">ریدایرکت</button>
+                        </form>
+                    </div>
+                }
+            </div>
+            <div class="border-t border-zinc-100 px-5 py-3">
+                <a class="text-xs text-sky-600" href="/admin/seo/not-found">مشاهده همه خطاهای ۴۰۴</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="lg:col-span-4">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">افزودن ریدایرکت</h2>
+            <form method="post" asp-page-handler="Save" class="flex flex-col gap-4">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="form-label" asp-for="Input.FromPath">مسیر مبدأ</label>
+                    <input class="form-input text-left" dir="ltr" asp-for="Input.FromPath" placeholder="/old-product" />
+                    <span class="form-error" asp-validation-for="Input.FromPath"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.ToUrl">مسیر مقصد</label>
+                    <input class="form-input text-left" dir="ltr" asp-for="Input.ToUrl" placeholder="/product/new-slug" />
+                    <span class="form-error" asp-validation-for="Input.ToUrl"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Type">نوع ریدایرکت</label>
+                    <select class="form-input" asp-for="Input.Type">
+                        <option value="@RedirectType.MovedPermanently">دائمی (301) — پیشنهاد سئو</option>
+                        <option value="@RedirectType.Found">موقت (302)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Notes">یادداشت</label>
+                    <input class="form-input" asp-for="Input.Notes" />
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                    فعال باشد
+                </label>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره ریدایرکت</button>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,29 @@
+﻿@model LayoutViewModel
+<div class="fixed left-0 top-0 z-50 hidden h-screen w-[22rem] rounded-lg bg-white shadow-2xl sm:w-[400px]" id="cardHeader" dir="rtl">
+    <div class="flex h-full flex-col">
+        <div class="flex items-center justify-between border-b px-5 py-4">
+            <span class="font-semibold text-zinc-800">سبد خرید</span>
+            <button type="button" onclick="closeCart()" class="btn-icon" aria-label="بستن">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4" data-cart-drawer>
+            <div class="empty-state">
+                <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></span>
+                <span>در حال بارگذاری سبد خرید...</span>
+            </div>
+        </div>
+        <div class="absolute bottom-0 w-full border-t bg-white p-5">
+            <div class="mb-3 flex items-center justify-between text-sm">
+                <span class="text-zinc-500">مبلغ قابل پرداخت</span>
+                <span class="font-bold text-zinc-800" data-cart-total>-</span>
+            </div>
+            <div class="flex gap-x-2">
+                <a href="/cart" class="btn-secondary flex-1">مشاهده سبد</a>
+                <a href="/checkout" class="btn-primary flex-1">ثبت سفارش</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="fixed inset-0 z-40 hidden bg-zinc-900/40 backdrop-blur-sm" id="cardHeaderOverlay" onclick="closeCart()"></div>

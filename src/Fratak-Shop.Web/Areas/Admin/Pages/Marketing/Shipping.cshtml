@@ -1,0 +1,100 @@
+﻿@page "/admin/shipping"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Marketing.ShippingModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card overflow-hidden lg:col-span-7">
+        <h2 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">روش‌های ارسال</h2>
+        <div class="overflow-x-auto">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>نام</th>
+                        <th>هزینه</th>
+                        <th>ارسال رایگان از</th>
+                        <th>زمان تحویل</th>
+                        <th>وضعیت</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Count == 0)
+                    {
+                        <tr><td colspan="6" class="py-8 text-center text-xs text-zinc-400">روش ارسالی ثبت نشده است.</td></tr>
+                    }
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td class="text-xs text-zinc-700">@item.Name</td>
+                            <td class="text-xs text-zinc-600">@(item.Cost == 0 ? "رایگان" : item.Cost.ToToman())</td>
+                            <td class="text-xs text-zinc-500">@(item.FreeShippingThreshold?.ToToman() ?? "—")</td>
+                            <td class="text-xs text-zinc-500">@(item.EstimatedDeliveryDays is > 0 ? $"{PriceHelper.ToPersianDigits(item.EstimatedDeliveryDays.Value.ToString())} روز" : "—")</td>
+                            <td><span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span></td>
+                            <td>
+                                <div class="flex items-center gap-x-2">
+                                    <a class="text-xs text-sky-600" href="/admin/shipping?edit=@item.Id">ویرایش</a>
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-zinc-500">فعال/غیرفعال</button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این روش ارسال حذف شود؟">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش روش ارسال" : "افزودن روش ارسال")</h2>
+            <form method="post" asp-page-handler="Save" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div>
+                    <label class="form-label" asp-for="Input.Name">نام روش</label>
+                    <input class="form-input" asp-for="Input.Name" placeholder="پست پیشتاز" />
+                    <span class="form-error" asp-validation-for="Input.Name"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Description">توضیحات</label>
+                    <textarea class="form-input" asp-for="Input.Description" rows="2"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.Cost">هزینه (تومان)</label>
+                        <input class="form-input text-center" asp-for="Input.Cost" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.FreeShippingThreshold">ارسال رایگان از</label>
+                        <input class="form-input text-center" asp-for="Input.FreeShippingThreshold" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.EstimatedDeliveryDays">زمان تحویل (روز)</label>
+                        <input class="form-input text-center" asp-for="Input.EstimatedDeliveryDays" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.DisplayOrder">ترتیب</label>
+                        <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.RestrictedToCity">محدود به شهر (اختیاری)</label>
+                    <input class="form-input" asp-for="Input.RestrictedToCity" />
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                    فعال باشد
+                </label>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره روش ارسال</button>
+            </form>
+        </div>
+    </div>
+</div>

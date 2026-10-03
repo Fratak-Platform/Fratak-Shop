@@ -1,0 +1,76 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Profile.NotificationsModel
+@{
+    ViewData["Title"] = "اعلان‌های من";
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <aside class="lg:col-span-3">
+        <partial name="_ProfileSidebar" />
+    </aside>
+
+    <section class="lg:col-span-9">
+        <div class="card p-5">
+            <div class="mb-4 flex items-center justify-between">
+                <h1 class="section-title mb-0">اعلان‌های من</h1>
+                @if (Model.Items.Any(item => !item.IsRead))
+                {
+                    <form method="post" asp-page-handler="ReadAll">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="text-xs text-sky-600 hover:text-sky-700">خواندن همه</button>
+                    </form>
+                }
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <p class="font-semibold text-zinc-700">اعلانی وجود ندارد</p>
+                    <p class="text-xs text-zinc-500">وضعیت سفارش‌ها و پیام‌های مهم در این بخش نمایش داده می‌شود.</p>
+                </div>
+            }
+            else
+            {
+                <div class="flex flex-col divide-y divide-zinc-100">
+                    @foreach (var item in Model.Items)
+                    {
+                        <div class="flex items-start gap-x-3 py-4 @(item.IsRead ? "opacity-60" : null)">
+                            <span class="stat-icon shrink-0 @Ui.StatTile(item.Type switch
+                            {
+                                NotificationType.Success => "green",
+                                NotificationType.Warning => "amber",
+                                NotificationType.Error => "red",
+                                _ => "sky",
+                            })">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48Zm0,16H40V64H216Z"></path></svg>
+                            </span>
+                            <div class="flex-1">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <span class="text-xs font-semibold text-zinc-800">@item.Title</span>
+                                    <span class="text-[11px] text-zinc-400">@item.CreatedAt.ToRelativeTime()</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(item.Message))
+                                {
+                                    <p class="mt-1 text-[11px] leading-6 text-zinc-500">@item.Message</p>
+                                }
+                                <div class="mt-2 flex items-center gap-x-3 text-[11px]">
+                                    @if (!string.IsNullOrWhiteSpace(item.Url))
+                                    {
+                                        <a class="text-sky-600 hover:text-sky-700" href="@item.Url">مشاهده</a>
+                                    }
+                                    @if (!item.IsRead)
+                                    {
+                                        <form method="post" asp-page-handler="Read" asp-route-id="@item.Id">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="text-zinc-500 hover:text-zinc-700">خوانده شد</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</div>

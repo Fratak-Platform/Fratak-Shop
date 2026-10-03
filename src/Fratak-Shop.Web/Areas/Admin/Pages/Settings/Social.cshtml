@@ -1,0 +1,102 @@
+﻿@page "/admin/menus/social"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.SocialModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card overflow-hidden lg:col-span-7">
+        <h2 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">شبکه‌های اجتماعی</h2>
+        <table class="table-admin w-full">
+            <thead>
+                <tr>
+                    <th>پلتفرم</th>
+                    <th>آدرس</th>
+                    <th>نمایش</th>
+                    <th>وضعیت</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="5" class="py-8 text-center text-xs text-zinc-400">رکوردی ثبت نشده است.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td class="text-xs text-zinc-700">@item.PlatformTitle</td>
+                        <td class="text-[11px] text-zinc-400" dir="ltr">@(item.Url ?? "—")</td>
+                        <td class="text-[11px] text-zinc-500">
+                            @(item.ShowInHeader ? "هدر" : "")
+                            @(item.ShowInHeader && item.ShowInFooter ? " / " : "")
+                            @(item.ShowInFooter ? "فوتر" : "")
+                        </td>
+                        <td><span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span></td>
+                        <td>
+                            <div class="flex items-center gap-x-2">
+                                <a class="text-xs text-sky-600" href="/admin/menus/social?edit=@item.Id">ویرایش</a>
+                                <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-xs text-zinc-500">فعال/غیرفعال</button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این رکورد حذف شود؟">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش شبکه اجتماعی" : "افزودن شبکه اجتماعی")</h2>
+            <form method="post" asp-page-handler="Save" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div>
+                    <label class="form-label" asp-for="Input.Platform">پلتفرم</label>
+                    <select class="form-input" asp-for="Input.Platform">
+                        @foreach (var platform in Fratak_Shop.Web.Areas.Admin.Pages.Settings.SocialModel.Platforms)
+                        {
+                            <option value="@platform">@platform.GetTitle()</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Url">آدرس</label>
+                    <input class="form-input text-left" dir="ltr" asp-for="Input.Url" placeholder="https://instagram.com/fratak" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Title">عنوان نمایشی (اختیاری)</label>
+                    <input class="form-input" asp-for="Input.Title" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.DisplayOrder">ترتیب</label>
+                        <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                    </div>
+                    <div class="flex flex-col gap-2 pt-6">
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Input.ShowInHeader" />
+                            نمایش در هدر
+                        </label>
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Input.ShowInFooter" />
+                            نمایش در فوتر
+                        </label>
+                    </div>
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                    فعال باشد
+                </label>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره</button>
+            </form>
+        </div>
+    </div>
+</div>

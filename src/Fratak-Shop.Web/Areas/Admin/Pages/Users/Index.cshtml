@@ -1,0 +1,83 @@
+﻿@page "/admin/users"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Users.IndexModel
+@{
+}
+
+<div class="card overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+        <div>
+            <h1 class="text-sm font-bold text-zinc-800">کاربران فروشگاه</h1>
+            <p class="mt-1 text-[11px] text-zinc-400">فهرست مشتریان ثبت‌نام‌شده همراه با تعداد سفارش و مجموع خرید.</p>
+        </div>
+        <form method="get" action="/admin/users" class="flex flex-wrap items-center gap-2">
+            <input class="form-input w-44 py-1.5 text-xs" name="q" value="@Model.Search" placeholder="نام یا شماره موبایل..." />
+            <select class="form-input w-28 py-1.5 text-xs" name="active" onchange="this.form.submit()">
+                <option value="">همه</option>
+                <option value="true" selected="@(Model.IsActive == true)">فعال</option>
+                <option value="false" selected="@(Model.IsActive == false)">غیرفعال</option>
+            </select>
+            <button type="submit" class="btn-secondary px-4 py-1.5 text-xs">جستجو</button>
+        </form>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="table-admin w-full">
+            <thead>
+                <tr>
+                    <th>کاربر</th>
+                    <th>نقش‌ها</th>
+                    <th>سفارش‌ها</th>
+                    <th>مجموع خرید</th>
+                    <th>آخرین ورود</th>
+                    <th>وضعیت</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Result.Data.Count == 0)
+                {
+                    <tr><td colspan="7" class="py-8 text-center text-xs text-zinc-400">کاربری یافت نشد.</td></tr>
+                }
+                @foreach (var item in Model.Result.Data)
+                {
+                    <tr>
+                        <td>
+                            <div class="flex items-center gap-x-2">
+                                <img class="h-9 w-9 rounded-full object-cover" src="@Ui.AvatarImage(item.AvatarImageName)" alt="@item.FullName" />
+                                <div>
+                                    <span class="text-xs font-semibold text-zinc-700">@item.FullName</span>
+                                    <span class="block text-[11px] text-zinc-400 fa-num" dir="ltr">@item.PhoneNumber</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-[11px] text-zinc-500">@item.RoleTitles</td>
+                        <td class="text-xs text-zinc-600">@PriceHelper.ToPersianDigits(item.OrdersCount.ToString())</td>
+                        <td class="text-xs text-zinc-600">@item.TotalPurchase.ToToman()</td>
+                        <td class="text-[11px] text-zinc-500">@(item.LastLoginAt?.ToPersianDateTime() ?? "—")</td>
+                        <td>
+                            <span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span>
+                            @if (item.IsPhoneVerified)
+                            {
+                                <span class="badge badge-sky">تأیید موبایل</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-x-2">
+                                <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-xs text-zinc-500">@(item.IsActive ? "غیرفعال کن" : "فعال کن")</button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این کاربر حذف شود؟">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_Pagination" model="Model.Result" />
+</div>

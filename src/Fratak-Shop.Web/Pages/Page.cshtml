@@ -1,0 +1,98 @@
+﻿@page "{slug}"
+@model Fratak_Shop.Web.Pages.PageModel
+@{
+    ViewData["Title"] = Model.Content.Title;
+}
+
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = Model.Content.Title, Url = $\"/page/{Model.Content.Page.ToString().ToLowerInvariant()}\" } }" />
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <article class="card p-5 md:p-8 @(Model.FaqItems.Count > 0 ? "lg:col-span-8" : "lg:col-span-12")">
+        <h1 class="mb-4 text-lg font-bold text-zinc-800 md:text-2xl">@Model.Content.Title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Content.Summary))
+        {
+            <p class="mb-6 rounded-xl bg-sky-50 p-4 text-sm leading-7 text-sky-800">@Model.Content.Summary</p>
+        }
+
+        <div class="prose prose-sm max-w-none text-sm leading-8 text-zinc-700">
+            @Html.Raw(Model.Content.Content)
+        </div>
+
+        @if (Model.Content.Page == Data.Entities.Pages.SitePage.ContactUs)
+        {
+            <div class="mt-8 grid gap-4 border-t border-zinc-100 pt-6 md:grid-cols-3">
+                @if (!string.IsNullOrWhiteSpace(Model.Site.PhoneNumber))
+                {
+                    <div class="rounded-xl bg-zinc-50 p-4 text-xs">
+                        <span class="mb-1 block text-zinc-400">تلفن پشتیبانی</span>
+                        <a class="fa-num font-semibold text-zinc-800" href="tel:@Model.Site.PhoneNumber">@PriceHelper.ToPersianDigits(Model.Site.PhoneNumber)</a>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Site.Email))
+                {
+                    <div class="rounded-xl bg-zinc-50 p-4 text-xs">
+                        <span class="mb-1 block text-zinc-400">ایمیل</span>
+                        <a class="font-semibold text-zinc-800" href="mailto:@Model.Site.Email">@Model.Site.Email</a>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Site.Address))
+                {
+                    <div class="rounded-xl bg-zinc-50 p-4 text-xs">
+                        <span class="mb-1 block text-zinc-400">نشانی</span>
+                        <span class="font-semibold text-zinc-800">@Model.Site.Address</span>
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Site.MapUrl))
+            {
+                <a class="btn-secondary mt-4" href="@Model.Site.MapUrl" target="_blank" rel="noopener">مشاهده روی نقشه</a>
+            }
+
+            <form method="post" asp-page="/Contact" class="mt-8 grid gap-4 border-t border-zinc-100 pt-6 md:grid-cols-2">
+                @Html.AntiForgeryToken()
+                <div class="md:col-span-2">
+                    <h2 class="section-title">ارسال پیام به پشتیبانی</h2>
+                </div>
+                <div>
+                    <label class="form-label" for="Contact_FullName">نام و نام خانوادگی</label>
+                    <input class="form-input" id="Contact_FullName" name="Contact.FullName" required />
+                </div>
+                <div>
+                    <label class="form-label" for="Contact_PhoneNumber">شماره موبایل</label>
+                    <input class="form-input text-left" id="Contact_PhoneNumber" name="Contact.PhoneNumber" dir="ltr" inputmode="numeric" required />
+                </div>
+                <div class="md:col-span-2">
+                    <label class="form-label" for="Contact_Subject">موضوع</label>
+                    <input class="form-input" id="Contact_Subject" name="Contact.Subject" />
+                </div>
+                <div class="md:col-span-2">
+                    <label class="form-label" for="Contact_Content">متن پیام</label>
+                    <textarea class="form-input" id="Contact_Content" name="Contact.Content" rows="4" required></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <button type="submit" class="btn-primary px-8">ارسال پیام</button>
+                </div>
+            </form>
+        }
+    </article>
+
+    @if (Model.FaqItems.Count > 0)
+    {
+        <aside class="lg:col-span-4">
+            <div class="card sticky top-40 p-5">
+                <h2 class="section-title">پرسش‌های متداول</h2>
+                <div class="flex flex-col gap-y-2">
+                    @foreach (var faq in Model.FaqItems)
+                    {
+                        <details class="rounded-xl border border-zinc-100 p-3 text-xs">
+                            <summary class="cursor-pointer font-semibold text-zinc-700">@faq.Question</summary>
+                            <p class="mt-2 leading-7 text-zinc-500">@faq.Answer</p>
+                        </details>
+                    }
+                </div>
+            </div>
+        </aside>
+    }
+</div>

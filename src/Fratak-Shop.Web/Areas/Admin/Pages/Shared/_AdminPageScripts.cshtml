@@ -1,0 +1,17 @@
+﻿@{
+}
+<script>
+    // Live SEO title/description counters for every admin form that uses them.
+    document.addEventListener("input", event => {
+        if (event.target.matches("[data-seo-title], [data-seo-description]")) {
+            const isTitle = event.target.hasAttribute("data-seo-title");
+            const counter = document.querySelector(isTitle ? "[data-seo-title-count]" : "[data-seo-description-count]");
+            if (!counter) {
+                return;
+            }
+            const ideal = isTitle ? 60 : 160;
+            const length = event.target.value.trim().length;
+            counter.textContent = `${length} / ${ideal}`;
+        }
+    });
+</script>

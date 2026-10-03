@@ -1,0 +1,68 @@
+﻿@page "/admin/faqs"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Content.FaqsModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="flex flex-col gap-3 lg:col-span-7">
+        @if (Model.Items.Count == 0)
+        {
+            <div class="card empty-state py-12">
+                <p class="font-semibold text-zinc-700">پرسشی ثبت نشده است</p>
+                <p class="text-xs text-zinc-500">پرسش‌های متداول در صفحه «سوالات متداول» سایت و اسکیمای FAQ نمایش داده می‌شوند.</p>
+            </div>
+        }
+        @foreach (var item in Model.Items)
+        {
+            <div class="card p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-zinc-800">@item.Question</p>
+                        <p class="mt-2 text-xs leading-6 text-zinc-500">@item.Answer</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span>
+                        <div class="flex items-center gap-x-2 text-xs">
+                            <a class="text-sky-600" href="/admin/faqs?edit=@item.Id">ویرایش</a>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این پرسش حذف شود؟">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="text-rose-500">حذف</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش پرسش" : "افزودن پرسش")</h2>
+            <form method="post" asp-page-handler="Save" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+                <div>
+                    <label class="form-label" asp-for="Input.Question">پرسش</label>
+                    <input class="form-input" asp-for="Input.Question" />
+                    <span class="form-error" asp-validation-for="Input.Question"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Answer">پاسخ</label>
+                    <textarea class="form-input" asp-for="Input.Answer" rows="5"></textarea>
+                    <span class="form-error" asp-validation-for="Input.Answer"></span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.DisplayOrder">ترتیب</label>
+                        <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                    </div>
+                    <label class="flex items-end gap-x-2 pb-3 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                        فعال
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره پرسش</button>
+            </form>
+        </div>
+    </div>
+</div>

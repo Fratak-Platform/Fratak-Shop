@@ -40,6 +40,11 @@ public class BlogPost : BaseEntity
 
     public bool IsPublished { get; set; }
 
+    /// <summary>
+    /// Featured posts are highlighted on the blog list and home page.
+    /// </summary>
+    public bool IsFeatured { get; set; }
+
     public DateTimeOffset? PublishedAt { get; set; }
 
     public SeoMetaData? Seo { get; set; }

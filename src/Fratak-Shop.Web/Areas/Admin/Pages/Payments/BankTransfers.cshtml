@@ -1,0 +1,150 @@
+﻿@page "/admin/payments/bank-transfers"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Payments.BankTransfersModel
+@{
+    string QueryUrl(object overrides)
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Context.Request.QueryString.Value ?? string.Empty)
+            .ToDictionary(item => item.Key, item => item.Value.ToString());
+        foreach (var property in overrides.GetType().GetProperties())
+        {
+            var value = property.GetValue(overrides)?.ToString();
+            if (string.IsNullOrWhiteSpace(value) || value == "False")
+                query.Remove(property.Name);
+            else
+                query[property.Name] = value;
+        }
+        query.Remove("page");
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/admin/payments/bank-transfers", query);
+    }
+}
+
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap gap-2">
+        <a class="chip @(Model.Status is null ? "chip-active" : null)" href="@QueryUrl(new { status = (string?)null })">همه</a>
+        @foreach (var status in Enum.GetValues<BankTransferStatus>())
+        {
+            if (status == BankTransferStatus.None) { continue; }
+            <a class="chip @(Model.Status == status ? "chip-active" : null)" href="@QueryUrl(new { status = status.ToString() })">@Ui.BankTransferStatusTitle(status)</a>
+        }
+    </div>
+    <form method="post" asp-page-handler="Expire">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn-secondary text-xs">منقضی‌کردن فیش‌های قدیمی</button>
+    </form>
+</div>
+
+<div class="card mb-5 p-4">
+    <form method="get" action="/admin/payments/bank-transfers" class="flex flex-wrap items-end gap-3">
+        <div class="min-w-52 flex-1">
+            <label class="form-label" for="q">جستجو</label>
+            <input class="form-input" id="q" name="q" value="@Model.Search" placeholder="شماره سفارش، نام واریزکننده یا شماره پیگیری" />
+        </div>
+        <button type="submit" class="btn-primary px-6">جستجو</button>
+    </form>
+</div>
+
+@if (Model.Result.Data.Count == 0)
+{
+    <div class="card empty-state py-12">
+        <p class="font-semibold text-zinc-700">فیشی با این شرایط یافت نشد</p>
+        <p class="text-xs text-zinc-500">فیش‌های ثبت‌شده توسط مشتریان پس از پرداخت کارت به کارت اینجا نمایش داده می‌شوند.</p>
+    </div>
+}
+else
+{
+    <div class="flex flex-col gap-5">
+        @foreach (var item in Model.Result.Data)
+        {
+            <div class="card p-5">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-zinc-800">
+                            سفارش <span class="fa-num">@PriceHelper.ToEnglishDigits(item.OrderNumber)</span>
+                        </h3>
+                        <p class="mt-1 text-[11px] text-zinc-500">
+                            @item.CustomerName — <span class="fa-num">@PriceHelper.ToPersianDigits(item.CustomerPhone)</span>
+                            @if (item.SubmittedAt is { } submittedAt)
+                            {
+                                <span> — ثبت‌شده @submittedAt.ToRelativeTime()</span>
+                            }
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge @Ui.BankTransferStatusClass(item.Status)">@item.StatusTitle</span>
+                        <span class="text-sm font-bold text-zinc-800">@item.Amount.ToToman()</span>
+                        <a class="text-xs text-sky-600" href="/admin/orders/detail/@item.OrderId">مشاهده سفارش</a>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 text-xs text-zinc-600 md:grid-cols-3">
+                    <div class="flex flex-col gap-y-1">
+                        <p><span class="text-zinc-400">واریزکننده:</span> @item.PayerName</p>
+                        <p><span class="text-zinc-400">کارت مبدأ:</span> <span class="fa-num">@PriceHelper.ToEnglishDigits(item.PayerCardNumber)</span></p>
+                        @if (!string.IsNullOrWhiteSpace(item.PayerBankName))
+                        {
+                            <p><span class="text-zinc-400">بانک:</span> @item.PayerBankName</p>
+                        }
+                    </div>
+                    <div class="flex flex-col gap-y-1">
+                        @if (!string.IsNullOrWhiteSpace(item.TrackingNumber))
+                        {
+                            <p><span class="text-zinc-400">شماره پیگیری:</span> <span class="fa-num">@PriceHelper.ToEnglishDigits(item.TrackingNumber)</span></p>
+                        }
+                        @if (item.TransferDate is { } transferDate)
+                        {
+                            <p><span class="text-zinc-400">تاریخ واریز:</span> @transferDate.ToPersianDate()</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(item.CustomerNote))
+                        {
+                            <p><span class="text-zinc-400">یادداشت مشتری:</span> @item.CustomerNote</p>
+                        }
+                    </div>
+                    <div>
+                        @if (item.ReceiptFiles.Count > 0)
+                        {
+                            <p class="mb-2 text-zinc-400">تصاویر فیش:</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach (var file in item.ReceiptFiles)
+                                {
+                                    <a href="@Ui.Upload("bank-transfers", file)" target="_blank" rel="noopener">
+                                        <img class="h-16 w-16 rounded-lg border object-cover" src="@Ui.Upload("bank-transfers", file)" alt="فیش واریزی" />
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(item.RejectReason))
+                {
+                    <p class="mt-3 text-[11px] text-rose-500">دلیل رد: @item.RejectReason</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(item.AdminNote))
+                {
+                    <p class="mt-2 text-[11px] text-zinc-400">یادداشت: @item.AdminNote</p>
+                }
+
+                @if (item.Status == BankTransferStatus.AwaitingReview)
+                {
+                    <form method="post" asp-page-handler="Review" asp-route-id="@item.Id" class="mt-4 grid gap-3 border-t border-zinc-100 pt-4 md:grid-cols-3">
+                        @Html.AntiForgeryToken()
+                        <div>
+                            <label class="form-label" for="AdminNote-@item.Id">یادداشت کارشناس</label>
+                            <input class="form-input" id="AdminNote-@item.Id" name="AdminNote" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="RejectReason-@item.Id">دلیل رد (در صورت رد)</label>
+                            <input class="form-input" id="RejectReason-@item.Id" name="RejectReason" />
+                        </div>
+                        <div class="flex items-end gap-2">
+                            <button type="submit" name="approve" value="true" class="btn-primary flex-1 text-xs">تأیید پرداخت</button>
+                            <button type="submit" name="approve" value="false" class="btn-secondary flex-1 text-xs text-rose-500">رد فیش</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        }
+    </div>
+
+    <partial name="_Pagination" model="Model.Result" />
+}

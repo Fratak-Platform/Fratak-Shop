@@ -1,5 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Fratak_Shop.Data.Entities.Marketing;
+using Fratak_Shop.Data.Entities.Payments;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Utilities;
 
@@ -29,6 +31,13 @@ public class Order : BaseEntity
     [MaxLength(100)]
     public string? TrackingCode { get; set; }
 
+    /// <summary>
+    /// Courier tracking URL built from <see cref="TrackingCode"/> and the shipping
+    /// company template, shown on the order tracking page.
+    /// </summary>
+    [MaxLength(1000)]
+    public string? TrackingUrl { get; set; }
+
     public decimal SubtotalAmount { get; set; }
 
     public decimal DiscountAmount { get; set; }
@@ -37,8 +46,12 @@ public class Order : BaseEntity
 
     public decimal PayableAmount { get; set; }
 
+    /// <summary>
+    /// Snapshot of the selected shipping option name at checkout. The related
+    /// shipping method can be removed later without changing order history.
+    /// </summary>
     [MaxLength(100)]
-    public string? ShippingMethod { get; set; }
+    public string? ShippingMethodName { get; set; }
 
     public DateTimeOffset? RequestedDeliveryDate { get; set; }
 
@@ -81,10 +94,46 @@ public class Order : BaseEntity
 
     public DateTimeOffset? PaidAt { get; set; }
 
+    /// <summary>
+    /// Coupon applied to this order (kept for campaign reporting).
+    /// </summary>
+    public Guid? CouponId { get; set; }
+
+    /// <summary>
+    /// Shipping option chosen by the customer.
+    /// </summary>
+    public Guid? ShippingMethodId { get; set; }
+
+    /// <summary>
+    /// Internal note of the staff, never shown to the customer.
+    /// </summary>
+    [MaxLength(1000)]
+    public string? AdminNote { get; set; }
+
+    public DateTimeOffset? CancelledAt { get; set; }
+
+    [MaxLength(500)]
+    public string? CancelReason { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
+    [ForeignKey(nameof(CouponId))]
+    public Coupon? Coupon { get; set; }
+
+    [ForeignKey(nameof(ShippingMethodId))]
+    public ShippingMethod? ShippingMethod { get; set; }
+
     public List<OrderItem> Items { get; set; } = [];
+
+    public List<OrderStatusHistory> StatusHistory { get; set; } = [];
+
+    public List<PaymentTransaction> PaymentTransactions { get; set; } = [];
+
+    /// <summary>
+    /// Card-to-card payment of this order, when the order was paid that way.
+    /// </summary>
+    public BankTransferPayment? BankTransferPayment { get; set; }
 }
 
 public enum OrderStatus

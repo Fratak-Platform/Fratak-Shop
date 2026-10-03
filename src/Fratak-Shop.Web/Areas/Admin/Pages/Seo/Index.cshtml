@@ -1,0 +1,158 @@
+﻿@page "/admin/seo"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.IndexModel
+@{
+    var data = Model.Dashboard;
+}
+
+<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("sky")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.ContentCount.ToString("N0")</p>
+            <p class="stat-label">کل محتوای قابل سئو</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("green")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm49.14,82.34-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,145.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.OptimizedCount.ToString("N0")</p>
+            <p class="stat-label">محتوای سئوشده</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("amber")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.PendingAudits.ToString("N0")</p>
+            <p class="stat-label">پیشنهاد در انتظار تأیید</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("red")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@data.LowScoreCount.ToString("N0")</p>
+            <p class="stat-label">امتیاز زیر ۶۰</p>
+        </div>
+    </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card p-5 lg:col-span-4">
+        <h2 class="section-title">امتیاز کلی سایت</h2>
+        <div class="flex items-center gap-5">
+            <div class="score-ring" style="--score: @data.AverageScore">
+                <span>@data.AverageScore.ToString("N0")</span>
+            </div>
+            <p class="flex-1 text-xs leading-6 text-zinc-500">
+                میانگین امتیاز سئوی @Ui.Number(data.ContentCount) محتوای سایت.
+                برای رسیدن به رتبه‌های برتر، ابتدا محتوای ضعیف را اصلاح کنید.
+            </p>
+        </div>
+
+        <ul class="mt-5 flex flex-col gap-y-2 border-t border-zinc-100 pt-4 text-xs text-zinc-600">
+            <li class="flex justify-between"><span>بدون عنوان سئو</span><span class="font-semibold text-amber-600">@data.MissingTitleCount</span></li>
+            <li class="flex justify-between"><span>بدون توضیحات متا</span><span class="font-semibold text-rose-500">@data.MissingDescriptionCount</span></li>
+            <li class="flex justify-between"><span>بررسی‌نشده توسط کارشناس</span><span class="font-semibold text-amber-600">@data.NotReviewedCount</span></li>
+            <li class="flex justify-between"><span>ریدایرکت فعال</span><span class="font-semibold text-zinc-800">@Ui.Number(data.RedirectCount)</span></li>
+            <li class="flex justify-between"><span>خطای ۴۰۴ ثبت‌شده</span><span class="font-semibold text-zinc-800">@Ui.Number(data.NotFoundCount)</span></li>
+            <li class="flex justify-between"><span>بازدید ۳۰ روز اخیر</span><span class="font-semibold text-zinc-800">@Ui.Number(data.VisitsLastThirtyDays)</span></li>
+        </ul>
+    </div>
+
+    <div class="card p-5 lg:col-span-4">
+        <div class="mb-4 flex items-center justify-between">
+            <h2 class="section-title mb-0">ضعیف‌ترین محتواها</h2>
+            <a class="text-xs text-sky-600" href="/admin/seo/audits">همه تحلیل‌ها</a>
+        </div>
+        <div class="flex flex-col divide-y divide-zinc-100">
+            @if (data.WorstContent.Count == 0)
+            {
+                <p class="py-4 text-xs text-zinc-400">محتوای ضعیفی یافت نشد.</p>
+            }
+            @foreach (var item in data.WorstContent)
+            {
+                <div class="flex items-center justify-between py-3 text-xs">
+                    <div>
+                        <span class="block font-semibold text-zinc-700">@item.Title</span>
+                        <span class="text-[10px] text-zinc-400">@item.EntityTypeTitle</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="badge @Ui.SeoScoreBadgeClass(item.Score ?? 0)">@(item.Score?.ToString() ?? "—")</span>
+                        @if (!string.IsNullOrWhiteSpace(item.EditUrl))
+                        {
+                            <a class="text-sky-600" href="@item.EditUrl">اصلاح</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-6 lg:col-span-4">
+        <div class="card p-5">
+            <h2 class="section-title">سئوی هوشمند دسته‌جمعی</h2>
+            <p class="mb-4 text-[11px] leading-6 text-zinc-500">
+                برای محتوایی که هنوز سئو نشده، پیشنهاد تولید می‌شود و سپس در بخش «سئوی هوشمند» قابل بررسی و تأیید است.
+            </p>
+            <div class="flex flex-wrap gap-2">
+                @foreach (var type in new[] { SeoEntityType.Product, SeoEntityType.Category, SeoEntityType.BlogPost, SeoEntityType.Page })
+                {
+                    <form method="post" asp-page-handler="RunBatch">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="entityType" value="@type" />
+                        <button type="submit" class="btn-secondary px-4 py-1.5 text-[11px]">
+                            اجرا روی @(type switch
+                            {
+                                SeoEntityType.Product => "محصولات",
+                                SeoEntityType.Category => "دسته‌بندی‌ها",
+                                SeoEntityType.BlogPost => "مقالات",
+                                _ => "صفحات",
+                            })
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+
+        <div class="card p-5">
+            <h2 class="section-title">کلیدواژه‌های پیشنهادی</h2>
+            <div class="flex flex-wrap gap-2">
+                @if (data.KeywordIdeas.Count == 0)
+                {
+                    <p class="text-xs text-zinc-400">هنوز پیشنهادی ساخته نشده است.</p>
+                }
+                @foreach (var idea in data.KeywordIdeas)
+                {
+                    <span class="chip">@idea.Keyword <span class="text-[10px] text-zinc-400">(@Ui.Number(idea.Count))</span></span>
+                }
+            </div>
+        </div>
+
+        <div class="card p-5">
+            <h2 class="section-title">محتوای بدون سئو</h2>
+            <div class="flex max-h-64 flex-col divide-y divide-zinc-100 overflow-y-auto">
+                @if (data.MissingSeoContent.Count == 0)
+                {
+                    <p class="py-4 text-xs text-zinc-400">همه محتواها سئو دارند. آفرین!</p>
+                }
+                @foreach (var item in data.MissingSeoContent)
+                {
+                    <div class="flex items-center justify-between py-2 text-xs">
+                        <span class="text-zinc-600">@item.Title</span>
+                        @if (!string.IsNullOrWhiteSpace(item.EditUrl))
+                        {
+                            <a class="text-sky-600" href="@item.EditUrl">سئو کن</a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

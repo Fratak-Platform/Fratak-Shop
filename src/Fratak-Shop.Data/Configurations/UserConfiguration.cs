@@ -10,5 +10,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     {
         builder.HasIndex(u => u.PhoneNumber)
             .IsUnique();
+
+        builder.HasIndex(u => u.Role);
+        builder.HasIndex(u => u.IsActive);
     }
 }

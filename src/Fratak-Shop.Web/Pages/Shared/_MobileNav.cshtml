@@ -1,0 +1,23 @@
+﻿@model LayoutViewModel
+<div class="fixed bottom-1 z-40 flex w-full items-center rounded-2xl border bg-white shadow-lg md:hidden">
+    <a class="group flex flex-1 flex-col items-center pt-2 pb-1 text-xs text-zinc-500" href="/profile">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="text-zinc-600 group-hover:text-sky-600" viewBox="0 0 256 256"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"></path></svg>
+        <span class="pt-1">پروفایل</span>
+    </a>
+    <button type="button" onclick="openCart()" class="group flex flex-1 flex-col items-center pt-2 pb-1 text-xs text-zinc-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="text-zinc-600 group-hover:text-sky-600" viewBox="0 0 256 256"><path d="M230.14,58.87A8,8,0,0,0,224,56H62.68L56.6,22.57A8,8,0,0,0,48.73,16H24a8,8,0,0,0,0,16h18L67.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,160,204a28,28,0,1,0,28-28H91.17a8,8,0,0,1-7.87-6.57L80.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,230.14,58.87ZM104,204a12,12,0,1,1-12-12A12,12,0,0,1,104,204Zm96,0a12,12,0,1,1-12-12A12,12,0,0,1,200,204Z"></path></svg>
+        <span class="pt-1">سبد خرید</span>
+    </button>
+    <a class="group flex flex-1 flex-col items-center pt-2 pb-1 text-xs text-sky-600" href="/">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="text-sky-600" viewBox="0 0 256 256"><path d="M240,208H224V136l2.34,2.34A8,8,0,0,0,237.66,127L139.31,28.68a16,16,0,0,0-22.62,0L18.34,127a8,8,0,0,0,11.32,11.31L32,136v72H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16Z"></path></svg>
+        <span class="pt-1">صفحه اصلی</span>
+    </a>
+    <a class="group flex flex-1 flex-col items-center pt-2 pb-1 text-xs text-zinc-500" href="/search">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="text-zinc-600 group-hover:text-sky-600" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
+        <span class="pt-1">جستجو</span>
+    </a>
+    <button type="button" id="btn-back-to-top" class="group flex flex-1 flex-col items-center pt-2 pb-1 text-xs text-zinc-500" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="text-zinc-600 group-hover:text-sky-600" viewBox="0 0 256 256"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z"></path></svg>
+        <span class="pt-1">بالا</span>
+    </button>
+</div>

@@ -14,7 +14,14 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasForeignKey(m => m.UserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // SetNull: the agent who answered can be removed from the panel safely.
+        builder.HasOne(m => m.RepliedByUser)
+            .WithMany()
+            .HasForeignKey(m => m.RepliedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(m => m.UserId);
         builder.HasIndex(m => m.Status);
+        builder.HasIndex(m => m.RepliedByUserId);
     }
 }

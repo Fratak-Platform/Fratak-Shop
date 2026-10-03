@@ -1,0 +1,110 @@
+﻿@page "/admin/seo/statistics"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.StatisticsModel
+@{
+    var maxVisits = Model.DailyTrend.Count == 0 ? 1 : Math.Max(1, Model.DailyTrend.Max(item => item.Visits));
+}
+
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h2 class="text-base font-bold text-zinc-800">آمار بازدید و عملکرد محتوا</h2>
+        <p class="mt-1 text-xs text-zinc-500">بر اساس داده‌های داخلی سایت (بدون وابستگی به ابزار بیرونی).</p>
+    </div>
+    <div class="flex gap-2">
+        @foreach (var days in new[] { 7, 30, 90 })
+        {
+            <a class="chip @(Model.Days == days ? "chip-active" : null)" href="/admin/seo/statistics?days=@days">@PriceHelper.ToPersianDigits(days.ToString()) روز</a>
+        }
+    </div>
+</div>
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("sky")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@PriceHelper.ToPersianDigits(Model.TotalVisits.ToString("N0"))</p>
+            <p class="stat-label">کل بازدید @PriceHelper.ToPersianDigits(Model.Days.ToString()) روز گذشته</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("green")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@PriceHelper.ToPersianDigits(Model.DailyTrend.Sum(item => item.Visits).ToString("N0"))</p>
+            <p class="stat-label">بازدید ۱۴ روز اخیر</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @Ui.StatTile("amber")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Z"></path></svg>
+        </span>
+        <div>
+            <p class="stat-value">@PriceHelper.ToPersianDigits(Model.UnvisitedContent.Count.ToString())</p>
+            <p class="stat-label">محتوای بدون بازدید قابل بررسی</p>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-6 p-5">
+    <h3 class="section-title">روند بازدید ۱۴ روز اخیر</h3>
+    <div class="flex h-40 items-end gap-2" dir="ltr">
+        @foreach (var item in Model.DailyTrend)
+        {
+            var height = Math.Max(4, (int)(item.Visits * 100.0 / maxVisits));
+            <div class="flex flex-1 flex-col items-center gap-y-1" title="@item.Visits بازدید — @item.PersianLabel">
+                <span class="w-full rounded-t-lg bg-sky-500/80" style="height:@(height)%"></span>
+                <span class="text-[9px] text-zinc-400" dir="rtl">@item.PersianLabel</span>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2">
+    <div class="card overflow-hidden">
+        <h3 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">پربازدیدترین محتوا</h3>
+        <table class="table-admin w-full">
+            <thead>
+                <tr><th>محتوا</th><th>نوع</th><th>بازدید</th></tr>
+            </thead>
+            <tbody>
+                @if (Model.TopContent.Count == 0)
+                {
+                    <tr><td colspan="3" class="py-6 text-center text-xs text-zinc-400">داده‌ای ثبت نشده است.</td></tr>
+                }
+                @foreach (var item in Model.TopContent)
+                {
+                    <tr>
+                        <td class="text-xs text-zinc-700">@item.Title</td>
+                        <td class="text-[11px] text-zinc-400">@item.EntityType</td>
+                        <td class="text-xs font-semibold text-zinc-700">@PriceHelper.ToPersianDigits(item.Visits.ToString("N0"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card overflow-hidden">
+        <h3 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">محتوای بدون بازدید (فرصت بهبود)</h3>
+        <table class="table-admin w-full">
+            <thead>
+                <tr><th>محتوا</th><th>نوع</th><th>بازدید</th></tr>
+            </thead>
+            <tbody>
+                @if (Model.UnvisitedContent.Count == 0)
+                {
+                    <tr><td colspan="3" class="py-6 text-center text-xs text-zinc-400">همه محتواها بازدید داشته‌اند.</td></tr>
+                }
+                @foreach (var item in Model.UnvisitedContent)
+                {
+                    <tr>
+                        <td class="text-xs text-zinc-700">@item.Title</td>
+                        <td class="text-[11px] text-zinc-400">@item.EntityType</td>
+                        <td class="text-xs text-zinc-500">@PriceHelper.ToPersianDigits(item.Visits.ToString())</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

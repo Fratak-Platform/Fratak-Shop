@@ -1,0 +1,149 @@
+﻿@page "/admin/coupons"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Marketing.CouponsModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card overflow-hidden lg:col-span-7">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+            <h2 class="text-sm font-bold text-zinc-800">کدهای تخفیف</h2>
+            <form method="get" action="/admin/coupons" class="flex items-center gap-2">
+                <input class="form-input w-40 py-1.5 text-xs" name="q" value="@Model.Search" placeholder="جستجوی کد..." />
+                <button type="submit" class="btn-secondary px-4 py-1.5 text-xs">جستجو</button>
+            </form>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>کد</th>
+                        <th>تخفیف</th>
+                        <th>استفاده</th>
+                        <th>بازه</th>
+                        <th>وضعیت</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Result.Data.Count == 0)
+                    {
+                        <tr><td colspan="6" class="py-8 text-center text-xs text-zinc-400">کد تخفیفی ثبت نشده است.</td></tr>
+                    }
+                    @foreach (var item in Model.Result.Data)
+                    {
+                        <tr>
+                            <td>
+                                <span class="text-xs font-bold text-zinc-700 fa-num">@item.Code</span>
+                                @if (!string.IsNullOrWhiteSpace(item.Title))
+                                {
+                                    <span class="block text-[10px] text-zinc-400">@item.Title</span>
+                                }
+                            </td>
+                            <td class="text-xs text-zinc-600">
+                                @if (item.DiscountType == CouponDiscountType.Percent)
+                                {
+                                    <span>@PriceHelper.ToPersianDigits(item.Value.ToString("N0"))٪</span>
+                                }
+                                else
+                                {
+                                    <span>@item.Value.ToToman()</span>
+                                }
+                            </td>
+                            <td class="text-xs text-zinc-500">
+                                @PriceHelper.ToPersianDigits(item.UsedCount.ToString())
+                                @if (item.UsageLimit.HasValue)
+                                {
+                                    <span>/ @PriceHelper.ToPersianDigits(item.UsageLimit.Value.ToString())</span>
+                                }
+                            </td>
+                            <td class="text-[11px] text-zinc-500">
+                                @(item.StartsAt?.ToPersianDate() ?? "—") تا @(item.EndsAt?.ToPersianDate() ?? "—")
+                            </td>
+                            <td><span class="badge @Ui.CouponStatusClass(item.IsActive, item.IsExpired, item.IsStarted, item.IsExhausted)">@item.StatusTitle</span></td>
+                            <td>
+                                <div class="flex items-center gap-x-2">
+                                    <a class="text-xs text-sky-600" href="/admin/coupons?edit=@item.Id">ویرایش</a>
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-zinc-500">فعال/غیرفعال</button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این کد حذف شود؟">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_Pagination" model="Model.Result" />
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش کد تخفیف" : "افزودن کد تخفیف")</h2>
+            <form method="post" asp-page-handler="Save" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div>
+                    <label class="form-label" asp-for="Input.Code">کد تخفیف</label>
+                    <input class="form-input text-left uppercase" dir="ltr" asp-for="Input.Code" placeholder="FRATAK10" />
+                    <span class="form-error" asp-validation-for="Input.Code"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Title">عنوان (نمایشی)</label>
+                    <input class="form-input" asp-for="Input.Title" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.DiscountType">نوع تخفیف</label>
+                        <select class="form-input" asp-for="Input.DiscountType">
+                            <option value="@CouponDiscountType.Percent">درصدی</option>
+                            <option value="@CouponDiscountType.FixedAmount">مبلغ ثابت</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.Value">مقدار</label>
+                        <input class="form-input text-center" asp-for="Input.Value" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.MinOrderAmount">حداقل مبلغ سفارش</label>
+                        <input class="form-input text-center" asp-for="Input.MinOrderAmount" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.MaxDiscountAmount">حداکثر تخفیف</label>
+                        <input class="form-input text-center" asp-for="Input.MaxDiscountAmount" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.UsageLimit">سقف کل استفاده</label>
+                        <input class="form-input text-center" asp-for="Input.UsageLimit" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.PerUserLimit">سقف هر کاربر</label>
+                        <input class="form-input text-center" asp-for="Input.PerUserLimit" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.StartsAt">از تاریخ</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.StartsAt" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.EndsAt">تا تاریخ</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.EndsAt" />
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Description">توضیحات</label>
+                    <textarea class="form-input" asp-for="Input.Description" rows="2"></textarea>
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                    فعال باشد
+                </label>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره کد تخفیف</button>
+            </form>
+        </div>
+    </div>
+</div>

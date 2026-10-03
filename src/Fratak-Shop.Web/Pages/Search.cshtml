@@ -1,0 +1,58 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.SearchModel
+@{
+    ViewData["Title"] = Model.HasQuery ? $"جستجو: {Model.Query}" : "جستجو";
+}
+
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"جستجو\", Url = \"/search\" } }" />
+
+<div class="card mb-6 p-5">
+    <form method="get" action="/search" class="flex flex-wrap items-center gap-3">
+        <div class="min-w-52 flex-1">
+            <label class="form-label" for="q">جستجو در محصولات</label>
+            <input class="form-input" id="q" name="q" value="@Model.Query" placeholder="نام کالا، برند یا دسته‌بندی..." autofocus />
+        </div>
+        <button type="submit" class="btn-primary mt-5 px-8">جستجو</button>
+    </form>
+
+    @if (Model.HasQuery && Model.QuickResults.Count > 0)
+    {
+        <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
+            <span>پیشنهاد سریع:</span>
+            @foreach (var item in Model.QuickResults)
+            {
+                <a class="chip" href="/product/@item.Slug">@item.Name</a>
+            }
+        </div>
+    }
+</div>
+
+@if (!Model.HasQuery)
+{
+    <div class="card empty-state py-16">
+        <img class="h-32" src="/assets/image/search.png" alt="جستجو" />
+        <p class="font-semibold text-zinc-700">عبارت مورد نظر خود را جستجو کنید</p>
+        <p class="text-xs text-zinc-500">می‌توانید از دسته‌بندی‌های فروشگاه هم استفاده کنید.</p>
+        <a class="btn-primary" href="/products">مشاهده همه محصولات</a>
+    </div>
+}
+else if (Model.Result.Data.Count == 0)
+{
+    <div class="card empty-state py-16">
+        <img class="h-32" src="/assets/image/404.png" alt="نتیجه‌ای یافت نشد" />
+        <p class="font-semibold text-zinc-700">نتیجه‌ای برای «@Model.Query» یافت نشد</p>
+        <p class="text-xs text-zinc-500">املای عبارت را بررسی کنید یا کلمه کوتاه‌تری بنویسید.</p>
+        <a class="btn-primary" href="/products">مشاهده همه محصولات</a>
+    </div>
+}
+else
+{
+    <p class="mb-4 text-xs text-zinc-500">@Ui.Number(Model.Result.EntityCount) کالا برای «@Model.Query» یافت شد.</p>
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-5">
+        @foreach (var product in Model.Result.Data)
+        {
+            <partial name="_ProductCard" model="product" />
+        }
+    </div>
+    <partial name="_Pagination" model="Model.Result" />
+}

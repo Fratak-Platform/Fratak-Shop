@@ -1,0 +1,175 @@
+﻿@model LayoutViewModel
+@{
+    var site = Model.Site;
+}
+<header class="fixed top-0 z-40 w-full border-b bg-white">
+    @if (site.ShowHeaderTopBar)
+    {
+        <div class="hidden border-b border-zinc-100 bg-zinc-50/80 md:block">
+            <div class="container mx-auto flex items-center justify-between px-3 py-2 text-xs text-zinc-500 md:px-5">
+                <div class="flex items-center gap-x-4">
+                    @if (!string.IsNullOrWhiteSpace(site.PhoneNumber))
+                    {
+                        <a class="flex items-center gap-x-1 hover:text-sky-600" href="tel:@site.PhoneNumber">
+                            <span>تلفن: @PriceHelper.ToPersianDigits(site.PhoneNumber)</span>
+                        </a>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(site.WorkingHours))
+                    {
+                        <span>@site.WorkingHours</span>
+                    }
+                </div>
+                <div class="flex items-center gap-x-3">
+                    @if (site.HeaderAnnouncementEnabled && !string.IsNullOrWhiteSpace(site.HeaderAnnouncement))
+                    {
+                        <span class="flex items-center gap-x-1 text-sky-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"></path></svg>
+                            @site.HeaderAnnouncement
+                        </span>
+                    }
+                    @if (Model.HeaderSocials.Count > 0)
+                    {
+                        <span class="flex items-center gap-x-2">
+                            @foreach (var social in Model.HeaderSocials)
+                            {
+                                <a class="hover:text-sky-600" href="@social.Url" target="_blank" rel="noopener" title="@social.PlatformTitle">@social.PlatformTitle</a>
+                            }
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="container mx-auto flex items-center justify-between gap-y-4 px-3 pt-3 pb-3 md:px-5 lg:flex-nowrap">
+        @* -------------------------------------------------------------- mobile menu *@
+        <button type="button" class="md:hidden" onclick="showNavbarMobile()" aria-label="منو">
+            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
+        </button>
+
+        <a href="/" class="shrink-0">
+            <img class="w-32 md:w-36" src="@Ui.Logo(site)" alt="@site.SiteName" />
+        </a>
+
+        @* ----------------------------------------------------------------- search *@
+        <form method="get" action="/search" class="relative order-last hidden w-full md:order-none md:block md:w-5/12 lg:w-4/12">
+            <input type="search" name="q" value="@Context.Request.Query["q"]" minlength="2"
+                   class="form-input h-11 rounded-xl bg-zinc-100 pr-4 pl-11" placeholder="نام محصول یا دسته‌بندی را جستجو کنید..." />
+            <button type="submit" class="absolute left-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-zinc-500 hover:text-sky-600" aria-label="جستجو">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
+            </button>
+        </form>
+
+        <div class="flex items-center gap-x-3 md:gap-x-4">
+            @* -------------------------------------------------------------- mini cart *@
+            <button type="button" onclick="openCart()" class="relative flex items-center gap-x-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:border-sky-300 hover:text-sky-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M230.14,58.87A8,8,0,0,0,224,56H62.68L56.6,22.57A8,8,0,0,0,48.73,16H24a8,8,0,0,0,0,16h18L67.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,160,204a28,28,0,1,0,28-28H91.17a8,8,0,0,1-7.87-6.57L80.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,230.14,58.87ZM104,204a12,12,0,1,1-12-12A12,12,0,0,1,104,204Zm96,0a12,12,0,1,1-12-12A12,12,0,0,1,200,204Z"></path></svg>
+                <span class="hidden text-xs lg:inline">سبد خرید</span>
+                <span class="absolute -top-2 -right-2 grid h-5 min-w-5 place-items-center rounded-full bg-sky-500 px-1 text-[10px] font-bold text-white" data-cart-count>@Ui.Number(Model.CartCount)</span>
+            </button>
+
+            @* ------------------------------------------------------------- account *@
+            <div class="group relative">
+                <button type="button" class="flex items-center gap-x-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:border-sky-300 hover:text-sky-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 256 256"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"></path></svg>
+                    @if (Model.IsAuthenticated)
+                    {
+                        <span class="hidden max-w-24 truncate text-xs lg:inline">@Model.UserFullName</span>
+                    }
+                    else
+                    {
+                        <span class="hidden text-xs lg:inline">ورود | ثبت نام</span>
+                    }
+                </button>
+                <div class="invisible absolute left-0 top-full z-50 w-56 rounded-xl border bg-white p-2 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+                    @if (Model.IsAuthenticated)
+                    {
+                        <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100" href="/profile">پنل کاربری</a>
+                        <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100" href="/profile/orders">سفارش‌های من</a>
+                        <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100" href="/profile/favorites">علاقه‌مندی‌ها</a>
+                        @if (Model.IsStaff)
+                        {
+                            <a class="block rounded-lg px-3 py-2 text-sm text-sky-600 hover:bg-sky-50" href="/admin">ورود به پنل مدیریت</a>
+                        }
+                        <form method="post" action="/auth/logout">
+                            <button type="submit" class="w-full rounded-lg px-3 py-2 text-right text-sm text-rose-500 hover:bg-rose-50">خروج از حساب</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100" href="/auth/login">ورود به حساب</a>
+                        <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100" href="/auth/register">ثبت‌نام</a>
+                        <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100" href="/profile/orders">پیگیری سفارش</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* -------------------------------------------------------- desktop main menu *@
+    <nav class="hidden border-t border-zinc-100 md:block">
+        <div class="container mx-auto flex items-center gap-x-6 px-3 md:px-5">
+            @foreach (var item in Model.HeaderMenu)
+            {
+                <div class="group relative">
+                    <a class="flex items-center gap-x-1 py-3 text-sm @(item.IsHighlighted ? "font-semibold text-sky-600" : Model.IsActive(item.Url) ? "text-sky-600" : "text-zinc-600 hover:text-sky-600")"
+                       href="@(string.IsNullOrWhiteSpace(item.Url) ? "#" : item.Url)"
+                       target="@(item.OpenInNewTab ? "_blank" : null)">
+                        @item.Title
+                        @if (!string.IsNullOrWhiteSpace(item.BadgeText))
+                        {
+                            <span class="badge @(string.IsNullOrWhiteSpace(item.BadgeColor) ? "badge-red" : $"badge-{item.BadgeColor}")">@item.BadgeText</span>
+                        }
+                        @if (item.HasChildren)
+                        {
+                            <svg class="transition group-hover:rotate-180" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
+                        }
+                    </a>
+                    @if (item.HasChildren)
+                    {
+                        <div class="invisible absolute right-0 top-full z-40 w-56 rounded-xl border bg-white p-2 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+                            @foreach (var child in item.Children)
+                            {
+                                <a class="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-sky-50 hover:text-sky-600" href="@child.Url">@child.Title</a>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </nav>
+</header>
+
+@* ------------------------------------------------------------ mobile drawer *@
+<div class="fixed top-0 z-50 flex h-screen w-full -right-full transition-all duration-500 ease-out md:hidden" id="navbarMobile">
+    <div class="h-screen w-9/12 max-w-md overflow-y-auto bg-white py-5 drop-shadow-2xl">
+        <div class="mb-5">
+            <a href="/"><img class="mx-auto w-40" src="@Ui.Logo(site)" alt="@site.SiteName" /></a>
+        </div>
+        <ul class="flex flex-col gap-y-2 px-3">
+            @foreach (var item in Model.HeaderMenu.Where(menu => menu.ShowOnMobile))
+            {
+                <li>
+                    <a class="block rounded-lg p-2.5 text-sm text-zinc-700 hover:bg-zinc-100" href="@item.Url">@item.Title</a>
+                    @if (item.HasChildren)
+                    {
+                        <div class="mt-1 flex flex-col gap-y-1 pr-3">
+                            @foreach (var child in item.Children)
+                            {
+                                <a class="rounded-lg p-2 text-xs text-zinc-500 hover:bg-zinc-100" href="@child.Url">@child.Title</a>
+                            }
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+        @if (!Model.IsAuthenticated)
+        {
+            <div class="mt-4 flex flex-col gap-y-2 px-3">
+                <a class="btn-primary w-full" href="/auth/login">ورود به حساب</a>
+                <a class="btn-secondary w-full" href="/auth/register">ثبت‌نام</a>
+            </div>
+        }
+    </div>
+    <div class="h-screen w-3/12 bg-white/30 backdrop-blur-sm" onclick="hideNavbarMobile()"></div>
+</div>

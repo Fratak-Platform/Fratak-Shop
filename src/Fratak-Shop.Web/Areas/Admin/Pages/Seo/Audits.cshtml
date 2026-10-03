@@ -1,0 +1,218 @@
+﻿@page "/admin/seo/audits"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.AuditsModel
+@{
+    string QueryUrl(object overrides)
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Context.Request.QueryString.Value ?? string.Empty)
+            .ToDictionary(item => item.Key, item => item.Value.ToString());
+        foreach (var property in overrides.GetType().GetProperties())
+        {
+            var value = property.GetValue(overrides)?.ToString();
+            if (string.IsNullOrWhiteSpace(value) || value == "False")
+                query.Remove(property.Name);
+            else
+                query[property.Name] = value;
+        }
+        query.Remove("page");
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/admin/seo/audits", query);
+    }
+}
+
+@if (Model.Current is { } audit)
+{
+    @* ------------------------------------------------------------ review screen *@
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-base font-bold text-zinc-800">بازبینی پیشنهاد سئو</h2>
+            <p class="mt-1 text-xs text-zinc-500">
+                @audit.EntityTitle — @audit.Provider
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="badge @Ui.SeoScoreBadgeClass(audit.Score)">امتیاز فعلی: @audit.Score</span>
+            <span class="badge badge-gray">@audit.StatusTitle</span>
+            <a class="btn-secondary px-5 text-xs" href="/admin/seo/audits">بازگشت به فهرست</a>
+        </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-12">
+        <div class="flex flex-col gap-6 lg:col-span-7">
+            <div class="card p-5">
+                <h3 class="section-title">مقادیر پیشنهادی (قابل ویرایش)</h3>
+                <form method="post" asp-page-handler="Apply" asp-route-id="@audit.Id" class="grid gap-4">
+                    @Html.AntiForgeryToken()
+                    <div>
+                        <label class="form-label" for="proposalTitle">عنوان سئو</label>
+                        <input class="form-input" id="proposalTitle" value="@audit.Proposal.Title" readonly />
+                    </div>
+                    <div>
+                        <label class="form-label" for="proposalDescription">توضیحات متا</label>
+                        <textarea class="form-input" id="proposalDescription" rows="3" readonly>@audit.Proposal.MetaDescription</textarea>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="form-label">کلمه کلیدی اصلی</label>
+                            <input class="form-input" value="@audit.Proposal.FocusKeyword" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">کلمات کلیدی</label>
+                            <input class="form-input" value="@audit.Proposal.MetaKeywords" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">آدرس کانونیکال</label>
+                            <input class="form-input text-left" dir="ltr" value="@audit.Proposal.CanonicalUrl" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">عنوان مسیر</label>
+                            <input class="form-input" value="@audit.Proposal.BreadcrumbTitle" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">عنوان OG</label>
+                            <input class="form-input" value="@audit.Proposal.OgTitle" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">توضیح OG</label>
+                            <input class="form-input" value="@audit.Proposal.OgDescription" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">Scheam</label>
+                            <input class="form-input" value="@audit.Proposal.SchemaType" readonly />
+                        </div>
+                        <div>
+                            <label class="form-label">متن جایگزین تصویر</label>
+                            <input class="form-input" value="@audit.Proposal.ImageAlt" readonly />
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(audit.Proposal.EnhancedShortDescription))
+                    {
+                        <div>
+                            <label class="form-label">توضیح کوتاه پیشنهادی</label>
+                            <textarea class="form-input" rows="2" readonly>@audit.Proposal.EnhancedShortDescription</textarea>
+                        </div>
+                    }
+
+                    <div class="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-4">
+                        <button type="submit" class="btn-primary px-8 text-xs">تأیید و اعمال پیشنهاد</button>
+                        <button type="submit" formaction="?handler=Reject&id=@audit.Id" class="btn-secondary px-6 text-xs text-rose-500">رد پیشنهاد</button>
+                        <span class="text-[11px] text-zinc-400">تا زمان تأیید، هیچ تغییری روی محتوا اعمال نمی‌شود.</span>
+                    </div>
+                </form>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(audit.Proposal.StructuredDataJsonLd))
+            {
+                <div class="card p-5">
+                    <h3 class="section-title">داده ساخت‌یافته پیشنهادی</h3>
+                    <pre class="overflow-x-auto rounded-xl bg-zinc-900 p-4 text-[11px] leading-6 text-zinc-100" dir="ltr">@audit.Proposal.StructuredDataJsonLd</pre>
+                </div>
+            }
+        </div>
+
+        <div class="flex flex-col gap-6 lg:col-span-5">
+            <div class="card p-5">
+                <h3 class="section-title">یافته‌های تحلیل</h3>
+                <ul class="flex flex-col divide-y divide-zinc-100 text-xs">
+                    @foreach (var finding in audit.Findings)
+                    {
+                        <li class="flex items-start gap-x-2 py-3">
+                            <span class="badge @Ui.SeverityClass(finding.Severity)">
+                                @(finding.Severity switch
+                                {
+                                    SeoFindingSeverity.Critical => "بحرانی",
+                                    SeoFindingSeverity.Warning => "هشدار",
+                                    SeoFindingSeverity.Success => "خوب",
+                                    _ => "اطلاع",
+                                })
+                            </span>
+                            <span class="flex-1">
+                                <span class="block font-semibold text-zinc-700">@finding.Title</span>
+                                <span class="mt-1 block leading-6 text-zinc-500">@finding.Description</span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            @if (audit.Proposal.KeywordIdeas.Count > 0)
+            {
+                <div class="card p-5">
+                    <h3 class="section-title">کلیدواژه‌های پیشنهادی</h3>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach (var keyword in audit.Proposal.KeywordIdeas)
+                        {
+                            <span class="chip">@keyword</span>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (audit.Proposal.FaqSuggestions.Count > 0)
+            {
+                <div class="card p-5">
+                    <h3 class="section-title">پرسش‌های پیشنهادی (FAQ)</h3>
+                    <div class="flex flex-col gap-y-3 text-xs">
+                        @foreach (var faq in audit.Proposal.FaqSuggestions)
+                        {
+                            <details class="rounded-xl border border-zinc-100 p-3">
+                                <summary class="cursor-pointer font-semibold text-zinc-700">@faq.Question</summary>
+                                <p class="mt-2 leading-6 text-zinc-500">@faq.Answer</p>
+                            </details>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-2">
+            <a class="chip @(Model.StatusFilter is null ? "chip-active" : null)" href="@QueryUrl(new { status = (string?)null })">همه</a>
+            <a class="chip @(Model.StatusFilter == SeoAuditStatus.PendingReview ? "chip-active" : null)" href="@QueryUrl(new { status = "PendingReview" })">در انتظار تأیید</a>
+            <a class="chip @(Model.StatusFilter == SeoAuditStatus.Applied ? "chip-active" : null)" href="@QueryUrl(new { status = "Applied" })">اعمال‌شده</a>
+            <a class="chip @(Model.StatusFilter == SeoAuditStatus.Rejected ? "chip-active" : null)" href="@QueryUrl(new { status = "Rejected" })">ردشده</a>
+        </div>
+        <form method="get" action="/admin/seo/audits" class="flex items-end gap-2">
+            <input class="form-input w-56" name="q" value="@Model.Search" placeholder="جستجوی محتوا..." />
+            <button type="submit" class="btn-secondary px-5 text-xs">جستجو</button>
+        </form>
+    </div>
+
+    <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>محتوا</th>
+                        <th>نوع</th>
+                        <th>امتیاز</th>
+                        <th>وضعیت</th>
+                        <th>تاریخ</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Result.Data.Count == 0)
+                    {
+                        <tr><td colspan="6" class="py-8 text-center text-xs text-zinc-400">پیشنهادی یافت نشد. از مرکز سئو «سئوی هوشمند دسته‌جمعی» را اجرا کنید.</td></tr>
+                    }
+                    @foreach (var item in Model.Result.Data)
+                    {
+                        <tr>
+                            <td class="text-xs text-zinc-700">@item.EntityTitle</td>
+                            <td class="text-xs text-zinc-500">@item.Result.Summary</td>
+                            <td><span class="badge @Ui.SeoScoreBadgeClass(item.Score)">@item.Score</span></td>
+                            <td><span class="badge badge-gray">@item.StatusTitle</span></td>
+                            <td class="text-[11px] text-zinc-500">@item.CreatedAt.ToPersianDateTime()</td>
+                            <td><a class="text-xs text-sky-600" href="/admin/seo/audits?id=@item.Id">بازبینی</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <partial name="_Pagination" model="Model.Result" />
+}

@@ -1,0 +1,98 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Profile.OrdersModel
+@{
+    ViewData["Title"] = "سفارش‌های من";
+    var filters = new (OrderStatus? Value, string Title)[]
+    {
+        (null, "همه"),
+        (OrderStatus.Pending, "در انتظار پرداخت"),
+        (OrderStatus.Processing, "در حال آماده‌سازی"),
+        (OrderStatus.Shipped, "ارسال‌شده"),
+        (OrderStatus.Delivered, "تحویل‌شده"),
+        (OrderStatus.Cancelled, "لغوشده"),
+    };
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <aside class="lg:col-span-3">
+        <partial name="_ProfileSidebar" />
+    </aside>
+
+    <section class="flex flex-col gap-6 lg:col-span-9">
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div class="card p-4">
+                <p class="stat-label">کل سفارش‌ها</p>
+                <p class="text-lg font-bold text-zinc-800">@Ui.Number(Model.Stats.TotalOrders)</p>
+            </div>
+            <div class="card p-4">
+                <p class="stat-label">در انتظار پرداخت</p>
+                <p class="text-lg font-bold text-amber-500">@Ui.Number(Model.Stats.PendingOrders)</p>
+            </div>
+            <div class="card p-4">
+                <p class="stat-label">پرداخت‌شده</p>
+                <p class="text-lg font-bold text-emerald-500">@Ui.Number(Model.Stats.PaidOrders)</p>
+            </div>
+            <div class="card p-4">
+                <p class="stat-label">مجموع خرید</p>
+                <p class="text-lg font-bold text-zinc-800">@Model.Stats.TotalRevenue.ToToman()</p>
+            </div>
+        </div>
+
+        <div class="card p-5">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <h1 class="section-title mb-0">سفارش‌های من</h1>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var filter in filters)
+                    {
+                        <a class="chip @(Model.Status == filter.Value ? "chip-active" : null)" href="@(filter.Value is null ? "/profile/orders" : $"/profile/orders?status={filter.Value}")">@filter.Title</a>
+                    }
+                </div>
+            </div>
+
+            @if (Model.Orders.Count == 0)
+            {
+                <div class="empty-state">
+                    <p class="font-semibold text-zinc-700">سفارشی با این وضعیت یافت نشد</p>
+                    <a class="btn-primary" href="/products">شروع خرید</a>
+                </div>
+            }
+            else
+            {
+                <div class="flex flex-col gap-4">
+                    @foreach (var order in Model.Orders)
+                    {
+                        <article class="rounded-2xl border border-zinc-100 p-4">
+                            <div class="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-3">
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+                                    <span>شماره سفارش: <strong class="fa-num text-zinc-700">@PriceHelper.ToEnglishDigits(order.OrderNumber)</strong></span>
+                                    <span>@order.CreatedAt.ToPersianDateTime()</span>
+                                    <span>@Ui.PaymentMethodTitle(order.PaymentMethod)</span>
+                                </div>
+                                <div class="flex items-center gap-x-2">
+                                    <span class="badge @Ui.OrderStatusClass(order.Status)">@Ui.OrderStatusTitle(order.Status)</span>
+                                    <span class="badge @Ui.PaymentStatusClass(order.PaymentStatus)">@Ui.PaymentStatusTitle(order.PaymentStatus)</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3 flex flex-wrap items-center gap-3">
+                                @foreach (var item in order.Items.Take(4))
+                                {
+                                    <img class="h-14 w-14 rounded-xl border object-contain p-1" src="@Ui.ProductImage(item.ImageName)" alt="@item.ProductName" />
+                                }
+                                @if (order.Items.Count > 4)
+                                {
+                                    <span class="text-xs text-zinc-400">+ @Ui.Number(order.Items.Count - 4) کالای دیگر</span>
+                                }
+                            </div>
+
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <span class="text-sm font-bold text-zinc-800">مبلغ: @order.PayableAmount.ToToman()</span>
+                                <a class="btn-secondary px-6 text-xs" href="/profile/orders/@order.Id">مشاهده جزئیات</a>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</div>

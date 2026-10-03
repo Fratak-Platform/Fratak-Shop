@@ -11,6 +11,9 @@ public class BannerDto : BaseDto
     public string? ImageAlt { get; set; }
     public string? ButtonText { get; set; }
     public string? LinkUrl { get; set; }
+
+    /// <summary>محل نمایش بنر در سایت (اسلایدر اصلی، کنار فروشگاه، بالای مقاله و ...).</summary>
+    public Data.Entities.Marketing.BannerPosition Position { get; set; }
     public int DisplayOrder { get; set; }
     public DateTimeOffset? StartAt { get; set; }
     public DateTimeOffset? EndAt { get; set; }

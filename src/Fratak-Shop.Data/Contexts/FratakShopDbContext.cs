@@ -1,16 +1,23 @@
 ﻿using System.Linq.Expressions;
+using Fratak_Shop.Data.Entities.Audit;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
+using Fratak_Shop.Data.Entities.Content;
 using Fratak_Shop.Data.Entities.Faqs;
 using Fratak_Shop.Data.Entities.Favorites;
 using Fratak_Shop.Data.Entities.Locations;
 using Fratak_Shop.Data.Entities.Marketing;
+using Fratak_Shop.Data.Entities.Navigation;
 using Fratak_Shop.Data.Entities.Messages;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Pages;
+using Fratak_Shop.Data.Entities.Payments;
 using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Seo;
 using Fratak_Shop.Data.Entities.SeoRedirects;
+using Fratak_Shop.Data.Entities.Settings;
 using Fratak_Shop.Data.Entities.Shopping;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Utilities;
@@ -61,6 +68,48 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<PageAlert> PageAlerts { get; set; } = null!;
 
     public DbSet<SeoRedirect> SeoRedirects { get; set; } = null!;
+
+    // --- Roles & settings -------------------------------------------------
+    public DbSet<UserRoleAssignment> UserRoleAssignments { get; set; } = null!;
+
+    public DbSet<UserToken> UserTokens { get; set; } = null!;
+
+    public DbSet<SiteSetting> SiteSettings { get; set; } = null!;
+
+    public DbSet<MenuItem> MenuItems { get; set; } = null!;
+
+    public DbSet<SocialLink> SocialLinks { get; set; } = null!;
+
+    // --- Payments ---------------------------------------------------------
+    public DbSet<PaymentCard> PaymentCards { get; set; } = null!;
+
+    public DbSet<PaymentTransaction> PaymentTransactions { get; set; } = null!;
+
+    public DbSet<BankTransferPayment> BankTransferPayments { get; set; } = null!;
+
+    public DbSet<BankTransferReceipt> BankTransferReceipts { get; set; } = null!;
+
+    // --- Shop -------------------------------------------------------------
+    public DbSet<ShippingMethod> ShippingMethods { get; set; } = null!;
+
+    public DbSet<OrderStatusHistory> OrderStatusHistories { get; set; } = null!;
+
+    public DbSet<Coupon> Coupons { get; set; } = null!;
+
+    public DbSet<CouponUsage> CouponUsages { get; set; } = null!;
+
+    public DbSet<Notification> Notifications { get; set; } = null!;
+
+    // --- SEO & content ----------------------------------------------------
+    public DbSet<ContentPage> ContentPages { get; set; } = null!;
+
+    public DbSet<SeoAuditRecord> SeoAuditRecords { get; set; } = null!;
+
+    public DbSet<NotFoundLog> NotFoundLogs { get; set; } = null!;
+
+    public DbSet<ContentVisit> ContentVisits { get; set; } = null!;
+
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

@@ -4,6 +4,7 @@ using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Favorites;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Orders;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Shopping;
 using Fratak_Shop.Data.Utilities;
 
@@ -31,6 +32,23 @@ public class User : BaseEntity
 
     public UserRole Role { get; set; }
 
+    /// <summary>
+    /// Additional roles of the user. Together with <see cref="Role"/> they build the
+    /// effective role set, so a staff member can hold more than one role at a time.
+    /// </summary>
+    public List<UserRoleAssignment> RoleAssignments { get; set; } = [];
+
+    /// <summary>
+    /// Inactive users cannot sign in (used to suspend a staff or customer account).
+    /// </summary>
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// File name of the profile picture stored on the server.
+    /// </summary>
+    [MaxLength(250)]
+    public string? AvatarImageName { get; set; }
+
     public bool IsPhoneVerified { get; set; }
 
     public bool IsEmailVerified { get; set; }
@@ -50,8 +68,16 @@ public class User : BaseEntity
     public List<Message> Messages { get; set; } = [];
 
     public List<Favorite> Favorites { get; set; } = [];
+
+    public List<Notification> Notifications { get; set; } = [];
 }
 
+/// <summary>
+/// Code-defined roles of the shop. A user holds one primary role
+/// (<see cref="User.Role"/>) plus any number of extra roles through
+/// <see cref="UserRoleAssignment"/>.
+/// Existing numeric values are kept stable: new roles are only appended.
+/// </summary>
 public enum UserRole
 {
     None = 0,
@@ -59,4 +85,8 @@ public enum UserRole
     Admin = 2,
     SeoManager = 3,
     Customer = 4,
+    ProductManager = 5,
+    OrderManager = 6,
+    ContentManager = 7,
+    SupportAgent = 8,
 }

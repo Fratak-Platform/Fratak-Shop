@@ -1,0 +1,128 @@
+﻿@page "/admin/page-alerts"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.PageAlertsModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card overflow-hidden lg:col-span-7">
+        <div class="border-b border-zinc-100 px-5 py-4">
+            <h2 class="text-sm font-bold text-zinc-800">هشدارهای صفحه</h2>
+            <p class="mt-1 text-[11px] text-zinc-400">پیام‌های اطلاع‌رسانی، هشدار و خطا که در محل مشخصی از هر صفحه سایت نمایش داده می‌شوند.</p>
+        </div>
+        <table class="table-admin w-full">
+            <thead>
+                <tr>
+                    <th>صفحه</th>
+                    <th>متن</th>
+                    <th>محل و نوع</th>
+                    <th>وضعیت</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="5" class="py-8 text-center text-xs text-zinc-400">هشداری ثبت نشده است.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td class="text-xs text-zinc-600">@item.Page.GetTitle()</td>
+                        <td class="max-w-xs text-xs text-zinc-600">
+                            @if (!string.IsNullOrWhiteSpace(item.Title))
+                            {
+                                <span class="font-semibold text-zinc-700">@item.Title</span>
+                            }
+                            <span class="block truncate text-[11px] text-zinc-400">@item.Content</span>
+                        </td>
+                        <td class="text-[11px] text-zinc-500">@item.Position — @item.AlertTypeTitle</td>
+                        <td>
+                            <span class="badge @(item.IsVisible ? "badge-green" : "badge-gray")">@(item.IsVisible ? "در حال نمایش" : "غیرفعال")</span>
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-x-2">
+                                <a class="text-xs text-sky-600" href="/admin/page-alerts?edit=@item.Id">ویرایش</a>
+                                <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-xs text-zinc-500">فعال/غیرفعال</button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این هشدار حذف شود؟">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش هشدار" : "افزودن هشدار")</h2>
+            <form method="post" asp-page-handler="Save" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div>
+                    <label class="form-label" asp-for="Input.Page">صفحه</label>
+                    <select class="form-input" asp-for="Input.Page">
+                        @foreach (var page in Fratak_Shop.Web.Areas.Admin.Pages.Settings.PageAlertsModel.Pages)
+                        {
+                            <option value="@page">@page.GetTitle()</option>
+                        }
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.Position">محل نمایش</label>
+                        <select class="form-input" asp-for="Input.Position">
+                            @foreach (var position in Fratak_Shop.Web.Areas.Admin.Pages.Settings.PageAlertsModel.Positions)
+                            {
+                                <option value="@position">@position</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.Type">نوع هشدار</label>
+                        <select class="form-input" asp-for="Input.Type">
+                            @foreach (var type in Fratak_Shop.Web.Areas.Admin.Pages.Settings.PageAlertsModel.Types)
+                            {
+                                <option value="@type">@Ui.AlertTitle(type)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Title">عنوان (اختیاری)</label>
+                    <input class="form-input" asp-for="Input.Title" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Content">متن هشدار</label>
+                    <textarea class="form-input" asp-for="Input.Content" rows="3"></textarea>
+                    <span class="form-error" asp-validation-for="Input.Content"></span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.StartAt">شروع نمایش</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.StartAt" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.EndAt">پایان نمایش</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.EndAt" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.DisplayOrder">ترتیب</label>
+                        <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                    </div>
+                    <label class="flex items-end gap-x-2 pb-3 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                        فعال
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره هشدار</button>
+            </form>
+        </div>
+    </div>
+</div>

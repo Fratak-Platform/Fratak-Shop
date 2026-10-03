@@ -1,0 +1,31 @@
+﻿@{
+    var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? new LayoutViewModel();
+}
+<div class="card sticky top-40 overflow-hidden">
+    <div class="flex items-center gap-x-3 border-b border-zinc-100 p-5">
+        <span class="grid h-12 w-12 place-items-center rounded-full bg-sky-50 text-lg font-bold text-sky-600">
+            @(string.IsNullOrWhiteSpace(layout.UserFullName) ? "؟" : layout.UserFullName.Trim()[..1])
+        </span>
+        <div>
+            <p class="text-sm font-semibold text-zinc-800">@layout.UserFullName</p>
+            <a class="text-[11px] text-sky-600 hover:text-sky-700" href="/profile/personal-info">ویرایش حساب</a>
+        </div>
+    </div>
+
+    <nav class="flex flex-col p-2 text-xs">
+        @foreach (var item in layout.ProfileMenu)
+        {
+            <a class="flex items-center gap-x-2 rounded-xl px-3 py-2.5 transition @(layout.IsActive(item.Url) ? "bg-sky-50 font-semibold text-sky-700" : "text-zinc-600 hover:bg-zinc-100")" href="@item.Url">
+                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                @item.Title
+            </a>
+        }
+        <form method="post" asp-page="/Auth/Logout" class="mt-1 border-t border-zinc-100 pt-1">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="flex w-full items-center gap-x-2 rounded-xl px-3 py-2.5 text-rose-500 transition hover:bg-rose-50">
+                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                خروج از حساب
+            </button>
+        </form>
+    </nav>
+</div>

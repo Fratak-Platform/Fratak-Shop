@@ -1,0 +1,134 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.ProductsModel
+@{
+    ViewData["Title"] = "فروشگاه";
+    var sortOptions = new (ProductSortBy Value, string Title)[]
+    {
+        (ProductSortBy.Newest, "جدیدترین"),
+        (ProductSortBy.Cheapest, "ارزان‌ترین"),
+        (ProductSortBy.MostExpensive, "گران‌ترین"),
+        (ProductSortBy.BestSelling, "پرفروش‌ترین"),
+        (ProductSortBy.MostViewed, "پربازدیدترین"),
+        (ProductSortBy.MostDiscounted, "بیشترین تخفیف"),
+        (ProductSortBy.BestRated, "بهترین امتیاز"),
+        (ProductSortBy.Oldest, "قدیمی‌ترین"),
+    };
+    string QueryUrl(object overrides)
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Context.Request.QueryString.Value ?? string.Empty)
+            .ToDictionary(item => item.Key, item => item.Value.ToString());
+        foreach (var property in overrides.GetType().GetProperties())
+        {
+            var value = property.GetValue(overrides)?.ToString();
+            if (string.IsNullOrWhiteSpace(value) || value == "False")
+                query.Remove(property.Name);
+            else
+                query[property.Name] = value;
+        }
+        query.Remove("page");
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/products", query);
+    }
+}
+
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"فروشگاه\", Url = \"/products\" } }" />
+
+<div class="grid gap-6 lg:grid-cols-4">
+    @* ------------------------------------------------------------- filters *@
+    <aside class="lg:col-span-1">
+        <div class="card sticky top-40 p-5">
+            <h2 class="mb-4 text-sm font-bold text-zinc-800">فیلترها</h2>
+
+            <form method="get" action="/products" class="flex flex-col gap-y-4">
+                <input type="hidden" name="categoryId" value="@Model.CategoryId" />
+                <div>
+                    <label class="form-label" for="q">جستجو در نتایج</label>
+                    <input class="form-input" id="q" name="q" value="@Model.Search" placeholder="نام محصول..." />
+                </div>
+                <div>
+                    <label class="form-label">بازه قیمت (تومان)</label>
+                    <div class="flex items-center gap-x-2">
+                        <input class="form-input" name="minPrice" value="@Model.MinPrice" inputmode="numeric" placeholder="از" />
+                        <input class="form-input" name="maxPrice" value="@Model.MaxPrice" inputmode="numeric" placeholder="تا" />
+                    </div>
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" name="onlyInStock" value="true" checked="@Model.OnlyInStock" />
+                    فقط کالاهای موجود
+                </label>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" name="onlyDiscounted" value="true" checked="@Model.OnlyDiscounted" />
+                    فقط کالاهای تخفیف‌دار
+                </label>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" name="onlyFeatured" value="true" checked="@Model.OnlyFeatured" />
+                    پیشنهاد ویژه
+                </label>
+                <input type="hidden" name="sortBy" value="@Model.SortBy" />
+                <button type="submit" class="btn-primary w-full">اعمال فیلتر</button>
+                <a class="btn-ghost w-full" href="/products">حذف فیلترها</a>
+            </form>
+
+            <hr class="my-5 border-zinc-100" />
+
+            <h3 class="mb-3 text-xs font-semibold text-zinc-500">دسته‌بندی‌ها</h3>
+            <ul class="flex flex-col gap-y-1 text-xs">
+                <li>
+                    <a class="block rounded-lg px-2 py-1.5 @(Model.CategoryId is null ? "bg-sky-50 text-sky-700" : "text-zinc-600 hover:bg-zinc-100")" href="@QueryUrl(new { categoryId = (string?)null })">همه دسته‌ها</a>
+                </li>
+                @foreach (var category in Model.CategoryTree)
+                {
+                    <li>
+                        <a class="block rounded-lg px-2 py-1.5 @(Model.CategoryId == category.Id ? "bg-sky-50 text-sky-700" : "text-zinc-600 hover:bg-zinc-100")" href="@QueryUrl(new { categoryId = category.Id })">@category.Name</a>
+                        @if (category.SubCategories.Count > 0)
+                        {
+                            <ul class="mt-1 flex flex-col gap-y-1 pr-3">
+                                @foreach (var child in category.SubCategories)
+                                {
+                                    <li>
+                                        <a class="block rounded-lg px-2 py-1 text-zinc-500 hover:bg-zinc-100" href="@QueryUrl(new { categoryId = child.Id })">@child.Name</a>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    </aside>
+
+    @* -------------------------------------------------------------- results *@
+    <section class="lg:col-span-3">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-zinc-500">
+                @Ui.Number(Model.Result.EntityCount) کالا یافت شد
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+                @foreach (var option in sortOptions)
+                {
+                    <a class="chip @(Model.SortBy == option.Value ? "chip-active" : null)" href="@QueryUrl(new { sortBy = option.Value })">@option.Title</a>
+                }
+            </div>
+        </div>
+
+        @if (Model.Result.Data.Count == 0)
+        {
+            <div class="card empty-state">
+                <img class="h-32" src="/assets/image/404.png" alt="نتیجه‌ای یافت نشد" />
+                <p class="font-semibold text-zinc-700">کالایی با این مشخصات پیدا نشد</p>
+                <p class="text-xs text-zinc-500">فیلترها را تغییر دهید یا عبارت دیگری جستجو کنید.</p>
+                <a class="btn-primary" href="/products">مشاهده همه محصولات</a>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                @foreach (var product in Model.Result.Data)
+                {
+                    <partial name="_ProductCard" model="product" />
+                }
+            </div>
+
+            <partial name="_Pagination" model="Model.Result" />
+        }
+    </section>
+</div>

@@ -1,0 +1,100 @@
+﻿@page "/admin/pages"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Content.PagesModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card overflow-hidden lg:col-span-7">
+        <h2 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">صفحات محتوایی سایت</h2>
+        <table class="table-admin w-full">
+            <thead>
+                <tr>
+                    <th>صفحه</th>
+                    <th>عنوان</th>
+                    <th>وضعیت</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var page in Model.Pages)
+                {
+                    var item = Model.Items.FirstOrDefault(row => row.Page == page);
+                    <tr>
+                        <td class="text-xs text-zinc-500">@page.GetTitle()</td>
+                        <td class="text-xs text-zinc-700">@(item?.Title ?? "—")</td>
+                        <td>
+                            @if (item is null)
+                            {
+                                <span class="badge badge-amber">ساخته‌نشده</span>
+                            }
+                            else
+                            {
+                                <span class="badge @(item.IsPublished ? "badge-green" : "badge-gray")">@(item.IsPublished ? "منتشرشده" : "پیش‌نویس")</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-x-2">
+                                <a class="text-xs text-sky-600" href="/admin/pages?edit=@page">ویرایش</a>
+                                <a class="text-xs text-zinc-500" href="@Ui.SitePageUrl(page)" target="_blank">مشاهده</a>
+                                @if (item is not null)
+                                {
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-zinc-500">انتشار/لغو</button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="border-t border-zinc-100 px-5 py-3 text-[11px] text-zinc-400">
+            متون این صفحه‌ها در سایت نمایش داده می‌شوند؛ برای تنظیم سئوی هر صفحه از «سئو » استفاده کنید.
+            <a class="text-sky-600" href="/admin/seo/pages">مدیریت سئوی صفحات</a>
+        </p>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Edit is null ? "ویرایش صفحه" : $"ویرایش {Model.Edit.Value.GetTitle()}")</h2>
+            @if (Model.Edit is null)
+            {
+                <p class="text-xs text-zinc-500">برای ویرایش، یکی از صفحه‌های فهرست را انتخاب کنید.</p>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="Save" class="grid gap-4">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Input.Id" />
+                    <input type="hidden" asp-for="Input.Page" />
+
+                    <div>
+                        <label class="form-label" asp-for="Input.Title">عنوان صفحه</label>
+                        <input class="form-input" asp-for="Input.Title" />
+                        <span class="form-error" asp-validation-for="Input.Title"></span>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.Summary">خلاصه</label>
+                        <textarea class="form-input" asp-for="Input.Summary" rows="2"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.Content">متن صفحه (HTML مجاز)</label>
+                        <textarea class="form-input" asp-for="Input.Content" rows="12" data-content-description></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label" asp-for="Input.DisplayOrder">ترتیب</label>
+                            <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                        </div>
+                        <label class="flex items-end gap-x-2 pb-3 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Input.IsPublished" />
+                            منتشر شود
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-primary w-full text-xs">ذخیره صفحه</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>

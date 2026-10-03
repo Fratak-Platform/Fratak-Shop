@@ -1,10 +1,212 @@
 ﻿@page
-@model IndexModel
+@model Fratak_Shop.Web.Pages.IndexModel
 @{
-    ViewData["Title"] = "Home page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@* ---------------------------------------------------------------------- hero slider *@
+@if (Model.HeroBanners.Count > 0)
+{
+    <section class="mb-10 overflow-hidden rounded-3xl shadow-box">
+        <div class="swiper hero" dir="rtl">
+            <div class="swiper-wrapper">
+                @foreach (var banner in Model.HeroBanners)
+                {
+                    <div class="swiper-slide">
+                        <a href="@(string.IsNullOrWhiteSpace(banner.LinkUrl) ? "/products" : banner.LinkUrl)" class="block">
+                            <img class="h-56 w-full object-cover md:h-auto" src="@Ui.BannerImage(banner.ImageName)" alt="@banner.ImageAlt" />
+                        </a>
+                    </div>
+                }
+            </div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </section>
+}
+else
+{
+    <section class="mb-10 grid gap-4 overflow-hidden rounded-3xl bg-gradient-to-l from-sky-600 to-sky-400 p-8 text-white md:grid-cols-2 md:p-12">
+        <div class="flex flex-col justify-center gap-y-4">
+            <h1 class="text-2xl font-bold text-white md:text-4xl">@Model.Site.SiteName</h1>
+            <p class="text-sm leading-7 text-sky-50 md:text-base">@Model.Site.SiteDescription</p>
+            <div class="flex flex-wrap gap-3">
+                <a class="btn bg-white text-sky-700 hover:bg-zinc-100" href="/products">ورود به فروشگاه</a>
+                <a class="btn border border-white/50 text-white hover:bg-white/10" href="/products?onlyDiscounted=true">تخفیف‌های ویژه</a>
+            </div>
+        </div>
+        <div class="hidden items-center justify-center md:flex">
+            <img class="max-h-64 object-contain" src="/assets/image/Electronics.webp" alt="خرید آنلاین کالای دیجیتال" />
+        </div>
+    </section>
+}
+
+@* ------------------------------------------------------------- categories *@
+@if (Model.Categories.Count > 0)
+{
+    <section class="mb-12">
+        <h2 class="section-title">دسته‌بندی محصولات</h2>
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+            @foreach (var category in Model.Categories)
+            {
+                <a class="card group flex flex-col items-center gap-y-3 p-5 text-center" href="/products?categoryId=@category.Id">
+                    <img class="h-20 w-20 rounded-full object-cover transition group-hover:scale-105" src="@Ui.CategoryImage(category.ImageName)" alt="@category.Name" loading="lazy" />
+                    <span class="text-sm font-semibold text-zinc-700 group-hover:text-sky-600">@category.Name</span>
+                    <span class="text-[11px] text-zinc-400">@Ui.Number(category.ProductCount) کالا</span>
+                </a>
+            }
+        </div>
+    </section>
+}
+
+@* ------------------------------------------------------------------ featured *@
+@if (Model.Featured.Count > 0)
+{
+    <section class="mb-12">
+        <div class="mb-5 flex items-center justify-between">
+            <h2 class="section-title mb-0">پیشنهاد ویژه فراتک</h2>
+            <a class="text-xs text-sky-600 hover:text-sky-700" href="/products?onlyFeatured=true">مشاهده همه</a>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            @foreach (var product in Model.Featured)
+            {
+                <partial name="_ProductCard" model="product" />
+            }
+        </div>
+    </section>
+}
+
+@* -------------------------------------------------------------------- off box *@
+@if (Model.Discounted.Count > 0)
+{
+    <section class="mb-12 rounded-3xl bg-zinc-900 p-6 md:p-8">
+        <div class="mb-5 flex items-center justify-between">
+            <h2 class="mb-0 flex items-center gap-3 text-lg font-bold text-white">
+                <span class="block h-6 w-1.5 rounded-full bg-rose-500"></span>
+                شگفت‌انگیزهای امروز
+            </h2>
+            <a class="text-xs text-rose-400 hover:text-rose-300" href="/products?onlyDiscounted=true">همه تخفیف‌ها</a>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            @foreach (var product in Model.Discounted)
+            {
+                <partial name="_ProductCard" model="product" />
+            }
+        </div>
+    </section>
+}
+
+@* ---------------------------------------------------------------- best selling *@
+@if (Model.BestSelling.Count > 0)
+{
+    <section class="mb-12">
+        <div class="mb-5 flex items-center justify-between">
+            <h2 class="section-title mb-0">پرفروش‌ترین‌ها</h2>
+            <a class="text-xs text-sky-600 hover:text-sky-700" href="/products?sortBy=BestSelling">مشاهده همه</a>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-4">
+            @foreach (var product in Model.BestSelling)
+            {
+                <partial name="_ProductCard" model="product" />
+            }
+        </div>
+    </section>
+}
+
+@* --------------------------------------------------------------------- latest *@
+@if (Model.Latest.Count > 0)
+{
+    <section class="mb-12">
+        <div class="mb-5 flex items-center justify-between">
+            <h2 class="section-title mb-0">جدیدترین محصولات</h2>
+            <a class="text-xs text-sky-600 hover:text-sky-700" href="/products?sortBy=Newest">مشاهده همه</a>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-4">
+            @foreach (var product in Model.Latest)
+            {
+                <partial name="_ProductCard" model="product" />
+            }
+        </div>
+    </section>
+}
+
+@* ---------------------------------------------------------------------- blog *@
+@if (Model.BlogPosts.Count > 0)
+{
+    <section class="mb-12">
+        <div class="mb-5 flex items-center justify-between">
+            <h2 class="section-title mb-0">از مجله فراتک</h2>
+            <a class="text-xs text-sky-600 hover:text-sky-700" href="/blog">همه مقالات</a>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            @foreach (var post in Model.BlogPosts)
+            {
+                <article class="card overflow-hidden">
+                    <a href="/blog/@post.Slug">
+                        <img class="h-40 w-full object-cover" src="@Ui.BlogImage(post.ImageName)" alt="@post.Title" loading="lazy" />
+                    </a>
+                    <div class="p-4">
+                        <a class="mb-2 block text-sm font-semibold leading-6 text-zinc-800 hover:text-sky-600" href="/blog/@post.Slug">@post.Title</a>
+                        <p class="line-clamp-2 text-xs leading-6 text-zinc-500">@post.Excerpt</p>
+                        <span class="mt-3 block text-[11px] text-zinc-400">@post.PublishedAt.ToPersianDate()</span>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+}
+
+@* ---------------------------------------------------------------------- faq *@
+@if (Model.Faqs.Count > 0)
+{
+    <section class="mb-12">
+        <h2 class="section-title">پرسش‌های متداول</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+            @foreach (var faq in Model.Faqs)
+            {
+                <div class="card p-5">
+                    <h3 class="mb-2 text-sm font-semibold text-zinc-800">@faq.Question</h3>
+                    <p class="text-xs leading-6 text-zinc-500">@faq.Answer</p>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@* ------------------------------------------------------------------ services *@
+<section class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div class="card flex items-center gap-x-3 p-5">
+        <span class="stat-icon @Ui.StatTile("sky")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M230.14,58.87A8,8,0,0,0,224,56H62.68L56.6,22.57A8,8,0,0,0,48.73,16H24a8,8,0,0,0,0,16h18L67.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,160,204a28,28,0,1,0,28-28H91.17a8,8,0,0,1-7.87-6.57L80.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,230.14,58.87Z"></path></svg>
+        </span>
+        <div>
+            <p class="text-sm font-semibold text-zinc-800">ارسال سریع</p>
+            <p class="stat-label">به سراسر کشور</p>
+        </div>
+    </div>
+    <div class="card flex items-center gap-x-3 p-5">
+        <span class="stat-icon @Ui.StatTile("green")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm49.14,82.34-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,145.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
+        </span>
+        <div>
+            <p class="text-sm font-semibold text-zinc-800">ضمانت اصالت</p>
+            <p class="stat-label">کالای اصل و گارانتی‌دار</p>
+        </div>
+    </div>
+    <div class="card flex items-center gap-x-3 p-5">
+        <span class="stat-icon @Ui.StatTile("amber")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"></path></svg>
+        </span>
+        <div>
+            <p class="text-sm font-semibold text-zinc-800">پرداخت امن</p>
+            <p class="stat-label">درگاه بانکی و کارت به کارت</p>
+        </div>
+    </div>
+    <div class="card flex items-center gap-x-3 p-5">
+        <span class="stat-icon @Ui.StatTile("violet")">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M201.89,54.66A103.43,103.43,0,0,0,128.79,32h-.42A104,104,0,0,0,24,136v48a32,32,0,0,0,32,32H72a16,16,0,0,0,16-16V144a16,16,0,0,0-16-16H56v-8a72,72,0,0,1,71.39-72h1.22A72,72,0,0,1,200,120v8H184a16,16,0,0,0-16,16v56a16,16,0,0,0,16,16h16a32,32,0,0,0,32-32V136A103.42,103.42,0,0,0,201.89,54.66Z"></path></svg>
+        </span>
+        <div>
+            <p class="text-sm font-semibold text-zinc-800">پشتیبانی واقعی</p>
+            <p class="stat-label">@Model.Site.WorkingHours</p>
+        </div>
+    </div>
+</section>

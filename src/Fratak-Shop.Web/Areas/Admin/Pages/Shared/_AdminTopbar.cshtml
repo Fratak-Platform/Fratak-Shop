@@ -1,0 +1,37 @@
+﻿@model LayoutViewModel
+@{
+    var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? Model;
+    var page = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
+}
+<header class="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3 md:px-6">
+    <button type="button" class="btn-icon lg:hidden" onclick="showAdminSidebar()" aria-label="منو">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
+    </button>
+
+    <div class="flex-1">
+        <h1 class="text-sm font-bold text-zinc-800">@(ViewData["Title"] ?? "داشبورد")</h1>
+        <p class="text-[11px] text-zinc-400">@Fratak_Shop.Core.Utilities.PersianDateHelper.ToPersianDate(DateTimeOffset.UtcNow)</p>
+    </div>
+
+    <form method="get" action="/admin/products" class="hidden md:block">
+        <input class="form-input w-56 py-1.5 text-xs" name="q" placeholder="جستجوی سریع محصول..." />
+    </form>
+
+    <a class="btn-icon relative" href="/admin/notifications" title="اعلان‌ها">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06Z"></path></svg>
+        @if (layout.UnreadNotifications > 0)
+        {
+            <span class="absolute -top-1 -left-1 grid h-4 w-4 place-items-center rounded-full bg-rose-500 text-[9px] font-bold text-white">@PriceHelper.ToPersianDigits(layout.UnreadNotifications.ToString())</span>
+        }
+    </a>
+
+    <div class="flex items-center gap-x-2 border-r border-zinc-200 pr-3">
+        <span class="grid h-9 w-9 place-items-center rounded-full bg-sky-50 text-sm font-bold text-sky-600">
+            @(string.IsNullOrWhiteSpace(CurrentUserName) ? "؟" : CurrentUserName.Trim()[..1])
+        </span>
+        <div class="hidden md:block">
+            <p class="text-xs font-semibold text-zinc-700">@CurrentUserName</p>
+            <p class="text-[10px] text-zinc-400">@CurrentRoleTitle</p>
+        </div>
+    </div>
+</header>

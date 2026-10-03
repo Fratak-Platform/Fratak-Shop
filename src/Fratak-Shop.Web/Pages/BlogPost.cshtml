@@ -1,0 +1,114 @@
+﻿@page "{slug}"
+@model Fratak_Shop.Web.Pages.BlogPostModel
+@{
+    ViewData["Title"] = Model.Post.Title;
+    var post = Model.Post;
+}
+
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"مجله\", Url = \"/blog\" }, new() { Title = post.Title, Url = $\"/blog/{post.Slug}\" } }" />
+
+<article class="grid gap-6 lg:grid-cols-12">
+    <div class="lg:col-span-8">
+        <div class="card overflow-hidden">
+            <img class="h-64 w-full object-cover md:h-80" src="@Ui.BlogImage(post.ImageName)" alt="@(post.ImageAlt ?? post.Title)" />
+            <div class="p-5 md:p-7">
+                <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-zinc-400">
+                    <span>@post.PublishedAt.ToPersianDateTime()</span>
+                    @if (!string.IsNullOrWhiteSpace(post.AuthorName))
+                    {
+                        <span>نویسنده: @post.AuthorName</span>
+                    }
+                    <span>@Ui.Number(post.ViewCount) بازدید</span>
+                </div>
+
+                <h1 class="mb-4 text-lg font-bold leading-8 text-zinc-800 md:text-2xl">@post.Title</h1>
+
+                @if (!string.IsNullOrWhiteSpace(post.Excerpt))
+                {
+                    <p class="mb-5 rounded-xl bg-sky-50 p-4 text-sm leading-7 text-sky-800">@post.Excerpt</p>
+                }
+
+                <div class="prose prose-sm max-w-none text-sm leading-8 text-zinc-700">
+                    @Html.Raw(post.Content)
+                </div>
+            </div>
+        </div>
+
+        <section id="comments" class="card mt-6 p-5 md:p-7">
+            <h2 class="section-title">دیدگاه‌ها (@Ui.Number(Model.Comments.Count))</h2>
+
+            @if (Model.Comments.Count == 0)
+            {
+                <div class="empty-state">
+                    <p class="text-xs text-zinc-500">اولین دیدگاه را شما ثبت کنید.</p>
+                </div>
+            }
+            else
+            {
+                <div class="mb-6 flex flex-col divide-y divide-zinc-100">
+                    @foreach (var comment in Model.Comments)
+                    {
+                        <div class="py-4">
+                            <div class="mb-2 flex items-center justify-between">
+                                <span class="text-xs font-semibold text-zinc-700">@comment.AuthorName</span>
+                                <span class="text-[11px] text-zinc-400">@comment.CreatedAt.ToRelativeTime()</span>
+                            </div>
+                            <p class="text-xs leading-7 text-zinc-600">@comment.Content</p>
+                            @foreach (var reply in comment.Replies)
+                            {
+                                <div class="mt-3 rounded-xl bg-zinc-50 p-3 text-xs leading-7 text-zinc-600">
+                                    <span class="mb-1 block font-semibold text-zinc-700">پاسخ پشتیبانی</span>
+                                    @reply.Content
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <h3 class="mb-4 text-sm font-bold text-zinc-800">ثبت دیدگاه</h3>
+            <form method="post" asp-page-handler="Comment" asp-route-slug="@post.Slug" class="grid gap-4 md:grid-cols-2">
+                <div asp-validation-summary="ModelOnly" class="form-error md:col-span-2"></div>
+                <div>
+                    <label class="form-label" asp-for="Comment.AuthorName">نام</label>
+                    <input class="form-input" asp-for="Comment.AuthorName" />
+                    <span class="form-error" asp-validation-for="Comment.AuthorName"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Comment.AuthorPhone">موبایل</label>
+                    <input class="form-input text-left" asp-for="Comment.AuthorPhone" dir="ltr" inputmode="numeric" />
+                    <span class="form-error" asp-validation-for="Comment.AuthorPhone"></span>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="form-label" asp-for="Comment.Content">متن دیدگاه</label>
+                    <textarea class="form-input" asp-for="Comment.Content" rows="4"></textarea>
+                    <span class="form-error" asp-validation-for="Comment.Content"></span>
+                </div>
+                <div class="md:col-span-2">
+                    <button type="submit" class="btn-primary px-8">ارسال دیدگاه</button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <aside class="lg:col-span-4">
+        @if (Model.Related.Count > 0)
+        {
+            <div class="card sticky top-40 p-5">
+                <h2 class="section-title">مقالات مرتبط</h2>
+                <div class="flex flex-col gap-4">
+                    @foreach (var item in Model.Related)
+                    {
+                        <a class="flex items-start gap-x-3" href="/blog/@item.Slug">
+                            <img class="h-16 w-16 shrink-0 rounded-xl object-cover" src="@Ui.BlogImage(item.ImageName)" alt="@item.Title" loading="lazy" />
+                            <span>
+                                <span class="line-clamp-2 text-xs font-semibold leading-6 text-zinc-700 hover:text-sky-600">@item.Title</span>
+                                <span class="mt-1 block text-[11px] text-zinc-400">@item.PublishedAt.ToPersianDate()</span>
+                            </span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </aside>
+</article>

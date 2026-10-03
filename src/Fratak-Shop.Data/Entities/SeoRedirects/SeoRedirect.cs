@@ -29,6 +29,13 @@ public class SeoRedirect : BaseEntity
     public string? Notes { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Number of times the redirect was served, and the last time it happened.
+    /// </summary>
+    public int HitCount { get; set; }
+
+    public DateTimeOffset? LastHitAt { get; set; }
 }
 
 public enum RedirectType

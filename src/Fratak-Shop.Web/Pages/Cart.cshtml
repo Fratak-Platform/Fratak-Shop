@@ -1,0 +1,134 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.CartModel
+@{
+    ViewData["Title"] = "سبد خرید";
+}
+
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"سبد خرید\", Url = \"/cart\" } }" />
+
+@if (Model.Cart.IsEmpty)
+{
+    <div class="card empty-state py-16">
+        <img class="h-40" src="/assets/image/Cart.png" alt="سبد خرید خالی" />
+        <p class="text-base font-semibold text-zinc-700">سبد خرید شما خالی است</p>
+        <p class="text-xs text-zinc-500">می‌توانید از میان هزاران کالای موجود، انتخاب خود را انجام دهید.</p>
+        <a class="btn-primary px-8" href="/products">شروع خرید</a>
+    </div>
+}
+else
+{
+    <div class="grid gap-6 lg:grid-cols-12">
+        <section class="lg:col-span-8">
+            <div class="card overflow-hidden">
+                <div class="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+                    <h1 class="text-sm font-bold text-zinc-800">سبد خرید (@Ui.Number(Model.Cart.ItemCount) کالا)</h1>
+                    <form method="post" asp-page-handler="Clear" data-confirm="سبد خرید خالی شود؟">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="text-xs text-rose-500 hover:text-rose-600">خالی کردن سبد</button>
+                    </form>
+                </div>
+
+                <div class="divide-y divide-zinc-100">
+                    @foreach (var item in Model.Cart.Items)
+                    {
+                        <div class="flex flex-wrap items-center gap-4 p-4 md:flex-nowrap md:p-5">
+                            <img class="h-24 w-24 shrink-0 rounded-2xl border object-contain p-2" src="@Ui.ProductImage(item.Product.ImageName)" alt="@item.Product.Name" />
+                            <div class="min-w-40 flex-1">
+                                <a class="text-sm font-semibold leading-6 text-zinc-800 hover:text-sky-600" href="/product/@item.Product.Slug">@item.Product.Name</a>
+                                @if (!string.IsNullOrWhiteSpace(item.Product.CategoryName))
+                                {
+                                    <span class="mt-1 block text-[11px] text-zinc-400">@item.Product.CategoryName</span>
+                                }
+                                @if (item.HasStockWarning)
+                                {
+                                    <span class="mt-2 block text-[11px] text-rose-500">موجودی انبار کمتر از تعداد درخواستی است.</span>
+                                }
+                                <form method="post" asp-page-handler="Remove" class="mt-2">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="productId" value="@item.Product.Id" />
+                                    <button type="submit" class="text-[11px] text-rose-500 hover:text-rose-600">حذف از سبد</button>
+                                </form>
+                            </div>
+
+                            <form method="post" asp-page-handler="Update" class="flex items-center justify-between gap-3 rounded-xl border p-2">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="productId" value="@item.Product.Id" />
+                                <button type="button" class="btn-icon" data-action="increment" data-target="#qty-@item.Product.Id">+</button>
+                                <input id="qty-@item.Product.Id" name="quantity" value="@item.Quantity" class="w-12 border-0 bg-transparent text-center text-sm outline-none" inputmode="numeric" onchange="this.form.requestSubmit()" />
+                                <button type="button" class="btn-icon" data-action="decrement" data-target="#qty-@item.Product.Id">−</button>
+                            </form>
+
+                            <div class="w-28 text-left">
+                                @if (item.Product.HasDiscount)
+                                {
+                                    <span class="block text-[11px] text-zinc-400 line-through">@item.Product.Price.ToToman()</span>
+                                }
+                                <span class="block text-sm font-bold text-zinc-800">@item.TotalPrice.ToToman()</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <aside class="lg:col-span-4">
+            <div class="card sticky top-40 p-5">
+                <h2 class="mb-4 text-sm font-bold text-zinc-800">خلاصه سفارش</h2>
+
+                <ul class="mb-4 flex flex-col gap-y-3 border-b border-zinc-100 pb-4 text-xs text-zinc-600">
+                    <li class="flex items-center justify-between">
+                        <span>جمع کالاها</span>
+                        <span>@Model.Cart.Subtotal.ToToman()</span>
+                    </li>
+                    @if (Model.Cart.ProductDiscount > 0)
+                    {
+                        <li class="flex items-center justify-between text-rose-500">
+                            <span>سود شما از تخفیف کالاها</span>
+                            <span>@Model.Cart.ProductDiscount.ToToman()</span>
+                        </li>
+                    }
+                    @if (Model.Cart.CouponDiscount > 0)
+                    {
+                        <li class="flex items-center justify-between text-emerald-600">
+                            <span>تخفیف کد «@Model.Cart.CouponCode»</span>
+                            <span>@Model.Cart.CouponDiscount.ToToman()</span>
+                        </li>
+                    }
+                </ul>
+
+                <form method="post" asp-page-handler="ApplyCoupon" class="mb-4">
+                    @Html.AntiForgeryToken()
+                    <label class="form-label" for="code">کد تخفیف</label>
+                    <div class="flex items-center gap-x-2">
+                        <input class="form-input" id="code" name="code" value="@Model.Cart.CouponCode" placeholder="مثلاً FRATAK10" />
+                        @if (Model.Cart.IsCouponApplied)
+                        {
+                            <button type="submit" formaction="?handler=RemoveCoupon" class="btn-secondary shrink-0">حذف</button>
+                        }
+                        else
+                        {
+                            <button type="submit" class="btn-secondary shrink-0">اعمال</button>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Cart.CouponMessage))
+                    {
+                        <p class="mt-2 text-[11px] @(Model.Cart.IsCouponApplied ? "text-emerald-600" : "text-rose-500")">@Model.Cart.CouponMessage</p>
+                    }
+                </form>
+
+                <div class="flex items-center justify-between border-t border-zinc-100 pt-4">
+                    <span class="text-sm text-zinc-500">مبلغ قابل پرداخت</span>
+                    <span class="text-lg font-bold text-zinc-800">@Model.Cart.PayableAmount.ToToman()</span>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Cart.FreeShippingHint))
+                {
+                    <p class="mt-2 text-[11px] text-emerald-600">@Model.Cart.FreeShippingHint</p>
+                }
+
+                <a class="btn-primary mt-5 w-full" href="/checkout">ادامه فرآیند خرید</a>
+                <a class="btn-ghost mt-2 w-full" href="/products">افزودن کالای بیشتر</a>
+            </div>
+        </aside>
+    </div>
+}

@@ -1,0 +1,39 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Payment.SandboxModel
+@{
+    ViewData["Title"] = "درگاه پرداخت آزمایشی";
+}
+
+<div class="mx-auto max-w-lg">
+    <div class="card overflow-hidden">
+        <div class="bg-gradient-to-l from-zinc-900 to-zinc-800 p-5 text-center text-white">
+            <p class="text-xs opacity-70">درگاه پرداخت آزمایشی (سندباکس)</p>
+            <p class="mt-1 text-2xl font-bold">@Model.Amount.ToToman()</p>
+            <p class="mt-1 text-[11px] opacity-70">شناسه پرداخت: <span class="fa-num">@Fratak_Shop.Core.Utilities.PriceHelper.ToEnglishDigits(Model.Authority)</span></p>
+        </div>
+
+        <div class="p-6">
+            <div class="alert-info mb-5 text-xs leading-6">
+                این صفحه فقط برای محیط نمایشی/آزمایشی است و هیچ مبلغی از حساب شما کسر نمی‌شود.
+                برای تست کامل فرآیند سفارش، یکی از دو دکمه زیر را انتخاب کنید.
+            </div>
+
+            <div class="mb-5 rounded-xl border p-4 text-xs text-zinc-500">
+                <p class="mb-2 flex items-center justify-between">
+                    <span>شماره کارت آزمایشی</span>
+                    <span class="fa-num font-bold text-zinc-700">@Fratak_Shop.Core.Utilities.PriceHelper.ToEnglishDigits("6037-9975-1234-5678")</span>
+                </p>
+                <p class="flex items-center justify-between">
+                    <span>درگاه</span>
+                    <span class="font-semibold text-zinc-700">Fratak Sandbox Gateway</span>
+                </p>
+            </div>
+
+            <form method="post" class="flex flex-col gap-y-3">
+                <input type="hidden" name="authority" value="@Model.Authority" />
+                <button type="submit" name="success" value="true" class="btn-primary w-full">پرداخت موفق (تأیید تراکنش)</button>
+                <button type="submit" name="success" value="false" class="btn-secondary w-full">انصراف / پرداخت ناموفق</button>
+            </form>
+        </div>
+    </div>
+</div>

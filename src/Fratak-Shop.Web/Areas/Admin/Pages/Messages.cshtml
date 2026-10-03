@@ -1,0 +1,99 @@
+﻿@page "/admin/messages"
+@model Fratak_Shop.Web.Areas.Admin.Pages.MessagesModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="card overflow-hidden lg:col-span-7">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4">
+            <h1 class="text-sm font-bold text-zinc-800">پیام‌های مشتریان</h1>
+            <form method="get" action="/admin/messages" class="flex items-center gap-2">
+                <select class="form-input w-36 py-1.5 text-xs" name="status" onchange="this.form.submit()">
+                    <option value="">همه پیام‌ها</option>
+                    <option value="@((int)MessageStatus.New)" selected="@(Model.Status == MessageStatus.New)">جدید</option>
+                    <option value="@((int)MessageStatus.InProgress)" selected="@(Model.Status == MessageStatus.InProgress)">در حال بررسی</option>
+                    <option value="@((int)MessageStatus.Answered)" selected="@(Model.Status == MessageStatus.Answered)">پاسخ داده‌شده</option>
+                    <option value="@((int)MessageStatus.Closed)" selected="@(Model.Status == MessageStatus.Closed)">بسته‌شده</option>
+                </select>
+            </form>
+        </div>
+
+        <div class="divide-y divide-zinc-100">
+            @if (Model.Items.Count == 0)
+            {
+                <p class="py-10 text-center text-xs text-zinc-400">پیامی یافت نشد.</p>
+            }
+            @foreach (var item in Model.Items)
+            {
+                <article class="p-5 @(Model.Read == item.Id ? "bg-sky-50/40" : "")">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-x-2">
+                                <span class="text-xs font-semibold text-zinc-800">@(item.FullName ?? "کاربر سایت")</span>
+                                <span class="badge badge-gray">@Ui.MessageTypeTitle(item.Type)</span>
+                                <span class="badge @Ui.MessageStatusClass(item.Status)">@Ui.MessageStatusTitle(item.Status)</span>
+                                @if (!item.IsRead)
+                                {
+                                    <span class="badge badge-sky">خوانده‌نشده</span>
+                                }
+                            </div>
+                            <p class="mt-1 text-[11px] text-zinc-400 fa-num">@item.PhoneNumber — @item.CreatedAt.ToPersianDateTime()</p>
+                        </div>
+                        <div class="flex items-center gap-x-2">
+                            <a class="text-xs text-sky-600" href="/admin/messages?read=@item.Id">پاسخ</a>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این پیام حذف شود؟">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="text-xs text-rose-500">حذف</button>
+                            </form>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(item.Subject))
+                    {
+                        <p class="mt-3 text-xs font-semibold text-zinc-700">@item.Subject</p>
+                    }
+                    <p class="mt-2 text-xs leading-6 text-zinc-600">@item.Content</p>
+                    @if (!string.IsNullOrWhiteSpace(item.Reply))
+                    {
+                        <div class="mt-3 rounded-xl bg-emerald-50 p-3">
+                            <p class="text-[11px] font-semibold text-emerald-700">پاسخ پشتیبانی</p>
+                            <p class="mt-1 text-[11px] leading-6 text-emerald-800">@item.Reply</p>
+                        </div>
+                    }
+                    <form method="post" asp-page-handler="Status" asp-route-id="@item.Id" class="mt-3 flex items-center gap-2">
+                        @Html.AntiForgeryToken()
+                        <select class="form-input w-40 py-1.5 text-[11px]" name="status" onchange="this.form.submit()">
+                            @foreach (var status in new[] { MessageStatus.New, MessageStatus.InProgress, MessageStatus.Answered, MessageStatus.Closed })
+                            {
+                                <option value="@status" selected="@(item.Status == status)">@Ui.MessageStatusTitle(status)</option>
+                            }
+                        </select>
+                    </form>
+                </article>
+            }
+        </div>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">پاسخ به پیام</h2>
+            @if (!Model.Read.HasValue)
+            {
+                <p class="text-xs text-zinc-500">برای پاسخ‌دادن، روی «پاسخ» یکی از پیام‌ها بزنید.</p>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="Reply" class="grid gap-4">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Reply.MessageId" />
+                    <div>
+                        <label class="form-label" asp-for="Reply.Content">متن پاسخ</label>
+                        <textarea class="form-input" asp-for="Reply.Content" rows="7"></textarea>
+                        <span class="form-error" asp-validation-for="Reply.Content"></span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400">پاسخ در پنل کاربری مشتری نمایش داده می‌شود و وضعیت پیام به «پاسخ داده‌شده» تغییر می‌کند.</p>
+                    <button type="submit" class="btn-primary w-full text-xs">ثبت پاسخ</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>

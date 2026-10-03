@@ -1,0 +1,59 @@
+﻿@{
+    var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? new LayoutViewModel();
+    var title = ViewData["Title"] as string;
+    var page = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
+}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>@(string.IsNullOrWhiteSpace(title) ? "پنل مدیریت" : $"{title} | پنل {layout.Site.SiteName}")</title>
+    @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+    @{
+        var antiforgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+    }
+    <meta name="csrf-token" content="@antiforgeryToken" />
+    <link rel="stylesheet" href="~/assets/css/font.css" />
+    <link rel="stylesheet" href="~/assets/css/dependencies/swiper.min.css" />
+    <link rel="stylesheet" href="~/assets/css/style.css" />
+    <link rel="stylesheet" href="~/assets/css/output.css" />
+    <link rel="icon" href="@Ui.Favicon(layout.Site)" />
+    <style>
+        :root {
+            --fratak-primary: @(layout.Site.PrimaryColor ?? "#0ea5e9");
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-zinc-100" dir="rtl">
+    <div class="flex min-h-screen">
+        @await Html.PartialAsync("_AdminSidebar", layout)
+
+        <div class="flex min-w-0 flex-1 flex-col">
+            @await Html.PartialAsync("_AdminTopbar", layout)
+
+            <main class="flex-1 p-4 md:p-6">
+                <partial name="_AdminAlerts" />
+                @RenderBody()
+            </main>
+
+            <footer class="border-t border-zinc-200 bg-white px-6 py-4 text-[11px] text-zinc-400">
+                پنل مدیریت @layout.Site.SiteName — @PriceHelper.ToPersianDate(DateTimeOffset.UtcNow)
+            </footer>
+        </div>
+    </div>
+
+    <div id="toast-host" class="pointer-events-none fixed bottom-6 right-6 z-[60] flex w-11/12 max-w-sm flex-col gap-y-2"></div>
+
+    <script src="~/assets/js/admin.js"></script>
+    <script>
+        window.showAdminSidebar = function () {
+            document.getElementById("adminSidebar").classList.toggle("-right-full");
+            document.getElementById("adminSidebar").classList.toggle("right-0");
+            document.getElementById("adminSidebarOverlay").classList.toggle("hidden");
+        };
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

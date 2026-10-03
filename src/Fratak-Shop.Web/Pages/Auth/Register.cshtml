@@ -1,0 +1,64 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Auth.RegisterModel
+@{
+    ViewData["Title"] = "ساخت حساب کاربری";
+}
+
+<div class="mx-auto max-w-2xl">
+    <div class="card p-6 md:p-8">
+        <h1 class="mb-1 text-center text-lg font-bold text-zinc-800">ساخت حساب کاربری</h1>
+        <p class="mb-6 text-center text-xs text-zinc-500">
+            با ثبت‌نام، پیگیری سفارش‌ها، علاقه‌مندی‌ها و تخفیف‌های اختصاصی در اختیار شما قرار می‌گیرد.
+        </p>
+
+        <form method="post" class="grid gap-4 md:grid-cols-2">
+            <div asp-validation-summary="ModelOnly" class="form-error md:col-span-2"></div>
+
+            <div>
+                <label class="form-label" asp-for="Input.PhoneNumber">شماره موبایل <span class="text-rose-500">*</span></label>
+                <input class="form-input text-left" asp-for="Input.PhoneNumber" dir="ltr" inputmode="numeric" placeholder="09xxxxxxxxx" />
+                <span class="form-error" asp-validation-for="Input.PhoneNumber"></span>
+            </div>
+
+            <div>
+                <label class="form-label" asp-for="Input.Email">ایمیل (اختیاری)</label>
+                <input class="form-input text-left" asp-for="Input.Email" dir="ltr" />
+                <span class="form-error" asp-validation-for="Input.Email"></span>
+            </div>
+
+            <div>
+                <label class="form-label" asp-for="Input.FirstName">نام</label>
+                <input class="form-input" asp-for="Input.FirstName" />
+            </div>
+
+            <div>
+                <label class="form-label" asp-for="Input.LastName">نام خانوادگی</label>
+                <input class="form-input" asp-for="Input.LastName" />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="form-label" asp-for="Input.Password">رمز عبور (اختیاری)</label>
+                <input class="form-input" asp-for="Input.Password" type="password" autocomplete="new-password" />
+                <p class="mt-1 text-[11px] text-zinc-400">اگر رمز تعیین نکنید، می‌توانید با کد یک‌بارمصرف وارد شوید و بعداً رمز بگذارید.</p>
+            </div>
+
+            <label class="flex items-start gap-x-2 text-xs text-zinc-600 md:col-span-2">
+                <input type="checkbox" class="form-checkbox mt-0.5" asp-for="Input.AcceptTerms" />
+                <span>
+                    <a class="text-sky-600 hover:text-sky-700" href="/rules" target="_blank">قوانین و شرایط</a>
+                    فروشگاه را مطالعه کرده و می‌پذیرم.
+                </span>
+            </label>
+            <span class="form-error md:col-span-2" asp-validation-for="Input.AcceptTerms"></span>
+
+            <div class="md:col-span-2">
+                <button type="submit" class="btn-primary w-full">ثبت‌نام و دریافت کد تأیید</button>
+            </div>
+        </form>
+
+        <p class="mt-5 text-center text-xs text-zinc-500">
+            قبلاً ثبت‌نام کرده‌اید؟
+            <a class="text-sky-600 hover:text-sky-700" href="/auth/login">ورود به حساب</a>
+        </p>
+    </div>
+</div>

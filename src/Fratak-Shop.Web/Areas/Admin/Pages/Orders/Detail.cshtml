@@ -1,0 +1,214 @@
+﻿@page "/admin/orders/detail/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.DetailModel
+@{
+    var order = Model.Order;
+}
+
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h2 class="text-base font-bold text-zinc-800">
+            سفارش <span class="fa-num">@PriceHelper.ToEnglishDigits(order.OrderNumber)</span>
+        </h2>
+        <p class="mt-1 text-xs text-zinc-500">@order.CreatedAt.ToPersianDateTime() — @Ui.PaymentMethodTitle(order.PaymentMethod)</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="badge @Ui.OrderStatusClass(order.Status)">@Ui.OrderStatusTitle(order.Status)</span>
+        <span class="badge @Ui.PaymentStatusClass(order.PaymentStatus)">@Ui.PaymentStatusTitle(order.PaymentStatus)</span>
+        <a class="btn-secondary px-5 text-xs" href="/admin/orders">بازگشت</a>
+    </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="flex flex-col gap-6 lg:col-span-8">
+        @* --------------------------------------------------------------- items *@
+        <div class="card overflow-hidden">
+            <h3 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">اقلام سفارش</h3>
+            <div class="overflow-x-auto">
+                <table class="table-admin w-full">
+                    <thead>
+                        <tr>
+                            <th>کالا</th>
+                            <th>قیمت واحد</th>
+                            <th>تعداد</th>
+                            <th>جمع</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in order.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-x-2">
+                                        <img class="h-9 w-9 rounded-lg border object-contain p-0.5" src="@Ui.ProductImage(item.ImageName)" alt="@item.ProductName" />
+                                        <span class="text-xs text-zinc-700">@item.ProductName</span>
+                                    </div>
+                                </td>
+                                <td class="text-xs text-zinc-600">@item.UnitPrice.ToToman()</td>
+                                <td class="text-xs text-zinc-600">@PriceHelper.ToPersianDigits(item.Quantity.ToString())</td>
+                                <td class="text-xs font-semibold text-zinc-700">@item.TotalAmount.ToToman()</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <ul class="flex flex-col gap-y-2 border-t border-zinc-100 p-5 text-xs text-zinc-600">
+                <li class="flex justify-between"><span>جمع کالاها</span><span>@order.SubtotalAmount.ToToman()</span></li>
+                @if (order.DiscountAmount > 0)
+                {
+                    <li class="flex justify-between text-rose-500"><span>تخفیف @order.CouponCode</span><span>@order.DiscountAmount.ToToman()</span></li>
+                }
+                <li class="flex justify-between"><span>هزینه ارسال</span><span>@order.ShippingAmount.ToToman()</span></li>
+                <li class="flex justify-between border-t border-zinc-100 pt-2 text-sm font-bold text-zinc-800">
+                    <span>مبلغ قابل پرداخت</span><span>@order.PayableAmount.ToToman()</span>
+                </li>
+            </ul>
+        </div>
+
+        @* ------------------------------------------------------------ customer *@
+        <div class="card p-5">
+            <h3 class="section-title">اطلاعات گیرنده</h3>
+            <div class="grid gap-4 text-xs md:grid-cols-2">
+                <p><span class="text-zinc-400">نام:</span> @order.CustomerName</p>
+                <p><span class="text-zinc-400">موبایل:</span> <span class="fa-num">@PriceHelper.ToPersianDigits(order.CustomerPhone)</span></p>
+                <p class="md:col-span-2"><span class="text-zinc-400">نشانی:</span> @order.ShippingProvince، @order.ShippingCity، @order.ShippingAddress</p>
+                @if (!string.IsNullOrWhiteSpace(order.ShippingPostalCode))
+                {
+                    <p><span class="text-zinc-400">کد پستی:</span> <span class="fa-num">@PriceHelper.ToPersianDigits(order.ShippingPostalCode)</span></p>
+                }
+                @if (!string.IsNullOrWhiteSpace(order.ShippingPhone))
+                {
+                    <p><span class="text-zinc-400">تلفن:</span> <span class="fa-num">@PriceHelper.ToPersianDigits(order.ShippingPhone)</span></p>
+                }
+                @if (!string.IsNullOrWhiteSpace(order.ShippingMethod))
+                {
+                    <p><span class="text-zinc-400">روش ارسال:</span> @order.ShippingMethod</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(order.CustomerNote))
+                {
+                    <p class="md:col-span-2"><span class="text-zinc-400">یادداشت مشتری:</span> @order.CustomerNote</p>
+                }
+            </div>
+        </div>
+
+        @* ------------------------------------------------------------- history *@
+        <div class="card p-5">
+            <h3 class="section-title">تاریخچه تغییر وضعیت</h3>
+            <ol class="flex flex-col gap-y-4 border-r border-zinc-100 pr-4">
+                @foreach (var history in order.StatusHistory)
+                {
+                    <li class="relative text-xs">
+                        <span class="absolute -right-[1.42rem] top-1.5 h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+                        <div class="flex flex-wrap items-center gap-x-3">
+                            <span class="font-semibold text-zinc-700">@Ui.OrderStatusTitle(history.Status)</span>
+                            <span class="text-zinc-400">@history.CreatedAt.ToPersianDateTime()</span>
+                            @if (!string.IsNullOrWhiteSpace(history.ChangedBy))
+                            {
+                                <span class="text-zinc-400">توسط @history.ChangedBy</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(history.Note))
+                        {
+                            <p class="mt-1 text-[11px] text-zinc-500">@history.Note</p>
+                        }
+                    </li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    @* --------------------------------------------------------------- actions *@
+    <div class="flex flex-col gap-6 lg:col-span-4">
+        <div class="card p-5">
+            <h3 class="section-title">تغییر وضعیت سفارش</h3>
+            <form method="post" asp-page-handler="Status" asp-route-id="@order.Id" class="flex flex-col gap-3">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="form-label" for="NewStatus">وضعیت جدید</label>
+                    <select class="form-input" id="NewStatus" name="NewStatus">
+                        @foreach (var status in Enum.GetValues<OrderStatus>())
+                        {
+                            if (status == OrderStatus.None) { continue; }
+                            <option value="@status" selected="@(Model.NewStatus == status)">@Ui.OrderStatusTitle(status)</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="StatusNote">یادداشت</label>
+                    <textarea class="form-input" id="StatusNote" name="StatusNote" rows="2">@Model.StatusNote</textarea>
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" name="NotifyCustomer" value="true" checked />
+                    اطلاع‌رسانی به مشتری
+                </label>
+                <button type="submit" class="btn-primary w-full text-xs">ثبت وضعیت جدید</button>
+            </form>
+        </div>
+
+        <div class="card p-5">
+            <h3 class="section-title">اطلاعات ارسال</h3>
+            <form method="post" asp-page-handler="Tracking" asp-route-id="@order.Id" class="flex flex-col gap-3">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="form-label" for="TrackingCode">کد رهگیری پستی</label>
+                    <input class="form-input text-left" id="TrackingCode" name="TrackingCode" value="@Model.TrackingCode" dir="ltr" />
+                </div>
+                <div>
+                    <label class="form-label" for="TrackingUrl">لینک پیگیری مرسوله</label>
+                    <input class="form-input text-left" id="TrackingUrl" name="TrackingUrl" value="@Model.TrackingUrl" dir="ltr" />
+                </div>
+                <button type="submit" class="btn-secondary w-full text-xs">ذخیره اطلاعات ارسال</button>
+            </form>
+        </div>
+
+        <div class="card p-5">
+            <h3 class="section-title">یادداشت داخلی</h3>
+            <form method="post" asp-page-handler="Note" asp-route-id="@order.Id" class="flex flex-col gap-3">
+                @Html.AntiForgeryToken()
+                <textarea class="form-input" name="AdminNote" rows="3">@Model.AdminNote</textarea>
+                <button type="submit" class="btn-secondary w-full text-xs">ذخیره یادداشت</button>
+            </form>
+        </div>
+
+        @if (order.Payment is not null)
+        {
+            <div class="card p-5">
+                <h3 class="section-title">اطلاعات پرداخت</h3>
+                <ul class="flex flex-col gap-y-2 text-xs text-zinc-600">
+                    <li class="flex justify-between"><span>مبلغ</span><span>@order.Payment.Amount.ToToman()</span></li>
+                    <li class="flex justify-between"><span>درگاه</span><span>@order.Payment.Gateway</span></li>
+                    <li class="flex justify-between"><span>وضعیت</span><span>@order.Payment.Status</span></li>
+                    @if (!string.IsNullOrWhiteSpace(order.Payment.ReferenceId))
+                    {
+                        <li class="flex justify-between"><span>مرجع</span><span class="fa-num">@PriceHelper.ToEnglishDigits(order.Payment.ReferenceId)</span></li>
+                    }
+                    @if (order.Payment.PaidAt is { } paidAt)
+                    {
+                        <li class="flex justify-between"><span>زمان پرداخت</span><span>@paidAt.ToPersianDateTime()</span></li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (order.BankTransfer is not null)
+        {
+            <div class="card p-5">
+                <h3 class="section-title">اطلاعات کارت به کارت</h3>
+                <ul class="flex flex-col gap-y-2 text-xs text-zinc-600">
+                    <li class="flex justify-between"><span>واریزکننده</span><span>@order.BankTransfer.PayerName</span></li>
+                    <li class="flex justify-between"><span>کارت</span><span class="fa-num">@PriceHelper.ToEnglishDigits(order.BankTransfer.PayerCardNumber)</span></li>
+                    @if (order.BankTransfer.ReceiptFiles.Count > 0)
+                    {
+                        <li class="flex items-center gap-2">
+                            <span>فیش‌ها:</span>
+                            @foreach (var file in order.BankTransfer.ReceiptFiles)
+                            {
+                                <a href="@Ui.Upload("bank-transfers", file)" target="_blank" rel="noopener" class="text-sky-600">مشاهده</a>
+                            }
+                        </li>
+                    }
+                </ul>
+                <a class="btn-primary mt-3 w-full text-xs" href="/admin/payments/bank-transfers">بررسی در بخش کارت به کارت</a>
+            </div>
+        }
+    </div>
+</div>

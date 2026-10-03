@@ -1,0 +1,269 @@
+﻿@page "{slug}"
+@model Fratak_Shop.Web.Pages.ProductModel
+@{
+    ViewData["Title"] = Model.Product.Name;
+    var product = Model.Product;
+    var showPrices = Model.Site.ShowPricesToGuests || User.Identity?.IsAuthenticated == true;
+}
+
+<partial name="_Breadcrumbs" model="product.Breadcrumbs" />
+
+@foreach (var alert in Model.Alerts)
+{
+    <div class="@Ui.AlertClass(alert.Type) mb-5">@Html.Raw(alert.Content)</div>
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    @* ------------------------------------------------------------------ gallery *@
+    <section class="card p-4 lg:col-span-5">
+        <img id="productMainImage" class="mx-auto h-80 w-full object-contain md:h-96" src="@Ui.ProductImage(product.ImageName)" alt="@product.ImageAlt" />
+        @if (product.Images.Count > 1)
+        {
+            <div class="mt-4 grid grid-cols-5 gap-2">
+                @foreach (var image in product.Images)
+                {
+                    <button type="button" class="rounded-xl border p-1 hover:border-sky-400"
+                            onclick="document.getElementById('productMainImage').src=this.querySelector('img').src">
+                        <img class="h-16 w-full object-contain" src="@Ui.ProductImage(image.ImageName)" alt="@image.AltText" loading="lazy" />
+                    </button>
+                }
+            </div>
+        }
+    </section>
+
+    @* ------------------------------------------------------------------- summary *@
+    <section class="card p-5 lg:col-span-4">
+        <h1 class="mb-3 text-lg font-bold leading-8 text-zinc-800 md:text-xl">@product.Name</h1>
+
+        <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-500">
+            @if (product.RatingCount > 0)
+            {
+                <partial name="_Stars" model="(product.RatingValue, product.RatingCount, true)" />
+            }
+            else
+            {
+                <span>اولین دیدگاه را شما ثبت کنید</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(product.SKU))
+            {
+                <span>کد کالا: @PriceHelper.ToPersianDigits(product.SKU)</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(product.ShortDescription))
+        {
+            <p class="mb-4 text-sm leading-7 text-zinc-600">@product.ShortDescription</p>
+        }
+
+        <ul class="mb-5 flex flex-col gap-y-2 text-xs text-zinc-600">
+            @foreach (var feature in product.Features.Where(item => item.ValueType != Core.DTOs.Products.Query.FeatureValueType.Text).Take(6))
+            {
+                <li class="flex items-center gap-x-2">
+                    <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>
+                    <span class="text-zinc-400">@feature.Key:</span>
+                    <span>@feature.Value</span>
+                </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(product.WarrantyTitle))
+            {
+                <li class="flex items-center gap-x-2">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    <span>@product.WarrantyTitle @(product.WarrantyMonths > 0 ? $"({Ui.Number(product.WarrantyMonths)} ماه)" : null)</span>
+                </li>
+            }
+        </ul>
+    </section>
+
+    @* --------------------------------------------------------------- buy panel *@
+    <section class="lg:col-span-3">
+        <div class="card sticky top-40 p-5">
+            <div class="mb-4 border-b border-zinc-100 pb-4">
+                <span class="mb-1 flex items-center gap-x-1 text-xs text-zinc-500">
+                    <span class="text-zinc-400">قیمت نهایی</span>
+                </span>
+                @if (showPrices)
+                {
+                    if (product.HasDiscount)
+                    {
+                        <div class="mb-1 flex items-center gap-x-2">
+                            <span class="text-xs text-zinc-400 line-through">@product.Price.ToToman()</span>
+                            <span class="rounded-lg bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">@Ui.Number(product.DiscountPercent)%</span>
+                        </div>
+                        @if (product.DiscountEndAt is { } endAt)
+                        {
+                            <span class="block text-[11px] text-rose-500">تخفیف تا @endAt.ToPersianDate()</span>
+                        }
+                    }
+                    <span class="text-xl font-bold text-zinc-800">@product.FinalPrice.ToToman()</span>
+                }
+                else
+                {
+                    <a class="text-sm font-bold text-sky-600" href="/auth/login">برای مشاهده قیمت وارد شوید</a>
+                }
+            </div>
+
+            @if (product.StockQuantity > 0)
+            {
+                <p class="mb-4 flex items-center gap-x-2 text-xs text-emerald-600">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    موجود در انبار (@Ui.Number(product.StockQuantity) عدد)
+                </p>
+
+                <form method="post" asp-page="/Cart" asp-page-handler="Add" class="flex flex-col gap-y-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="productId" value="@product.Id" />
+                    <div class="flex items-center justify-between rounded-xl border p-2">
+                        <button type="button" class="btn-icon" data-action="increment" data-target="#quantity" aria-label="افزایش">+</button>
+                        <input id="quantity" name="quantity" value="1" class="w-14 border-0 bg-transparent text-center text-sm outline-none" inputmode="numeric" />
+                        <button type="button" class="btn-icon" data-action="decrement" data-target="#quantity" aria-label="کاهش">−</button>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">افزودن به سبد خرید</button>
+                </form>
+            }
+            else
+            {
+                <p class="mb-4 flex items-center gap-x-2 text-xs text-rose-500">
+                    <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                    این کالا فعلاً ناموجود است
+                </p>
+                <button type="button" class="btn-secondary w-full" disabled>اطلاع از موجودی</button>
+            }
+
+            <button type="button" class="btn-ghost mt-3 w-full @(Model.IsFavorite ? "text-rose-500" : null)" data-favorite="@product.Id">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"></path></svg>
+                افزودن به علاقه‌مندی‌ها
+            </button>
+
+            <ul class="mt-5 flex flex-col gap-y-2 border-t border-zinc-100 pt-4 text-[11px] text-zinc-500">
+                <li class="flex items-center gap-x-2">
+                    <span class="text-sky-500">✔</span> ارسال به سراسر کشور
+                </li>
+                <li class="flex items-center gap-x-2">
+                    <span class="text-sky-500">✔</span> پرداخت امن و کارت به کارت
+                </li>
+                <li class="flex items-center gap-x-2">
+                    <span class="text-sky-500">✔</span> پشتیبانی @Model.Site.WorkingHours
+                </li>
+            </ul>
+        </div>
+    </section>
+</div>
+
+@* ---------------------------------------------------------------- description *@
+<section class="card mt-6 p-5 md:p-7">
+    <h2 class="section-title">مشخصات و توضیحات</h2>
+
+    @if (product.SpecificationTable.Count > 0)
+    {
+        <div class="mb-6 overflow-x-auto">
+            <table class="table-admin w-full">
+                <tbody>
+                    @foreach (var row in product.SpecificationTable)
+                    {
+                        <tr>
+                            <th class="w-1/4 bg-zinc-50 text-right text-xs font-semibold text-zinc-500">@row.Key</th>
+                            <td class="text-xs text-zinc-700">@row.Value</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <article class="prose prose-sm max-w-none text-sm leading-8 text-zinc-700">
+        @Html.Raw(product.Description)
+    </article>
+</section>
+
+@* ------------------------------------------------------------------- reviews *@
+<section id="reviews" class="card mt-6 p-5 md:p-7">
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="section-title mb-0">دیدگاه کاربران</h2>
+        <span class="text-xs text-zinc-500">@Ui.Number(Model.Reviews.Count) دیدگاه ثبت شده</span>
+    </div>
+
+    @if (Model.Reviews.Count == 0)
+    {
+        <div class="empty-state">
+            <p class="font-semibold text-zinc-700">هنوز دیدگاهی ثبت نشده است</p>
+            <p class="text-xs text-zinc-500">با ثبت دیدگاه خود، دیگران را در انتخاب بهتر یاری کنید.</p>
+        </div>
+    }
+    else
+    {
+        <div class="mb-6 flex flex-col divide-y divide-zinc-100">
+            @foreach (var review in Model.Reviews)
+            {
+                <div class="py-4">
+                    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-x-3">
+                            <span class="grid h-9 w-9 place-items-center rounded-full bg-sky-50 text-sm font-bold text-sky-600">@(review.AuthorName.FirstOrDefault())</span>
+                            <div>
+                                <p class="text-xs font-semibold text-zinc-700">@review.AuthorName</p>
+                                <span class="text-[11px] text-zinc-400">@review.CreatedAt.ToPersianDate()</span>
+                            </div>
+                        </div>
+                        @if (review.Rating.HasValue)
+                        {
+                            <partial name="_Stars" model="((double)review.Rating.Value, 0, false)" />
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(review.Title))
+                    {
+                        <p class="mb-1 text-sm font-semibold text-zinc-800">@review.Title</p>
+                    }
+                    <p class="text-xs leading-7 text-zinc-600">@review.Content</p>
+
+                    @foreach (var reply in review.Replies)
+                    {
+                        <div class="mt-3 rounded-xl bg-zinc-50 p-3 text-xs leading-7 text-zinc-600">
+                            <span class="mb-1 block font-semibold text-zinc-700">پاسخ پشتیبانی</span>
+                            @reply.Content
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <h3 class="mb-4 text-sm font-bold text-zinc-800">ثبت دیدگاه جدید</h3>
+    <form method="post" asp-page-handler="Review" asp-route-slug="@product.Slug" class="grid gap-4 md:grid-cols-2">
+        <div asp-validation-summary="ModelOnly" class="md:col-span-2"></div>
+        <div>
+            <label class="form-label" asp-for="Review.AuthorName">نام و نام خانوادگی</label>
+            <input class="form-input" asp-for="Review.AuthorName" />
+            <span class="form-error" asp-validation-for="Review.AuthorName"></span>
+        </div>
+        <div>
+            <label class="form-label" asp-for="Review.AuthorPhone">شماره موبایل</label>
+            <input class="form-input" asp-for="Review.AuthorPhone" inputmode="numeric" />
+            <span class="form-error" asp-validation-for="Review.AuthorPhone"></span>
+        </div>
+        <div class="md:col-span-2">
+            <label class="form-label" asp-for="Review.Title">عنوان دیدگاه (اختیاری)</label>
+            <input class="form-input" asp-for="Review.Title" />
+        </div>
+        <div class="md:col-span-2">
+            <label class="form-label" asp-for="Review.Content">متن دیدگاه</label>
+            <textarea class="form-input" asp-for="Review.Content" rows="4"></textarea>
+            <span class="form-error" asp-validation-for="Review.Content"></span>
+        </div>
+        <div>
+            <label class="form-label" asp-for="Review.Rating">امتیاز شما</label>
+            <select class="form-input" asp-for="Review.Rating">
+                @for (var rate = 5; rate >= 1; rate--)
+                {
+                    <option value="@rate">@Ui.Number(rate) ستاره</option>
+                }
+            </select>
+        </div>
+        <div class="flex items-end gap-3">
+            <button type="submit" class="btn-primary px-8">ثبت دیدگاه</button>
+            <span class="text-[11px] text-zinc-400">دیدگاه شما پس از تأیید کارشناسان نمایش داده می‌شود.</span>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <script type="application/ld+json">@Html.Raw(SeoJsonLd.Breadcrumb(Model.Site.SiteUrl, Model.Site.SiteName, product.Breadcrumbs.Select(item => (item.Title, item.Url))))</script>
+}

@@ -1,52 +1,31 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@{
+    var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? new LayoutViewModel();
+    var seo = ViewData[ViewDataKeys.Seo] as SeoRenderModel ?? new SeoRenderModel();
+}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="scroll-smooth">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Fratak_Shop.Web</title>
-    <script type="importmap"></script>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/Fratak_Shop.Web.styles.css" asp-append-version="true" />
+    <partial name="_Head" model="seo" />
+    @await RenderSectionAsync("Head", required: false)
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">Fratak_Shop.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
+<body class="mx-auto min-h-screen bg-[#fcfcfc] pb-16 pt-28 md:pb-0 md:pt-36">
+    <partial name="_Header" model="layout" />
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - Fratak_Shop.Web - <a asp-area="" asp-page="/Privacy">Privacy</a>
-        </div>
-    </footer>
+    <main class="container mx-auto px-3 pt-5 md:px-5">
+        <partial name="_Alerts" />
+        @RenderBody()
+    </main>
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <partial name="_Footer" model="layout" />
+    <partial name="_MobileNav" model="layout" />
+    <partial name="_CartDrawer" model="layout" />
 
+    <div id="toast-host" class="pointer-events-none fixed bottom-24 left-1/2 z-[60] flex w-11/12 max-w-sm -translate-x-1/2 flex-col gap-y-2 md:bottom-8"></div>
+
+    <script src="~/assets/js/main.js"></script>
+    <script src="~/assets/js/dependencies/swiper.min.js"></script>
+    <script src="~/assets/js/sliders.js"></script>
+    <script src="~/assets/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

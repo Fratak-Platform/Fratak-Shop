@@ -1,0 +1,144 @@
+﻿@page "/admin/products"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.IndexModel
+@{
+    string QueryUrl(object overrides)
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Context.Request.QueryString.Value ?? string.Empty)
+            .ToDictionary(item => item.Key, item => item.Value.ToString());
+        foreach (var property in overrides.GetType().GetProperties())
+        {
+            var value = property.GetValue(overrides)?.ToString();
+            if (string.IsNullOrWhiteSpace(value) || value == "False")
+                query.Remove(property.Name);
+            else
+                query[property.Name] = value;
+        }
+        query.Remove("page");
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/admin/products", query);
+    }
+}
+
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap gap-2">
+        @if (Model.IsSuperAdmin || Model.HasRole(UserRole.Admin) || Model.HasRole(UserRole.ProductManager))
+        {
+            <a class="btn-primary px-5 text-xs" href="/admin/products/edit">افزودن محصول</a>
+        }
+        <a class="btn-secondary px-5 text-xs" href="/admin/categories">دسته‌بندی‌ها</a>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a class="chip @(Model.Status is null ? "chip-active" : null)" href="@QueryUrl(new { status = (string?)null })">همه</a>
+        <a class="chip @(Model.Status == "active" ? "chip-active" : null)" href="@QueryUrl(new { status = "active" })">فعال</a>
+        <a class="chip @(Model.Status == "inactive" ? "chip-active" : null)" href="@QueryUrl(new { status = "inactive" })">غیرفعال</a>
+        <a class="chip @(Model.LowStock ? "chip-active" : null)" href="@QueryUrl(new { lowStock = true })">کم‌موجود</a>
+        <a class="chip @(Model.MissingSeo ? "chip-active" : null)" href="@QueryUrl(new { missingSeo = true })">بدون سئو</a>
+    </div>
+</div>
+
+<div class="card mb-5 p-4">
+    <form method="get" action="/admin/products" class="grid gap-3 md:grid-cols-4">
+        <div class="md:col-span-2">
+            <label class="form-label" for="q">جستجو</label>
+            <input class="form-input" id="q" name="q" value="@Model.Search" placeholder="نام کالا یا کد SKU" />
+        </div>
+        <div>
+            <label class="form-label" for="categoryId">دسته‌بندی</label>
+            <select class="form-input" id="categoryId" name="categoryId">
+                <option value="">همه دسته‌ها</option>
+                @foreach (var category in Model.Categories)
+                {
+                    <option value="@category.Id" selected="@(Model.CategoryId == category.Id)">@category.Path</option>
+                }
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full">اعمال فیلتر</button>
+        </div>
+    </form>
+</div>
+
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="table-admin w-full">
+            <thead>
+                <tr>
+                    <th>کالا</th>
+                    <th>دسته‌بندی</th>
+                    <th>قیمت</th>
+                    <th>موجودی</th>
+                    <th>سئو</th>
+                    <th>وضعیت</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Result.Data.Count == 0)
+                {
+                    <tr><td colspan="7" class="py-8 text-center text-xs text-zinc-400">محصولی با این شرایط یافت نشد.</td></tr>
+                }
+                @foreach (var product in Model.Result.Data)
+                {
+                    <tr>
+                        <td>
+                            <div class="flex items-center gap-x-3">
+                                <img class="h-10 w-10 rounded-lg border object-contain p-0.5" src="@Ui.ProductImage(product.ImageName)" alt="@product.Name" />
+                                <div>
+                                    <a class="text-xs font-semibold text-zinc-700 hover:text-sky-600" href="/product/@product.Slug" target="_blank">@product.Name</a>
+                                    <span class="block text-[10px] text-zinc-400 fa-num">@PriceHelper.ToEnglishDigits(product.SKU)</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-xs text-zinc-500">@product.CategoryName</td>
+                        <td class="text-xs text-zinc-700">
+                            @product.FinalPrice.ToToman()
+                            @if (product.HasDiscount)
+                            {
+                                <span class="badge badge-red mr-1">@Ui.Number(product.DiscountPercent)%</span>
+                            }
+                        </td>
+                        <td>
+                            <form method="post" asp-page-handler="Stock" class="flex items-center gap-x-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@product.Id" />
+                                <input class="form-input w-16 px-2 py-1 text-center text-xs" name="stockQuantity" value="@product.StockQuantity" inputmode="numeric" />
+                                <button type="submit" class="btn-icon h-7 w-7" title="ذخیره موجودی">↺</button>
+                            </form>
+                        </td>
+                        <td>
+                            <span class="badge @(product.IsFeatured ? "badge-green" : "badge-gray")">@(product.IsFeatured ? "ویژه" : "عادی")</span>
+                        </td>
+                        <td>
+                            <form method="post" asp-page-handler="ToggleActive" asp-route-id="@product.Id">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="badge @(product.IsActive ? "badge-green" : "badge-red")">
+                                    @(product.IsActive ? "فعال" : "غیرفعال")
+                                </button>
+                            </form>
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-x-1">
+                                <a class="btn-icon h-7 w-7" href="/admin/products/edit/@product.Id" title="ویرایش">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 256 256"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63Z"></path></svg>
+                                </a>
+                                <form method="post" asp-page-handler="ToggleFeatured" asp-route-id="@product.Id">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn-icon h-7 w-7" title="ویژه کردن">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 256 256"><path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Z"></path></svg>
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@product.Id" data-confirm="این محصول حذف شود؟">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn-icon h-7 w-7 text-rose-500" title="حذف">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16Z"></path></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<partial name="_Pagination" model="Model.Result" />

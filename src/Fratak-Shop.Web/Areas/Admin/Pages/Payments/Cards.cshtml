@@ -1,0 +1,106 @@
+﻿@page "/admin/payments/cards"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Payments.CardsModel
+@{
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="flex flex-col gap-6 lg:col-span-7">
+        <div class="card overflow-hidden">
+            <h2 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">کارت‌های بانکی فروشگاه</h2>
+            <div class="divide-y divide-zinc-100">
+                @if (Model.Cards.Count == 0)
+                {
+                    <p class="px-5 py-6 text-xs text-zinc-400">هنوز کارتی ثبت نشده است. مشتریان برای پرداخت کارت به کارت به این شماره‌ها واریز می‌کنند.</p>
+                }
+                @foreach (var card in Model.Cards)
+                {
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                        <div class="text-xs text-zinc-600">
+                            <p class="mb-1 text-sm font-semibold text-zinc-800">@card.BankName @(card.IsDefault ? "(پیش‌فرض)" : null)</p>
+                            <p class="fa-num">@PriceHelper.ToEnglishDigits(card.CardNumber)</p>
+                            <p>به نام @card.AccountHolder</p>
+                            @if (!string.IsNullOrWhiteSpace(card.ShebaNumber))
+                            {
+                                <p class="fa-num">شبا: @PriceHelper.ToEnglishDigits(card.ShebaNumber)</p>
+                            }
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="badge @(card.IsActive ? "badge-green" : "badge-red")">@(card.IsActive ? "فعال" : "غیرفعال")</span>
+                            <form method="post" asp-page-handler="Toggle" asp-route-id="@card.Id">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn-icon h-8 w-8" title="فعال/غیرفعال">⇄</button>
+                            </form>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@card.Id" data-confirm="این کارت حذف شود؟">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn-icon h-8 w-8 text-rose-500" title="حذف">🗑</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card p-5">
+            <h2 class="section-title">راهنمای کارت به کارت</h2>
+            <form method="post" asp-page-handler="Instructions" class="flex flex-col gap-4">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="form-label" for="InstructionsText">متن راهنما برای مشتری</label>
+                    <textarea class="form-input" id="InstructionsText" name="InstructionsText" rows="4">@Model.InstructionsText</textarea>
+                </div>
+                <div>
+                    <label class="form-label" for="DeadlineHours">مهلت ارسال فیش (ساعت)</label>
+                    <input class="form-input w-32 text-center" id="DeadlineHours" name="DeadlineHours" value="@Model.DeadlineHours" inputmode="numeric" />
+                </div>
+                <button type="submit" class="btn-primary w-fit px-8 text-xs">ذخیره راهنما</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">افزودن / ویرایش کارت</h2>
+            <form method="post" asp-page-handler="Save" class="flex flex-col gap-4">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="form-label" asp-for="Input.BankName">نام بانک</label>
+                    <input class="form-input" asp-for="Input.BankName" />
+                    <span class="form-error" asp-validation-for="Input.BankName"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.CardNumber">شماره کارت</label>
+                    <input class="form-input text-left" asp-for="Input.CardNumber" dir="ltr" inputmode="numeric" maxlength="16" />
+                    <span class="form-error" asp-validation-for="Input.CardNumber"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.AccountHolder">نام صاحب حساب</label>
+                    <input class="form-input" asp-for="Input.AccountHolder" />
+                    <span class="form-error" asp-validation-for="Input.AccountHolder"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.ShebaNumber">شماره شبا (اختیاری)</label>
+                    <input class="form-input text-left" asp-for="Input.ShebaNumber" dir="ltr" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.BranchName">نام شعبه (اختیاری)</label>
+                    <input class="form-input" asp-for="Input.BranchName" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.DisplayOrder">ترتیب نمایش</label>
+                    <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                </div>
+                <div class="flex flex-wrap items-center gap-5 text-xs text-zinc-600">
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                        فعال
+                    </label>
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsDefault" />
+                        کارت پیش‌فرض
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره کارت</button>
+            </form>
+        </div>
+    </div>
+</div>

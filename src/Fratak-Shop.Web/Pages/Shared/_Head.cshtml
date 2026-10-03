@@ -1,0 +1,120 @@
+﻿@model Fratak_Shop.Core.DTOs.Seo.Query.SeoRenderModel
+@{
+    var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? new LayoutViewModel();
+    var site = layout.Site;
+    var title = ViewData["Title"] as string;
+    if (!string.IsNullOrWhiteSpace(title))
+        Model.Title = $"{title} | {site.SiteName}";
+}
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var antiforgeryToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+}
+<meta charset="UTF-8" />
+<meta name="csrf-token" content="@antiforgeryToken" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>@Model.EffectiveTitle</title>
+
+@* ---------------------------------------------------------------- basic SEO *@
+@if (!string.IsNullOrWhiteSpace(Model.MetaDescription))
+{
+    <meta name="description" content="@Model.MetaDescription" />
+}
+@if (!string.IsNullOrWhiteSpace(Model.MetaKeywords))
+{
+    <meta name="keywords" content="@Model.MetaKeywords" />
+}
+@if (!string.IsNullOrWhiteSpace(Model.CanonicalUrl))
+{
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+}
+<meta name="robots" content="@Model.Robots" />
+<meta name="language" content="@Model.Language" />
+@if (!string.IsNullOrWhiteSpace(Model.AuthorName))
+{
+    <meta name="author" content="@Model.AuthorName" />
+}
+@if (!string.IsNullOrWhiteSpace(Model.PublisherName))
+{
+    <meta name="publisher" content="@Model.PublisherName" />
+}
+@if (Model.PrevPageUrl is not null)
+{
+    <link rel="prev" href="@Model.PrevPageUrl" />
+}
+@if (Model.NextPageUrl is not null)
+{
+    <link rel="next" href="@Model.NextPageUrl" />
+}
+@if (!string.IsNullOrWhiteSpace(site.GoogleSiteVerification))
+{
+    <meta name="google-site-verification" content="@site.GoogleSiteVerification" />
+}
+
+@* ------------------------------------------------------------ open graph *@
+<meta property="og:type" content="@(Model.OgType ?? "website")" />
+<meta property="og:title" content="@Model.OgTitle" />
+@if (!string.IsNullOrWhiteSpace(Model.OgDescription))
+{
+    <meta property="og:description" content="@Model.OgDescription" />
+}
+<meta property="og:url" content="@Model.OgUrl" />
+<meta property="og:site_name" content="@(Model.OgSiteName ?? site.SiteName)" />
+<meta property="og:locale" content="@(Model.OgLocale ?? "fa_IR")" />
+@if (!string.IsNullOrWhiteSpace(Model.EffectiveImageUrl))
+{
+    <meta property="og:image" content="@Model.EffectiveImageUrl" />
+    <meta property="og:image:alt" content="@Model.OgImageAlt" />
+    @if (Model.OgImageWidth is > 0)
+    {
+        <meta property="og:image:width" content="@Model.OgImageWidth" />
+    }
+    @if (Model.OgImageHeight is > 0)
+    {
+        <meta property="og:image:height" content="@Model.OgImageHeight" />
+    }
+}
+
+@* ------------------------------------------------------------- x / twitter *@
+<meta name="twitter:card" content="@(Model.XCard ?? "summary_large_image")" />
+<meta name="twitter:title" content="@(Model.XTitle ?? Model.OgTitle)" />
+@if (!string.IsNullOrWhiteSpace(Model.XDescription ?? Model.MetaDescription))
+{
+    <meta name="twitter:description" content="@(Model.XDescription ?? Model.MetaDescription)" />
+}
+@if (!string.IsNullOrWhiteSpace(Model.XImageUrl ?? Model.EffectiveImageUrl))
+{
+    <meta name="twitter:image" content="@(Model.XImageUrl ?? Model.EffectiveImageUrl)" />
+}
+@if (!string.IsNullOrWhiteSpace(Model.XSite))
+{
+    <meta name="twitter:site" content="@Model.XSite" />
+}
+@if (!string.IsNullOrWhiteSpace(Model.XCreator))
+{
+    <meta name="twitter:creator" content="@Model.XCreator" />
+}
+
+@* --------------------------------------------------------- structured data *@
+@if (!string.IsNullOrWhiteSpace(Model.StructuredDataJsonLd))
+{
+    <script type="application/ld+json">@Html.Raw(Model.StructuredDataJsonLd)</script>
+}
+
+@* ------------------------------------------------------------------ assets *@
+<link rel="icon" href="@Ui.Favicon(site)" />
+<link rel="stylesheet" href="~/assets/css/font.css" />
+<link rel="stylesheet" href="~/assets/css/dependencies/swiper.min.css" />
+<link rel="stylesheet" href="~/assets/css/style.css" />
+<link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true" />
+
+@if (!string.IsNullOrWhiteSpace(site.PrimaryColor))
+{
+    <style>
+        :root {
+            --fratak-primary: @site.PrimaryColor;
+        }
+        .btn-primary, .bg-sky-500 { background-color: @site.PrimaryColor; }
+    </style>
+}

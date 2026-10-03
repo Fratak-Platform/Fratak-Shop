@@ -16,5 +16,6 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
 
         builder.HasIndex(c => c.UserId);
         builder.HasIndex(c => c.SessionKey);
+        builder.HasIndex(c => c.UpdatedAt);
     }
 }

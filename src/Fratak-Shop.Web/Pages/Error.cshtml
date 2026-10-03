@@ -1,25 +1,26 @@
 ﻿@page
 @model ErrorModel
 @{
-    ViewData["Title"] = "خطا";
+    ViewData["Title"] = "خطای غیرمنتظره";
 }
 
-<h1 class="text-danger">خطا.</h1>
-<h2 class="text-danger">در پردازش درخواست شما خطایی رخ داده است.</h2>
-
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>شناسه درخواست:</strong> <code>@Model.RequestId</code>
+<div class="mx-auto max-w-2xl py-10 text-center">
+    <img class="mx-auto mb-6 h-48" src="/assets/image/404.png" alt="خطای سرور" />
+    <p class="mb-2 text-5xl font-black text-sky-500">۵۰۰</p>
+    <h1 class="mb-3 text-lg font-bold text-zinc-800">خطای غیرمنتظره در سرور</h1>
+    <p class="mb-7 text-sm leading-7 text-zinc-500">
+        در پردازش درخواست شما خطایی رخ داده است؛ تیم فنی از این خطا باخبر شده است. لطفاً کمی بعد دوباره تلاش کنید.
     </p>
-}
 
-<h3>حالت توسعه</h3>
-<p>
-    فعال‌سازی <strong>Development</strong> (محیط توسعه) اطلاعات بیشتری دربارهٔ خطای رخ‌داده نمایش می‌دهد.
-</p>
-<p>
-    <strong>محیط توسعه نباید برای برنامه‌های منتشرشده فعال باشد.</strong>
-    این موضوع می‌تواند اطلاعات حساس را به کاربران نشان دهد.
-    برای دیباگ محلی، <strong>ASPNETCORE_ENVIRONMENT</strong> را روی <strong>Development</strong> تنظیم کنید و برنامه را مجدداً راه‌اندازی نمایید.
-</p>
+    @if (Model.ShowRequestId)
+    {
+        <p class="mb-7 text-[11px] text-zinc-400">
+            شناسه درخواست: <code dir="ltr" class="fa-num">@Model.RequestId</code>
+        </p>
+    }
+
+    <div class="flex flex-wrap items-center justify-center gap-3">
+        <a class="btn-primary px-8" href="/">بازگشت به صفحه اصلی</a>
+        <a class="btn-secondary px-8" href="/contact">تماس با پشتیبانی</a>
+    </div>
+</div>

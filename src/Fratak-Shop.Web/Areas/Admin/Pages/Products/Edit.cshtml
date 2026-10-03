@@ -1,0 +1,295 @@
+﻿@page "/admin/products/edit/{id:guid?}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.EditModel
+@{
+    var entityType = ((int)Data.Entities.Seo.SeoEntityType.Product).ToString();
+}
+
+<form method="post" enctype="multipart/form-data" class="flex flex-col gap-6">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    <div asp-validation-summary="ModelOnly" class="alert-danger"></div>
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-base font-bold text-zinc-800">@(Model.IsNew ? "افزودن محصول جدید" : "ویرایش محصول")</h2>
+            <p class="mt-1 text-xs text-zinc-500">اطلاعات کالا، تصویر، ویژگی‌ها و تنظیمات سئو.</p>
+            @if (!Model.CanEditCommerce)
+            {
+                <p class="mt-1 text-[11px] text-amber-600">دسترسی شما به این صفحه برای «سئو و محتوا» است؛ فیلدهای قیمت، موجودی و وضعیت نمایش فقط‌خواندنی هستند.</p>
+            }
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button type="submit" class="btn-primary px-6 text-xs">ذخیره محصول</button>
+            <a class="btn-secondary px-6 text-xs" href="/admin/products">بازگشت</a>
+        </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-12">
+        @* ------------------------------------------------------------ general *@
+        <div class="flex flex-col gap-6 lg:col-span-8">
+            <section class="card p-5">
+                <h3 class="section-title">اطلاعات اصلی</h3>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Input.Name">نام محصول <span class="text-rose-500">*</span></label>
+                        <input class="form-input" asp-for="Input.Name" />
+                        <span class="form-error" asp-validation-for="Input.Name"></span>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.SKU">کد کالا (SKU) <span class="text-rose-500">*</span></label>
+                        <input class="form-input text-left" asp-for="Input.SKU" dir="ltr" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                        <span class="form-error" asp-validation-for="Input.SKU"></span>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.CategoryId">دسته‌بندی <span class="text-rose-500">*</span></label>
+                        <select class="form-input" asp-for="Input.CategoryId">
+                            <option value="">انتخاب دسته‌بندی...</option>
+                            @foreach (var category in Model.Categories)
+                            {
+                                <option value="@category.Id">@category.Path</option>
+                            }
+                        </select>
+                        <span class="form-error" asp-validation-for="Input.CategoryId"></span>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Input.ShortDescription">توضیح کوتاه</label>
+                        <textarea class="form-input" asp-for="Input.ShortDescription" rows="2" data-content-short-description></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <label class="form-label mb-0" asp-for="Input.Description">توضیحات کامل</label>
+                            <button type="button" class="btn-secondary px-4 py-1.5 text-[11px]" data-smart-write data-entity-type="@entityType" data-entity-id="@Model.Id">
+                                ✨ هوشمندسازی نوشته‌ها
+                            </button>
+                        </div>
+                        <textarea class="form-input" asp-for="Input.Description" rows="7" data-content-description></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card p-5">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="section-title mb-0">ویژگی‌های کالا</h3>
+                    <button type="button" class="btn-secondary px-4 py-1.5 text-[11px]" onclick="addFeatureRow()">افزودن ویژگی</button>
+                </div>
+
+                <div id="features" class="flex flex-col gap-3">
+                    @for (var index = 0; index < Model.Input.Features.Count; index++)
+                    {
+                        <div class="grid gap-2 md:grid-cols-12">
+                            <input type="hidden" name="Input.Features[@index].ValueType" value="@((int)Model.Input.Features[index].ValueType)" />
+                            <input class="form-input md:col-span-4" name="Input.Features[@index].Key" value="@Model.Input.Features[index].Key" placeholder="عنوان (مثلاً رنگ)" />
+                            <input class="form-input md:col-span-6" name="Input.Features[@index].Value" value="@Model.Input.Features[index].Value" placeholder="مقدار (مثلاً مشکی)" />
+                            <button type="button" class="btn-icon md:col-span-2 text-rose-500" onclick="this.parentElement.remove()">حذف</button>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            @* ------------------------------------------------------- smart SEO panel *@
+            <section class="card p-5">
+                <div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4">
+                    <div>
+                        <h3 class="section-title mb-0">تنظیمات سئو</h3>
+                        <p class="mt-1 text-[11px] text-zinc-400">با «سئوی هوشمند» فیلدها پیشنهاد می‌شوند؛ تا زمانی که ذخیره نکنید چیزی تغییر نمی‌کند.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-zinc-500">امتیاز سئو:</span>
+                        <span class="badge badge-gray" data-seo-score>@(Model.Seo.Title is null ? "?" : "-")</span>
+                        <button type="button" class="btn-primary px-5 text-xs" data-smart-seo data-entity-type="@entityType" data-entity-id="@Model.Id">
+                            ✨ سئوی هوشمند
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.Title">عنوان سئو (Title)</label>
+                        <input class="form-input" asp-for="Seo.Title" data-seo-title />
+                        <div class="mt-1 flex items-center justify-between">
+                            <span class="form-error" asp-validation-for="Seo.Title"></span>
+                            <span class="text-zinc-400 text-[11px]" data-seo-title-count></span>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.MetaDescription">توضیحات متا</label>
+                        <textarea class="form-input" asp-for="Seo.MetaDescription" rows="3" data-seo-meta-description data-seo-description></textarea>
+                        <div class="mt-1 flex items-center justify-between">
+                            <span class="form-error" asp-validation-for="Seo.MetaDescription"></span>
+                            <span class="text-zinc-400 text-[11px]" data-seo-description-count></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.FocusKeyword">کلمه کلیدی اصلی</label>
+                        <input class="form-input" asp-for="Seo.FocusKeyword" data-seo-focus-keyword />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.MetaKeywords">کلمات کلیدی</label>
+                        <input class="form-input" asp-for="Seo.MetaKeywords" data-seo-meta-keywords />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.CanonicalUrl">آدرس کانونیکال</label>
+                        <input class="form-input text-left" asp-for="Seo.CanonicalUrl" dir="ltr" data-seo-canonical />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.BreadcrumbTitle">عنوان مسیر (Breadcrumb)</label>
+                        <input class="form-input" asp-for="Seo.BreadcrumbTitle" data-seo-breadcrumb />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.OgTitle">عنوان اشتراک‌گذاری (OG)</label>
+                        <input class="form-input" asp-for="Seo.OgTitle" data-seo-og-title />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.OgDescription">توضیح اشتراک‌گذاری (OG)</label>
+                        <input class="form-input" asp-for="Seo.OgDescription" data-seo-og-description />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.XTitle">عنوان X (توییتر)</label>
+                        <input class="form-input" asp-for="Seo.XTitle" data-seo-x-title />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.XDescription">توضیح X (توییتر)</label>
+                        <input class="form-input" asp-for="Seo.XDescription" data-seo-x-description />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.SchemaType">نوع اسکیمای محتوا</label>
+                        <select class="form-input" asp-for="Seo.SchemaType" data-seo-schema-type>
+                            <option value="">Product (پیش‌فرض)</option>
+                            <option value="Product">Product</option>
+                            <option value="ItemList">ItemList</option>
+                            <option value="Offer">Offer</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.ImageAlt">متن جایگزین تصویر (Image Alt)</label>
+                        <input class="form-input" asp-for="Seo.ImageAlt" data-seo-image-alt />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.StructuredDataJsonLd">داده ساخت‌یافته (JSON-LD)</label>
+                        <textarea class="form-input text-left" asp-for="Seo.StructuredDataJsonLd" dir="ltr" rows="4" data-seo-structured-data></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="form-label" asp-for="Seo.Notes">یادداشت کارشناس سئو</label>
+                        <textarea class="form-input" asp-for="Seo.Notes" rows="2"></textarea>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-5 md:col-span-2">
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Seo.NoIndex" />
+                            noindex (عدم ایندکس)
+                        </label>
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Seo.NoFollow" />
+                            nofollow
+                        </label>
+                        <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                            <input type="checkbox" class="form-checkbox" asp-for="Seo.IncludeInSitemap" />
+                            درج در نقشه سایت
+                        </label>
+                        <div class="flex items-center gap-x-2">
+                            <label class="form-label mb-0" asp-for="Seo.SitemapPriority">اولویت سایت‌مپ</label>
+                            <input class="form-input w-20 text-center" asp-for="Seo.SitemapPriority" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 border-t border-zinc-100 pt-4">
+                    <h4 class="mb-3 text-xs font-bold text-zinc-700">یافته‌های تحلیل</h4>
+                    <ul data-seo-findings class="flex flex-col text-xs">
+                        <li class="text-zinc-400">برای دیدن تحلیل، دکمه «سئوی هوشمند» را بزنید.</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        @* -------------------------------------------------------------- sidebar *@
+        <div class="flex flex-col gap-6 lg:col-span-4">
+            <section class="card p-5">
+                <h3 class="section-title">تصویر محصول</h3>
+                <img id="primaryImagePreview" class="mb-3 h-40 w-full rounded-xl border object-contain p-2" src="@(string.IsNullOrWhiteSpace(Model.Input.ImageName) ? "/assets/image/products/1.webp" : $"/uploads/products/{Model.Input.ImageName}")" alt="پیش‌نمایش تصویر" />
+                <input class="form-input" asp-for="PrimaryImage" type="file" accept="image/*" data-preview="#primaryImagePreview" />
+                <input type="hidden" asp-for="Input.ImageName" />
+                <p class="mt-2 text-[11px] text-zinc-400">فرمت JPG/PNG/WebP — پیشنهاد: ۸۰۰×۸۰۰ پیکسل.</p>
+            </section>
+
+            <section class="card p-5">
+                <h3 class="section-title">قیمت و موجودی</h3>
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <label class="form-label" asp-for="Input.Price">قیمت (تومان) <span class="text-rose-500">*</span></label>
+                        <input class="form-input text-left" asp-for="Input.Price" dir="ltr" inputmode="numeric" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                        <span class="form-error" asp-validation-for="Input.Price"></span>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.DiscountPrice">قیمت با تخفیف (تومان)</label>
+                        <input class="form-input text-left" asp-for="Input.DiscountPrice" dir="ltr" inputmode="numeric" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label" asp-for="Input.DiscountStartAt">شروع تخفیف</label>
+                            <input class="form-input text-left" asp-for="Input.DiscountStartAt" type="datetime-local" dir="ltr" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                        </div>
+                        <div>
+                            <label class="form-label" asp-for="Input.DiscountEndAt">پایان تخفیف</label>
+                            <input class="form-input text-left" asp-for="Input.DiscountEndAt" type="datetime-local" dir="ltr" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.StockQuantity">موجودی انبار</label>
+                        <input class="form-input text-center" asp-for="Input.StockQuantity" inputmode="numeric" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label" asp-for="Input.WarrantyTitle">عنوان گارانتی</label>
+                            <input class="form-input" asp-for="Input.WarrantyTitle" />
+                        </div>
+                        <div>
+                            <label class="form-label" asp-for="Input.WarrantyMonths">مدت (ماه)</label>
+                            <input class="form-input text-center" asp-for="Input.WarrantyMonths" inputmode="numeric" />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card p-5">
+                <h3 class="section-title">انتشار</h3>
+                <div class="flex flex-col gap-3 text-xs text-zinc-600">
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                        محصول فعال و قابل مشاهده در فروشگاه
+                    </label>
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsFeatured" disabled="@(Model.CanEditCommerce ? null : "disabled")" />
+                        نمایش در بخش پیشنهاد ویژه
+                    </label>
+                    <div>
+                        <label class="form-label" asp-for="Input.PublishedAt">زمان انتشار</label>
+                        <input class="form-input text-left" asp-for="Input.PublishedAt" type="datetime-local" dir="ltr" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.Slug">نامک (Slug)</label>
+                        <input class="form-input text-left" asp-for="Input.Slug" dir="ltr" placeholder="خالی بگذارید تا خودکار ساخته شود" />
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        function addFeatureRow() {
+            const container = document.getElementById("features");
+            const index = container.children.length;
+            const row = document.createElement("div");
+            row.className = "grid gap-2 md:grid-cols-12";
+            row.innerHTML = `
+                <input type="hidden" name="Input.Features[${index}].ValueType" value="0" />
+                <input class="form-input md:col-span-4" name="Input.Features[${index}].Key" placeholder="عنوان (مثلاً رنگ)" />
+                <input class="form-input md:col-span-6" name="Input.Features[${index}].Value" placeholder="مقدار (مثلاً مشکی)" />
+                <button type="button" class="btn-icon md:col-span-2 text-rose-500" onclick="this.parentElement.remove()">حذف</button>`;
+            container.appendChild(row);
+        }
+    </script>
+}

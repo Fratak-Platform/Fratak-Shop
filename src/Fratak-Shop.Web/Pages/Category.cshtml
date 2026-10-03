@@ -1,0 +1,56 @@
+﻿@page "{slug}"
+@model Fratak_Shop.Web.Pages.CategoryModel
+@{
+    ViewData["Title"] = Model.Category.Name;
+    var sorts = new (ProductSortBy Value, string Title)[]
+    {
+        (ProductSortBy.Newest, "جدیدترین"),
+        (ProductSortBy.Cheapest, "ارزان‌ترین"),
+        (ProductSortBy.MostExpensive, "گران‌ترین"),
+        (ProductSortBy.BestSelling, "پرفروش‌ترین"),
+        (ProductSortBy.BestRated, "بهترین امتیاز"),
+    };
+}
+
+<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = \"فروشگاه\", Url = \"/products\" }, new() { Title = Model.Category.Name, Url = $\"/category/{Model.Category.Slug}\" } }" />
+
+<div class="card mb-6 flex flex-wrap items-center gap-5 p-5">
+    <img class="h-20 w-20 rounded-2xl object-cover" src="@Ui.CategoryImage(Model.Category.ImageName)" alt="@Model.Category.Name" />
+    <div class="flex-1">
+        <h1 class="text-base font-bold text-zinc-800">@Model.Category.Name</h1>
+        @if (!string.IsNullOrWhiteSpace(Model.Category.Description))
+        {
+            <p class="mt-1 text-xs leading-6 text-zinc-500">@Model.Category.Description</p>
+        }
+    </div>
+    <span class="text-xs text-zinc-400">@Ui.Number(Model.Result.EntityCount) کالا</span>
+</div>
+
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-xs text-zinc-500">مرتب‌سازی:</p>
+    <div class="flex flex-wrap gap-2">
+        @foreach (var sort in sorts)
+        {
+            <a class="chip @(Model.SortBy == sort.Value ? "chip-active" : null)" href="/category/@Model.Category.Slug?sortBy=@sort.Value">@sort.Title</a>
+        }
+    </div>
+</div>
+
+@if (Model.Result.Data.Count == 0)
+{
+    <div class="card empty-state py-16">
+        <p class="font-semibold text-zinc-700">در این دسته‌بندی کالایی موجود نیست</p>
+        <a class="btn-primary" href="/products">مشاهده همه محصولات</a>
+    </div>
+}
+else
+{
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-5">
+        @foreach (var product in Model.Result.Data)
+        {
+            <partial name="_ProductCard" model="product" />
+        }
+    </div>
+
+    <partial name="_Pagination" model="Model.Result" />
+}

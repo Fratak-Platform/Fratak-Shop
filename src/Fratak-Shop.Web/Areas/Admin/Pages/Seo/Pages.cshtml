@@ -1,0 +1,219 @@
+﻿@page "/admin/seo/pages"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.PagesModel
+@{
+    string PageTitle(SitePage page) => page switch
+    {
+        SitePage.Home => "صفحه اصلی",
+        SitePage.Products => "لیست محصولات",
+        SitePage.ProductDetails => "جزئیات محصول",
+        SitePage.Categories => "لیست دسته‌بندی‌ها",
+        SitePage.CategoryDetails => "صفحه دسته‌بندی",
+        SitePage.Blog => "مجله (لیست مقالات)",
+        SitePage.BlogPostDetails => "صفحه مقاله",
+        SitePage.Cart => "سبد خرید",
+        SitePage.Checkout => "تسویه حساب",
+        SitePage.OrderTracking => "پیگیری سفارش",
+        SitePage.Search => "جستجو",
+        SitePage.ContactUs => "تماس با ما",
+        SitePage.AboutUs => "درباره ما",
+        SitePage.Faq => "پرسش‌های متداول",
+        SitePage.Warranty => "گارانتی و خدمات",
+        SitePage.Terms => "قوانین و مقررات",
+        SitePage.Privacy => "حریم خصوصی",
+        SitePage.Login => "ورود",
+        SitePage.Register => "ثبت‌نام",
+        SitePage.UserProfile => "پروفایل کاربر",
+        SitePage.UserAddresses => "آدرس‌های کاربر",
+        SitePage.UserOrders => "سفارش‌های کاربر",
+        SitePage.UserFavorites => "علاقه‌مندی‌های کاربر",
+        SitePage.NotFound => "صفحه یافت نشد",
+        _ => page.ToString(),
+    };
+}
+
+@if (Model.Page is { } selected && selected != SitePage.None && Model.Current is not null)
+{
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-base font-bold text-zinc-800">@PageTitle(selected)</h2>
+            <p class="mt-1 text-xs text-zinc-500">سئوی این صفحه و متن محتوای آن را از همین‌جا مدیریت کنید.</p>
+        </div>
+        <a class="btn-secondary px-5 text-xs" href="/admin/seo/pages">بازگشت به فهرست صفحات</a>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-12">
+        <div class="card p-5 lg:col-span-7">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-4">
+                <div>
+                    <h3 class="section-title mb-0">سئوی صفحه</h3>
+                    <p class="mt-1 text-[11px] text-zinc-400">با «سئوی هوشمند» فیلدها پیشنهاد می‌شوند؛ تا ذخیره‌نکردن چیزی تغییر نمی‌کند.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-zinc-500">امتیاز سئو:</span>
+                    <span class="badge @(Model.Current.Score.HasValue ? Ui.SeoScoreBadgeClass(Model.Current.Score.Value) : "badge-gray")" data-seo-score>@(Model.Current.Score?.ToString() ?? "?")</span>
+                    <button type="button" class="btn-primary px-5 text-xs" data-smart-seo
+                            data-entity-type="@((int)SeoEntityType.Page)"
+                            data-endpoint="@Url.Page("/Seo/Pages", "SmartSeo", new { area = "Admin", page = selected })">
+                        ✨ سئوی هوشمند صفحه
+                    </button>
+                </div>
+            </div>
+            <form method="post" asp-page-handler="Seo" asp-route-page="@selected" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="form-label" asp-for="Seo.Title">عنوان سئو</label>
+                    <input class="form-input" asp-for="Seo.Title" data-seo-title />
+                    <span class="text-zinc-400 text-[11px]" data-seo-title-count></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Seo.MetaDescription">توضیحات متا</label>
+                    <textarea class="form-input" asp-for="Seo.MetaDescription" rows="3" data-seo-description></textarea>
+                    <span class="text-zinc-400 text-[11px]" data-seo-description-count></span>
+                </div>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="form-label" asp-for="Seo.FocusKeyword">کلمه کلیدی اصلی</label>
+                        <input class="form-input" asp-for="Seo.FocusKeyword" data-seo-focus-keyword />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.MetaKeywords">کلمات کلیدی</label>
+                        <input class="form-input" asp-for="Seo.MetaKeywords" data-seo-meta-keywords />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.CanonicalUrl">کانونیکال</label>
+                        <input class="form-input text-left" dir="ltr" asp-for="Seo.CanonicalUrl" data-seo-canonical />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.BreadcrumbTitle">عنوان مسیر</label>
+                        <input class="form-input" asp-for="Seo.BreadcrumbTitle" data-seo-breadcrumb />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.OgTitle">عنوان OG</label>
+                        <input class="form-input" asp-for="Seo.OgTitle" data-seo-og-title />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.OgDescription">توضیح OG</label>
+                        <input class="form-input" asp-for="Seo.OgDescription" data-seo-og-description />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.XTitle">عنوان X (توییتر)</label>
+                        <input class="form-input" asp-for="Seo.XTitle" data-seo-x-title />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.XDescription">توضیح X (توییتر)</label>
+                        <input class="form-input" asp-for="Seo.XDescription" data-seo-x-description />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Seo.SchemaType">نوع اسکیما</label>
+                        <select class="form-input" asp-for="Seo.SchemaType" data-seo-schema-type>
+                            <option value="">پیش‌فرض (WebPage)</option>
+                            <option value="WebPage">WebPage</option>
+                            <option value="AboutPage">AboutPage</option>
+                            <option value="ContactPage">ContactPage</option>
+                            <option value="FAQPage">FAQPage</option>
+                            <option value="CollectionPage">CollectionPage</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Seo.StructuredDataJsonLd">داده ساخت‌یافته (JSON-LD)</label>
+                    <textarea class="form-input text-left" dir="ltr" rows="3" asp-for="Seo.StructuredDataJsonLd" data-seo-structured-data></textarea>
+                </div>
+                <div class="flex flex-wrap items-center gap-5 text-xs text-zinc-600">
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Seo.NoIndex" /> noindex
+                    </label>
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Seo.NoFollow" /> nofollow
+                    </label>
+                    <label class="flex items-center gap-x-2">
+                        <input type="checkbox" class="form-checkbox" asp-for="Seo.IncludeInSitemap" /> درج در سایت‌مپ
+                    </label>
+                    <div class="flex items-center gap-x-2">
+                        <label class="form-label mb-0" asp-for="Seo.SitemapPriority">اولویت</label>
+                        <input class="form-input w-20 text-center" asp-for="Seo.SitemapPriority" />
+                    </div>
+                </div>
+                <ul class="flex flex-col rounded-xl border border-zinc-100 p-2 text-xs" data-seo-findings>
+                    <li class="py-2 text-[11px] text-zinc-400">پس از اجرای «سئوی هوشمند»، یافته‌های تحلیل و پیشنهادها اینجا نمایش داده می‌شود.</li>
+                </ul>
+                <button type="submit" class="btn-primary w-fit px-8 text-xs">ذخیره سئوی صفحه</button>
+            </form>
+        </div>
+
+        <div class="card p-5 lg:col-span-5">
+            <h3 class="section-title">محتوای صفحه</h3>
+            @if (Model.CurrentContent is null)
+            {
+                <p class="text-xs text-zinc-400">این صفحه محتوای متنی قابل ویرایش ندارد.</p>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="Content" asp-route-page="@selected" class="flex flex-col gap-4">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Content.Id" />
+                    <div>
+                        <label class="form-label" asp-for="Content.Title">عنوان صفحه</label>
+                        <input class="form-input" asp-for="Content.Title" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Content.Summary">خلاصه</label>
+                        <textarea class="form-input" asp-for="Content.Summary" rows="2"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Content.Body">متن (HTML مجاز)</label>
+                        <textarea class="form-input" asp-for="Content.Body" rows="10"></textarea>
+                    </div>
+                    <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Content.IsPublished" />
+                        انتشار در سایت
+                    </label>
+                    <button type="submit" class="btn-primary w-fit px-8 text-xs">ذخیره محتوا</button>
+                </form>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="card overflow-hidden">
+        <div class="border-b border-zinc-100 px-5 py-4">
+            <h2 class="text-sm font-bold text-zinc-800">سئوی صفحات ثابت سایت</h2>
+            <p class="mt-1 text-[11px] text-zinc-400">برای هر صفحه عنوان، توضیحات و تنظیمات ایندکس را جداگانه تعیین کنید.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>صفحه</th>
+                        <th>عنوان سئو</th>
+                        <th>توضیحات متا</th>
+                        <th>وضعیت</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td class="text-xs font-semibold text-zinc-700">@PageTitle(item.Page)</td>
+                            <td class="text-xs text-zinc-600">@(string.IsNullOrWhiteSpace(item.Seo?.Title) ? "—" : item.Seo.Title)</td>
+                            <td class="text-xs text-zinc-500">@(string.IsNullOrWhiteSpace(item.Seo?.MetaDescription) ? "—" : item.Seo.MetaDescription)</td>
+                            <td>
+                                @if (item.Seo?.IsReviewed == true)
+                                {
+                                    <span class="badge badge-green">بررسی‌شده</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-amber">در انتظار بررسی</span>
+                                }
+                            </td>
+                            <td><a class="text-xs text-sky-600" href="/admin/seo/pages?page=@item.Page">ویرایش</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

@@ -1,0 +1,25 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Auth.LoginCodeModel
+@{
+    ViewData["Title"] = "ورود با کد یک‌بارمصرف";
+}
+
+<div class="mx-auto max-w-md">
+    <div class="card p-6 md:p-8">
+        <h1 class="mb-1 text-center text-lg font-bold text-zinc-800">ورود بدون رمز عبور</h1>
+        <p class="mb-6 text-center text-xs text-zinc-500">شماره موبایل خود را وارد کنید تا کد یک‌بارمصرف برایتان ارسال شود.</p>
+
+        <form method="post" class="flex flex-col gap-y-4">
+            <div asp-validation-summary="ModelOnly" class="form-error"></div>
+            <div>
+                <label class="form-label" asp-for="PhoneNumber">شماره موبایل</label>
+                <input class="form-input text-left" asp-for="PhoneNumber" dir="ltr" inputmode="numeric" placeholder="09xxxxxxxxx" autofocus />
+            </div>
+            <button type="submit" class="btn-primary w-full">ارسال کد ورود</button>
+        </form>
+
+        <p class="mt-5 text-center text-xs text-zinc-500">
+            <a class="text-sky-600 hover:text-sky-700" href="/auth/login">بازگشت به ورود با رمز عبور</a>
+        </p>
+    </div>
+</div>

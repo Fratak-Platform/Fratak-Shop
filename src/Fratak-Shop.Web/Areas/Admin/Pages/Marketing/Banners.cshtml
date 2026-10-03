@@ -1,0 +1,114 @@
+﻿@page "/admin/banners"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Marketing.BannersModel
+@{
+    string PositionTitle(BannerPosition position) => position switch
+    {
+        BannerPosition.HomeHero => "اسلایدر اصلی صفحه خانه",
+        BannerPosition.HomeTop => "بنر بالای صفحه خانه",
+        BannerPosition.HomeMiddle => "بنر وسط صفحه خانه",
+        BannerPosition.HomeBottom => "بنر پایین صفحه خانه",
+        BannerPosition.ShopSidebar => "کنار ستون فیلتر فروشگاه",
+        _ => position.ToString(),
+    };
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="flex flex-col gap-5 lg:col-span-7">
+        @if (Model.Items.Count == 0)
+        {
+            <div class="card empty-state py-12">
+                <p class="font-semibold text-zinc-700">بنری ثبت نشده است</p>
+                <p class="text-xs text-zinc-500">با افزودن بنر، اسلایدر صفحه اصلی و بنرهای فروشگاه را مدیریت کنید.</p>
+            </div>
+        }
+        @foreach (var item in Model.Items)
+        {
+            <div class="card flex flex-wrap items-center gap-4 p-4">
+                <img class="h-20 w-32 rounded-xl border object-cover" src="@Ui.BannerImage(item.ImageName)" alt="@item.ImageAlt" />
+                <div class="min-w-40 flex-1 text-xs">
+                    <p class="text-sm font-semibold text-zinc-800">@(item.Title ?? "بدون عنوان")</p>
+                    <p class="mt-1 text-zinc-500">@PositionTitle(item.Position)</p>
+                    @if (!string.IsNullOrWhiteSpace(item.LinkUrl))
+                    {
+                        <p class="mt-1 text-[11px] text-zinc-400" dir="ltr">@item.LinkUrl</p>
+                    }
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                    <span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span>
+                    <div class="flex items-center gap-x-2 text-xs">
+                        <a class="text-sky-600" href="/admin/banners?edit=@item.Id">ویرایش</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این بنر حذف شود؟">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="text-rose-500">حذف</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش بنر" : "افزودن بنر")</h2>
+            <form method="post" asp-page-handler="Save" enctype="multipart/form-data" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+                <input type="hidden" asp-for="Input.ImageName" />
+
+                <div>
+                    <label class="form-label" asp-for="Input.Title">عنوان</label>
+                    <input class="form-input" asp-for="Input.Title" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Subtitle">زیرعنوان</label>
+                    <input class="form-input" asp-for="Input.Subtitle" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Position">محل نمایش</label>
+                    <select class="form-input" asp-for="Input.Position">
+                        @foreach (var position in Enum.GetValues<BannerPosition>())
+                        {
+                            if (position == BannerPosition.None) { continue; }
+                            <option value="@position">@PositionTitle(position)</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Image">تصویر بنر</label>
+                    <input class="form-input" asp-for="Image" type="file" accept="image/*" />
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.ImageAlt">متن جایگزین تصویر (برای سئو)</label>
+                    <input class="form-input" asp-for="Input.ImageAlt" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.LinkUrl">لینک مقصد</label>
+                        <input class="form-input text-left" dir="ltr" asp-for="Input.LinkUrl" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.ButtonText">متن دکمه</label>
+                        <input class="form-input" asp-for="Input.ButtonText" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.StartAt">شروع نمایش</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.StartAt" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.EndAt">پایان نمایش</label>
+                        <input class="form-input text-left" type="datetime-local" dir="ltr" asp-for="Input.EndAt" />
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.DisplayOrder">ترتیب نمایش</label>
+                    <input class="form-input w-24 text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                </div>
+                <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                    فعال باشد
+                </label>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره بنر</button>
+            </form>
+        </div>
+    </div>
+</div>

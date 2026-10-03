@@ -1,0 +1,32 @@
+﻿@model CartDto
+@if (Model.IsEmpty)
+{
+    <div class="empty-state">
+        <img class="h-24" src="/assets/image/Cart.png" alt="سبد خرید خالی" />
+        <p class="font-semibold text-zinc-700">سبد خرید شما خالی است</p>
+        <a class="btn-primary" href="/products">مشاهده محصولات</a>
+    </div>
+}
+else
+{
+    <div class="flex flex-col divide-y divide-zinc-100" data-mini-total="@Model.PayableAmount.ToToman()">
+        @foreach (var item in Model.Items)
+        {
+            <div class="flex items-start gap-x-3 py-3">
+                <img class="h-16 w-16 shrink-0 rounded-xl border object-contain p-1" src="@Ui.ProductImage(item.Product.ImageName)" alt="@item.Product.Name" />
+                <div class="flex-1">
+                    <a class="line-clamp-2 text-xs font-semibold leading-5 text-zinc-800 hover:text-sky-600" href="/product/@item.Product.Slug">@item.Product.Name</a>
+                    <span class="mt-1 block text-[11px] text-zinc-400">@Ui.Number(item.Quantity) عدد</span>
+                    <span class="mt-1 block text-xs font-bold text-zinc-700">@item.TotalPrice.ToToman()</span>
+                </div>
+                <form method="post" asp-page="/Cart" asp-page-handler="Remove" class="ajax-cart">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="productId" value="@item.Product.Id" />
+                    <button type="submit" class="btn-icon text-rose-500" title="حذف">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"></path></svg>
+                    </button>
+                </form>
+            </div>
+        }
+    </div>
+}

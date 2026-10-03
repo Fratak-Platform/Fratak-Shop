@@ -1,0 +1,53 @@
+﻿@model ProductCardDto
+@{
+    var site = (ViewData[ViewDataKeys.Layout] as LayoutViewModel)?.Site ?? new StorefrontSettings();
+    var showPrices = site.ShowPricesToGuests || User.Identity?.IsAuthenticated == true;
+}
+<div class="card group relative flex flex-col overflow-hidden">
+    <a class="relative block overflow-hidden" href="/product/@Model.Slug">
+        <img class="h-48 w-full object-contain p-4 transition duration-500 group-hover:scale-105" src="@Ui.ProductImage(Model.ImageName)" alt="@(Model.ImageAlt ?? Model.Name)" loading="lazy" />
+        @if (Model.HasDiscount)
+        {
+            <span class="absolute right-3 top-3 rounded-lg bg-rose-500 px-2 py-1 text-[11px] font-bold text-white">@Ui.Number(Model.DiscountPercent)% تخفیف</span>
+        }
+        @if (Model.IsNew && !Model.HasDiscount)
+        {
+            <span class="absolute right-3 top-3 rounded-lg bg-sky-500 px-2 py-1 text-[11px] font-bold text-white">جدید</span>
+        }
+        @if (Model.StockQuantity <= 0)
+        {
+            <span class="absolute inset-0 grid place-items-center bg-white/70 text-sm font-semibold text-rose-500">ناموجود</span>
+        }
+    </a>
+    <div class="flex flex-1 flex-col p-4">
+        <a class="mb-2 line-clamp-2 min-h-12 text-sm font-semibold leading-6 text-zinc-800 hover:text-sky-600" href="/product/@Model.Slug">@Model.Name</a>
+        @if (!string.IsNullOrWhiteSpace(Model.CategoryName))
+        {
+            <span class="mb-2 text-[11px] text-zinc-400">@Model.CategoryName</span>
+        }
+        <div class="mt-auto flex items-end justify-between">
+            <div>
+                @if (showPrices)
+                {
+                    if (Model.HasDiscount)
+                    {
+                        <span class="block text-xs text-zinc-400 line-through">@Model.Price.ToToman()</span>
+                    }
+                    <span class="block text-sm font-bold text-zinc-800">@Model.FinalPrice.ToToman()</span>
+                }
+                else
+                {
+                    <a class="text-sm font-bold text-sky-600" href="/auth/login">برای مشاهده قیمت وارد شوید</a>
+                }
+            </div>
+            <form method="post" asp-page="/Cart" asp-page-handler="Add">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="productId" value="@Model.Id" />
+                <input type="hidden" name="quantity" value="1" />
+                <button type="submit" class="btn-icon hover:border-sky-400 hover:text-sky-600" title="افزودن به سبد خرید" @(Model.StockQuantity <= 0 ? "disabled" : null)>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M228,128a12,12,0,0,1-12,12H140v76a12,12,0,0,1-24,0V140H40a12,12,0,0,1,0-24h76V40a12,12,0,0,1,24,0v76h76A12,12,0,0,1,228,128Z"></path></svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,238 @@
+﻿@page "{id:guid}"
+@model Fratak_Shop.Web.Pages.Profile.OrderDetailModel
+@{
+    ViewData["Title"] = $"سفارش {Model.Order.OrderNumber}";
+    var order = Model.Order;
+    var transfer = Model.BankTransfer;
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <aside class="lg:col-span-3">
+        <partial name="_ProfileSidebar" />
+    </aside>
+
+    <section class="flex flex-col gap-6 lg:col-span-9">
+        @* ------------------------------------------------------------------ header *@
+        <div class="card p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h1 class="text-sm font-bold text-zinc-800">
+                        سفارش <span class="fa-num">@PriceHelper.ToEnglishDigits(order.OrderNumber)</span>
+                    </h1>
+                    <p class="mt-1 text-[11px] text-zinc-500">ثبت‌شده در @order.CreatedAt.ToPersianDateTime()</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="badge @Ui.OrderStatusClass(order.Status)">@Ui.OrderStatusTitle(order.Status)</span>
+                    <span class="badge @Ui.PaymentStatusClass(order.PaymentStatus)">@Ui.PaymentStatusTitle(order.PaymentStatus)</span>
+                    <a class="btn-ghost px-4 text-xs" href="/profile/orders">بازگشت به لیست</a>
+                </div>
+            </div>
+
+            @if (order.Status == Data.Entities.Orders.OrderStatus.Pending && order.PaymentMethod == Data.Entities.Orders.PaymentMethod.OnlineGateway)
+            {
+                <div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-sky-50 p-4">
+                    <span class="text-xs text-zinc-600">این سفارش در انتظار پرداخت است.</span>
+                    <form method="post" asp-page-handler="Pay" asp-route-id="@order.Id">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn-primary px-6 text-xs">پرداخت آنلاین (@order.PayableAmount.ToToman())</button>
+                    </form>
+                </div>
+            }
+        </div>
+
+        @* ----------------------------------------------------------- bank transfer *@
+        @if (order.PaymentMethod == Data.Entities.Orders.PaymentMethod.BankTransfer)
+        {
+            <div class="card p-5" id="bank-transfer">
+                <h2 class="section-title">پرداخت کارت به کارت</h2>
+
+                @if (transfer is not null)
+                {
+                    <div class="mb-4 flex flex-wrap items-center gap-3 text-xs">
+                        <span class="badge @Ui.BankTransferStatusClass(transfer.Status)">@transfer.StatusTitle</span>
+                        @if (transfer.SubmittedAt is { } submittedAt)
+                        {
+                            <span class="text-zinc-500">ثبت‌شده در @submittedAt.ToPersianDateTime()</span>
+                        }
+                        @if (transfer.ReviewedAt is { } reviewedAt)
+                        {
+                            <span class="text-zinc-500">بررسی‌شده در @reviewedAt.ToPersianDateTime()</span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(transfer.CardNumber))
+                    {
+                        <div class="mb-4 rounded-xl bg-zinc-50 p-4 text-xs leading-7 text-zinc-600">
+                            <p>مبلغ قابل واریز: <strong class="text-zinc-800">@transfer.Amount.ToToman()</strong></p>
+                            <p>کارت @transfer.BankName — به نام @order.CustomerName: <span class="fa-num font-bold text-zinc-800">@PriceHelper.ToEnglishDigits(transfer.CardNumber)</span></p>
+                        </div>
+                    }
+
+                    @if (transfer.ReceiptFiles.Count > 0)
+                    {
+                        <div class="mb-4 flex flex-wrap gap-2">
+                            @foreach (var file in transfer.ReceiptFiles)
+                            {
+                                <a href="@Ui.Upload("bank-transfers", file)" target="_blank" rel="noopener">
+                                    <img class="h-20 w-20 rounded-xl border object-cover" src="@Ui.Upload("bank-transfers", file)" alt="فیش واریزی" />
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(transfer.RejectReason))
+                    {
+                        <div class="alert-danger mb-4 text-xs">دلیل رد فیش: @transfer.RejectReason</div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(transfer.AdminNote))
+                    {
+                        <div class="alert-info mb-4 text-xs">یادداشت کارشناس: @transfer.AdminNote</div>
+                    }
+                }
+
+                @if (transfer is null || transfer.CanSubmit)
+                {
+                    <form method="post" asp-page-handler="SubmitTransfer" asp-route-id="@order.Id" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
+                        @Html.AntiForgeryToken()
+                        <div>
+                            <label class="form-label" for="PayerName">نام واریزکننده</label>
+                            <input class="form-input" id="PayerName" name="Transfer.PayerName" required />
+                        </div>
+                        <div>
+                            <label class="form-label" for="PayerCardNumber">شماره کارت واریزکننده</label>
+                            <input class="form-input text-left" id="PayerCardNumber" name="Transfer.PayerCardNumber" dir="ltr" inputmode="numeric" required />
+                        </div>
+                        <div>
+                            <label class="form-label" for="PayerBankName">بانک</label>
+                            <input class="form-input" id="PayerBankName" name="Transfer.PayerBankName" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="TrackingNumber">شماره پیگیری</label>
+                            <input class="form-input text-left" id="TrackingNumber" name="Transfer.TrackingNumber" dir="ltr" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="form-label" for="Receipts">تصویر فیش واریزی (حداکثر ۴ فایل)</label>
+                            <input class="form-input" id="Receipts" name="Transfer.Receipts" type="file" accept="image/*,application/pdf" multiple required />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="form-label" for="CustomerNote">توضیحات</label>
+                            <textarea class="form-input" id="CustomerNote" name="Transfer.CustomerNote" rows="2"></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="btn-primary px-8">ثبت اطلاعات واریز</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        }
+
+        @* ------------------------------------------------------------------- items *@
+        <div class="card overflow-hidden">
+            <h2 class="border-b border-zinc-100 px-5 py-4 text-sm font-bold text-zinc-800">کالاهای سفارش</h2>
+            <div class="divide-y divide-zinc-100">
+                @foreach (var item in order.Items)
+                {
+                    <div class="flex items-center gap-x-4 p-4">
+                        <img class="h-16 w-16 rounded-xl border object-contain p-1" src="@Ui.ProductImage(item.ImageName)" alt="@item.ProductName" />
+                        <div class="flex-1">
+                            @if (!string.IsNullOrWhiteSpace(item.Slug))
+                            {
+                                <a class="text-xs font-semibold text-zinc-800 hover:text-sky-600" href="/product/@item.Slug">@item.ProductName</a>
+                            }
+                            else
+                            {
+                                <span class="text-xs font-semibold text-zinc-800">@item.ProductName</span>
+                            }
+                            <span class="mt-1 block text-[11px] text-zinc-400">@Ui.Number(item.Quantity) عدد × @item.UnitPrice.ToToman()</span>
+                        </div>
+                        <span class="text-xs font-bold text-zinc-700">@item.TotalAmount.ToToman()</span>
+                    </div>
+                }
+            </div>
+
+            <div class="grid gap-4 border-t border-zinc-100 p-5 md:grid-cols-2">
+                <ul class="flex flex-col gap-y-2 text-xs text-zinc-600">
+                    <li class="flex justify-between"><span>جمع کالاها</span><span>@order.SubtotalAmount.ToToman()</span></li>
+                    @if (order.DiscountAmount > 0)
+                    {
+                        <li class="flex justify-between text-rose-500"><span>تخفیف</span><span>@order.DiscountAmount.ToToman()</span></li>
+                    }
+                    <li class="flex justify-between"><span>هزینه ارسال</span><span>@order.ShippingAmount.ToToman()</span></li>
+                    <li class="flex justify-between border-t border-zinc-100 pt-2 text-sm font-bold text-zinc-800">
+                        <span>مبلغ کل</span>
+                        <span>@order.PayableAmount.ToToman()</span>
+                    </li>
+                </ul>
+
+                <ul class="flex flex-col gap-y-2 text-xs text-zinc-600">
+                    <li><span class="text-zinc-400">گیرنده:</span> @order.CustomerName</li>
+                    <li><span class="text-zinc-400">تلفن:</span> <span class="fa-num">@PriceHelper.ToPersianDigits(order.CustomerPhone)</span></li>
+                    <li><span class="text-zinc-400">نشانی:</span> @order.ShippingProvince، @order.ShippingCity، @order.ShippingAddress</li>
+                    @if (!string.IsNullOrWhiteSpace(order.ShippingPostalCode))
+                    {
+                        <li><span class="text-zinc-400">کد پستی:</span> <span class="fa-num">@PriceHelper.ToPersianDigits(order.ShippingPostalCode)</span></li>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(order.ShippingMethod))
+                    {
+                        <li><span class="text-zinc-400">روش ارسال:</span> @order.ShippingMethod</li>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+                    {
+                        <li>
+                            <span class="text-zinc-400">کد رهگیری:</span>
+                            <span class="fa-num font-semibold text-zinc-700">@PriceHelper.ToEnglishDigits(order.TrackingCode)</span>
+                            @if (!string.IsNullOrWhiteSpace(order.TrackingUrl))
+                            {
+                                <a class="mr-2 text-sky-600" href="@order.TrackingUrl" target="_blank" rel="noopener">پیگیری مرسوله</a>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        @* ----------------------------------------------------------------- history *@
+        @if (order.StatusHistory.Count > 0)
+        {
+            <div class="card p-5">
+                <h2 class="section-title">تاریخچه سفارش</h2>
+                <ol class="flex flex-col gap-y-4 border-r border-zinc-100 pr-4">
+                    @foreach (var history in order.StatusHistory)
+                    {
+                        <li class="relative">
+                            <span class="absolute -right-[1.42rem] top-1.5 h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+                            <div class="flex flex-wrap items-center gap-x-3 text-xs">
+                                <span class="font-semibold text-zinc-700">@Ui.OrderStatusTitle(history.Status)</span>
+                                <span class="text-zinc-400">@history.CreatedAt.ToPersianDateTime()</span>
+                                @if (!string.IsNullOrWhiteSpace(history.ChangedBy))
+                                {
+                                    <span class="text-zinc-400">توسط @history.ChangedBy</span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(history.Note))
+                            {
+                                <p class="mt-1 text-[11px] text-zinc-500">@history.Note</p>
+                            }
+                        </li>
+                    }
+                </ol>
+            </div>
+        }
+
+        @if (order.Status is Data.Entities.Orders.OrderStatus.Pending or Data.Entities.Orders.OrderStatus.Confirmed)
+        {
+            <div class="card p-5">
+                <h2 class="section-title">لغو سفارش</h2>
+                <form method="post" asp-page-handler="Cancel" asp-route-id="@order.Id" class="flex flex-wrap items-end gap-3" data-confirm="از لغو این سفارش مطمئن هستید؟">
+                    @Html.AntiForgeryToken()
+                    <div class="flex-1">
+                        <label class="form-label" for="CancelReason">دلیل لغو (اختیاری)</label>
+                        <input class="form-input" id="CancelReason" name="CancelReason" />
+                    </div>
+                    <button type="submit" class="btn-secondary text-rose-500">لغو سفارش</button>
+                </form>
+            </div>
+        }
+    </section>
+</div>

@@ -1,0 +1,171 @@
+﻿@page "/admin/menus"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.MenusModel
+@{
+    var roots = Model.Items.Where(item => item.Location == Model.Location && item.ParentId is null).OrderBy(item => item.DisplayOrder).ToList();
+    var all = Model.Items.Where(item => item.Location == Model.Location).ToList();
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <div class="lg:col-span-7">
+        <div class="card mb-4 p-3">
+            <nav class="flex flex-wrap gap-2">
+                @foreach (var location in Fratak_Shop.Web.Areas.Admin.Pages.Settings.MenusModel.Locations)
+                {
+                    <a class="admin-nav-item @(location == Model.Location ? "admin-nav-item-active" : "")"
+                       href="/admin/menus?location=@location">@location.GetTitle()</a>
+                }
+            </nav>
+        </div>
+
+        <div class="card overflow-hidden">
+            <table class="table-admin w-full">
+                <thead>
+                    <tr>
+                        <th>عنوان</th>
+                        <th>آدرس</th>
+                        <th>ترتیب</th>
+                        <th>وضعیت</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (roots.Count == 0)
+                    {
+                        <tr><td colspan="5" class="py-8 text-center text-xs text-zinc-400">آیتمی در این منو ثبت نشده است.</td></tr>
+                    }
+                    @foreach (var item in roots)
+                    {
+                        <tr>
+                            <td class="text-xs text-zinc-700">
+                                @item.Title
+                                @if (item.IsHighlighted)
+                                {
+                                    <span class="badge badge-sky">ویژه</span>
+                                }
+                            </td>
+                            <td class="text-[11px] text-zinc-400" dir="ltr">@(item.Url ?? "—")</td>
+                            <td class="text-xs text-zinc-500">@PriceHelper.ToPersianDigits(item.DisplayOrder.ToString())</td>
+                            <td><span class="badge @(item.IsActive ? "badge-green" : "badge-gray")">@(item.IsActive ? "فعال" : "غیرفعال")</span></td>
+                            <td>
+                                <div class="flex items-center gap-x-2">
+                                    <a class="text-xs text-sky-600" href="/admin/menus?location=@Model.Location&edit=@item.Id">ویرایش</a>
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@item.Id" asp-route-location="@Model.Location">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-zinc-500">فعال/غیرفعال</button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" asp-route-location="@Model.Location" data-confirm="این آیتم حذف شود؟">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        @foreach (var child in all.Where(row => row.ParentId == item.Id).OrderBy(row => row.DisplayOrder))
+                        {
+                            <tr class="bg-zinc-50/60">
+                                <td class="text-xs text-zinc-600">↳ @child.Title</td>
+                                <td class="text-[11px] text-zinc-400" dir="ltr">@(child.Url ?? "—")</td>
+                                <td class="text-xs text-zinc-500">@PriceHelper.ToPersianDigits(child.DisplayOrder.ToString())</td>
+                                <td><span class="badge @(child.IsActive ? "badge-green" : "badge-gray")">@(child.IsActive ? "فعال" : "غیرفعال")</span></td>
+                                <td>
+                                    <div class="flex items-center gap-x-2">
+                                        <a class="text-xs text-sky-600" href="/admin/menus?location=@Model.Location&edit=@child.Id">ویرایش</a>
+                                        <form method="post" asp-page-handler="Delete" asp-route-id="@child.Id" asp-route-location="@Model.Location" data-confirm="این زیرمنو حذف شود؟">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="text-xs text-rose-500">حذف</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            <p class="border-t border-zinc-100 px-5 py-3 text-[11px] text-zinc-400">
+                آیتم‌هایی که غیرفعال شوند در سایت نمایش داده نمی‌شوند؛ این گزینه جایگزین حذف محتوا است.
+            </p>
+        </div>
+    </div>
+
+    <div class="lg:col-span-5">
+        <div class="card sticky top-24 p-5">
+            <h2 class="section-title">@(Model.Input.Id.HasValue ? "ویرایش آیتم منو" : "افزودن آیتم منو")</h2>
+            <form method="post" asp-page-handler="Save" class="grid gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.Id" />
+
+                <div>
+                    <label class="form-label" asp-for="Input.Location">محل منو</label>
+                    <select class="form-input" asp-for="Input.Location">
+                        @foreach (var location in Fratak_Shop.Web.Areas.Admin.Pages.Settings.MenusModel.Locations)
+                        {
+                            <option value="@location">@location.GetTitle()</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.ParentId">منوی والد (اختیاری)</label>
+                    <select class="form-input" asp-for="Input.ParentId">
+                        <option value="">بدون والد (آیتم اصلی)</option>
+                        @foreach (var parent in all.Where(item => item.ParentId is null && item.Id != Model.Input.Id))
+                        {
+                            <option value="@parent.Id">@parent.Title</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Title">عنوان</label>
+                    <input class="form-input" asp-for="Input.Title" />
+                    <span class="form-error" asp-validation-for="Input.Title"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Url">آدرس (URL)</label>
+                    <input class="form-input text-left" dir="ltr" asp-for="Input.Url" placeholder="/products" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label" asp-for="Input.Icon">آیکون</label>
+                        <select class="form-input" asp-for="Input.Icon">
+                            <option value="">بدون آیکون</option>
+                            @foreach (var icon in MenuIcons.Available)
+                            {
+                                <option value="@icon">@icon</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.DisplayOrder">ترتیب</label>
+                        <input class="form-input text-center" asp-for="Input.DisplayOrder" inputmode="numeric" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.BadgeText">متن نشان</label>
+                        <input class="form-input" asp-for="Input.BadgeText" placeholder="جدید" />
+                    </div>
+                    <div>
+                        <label class="form-label" asp-for="Input.BadgeColor">رنگ نشان</label>
+                        <input class="form-input" asp-for="Input.BadgeColor" placeholder="emerald" dir="ltr" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.OpenInNewTab" />
+                        باز شدن در تب جدید
+                    </label>
+                    <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.ShowOnMobile" />
+                        نمایش در موبایل
+                    </label>
+                    <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsHighlighted" />
+                        نمایش ویژه
+                    </label>
+                    <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        <input type="checkbox" class="form-checkbox" asp-for="Input.IsActive" />
+                        فعال
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary w-full text-xs">ذخیره آیتم منو</button>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,18 @@
+﻿@{
+    var message = TempData[ViewDataKeys.Message] as string;
+    var type = TempData[ViewDataKeys.MessageType] as string ?? "success";
+    var alertClass = type switch
+    {
+        "error" or "danger" => "alert-danger",
+        "warning" => "alert-warning",
+        "info" => "alert-info",
+        _ => "alert-success",
+    };
+}
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="@alertClass mb-5" role="alert">
+        <span>@message</span>
+        <button type="button" class="mr-auto opacity-60 hover:opacity-100" onclick="this.parentElement.remove()">×</button>
+    </div>
+}

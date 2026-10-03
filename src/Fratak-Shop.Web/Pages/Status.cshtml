@@ -1,0 +1,22 @@
+﻿@page "{code:int}"
+@model Fratak_Shop.Web.Pages.StatusModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="mx-auto max-w-2xl py-10 text-center">
+    <img class="mx-auto mb-6 h-48" src="@(Model.StatusCode == 404 ? "/assets/image/404.png" : "/assets/image/404.png")" alt="@Model.Title" />
+    <p class="mb-2 text-5xl font-black text-sky-500">@PriceHelper.ToPersianDigits(Model.StatusCode.ToString())</p>
+    <h1 class="mb-3 text-lg font-bold text-zinc-800">@Model.Title</h1>
+    <p class="mb-7 text-sm leading-7 text-zinc-500">@Model.Message</p>
+
+    <form method="get" action="/search" class="mx-auto mb-7 flex max-w-md items-center gap-2">
+        <input class="form-input" name="q" placeholder="جستجوی کالا..." />
+        <button type="submit" class="btn-primary shrink-0 px-6">جستجو</button>
+    </form>
+
+    <div class="flex flex-wrap items-center justify-center gap-3">
+        <a class="btn-primary px-8" href="/">بازگشت به صفحه اصلی</a>
+        <a class="btn-secondary px-8" href="/products">مشاهده محصولات</a>
+    </div>
+</div>

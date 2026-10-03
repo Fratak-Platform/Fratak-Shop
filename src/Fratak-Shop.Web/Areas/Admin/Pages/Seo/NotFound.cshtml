@@ -1,0 +1,54 @@
+﻿@page "/admin/seo/not-found"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.NotFoundModel
+@{
+}
+
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h2 class="text-base font-bold text-zinc-800">گزارش خطاهای ۴۰۴</h2>
+        <p class="mt-1 text-xs text-zinc-500">هر خطای ۴۰۴ یک فرصت سئویی است: با ریدایرکت، اعتبار صفحه قدیمی را به صفحه جدید منتقل کنید.</p>
+    </div>
+    <div class="flex gap-2">
+        <a class="chip @(Model.All ? null : "chip-active")" href="/admin/seo/not-found">بازنشده‌ها</a>
+        <a class="chip @(Model.All ? "chip-active" : null)" href="/admin/seo/not-found?all=true">همه</a>
+    </div>
+</div>
+
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="table-admin w-full">
+            <thead>
+                <tr>
+                    <th>مسیر درخواست‌شده</th>
+                    <th>ارجاع‌دهنده</th>
+                    <th>تعداد</th>
+                    <th>آخرین بازدید</th>
+                    <th>اقدام</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="5" class="py-8 text-center text-xs text-zinc-400">خطای ۴۰۴ ثبت نشده است.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td class="text-xs text-zinc-700" dir="ltr">@item.Path</td>
+                        <td class="text-[11px] text-zinc-400" dir="ltr">@(string.IsNullOrWhiteSpace(item.Referrer) ? "—" : item.Referrer)</td>
+                        <td class="text-xs text-zinc-600">@PriceHelper.ToPersianDigits(item.HitCount.ToString())</td>
+                        <td class="text-[11px] text-zinc-500">@(item.LastHitAt ?? item.CreatedAt).ToRelativeTime()</td>
+                        <td>
+                            <form method="post" asp-page-handler="Resolve" class="flex items-center gap-2">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="path" value="@item.Path" />
+                                <input class="form-input w-44 py-1 text-xs" name="toUrl" dir="ltr" placeholder="/products" />
+                                <button type="submit" class="btn-secondary px-3 py-1 text-[11px]">ریدایرکت 301</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

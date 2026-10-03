@@ -1,0 +1,70 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Profile.MessagesModel
+@{
+    ViewData["Title"] = "پیام‌های من";
+}
+
+<div class="grid gap-6 lg:grid-cols-12">
+    <aside class="lg:col-span-3">
+        <partial name="_ProfileSidebar" />
+    </aside>
+
+    <section class="flex flex-col gap-6 lg:col-span-9">
+        <div class="card p-5">
+            <h1 class="section-title">پیام‌های من</h1>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <p class="font-semibold text-zinc-700">پیامی ثبت نشده است</p>
+                    <p class="text-xs text-zinc-500">می‌توانید از فرم زیر پیام خود را برای پشتیبانی ارسال کنید.</p>
+                </div>
+            }
+            else
+            {
+                <div class="flex flex-col divide-y divide-zinc-100">
+                    @foreach (var message in Model.Items)
+                    {
+                        <div class="py-4 text-xs">
+                            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <span class="font-semibold text-zinc-800">@message.Subject</span>
+                                <div class="flex items-center gap-x-2">
+                                    <span class="badge @Ui.MessageStatusClass(message.Status)">@Ui.MessageStatusTitle(message.Status)</span>
+                                    <span class="text-zinc-400">@message.CreatedAt.ToPersianDateTime()</span>
+                                </div>
+                            </div>
+                            <p class="leading-7 text-zinc-600">@message.Content</p>
+                            @if (!string.IsNullOrWhiteSpace(message.Reply))
+                            {
+                                <div class="mt-3 rounded-xl bg-zinc-50 p-3 leading-7 text-zinc-600">
+                                    <span class="mb-1 block font-semibold text-zinc-700">پاسخ پشتیبانی</span>
+                                    @message.Reply
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="card p-5">
+            <h2 class="section-title">ارسال پیام جدید</h2>
+            <form method="post" asp-page-handler="Send" class="grid gap-4">
+                <div asp-validation-summary="ModelOnly" class="form-error"></div>
+                <div>
+                    <label class="form-label" asp-for="Input.Subject">موضوع</label>
+                    <input class="form-input" asp-for="Input.Subject" />
+                    <span class="form-error" asp-validation-for="Input.Subject"></span>
+                </div>
+                <div>
+                    <label class="form-label" asp-for="Input.Content">متن پیام</label>
+                    <textarea class="form-input" asp-for="Input.Content" rows="4"></textarea>
+                    <span class="form-error" asp-validation-for="Input.Content"></span>
+                </div>
+                <div>
+                    <button type="submit" class="btn-primary px-8">ارسال پیام</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>

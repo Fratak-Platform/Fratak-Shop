@@ -1,0 +1,14 @@
+{
+  "name": "fratak-shop-tailwind",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tailwind build pipeline for Fratak-Shop web layer (storefront + admin area).",
+  "scripts": {
+    "build": "tailwindcss -i ./src/input.css -o ../../src/Fratak-Shop.Web/wwwroot/assets/css/output.css --minify",
+    "build:dev": "tailwindcss -i ./src/input.css -o ../../src/Fratak-Shop.Web/wwwroot/assets/css/output.css",
+    "watch": "tailwindcss -i ./src/input.css -o ../../src/Fratak-Shop.Web/wwwroot/assets/css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.3"
+  }
+}

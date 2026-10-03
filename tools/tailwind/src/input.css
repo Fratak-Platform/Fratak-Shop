@@ -1,0 +1,329 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   Fratak-Shop — shared design tokens & components
+   Used by both the storefront (RTL, YekanBakh) and the admin area.
+   ========================================================================= */
+
+@layer base {
+  :root {
+    --fratak-brand: 2 132 199; /* brand-600 */
+    --fratak-radius: 0.75rem;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-[#fcfcfc] text-zinc-800 antialiased;
+  }
+
+  [dir="rtl"] body {
+    text-align: right;
+  }
+
+  /* Persian number rendering helper (used on prices and counters). */
+  .fa-num {
+    font-feature-settings: "ss01";
+    font-variant-numeric: normal;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold text-zinc-800;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  /* Consistent focus ring for keyboard users only. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-sky-500/60 ring-offset-1 ring-offset-white;
+  }
+
+  /* Hide the native number input spinners (used by quantity inputs). */
+  input[type="number"].no-spin::-webkit-outer-spin-button,
+  input[type="number"].no-spin::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"].no-spin {
+    -moz-appearance: textfield;
+  }
+
+  /* Slim scrollbars everywhere (keeps the admin tables tidy). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 163 184);
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------- buttons */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-x-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-sky-500 text-white hover:bg-sky-600 active:bg-sky-700;
+  }
+  .btn-secondary {
+    @apply btn border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50;
+  }
+  .btn-success {
+    @apply btn bg-emerald-500 text-white hover:bg-emerald-600;
+  }
+  .btn-danger {
+    @apply btn bg-rose-500 text-white hover:bg-rose-600;
+  }
+  .btn-warning {
+    @apply btn bg-amber-500 text-white hover:bg-amber-600;
+  }
+  .btn-ghost {
+    @apply btn text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900;
+  }
+  .btn-sm {
+    @apply rounded-lg px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply rounded-2xl px-6 py-3 text-base;
+  }
+  .btn-icon {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-800;
+  }
+
+  /* ------------------------------------------------------------------ cards */
+  .card {
+    @apply rounded-2xl border border-zinc-100 bg-white shadow-box;
+  }
+  .card-header {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4;
+  }
+  .card-title {
+    @apply text-sm font-semibold text-zinc-800;
+  }
+  .card-body {
+    @apply p-5;
+  }
+
+  /* ------------------------------------------------------------------ forms */
+  .form-label {
+    @apply mb-1.5 block text-xs font-medium text-zinc-600;
+  }
+  .form-label-required::after {
+    content: " *";
+    @apply text-rose-500;
+  }
+  .form-input,
+  .form-select,
+  .form-textarea {
+    @apply block w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-800 shadow-sm transition placeholder:text-zinc-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:bg-zinc-50 disabled:text-zinc-400;
+  }
+  .form-textarea {
+    @apply min-h-[110px] leading-6;
+  }
+  .form-select {
+    @apply cursor-pointer appearance-none bg-[length:14px] bg-[left_0.75rem_center] bg-no-repeat pl-9;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2371717a' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  }
+  .form-hint {
+    @apply mt-1 text-[11px] leading-5 text-zinc-400;
+  }
+  .form-error {
+    @apply mt-1 text-[11px] font-medium text-rose-500;
+  }
+  .form-checkbox {
+    @apply h-4 w-4 rounded border-zinc-300 text-sky-600 focus:ring-sky-400;
+  }
+  .form-group {
+    @apply mb-4;
+  }
+  /* RTL checkbox/switch alignment helper */
+  .form-row {
+    @apply grid gap-4 sm:grid-cols-2;
+  }
+
+  /* ---------------------------------------------------------------- badges */
+  .badge {
+    @apply inline-flex items-center gap-x-1 rounded-lg px-2.5 py-1 text-[11px] font-medium;
+  }
+  .badge-gray {
+    @apply badge bg-zinc-100 text-zinc-600;
+  }
+  .badge-sky {
+    @apply badge bg-sky-50 text-sky-700;
+  }
+  .badge-green {
+    @apply badge bg-emerald-50 text-emerald-700;
+  }
+  .badge-amber {
+    @apply badge bg-amber-50 text-amber-700;
+  }
+  .badge-red {
+    @apply badge bg-rose-50 text-rose-700;
+  }
+  .badge-violet {
+    @apply badge bg-violet-50 text-violet-700;
+  }
+
+  /* ---------------------------------------------------------------- tables */
+  .table-wrap {
+    @apply w-full overflow-x-auto rounded-2xl border border-zinc-100 bg-white;
+  }
+  .table-admin {
+    @apply w-full min-w-[640px] border-collapse text-right text-sm;
+  }
+  .table-admin thead th {
+    @apply whitespace-nowrap bg-zinc-50/80 px-4 py-3 text-xs font-semibold text-zinc-500;
+  }
+  .table-admin tbody td {
+    @apply border-t border-zinc-100 px-4 py-3 align-middle text-zinc-700;
+  }
+  .table-admin tbody tr:hover {
+    @apply bg-zinc-50/60;
+  }
+
+  /* ------------------------------------------------------------- pagination */
+  .pagination {
+    @apply flex flex-wrap items-center justify-center gap-1.5;
+  }
+  .pagination a,
+  .pagination span {
+    @apply inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white px-2.5 text-xs text-zinc-600 transition hover:border-sky-300 hover:text-sky-600;
+  }
+  .pagination .is-active {
+    @apply border-sky-500 bg-sky-500 text-white hover:text-white;
+  }
+  .pagination .is-disabled {
+    @apply cursor-not-allowed opacity-50 hover:border-zinc-200 hover:text-zinc-600;
+  }
+
+  /* ---------------------------------------------------------------- alerts */
+  .alert {
+    @apply flex items-start gap-x-3 rounded-xl border px-4 py-3 text-sm;
+  }
+  .alert-info {
+    @apply alert border-sky-100 bg-sky-50 text-sky-800;
+  }
+  .alert-success {
+    @apply alert border-emerald-100 bg-emerald-50 text-emerald-800;
+  }
+  .alert-warning {
+    @apply alert border-amber-100 bg-amber-50 text-amber-800;
+  }
+  .alert-danger {
+    @apply alert border-rose-100 bg-rose-50 text-rose-800;
+  }
+
+  /* --------------------------------------------------------------- sidebar */
+  .admin-nav-item {
+    @apply flex items-center gap-x-3 rounded-xl px-3 py-2.5 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900;
+  }
+  .admin-nav-item-active {
+    @apply bg-sky-50 font-medium text-sky-700 hover:bg-sky-50 hover:text-sky-700;
+  }
+  .admin-nav-group {
+    @apply px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400;
+  }
+  .admin-sidebar-link-badge {
+    @apply mr-auto rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600;
+  }
+
+  /* ---------------------------------------------------------- stat tiles */
+  .stat-card {
+    @apply card flex items-center justify-between gap-4 p-5;
+  }
+  .stat-value {
+    @apply text-2xl font-bold text-zinc-800;
+  }
+  .stat-label {
+    @apply mt-1 text-xs text-zinc-500;
+  }
+  .stat-icon {
+    @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl;
+  }
+
+  /* --------------------------------------------------------------- misc */
+  .chip {
+    @apply inline-flex items-center gap-x-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 transition hover:border-sky-300 hover:text-sky-600;
+  }
+  .chip-active {
+    @apply border-sky-500 bg-sky-50 text-sky-700;
+  }
+  .section-title {
+    @apply mb-5 flex items-center gap-3 text-lg font-bold text-zinc-800;
+  }
+  .section-title::before {
+    content: "";
+    @apply block h-6 w-1.5 rounded-full bg-sky-500;
+  }
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-3 px-6 py-14 text-center text-sm text-zinc-500;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-zinc-100;
+  }
+  .tooltip-host {
+    @apply relative;
+  }
+  .tooltip-host:hover .tooltip-body {
+    @apply visible opacity-100;
+  }
+  .tooltip-body {
+    @apply pointer-events-none invisible absolute bottom-full right-1/2 z-30 mb-2 w-max max-w-[16rem] translate-x-1/2 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[11px] leading-5 text-white opacity-0 shadow-lg transition;
+  }
+  /* SEO score ring (admin SEO centre) */
+  .score-ring {
+    @apply grid h-16 w-16 shrink-0 place-items-center rounded-full text-sm font-bold;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .text-shadow-none {
+    text-shadow: none;
+  }
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.25rem);
+  }
+  .glass {
+    backdrop-filter: blur(12px);
+    background-color: rgb(255 255 255 / 0.82);
+  }
+  .avoid-page-break {
+    break-inside: avoid;
+  }
+}
+
+/* =========================================================================
+   Third-party component overrides (Swiper) — shared by storefront sliders.
+   ========================================================================= */
+.swiper-pagination-bullet {
+  background-color: rgb(2 132 199);
+}

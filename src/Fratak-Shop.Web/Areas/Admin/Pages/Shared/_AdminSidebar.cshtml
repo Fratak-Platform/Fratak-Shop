@@ -1,0 +1,57 @@
+﻿@model LayoutViewModel
+@{
+    var navigation = (ViewData[ViewDataKeys.AdminNavigation] as List<AdminNavItem>) ?? [];
+    var groups = navigation.Where(item => item.Group is not null).Select(item => item.Group!).Distinct().ToList();
+    var dashboard = navigation.FirstOrDefault(item => item.Group is null);
+    var currentPath = Model.CurrentPath.TrimEnd('/');
+    bool IsActive(AdminNavItem item) => item.Exact
+        ? currentPath.Equals(item.Path, StringComparison.OrdinalIgnoreCase)
+        : currentPath.StartsWith(item.Path, StringComparison.OrdinalIgnoreCase);
+}
+<aside id="adminSidebar" class="fixed right-0 top-0 z-50 flex h-screen w-64 -right-full flex-col overflow-y-auto bg-zinc-900 p-4 transition-all duration-300 lg:sticky lg:right-0 lg:top-0 lg:h-screen lg:shrink-0">
+    <div class="mb-6 flex items-center gap-x-3 border-b border-zinc-800 pb-4">
+        <img class="w-24" src="@Ui.Logo(Model.Site)" alt="@Model.Site.SiteName" />
+        <span class="text-[11px] text-zinc-500">پنل مدیریت</span>
+    </div>
+
+    <nav class="flex flex-1 flex-col gap-y-1 text-xs">
+        @if (dashboard is not null)
+        {
+            <a class="admin-nav-item @(IsActive(dashboard) ? "admin-nav-item-active" : null)" href="@dashboard.Path">
+                @Html.Raw(MenuIcons.Render(dashboard.Icon))
+                <span>@dashboard.Title</span>
+            </a>
+        }
+
+        @foreach (var group in groups)
+        {
+            <span class="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-wide text-zinc-600">@group</span>
+            foreach (var item in navigation.Where(entry => entry.Group == group))
+            {
+                <a class="admin-nav-item @(IsActive(item) ? "admin-nav-item-active" : null)" href="@item.Path">
+                    @Html.Raw(MenuIcons.Render(item.Icon))
+                    <span>@item.Title</span>
+                    @if (item.Badge > 0)
+                    {
+                        <span class="badge badge-red mr-auto">@PriceHelper.ToPersianDigits(item.Badge.ToString())</span>
+                    }
+                </a>
+            }
+        }
+    </nav>
+
+    <div class="mt-6 border-t border-zinc-800 pt-4">
+        <a class="admin-nav-item" href="/" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M240,208H224V136l2.34,2.34A8,8,0,0,0,237.66,127L139.31,28.68a16,16,0,0,0-22.62,0L18.34,127a8,8,0,0,0,11.32,11.31L32,136v72H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16Z"></path></svg>
+            <span>مشاهده سایت</span>
+        </a>
+        <form method="post" asp-page="/Auth/Logout" asp-area="">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="admin-nav-item w-full text-rose-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M120,216H48a8,8,0,0,1-8-8V48a8,8,0,0,1,8-8h72a8,8,0,0,1,0,16H56V200h64a8,8,0,0,1,0,16Zm88.49-94.14-40-40a8,8,0,0,0-11.32,11.32L186.34,122H112a8,8,0,0,0,0,16h74.34l-29.17,28.86a8,8,0,1,0,11.32,11.32l40-40A8,8,0,0,0,208.49,121.86Z"></path></svg>
+                <span>خروج از پنل</span>
+            </button>
+        </form>
+    </div>
+</aside>
+<div id="adminSidebarOverlay" class="fixed inset-0 z-40 hidden bg-zinc-900/50 lg:hidden" onclick="showAdminSidebar()"></div>

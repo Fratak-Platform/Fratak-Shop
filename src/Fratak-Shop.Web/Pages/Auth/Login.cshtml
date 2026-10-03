@@ -1,0 +1,57 @@
+﻿@page
+@model Fratak_Shop.Web.Pages.Auth.LoginModel
+@{
+    ViewData["Title"] = "ورود / ثبت‌نام";
+}
+
+<div class="mx-auto max-w-lg">
+    <div class="card p-6 md:p-8">
+        <div class="mb-6 text-center">
+            <img class="mx-auto mb-3 w-32" src="@Ui.Logo(Model.Site)" alt="@Model.Site.SiteName" />
+            <h1 class="text-lg font-bold text-zinc-800">ورود به حساب کاربری</h1>
+            <p class="mt-1 text-xs text-zinc-500">برای ثبت سفارش و پیگیری آن وارد شوید.</p>
+        </div>
+
+        @if (Model.RequireLogin)
+        {
+            <div class="alert-warning mb-4">برای ادامه باید وارد حساب کاربری خود شوید.</div>
+        }
+
+        <form method="post" class="flex flex-col gap-y-4">
+            <div asp-validation-summary="ModelOnly" class="form-error"></div>
+
+            <div>
+                <label class="form-label" asp-for="Input.PhoneNumber">شماره موبایل</label>
+                <input class="form-input text-left" asp-for="Input.PhoneNumber" dir="ltr" inputmode="numeric" placeholder="09xxxxxxxxx" />
+                <span class="form-error" asp-validation-for="Input.PhoneNumber"></span>
+            </div>
+
+            <div>
+                <label class="form-label" asp-for="Input.Password">رمز عبور</label>
+                <input class="form-input" asp-for="Input.Password" type="password" />
+                <span class="form-error" asp-validation-for="Input.Password"></span>
+            </div>
+
+            <div class="flex items-center justify-between text-xs">
+                <label class="flex items-center gap-x-2 text-zinc-600">
+                    <input type="checkbox" class="form-checkbox" asp-for="Input.RememberMe" />
+                    مرا به خاطر بسپار
+                </label>
+                <a class="text-sky-600 hover:text-sky-700" href="/auth/forgot-password">رمز عبور را فراموش کرده‌ام</a>
+            </div>
+
+            <button type="submit" class="btn-primary w-full">ورود به حساب</button>
+        </form>
+
+        <div class="my-5 flex items-center gap-x-3 text-[11px] text-zinc-400">
+            <span class="h-px flex-1 bg-zinc-200"></span>
+            یا
+            <span class="h-px flex-1 bg-zinc-200"></span>
+        </div>
+
+        <div class="flex flex-col gap-y-3">
+            <a class="btn-secondary w-full" href="/auth/register">ساخت حساب جدید</a>
+            <a class="btn-ghost w-full" href="/auth/login-code">ورود با کد یک‌بارمصرف (بدون رمز)</a>
+        </div>
+    </div>
+</div>
