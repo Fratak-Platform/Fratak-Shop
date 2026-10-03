@@ -1,4 +1,4 @@
-﻿@{
+@{
     var layout = ViewData[ViewDataKeys.Layout] as LayoutViewModel ?? new LayoutViewModel();
     var title = ViewData["Title"] as string;
     var page = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
@@ -39,7 +39,7 @@
             </main>
 
             <footer class="border-t border-zinc-200 bg-white px-6 py-4 text-[11px] text-zinc-400">
-                پنل مدیریت @layout.Site.SiteName — @PriceHelper.ToPersianDate(DateTimeOffset.UtcNow)
+                پنل مدیریت @layout.Site.SiteName — @DateTimeOffset.UtcNow.ToPersianDate()
             </footer>
         </div>
     </div>

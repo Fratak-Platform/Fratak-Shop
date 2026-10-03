@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Blogs.Categories.Query;
+using Fratak_Shop.Core.DTOs.Blogs.Categories.Query;
 using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
+using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Blogs;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;

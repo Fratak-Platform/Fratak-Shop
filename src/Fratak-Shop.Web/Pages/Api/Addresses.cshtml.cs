@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Services.Locations;
+using Fratak_Shop.Core.Services.Locations;
 using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +9,7 @@ namespace Fratak_Shop.Web.Pages.Api;
 
 /// <summary>Saved address of the signed-in customer, used by the checkout form.</summary>
 [Authorize(Policy = PolicyNames.CustomerOnly)]
-public class AddressesModel(IUserAddressService addresses, ILocationService locations) : PageModel
+public class AddressesModel(IUserAddressService addresses, ILocationService locations) : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
 {
     public async Task<IActionResult> OnGetAddressAsync(Guid id)
     {

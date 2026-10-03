@@ -1,7 +1,8 @@
-﻿using Fratak_Shop.Core.DTOs.Blogs.Categories.Query;
+using Fratak_Shop.Core.DTOs.Blogs.Categories.Query;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Mappers.Seo;
 using Fratak_Shop.Core.Services.Blogs;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Media;
 using Fratak_Shop.Core.Services.Messaging;
 using Fratak_Shop.Core.Services.Navigation;

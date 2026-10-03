@@ -10,10 +10,10 @@ public class LocationsModel(ILocationService locations) : Microsoft.AspNetCore.M
     public async Task<IActionResult> OnGetProvincesAsync()
     {
         var roots = await locations.GetActiveLocationsAsync();
-        var country = roots.FirstOrDefault(item => item.ParentId is null);
+        var country = roots.FirstOrDefault(item => item.Type == Fratak_Shop.Data.Entities.Locations.LocationType.Country);
 
         var provinces = country is null
-            ? roots
+            ? roots.Where(item => item.Type == Fratak_Shop.Data.Entities.Locations.LocationType.Province).ToList()
             : await locations.GetChildrenByParentIdAsync(country.Id);
 
         return new JsonResult(provinces.Select(item => new { item.Id, item.Name }));
