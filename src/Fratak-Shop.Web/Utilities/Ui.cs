@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Settings.Query;
+using Fratak_Shop.Core.DTOs.Settings.Query;
+using Fratak_Shop.Core.SeoEngine;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Marketing;

@@ -1,4 +1,6 @@
-﻿using Fratak_Shop.Core.Services.Favorites;
+using Fratak_Shop.Core.DTOs.Products.Query;
+using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.Services.Favorites;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Core.Services.Products;

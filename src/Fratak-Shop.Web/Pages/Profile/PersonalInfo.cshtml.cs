@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Users.Command;
+using Fratak_Shop.Core.DTOs.Users.Command;
+using Fratak_Shop.Core.DTOs.Users.Query;
 using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Media;
 using Fratak_Shop.Core.Services.Navigation;

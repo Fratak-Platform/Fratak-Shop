@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Banners.Query;
+using Fratak_Shop.Core.DTOs.Banners.Query;
+using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Media;
 using Fratak_Shop.Core.Services.Messaging;
 using Fratak_Shop.Core.Services.Navigation;

@@ -1,4 +1,6 @@
-﻿using Fratak_Shop.Core.Services.Navigation;
+using Fratak_Shop.Core.DTOs.Orders.Query;
+using Fratak_Shop.Core.DTOs.Users.Query;
+using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Core.Services.Seo;
