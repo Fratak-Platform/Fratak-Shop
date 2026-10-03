@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.Services.Navigation;
+﻿using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Core.Services.Pages;
 using Fratak_Shop.Core.Services.Seo;

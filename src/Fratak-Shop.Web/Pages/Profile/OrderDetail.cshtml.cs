@@ -1,4 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Orders.Query;
+﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.DTOs.Orders.Query;
 using Fratak_Shop.Core.DTOs.Payments.Query;
 using Fratak_Shop.Core.Services.Media;
 using Fratak_Shop.Core.Services.Navigation;

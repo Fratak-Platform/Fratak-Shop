@@ -1,4 +1,4 @@
-@page "{slug}"
+﻿@page "{slug}"
 @model Fratak_Shop.Web.Pages.ProductModel
 @{
     ViewData["Title"] = Model.Product.Name;
@@ -68,7 +68,7 @@
             {
                 <li class="flex items-center gap-x-2">
                     <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                    <span>@product.WarrantyTitle @(product.WarrantyMonths > 0 ? $"({Ui.Number(product.WarrantyMonths)} ماه)" : null)</span>
+                    <span>@product.WarrantyTitle @(product.WarrantyMonths > 0 ? $"({Ui.Number(product.WarrantyMonths.Value)} ماه)" : null)</span>
                 </li>
             }
         </ul>

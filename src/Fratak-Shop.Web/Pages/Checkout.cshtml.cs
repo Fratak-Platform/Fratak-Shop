@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Checkout.Query;
+﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.DTOs.Checkout.Query;
 using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Checkout;

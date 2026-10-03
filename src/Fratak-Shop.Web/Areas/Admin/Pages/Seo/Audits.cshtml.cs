@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Seo.Command;
+﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.DTOs.Seo.Command;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Messaging;
 using Fratak_Shop.Core.Services.Navigation;

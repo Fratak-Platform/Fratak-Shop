@@ -1,3 +1,6 @@
+﻿using Fratak_Shop.Web.Utilities;
+using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 using Fratak_Shop.Core.DTOs.Comments.Command;
 using Fratak_Shop.Core.DTOs.Comments.Query;
@@ -92,7 +95,7 @@ public class BlogPostModel(
         {
             UserId = CurrentUserId ?? Guid.Empty,
             BlogPostId = post.Id,
-            Type = CommentType.Blog,
+            Type = CommentType.BlogComment,
             AuthorName = Comment.AuthorName,
             AuthorPhone = Comment.AuthorPhone,
             Content = Comment.Content,

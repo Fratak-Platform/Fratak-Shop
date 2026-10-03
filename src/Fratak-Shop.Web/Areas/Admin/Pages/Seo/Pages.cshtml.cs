@@ -1,3 +1,4 @@
+﻿using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Content.Query;
 using Fratak_Shop.Core.DTOs.Pages.Query;
 using Fratak_Shop.Core.DTOs.Seo.Query;

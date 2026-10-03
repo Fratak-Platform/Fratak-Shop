@@ -1,4 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Auth.Command;
+﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.DTOs.Seo.Query;
+using Fratak_Shop.Core.DTOs.Auth.Command;
 using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
