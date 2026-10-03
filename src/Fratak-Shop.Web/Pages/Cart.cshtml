@@ -4,7 +4,8 @@
     ViewData["Title"] = "سبد خرید";
 }
 
-<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = "سبد خرید", Url = "/cart" } }" />
+@{ var breadcrumbs = new List<BreadcrumbDto> { new() { Title = "سبد خرید", Url = "/cart" } }; }
+<partial name="_Breadcrumbs" model="breadcrumbs" />
 
 @if (Model.Cart.IsEmpty)
 {

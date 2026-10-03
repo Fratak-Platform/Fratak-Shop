@@ -5,7 +5,8 @@
     var summary = Model.Summary;
 }
 
-<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = "سبد خرید", Url = "/cart" }, new() { Title = "تسویه حساب", Url = "/checkout" } }" />
+@{ var breadcrumbs = new List<BreadcrumbDto> { new() { Title = "سبد خرید", Url = "/cart" }, new() { Title = "تسویه حساب", Url = "/checkout" } }; }
+<partial name="_Breadcrumbs" model="breadcrumbs" />
 
 <form method="post" class="grid gap-6 lg:grid-cols-12">
     @Html.AntiForgeryToken()

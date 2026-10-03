@@ -4,7 +4,8 @@
     ViewData["Title"] = Model.Content.Title;
 }
 
-<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = Model.Content.Title, Url = $"/page/{Model.Content.Page.ToString().ToLowerInvariant()}" } }" />
+@{ var breadcrumbs = new List<BreadcrumbDto> { new() { Title = Model.Content.Title, Url = $"/page/{Model.Content.Page.ToString().ToLowerInvariant()}" } }; }
+<partial name="_Breadcrumbs" model="breadcrumbs" />
 
 <div class="grid gap-6 lg:grid-cols-12">
     <article class="card p-5 md:p-8 @(Model.FaqItems.Count > 0 ? "lg:col-span-8" : "lg:col-span-12")">

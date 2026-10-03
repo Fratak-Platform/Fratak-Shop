@@ -4,7 +4,8 @@
     ViewData["Title"] = Model.HasQuery ? $"جستجو: {Model.Query}" : "جستجو";
 }
 
-<partial name="_Breadcrumbs" model="new List<BreadcrumbDto> { new() { Title = "جستجو", Url = "/search" } }" />
+@{ var breadcrumbs = new List<BreadcrumbDto> { new() { Title = "جستجو", Url = "/search" } }; }
+<partial name="_Breadcrumbs" model="breadcrumbs" />
 
 <div class="card mb-6 p-5">
     <form method="get" action="/search" class="flex flex-wrap items-center gap-3">
