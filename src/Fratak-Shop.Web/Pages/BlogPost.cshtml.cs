@@ -30,7 +30,7 @@ public class BlogPostModel(
 {
     public PostDto Post { get; private set; } = null!;
 
-    public List<PostDto> Related { get; private set; } = [];
+    public List<BlogPostFilterData> Related { get; private set; } = [];
 
     public List<CommentDto> Comments { get; private set; } = [];
 
