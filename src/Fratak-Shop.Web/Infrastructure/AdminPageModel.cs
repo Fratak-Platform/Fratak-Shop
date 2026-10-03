@@ -1,7 +1,8 @@
-﻿using Fratak_Shop.Core.DTOs.Settings.Query;
+using Fratak_Shop.Core.DTOs.Settings.Query;
 using Fratak_Shop.Core.Services.Messaging;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Fratak_Shop.Core.Services.Payments;
 using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;

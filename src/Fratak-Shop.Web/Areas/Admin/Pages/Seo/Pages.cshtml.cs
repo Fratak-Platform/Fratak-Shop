@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Pages.Query;
+using Fratak_Shop.Core.DTOs.Content.Query;
+using Fratak_Shop.Core.DTOs.Pages.Query;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Mappers.Seo;
 using Fratak_Shop.Core.Services.Content;

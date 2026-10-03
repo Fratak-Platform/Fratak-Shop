@@ -1,4 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Comments.Command;
+using Fratak_Shop.Core.DTOs.Comments.Command;
+using Fratak_Shop.Core.DTOs.Comments.Query;
+using Fratak_Shop.Core.DTOs.Pages.Query;
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Comments;
