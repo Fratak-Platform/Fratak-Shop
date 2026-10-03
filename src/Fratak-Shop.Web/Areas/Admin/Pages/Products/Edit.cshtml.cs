@@ -1,3 +1,5 @@
+﻿using Fratak_Shop.Web.Utilities;
+using Fratak_Shop.Core.SeoEngine;
 using Fratak_Shop.Core.DTOs.Categories.Query;
 using Fratak_Shop.Core.DTOs.Products.Command;
 using Fratak_Shop.Core.DTOs.Products.Query;

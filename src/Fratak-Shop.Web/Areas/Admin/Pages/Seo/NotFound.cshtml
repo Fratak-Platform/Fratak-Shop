@@ -37,7 +37,7 @@
                         <td class="text-xs text-zinc-700" dir="ltr">@item.Path</td>
                         <td class="text-[11px] text-zinc-400" dir="ltr">@(string.IsNullOrWhiteSpace(item.Referrer) ? "—" : item.Referrer)</td>
                         <td class="text-xs text-zinc-600">@PriceHelper.ToPersianDigits(item.HitCount.ToString())</td>
-                        <td class="text-[11px] text-zinc-500">@(item.LastHitAt ?? item.CreatedAt).ToRelativeTime()</td>
+                        <td class="text-[11px] text-zinc-500">@item.LastHitAt.ToRelativeTime()</td>
                         <td>
                             <form method="post" asp-page-handler="Resolve" class="flex items-center gap-2">
                                 @Html.AntiForgeryToken()

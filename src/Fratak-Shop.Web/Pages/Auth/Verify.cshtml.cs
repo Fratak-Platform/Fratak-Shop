@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.Utilities;
+﻿using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Auth.Command;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Auth;
@@ -82,7 +82,7 @@ public class VerifyModel(
         var result = await auth.VerifyCodeAsync(new VerifyCodeCommand
         {
             PhoneNumber = PhoneNumber,
-            Code = PriceHelper.ToEnglishDigits(Code).Trim(),
+            Code = SlugHelper.ToLatinDigits(Code).Trim(),
             Purpose = purpose,
         });
 
