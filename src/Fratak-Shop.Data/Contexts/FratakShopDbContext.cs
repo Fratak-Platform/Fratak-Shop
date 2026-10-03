@@ -107,6 +107,7 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
             switch (entry.State)
             {
                 case EntityState.Added:
+                    entry.Entity.Id = Guid.NewGuid();
                     entry.Entity.CreatedAt = now;
                     entry.Entity.UpdatedAt = now;
                     break;

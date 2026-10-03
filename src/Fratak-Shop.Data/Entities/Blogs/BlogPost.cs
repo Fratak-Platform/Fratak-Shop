@@ -9,9 +9,9 @@ namespace Fratak_Shop.Data.Entities.Blogs;
 
 public class BlogPost : BaseEntity
 {
-    public Guid? AuthorId { get; set; }
+    public Guid AuthorId { get; set; }
 
-    public Guid? BlogCategoryId { get; set; }
+    public Guid BlogCategoryId { get; set; }
 
     [Required]
     [MaxLength(250)]
@@ -42,13 +42,13 @@ public class BlogPost : BaseEntity
 
     public DateTimeOffset? PublishedAt { get; set; }
 
-    public SeoMetadata? Seo { get; set; }
+    public SeoMetaData? Seo { get; set; }
 
     [ForeignKey(nameof(AuthorId))]
-    public User? Author { get; set; }
+    public User Author { get; set; } = new();
 
     [ForeignKey(nameof(BlogCategoryId))]
-    public BlogCategory? BlogCategory { get; set; }
+    public BlogCategory BlogCategory { get; set; } = new();
 
     public List<Comment> Comments { get; set; } = [];
 }

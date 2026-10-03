@@ -1251,7 +1251,7 @@ namespace Fratak_Shop.Data.Migrations
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogCategory", b =>
                 {
-                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetadata", "Seo", b1 =>
+                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
                         {
                             b1.Property<Guid>("BlogCategoryId")
                                 .HasColumnType("uniqueidentifier");
@@ -1492,7 +1492,7 @@ namespace Fratak_Shop.Data.Migrations
                         .HasForeignKey("BlogCategoryId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetadata", "Seo", b1 =>
+                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
                         {
                             b1.Property<Guid>("BlogPostId")
                                 .HasColumnType("uniqueidentifier");
@@ -1732,7 +1732,7 @@ namespace Fratak_Shop.Data.Migrations
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetadata", "Seo", b1 =>
+                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
                         {
                             b1.Property<Guid>("CategoryId")
                                 .HasColumnType("uniqueidentifier");
@@ -2063,7 +2063,7 @@ namespace Fratak_Shop.Data.Migrations
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Pages.PageSeo", b =>
                 {
-                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetadata", "Seo", b1 =>
+                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
                         {
                             b1.Property<Guid>("PageSeoId")
                                 .HasColumnType("uniqueidentifier");
@@ -2300,7 +2300,7 @@ namespace Fratak_Shop.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetadata", "Seo", b1 =>
+                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
                         {
                             b1.Property<Guid>("ProductId")
                                 .HasColumnType("uniqueidentifier");

@@ -10,4 +10,6 @@ public class BaseEntity
     public DateTimeOffset UpdatedAt { get; set; }
     public bool IsDeleted { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+
+
 }

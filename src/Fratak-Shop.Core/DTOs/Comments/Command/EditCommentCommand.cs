@@ -1,0 +1,19 @@
+﻿using Fratak_Shop.Data.Entities.Comments;
+
+namespace Fratak_Shop.Core.DTOs.Comments.Command;
+
+public class EditCommentCommand
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public Guid? ProductId { get; set; }
+    public Guid? BlogPostId { get; set; }
+    public Guid? ParentId { get; set; }
+    public CommentType Type { get; set; }
+    public string AuthorName { get; set; } = null!;
+    public string AuthorPhone { get; set; } = null!;
+    public string? Title { get; set; }
+    public string Content { get; set; } = null!;
+    public byte? Rating { get; set; }
+    public bool? IsRecommended { get; set; }
+}

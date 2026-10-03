@@ -21,7 +21,7 @@ public class BlogCategory : BaseEntity
 
     public bool IsActive { get; set; } = true;
 
-    public SeoMetadata? Seo { get; set; }
+    public SeoMetaData? Seo { get; set; }
 
     public List<BlogPost> BlogPosts { get; set; } = [];
 }

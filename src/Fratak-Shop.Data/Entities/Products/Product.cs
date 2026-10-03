@@ -49,7 +49,7 @@ public class Product : BaseEntity
 
     public int? WarrantyMonths { get; set; }
 
-    public SeoMetadata? Seo { get; set; }
+    public SeoMetaData? Seo { get; set; }
 
     public bool IsActive { get; set; } = true;
 

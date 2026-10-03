@@ -27,7 +27,7 @@ public class Category : BaseEntity
 
     public bool IsActive { get; set; } = true;
 
-    public SeoMetadata? Seo { get; set; }
+    public SeoMetaData? Seo { get; set; }
 
     [ForeignKey(nameof(ParentId))]
     public Category? ParentCategory { get; set; }

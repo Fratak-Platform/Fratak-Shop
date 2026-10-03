@@ -12,22 +12,15 @@ namespace Fratak_Shop.Data.Entities.Locations;
 public class Location : BaseEntity
 {
     public Guid? ParentId { get; set; }
-
     public LocationType Type { get; set; }
 
     [Required]
     [MaxLength(100)]
     public string Name { get; set; } = null!;
 
-    /// <summary>
-    /// Stable external code of the location (e.g. the national division code).
-    /// Used by the seeder for idempotent inserts and by the application for
-    /// reliable lookups.
-    /// </summary>
     [Required]
     [MaxLength(50)]
     public string Code { get; set; } = null!;
-
     public bool IsActive { get; set; } = true;
 
     [ForeignKey(nameof(ParentId))]

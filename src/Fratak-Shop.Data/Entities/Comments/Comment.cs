@@ -14,7 +14,7 @@ namespace Fratak_Shop.Data.Entities.Comments;
 /// </summary>
 public class Comment : BaseEntity
 {
-    public Guid? UserId { get; set; }
+    public Guid UserId { get; set; }
 
     public Guid? ProductId { get; set; }
 
@@ -25,10 +25,10 @@ public class Comment : BaseEntity
     public CommentType Type { get; set; }
 
     [MaxLength(250)]
-    public string? AuthorName { get; set; }
+    public string AuthorName { get; set; } = null!;
 
     [MaxLength(20)]
-    public string? AuthorPhone { get; set; }
+    public string AuthorPhone { get; set; } = null!;
 
     [MaxLength(250)]
     public string? Title { get; set; }
@@ -44,7 +44,7 @@ public class Comment : BaseEntity
     public CommentStatus Status { get; set; }
 
     [ForeignKey(nameof(UserId))]
-    public User? User { get; set; }
+    public User User { get; set; } = new();
 
     [ForeignKey(nameof(ProductId))]
     public Product? Product { get; set; }
