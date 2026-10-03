@@ -284,7 +284,7 @@ public class CategoryService(FratakShopDbContext context) : ICategoryService
             ImageName = category.ImageName,
             DisplayOrder = category.DisplayOrder,
             IsActive = category.IsActive,
-            Seo = category.Seo,
+            Seo = category.Seo?.ToDto(),
             ParentId = category.ParentId,
             ParentName = category.ParentCategory?.Name,
             ProductCount = await context.Products.CountAsync(product => product.CategoryId == category.Id && product.IsActive),
