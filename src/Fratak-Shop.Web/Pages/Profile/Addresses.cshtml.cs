@@ -1,3 +1,4 @@
+﻿using Fratak_Shop.Data.Entities.Locations;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Locations;
@@ -71,8 +72,8 @@ public class AddressesModel(
         entity.AddressLine = Input.AddressLine;
         entity.BuildingNumber = Input.BuildingNumber;
         entity.Unit = Input.Unit;
-        entity.PostalCode = Core.Utilities.PriceHelper.ToEnglishDigits(Input.PostalCode ?? string.Empty);
-        entity.PhoneNumber = Core.Utilities.PriceHelper.ToEnglishDigits(Input.PhoneNumber ?? string.Empty);
+        entity.PostalCode = SlugHelper.ToLatinDigits(Input.PostalCode ?? string.Empty);
+        entity.PhoneNumber = SlugHelper.ToLatinDigits(Input.PhoneNumber ?? string.Empty);
         entity.IsDefault = Input.IsDefault;
 
         if (!ModelState.IsValid)
