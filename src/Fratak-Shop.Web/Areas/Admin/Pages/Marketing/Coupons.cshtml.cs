@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.DTOs.Marketing.Query;
+using Fratak_Shop.Core.DTOs.Marketing.Query;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Messaging;
 using Fratak_Shop.Core.Services.Navigation;

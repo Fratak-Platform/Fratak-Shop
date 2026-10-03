@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.DTOs.Banners.Query;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Media;
 using Fratak_Shop.Core.Services.Messaging;
@@ -103,7 +104,6 @@ public class BannersModel(
                 ImageAlt = Input.ImageAlt,
                 LinkUrl = Input.LinkUrl,
                 ButtonText = Input.ButtonText,
-                Position = Input.Position,
                 DisplayOrder = Input.DisplayOrder,
                 StartAt = Input.StartAt,
                 EndAt = Input.EndAt,
@@ -117,7 +117,6 @@ public class BannersModel(
                 ImageAlt = Input.ImageAlt,
                 LinkUrl = Input.LinkUrl,
                 ButtonText = Input.ButtonText,
-                Position = Input.Position,
                 DisplayOrder = Input.DisplayOrder,
                 StartAt = Input.StartAt,
                 EndAt = Input.EndAt,
