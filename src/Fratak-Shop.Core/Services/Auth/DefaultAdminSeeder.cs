@@ -51,6 +51,16 @@ public static class DefaultAdminSeeder
         {
             user.Role = UserRole.SuperAdmin;
             changed = true;
+
+            var role = new UserRoleAssignment
+            {
+                GrantedAt = new DateTimeOffset(),
+                GrantedByUserId = user.Id,
+                Role = UserRole.SuperAdmin,
+                UserId = user.Id,
+
+            };
+            context.UserRoleAssignments.Add(role);
         }
 
         if (!user.IsPhoneVerified)
