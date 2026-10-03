@@ -8,11 +8,13 @@ public class BlogPostConfiguration : IEntityTypeConfiguration<BlogPost>
 {
     public void Configure(EntityTypeBuilder<BlogPost> builder)
     {
-        // SetNull: deleting the author preserves the post.
+        // AuthorId is required, so SQL Server cannot use SetNull here.
+        // Restrict keeps the author/post relationship valid and prevents
+        // deleting an author while authored posts still exist.
         builder.HasOne(p => p.Author)
             .WithMany(u => u.BlogPosts)
             .HasForeignKey(p => p.AuthorId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(p => p.BlogCategory)
             .WithMany(c => c.BlogPosts)
