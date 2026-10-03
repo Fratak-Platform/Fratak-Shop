@@ -1,4 +1,4 @@
-﻿@page "/admin/page-alerts"
+@page "/admin/page-alerts"
 @model Fratak_Shop.Web.Areas.Admin.Pages.Settings.PageAlertsModel
 @{
 }
@@ -70,7 +70,7 @@
                     <select class="form-input" asp-for="Input.Page">
                         @foreach (var page in Fratak_Shop.Web.Areas.Admin.Pages.Settings.PageAlertsModel.Pages)
                         {
-                            <option value="@page">@page.GetTitle()</option>
+                            <option value="@(page)">@(page.GetTitle())</option>
                         }
                     </select>
                 </div>
