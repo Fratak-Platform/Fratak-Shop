@@ -1,5 +1,6 @@
-﻿@page "/admin/settings"
+@page "/admin/settings"
 @model Fratak_Shop.Web.Areas.Admin.Pages.Settings.IndexModel
+@using Fratak_Shop.Data.Entities.Settings
 @{
     var activeGroup = Request.Query["group"].FirstOrDefault() ?? Model.Groups.FirstOrDefault()?.Group;
     string InputType(SettingValueType type) => type switch

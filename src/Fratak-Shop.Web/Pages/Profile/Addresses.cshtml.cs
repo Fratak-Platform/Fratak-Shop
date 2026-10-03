@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.Services.Locations;
 using Fratak_Shop.Core.Services.Navigation;
@@ -111,7 +111,7 @@ public class AddressesModel(
         Items = await addresses.GetAddressesByUserAsync(userId);
 
         var roots = await locations.GetActiveLocationsAsync();
-        var country = roots.FirstOrDefault(item => item.ParentId is null);
+        var country = roots.FirstOrDefault(item => item.Type == LocationType.Country);
         Provinces = country is null ? roots : await locations.GetChildrenByParentIdAsync(country.Id);
 
         foreach (var province in Provinces)
