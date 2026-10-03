@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Notifications.Query;
+using Fratak_Shop.Core.DTOs.Notifications.Query;
 using Fratak_Shop.Core.Services.Messaging;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Core.Services.Payments;
