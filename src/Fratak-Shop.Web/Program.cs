@@ -1,5 +1,6 @@
 using System.Text;
 using Fratak_Shop.Core;
+using Fratak_Shop.Core.DTOs.Auth.Command;
 using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Content;
 using Fratak_Shop.Core.Services.Media;
@@ -9,9 +10,12 @@ using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Extensions;
+using Fratak_Shop.Data.Seeders;
 using Fratak_Shop.Web.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,7 +43,21 @@ builder.Services.AddRazorPages(options =>
     // an absolute route in their own @page directive (e.g. @page "/admin/coupons").
 });
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+const string SmartAuthentication = "SmartAuthentication";
+const string JwtAuthentication = JwtBearerDefaults.AuthenticationScheme;
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = SmartAuthentication;
+        options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddPolicyScheme(SmartAuthentication, "Cookie or JWT", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            context.Request.Headers.ContainsKey("Authorization")
+                ? JwtAuthentication
+                : CookieAuthenticationDefaults.AuthenticationScheme;
+    })
     .AddCookie(options =>
     {
         options.LoginPath = "/auth/login";
@@ -51,7 +69,27 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    })
+    .AddJwtBearer(options =>
+    {
+        var secret = builder.Configuration["Authentication:Jwt:Secret"]
+            ?? throw new InvalidOperationException("Authentication:Jwt:Secret is required.");
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Authentication:Jwt:Issuer"] ?? "Fratak-Shop",
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Authentication:Jwt:Audience"] ?? "Fratak-Shop.Client",
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+            RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+            NameClaimType = System.Security.Claims.ClaimTypes.Name,
+        };
     });
+
+builder.Services.AddSingleton<JwtTokenService>();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -164,6 +202,22 @@ app.MapGet("/robots.txt", async (ISeoService seoService, CancellationToken cance
     Results.Text(await seoService.GetRobotsTxtAsync(cancellationToken), "text/plain", Encoding.UTF8));
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTimeOffset.UtcNow }));
+
+app.MapPost("/api/auth/token", async (LoginCommand command, IAuthService auth, JwtTokenService tokens,
+    CancellationToken cancellationToken) =>
+{
+    var result = await auth.LoginAsync(command, cancellationToken: cancellationToken);
+    if (!result.IsSuccess() || result.Data is null)
+        return Results.Unauthorized();
+
+    return Results.Ok(new
+    {
+        accessToken = tokens.Create(result.Data),
+        tokenType = "Bearer",
+        expiresIn = 3600,
+        user = result.Data,
+    });
+}).AllowAnonymous();
 
 app.MapRazorPages()
    .WithStaticAssets();
