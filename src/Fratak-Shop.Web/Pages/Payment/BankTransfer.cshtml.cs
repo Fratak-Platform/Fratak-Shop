@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace Fratak_Shop.Web.Pages.Payment;
 
 [Authorize(Policy = PolicyNames.CustomerOnly)]
-public class BankTransferModel : PageModel
+public class BankTransferModel : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
 {
     public IActionResult OnGet(Guid orderId) => Redirect($"/profile/orders/{orderId}");
 }

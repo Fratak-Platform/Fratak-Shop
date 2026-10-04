@@ -38,6 +38,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Profile", PolicyNames.CustomerOnly);
 
     options.Conventions.AuthorizePage("/Checkout", PolicyNames.CustomerOnly);
+    options.Conventions.AddPageRoute("/Profile/OrderDetail", "/profile/orders/{id:guid}");
 
     // The admin panel lives in its own Area: Areas/Admin/Pages/** is served under
     // /admin/** automatically, and pages that need a different path declare it with
