@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Fratak_Shop.Core.DTOs.Payments.Query;
 using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Core.Services.Settings;
@@ -14,7 +14,8 @@ namespace Fratak_Shop.Core.Services.Payments;
 public class PaymentService(
     FratakShopDbContext context,
     ISiteSettingService settingService,
-    INotificationService notificationService) : IPaymentService
+    INotificationService notificationService,
+    ZarinPalGateway zarinPal) : IPaymentService
 {
     public async Task<PaymentGatewayProvider> GetActiveProviderAsync(CancellationToken cancellationToken = default)
     {
@@ -44,7 +45,27 @@ public class PaymentService(
         if (provider == PaymentGatewayProvider.None)
             return OperationResult<PaymentStartResult>.Error("پرداخت آنلاین در حال حاضر غیرفعال است.");
 
+        var merchantId = await settingService.GetValueAsync("Payment.ZarinPalMerchantId");
+        var siteUrl = await settingService.GetValueAsync("General.SiteUrl", "https://localhost:5001");
+        var callbackUrl = $"{siteUrl.TrimEnd('/')}/payment/zarinpal/callback";
         var authority = $"SBX-{Guid.NewGuid():N}".ToUpperInvariant();
+        var redirectUrl = $"/payment/sandbox?authority={authority}";
+
+        if (!string.IsNullOrWhiteSpace(merchantId))
+        {
+            var zarinPal = await zarinPal.RequestAsync(
+                merchantId.Trim(),
+                decimal.ToInt64(decimal.Round(order.PayableAmount * 10m, 0)),
+                callbackUrl,
+                $"پرداخت سفارش {order.OrderNumber}",
+                cancellationToken);
+
+            if (zarinPal is null)
+                return OperationResult<PaymentStartResult>.Error("ارتباط با درگاه سندباکس زرین‌پال برقرار نشد.");
+
+            authority = zarinPal.Authority;
+            redirectUrl = zarinPal.RedirectUrl;
+        }
 
         var transaction = new PaymentTransaction
         {
@@ -53,7 +74,7 @@ public class PaymentService(
             Amount = order.PayableAmount,
             Status = PaymentTransactionStatus.AwaitingCallback,
             Authority = authority,
-            RedirectUrl = $"/payment/sandbox?authority={authority}",
+            RedirectUrl = redirectUrl,
             CreatedByIp = ipAddress,
             RequestPayload = $"{{\"provider\":\"{provider}\",\"orderNumber\":\"{order.OrderNumber}\",\"amount\":{order.PayableAmount.ToString(CultureInfo.InvariantCulture)}}}",
         };
@@ -89,6 +110,19 @@ public class PaymentService(
 
         if (order is null)
             return OperationResult<PaymentResultDto>.NotFound("سفارش مرتبط با تراکنش یافت نشد.");
+
+        if (success && !authority.StartsWith("SBX-", StringComparison.OrdinalIgnoreCase))
+        {
+            var merchantId = await settingService.GetValueAsync("Payment.ZarinPalMerchantId");
+            if (string.IsNullOrWhiteSpace(merchantId) || !await zarinPal.VerifyAsync(
+                    merchantId.Trim(),
+                    decimal.ToInt64(decimal.Round(transaction.Amount * 10m, 0)),
+                    authority,
+                    cancellationToken))
+            {
+                success = false;
+            }
+        }
 
         if (transaction.Status == PaymentTransactionStatus.Succeeded)
         {

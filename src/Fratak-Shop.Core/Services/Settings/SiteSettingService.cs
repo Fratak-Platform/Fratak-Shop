@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Fratak_Shop.Core.DTOs.Settings.Query;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
@@ -317,8 +317,9 @@ public class SiteSettingService(FratakShopDbContext context) : ISiteSettingServi
         new() { Key = "Shop.ShowPricesToGuests", Value = "true", Group = "Shop", ValueType = SettingValueType.Bool, Title = "نمایش قیمت به مهمان‌ها", DisplayOrder = 2, IsPublic = true },
 
         // -------------------------------------------------------------- پرداخت
-        new() { Key = "Payment.EnableOnlineGateway", Value = "true", Group = "Payment", ValueType = SettingValueType.Bool, Title = "فعال بودن پرداخت آنلاین (سندباکس)", DisplayOrder = 1, IsPublic = true },
-        new() { Key = "Payment.EnableBankTransfer", Value = "true", Group = "Payment", ValueType = SettingValueType.Bool, Title = "فعال بودن کارت به کارت", DisplayOrder = 2, IsPublic = true },
+        new() { Key = "Payment.EnableOnlineGateway", Value = "true", Group = "Payment", ValueType = SettingValueType.Bool, Title = "فعال بودن پرداخت آنلاین (سندباکس زرین‌پال)", DisplayOrder = 1, IsPublic = true },
+        new() { Key = "Payment.ZarinPalMerchantId", Value = "", Group = "Payment", ValueType = SettingValueType.Text, Title = "شناسه پذیرنده زرین‌پال سندباکس", Description = "شناسه پذیرنده سندباکس زرین‌پال را وارد کنید؛ در صورت خالی بودن، حالت شبیه‌سازی داخلی فعال می‌ماند.", DisplayOrder = 2, IsPublic = false },
+        new() { Key = "Payment.EnableBankTransfer", Value = "true", Group = "Payment", ValueType = SettingValueType.Bool, Title = "فعال بودن کارت به کارت", DisplayOrder = 3, IsPublic = true },
         new() { Key = "Payment.EnableCashOnDelivery", Value = "true", Group = "Payment", ValueType = SettingValueType.Bool, Title = "فعال بودن پرداخت در محل", DisplayOrder = 3, IsPublic = true },
         new() { Key = "Payment.BankTransferDeadlineHours", Value = "24", Group = "Payment", ValueType = SettingValueType.Number, Title = "مهلت پرداخت کارت به کارت (ساعت)", DisplayOrder = 4, IsPublic = true },
         new() { Key = "Payment.Instructions", Value = "پس از واریز، اطلاعات و تصویر فیش را در همین صفحه ثبت کنید تا کارشناسان ما در سریع‌ترین زمان بررسی کنند.", Group = "Payment", ValueType = SettingValueType.Textarea, Title = "توضیحات پرداخت", DisplayOrder = 5, IsPublic = true },
