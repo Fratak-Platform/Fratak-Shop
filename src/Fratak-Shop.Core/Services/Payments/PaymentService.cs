@@ -15,7 +15,7 @@ public class PaymentService(
     FratakShopDbContext context,
     ISiteSettingService settingService,
     INotificationService notificationService,
-    ZarinPalGateway zarinPal) : IPaymentService
+    ZarinPalGateway zarinPalGateway) : IPaymentService
 {
     public async Task<PaymentGatewayProvider> GetActiveProviderAsync(CancellationToken cancellationToken = default)
     {
@@ -53,7 +53,7 @@ public class PaymentService(
 
         if (!string.IsNullOrWhiteSpace(merchantId))
         {
-            var zarinPal = await zarinPal.RequestAsync(
+            var zarinPal = await zarinPalGateway.RequestAsync(
                 merchantId.Trim(),
                 decimal.ToInt64(decimal.Round(order.PayableAmount * 10m, 0)),
                 callbackUrl,
@@ -114,7 +114,7 @@ public class PaymentService(
         if (success && !authority.StartsWith("SBX-", StringComparison.OrdinalIgnoreCase))
         {
             var merchantId = await settingService.GetValueAsync("Payment.ZarinPalMerchantId");
-            if (string.IsNullOrWhiteSpace(merchantId) || !await zarinPal.VerifyAsync(
+            if (string.IsNullOrWhiteSpace(merchantId) || !await zarinPalGateway.VerifyAsync(
                     merchantId.Trim(),
                     decimal.ToInt64(decimal.Round(transaction.Amount * 10m, 0)),
                     authority,
