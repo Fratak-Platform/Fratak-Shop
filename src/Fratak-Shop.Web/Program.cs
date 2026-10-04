@@ -8,6 +8,7 @@ using Fratak_Shop.Core.Services.Navigation;
 using Fratak_Shop.Core.Services.Pages;
 using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Extensions;
 using Fratak_Shop.Data.Seeders;
