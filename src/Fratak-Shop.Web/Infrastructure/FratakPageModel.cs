@@ -69,6 +69,7 @@ public abstract class FratakPageModel(
             IsAuthenticated = CurrentUserId.HasValue,
             UserFullName = CurrentUserName,
             CartCount = await cart.GetItemCountAsync(CurrentUserId, CartSessionKey),
+            Cart = await cart.GetCartDtoAsync(CurrentUserId, CartSessionKey),
         };
 
         if (CurrentUserId.HasValue)

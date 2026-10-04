@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Navigation.Query;
+using Fratak_Shop.Core.DTOs.Navigation.Query;
 using Fratak_Shop.Core.DTOs.Settings.Query;
+using Fratak_Shop.Core.DTOs.Shopping.Query;
 
 namespace Fratak_Shop.Web.Infrastructure;
 
@@ -18,6 +19,7 @@ public class LayoutViewModel
     public List<SocialLinkDto> HeaderSocials { get; set; } = [];
     public List<SocialLinkDto> FooterSocials { get; set; } = [];
     public int CartCount { get; set; }
+    public CartDto Cart { get; set; } = new();
     public int UnreadNotifications { get; set; }
     public string CurrentPath { get; set; } = "/";
     public bool IsAuthenticated { get; set; }

@@ -66,7 +66,8 @@
 
         drawer.classList.remove("hidden");
         overlay?.classList.remove("hidden");
-        await refreshCartDrawer();
+        // The drawer is rendered by Razor on the server; no client-side HTML
+        // rendering is used here.
     };
 
     window.closeCart = function () {
@@ -74,32 +75,8 @@
         document.getElementById("cardHeaderOverlay")?.classList.add("hidden");
     };
 
-    window.refreshCartDrawer = async function () {
-        const container = document.querySelector("[data-cart-drawer]");
-        if (!container) {
-            return;
-        }
-
-        try {
-            const response = await fetch("/cart?handler=Mini", { headers: { "X-Requested-With": "XMLHttpRequest" } });
-            if (!response.ok) {
-                return;
-            }
-
-            const html = await response.text();
-            container.innerHTML = html;
-
-            const total = container.querySelector("[data-mini-total]")?.dataset.miniTotal;
-            if (total) {
-                const totalEl = document.querySelector("[data-cart-total]");
-                if (totalEl) {
-                    totalEl.textContent = total;
-                }
-            }
-        } catch {
-            // A failed refresh must never break the page; the user can still open /cart.
-        }
-    };
+    // Cart markup is rendered by Razor during the request. Mutating the drawer
+    // with client-generated HTML is intentionally not supported.
 
     // ------------------------------------------------------------- add to cart
     async function addToCart(productId, quantity, button) {
@@ -112,8 +89,8 @@
             window.fratakToast(payload.message, payload.success ? "success" : "error");
 
             if (payload.success) {
-                setCartCount(payload.count);
-                await refreshCartDrawer();
+                // Reload so the server renders the updated cart and drawer.
+                window.location.reload();
             }
         } catch {
             window.fratakToast("ارتباط با سرور برقرار نشد.", "error");
