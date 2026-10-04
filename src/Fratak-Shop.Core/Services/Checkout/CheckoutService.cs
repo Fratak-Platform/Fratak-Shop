@@ -258,15 +258,19 @@ public class CheckoutService(
         if (couponId.HasValue)
             await couponService.RegisterUsageAsync(couponId.Value, order.Id, command.UserId, couponDiscount, cancellationToken);
 
-        var redirectUrl = command.PaymentMethod switch
-        {
-            PaymentMethod.OnlineGateway => $"/payment/start?orderId={order.Id}",
-            PaymentMethod.BankTransfer => $"/payment/bank-transfer?orderId={order.Id}",
-            _ => $"/checkout/complete/{order.Id}",
-        };
+        var redirectUrl = $"/profile/orders/{order.Id}";
 
-        if (command.PaymentMethod == PaymentMethod.BankTransfer)
+        if (command.PaymentMethod == PaymentMethod.OnlineGateway)
+        {
+            var payment = await paymentService.StartAsync(order.Id, command.UserId, null, cancellationToken);
+            redirectUrl = payment.IsSuccess() && payment.Data is not null
+                ? payment.Data.RedirectUrl
+                : $"/profile/orders/{order.Id}?paymentError=1";
+        }
+        else if (command.PaymentMethod == PaymentMethod.BankTransfer)
+        {
             await bankTransferService.EnsureForOrderAsync(order.Id, cancellationToken);
+        }
 
         await cartService.ClearAsync(command.UserId, command.SessionKey, cancellationToken);
 

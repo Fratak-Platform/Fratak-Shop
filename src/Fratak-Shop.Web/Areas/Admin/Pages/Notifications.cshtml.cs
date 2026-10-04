@@ -56,13 +56,24 @@ public class NotificationsModel(
     /// <summary>ارسال اعلان همگانی به همه کاربران فروشگاه.</summary>
     public async Task<IActionResult> OnPostBroadcastAsync()
     {
-        if (!ModelState.IsValid)
+        // Validate the posted value itself before relying on ModelState. This
+        // prevents a stale binder error from masking a non-empty title.
+        var title = Broadcast.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
         {
             Notify("عنوان اعلان را وارد کنید.", "error");
             return RedirectToPage("/Notifications", new { area = "Admin" });
         }
 
-        var result = await notifications.BroadcastAsync(Broadcast.Title, Broadcast.Message, Broadcast.Url,
+        // The title has already been validated from the bound object.
+        ModelState.Remove("Broadcast.Title");
+        if (!ModelState.IsValid)
+        {
+            Notify("اطلاعات اعلان کامل نیست.", "error");
+            return RedirectToPage("/Notifications", new { area = "Admin" });
+        }
+
+        var result = await notifications.BroadcastAsync(title, Broadcast.Message?.Trim(), Broadcast.Url?.Trim(),
             CurrentUserId);
 
         Notify(result.Message, result.IsSuccess() ? "success" : "error");

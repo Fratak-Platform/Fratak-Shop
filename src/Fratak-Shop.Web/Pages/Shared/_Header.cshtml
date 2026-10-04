@@ -1,4 +1,4 @@
-﻿@model LayoutViewModel
+@model LayoutViewModel
 @{
     var site = Model.Site;
 }
@@ -92,6 +92,7 @@
                             <a class="block rounded-lg px-3 py-2 text-sm text-sky-600 hover:bg-sky-50" href="/admin">ورود به پنل مدیریت</a>
                         }
                         <form method="post" action="/auth/logout">
+                            @Html.AntiForgeryToken()
                             <button type="submit" class="w-full rounded-lg px-3 py-2 text-right text-sm text-rose-500 hover:bg-rose-50">خروج از حساب</button>
                         </form>
                     }
