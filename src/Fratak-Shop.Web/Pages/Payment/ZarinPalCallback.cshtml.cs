@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Fratak_Shop.Web.Pages.Payment;
 
-public class ZarinPalCallbackModel(IPaymentService payments) : PageModel
+public class ZarinPalCallbackModel(IPaymentService payments) : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
 {
     public async Task<IActionResult> OnGetAsync(string? authority, string? status,
         CancellationToken cancellationToken)
