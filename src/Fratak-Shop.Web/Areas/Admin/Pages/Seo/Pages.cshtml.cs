@@ -42,13 +42,13 @@ public class PagesModel(
     public ContentPageDto? CurrentContent { get; private set; }
 
     [BindProperty(SupportsGet = true)]
-    public SitePage? Page { get; set; }
+    public new SitePage? Page { get; set; }
 
     [BindProperty]
     public SeoFormInput Seo { get; set; } = new();
 
     [BindProperty]
-    public ContentFormInput Content { get; set; } = new();
+    public new ContentFormInput Content { get; set; } = new();
 
     public async Task OnGetAsync()
     {

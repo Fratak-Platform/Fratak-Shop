@@ -23,7 +23,7 @@ public class StatusModel(
     IPageAlertService pageAlerts)
     : FratakPageModel(settings, menus, cart, notifications, seoService)
 {
-    public int StatusCode { get; private set; }
+    public new int StatusCode { get; private set; }
 
     public string Title { get; private set; } = string.Empty;
 

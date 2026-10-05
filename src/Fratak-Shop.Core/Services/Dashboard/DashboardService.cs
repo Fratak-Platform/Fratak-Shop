@@ -21,6 +21,7 @@ public class DashboardService(
 {
     public async Task<AdminDashboardDto> GetAsync(CancellationToken cancellationToken = default)
     {
+        _ = statisticsService;
         var dashboard = new AdminDashboardDto
         {
             Orders = await orderService.GetStatsAsync(cancellationToken),
