@@ -65,16 +65,18 @@ public class NotificationsModel(
             return RedirectToPage("/Notifications", new { area = "Admin" });
         }
 
-        // The title has already been validated from the bound object.
-        ModelState.Remove("Broadcast.Title");
-        if (!ModelState.IsValid)
+        // Only the broadcast payload belongs to this handler. Do not let an
+        // unrelated GET filter or a stale validation entry block a valid post.
+        var message = Broadcast.Message?.Trim();
+        var url = Broadcast.Url?.Trim();
+        if (message?.Length > 1000 || url?.Length > 500)
         {
-            Notify("اطلاعات اعلان کامل نیست.", "error");
+            Notify("طول متن یا لینک اعلان بیش از حد مجاز است.", "error");
             return RedirectToPage("/Notifications", new { area = "Admin" });
         }
 
-        var result = await notifications.BroadcastAsync(title, Broadcast.Message?.Trim(), Broadcast.Url?.Trim(),
-            CurrentUserId);
+        var result = await notifications.BroadcastAsync(title, message, url,
+            Broadcast.Type, CurrentUserId);
 
         Notify(result.Message, result.IsSuccess() ? "success" : "error");
         return RedirectToPage("/Notifications", new { area = "Admin" });

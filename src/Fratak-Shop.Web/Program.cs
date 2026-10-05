@@ -22,7 +22,12 @@ using Microsoft.Net.Http.Headers;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------------- services
-builder.Services.AddFratakShopData(builder.Configuration["ConnectionDefault"]!);
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration["ConnectionDefault"];
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("Database connection string is not configured. Set ConnectionStrings:DefaultConnection.");
+
+builder.Services.AddFratakShopData(connectionString);
 builder.Services.AddFratakShopCore();
 builder.Services.AddHttpClient<Fratak_Shop.Core.Services.Payments.ZarinPalGateway>();
 
@@ -44,8 +49,12 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AddPageRoute("/Page", "/faq");
     options.Conventions.AddPageRoute("/Page", "/faqs");
     options.Conventions.AddPageRoute("/Page", "/about");
-    options.Conventions.AddPageRoute("/Page", "/contact");
     options.Conventions.AddPageRoute("/Page", "/rules");
+    options.Conventions.AddPageRoute("/Page", "/terms");
+    options.Conventions.AddPageRoute("/Page", "/privacy");
+    options.Conventions.AddPageRoute("/Page", "/warranty");
+    options.Conventions.AddPageRoute("/Page", "/about-us");
+    options.Conventions.AddPageRoute("/Page", "/contact-us");
 
     // The admin panel lives in its own Area: Areas/Admin/Pages/** is served under
     // /admin/** automatically, and pages that need a different path declare it with

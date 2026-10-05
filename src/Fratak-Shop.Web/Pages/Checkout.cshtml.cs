@@ -33,6 +33,8 @@ public class CheckoutModel(
 
     public List<Core.DTOs.Locations.Query.LocationDto> Provinces { get; private set; } = [];
 
+    public Dictionary<string, List<Core.DTOs.Locations.Query.LocationDto>> CitiesByProvince { get; private set; } = [];
+
     public List<Data.Entities.Users.UserAddress> SavedAddresses { get; private set; } = [];
 
     [BindProperty]
@@ -59,6 +61,9 @@ public class CheckoutModel(
         var roots = await locations.GetActiveLocationsAsync();
         var country = roots.FirstOrDefault(item => item.Type == LocationType.Country);
         Provinces = country is null ? roots.Where(item => item.Type == LocationType.Province).ToList() : await locations.GetChildrenByParentIdAsync(country.Id);
+        foreach (var province in Provinces)
+            CitiesByProvince[province.Name] = await locations.GetChildrenByParentIdAsync(province.Id);
+
         if (CurrentUserId is { } userId)
             SavedAddresses = await addresses.GetAddressesByUserAsync(userId);
 

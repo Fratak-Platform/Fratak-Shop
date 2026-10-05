@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Notifications.Query;
+using Fratak_Shop.Core.DTOs.Notifications.Query;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Notifications;
 
@@ -25,8 +25,8 @@ public interface INotificationService
         string? url = null, CancellationToken cancellationToken = default);
 
     /// <summary>اعلان عمومی برای همه مشتریان.</summary>
-    Task<OperationResult> BroadcastAsync(string title, string? message, string? url, Guid? createdByUserId,
-        CancellationToken cancellationToken = default);
+    Task<OperationResult> BroadcastAsync(string title, string? message, string? url, NotificationType type,
+        Guid? createdByUserId, CancellationToken cancellationToken = default);
 
     Task<List<NotificationDto>> GetForUserAsync(Guid userId, int take = 20, bool unreadOnly = false);
 

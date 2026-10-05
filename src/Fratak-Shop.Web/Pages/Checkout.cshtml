@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model Fratak_Shop.Web.Pages.CheckoutModel
 @{
     ViewData["Title"] = "تسویه حساب";
@@ -56,7 +56,7 @@
                         <option value="">انتخاب استان...</option>
                         @foreach (var province in Model.Provinces)
                         {
-                            <option value="@province.Name">@province.Name</option>
+                            <option value="@province.Name" data-province-id="@province.Id">@province.Name</option>
                         }
                     </select>
                     <span class="form-error" asp-validation-for="Input.ShippingProvince"></span>
@@ -65,6 +65,16 @@
                     <label class="form-label" asp-for="Input.ShippingCity">شهر <span class="text-rose-500">*</span></label>
                     <select class="form-input" asp-for="Input.ShippingCity" id="citySelect">
                         <option value="">انتخاب شهر...</option>
+                        @foreach (var province in Model.Provinces)
+                        {
+                            if (Model.CitiesByProvince.TryGetValue(province.Name, out var cities))
+                            {
+                                foreach (var city in cities)
+                                {
+                                    <option value="@city.Name" data-province="@province.Name">@city.Name</option>
+                                }
+                            }
+                        }
                     </select>
                     <span class="form-error" asp-validation-for="Input.ShippingCity"></span>
                 </div>
@@ -237,39 +247,21 @@
             const shippingInput = document.getElementById("shippingMethodInput");
             const paymentInput = document.getElementById("paymentMethodInput");
 
-            const cityApi = "/api/locations?handler=Cities&provinceId=";
-
-            async function loadCities() {
+            function loadCities() {
                 const selected = province.value;
-                city.innerHTML = '<option value="">انتخاب شهر...</option>';
-                if (!selected) {
-                    return;
+                const currentCity = city.value;
+                city.querySelectorAll("option[data-province]").forEach(option => {
+                    option.hidden = !selected || option.dataset.province !== selected;
+                });
+                if (!selected || ![...city.options].some(option => !option.hidden && option.value === currentCity)) {
+                    city.value = "";
                 }
-
-                const option = province.options[province.selectedIndex];
-                const response = await fetch("/api/locations?handler=Cities&provinceId=" + option.dataset.id);
-                if (!response.ok) {
-                    return;
-                }
-
-                const items = await response.json();
-                items.forEach(item => city.insertAdjacentHTML("beforeend", `<option value="${item.name}">${item.name}</option>`));
             }
 
-            // Province options carry their id so the city endpoint can be called.
-            fetch("/api/locations?handler=Provinces")
-                .then(response => response.ok ? response.json() : [])
-                .then(items => {
-                    const current = province.value;
-                    province.innerHTML = '<option value="">انتخاب استان...</option>' +
-                        items.map(item => `<option value="${item.name}" data-id="${item.id}">${item.name}</option>`).join("");
-                    if (current) {
-                        province.value = current;
-                    }
-                    loadCities();
-                });
-
+            // Provinces and cities are rendered by Razor. JavaScript only filters
+            // the already-rendered options and does not build page content.
             province.addEventListener("change", loadCities);
+            loadCities();
 
             document.querySelectorAll(".shipping-option").forEach(option => {
                 option.addEventListener("change", () => {

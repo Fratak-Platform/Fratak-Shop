@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Notifications.Query;
+using Fratak_Shop.Core.DTOs.Notifications.Query;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Notifications;
@@ -79,37 +79,23 @@ public class NotificationService(FratakShopDbContext context) : INotificationSer
             await context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<OperationResult> BroadcastAsync(string title, string? message, string? url, Guid? createdByUserId,
-        CancellationToken cancellationToken = default)
+    public async Task<OperationResult> BroadcastAsync(string title, string? message, string? url, NotificationType type,
+        Guid? createdByUserId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(title))
             return OperationResult.Error("عنوان اعلان را وارد کنید.");
 
-        var customerIds = await context.Users
-            .Where(user => user.Role == UserRole.Customer)
-            .Select(user => user.Id)
-            .ToListAsync(cancellationToken);
+        var customerCount = await context.Users
+            .CountAsync(user => user.Role == UserRole.Customer, cancellationToken);
 
-        foreach (var userId in customerIds)
-        {
-            context.Notifications.Add(new Notification
-            {
-                UserId = userId,
-                Title = title,
-                Message = message,
-                Url = url,
-                Type = NotificationType.Info,
-                Channel = NotificationChannel.InApp,
-                CreatedByUserId = createdByUserId,
-            });
-        }
-
+        // Store one broadcast row. Creating one row per customer as well would
+        // make every user see the same notification twice and would scale poorly.
         context.Notifications.Add(new Notification
         {
             Title = title,
             Message = message,
             Url = url,
-            Type = NotificationType.Info,
+            Type = type,
             Channel = NotificationChannel.InApp,
             IsBroadcast = true,
             CreatedByUserId = createdByUserId,
@@ -117,7 +103,7 @@ public class NotificationService(FratakShopDbContext context) : INotificationSer
 
         await context.SaveChangesAsync(cancellationToken);
 
-        return OperationResult.Success($"اعلان برای {PriceHelper.ToPersianDigits(customerIds.Count.ToString())} مشتری ارسال شد.");
+        return OperationResult.Success($"اعلان برای {PriceHelper.ToPersianDigits(customerCount.ToString())} مشتری ارسال شد.");
     }
 
     public async Task<List<NotificationDto>> GetForUserAsync(Guid userId, int take = 20, bool unreadOnly = false)
