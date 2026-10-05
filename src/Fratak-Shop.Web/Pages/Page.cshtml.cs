@@ -37,8 +37,17 @@ public class PageModel(
 
     public List<FaqItemDto> FaqItems { get; private set; } = [];
 
-    public async Task<IActionResult> OnGetAsync(string slug)
+    public async Task<IActionResult> OnGetAsync(string? slug)
     {
+        slug ??= HttpContext.Request.Path.Value?.Trim('/').ToLowerInvariant() switch
+        {
+            "about" or "about-us" => "about",
+            "contact" or "contact-us" => "contact",
+            "rules" or "terms" => "rules",
+            "faq" or "faqs" => "faq",
+            _ => "faq",
+        };
+
         var page = ResolvePage(slug);
         if (page is null)
             return NotFound();

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Users;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +20,14 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
         if (string.IsNullOrWhiteSpace(address.AddressLine))
             return OperationResult.Error("آدرس را وارد کنید.");
+
+        if (address.ProvinceId == Guid.Empty || address.CityId == Guid.Empty)
+            return OperationResult.Error("استان و شهر را انتخاب کنید.");
+
+        var cityBelongsToProvince = await context.Locations
+            .AnyAsync(x => x.Id == address.CityId && x.ParentId == address.ProvinceId && x.IsActive);
+        if (!cityBelongsToProvince)
+            return OperationResult.Error("شهر انتخاب‌شده با استان انتخابی هماهنگ نیست.");
 
         var userExists = await context.Users.AnyAsync(x => x.Id == address.UserId && !x.IsDeleted);
         if (!userExists)
@@ -45,6 +53,14 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
         if (string.IsNullOrWhiteSpace(address.AddressLine))
             return OperationResult.Error("آدرس را وارد کنید.");
+
+        if (address.ProvinceId == Guid.Empty || address.CityId == Guid.Empty)
+            return OperationResult.Error("استان و شهر را انتخاب کنید.");
+
+        var cityBelongsToProvince = await context.Locations
+            .AnyAsync(x => x.Id == address.CityId && x.ParentId == address.ProvinceId && x.IsActive);
+        if (!cityBelongsToProvince)
+            return OperationResult.Error("شهر انتخاب‌شده با استان انتخابی هماهنگ نیست.");
 
         entity.UserId = address.UserId;
         entity.ProvinceId = address.ProvinceId;

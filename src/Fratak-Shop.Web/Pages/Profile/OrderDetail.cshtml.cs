@@ -102,20 +102,26 @@ public class OrderDetailModel(
         var receipts = new List<StoredReceipt>();
         var uploadedFiles = Request.Form.Files.Where(file => file.Name == "Transfer.Receipts").Take(4).ToList();
 
-        if (uploadedFiles.Count > 0)
+        if (uploadedFiles.Count == 0)
         {
-            var saved = await media.SaveFilesAsync(uploadedFiles, MediaFolders.BankTransfers);
-            if (saved.IsSuccess() && saved.Data is not null)
-            {
-                receipts.AddRange(saved.Data.Select(file => new StoredReceipt
-                {
-                    FileName = file.FileName,
-                    OriginalName = file.OriginalName,
-                    ContentType = file.ContentType,
-                    SizeBytes = file.SizeBytes,
-                }));
-            }
+            Notify("حداقل یک تصویر یا فایل فیش را انتخاب کنید.", "error");
+            return Redirect($"/profile/orders/{id}");
         }
+
+        var saved = await media.SaveFilesAsync(uploadedFiles, MediaFolders.BankTransfers);
+        if (!saved.IsSuccess() || saved.Data is null)
+        {
+            Notify(saved.Message, "error");
+            return Redirect($"/profile/orders/{id}");
+        }
+
+        receipts.AddRange(saved.Data.Select(file => new StoredReceipt
+        {
+            FileName = file.FileName,
+            OriginalName = file.OriginalName,
+            ContentType = file.ContentType,
+            SizeBytes = file.SizeBytes,
+        }));
 
         var result = await bankTransfers.SubmitAsync(new SubmitBankTransferCommand
         {

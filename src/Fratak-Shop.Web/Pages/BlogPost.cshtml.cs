@@ -86,6 +86,9 @@ public class BlogPostModel(
         if (post is null)
             return NotFound();
 
+        if (CurrentUserId is not { } userId)
+            return Redirect($"/auth/login?returnUrl=/blog/{Uri.EscapeDataString(slug)}%23comments");
+
         if (!ModelState.IsValid)
         {
             Notify("اطلاعات دیدگاه کامل نیست.", "error");
@@ -94,7 +97,7 @@ public class BlogPostModel(
 
         var result = await comments.CreateCommentAsync(new CreateCommentCommand
         {
-            UserId = CurrentUserId ?? Guid.Empty,
+            UserId = userId,
             BlogPostId = post.Id,
             Type = CommentType.BlogComment,
             AuthorName = Comment.AuthorName,

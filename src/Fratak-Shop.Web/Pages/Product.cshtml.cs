@@ -89,6 +89,9 @@ public class ProductModel(
         if (product is null)
             return NotFound();
 
+        if (CurrentUserId is not { } userId)
+            return Redirect($"/auth/login?returnUrl=/product/{Uri.EscapeDataString(slug)}%23reviews");
+
         if (!ModelState.IsValid)
         {
             Notify("اطلاعات دیدگاه کامل نیست.", "error");
@@ -97,7 +100,7 @@ public class ProductModel(
 
         var command = new CreateCommentCommand
         {
-            UserId = CurrentUserId ?? Guid.Empty,
+            UserId = userId,
             ProductId = product.Id,
             Type = CommentType.Review,
             AuthorName = Review.AuthorName,

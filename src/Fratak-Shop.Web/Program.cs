@@ -40,6 +40,13 @@ builder.Services.AddRazorPages(options =>
 
     options.Conventions.AuthorizePage("/Checkout", PolicyNames.CustomerOnly);
 
+    // Stable public aliases for dynamic content pages.
+    options.Conventions.AddPageRoute("/Page", "/faq");
+    options.Conventions.AddPageRoute("/Page", "/faqs");
+    options.Conventions.AddPageRoute("/Page", "/about");
+    options.Conventions.AddPageRoute("/Page", "/contact");
+    options.Conventions.AddPageRoute("/Page", "/rules");
+
     // The admin panel lives in its own Area: Areas/Admin/Pages/** is served under
     // /admin/** automatically, and pages that need a different path declare it with
     // an absolute route in their own @page directive (e.g. @page "/admin/coupons").
