@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Payments.Query;
+using Fratak_Shop.Core.DTOs.Payments.Query;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Payments;
 
@@ -20,7 +20,7 @@ public interface IPaymentService
 
     /// <summary>شروع پرداخت آنلاین سفارش و ساخت تراکنش.</summary>
     Task<OperationResult<PaymentStartResult>> StartAsync(Guid orderId, Guid? userId, string? ipAddress,
-        CancellationToken cancellationToken = default);
+        string? callbackBaseUrl = null, CancellationToken cancellationToken = default);
 
     /// <summary>پردازش بازگشت از درگاه (موفق یا ناموفق) و به‌روزرسانی سفارش.</summary>
     Task<OperationResult<PaymentResultDto>> HandleCallbackAsync(string authority, bool success,

@@ -262,7 +262,8 @@ public class CheckoutService(
 
         if (command.PaymentMethod == PaymentMethod.OnlineGateway)
         {
-            var payment = await paymentService.StartAsync(order.Id, command.UserId, null, cancellationToken);
+            var payment = await paymentService.StartAsync(order.Id, command.UserId, null,
+                command.CallbackBaseUrl, cancellationToken);
             redirectUrl = payment.IsSuccess() && payment.Data is not null
                 ? payment.Data.RedirectUrl
                 : $"/profile/orders/{order.Id}?paymentError=1";

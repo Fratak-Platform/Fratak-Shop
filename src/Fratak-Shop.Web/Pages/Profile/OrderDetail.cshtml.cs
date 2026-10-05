@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Payments.Command;
+using Fratak_Shop.Core.DTOs.Payments.Command;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Seo.Query;
 using Fratak_Shop.Core.DTOs.Orders.Query;
@@ -76,7 +76,9 @@ public class OrderDetailModel(
         if (CurrentUserId is not { } userId)
             return Redirect("/login");
 
-        var result = await payments.StartAsync(id, userId, HttpContext.Connection.RemoteIpAddress?.ToString());
+        var result = await payments.StartAsync(id, userId,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            $"{Request.Scheme}://{Request.Host}");
 
         if (!result.IsSuccess() || result.Data is null)
         {

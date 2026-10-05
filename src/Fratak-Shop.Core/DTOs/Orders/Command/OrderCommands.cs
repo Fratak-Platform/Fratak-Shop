@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Orders;
+using Fratak_Shop.Data.Entities.Orders;
 
 namespace Fratak_Shop.Core.DTOs.Orders.Command;
 
@@ -10,6 +10,8 @@ public class CheckoutCommand
 {
     public Guid? UserId { get; set; }
     public string? SessionKey { get; set; }
+
+    public string? CallbackBaseUrl { get; set; }
 
     public string CustomerName { get; set; } = null!;
     public string CustomerPhone { get; set; } = null!;

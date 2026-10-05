@@ -17,7 +17,8 @@ public class StartModel(IPaymentService payments) : Microsoft.AspNetCore.Mvc.Raz
             return Redirect($"/auth/login?returnUrl=/payment/start?orderId={orderId}");
 
         var result = await payments.StartAsync(orderId, userId,
-            HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            $"{Request.Scheme}://{Request.Host}", cancellationToken);
 
         if (!result.IsSuccess() || result.Data is null)
             return Redirect($"/profile/orders/{orderId}?paymentError=1");

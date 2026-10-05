@@ -15,8 +15,7 @@ public class PaymentService(
     FratakShopDbContext context,
     ISiteSettingService settingService,
     INotificationService notificationService,
-    ZarinPalGateway zarinPalGateway,
-    Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor) : IPaymentService
+    ZarinPalGateway zarinPalGateway) : IPaymentService
 {
     public async Task<PaymentGatewayProvider> GetActiveProviderAsync(CancellationToken cancellationToken = default)
     {
@@ -28,7 +27,7 @@ public class PaymentService(
         (await settingService.GetStorefrontSettingsAsync()).EnableOnlinePayment;
 
     public async Task<OperationResult<PaymentStartResult>> StartAsync(Guid orderId, Guid? userId, string? ipAddress,
-        CancellationToken cancellationToken = default)
+        string? callbackBaseUrl = null, CancellationToken cancellationToken = default)
     {
         var order = await context.Orders.AsTracking()
             .FirstOrDefaultAsync(item => item.Id == orderId, cancellationToken);
@@ -47,11 +46,7 @@ public class PaymentService(
             return OperationResult<PaymentStartResult>.Error("پرداخت آنلاین در حال حاضر غیرفعال است.");
 
         var merchantId = await settingService.GetValueAsync("Payment.ZarinPalMerchantId");
-        var request = httpContextAccessor.HttpContext?.Request;
-        var requestBaseUrl = request is null
-            ? null
-            : $"{request.Scheme}://{request.Host.Value}";
-        var siteUrl = requestBaseUrl ?? await settingService.GetValueAsync("General.SiteUrl", "https://localhost:5001");
+        var siteUrl = callbackBaseUrl ?? await settingService.GetValueAsync("General.SiteUrl", "https://localhost:5001");
         var callbackUrl = $"{siteUrl.TrimEnd('/')}/payment/zarinpal/callback";
         var authority = $"SBX-{Guid.NewGuid():N}".ToUpperInvariant();
         var redirectUrl = $"/payment/sandbox?authority={authority}";

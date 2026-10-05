@@ -80,6 +80,7 @@ public class CheckoutModel(
     {
         Input.UserId = CurrentUserId;
         Input.SessionKey = CartSessionKey;
+        Input.CallbackBaseUrl = $"{Request.Scheme}://{Request.Host}";
 
         var result = await checkout.PlaceOrderAsync(Input);
 
