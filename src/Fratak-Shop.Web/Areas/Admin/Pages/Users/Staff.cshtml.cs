@@ -9,7 +9,6 @@ using Fratak_Shop.Core.Services.Payments;
 using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Services.Users;
-using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Web.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,7 +32,7 @@ public class StaffModel(
 {
     public List<UserDto> Items { get; private set; } = [];
 
-    public static IReadOnlyList<(UserRole Role, string Title)> Roles => UserRoleExtensions.AssignableRoles
+    public new static IReadOnlyList<(UserRole Role, string Title)> Roles => UserRoleExtensions.AssignableRoles
         .Select(role => (role, role.GetTitle()))
         .ToList();
 

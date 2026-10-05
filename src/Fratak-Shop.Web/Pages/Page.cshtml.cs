@@ -33,7 +33,7 @@ public class PageModel(
     IFaqItemService faqs)
     : FratakPageModel(settings, menus, cart, notifications, seoService)
 {
-    public ContentPageDto Content { get; private set; } = null!;
+    public new ContentPageDto Content { get; private set; } = null!;
 
     public List<FaqItemDto> FaqItems { get; private set; } = [];
 
