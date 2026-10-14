@@ -1,0 +1,31 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "dotnet-msbuild-file",
+      "severity": "error",
+      "pattern": [
+        {
+          "regexp": "^\\s*(.+?)\\((\\d+),(\\d+)\\)\\s*:\\s*(error|warning)\\s+([A-Za-z]+\\d+)\\s*:\\s*(.*?)\\s*\\[(.+?)\\]\\s*$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        }
+      ]
+    },
+    {
+      "owner": "dotnet-msbuild-generic",
+      "severity": "error",
+      "pattern": [
+        {
+          "regexp": "^\\s*(error|warning)\\s+([A-Za-z]+\\d+)\\s*:\\s*(.*?)\\s*\\[(.+?)\\]\\s*$",
+          "severity": 1,
+          "code": 2,
+          "message": 3
+        }
+      ]
+    }
+  ]
+}

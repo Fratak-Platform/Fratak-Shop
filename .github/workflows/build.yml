@@ -33,11 +33,14 @@ jobs:
       - name: Show SDK info
         run: dotnet --info
 
+      - name: Register MSBuild problem matchers
+        run: echo "::add-matcher::.github/matchers/dotnet.json"
+
       - name: Restore
-        run: dotnet restore Fratak-Shop.slnx
+        run: dotnet restore Fratak-Shop.slnx -v normal
 
       - name: Build
-        run: dotnet build Fratak-Shop.slnx --no-restore --configuration Release
+        run: dotnet build Fratak-Shop.slnx --no-restore --configuration Release -v normal
 
       - name: Test
         run: |
