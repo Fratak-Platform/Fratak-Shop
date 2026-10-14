@@ -37,10 +37,10 @@ jobs:
         run: echo "::add-matcher::.github/matchers/dotnet.json"
 
       - name: Restore
-        run: dotnet restore Fratak-Shop.slnx -v normal
+        run: .github/scripts/run-and-annotate.sh restore.log dotnet restore Fratak-Shop.slnx -v normal
 
       - name: Build
-        run: dotnet build Fratak-Shop.slnx --no-restore --configuration Release -v normal
+        run: .github/scripts/run-and-annotate.sh build.log dotnet build Fratak-Shop.slnx --no-restore --configuration Release -v normal
 
       - name: Test
         run: |
