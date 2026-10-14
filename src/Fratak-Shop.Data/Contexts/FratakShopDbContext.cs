@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
@@ -107,7 +107,11 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
             switch (entry.State)
             {
                 case EntityState.Added:
-                    entry.Entity.Id = Guid.NewGuid();
+                    // شناسه‌های از پیش تعیین‌شده (مثل داده‌های Seed با DeterministicGuid) بازنویسی نمی‌شوند
+                    // تا ارجاع‌های والد/فرزند در داده‌های مرجع معتبر بمانند.
+                    if (entry.Entity.Id == Guid.Empty)
+                        entry.Entity.Id = Guid.NewGuid();
+
                     entry.Entity.CreatedAt = now;
                     entry.Entity.UpdatedAt = now;
                     break;
