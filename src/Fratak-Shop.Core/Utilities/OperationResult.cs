@@ -34,7 +34,7 @@ public class OperationResult<TData>
         new()
         {
             Status = EnOperationResultStatus.NotFound,
-            Data = default(TData),
+            Data = default!,
             Message = NotFoundMessage,
         };
 
@@ -42,7 +42,7 @@ public class OperationResult<TData>
         new()
         {
             Status = EnOperationResultStatus.NotFound,
-            Data = default(TData),
+            Data = default!,
             Message = message ?? NotFoundMessage,
         };
 
@@ -50,7 +50,7 @@ public class OperationResult<TData>
         new()
         {
             Status = EnOperationResultStatus.Error,
-            Data = default(TData),
+            Data = default!,
             Message = message ?? ErrorMessage
         };
 
