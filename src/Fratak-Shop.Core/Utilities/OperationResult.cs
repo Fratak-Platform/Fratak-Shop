@@ -30,7 +30,7 @@ public class OperationResult<TData>
             Data = data,
         };
 
-    public static OperationResult<TData?> NotFound() =>
+    public static OperationResult<TData> NotFound() =>
         new()
         {
             Status = EnOperationResultStatus.NotFound,
@@ -38,7 +38,7 @@ public class OperationResult<TData>
             Message = NotFoundMessage,
         };
 
-    public static OperationResult<TData?> NotFound(string? message) =>
+    public static OperationResult<TData> NotFound(string? message) =>
         new()
         {
             Status = EnOperationResultStatus.NotFound,
@@ -46,7 +46,7 @@ public class OperationResult<TData>
             Message = message ?? NotFoundMessage,
         };
 
-    public static OperationResult<TData?> Error(string? message = null) =>
+    public static OperationResult<TData> Error(string? message = null) =>
         new()
         {
             Status = EnOperationResultStatus.Error,
@@ -54,11 +54,11 @@ public class OperationResult<TData>
             Message = message ?? ErrorMessage
         };
 
-    public static OperationResult<TData?> Error(TData? data, string? message = null) =>
+    public static OperationResult<TData> Error(TData? data, string? message = null) =>
         new()
         {
             Status = EnOperationResultStatus.Error,
-            Data = data,
+            Data = data!,
             Message = message ?? ErrorMessage
         };
 }
