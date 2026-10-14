@@ -7,7 +7,9 @@ using Fratak_Shop.Core.Services.Locations;
 using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Messages;
 using Fratak_Shop.Core.Services.Orders;
+using Fratak_Shop.Core.Services.Pages;
 using Fratak_Shop.Core.Services.Products;
+using Fratak_Shop.Core.Services.SeoRedirects;
 using Fratak_Shop.Core.Services.Shopping;
 using Fratak_Shop.Core.Services.Users;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +35,9 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderItemService, OrderItemService>();
+        services.AddScoped<IPageAlertService, PageAlertService>();
+        services.AddScoped<IPageSeoService, PageSeoService>();
+        services.AddScoped<ISeoRedirectService, SeoRedirectService>();
 
         return services;
     }

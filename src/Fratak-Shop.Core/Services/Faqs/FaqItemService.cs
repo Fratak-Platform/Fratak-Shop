@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Faqs.Command;
+using Fratak_Shop.Core.DTOs.Faqs.Command;
 using Fratak_Shop.Core.DTOs.Faqs.Query;
+using Fratak_Shop.Core.Mappers.Faqs;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Faqs;
@@ -70,61 +71,24 @@ public class FaqItemService(FratakShopDbContext context) : IFaqItemService
         return context.FaqItems
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.CreatedAt)
-            .Select(x => new FaqItemDto
-            {
-                Id = x.Id,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-                IsDeleted = x.IsDeleted,
-                DeletedAt = x.DeletedAt,
-                Question = x.Question,
-                Answer = x.Answer,
-                DisplayOrder = x.DisplayOrder,
-                IsActive = x.IsActive,
-            })
-            .ToList();
+            .ToList()
+            .Map();
     }
 
     public async Task<List<FaqItemDto>> GetActiveFaqItemsAsync()
     {
-        return await context.FaqItems
+        var faqItems = await context.FaqItems
             .Where(x => x.IsActive)
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.CreatedAt)
-            .Select(x => new FaqItemDto
-            {
-                Id = x.Id,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-                IsDeleted = x.IsDeleted,
-                DeletedAt = x.DeletedAt,
-                Question = x.Question,
-                Answer = x.Answer,
-                DisplayOrder = x.DisplayOrder,
-                IsActive = x.IsActive,
-            })
             .ToListAsync();
+
+        return faqItems.Map();
     }
 
     public async Task<FaqItemDto?> GetFaqItemByIdAsync(Guid id)
     {
-        var faqItem = await context.FaqItems
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        if (faqItem is null)
-            return null;
-
-        return new FaqItemDto
-        {
-            Id = faqItem.Id,
-            CreatedAt = faqItem.CreatedAt,
-            UpdatedAt = faqItem.UpdatedAt,
-            IsDeleted = faqItem.IsDeleted,
-            DeletedAt = faqItem.DeletedAt,
-            Question = faqItem.Question,
-            Answer = faqItem.Answer,
-            DisplayOrder = faqItem.DisplayOrder,
-            IsActive = faqItem.IsActive,
-        };
+        var faqItem = await context.FaqItems.FirstOrDefaultAsync(x => x.Id == id);
+        return faqItem?.Map();
     }
 }

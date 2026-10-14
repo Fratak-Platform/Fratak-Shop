@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Banners.Command;
+using Fratak_Shop.Core.DTOs.Banners.Command;
 using Fratak_Shop.Core.DTOs.Banners.Query;
+using Fratak_Shop.Core.Mappers.Banners;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Marketing;
@@ -84,82 +85,28 @@ public class BannerService(FratakShopDbContext context) : IBannerService
         return context.Banners
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.CreatedAt)
-            .Select(x => new BannerDto()
-            {
-                Id = x.Id,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-                IsDeleted = x.IsDeleted,
-                DeletedAt = x.DeletedAt,
-                Title = x.Title,
-                Subtitle = x.Subtitle,
-                ImageName = x.ImageName,
-                MobileImageName = x.MobileImageName,
-                ImageAlt = x.ImageAlt,
-                ButtonText = x.ButtonText,
-                LinkUrl = x.LinkUrl,
-                DisplayOrder = x.DisplayOrder,
-                StartAt = x.StartAt,
-                EndAt = x.EndAt,
-                IsActive = x.IsActive,
-            })
-            .ToList();
+            .ToList()
+            .Map();
     }
 
     public async Task<List<BannerDto>> GetActiveBannersAsync()
     {
         var now = DateTimeOffset.UtcNow;
 
-        return await context.Banners
-            .Where(x => x.IsActive && (!x.StartAt.HasValue || x.StartAt <= now) && (!x.EndAt.HasValue || x.EndAt >= now))
+        var banners = await context.Banners
+            .Where(x => x.IsActive
+                        && (!x.StartAt.HasValue || x.StartAt <= now)
+                        && (!x.EndAt.HasValue || x.EndAt >= now))
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.CreatedAt)
-            .Select(x => new BannerDto
-            {
-                Id = x.Id,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-                IsDeleted = x.IsDeleted,
-                DeletedAt = x.DeletedAt,
-                Title = x.Title,
-                Subtitle = x.Subtitle,
-                ImageName = x.ImageName,
-                MobileImageName = x.MobileImageName,
-                ImageAlt = x.ImageAlt,
-                ButtonText = x.ButtonText,
-                LinkUrl = x.LinkUrl,
-                DisplayOrder = x.DisplayOrder,
-                StartAt = x.StartAt,
-                EndAt = x.EndAt,
-                IsActive = x.IsActive,
-            })
             .ToListAsync();
+
+        return banners.Map();
     }
 
     public async Task<BannerDto?> GetBannerByIdAsync(Guid id)
     {
         var banner = await context.Banners.FirstOrDefaultAsync(x => x.Id == id);
-        if (banner is null)
-            return null;
-
-        return new BannerDto
-        {
-            Id = banner.Id,
-            CreatedAt = banner.CreatedAt,
-            UpdatedAt = banner.UpdatedAt,
-            IsDeleted = banner.IsDeleted,
-            DeletedAt = banner.DeletedAt,
-            Title = banner.Title,
-            Subtitle = banner.Subtitle,
-            ImageName = banner.ImageName,
-            MobileImageName = banner.MobileImageName,
-            ImageAlt = banner.ImageAlt,
-            ButtonText = banner.ButtonText,
-            LinkUrl = banner.LinkUrl,
-            DisplayOrder = banner.DisplayOrder,
-            StartAt = banner.StartAt,
-            EndAt = banner.EndAt,
-            IsActive = banner.IsActive,
-        };
+        return banner?.Map();
     }
 }

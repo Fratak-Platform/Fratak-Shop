@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Favorites.Command;
+using Fratak_Shop.Core.DTOs.Favorites.Command;
 using Fratak_Shop.Core.DTOs.Favorites.Query;
+using Fratak_Shop.Core.Mappers.Favorites;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Favorites;
@@ -76,22 +77,13 @@ public class FavoriteService(FratakShopDbContext context) : IFavoriteService
 
     public async Task<List<FavoriteDto>> GetFavoritesByUserIdAsync(Guid userId)
     {
-        return await context.Favorites
+        var favorites = await context.Favorites
             .Where(x => x.UserId == userId)
+            .Include(x => x.Product)
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new FavoriteDto
-            {
-                Id = x.Id,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-                IsDeleted = x.IsDeleted,
-                DeletedAt = x.DeletedAt,
-                UserId = x.UserId,
-                ProductId = x.ProductId,
-                ProductName = x.Product.Name,
-                ProductSlug = x.Product.Slug,
-            })
             .ToListAsync();
+
+        return favorites.Map();
     }
 
     public async Task<FavoriteDto?> GetFavoriteByIdAsync(Guid id)
@@ -100,20 +92,6 @@ public class FavoriteService(FratakShopDbContext context) : IFavoriteService
             .Include(x => x.Product)
             .FirstOrDefaultAsync(x => x.Id == id);
 
-        if (favorite is null)
-            return null;
-
-        return new FavoriteDto
-        {
-            Id = favorite.Id,
-            CreatedAt = favorite.CreatedAt,
-            UpdatedAt = favorite.UpdatedAt,
-            IsDeleted = favorite.IsDeleted,
-            DeletedAt = favorite.DeletedAt,
-            UserId = favorite.UserId,
-            ProductId = favorite.ProductId,
-            ProductName = favorite.Product.Name,
-            ProductSlug = favorite.Product.Slug,
-        };
+        return favorite?.Map();
     }
 }
