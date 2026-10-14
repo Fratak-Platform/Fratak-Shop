@@ -9,7 +9,7 @@ namespace Fratak_Shop.Data.Entities.Blogs;
 
 public class BlogPost : BaseEntity
 {
-    public Guid AuthorId { get; set; }
+    public Guid? AuthorId { get; set; }
 
     public Guid BlogCategoryId { get; set; }
 

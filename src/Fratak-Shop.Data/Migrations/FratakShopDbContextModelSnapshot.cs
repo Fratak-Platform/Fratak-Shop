@@ -17,7 +17,7 @@ namespace Fratak_Shop.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -78,7 +78,7 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<Guid?>("AuthorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("BlogCategoryId")
+                    b.Property<Guid>("BlogCategoryId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Content")
@@ -205,10 +205,12 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AuthorName")
+                        .IsRequired()
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
                     b.Property<string>("AuthorPhone")
+                        .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
@@ -1487,7 +1489,8 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasOne("Fratak_Shop.Data.Entities.Blogs.BlogCategory", "BlogCategory")
                         .WithMany("BlogPosts")
                         .HasForeignKey("BlogCategoryId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
                         {
@@ -2594,7 +2597,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsRequired();
 
                     b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
-                        .WithMany("UserAddresses")
+                        .WithMany("Addresses")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2656,7 +2659,7 @@ namespace Fratak_Shop.Data.Migrations
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.User", b =>
                 {
-                    b.Navigation("UserAddresses");
+                    b.Navigation("Addresses");
 
                     b.Navigation("BlogPosts");
 

@@ -14,7 +14,7 @@ namespace Fratak_Shop.Data.Entities.Comments;
 /// </summary>
 public class Comment : BaseEntity
 {
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
 
     public Guid? ProductId { get; set; }
 

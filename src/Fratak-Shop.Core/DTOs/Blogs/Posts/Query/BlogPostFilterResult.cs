@@ -4,7 +4,7 @@ namespace Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 
 public class BlogPostFilterData : BaseDto
 {
-    public Guid AuthorId { get; set; }
+    public Guid? AuthorId { get; set; }
     public string AuthorName { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Slug { get; set; } = null!;

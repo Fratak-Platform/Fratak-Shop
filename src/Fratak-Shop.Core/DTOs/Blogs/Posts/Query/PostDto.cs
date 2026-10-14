@@ -5,7 +5,7 @@ namespace Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 
 public class PostDto : BaseDto
 {
-    public Guid AuthorId { get; set; }
+    public Guid? AuthorId { get; set; }
     public string AuthorName { get; set; } = null!;
     public Guid BlogCategoryId { get; set; }
     public string Title { get; set; } = null!;

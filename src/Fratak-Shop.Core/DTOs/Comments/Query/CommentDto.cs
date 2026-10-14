@@ -5,7 +5,7 @@ namespace Fratak_Shop.Core.DTOs.Comments.Query;
 
 public class CommentDto : BaseDto
 {
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
     public Guid? ProductId { get; set; }
     public Guid? BlogPostId { get; set; }
     public CommentType Type { get; set; }
@@ -21,7 +21,7 @@ public class CommentDto : BaseDto
 
 public class CommentReplyDto : BaseDto
 {
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
     public Guid? ProductId { get; set; }
     public Guid ParentId { get; set; }
     public Guid? BlogPostId { get; set; }
