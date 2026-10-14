@@ -33,7 +33,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
             return OperationResult.Error(locationError);
 
         // اولین آدرس کاربر به‌صورت خودکار پیش‌فرض می‌شود.
-        var hasAnyAddress = await context.Addresses.AnyAsync(x => x.UserId == command.UserId);
+        var hasAnyAddress = await context.UserAddresses.AnyAsync(x => x.UserId == command.UserId);
         var isDefault = command.IsDefault || !hasAnyAddress;
 
         if (isDefault)
@@ -55,7 +55,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
             IsDefault = isDefault,
         };
 
-        context.Addresses.Add(address);
+        context.UserAddresses.Add(address);
         await context.SaveChangesAsync();
 
         return OperationResult.Success("آدرس با موفقیت ثبت شد.");
@@ -63,7 +63,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
     public async Task<OperationResult> EditAddressAsync(EditUserAddressCommand command)
     {
-        var address = await context.Addresses
+        var address = await context.UserAddresses
             .AsTracking()
             .FirstOrDefaultAsync(x => x.Id == command.Id);
 
@@ -79,7 +79,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
             return OperationResult.Error(locationError);
 
         // تنها آدرس کاربر همیشه پیش‌فرض می‌ماند.
-        var isOnlyAddress = !await context.Addresses
+        var isOnlyAddress = !await context.UserAddresses
             .AnyAsync(x => x.UserId == address.UserId && x.Id != address.Id);
 
         var isDefault = command.IsDefault || isOnlyAddress;
@@ -106,7 +106,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
     public async Task<OperationResult> DeleteAddressAsync(Guid id)
     {
-        var address = await context.Addresses
+        var address = await context.UserAddresses
             .AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id);
 
@@ -118,7 +118,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
         // اگر آدرس پیش‌فرض حذف شود، جدیدترین آدرس باقی‌مانده پیش‌فرض می‌شود.
         if (address.IsDefault)
         {
-            var replacement = await context.Addresses
+            var replacement = await context.UserAddresses
                 .AsTracking()
                 .Where(x => x.UserId == userId && x.Id != address.Id)
                 .OrderByDescending(x => x.CreatedAt)
@@ -128,7 +128,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
                 replacement.IsDefault = true;
         }
 
-        context.Addresses.Remove(address);
+        context.UserAddresses.Remove(address);
         await context.SaveChangesAsync();
 
         return OperationResult.Success("آدرس با موفقیت حذف شد.");
@@ -136,7 +136,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
     public async Task<OperationResult> SetDefaultAddressAsync(Guid id)
     {
-        var address = await context.Addresses
+        var address = await context.UserAddresses
             .AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id);
 
@@ -157,7 +157,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
     public async Task<UserAddressDto?> GetAddressByIdAsync(Guid id)
     {
-        var address = await context.Addresses
+        var address = await context.UserAddresses
             .Include(x => x.Province)
             .Include(x => x.City)
             .FirstOrDefaultAsync(x => x.Id == id);
@@ -167,7 +167,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
     public async Task<List<UserAddressDto>> GetAddressesByUserAsync(Guid userId)
     {
-        var addresses = await context.Addresses
+        var addresses = await context.UserAddresses
             .Where(x => x.UserId == userId)
             .Include(x => x.Province)
             .Include(x => x.City)
@@ -180,7 +180,7 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
     private async Task UnsetOtherDefaultsAsync(Guid userId, Guid exceptId)
     {
-        var defaultAddresses = await context.Addresses
+        var defaultAddresses = await context.UserAddresses
             .AsTracking()
             .Where(x => x.UserId == userId && x.Id != exceptId && x.IsDefault)
             .ToListAsync();

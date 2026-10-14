@@ -16,8 +16,8 @@ public static class FavoriteMapper
             DeletedAt = favorite.DeletedAt,
             UserId = favorite.UserId,
             ProductId = favorite.ProductId,
-            ProductName = favorite.Product?.Name,
-            ProductSlug = favorite.Product?.Slug,
+            ProductName = favorite.Product.Name,
+            ProductSlug = favorite.Product.Slug,
         };
     }
 

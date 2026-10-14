@@ -22,7 +22,7 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 {
     public DbSet<User> Users { get; set; } = null!;
 
-    public DbSet<UserAddress> Addresses { get; set; } = null!;
+    public DbSet<UserAddress> UserAddresses { get; set; } = null!;
 
     public DbSet<Location> Locations { get; set; } = null!;
 
@@ -107,8 +107,6 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
             switch (entry.State)
             {
                 case EntityState.Added:
-                    // شناسه‌های از پیش تعیین‌شده (مثل داده‌های Seed با DeterministicGuid) بازنویسی نمی‌شوند
-                    // تا ارجاع‌های والد/فرزند در داده‌های مرجع معتبر بمانند.
                     if (entry.Entity.Id == Guid.Empty)
                         entry.Entity.Id = Guid.NewGuid();
 

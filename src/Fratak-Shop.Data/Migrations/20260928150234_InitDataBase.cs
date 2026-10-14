@@ -488,7 +488,7 @@ namespace Fratak_Shop.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Addresses",
+                name: "UserAddresses",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -933,17 +933,17 @@ namespace Fratak_Shop.Data.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_Addresses_CityId",
-                table: "Addresses",
+                table: "UserAddresses",
                 column: "CityId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Addresses_ProvinceId",
-                table: "Addresses",
+                table: "UserAddresses",
                 column: "ProvinceId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Addresses_UserId",
-                table: "Addresses",
+                table: "UserAddresses",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -1172,7 +1172,7 @@ namespace Fratak_Shop.Data.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Addresses");
+                name: "UserAddresses");
 
             migrationBuilder.DropTable(
                 name: "Banners");

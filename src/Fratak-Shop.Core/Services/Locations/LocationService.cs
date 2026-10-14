@@ -95,7 +95,7 @@ public class LocationService(FratakShopDbContext context) : ILocationService
         if (hasChildren)
             return OperationResult.Error("این مکان زیرمجموعه دارد؛ ابتدا زیرمجموعه‌ها را حذف کنید.");
 
-        var isUsedInAddress = await context.Addresses
+        var isUsedInAddress = await context.UserAddresses
             .AnyAsync(x => x.ProvinceId == id || x.CityId == id);
 
         if (isUsedInAddress)

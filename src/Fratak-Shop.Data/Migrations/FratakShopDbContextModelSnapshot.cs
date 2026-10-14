@@ -1243,7 +1243,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("UserAddresses");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogCategory", b =>
@@ -2594,7 +2594,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsRequired();
 
                     b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
-                        .WithMany("Addresses")
+                        .WithMany("UserAddresses")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2656,7 +2656,7 @@ namespace Fratak_Shop.Data.Migrations
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.User", b =>
                 {
-                    b.Navigation("Addresses");
+                    b.Navigation("UserAddresses");
 
                     b.Navigation("BlogPosts");
 
