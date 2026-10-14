@@ -5,26 +5,26 @@ namespace Fratak_Shop.Core.Mappers.Blog;
 
 public static class CategoryMapper
 {
+    public static BlogCategoryDto Map(this BlogCategory category)
+    {
+        return new BlogCategoryDto
+        {
+            Id = category.Id,
+            CreatedAt = category.CreatedAt,
+            UpdatedAt = category.UpdatedAt,
+            IsDeleted = category.IsDeleted,
+            DeletedAt = category.DeletedAt,
+            Name = category.Name,
+            Slug = category.Slug,
+            Description = category.Description,
+            DisplayOrder = category.DisplayOrder,
+            IsActive = category.IsActive,
+            Seo = category.Seo.MapSeoMetaData(),
+        };
+    }
+
     public static List<BlogCategoryDto> Map(this List<BlogCategory> categories)
     {
-        var postsDto = new List<BlogCategoryDto>();
-        categories.ForEach(p =>
-        {
-            postsDto.Add(new BlogCategoryDto
-            {
-                Id = p.Id,
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt,
-                IsDeleted = p.IsDeleted,
-                DeletedAt = p.DeletedAt,
-                Name = p.Name,
-                Slug = p.Slug,
-                Description = p.Description,
-                DisplayOrder = p.DisplayOrder,
-                IsActive = p.IsActive,
-                Seo = p.Seo.MapSeoMetaData(),
-            });
-        });
-        return postsDto;
+        return categories.Select(category => category.Map()).ToList();
     }
 }

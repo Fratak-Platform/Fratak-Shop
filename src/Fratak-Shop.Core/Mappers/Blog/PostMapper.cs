@@ -1,5 +1,6 @@
-﻿using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
+using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 using Fratak_Shop.Core.DTOs.Comments.Query;
+using Fratak_Shop.Core.Mappers.Users;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Utilities.SeoManagement;
 
@@ -17,7 +18,7 @@ public static class PostMapper
             IsDeleted = post.IsDeleted,
             DeletedAt = post.DeletedAt,
             AuthorId = post.AuthorId,
-            AuthorName = $"{post.Author.FirstName} {post.Author.LastName}",
+            AuthorName = post.Author.DisplayName() ?? string.Empty,
             BlogCategoryId = post.BlogCategoryId,
             Title = post.Title,
             Slug = post.Slug,
@@ -46,7 +47,7 @@ public static class PostMapper
                 IsDeleted = p.IsDeleted,
                 DeletedAt = p.DeletedAt,
                 AuthorId = p.AuthorId,
-                AuthorName = $"{p.Author.FirstName} {p.Author.LastName}",
+                AuthorName = p.Author.DisplayName() ?? string.Empty,
                 Title = p.Title,
                 Slug = p.Slug,
                 Excerpt = p.Excerpt,
@@ -58,9 +59,9 @@ public static class PostMapper
                 PublishedAt = p.PublishedAt,
                 CategoryPostDto = new BlogCategoryPostDto
                 {
-                    Slug = p.BlogCategory.Slug,
-                    Id = p.BlogCategory.Id,
-                    Name = p.BlogCategory.Name
+                    Slug = p.BlogCategory?.Slug ?? string.Empty,
+                    Id = p.BlogCategory?.Id ?? Guid.Empty,
+                    Name = p.BlogCategory?.Name ?? string.Empty,
                 }
             });
         });

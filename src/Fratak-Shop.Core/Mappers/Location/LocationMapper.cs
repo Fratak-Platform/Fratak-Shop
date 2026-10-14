@@ -6,9 +6,7 @@ public static class LocationMapper
 {
     public static List<LocationDto> Map(this List<Data.Entities.Locations.Location> locations)
     {
-        var locationsDto = new List<LocationDto>();
-        locations.ForEach(a => a.Map());
-        return locationsDto;
+        return locations.Select(location => location.Map()).ToList();
     }
 
     public static LocationDto Map(this Data.Entities.Locations.Location location)
@@ -31,7 +29,7 @@ public static class LocationMapper
                 UpdatedAt = c.UpdatedAt,
                 IsDeleted = c.IsDeleted,
                 DeletedAt = c.DeletedAt,
-                ParentId = (Guid)c.ParentId!,
+                ParentId = c.ParentId ?? Guid.Empty,
                 Name = c.Name,
                 Code = c.Code,
                 Type = c.Type,
@@ -43,7 +41,7 @@ public static class LocationMapper
                     UpdatedAt = cc.UpdatedAt,
                     IsDeleted = cc.IsDeleted,
                     DeletedAt = cc.DeletedAt,
-                    ParentId = (Guid)cc.ParentId!,
+                    ParentId = cc.ParentId ?? Guid.Empty,
                     Name = cc.Name,
                     Code = cc.Code,
                     Type = cc.Type,

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Core.Utilities;
 
 namespace Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 
@@ -22,6 +22,9 @@ public class BlogPostFilterParams : BaseFilterParam
 {
     public string? Search { get; set; }
     public string? CategorySlug { get; set; } = null!;
+
+    /// <summary>فقط مقالات منتشرشده؛ برای لیست عمومی وب‌سایت.</summary>
+    public bool? OnlyPublished { get; set; }
 }
 
 public class BlogPostFilterResult : BaseFilter<BlogPostFilterData, BlogPostFilterParams>;
