@@ -1,0 +1,48 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - dev
+      - master
+      - "arena/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Restore, build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Show SDK info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore Fratak-Shop.slnx
+
+      - name: Build
+        run: dotnet build Fratak-Shop.slnx --no-restore --configuration Release
+
+      - name: Test
+        run: |
+          if find . -name "*.Tests.csproj" -not -path "./.git/*" | grep -q .; then
+            dotnet test Fratak-Shop.slnx --no-build --configuration Release --verbosity normal
+          else
+            echo "No test projects found; skipping tests."
+          fi
