@@ -1,7 +1,12 @@
+﻿using Fratak_Shop.Data.Extensions;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+
+// Data layer (EF Core DbContext) — connection string comes from "ConnectionDefault".
+builder.Services.AddFratakShopData(builder.Configuration["ConnectionDefault"]!);
 
 var app = builder.Build();
 
@@ -22,5 +27,8 @@ app.UseAuthorization();
 app.MapStaticAssets();
 app.MapRazorPages()
    .WithStaticAssets();
+
+// Applies pending migrations and seeds the location dictionary.
+await app.Services.InitializeFratakShopDataAsync();
 
 app.Run();
