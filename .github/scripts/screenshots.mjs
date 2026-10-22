@@ -12,12 +12,12 @@ const pages = [
   ["checkout", "/checkout"],
   ["orderdetail", "/profile/orders"],
   ["product", "/product/xiaomi-redmi-watch-3-active"],
-  ["compare", "/compare"],
+  ["home", "/"],
 ];
 
 const browser = await chromium.launch();
 
-for (const [device, viewport] of [["desktop", { width: 1366, height: 900 }], ["mobile", { width: 390, height: 844 }]]) {
+for (const [device, viewport] of [["mobile", { width: 390, height: 844 }]]) {
   const context = await browser.newContext({ viewport, locale: "fa-IR" });
   const page = await context.newPage();
 
@@ -25,9 +25,9 @@ for (const [device, viewport] of [["desktop", { width: 1366, height: 900 }], ["m
   await page.goto(`${base}/login`);
   await page.fill("#Input_PhoneNumber", "09120000000");
   await page.fill("#Input_Password", "123456");
-  await Promise.all([page.waitForNavigation(), page.click("button[type=submit]")]);
+  await Promise.all([page.waitForNavigation(), page.$eval("form[method=post]", (f) => f.requestSubmit())]);
   await page.goto(`${base}/product/xiaomi-redmi-watch-3-active`);
-  await Promise.all([page.waitForNavigation(), page.click("form[action^='/cart'] button[type=submit]")]);
+  await Promise.all([page.waitForNavigation(), page.$eval("form[action^='/cart']", (f) => f.requestSubmit())]);
 
   for (const [name, path] of pages) {
     await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
