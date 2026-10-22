@@ -31,8 +31,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ok: ${{ steps.build.outputs.ok }}
+      migration: ${{ steps.flags.outputs.migration }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Detect migration request
+        id: flags
+        run: |
+          if [ -f .github/ef-migration-request ]; then echo "migration=true" >> "$GITHUB_OUTPUT"; else echo "migration=false" >> "$GITHUB_OUTPUT"; fi
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -65,7 +71,7 @@ jobs:
   migration:
     name: Generate EF migration
     needs: build
-    if: needs.build.outputs.ok == 'true' && github.event_name == 'push' && hashFiles('.github/ef-migration-request') != ''
+    if: needs.build.outputs.ok == 'true' && github.event_name == 'push' && needs.build.outputs.migration == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +95,7 @@ jobs:
   smoke:
     name: Smoke test (SQL Server)
     needs: build
-    if: needs.build.outputs.ok == 'true' && hashFiles('.github/ef-migration-request') == ''
+    if: needs.build.outputs.ok == 'true' && needs.build.outputs.migration != 'true'
     runs-on: ubuntu-latest
     services:
       mssql:
