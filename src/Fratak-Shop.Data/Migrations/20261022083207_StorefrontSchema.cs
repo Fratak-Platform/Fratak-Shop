@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -43,7 +43,7 @@ namespace Fratak_Shop.Data.Migrations
                 table: "Banners",
                 type: "int",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: 1); // existing banners stay in the hero slider (BannerPosition.HeroSlider)
 
             migrationBuilder.CreateTable(
                 name: "Brands",
