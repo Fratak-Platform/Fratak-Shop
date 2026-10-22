@@ -53,7 +53,7 @@ jobs:
           set +e
           dotnet build Fratak-Shop.slnx --no-restore -c Release -v minimal -clp:NoSummary > build.log 2>&1
           code=$?
-          grep -E ": error " build.log | sed -E 's#^.*/(src/[^(]+)#\1#' | sed -E 's# \[/home.*$##' | sort -u > errors.txt
+          grep -E ": error " build.log | sed -E "s#^ *${GITHUB_WORKSPACE}/##; s# \[[^]]*\]\$##" | sort -u > errors.txt
           echo "Build exit code: $code ($(wc -l < errors.txt) unique errors)"
           if [ $code -eq 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
           exit 0

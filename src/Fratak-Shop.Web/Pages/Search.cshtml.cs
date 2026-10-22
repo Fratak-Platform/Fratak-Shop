@@ -1,17 +1,147 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using FratakShop.Models;
-using System.Collections.Generic;
+using Fratak_Shop.Core.DTOs.Brands.Query;
+using Fratak_Shop.Core.DTOs.Categories.Query;
+using Fratak_Shop.Core.DTOs.Products.Query;
+using Fratak_Shop.Core.Services.Brands;
+using Fratak_Shop.Core.Services.Categories;
+using Fratak_Shop.Core.Services.Products;
+using Fratak_Shop.Data.Entities.Pages;
+using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Models;
+using Fratak_Shop.Web.Services;
+using Microsoft.AspNetCore.Mvc;
 
-namespace FratakShop.Pages;
+namespace Fratak_Shop.Web.Pages;
 
-public class SearchModel : PageModel
+/// <summary>
+/// Product listing: search results, category pages (/category/{slug}),
+/// brand pages (/brand/{slug}) and the special lists (discounts, best sellers).
+/// </summary>
+public class SearchModel(
+    IProductService productService,
+    ICategoryService categoryService,
+    IBrandService brandService,
+    IPageMetaService pageMeta) : ShopPageModel
 {
-    public List<BrandFilterOption> BrandFilters { get; set; } = SampleData.BrandFilters;
-    public List<FilterOption> CategoryFilters { get; set; } = SampleData.CategoryFilters;
-    public List<ProductGridCard> Products { get; set; } = SampleData.SearchProducts;
-    public List<FilterOption> SellerFilters { get; set; } = SampleData.SellerFilters;
-    public List<SortOption> SortOptions { get; set; } = SampleData.SortOptions;
-    public void OnGet()
+    public const int PageSize = 16;
+
+    public static readonly (ProductSortBy Value, string Title)[] SortOptions =
+    [
+        (ProductSortBy.Newest, "جدیدترین"),
+        (ProductSortBy.BestSelling, "پرفروش ترین"),
+        (ProductSortBy.MostViewed, "پربازدیدترین"),
+        (ProductSortBy.Cheapest, "ارزان ترین"),
+        (ProductSortBy.MostExpensive, "گران ترین"),
+        (ProductSortBy.MostDiscounted, "بیشترین تخفیف"),
+    ];
+
+    [BindProperty(SupportsGet = true, Name = "q")]
+    public string? Query { get; set; }
+
+    [BindProperty(SupportsGet = true, Name = "category")]
+    public string? CategorySlug { get; set; }
+
+    [BindProperty(SupportsGet = true, Name = "brand")]
+    public List<string> BrandSlugs { get; set; } = [];
+
+    [BindProperty(SupportsGet = true)]
+    public decimal? MinPrice { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public decimal? MaxPrice { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public bool Available { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public bool Discounted { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public ProductSortBy Sort { get; set; } = ProductSortBy.Newest;
+
+    [BindProperty(SupportsGet = true, Name = "page")]
+    public int PageNumber { get; set; } = 1;
+
+    public ProductFilterResult Result { get; private set; } = null!;
+    public List<CategoryDto> Categories { get; private set; } = [];
+    public List<BrandDto> Brands { get; private set; } = [];
+    public CategoryDto? Category { get; private set; }
+    public BrandDto? SingleBrand { get; private set; }
+    public PagerModel Pager { get; private set; } = null!;
+    public string Heading { get; private set; } = "همه محصولات";
+
+    public bool HasFilters =>
+        !string.IsNullOrWhiteSpace(Query) || !string.IsNullOrWhiteSpace(CategorySlug) || BrandSlugs.Count > 0
+        || MinPrice.HasValue || MaxPrice.HasValue || Available || Discounted;
+
+    public async Task<IActionResult> OnGetAsync()
     {
+        BrandSlugs = BrandSlugs.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+
+        if (!string.IsNullOrWhiteSpace(CategorySlug))
+        {
+            Category = await categoryService.GetCategoryBySlugAsync(CategorySlug);
+            if (Category is null || !Category.IsActive)
+                return NotFound();
+        }
+
+        if (BrandSlugs.Count == 1)
+            SingleBrand = await brandService.GetBrandBySlugAsync(BrandSlugs[0]);
+
+        if (MinPrice.HasValue && MaxPrice.HasValue && MinPrice > MaxPrice)
+            (MinPrice, MaxPrice) = (MaxPrice, MinPrice);
+
+        Result = await productService.GetProductByFilterAsync(new ProductFilterParams
+        {
+            Search = Query,
+            CategorySlug = CategorySlug,
+            BrandSlugs = BrandSlugs,
+            MinPrice = MinPrice,
+            MaxPrice = MaxPrice,
+            OnlyAvailable = Available ? true : null,
+            OnlyDiscounted = Discounted ? true : null,
+            OnlyActive = true,
+            SortBy = Sort,
+            PageId = PageNumber,
+            Take = PageSize,
+        });
+
+        Categories = await categoryService.GetMenuCategoriesAsync();
+        Brands = await brandService.GetActiveBrandsAsync();
+        Pager = PagerModel.From(Result, Request);
+
+        await ApplySeoAsync();
+
+        return Page();
+    }
+
+    private async Task ApplySeoAsync()
+    {
+        if (Category is not null)
+        {
+            Heading = Category.Name;
+            pageMeta.Apply(ViewData, Category.Seo, $"خرید {Category.Name}", Category.Description,
+                Helpers.ImageHelper.Category(Category.ImageName));
+        }
+        else if (SingleBrand is not null)
+        {
+            Heading = $"محصولات {SingleBrand.Name}";
+            pageMeta.Apply(ViewData, SingleBrand.Seo, $"محصولات {SingleBrand.Name}", SingleBrand.Description,
+                Helpers.ImageHelper.Brand(SingleBrand.LogoName));
+        }
+        else if (!string.IsNullOrWhiteSpace(Query))
+        {
+            Heading = $"نتایج جستجو برای «{Query}»";
+            await pageMeta.ApplyAsync(ViewData, SitePage.Search, Heading);
+            ViewData[PageMetaKeys.Robots] = "noindex, follow";
+        }
+        else
+        {
+            Heading = Discounted ? "شگفت انگیزها" : Sort == ProductSortBy.BestSelling ? "پرفروش ترین ها" : "همه محصولات";
+            await pageMeta.ApplyAsync(ViewData, SitePage.Products, Heading, "لیست محصولات فروشگاه با امکان فیلتر بر اساس دسته بندی، برند و قیمت.");
+        }
+
+        // Filtered / paginated variations should not compete with the main listing.
+        if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || MaxPrice.HasValue)
+            ViewData[PageMetaKeys.Robots] = "noindex, follow";
     }
 }

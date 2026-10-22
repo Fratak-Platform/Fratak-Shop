@@ -1,0 +1,126 @@
+@page "/profile/orders/{orderNumber}"
+@model Fratak_Shop.Web.Pages.Profile.OrderDetailModel
+@using Fratak_Shop.Data.Entities.Orders
+@{
+    Layout = "_Layout";
+    var order = Model.Order;
+    var stepIndex = Array.FindIndex(Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps, s => s.Status == order.Status);
+    var cancelled = order.Status is OrderStatus.Cancelled or OrderStatus.Returned;
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Orders" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h1 class="text-zinc-800 text-lg font-semibold">
+              جزئیات سفارش <span dir="ltr">#@order.OrderNumber</span>
+            </h1>
+            <span class="rounded-full px-3 py-1 text-sm @Display.OrderStatusBadge(order.Status)">@Display.OrderStatus(order.Status)</span>
+          </div>
+          @if (!cancelled)
+          {
+            <ol class="grid grid-cols-5 gap-2 text-center text-xs mb-8" aria-label="مراحل سفارش">
+              @for (var i = 0; i < Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps.Length; i++)
+              {
+                var done = i <= stepIndex;
+                <li>
+                  <div class="h-2 rounded-full @(done ? "bg-sky-500" : "bg-gray-200")"></div>
+                  <div class="mt-2 @(done ? "text-sky-700" : "text-zinc-400")">@Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps[i].Title</div>
+                </li>
+              }
+            </ol>
+          }
+          @if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+          {
+            <div class="mb-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              کد رهگیری مرسوله: <span class="font-semibold" dir="ltr">@order.TrackingCode</span>
+            </div>
+          }
+          @for (var i = 0; i < order.Items.Count; i++)
+          {
+            var item = order.Items[i];
+          <div class="mt-7 flex flex-col md:flex-row @(i < order.Items.Count - 1 ? "border-b pb-4" : "")">
+            <div class="w-10/12 mx-auto md:max-w-32">
+              <img src="@ImageHelper.Product(item.ProductImageName)" alt="@item.ProductName" loading="lazy">
+            </div>
+            <div class="mr-2 md:mr-5 w-full">
+              <!-- title -->
+              @if (!string.IsNullOrWhiteSpace(item.ProductSlug))
+              {
+                <a href="/product/@item.ProductSlug" class="text-xs sm:text-sm text-zinc-700 hover:text-sky-600">@item.ProductName</a>
+              }
+              else
+              {
+                <div class="text-xs sm:text-sm text-zinc-700">@item.ProductName</div>
+              }
+              <div class="w-full space-y-2 mt-5">
+                <div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Icons.Svg("Package", "fill-zinc-500", 18)
+                    <span>تعداد: @item.Quantity عدد</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Icons.Svg("Info", "fill-zinc-500", 18)
+                    <span>کد کالا: <span dir="ltr">@item.SKU</span></span>
+                  </div>
+                </div>
+                @if (item.DiscountAmount > 0)
+                {
+                  <div class="flex items-center gap-x-2 text-xs text-red-500">
+                    <span>تخفیف: @Format.Toman(item.DiscountAmount)</span>
+                  </div>
+                }
+                <!-- price -->
+                <div class="text-gray-700 pt-4">
+                  <span class="text-xl font-bold">@Format.Price(item.TotalAmount)</span>
+                  <span class="text-sm">تومان</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          }
+          <!-- details -->
+          <div class="px-2 sm:px-6 py-3 rounded-xl border mx-auto my-5 max-w-md print:max-w-full">
+            <partial name="_OrderReceipt" model="order" />
+            <div class="flex gap-x-3 justify-between items-start text-zinc-800 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+              <div class="whitespace-nowrap">
+                آدرس
+              </div>
+              <div class="text-left leading-6">
+                @order.ShippingProvince - @order.ShippingCity - @order.ShippingAddress @order.ShippingBuildingNumber @order.ShippingUnit
+                <div class="text-xs text-zinc-500">گیرنده: @order.CustomerName - <span dir="ltr">@order.ShippingPhone</span> - کد پستی @order.ShippingPostalCode</div>
+              </div>
+            </div>
+            @if (order.RequestedDeliveryDate.HasValue)
+            {
+              <div class="flex gap-x-1 justify-between items-center text-zinc-600 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+                <div>روز تحویل درخواستی</div>
+                <div>@Format.DayName(order.RequestedDeliveryDate.Value) @Format.LongDate(order.RequestedDeliveryDate.Value)</div>
+              </div>
+            }
+            @if (Model.CanPay)
+            {
+              <a asp-page="/Payment/Start" asp-route-orderNumber="@order.OrderNumber" class="mx-auto block text-center w-full px-2 py-3 mt-5 text-sm bg-green-500 hover:bg-green-400 transition text-gray-100 rounded-lg print:hidden">
+                پرداخت سفارش
+              </a>
+            }
+            <button type="button" onclick="window.print()" class="mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-600 to-sky-700 hover:opacity-80 transition text-gray-100 rounded-lg print:hidden">
+              چاپ
+            </button>
+            @if (Model.CanCancel)
+            {
+              <form method="post" asp-page-handler="Cancel" asp-route-orderNumber="@order.OrderNumber" data-confirm="آیا از لغو این سفارش اطمینان دارید؟" class="print:hidden">
+                <button type="submit" class="mx-auto w-full px-2 py-3 mt-3 text-sm border border-red-400 text-red-500 hover:bg-red-50 transition rounded-lg">
+                  لغو سفارش
+                </button>
+              </form>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>

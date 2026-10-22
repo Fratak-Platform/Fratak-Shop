@@ -1,53 +1,36 @@
 namespace Fratak_Shop.Web.Helpers;
 
+/// <summary>
+/// Resolves stored image names to URLs. Uploaded files live under
+/// <c>/uploads/{folder}/{fileName}</c>; values that already are a path
+/// (e.g. the bundled demo images under <c>/assets</c>) are returned unchanged.
+/// </summary>
 public static class ImageHelper
 {
-    public const string DefaultProductImage = "/assets/image/products/1.webp";
-    public const string DefaultCategoryImage = "/assets/image/category/1.webp";
-    public const string DefaultBlogImage = "/assets/image/blog/1.jpg";
-    public const string NoImage = "/assets/image/no-image.png";
+    public const string ProductPlaceholder = "/assets/image/products/1.webp";
+    public const string CategoryPlaceholder = "/assets/image/category/1.webp";
+    public const string BlogPlaceholder = "/assets/image/blog/1.jpg";
+    public const string BannerPlaceholder = "/assets/image/heroSlider/1.webp";
+    public const string BrandPlaceholder = "/assets/image/logo.png";
 
-    /// <summary>
-    /// Returns a resolvable URL for a product image. Falls back to DefaultProductImage.
-    /// Uploaded images are expected under /uploads/products/{imageName}
-    /// </summary>
-    public static string ProductImageUrl(string? imageName)
-    {
-        if (string.IsNullOrWhiteSpace(imageName)) return DefaultProductImage;
-        // If already an absolute /assets path, return as-is
-        if (imageName.StartsWith("/")) return imageName;
-        if (imageName.StartsWith("assets/", StringComparison.OrdinalIgnoreCase)) return "/" + imageName;
-        return $"/uploads/products/{imageName}";
-    }
+    public static string Product(string? imageName) => Resolve(imageName, "products", ProductPlaceholder);
 
-    public static string CategoryImageUrl(string? imageName)
-    {
-        if (string.IsNullOrWhiteSpace(imageName)) return DefaultCategoryImage;
-        if (imageName.StartsWith("/")) return imageName;
-        if (imageName.StartsWith("assets/", StringComparison.OrdinalIgnoreCase)) return "/" + imageName;
-        return $"/uploads/categories/{imageName}";
-    }
+    public static string Category(string? imageName) => Resolve(imageName, "categories", CategoryPlaceholder);
 
-    public static string BlogImageUrl(string? imageName)
-    {
-        if (string.IsNullOrWhiteSpace(imageName)) return DefaultBlogImage;
-        if (imageName.StartsWith("/")) return imageName;
-        if (imageName.StartsWith("assets/", StringComparison.OrdinalIgnoreCase)) return "/" + imageName;
-        return $"/uploads/blogs/{imageName}";
-    }
+    public static string Blog(string? imageName) => Resolve(imageName, "blogs", BlogPlaceholder);
 
-    public static string BannerImageUrl(string? imageName)
-    {
-        if (string.IsNullOrWhiteSpace(imageName)) return "/assets/image/heroSlider/1.webp";
-        if (imageName.StartsWith("/")) return imageName;
-        if (imageName.StartsWith("assets/", StringComparison.OrdinalIgnoreCase)) return "/" + imageName;
-        return $"/uploads/banners/{imageName}";
-    }
+    public static string Banner(string? imageName) => Resolve(imageName, "banners", BannerPlaceholder);
 
-    public static string UserAvatarOrDefault(string? avatar)
+    public static string Brand(string? imageName) => Resolve(imageName, "brands", BrandPlaceholder);
+
+    private static string Resolve(string? imageName, string folder, string placeholder)
     {
-        if (string.IsNullOrWhiteSpace(avatar)) return "/assets/image/man.webp";
-        if (avatar.StartsWith("/")) return avatar;
-        return $"/uploads/users/{avatar}";
+        if (string.IsNullOrWhiteSpace(imageName))
+            return placeholder;
+
+        if (imageName.StartsWith('/') || imageName.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return imageName;
+
+        return $"/uploads/{folder}/{Uri.EscapeDataString(imageName)}";
     }
 }

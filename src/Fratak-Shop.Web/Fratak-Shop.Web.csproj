@@ -14,6 +14,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Front-end build files (Tailwind) are development-only and are not published. -->
+  <ItemGroup>
+    <Content Remove="package.json;package-lock.json;tailwind.config.js" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Fratak-Shop.Core\Fratak-Shop.Core.csproj" />
     <ProjectReference Include="..\Fratak-Shop.Data\Fratak-Shop.Data.csproj" />

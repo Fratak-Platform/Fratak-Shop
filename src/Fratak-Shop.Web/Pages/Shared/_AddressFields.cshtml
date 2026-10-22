@@ -1,0 +1,72 @@
+@model AddressFieldsModel
+@{
+    var a = Model.Address;
+    var p = Model.Prefix;
+    const string inputClass = "focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none";
+    const string selectClass = "focus:shadow-primary-outline text-sm leading-5.6 ease block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all placeholder:text-gray-500 focus:border-sky-500 focus:outline-none";
+    var required = Icons.Svg("Asterisk", "fill-red-500", 10);
+    var fieldId = p.Replace('.', '_');
+}
+<input type="hidden" name="@(p).Id" value="@a.Id" />
+<div class="sm:flex gap-x-5 mt-5">
+  <div class="sm:w-1/3 mb-2 sm:mb-0 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_Title">عنوان آدرس @required</label>
+    <input id="@(fieldId)_Title" type="text" name="@(p).Title" value="@a.Title" required maxlength="100" placeholder="مثلاً خانه یا محل کار" class="@inputClass">
+  </div>
+  <div class="sm:w-1/3 mb-2 sm:mb-0 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_FirstName">نام گیرنده @required</label>
+    <input id="@(fieldId)_FirstName" type="text" name="@(p).FirstName" value="@a.FirstName" required maxlength="100" class="@inputClass">
+  </div>
+  <div class="sm:w-1/3 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_LastName">نام خانوادگی گیرنده @required</label>
+    <input id="@(fieldId)_LastName" type="text" name="@(p).LastName" value="@a.LastName" required maxlength="100" class="@inputClass">
+  </div>
+</div>
+<div class="sm:flex gap-x-5 mt-7">
+  <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_ProvinceId">استان @required</label>
+    <select id="@(fieldId)_ProvinceId" name="@(p).ProvinceId" required class="@selectClass" data-province-select="#@(fieldId)_CityId">
+      <option value="">انتخاب استان</option>
+      @foreach (var province in Model.Provinces)
+      {
+        <option value="@province.Id" selected="@(province.Id == a.ProvinceId ? "selected" : null)">@province.Name</option>
+      }
+    </select>
+  </div>
+  <div class="sm:w-1/2 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_CityId">شهر @required</label>
+    <select id="@(fieldId)_CityId" name="@(p).CityId" required class="@selectClass" data-selected="@a.CityId">
+      <option value="">ابتدا استان را انتخاب کنید</option>
+    </select>
+  </div>
+</div>
+<div class="mt-7">
+  <div class="flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_AddressLine">خیابان و کوچه @required</label>
+    <input id="@(fieldId)_AddressLine" type="text" name="@(p).AddressLine" value="@a.AddressLine" required maxlength="500" class="@inputClass">
+  </div>
+  <div class="sm:flex gap-x-5 mt-5">
+    <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
+      <label class="text-sm text-zinc-700 flex" for="@(fieldId)_BuildingNumber">پلاک</label>
+      <input id="@(fieldId)_BuildingNumber" type="text" name="@(p).BuildingNumber" value="@a.BuildingNumber" maxlength="50" class="@inputClass">
+    </div>
+    <div class="sm:w-1/2 flex flex-col gap-y-1">
+      <label class="text-sm text-zinc-700 flex" for="@(fieldId)_Unit">واحد</label>
+      <input id="@(fieldId)_Unit" type="text" name="@(p).Unit" value="@a.Unit" maxlength="50" class="@inputClass">
+    </div>
+  </div>
+</div>
+<div class="sm:flex gap-x-5 mt-5">
+  <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_PhoneNumber">تلفن گیرنده @required</label>
+    <input id="@(fieldId)_PhoneNumber" type="tel" name="@(p).PhoneNumber" value="@a.PhoneNumber" required pattern="0[0-9]{10}" maxlength="11" dir="ltr" class="@inputClass">
+  </div>
+  <div class="sm:w-1/2 flex flex-col gap-y-1">
+    <label class="text-sm text-zinc-700 flex" for="@(fieldId)_PostalCode">کد پستی @required</label>
+    <input id="@(fieldId)_PostalCode" type="text" inputmode="numeric" name="@(p).PostalCode" value="@a.PostalCode" required pattern="[0-9]{10}" maxlength="10" dir="ltr" class="@inputClass">
+  </div>
+</div>
+<label class="flex items-center gap-x-2 mt-5 text-sm text-zinc-700 cursor-pointer">
+  <input type="checkbox" name="@(p).IsDefault" value="true" checked="@(a.IsDefault ? "checked" : null)" class="h-4 w-4 accent-sky-500">
+  آدرس پیش فرض من باشد
+</label>

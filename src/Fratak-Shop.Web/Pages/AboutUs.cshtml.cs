@@ -1,10 +1,11 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
+using Fratak_Shop.Data.Entities.Pages;
+using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
 
-namespace FratakShop.Pages;
+namespace Fratak_Shop.Web.Pages;
 
-public class AboutUsModel : PageModel
+public class AboutUsModel(IPageMetaService pageMeta) : ShopPageModel
 {
-    public void OnGet()
-    {
-    }
+    public Task OnGetAsync() =>
+        pageMeta.ApplyAsync(ViewData, SitePage.AboutUs, "درباره ما", "آشنایی با فروشگاه، ارزش ها و خدمات ما.");
 }

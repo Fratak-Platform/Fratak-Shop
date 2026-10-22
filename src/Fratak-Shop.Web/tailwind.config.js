@@ -1,0 +1,52 @@
+/** @type {import('tailwindcss').Config} */
+// Tailwind build of the storefront. Run `npm run build:css` (or `npm run watch:css`)
+// inside src/Fratak-Shop.Web after changing classes in views or helpers.
+module.exports = {
+  content: [
+    "./Pages/**/*.cshtml",
+    "./Helpers/**/*.cs",
+    "./ViewComponents/**/*.cs",
+    "./wwwroot/assets/js/*.js",
+  ],
+  // Classes used by the original template that are not referenced literally anymore.
+  safelist: [
+    "bg-red-700",
+    "bg-sky-200",
+    "border-t-blue-700",
+    "fill-orange-700",
+    "font-medium",
+    "grayscale",
+    "h-0",
+    "h-2.5",
+    "h-7",
+    "hover:fill-red-400",
+    "hover:fill-zinc-800",
+    "hover:grayscale-0",
+    "hover:scale-105",
+    "hover:shadow-xl",
+    "hover:text-sky-400",
+    "max-w-36",
+    "mb-12",
+    "ms-0",
+    "my-1",
+    "object-bottom",
+    "object-cover",
+    "pl-4",
+    "right-2",
+    "rounded-t-2xl",
+    "rtl:rotate-180",
+    "text-blue-300",
+    "text-blue-400",
+    "text-blue-700",
+    "text-red-600",
+    "text-yellow-500",
+    "w-1",
+    "w-2",
+    "w-2.5",
+    "w-5/12",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};

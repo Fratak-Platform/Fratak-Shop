@@ -63,40 +63,7 @@ function hideNavbarMobile() {
   hideNavbarMobile.classList.add("hidden");
 }
 //////////////////////////////////////// off slider
-(function () {
-  const second = 1000,
-    minute = second * 60,
-    hour = minute * 60,
-    day = hour * 24;
-
-  //I'm adding this section so I don't have to keep updating this pen every year :-)
-  //remove this if you don't need it
-  let today = new Date(),
-    yyyy = today.getFullYear(),
-    dayMonth = "12/29/",
-    birthday = dayMonth + yyyy;
-
-  const countDown = new Date(birthday).getTime(),
-    x = setInterval(function () {
-      const now = new Date().getTime(),
-        distance = countDown - now;
-      // (document.getElementById("days").innerText = Math.floor(distance / day)),
-      for (let i = 0; i < document.querySelectorAll("#days").length; i++) {
-        document.querySelectorAll("#days")[i].innerText = Math.floor(
-          distance / day
-        );
-        document.querySelectorAll("#hours")[i].innerText = Math.floor(
-          (distance % day) / hour
-        );
-        document.querySelectorAll("#minutes")[i].innerText = Math.floor(
-          (distance % hour) / minute
-        );
-        document.querySelectorAll("#seconds")[i].innerText = Math.floor(
-          (distance % minute) / second
-        );
-      }
-    }, 1000);
-})();
+// Discount countdowns are handled by shop.js ([data-countdown]).
 
 ////////////////////////////////// btn go to up
 let mybutton = document.getElementById("btn-back-to-top");

@@ -1,19 +1,25 @@
+@{
+    var shop = ShopSettings.Value;
+    var title = ViewData[PageMetaKeys.Title] as string;
+}
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@ViewData["Title"]</title>
-
-  <link rel="stylesheet" href="~/assets/css/main.css">
-
+  <title>@(string.IsNullOrWhiteSpace(title) ? shop.SiteName : $"{title} | {shop.SiteName}")</title>
+  <meta name="robots" content="noindex, follow">
+  <link rel="icon" href="~/assets/image/logo.png">
+  <link rel="stylesheet" href="~/assets/css/main.css" asp-append-version="true">
 </head>
 <body class="mx-auto bg-[#fcfcfc]">
+  <partial name="_StatusMessage" />
   @RenderBody()
-</body>
-  <!-- main javaScript code -->
-  <script src="~/assets/js/main.js"></script>
-  @RenderSection("Scripts", required: false)
 
+  <!-- main javaScript code -->
+  <script src="~/assets/js/main.js" asp-append-version="true"></script>
+  <script src="~/assets/js/shop.js" asp-append-version="true"></script>
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
 </html>

@@ -1,13 +1,23 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using FratakShop.Models;
-using System.Collections.Generic;
+using Fratak_Shop.Core.DTOs.Orders.Query;
+using Fratak_Shop.Core.Services.Orders;
+using Fratak_Shop.Web.Infrastructure;
+using Microsoft.AspNetCore.Mvc;
 
-namespace FratakShop.Pages;
+namespace Fratak_Shop.Web.Pages;
 
-public class CheckoutCompleteModel : PageModel
+public class CheckoutCompleteModel(IOrderService orderService) : ShopPageModel
 {
-    public List<SummaryItem> ReceiptRows { get; set; } = SampleData.ReceiptRows;
-    public void OnGet()
+    public OrderDto Order { get; private set; } = null!;
+
+    public async Task<IActionResult> OnGetAsync(string orderNumber)
     {
+        var order = await orderService.GetOrderByNumberAsync(orderNumber);
+        if (order is null || order.UserId != CurrentUserId)
+            return NotFound();
+
+        Order = order;
+        ViewData[PageMetaKeys.Title] = "سفارش موفق";
+        ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
+        return Page();
     }
 }

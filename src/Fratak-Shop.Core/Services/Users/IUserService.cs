@@ -13,6 +13,9 @@ public interface IUserService
     /// <summary>ویرایش نام، نام خانوادگی و ایمیل توسط خود کاربر.</summary>
     Task<OperationResult> UpdateProfileAsync(UpdateProfileCommand command);
 
+    /// <summary>ثبت تایید شماره موبایل پس از وارد کردن صحیح کد یک‌بارمصرف.</summary>
+    Task<OperationResult> ConfirmPhoneAsync(Guid userId);
+
     /// <summary>تغییر رمز عبور با بررسی رمز فعلی (کاربر بدون رمز، رمز فعلی ندارد).</summary>
     Task<OperationResult> ChangePasswordAsync(ChangePasswordCommand command);
 

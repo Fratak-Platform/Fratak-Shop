@@ -109,6 +109,21 @@ public class UserService(FratakShopDbContext context) : IUserService
         return OperationResult.Success("اطلاعات حساب کاربری با موفقیت ذخیره شد.");
     }
 
+    public async Task<OperationResult> ConfirmPhoneAsync(Guid userId)
+    {
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        if (user is null)
+            return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
+
+        if (user.IsPhoneVerified)
+            return OperationResult.Success("شماره موبایل شما قبلاً تایید شده است.");
+
+        user.IsPhoneVerified = true;
+        await context.SaveChangesAsync();
+
+        return OperationResult.Success("شماره موبایل شما با موفقیت تایید شد.");
+    }
+
     public async Task<OperationResult> DeleteUserAsync(Guid id)
     {
         var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == id);

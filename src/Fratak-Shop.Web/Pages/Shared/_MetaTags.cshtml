@@ -1,0 +1,41 @@
+@{
+    var shop = ShopSettings.Value;
+    string? Meta(string key) => ViewData[key] as string;
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Description)))
+{
+  <meta name="description" content="@Meta(PageMetaKeys.Description)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Keywords)))
+{
+  <meta name="keywords" content="@Meta(PageMetaKeys.Keywords)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Robots)))
+{
+  <meta name="robots" content="@Meta(PageMetaKeys.Robots)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
+{
+  <link rel="canonical" href="@Meta(PageMetaKeys.Canonical)">
+}
+  <meta property="og:site_name" content="@shop.SiteName">
+  <meta property="og:locale" content="fa_IR">
+  <meta property="og:type" content="@(Meta(PageMetaKeys.OgType) ?? "website")">
+  <meta property="og:title" content="@(Meta(PageMetaKeys.OgTitle) ?? Meta(PageMetaKeys.Title) ?? shop.SiteName)">
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgDescription)))
+{
+  <meta property="og:description" content="@Meta(PageMetaKeys.OgDescription)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
+{
+  <meta property="og:url" content="@Meta(PageMetaKeys.Canonical)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgImage)))
+{
+  <meta property="og:image" content="@Meta(PageMetaKeys.OgImage)">
+  <meta name="twitter:card" content="summary_large_image">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.JsonLd)))
+{
+  <script type="application/ld+json">@Html.Raw(Meta(PageMetaKeys.JsonLd))</script>
+}

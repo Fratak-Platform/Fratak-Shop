@@ -1,0 +1,59 @@
+@page "/profile/info"
+@model Fratak_Shop.Web.Pages.Profile.PersonalInfoModel
+@{
+    Layout = "_Layout";
+    const string inputClass = "focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none";
+    var required = Icons.Svg("Asterisk", "fill-red-500", 10);
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.PersonalInfo" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <form method="post">
+          <h1 class="text-zinc-800 text-lg font-semibold">اطلاعات حساب کاربری</h1>
+          <!-- inputs -->
+          <div class="sm:flex gap-x-5 mt-5">
+            <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
+              <label class="text-sm text-zinc-700 flex" for="Input_FirstName">
+                نام
+                @required
+              </label>
+              <input asp-for="Input.FirstName" type="text" autocomplete="given-name" class="@inputClass">
+            </div>
+            <div class="sm:w-1/2 flex flex-col gap-y-1">
+              <label class="text-sm text-zinc-700 flex" for="Input_LastName">
+                نام خانوادگی
+                @required
+              </label>
+              <input asp-for="Input.LastName" type="text" autocomplete="family-name" class="@inputClass">
+            </div>
+          </div>
+          <div class="sm:flex gap-x-5 mt-5">
+            <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
+              <label class="text-sm text-zinc-700 flex" for="phone">
+                تلفن همراه
+              </label>
+              <input id="phone" type="text" value="@Model.PhoneNumber" disabled dir="ltr" class="@inputClass bg-gray-100 text-zinc-500">
+              <span class="text-xs @(Model.IsPhoneVerified ? "text-green-600" : "text-yellow-600")">
+                @(Model.IsPhoneVerified ? "شماره موبایل تایید شده است." : "شماره موبایل تایید نشده است.")
+                @if (!Model.IsPhoneVerified)
+                {
+                  <a asp-page="/Verify" class="text-sky-600">تایید شماره</a>
+                }
+              </span>
+            </div>
+            <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
+              <label class="text-sm text-zinc-700 flex" for="Input_Email">
+                ایمیل
+              </label>
+              <input asp-for="Input.Email" type="email" autocomplete="email" dir="ltr" class="@inputClass">
+            </div>
+          </div>
+          <button type="submit" class="mx-auto block w-full sm:w-1/3 px-2 py-3 mt-8 text-sm bg-gradient-to-bl from-sky-500 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg">
+            ثبت اطلاعات
+          </button>
+        </form>
+      </div>
+    </div>
+  </main>

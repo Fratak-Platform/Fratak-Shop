@@ -1,0 +1,194 @@
+@page "/compare"
+@model CompareModel
+@{
+    Layout = "_Layout";
+    var openModal = !string.IsNullOrWhiteSpace(Model.Query);
+    const string col = "px-2";
+    const string buyClass = "flex mx-auto items-center gap-x-1 py-2 px-4 rounded-lg text-white bg-gradient-to-bl from-sky-600 to-sky-500 hover:opacity-80 transition shadow-lg shadow-blue-500/50";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <span class="flex items-center justify-center mt-4 mb-8 md:mt-10 md:mb-14 gap-x-5">
+      <div class="w-full h-px bg-zinc-300">
+      </div>
+      <div class="text-xl md:text-4xl font-semibold text-zinc-700 min-w-max text-center">
+        مقایسه محصولات
+      </div>
+      <div class="w-full h-px bg-zinc-300">
+      </div>
+    </span>
+    <div class="bg-white border rounded-xl shadow-lg p-4">
+      @if (Model.Products.Count > 0)
+      {
+        <div class="flex justify-end mb-4">
+          <form method="post" asp-page-handler="Clear">
+            <button type="submit" class="text-sm text-red-400 hover:text-red-500">پاک کردن لیست مقایسه</button>
+          </form>
+        </div>
+      }
+      <!-- products -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 border-b pb-4 gap-y-6">
+        @foreach (var product in Model.Products)
+        {
+          <div class="@col">
+            <form method="post" asp-page-handler="Remove">
+              <input type="hidden" name="productId" value="@product.Id" />
+              <button type="submit" aria-label="حذف از مقایسه" title="حذف از مقایسه">
+                @Icons.Svg("Trash", "fill-red-400 cursor-pointer hover:fill-red-500 transition mr-5", 26)
+              </button>
+            </form>
+            <a href="/product/@product.Slug">
+              <img class="w-10/12 mx-auto max-w-64 max-h-64 mb-5 object-contain" src="@ImageHelper.Product(product.Images.FirstOrDefault()?.ImageName)" alt="@product.Name" loading="lazy">
+            </a>
+            @if (product.AverageRating > 0)
+            {
+              <div class="flex items-start justify-center gap-x-1 text-xs text-zinc-500">
+                <span>@product.AverageRating.ToString("0.0")</span>
+                @Icons.Svg("Star", "fill-yellow-400", 14)
+              </div>
+            }
+            <div class="flex justify-center gap-x-1 text-sm text-zinc-800 my-2">
+              <div>@Format.Price(product.FinalPrice)</div>
+              <div>تومان</div>
+            </div>
+            <a href="/product/@product.Slug" class="block text-center text-zinc-700 text-sm lg:text-base">
+              @product.Name
+            </a>
+          </div>
+        }
+        @if (Model.CanAddMore)
+        {
+        <div class="justify-center items-center flex min-h-40">
+          <!-- btn select modal -->
+          <button type="button" onclick="showSelectProduct()" class="block mx-auto border-2 border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-700 px-8 py-3 rounded-lg hover:bg-gray-100 transition">
+            @(Model.Products.Count == 0 ? "انتخاب کالا برای مقایسه" : "افزودن کالا")
+          </button>
+          <!-- select modal -->
+          <div class="max-w-2xl mx-auto relative">
+              <!-- Main modal -->
+              <div id="showSelectP" class="overflow-x-hidden overflow-y-auto z-50 fixed @(openModal ? "flex" : "hidden") h-modal h-full inset-0 justify-center items-center">
+                <div onclick="closeSelectP()" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
+                </div>
+                <div class="relative w-12/12 sm:w-10/12 lg:w-7/12 px-4 h-screen mb-4 z-50 mt-10 mx-auto">
+                  <!-- Modal content -->
+                  <div class="bg-white rounded-lg shadow-lg relative overflow-y-visible">
+                      <div class="flex justify-between items-center p-4 border-b">
+                        <h3 class="text-gray-700">انتخاب کالا برای مقایسه</h3>
+                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" onclick="closeSelectP()" id="closeSelectP">
+                          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>  
+                        </button>
+                      </div>
+                      <form method="get" class="space-y-6 px-6 lg:px-8 pb-4 sm:pb-6 pt-4">
+                        <div class="flex items-center justify-between rounded-lg border-gray-200 px-2 border bg-white">
+                          <div>
+                            @Icons.Svg("Search", "fill-zinc-500", 20)
+                          </div>
+                          <input name="q" value="@Model.Query" class="flex grow rounded-lg border-none px-2 py-3 text-zinc-600 outline-none placeholder:text-xs placeholder:text-zinc-500 focus:ring-0 bg-white" placeholder="جستجو کالا" type="search" aria-label="جستجو کالا">
+                        </div>
+                      </form>
+                      <div class="px-8 pb-6 grid grid-cols-2 gap-5 max-h-[60vh] overflow-y-auto">
+                        @if (Model.Suggestions.Count == 0)
+                        {
+                          <p class="col-span-2 text-center text-sm text-zinc-500 py-6">کالایی پیدا نشد.</p>
+                        }
+                        @foreach (var item in Model.Suggestions)
+                        {
+                          <form method="post" asp-page-handler="Add" asp-route-q="@Model.Query">
+                            <input type="hidden" name="productId" value="@item.Id" />
+                            <button type="submit" class="w-full text-right my-2 p-2 md:p-4 bg-white hover:shadow-md rounded-lg">
+                              @if (item.DiscountPercent > 0)
+                              {
+                                <div class="flex justify-between">
+                                  <div class="bg-red-200 rounded-lg px-2 py-1 text-red-500 flex items-center gap-x-1 text-xs">
+                                    <div>@item.DiscountPercent%</div>
+                                    <div>تخفیف</div>
+                                  </div>
+                                </div>
+                              }
+                              <div class="image-box mb-6">
+                                <img class="mx-auto max-h-40" src="@ImageHelper.Product(item.PrimaryImageName)" alt="@item.Name" loading="lazy">
+                              </div>
+                              <div class="space-y-2">
+                                <span class="h-auto md:h-10 flex justify-between">
+                                  <span class="text-sm text-zinc-800 line-clamp-2">@item.Name</span>
+                                </span>
+                                <div class="flex justify-between items-center flex-wrap">
+                                  @if (item.AverageRating > 0)
+                                  {
+                                    <div class="flex items-start gap-x-1 text-xs text-zinc-500">
+                                      <span>(@item.ReviewCount) @item.AverageRating.ToString("0.0")</span>
+                                      @Icons.Svg("Star", "fill-yellow-400", 14)
+                                    </div>
+                                  }
+                                  <div class="flex justify-center gap-x-1 text-sm text-zinc-700">
+                                    <div>@Format.Price(item.FinalPrice)</div>
+                                    <div>تومان</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          </form>
+                        }
+                      </div>
+                  </div>
+                </div>
+            </div>
+          </div>
+        </div>
+        }
+      </div>
+      @if (Model.Products.Count > 0)
+      {
+        <div class="mt-5 pb-2 text-zinc-800 font-semibold">برند</div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7">
+          @foreach (var product in Model.Products)
+          {
+            <div class="text-center text-zinc-600 border-l last:border-l-0">@(product.BrandName ?? "-")</div>
+          }
+        </div>
+        <div class="mt-5 pb-2 text-zinc-800 font-semibold">گارانتی</div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7">
+          @foreach (var product in Model.Products)
+          {
+            <div class="text-center text-zinc-600 border-l last:border-l-0">@(product.WarrantyTitle ?? "-")</div>
+          }
+        </div>
+        @foreach (var key in Model.FeatureKeys)
+        {
+          <div class="mt-5 pb-2 text-zinc-800 font-semibold">@key</div>
+          <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7">
+            @foreach (var product in Model.Products)
+            {
+              <div class="text-center text-zinc-600 border-l last:border-l-0">@(Model.FeatureValue(product, key) ?? "-")</div>
+            }
+          </div>
+        }
+        <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base py-7 gap-y-4">
+          @foreach (var product in Model.Products)
+          {
+            <div class="border-l last:border-l-0">
+              @if (product.IsInStock)
+              {
+                <form method="post" asp-page="/Cart" asp-page-handler="Add">
+                  <input type="hidden" name="productId" value="@product.Id" />
+                  <input type="hidden" name="returnUrl" value="/compare" />
+                  <button type="submit" class="@buyClass">
+                    @Icons.Svg("CartPlus", "fill-zinc-100", 22)
+                    خرید محصول
+                  </button>
+                </form>
+              }
+              else
+              {
+                <div class="text-center text-sm text-red-500">ناموجود</div>
+              }
+            </div>
+          }
+        </div>
+      }
+      else
+      {
+        <p class="text-center text-zinc-500 py-10">هنوز محصولی برای مقایسه انتخاب نکرده اید. از صفحه هر محصول، گزینه «مقایسه» را بزنید.</p>
+      }
+    </div>
+  </main>

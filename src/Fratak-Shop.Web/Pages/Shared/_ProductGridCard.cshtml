@@ -1,0 +1,40 @@
+@model ProductFilterData
+<a href="/product/@Model.Slug" class="relative my-2 p-2 md:p-3 bg-white rounded-xl group shadow-lg border border-zinc-200 block">
+  @if (Model.DiscountPercent > 0)
+  {
+    <span class="absolute right-3 top-3 bg-red-500 text-white rounded-full text-xs px-2 py-1 z-10">@Model.DiscountPercent%</span>
+  }
+  @if (Model.AverageRating > 0)
+  {
+    <div class="absolute left-3 text-gray-600 opacity-0 group-hover:opacity-100 transition-all text-xs md:text-sm flex flex-col items-center">
+      @Icons.Svg("StarOutline", "fill-yellow-500 size-4 md:size-6", 24)
+      @Model.AverageRating.ToString("0.0")
+    </div>
+  }
+  <img class="mx-auto @(Model.IsInStock ? "" : "grayscale opacity-60")" src="@ImageHelper.Product(Model.PrimaryImageName)" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy">
+  <div class="mt-5">
+    <div class="flex flex-col gap-y-1">
+      @if (!string.IsNullOrWhiteSpace(Model.BrandName))
+      {
+        <div class="text-xs text-zinc-400">@Model.BrandName</div>
+      }
+      <div class="text-zinc-700 text-sm md:text-base line-clamp-2 h-12">
+        @Model.Name
+      </div>
+      @if (!Model.IsInStock)
+      {
+        <div class="text-red-500 text-sm mt-2">ناموجود</div>
+      }
+      else
+      {
+        <div class="flex items-center justify-between mt-2">
+          <div class="text-blue-800 text-base md:text-lg">@Format.Price(Model.FinalPrice) <span class="text-xs">تومان</span></div>
+          @if (Model.HasActiveDiscount)
+          {
+            <div class="text-xs text-gray-400 line-through">@Format.Price(Model.Price)</div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</a>

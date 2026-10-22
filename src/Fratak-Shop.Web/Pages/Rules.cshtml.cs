@@ -1,14 +1,54 @@
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using FratakShop.Models;
-using System.Collections.Generic;
+using Fratak_Shop.Data.Entities.Pages;
+using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
+using Microsoft.Extensions.Options;
 
-namespace FratakShop.Pages;
+namespace Fratak_Shop.Web.Pages;
 
-public class RulesModel : PageModel
+public class RulesModel(IPageMetaService pageMeta, IOptions<ShopOptions> shopOptions) : ShopPageModel
 {
-    public List<RuleSection> RulesLeft { get; set; } = SampleData.RulesLeft;
-    public List<RuleSection> RulesRight { get; set; } = SampleData.RulesRight;
-    public void OnGet()
+    public record RuleSection(string Title, string[] Items);
+
+    public List<RuleSection> Sections { get; private set; } = [];
+
+    public async Task OnGetAsync()
     {
+        var site = shopOptions.Value.SiteName;
+
+        Sections =
+        [
+            new("تعاریف", [
+                $"کاربر: هر شخص حقیقی یا حقوقی است که از وب‌سایت {site} استفاده می‌کند.",
+                "سفارش: درخواست خرید کالا که پس از تکمیل مراحل خرید در سامانه ثبت می‌شود.",
+                "روز کاری: روزهای شنبه تا چهارشنبه به جز تعطیلات رسمی.",
+            ]),
+            new("حساب کاربری", [
+                "ثبت نام با شماره موبایل معتبر انجام می‌شود و هر شماره تنها یک حساب کاربری دارد.",
+                "مسئولیت حفظ رمز عبور و فعالیت‌های انجام‌شده با حساب کاربری بر عهده کاربر است.",
+                "اطلاعات ثبت‌شده در حساب کاربری باید صحیح و به‌روز باشد.",
+            ]),
+            new("ثبت سفارش و پرداخت", [
+                "قیمت کالاها به تومان و شامل مالیات بر ارزش افزوده است.",
+                "سفارش پس از پرداخت موفق (یا انتخاب پرداخت در محل) نهایی و برای پردازش ارسال می‌شود.",
+                "در صورت ناموجود شدن کالا پس از ثبت سفارش، مبلغ پرداختی به‌طور کامل بازگردانده می‌شود.",
+            ]),
+            new("ارسال و تحویل", [
+                "هزینه و زمان ارسال بر اساس روش ارسال انتخابی در مرحله تکمیل سفارش نمایش داده می‌شود.",
+                "هنگام تحویل، سلامت ظاهری بسته را بررسی و در صورت آسیب‌دیدگی از تحویل آن خودداری کنید.",
+                "تحویل سفارش تنها به گیرنده یا فرد معرفی‌شده در آدرس انجام می‌شود.",
+            ]),
+            new("مرجوعی کالا", [
+                "تا ۷ روز پس از تحویل، امکان مرجوع کردن کالای سالم با بسته‌بندی کامل وجود دارد.",
+                "کالاهایی که پلمپ آن‌ها باز شده باشد تنها در صورت وجود ایراد فنی قابل مرجوع هستند.",
+                "هزینه بازگشت کالای معیوب بر عهده فروشگاه است.",
+            ]),
+            new("حریم خصوصی", [
+                $"{site} اطلاعات شخصی کاربران را محرمانه نگه می‌دارد و در اختیار اشخاص ثالث قرار نمی‌دهد.",
+                "اطلاعات تماس کاربران تنها برای پیگیری سفارش و اطلاع‌رسانی استفاده می‌شود.",
+                "پرداخت‌ها از طریق درگاه‌های امن بانکی انجام می‌شود و اطلاعات کارت ذخیره نمی‌شود.",
+            ]),
+        ];
+
+        await pageMeta.ApplyAsync(ViewData, SitePage.Terms, "قوانین و مقررات", $"قوانین و مقررات خرید از {site}.");
     }
 }

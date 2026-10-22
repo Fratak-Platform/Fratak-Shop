@@ -1,0 +1,60 @@
+@model OrderDto
+@{
+    const string row = "flex gap-x-1 justify-between items-center text-zinc-600 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm";
+}
+<div class="flex gap-x-1 justify-center items-center text-zinc-700">
+  @Icons.Svg("Receipt", "fill-zinc-500")
+  اطلاعات سفارش
+</div>
+<div class="@row mt-5">
+  <div>شماره سفارش</div>
+  <div class="font-semibold" dir="ltr">@Model.OrderNumber</div>
+</div>
+<div class="@row">
+  <div>تاریخ ثبت</div>
+  <div>@Format.DateTime(Model.CreatedAt)</div>
+</div>
+<div class="@row">
+  <div>قیمت کالاها (@Model.Items.Sum(i => i.Quantity))</div>
+  <div class="flex gap-x-1">
+    <div>@Format.Price(Model.SubtotalAmount)</div>
+    <div>تومان</div>
+  </div>
+</div>
+@{ var discount = Model.Items.Sum(i => i.DiscountAmount) + Model.DiscountAmount; }
+@if (discount > 0)
+{
+  <div class="@row text-red-500">
+    <div>تخفیف</div>
+    <div class="flex gap-x-1">
+      <div>@Format.Price(discount)</div>
+      <div>تومان</div>
+    </div>
+  </div>
+}
+<div class="@row">
+  <div>هزینه ارسال (@Model.ShippingMethod)</div>
+  <div>@(Model.ShippingAmount == 0 ? "رایگان" : Format.Toman(Model.ShippingAmount))</div>
+</div>
+<div class="@row">
+  <div>روش پرداخت</div>
+  <div>@Display.PaymentMethod(Model.PaymentMethod)</div>
+</div>
+<div class="@row">
+  <div>وضعیت پرداخت</div>
+  <div><span class="rounded-full px-2 py-1 text-xs @Display.PaymentStatusBadge(Model.PaymentStatus)">@Display.PaymentStatus(Model.PaymentStatus)</span></div>
+</div>
+@if (!string.IsNullOrWhiteSpace(Model.TransactionId))
+{
+  <div class="@row">
+    <div>کد پیگیری پرداخت</div>
+    <div dir="ltr">@Model.TransactionId</div>
+  </div>
+}
+<div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm font-semibold">
+  <div>مبلغ قابل پرداخت</div>
+  <div class="flex gap-x-1">
+    <div>@Format.Price(Model.PayableAmount)</div>
+    <div>تومان</div>
+  </div>
+</div>
