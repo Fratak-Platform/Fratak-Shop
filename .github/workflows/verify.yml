@@ -143,29 +143,6 @@ jobs:
           grep "^FAIL" smoke.txt | head -20 | while read -r line; do echo "::error::$line"; done
           exit $status
 
-      - name: Screenshots (temporary visual QA)
-        if: always() && github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y > /dev/null && npm i playwright@1.48.2 > /dev/null 2>&1
-          npx playwright install --with-deps chromium > /dev/null 2>&1
-          cp $GITHUB_WORKSPACE/.github/scripts/screenshots.mjs .
-          node screenshots.mjs http://localhost:5080 shots || true
-          for f in shots/*.jpg; do
-            name=$(basename "$f" .jpg)
-            if command -v convert > /dev/null && [[ "$name" == desktop-* ]]; then convert "$f" -resize 60% -quality 45 "$f"; fi
-            base64 -w0 "$f" > "$f.b64"
-            split -b 60000 -d -a 2 "$f.b64" "$f.part."
-            total=$(ls "$f".part.* | wc -l)
-            i=0
-            for part in "$f".part.*; do
-              { echo "SHOT $name $i/$total"; cat "$part"; } > body.txt
-              gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@body.txt > /dev/null
-              i=$((i+1))
-            done
-          done
-
       - name: Report smoke results
         if: failure() && github.event_name == 'push'
         env:
