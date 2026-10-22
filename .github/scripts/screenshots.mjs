@@ -8,15 +8,11 @@ const outDir = process.argv[3] ?? "shots";
 fs.mkdirSync(outDir, { recursive: true });
 
 const pages = [
-  ["home", "/"],
-  ["search", "/category/smart-watch"],
-  ["product", "/product/xiaomi-redmi-watch-3-active"],
-  ["blog", "/blog/headphone-life-tips"],
   ["cart", "/cart"],
   ["checkout", "/checkout"],
-  ["profile", "/profile"],
-  ["order", "/profile/orders"],
-  ["login", "/login"],
+  ["orderdetail", "/profile/orders"],
+  ["product", "/product/xiaomi-redmi-watch-3-active"],
+  ["compare", "/compare"],
 ];
 
 const browser = await chromium.launch();
@@ -31,11 +27,14 @@ for (const [device, viewport] of [["desktop", { width: 1366, height: 900 }], ["m
   await page.fill("#Input_Password", "123456");
   await Promise.all([page.waitForNavigation(), page.click("button[type=submit]")]);
   await page.goto(`${base}/product/xiaomi-redmi-watch-3-active`);
-  await Promise.all([page.waitForNavigation(), page.click("form[action*='handler=Add'] button[type=submit]")]);
+  await Promise.all([page.waitForNavigation(), page.click("form[action^='/cart'] button[type=submit]")]);
 
   for (const [name, path] of pages) {
-    if (name === "login") await context.clearCookies();
     await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
+    if (name === "orderdetail") {
+      const link = await page.$("a[href*='/profile/orders/']");
+      if (link) await Promise.all([page.waitForNavigation(), link.click()]);
+    }
     await page.waitForTimeout(600);
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
     const maxHeight = device === "mobile" ? 2600 : 2000;
