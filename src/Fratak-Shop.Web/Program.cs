@@ -6,7 +6,10 @@ using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Infrastructure.Middleware;
 using Fratak_Shop.Web.Infrastructure.Seeders;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.WebEncoders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +32,10 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AddPageRoute("/Blog", "blog/category/{category}");
     options.Conventions.AddPageRoute("/Error404", "404");
 });
+
+// Render Persian text as-is instead of HTML entities (smaller pages, readable source).
+builder.Services.Configure<WebEncoderOptions>(options =>
+    options.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 
 builder.Services.Configure<RouteOptions>(options =>
 {
@@ -75,7 +82,7 @@ else
     app.UseHttpsRedirection();
 }
 
-app.UseStatusCodePagesWithReExecute("/Error404");
+app.UseStatusCodePagesWithReExecute("/Error404", "?code={0}");
 
 app.UseStaticFiles();
 app.UseRouting();

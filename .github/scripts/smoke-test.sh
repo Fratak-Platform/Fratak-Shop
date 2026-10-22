@@ -28,7 +28,14 @@ location() {
 token() { grep -o 'name="__RequestVerificationToken" type="hidden" value="[^"]*"' /tmp/smoke-body | head -1 | sed 's/.*value="//; s/"$//'; }
 
 contains() {
-  if grep -q "$1" /tmp/smoke-body; then pass "page contains: $1"; else fail "page does not contain: $1"; fi
+  if grep -qF -- "$1" /tmp/smoke-body; then
+    pass "page contains: $1"
+  else
+    fail "page does not contain: $1"
+    echo "      --- <head> of the page:"
+    tr '\n' ' ' < /tmp/smoke-body | grep -o '<head>.*</head>' | head -c 2500 | sed 's/^/      /'
+    echo
+  fi
 }
 
 echo "== Public pages"
@@ -136,6 +143,7 @@ expect 302 "/product/haylou-t15?handler=Review" --data-urlencode "__RequestVerif
   --data-urlencode "Review.Rating=5" --data-urlencode "Review.IsRecommended=true"
 
 echo "== Favorites"
+expect 200 /product/apple-airpods-pro-2
 TOKEN=$(token)
 expect 302 "/profile/favorites?handler=Toggle" --data-urlencode "__RequestVerificationToken=$TOKEN" \
   --data-urlencode "productId=$PRODUCT" --data-urlencode "returnUrl=/profile/favorites"
