@@ -1,4 +1,5 @@
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages;

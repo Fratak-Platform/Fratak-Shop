@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Core.DTOs.Users.Command;
 using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;

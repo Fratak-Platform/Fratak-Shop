@@ -9,16 +9,16 @@
           <a href="@Model.UrlFor(Model.CurrentPage - 1)" class="flex items-center justify-center px-3 h-8 rounded-lg border border-gray-300 bg-white text-zinc-600 hover:bg-sky-50" rel="prev">قبلی</a>
         </li>
       }
-      @for (var page = Model.StartPage; page <= Model.EndPage; page++)
+      @for (var pageNumber = Model.StartPage; pageNumber <= Model.EndPage; pageNumber++)
       {
         <li>
-          @if (page == Model.CurrentPage)
+          @if (pageNumber == Model.CurrentPage)
           {
-            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-500 text-white" aria-current="page">@page</span>
+            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-500 text-white" aria-current="page">@pageNumber</span>
           }
           else
           {
-            <a href="@Model.UrlFor(page)" class="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-300 bg-white text-zinc-600 hover:bg-sky-50">@page</a>
+            <a href="@Model.UrlFor(pageNumber)" class="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-300 bg-white text-zinc-600 hover:bg-sky-50">@pageNumber</a>
           }
         </li>
       }

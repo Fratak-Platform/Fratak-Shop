@@ -5,6 +5,7 @@ using Fratak_Shop.Core.Services.Messages;
 using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;
