@@ -1,0 +1,445 @@
+@page
+@model SingleNoProductModel
+@{
+    ViewData["Title"] = "محصول";
+    Layout = "_Layout";
+}
+
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="bg-white border rounded-xl shadow-lg p-4">
+      <div class="flex flex-col lg:flex-row gap-8">
+        <!-- photo -->
+        <div class="lg:w-4/12">
+            <div class="flex gap-x-4">
+              @foreach (var item in Model.ActionButtons) {<a href="" class="relative">
+                <div class="group cursor-pointer relative inline-block text-center">
+                  @Html.Raw(item.IconHtml)</path></svg>
+                  <div class="opacity-0 w-28 transition-all bg-zinc-800 text-white text-center text-xs rounded-lg py-2 absolute z-10 -left-11 group-hover:opacity-100 px-3 pointer-events-none">
+                   @item.Tooltip
+                    <svg class="absolute text-black h-2 w-full left-0 bottom-full rotate-180" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"></polygon></svg>
+                  </div>
+                </div>
+              </a>
+              }
+            </div>
+            <img class="w-10/12 lg:w-full mx-auto border-2 rounded-xl" src="~/assets/image/products/1.webp">
+            <div class="grid grid-cols-5 gap-x-2 mt-4">
+              <img onclick="showImagesProduct()" class="cursor-pointer border rounded-lg" src="~/assets/image/products/1a.webp">
+              <img onclick="showImagesProduct()" class="cursor-pointer border rounded-lg" src="~/assets/image/products/1b.webp">
+              <img onclick="showImagesProduct()" class="cursor-pointer border rounded-lg" src="~/assets/image/products/1c.webp">
+              <img onclick="showImagesProduct()" class="cursor-pointer border rounded-lg" src="~/assets/image/products/1d.webp">
+              <div onclick="showImagesProduct()" class="cursor-pointer border rounded-lg flex justify-center items-center relative">
+                <img class="blur-sm" src="~/assets/image/products/1b.webp">
+                <svg class="fill-zinc-800 absolute" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#000000" viewBox="0 0 256 256"><path d="M144,128a16,16,0,1,1-16-16A16,16,0,0,1,144,128ZM60,112a16,16,0,1,0,16,16A16,16,0,0,0,60,112Zm136,0a16,16,0,1,0,16,16A16,16,0,0,0,196,112Z"></path></svg>
+              </div>
+            </div>
+            <!-- product images modal -->
+            <div class="max-w-2xl mx-auto relative">
+              <!-- Main modal -->
+              <div id="showImagesModal" class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
+                <div onclick="closeImagesProduct()" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
+                </div>
+                <div class="relative w-12/12 sm:w-10/12 lg:w-full lg:max-w-[1600px] px-2 mb-4 z-50 mt-2 lg:mt-2 mx-auto">
+                  <!-- Modal content -->
+                  <div class="bg-white rounded-lg shadow-lg relative">
+                      <div class="flex justify-between items-center p-4 border-b">
+                        <h3 class="text-gray-800 font-semibold">
+                          عکس های محصول
+                        </h3>
+                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" onclick="closeImagesProduct()" id="closeSelectP">
+                          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>  
+                        </button>
+                      </div>
+                      <div class="container relative">
+                        @foreach (var item in Model.GalleryImages) {<div class="mySlides">
+                          @Html.Raw(item.ImageTag)
+                        </div>
+                        }
+                          
+                        <div class="absolute top-32 w-full">
+                          <a class="next hover:bg-gray-300 absolute left-0 select-none p-3 rounded-r-md" onclick="plusSlides(1)">
+                            <svg class="hover:bg-gray-300" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#000000" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM149.66,93.66,115.31,128l34.35,34.34a8,8,0,0,1-11.32,11.32l-40-40a8,8,0,0,1,0-11.32l40-40a8,8,0,0,1,11.32,11.32Z"></path></svg>
+                          </a>
+                          <a class="prev hover:bg-gray-300 absolute right-0 select-none p-3 rounded-l-md" onclick="plusSlides(-1)">
+                            <svg class="hover:bg-gray-300" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#000000" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm29.66-93.66a8,8,0,0,1,0,11.32l-40,40a8,8,0,0,1-11.32-11.32L140.69,128,106.34,93.66a8,8,0,0,1,11.32-11.32Z"></path></svg>
+                          </a>
+                        </div>
+                        
+                        <div class="flex gap-x-3 overflow-x-scroll mt-32 md:mt-20 p-3">
+                          <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md" src="~/assets/image/products/1.webp" onclick="currentSlide(1)">
+                          <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md" src="~/assets/image/products/1a.webp" onclick="currentSlide(2)">
+                          <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md" src="~/assets/image/products/1b.webp" onclick="currentSlide(3)">
+                          <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md" src="~/assets/image/products/1c.webp" onclick="currentSlide(4)">
+                          <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md" src="~/assets/image/products/1d.webp" onclick="currentSlide(5)">
+                        </div>
+                      </div>
+                  </div>
+                </div>
+            </div> 
+            </div>
+        </div>
+        <!-- info -->
+        <div class="lg:w-5/12">
+          <div class="mb-7 text-sm flex items-center gap-x-2 opacity-90">
+            <a href="" class="text-zinc-800 hover:text-sky-500 transition">
+              خانه
+            </a>
+            <div>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#3d3d3d" viewBox="0 0 256 256"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg>
+            </div>
+            <a href="" class="text-zinc-800 hover:text-sky-500 transition">
+              محصولات
+            </a>
+            <div>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#3d3d3d" viewBox="0 0 256 256"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg>
+            </div>
+            <a class="text-sky-500" href="">
+              ساعت هوشمند
+            </a>
+          </div>
+          <div class="text-zinc-800 text-lg md:text-2xl font-semibold">
+            ساعت هوشمند اپل واچ سری 7 نسخه 35 میلی متری
+          </div>
+          <div class="text-zinc-400 text-sm mt-4">
+            Asus Zenbook S 13 OLED UX5304VA-NQ003 13.3 Inch Laptop
+          </div>
+          <div class="flex gap-x-4 mt-3">
+            <div class="flex items-start gap-x-1 text-sm text-zinc-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#f9bc00" viewBox="0 0 256 256"><path d="M234.5,114.38l-45.1,39.36,13.51,58.6a16,16,0,0,1-23.84,17.34l-51.11-31-51,31a16,16,0,0,1-23.84-17.34L66.61,153.8,21.5,114.38a16,16,0,0,1,9.11-28.06l59.46-5.15,23.21-55.36a15.95,15.95,0,0,1,29.44,0h0L166,81.17l59.44,5.15a16,16,0,0,1,9.11,28.06Z"></path></svg>
+              <span>
+                <span>
+                  (28+)
+                </span>
+                <span>
+                  4.3
+                </span>
+              </span>
+            </div>
+            <a href="#comments" class="flex items-start gap-x-1 text-sm text-sky-400">
+              <svg class="fill-sky-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="" viewBox="0 0 256 256"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128ZM84,116a12,12,0,1,0,12,12A12,12,0,0,0,84,116Zm88,0a12,12,0,1,0,12,12A12,12,0,0,0,172,116Zm60,12A104,104,0,0,1,79.12,219.82L45.07,231.17a16,16,0,0,1-20.24-20.24l11.35-34.05A104,104,0,1,1,232,128Zm-16,0A88,88,0,1,0,51.81,172.06a8,8,0,0,1,.66,6.54L40,216,77.4,203.53a7.85,7.85,0,0,1,2.53-.42,8,8,0,0,1,4,1.08A88,88,0,0,0,216,128Z"></path></svg>
+              <span>
+                <span>
+                  2
+                </span>
+                <span>
+                  دیدگاه
+                </span>
+              </span>
+            </a>
+          </div>
+          <div class="mt-8 text-zinc-700">
+            ویژگی های محصول:
+          </div>
+          <div class="grid grid-cols-3 max-w-md py-3 mb-5 gap-3">
+            @foreach (var item in Model.SpecBoxes) {<div class="flex flex-col gap-x-2 justufy-center bg-gray-100 rounded-md px-2 py-3">
+              <div class="text-zinc-500 text-xs">
+                @item.Label
+              </div>
+              <div class="text-zinc-700 text-sm">
+               @item.Value
+              </div>
+            </div>
+            }
+          </div>
+          <div class="flex gap-x-2 mt-2 pt-2 text-zinc-500 text-sm border-t leading-6">
+            <svg class="fill-zinc-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"></path></svg>
+            درخواست مرجوع کردن کالا در گروه لپ تاپ با دلیل "انصراف از خرید" تنها در صورتی قابل تایید است که کالا در شرایط اولیه باشد (در صورت پلمپ بودن، کالا نباید باز شده باشد).
+          </div>
+        </div>
+        <!-- buy -->
+        <div class="lg:w-3/12">
+          <div class="mt-8 mb-8">
+            <div class="text-zinc-700">
+              رنگ:
+            </div>
+            <ul class="flex flex-wrap gap-2">
+              <li>
+                <input type="radio" id="1" name="hosting" value="1" class="hidden peer" required="">
+                <label for="1" class="inline-flex items-center justify-center px-2 py-3 text-gray-600 bg-white border-2 border-gray-200 rounded-full cursor-pointer peer-checked:border-sky-400 hover:text-gray-600 hover:bg-gray-100">
+                  <div class="flex gap-x-2">
+                    <div class="w-5 h-5 bg-gray-400 rounded-full"></div>
+                    <div class="text-sm">خاکستری</div>
+                  </div>
+                </label>
+              </li>
+              <li>
+                <input type="radio" id="2" name="hosting" value="2" class="hidden peer" required="">
+                <label for="2" class="inline-flex items-center justify-center px-2 py-3 text-gray-600 bg-white border-2 border-gray-200 rounded-full cursor-pointer peer-checked:border-sky-400 hover:text-gray-600 hover:bg-gray-100">
+                  <div class="flex gap-x-2">
+                    <div class="w-5 h-5 bg-gray-900 rounded-full"></div>
+                    <div class="text-sm">مشکی</div>
+                  </div>
+                </label>
+              </li>
+              <li>
+                <input type="radio" id="3" name="hosting" value="3" class="hidden peer" required="">
+                <label for="3" class="inline-flex items-center justify-center px-2 py-3 text-gray-600 bg-white border-2 border-gray-200 rounded-full cursor-pointer peer-checked:border-sky-400 hover:text-gray-600 hover:bg-gray-100">
+                  <div class="flex gap-x-2">
+                    <div class="w-5 h-5 bg-sky-400 rounded-full"></div>
+                    <div class="text-sm">آبی روشن</div>
+                  </div>
+                </label>
+              </li>
+            </ul>
+          </div>
+          <div class="p-3 border rounded-xl mx-auto divide-y">
+            <div class="flex gap-x-1 items-center text-zinc-600 text-sm pb-5 pt-3">
+              <svg class="fill-zinc-700" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256"><path d="M208,40H48A16,16,0,0,0,32,56v58.78c0,89.61,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.78,91-124.39V56A16,16,0,0,0,208,40Zm0,74.79c0,78.42-66.35,104.62-80,109.18-13.53-4.51-80-30.69-80-109.18V56H208ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.68l50.34-50.34a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"></path></svg>
+              <div>
+                گارانتی 18 ماهه
+              </div>
+            </div>
+            <div class="flex gap-x-1 items-center text-zinc-600 text-sm py-5">
+              <svg class="fill-zinc-700" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256"><path d="M247.42,117l-14-35A15.93,15.93,0,0,0,218.58,72H184V64a8,8,0,0,0-8-8H24A16,16,0,0,0,8,72V184a16,16,0,0,0,16,16H41a32,32,0,0,0,62,0h50a32,32,0,0,0,62,0h17a16,16,0,0,0,16-16V120A7.94,7.94,0,0,0,247.42,117ZM184,88h34.58l9.6,24H184ZM24,72H168v64H24ZM72,208a16,16,0,1,1,16-16A16,16,0,0,1,72,208Zm81-24H103a32,32,0,0,0-62,0H24V152H168v12.31A32.11,32.11,0,0,0,153,184Zm31,24a16,16,0,1,1,16-16A16,16,0,0,1,184,208Zm48-24H215a32.06,32.06,0,0,0-31-24V128h48Z"></path></svg>
+              <div>
+                ارسال 2 روز کاری
+              </div>
+            </div>
+            <div class="flex gap-x-1 items-center text-green-500 text-sm py-5">
+              <svg class="fill-green-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256"><path d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"></path></svg>
+              <div>
+                رضایت از محصول:
+              </div>
+              <span>
+                95%
+              </span>
+            </div>
+            <div class="flex flex-col justify-center py-5">
+              <div class="text-zinc-600 text-left">
+                <span class="font-semibold text-xl">1,200,000</span>
+                <span class="text-xs">تومان</span>
+              </div>
+              <div class="text-xs text-red-400">
+                تنها 2 عدد در انبار باقی مانده
+              </div>
+            </div>
+            <button disabled class="mx-auto w-full px-2 py-3 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 transition text-gray-100 rounded-lg">
+              محصول موجود نمیباشد!
+            </button>
+          </div>
+          <div class="flex items-center gap-x-2 mt-4 text-zinc-600 text-sm">
+            <svg class="fill-zinc-600" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"></path></svg>
+            هزینه پست برای سبد خرید بالای 400 هزار تومان رایگان میباشد.
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-x-8 mt-20 pb-2 border-b">
+        <a class="text-zinc-600 hover:text-zinc-800 transition" href="#proper">
+          مشخصات
+        </a>
+        <a class="text-zinc-600 hover:text-zinc-800 transition" href="#comments">
+          دیدگاه ها
+        </a>
+        <a class="text-zinc-600 hover:text-zinc-800 transition" href="#quest">
+          پرسش ها
+        </a>
+      </div>
+      <div class="p-4 border-b" id="proper">
+        <span class="border-b-sky-300 border-b text-zinc-800">
+          مشخصات محصول
+        </span>
+        <div class="text-gray-500 text-sm grid grid-cols-1 md:grid-cols-2 gap-x-5">
+          @foreach (var item in Model.FeatureRows) {<div class="flex items-center justify-between border p-3 w-full my-3 mx-auto rounded-xl">
+            <div class="text-sm text-zinc-700">
+              @item.Label
+            </div>
+            <div class="text-sm text-zinc-700">
+              @item.Value
+            </div>
+          </div>
+          }
+        </div>
+      </div>
+      <div class="p-4 border-b" id="comments">
+        <span class="border-b-sky-300 border-b text-zinc-800">
+          دیدگاه ها
+        </span>
+        <div class="lg:flex gap-5">
+          <div class="lg:w-3/12 py-5">
+            <div class="flex items-start gap-x-1 text-sm text-zinc-600">
+              <span>
+                <span>
+                  (از 28 امتیاز)
+                </span>
+                <span>
+                  4.3
+                </span>
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#f9bc00" viewBox="0 0 256 256"><path d="M234.5,114.38l-45.1,39.36,13.51,58.6a16,16,0,0,1-23.84,17.34l-51.11-31-51,31a16,16,0,0,1-23.84-17.34L66.61,153.8,21.5,114.38a16,16,0,0,1,9.11-28.06l59.46-5.15,23.21-55.36a15.95,15.95,0,0,1,29.44,0h0L166,81.17l59.44,5.15a16,16,0,0,1,9.11,28.06Z"></path></svg>
+            </div>
+            <div class="mt-6 mb-2 text-sm text-zinc-700">
+              شما هم دیدگاه خود را ثبت کنید
+            </div>
+            <input type="text" placeholder="عنوان دیدگاه" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">
+            <ul class="grid my-3 gap-5 grid-cols-2">
+              <li>
+                <input type="radio" id="yes" name="hosting" value="yes" class="hidden peer" required="">
+                <label for="yes" class="inline-flex items-center justify-center w-full px-2 py-3 text-gray-600 bg-white border border-gray-200 rounded-lg cursor-pointer peer-checked:border-green-400 peer-checked:text-green-500 hover:text-gray-600 hover:bg-gray-100">                           
+                  <div class="flex items-center gap-x-1">
+                    <svg class="fill-green-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"></path></svg>
+                    <div class="text-sm">پیشنهاد میشود</div>
+                  </div>
+                </label>
+              </li>
+              <li>
+                <input type="radio" id="no" name="hosting" value="no" class="hidden peer" required="">
+                <label for="no" class="inline-flex items-center justify-center w-full px-2 py-3 text-gray-600 bg-white border border-gray-200 rounded-lg cursor-pointer peer-checked:border-red-400 peer-checked:text-red-400 hover:text-gray-600 hover:bg-gray-100">                           
+                  <div class="flex items-center gap-x-1">
+                    <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M239.82,157l-12-96A24,24,0,0,0,204,40H32A16,16,0,0,0,16,56v88a16,16,0,0,0,16,16H75.06l37.78,75.58A8,8,0,0,0,120,240a40,40,0,0,0,40-40V184h56a24,24,0,0,0,23.82-27ZM72,144H32V56H72Zm150,21.29a7.88,7.88,0,0,1-6,2.71H152a8,8,0,0,0-8,8v24a24,24,0,0,1-19.29,23.54L88,150.11V56H204a8,8,0,0,1,7.94,7l12,96A7.87,7.87,0,0,1,222,165.29Z"></path></svg>
+                    <div class="text-sm">پیشنهاد نمیشود</div>
+                  </div>
+                </label>
+              </li>
+            </ul>
+            <textarea placeholder="متن دیدگاه" name="mailTicket" cols="30" rows="7" class="focus:shadow-primary-outline text-sm leading-5.6 ease block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-400 focus:outline-none"></textarea>
+            <button class="mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg">
+              ارسال
+            </button>
+          </div>
+          <div class="lg:w-9/12 divide-y-2 divide-sky-600">
+            <div class="px-2 pt-5">
+              <div class="text-lg text-zinc-700">
+                خوب بود ارزش خرید داره
+              </div>
+              <div class="mt-2 flex gap-x-4 items-center border-b pb-3">
+                <div class="text-xs text-zinc-600">
+                  11 بهمن 1402
+                </div>
+                <div class="text-xs text-zinc-600">
+                  امیررضا کریمی
+                </div>
+                <div class="text-xs text-zinc-50 bg-green-400 rounded-full px-2 py-1">
+                  خریدار
+                </div>
+              </div>
+              <div class="flex items-center gap-x-1 pt-3">
+                <svg class="fill-green-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"></path></svg>
+                <div class="text-sm text-green-500">پیشنهاد میشود</div>
+              </div>
+              <div class="mt-2 text-zinc-600 text-sm">
+                واقعا لپ تاپ عالی از هر نظر نسبت به قیمتش
+              </div>
+              <div class="flex justify-end items-center gap-x-5 mt-3">
+                <div class="text-sm text-zinc-400">
+                  آیا این دیدگاه برایتان مفید بود؟
+                </div>
+                <ul class="grid my-3 gap-5 grid-cols-2">
+                  <li>
+                    <input type="radio" id="isgood" name="what" value="isgood" class="hidden peer" required="">
+                    <label for="isgood" class="inline-flex p-2 border border-gray-200 rounded-lg cursor-pointer peer-checked:border-green-400 hover:bg-gray-100">                           
+                      <svg class="fill-green-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"></path></svg>
+                    </label>
+                  </li>
+                  <li>
+                    <input type="radio" id="isbad" name="what" value="isbad" class="hidden peer" required="">
+                    <label for="isbad" class="inline-flex p-2 border border-gray-200 rounded-lg cursor-pointer peer-checked:border-red-400 hover:bg-gray-100">                           
+                      <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M239.82,157l-12-96A24,24,0,0,0,204,40H32A16,16,0,0,0,16,56v88a16,16,0,0,0,16,16H75.06l37.78,75.58A8,8,0,0,0,120,240a40,40,0,0,0,40-40V184h56a24,24,0,0,0,23.82-27ZM72,144H32V56H72Zm150,21.29a7.88,7.88,0,0,1-6,2.71H152a8,8,0,0,0-8,8v24a24,24,0,0,1-19.29,23.54L88,150.11V56H204a8,8,0,0,1,7.94,7l12,96A7.87,7.87,0,0,1,222,165.29Z"></path></svg>
+                    </label>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="px-2 pt-5">
+              <div class="text-lg text-zinc-700">
+                تاچ پدش خراب بود، اجازه ی مرجوعی هم ندادن
+              </div>
+              <div class="mt-2 flex gap-x-4 items-center border-b pb-3">
+                <div class="text-xs text-zinc-600">
+                  10 بهمن 1402
+                </div>
+                <div class="text-xs text-zinc-600">
+                  امیررضا کریمی
+                </div>
+                <div class="text-xs text-zinc-50 bg-green-400 rounded-full px-2 py-1">
+                  خریدار
+                </div>
+              </div>
+              <div class="flex items-center gap-x-1 pt-3">
+                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M239.82,157l-12-96A24,24,0,0,0,204,40H32A16,16,0,0,0,16,56v88a16,16,0,0,0,16,16H75.06l37.78,75.58A8,8,0,0,0,120,240a40,40,0,0,0,40-40V184h56a24,24,0,0,0,23.82-27ZM72,144H32V56H72Zm150,21.29a7.88,7.88,0,0,1-6,2.71H152a8,8,0,0,0-8,8v24a24,24,0,0,1-19.29,23.54L88,150.11V56H204a8,8,0,0,1,7.94,7l12,96A7.87,7.87,0,0,1,222,165.29Z"></path></svg>
+                <div class="text-sm text-red-500">پیشنهاد نمیشود</div>
+              </div>
+              <div class="mt-2 text-zinc-600 text-sm">
+                واقعا لپ تاپ عالی از هر نظر نسبت به قیمتش
+              </div>
+              <div class="flex justify-end items-center gap-x-5 mt-3">
+                <div class="text-sm text-zinc-400">
+                  آیا این دیدگاه برایتان مفید بود؟
+                </div>
+                <ul class="grid my-3 gap-5 grid-cols-2">
+                  <li>
+                    <input type="radio" id="isgood2" name="what2" value="isgood2" class="hidden peer" required="">
+                    <label for="isgood2" class="inline-flex p-2 border border-gray-200 rounded-lg cursor-pointer peer-checked:border-green-400 hover:bg-gray-100">                           
+                      <svg class="fill-green-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"></path></svg>
+                    </label>
+                  </li>
+                  <li>
+                    <input type="radio" id="isbad2" name="what2" value="isbad2" class="hidden peer" required="">
+                    <label for="isbad2" class="inline-flex p-2 border border-gray-200 rounded-lg cursor-pointer peer-checked:border-red-400 hover:bg-gray-100">                           
+                      <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M239.82,157l-12-96A24,24,0,0,0,204,40H32A16,16,0,0,0,16,56v88a16,16,0,0,0,16,16H75.06l37.78,75.58A8,8,0,0,0,120,240a40,40,0,0,0,40-40V184h56a24,24,0,0,0,23.82-27ZM72,144H32V56H72Zm150,21.29a7.88,7.88,0,0,1-6,2.71H152a8,8,0,0,0-8,8v24a24,24,0,0,1-19.29,23.54L88,150.11V56H204a8,8,0,0,1,7.94,7l12,96A7.87,7.87,0,0,1,222,165.29Z"></path></svg>
+                    </label>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="p-4" id="quest">
+        <span class="border-b-sky-300 border-b text-zinc-800">
+          پرسش ها
+        </span>
+        <div class="lg:flex gap-5">
+          <div class="lg:w-3/12 py-5">
+            <div class="mt-6 mb-2 text-sm text-zinc-700">
+              اگر سوالی دارید بپرسید
+            </div>
+            <textarea placeholder="متن پرسش" name="mailTicket" cols="30" rows="7" class="focus:shadow-primary-outline text-sm leading-5.6 ease block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-400 focus:outline-none"></textarea>
+            <button class="mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg">
+              ارسال
+            </button>
+          </div>
+          <div class="lg:w-9/12 divide-y">
+            <div class="px-3 pt-5">
+              <div class="mt-2 flex gap-x-4 items-center border-b pb-3">
+                <div class="text-xs text-zinc-600">
+                  11 بهمن 1402
+                </div>
+                <div class="text-xs text-zinc-600">
+                  امیررضا کریمی
+                </div>
+              </div>
+              <div class="mt-2 mb-4 text-zinc-600 text-sm">
+                سلام صفحه نمایش واقعا ipsهستش ممنون میشم راهنمایی کنید چقدر با tnفرق میکنه
+              </div>
+              <a href="">
+                <div class="transition px-2 flex items-center text-xs text-zinc-600 hover:text-zinc-700">
+                  پاسخ
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#292929" viewBox="0 0 256 256"><path d="M164.24,203.76a6,6,0,1,1-8.48,8.48l-80-80a6,6,0,0,1,0-8.48l80-80a6,6,0,0,1,8.48,8.48L88.49,128Z"></path></svg>
+                </div>
+              </a>
+              <div class="flex justify-end items-center gap-x-5 mt-3">
+                <div class="text-sm text-zinc-400">
+                  آیا این جواب برایتان مفید بود؟
+                </div>
+                <ul class="grid my-3 gap-5 grid-cols-2">
+                  <li>
+                    <input type="radio" id="isgoodquest" name="quest" value="isgoodquest" class="hidden peer" required="">
+                    <label for="isgoodquest" class="inline-flex p-2 border border-gray-200 rounded-lg cursor-pointer peer-checked:border-green-400 hover:bg-gray-100">                           
+                      <svg class="fill-green-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M234,80.12A24,24,0,0,0,216,72H160V56a40,40,0,0,0-40-40,8,8,0,0,0-7.16,4.42L75.06,96H32a16,16,0,0,0-16,16v88a16,16,0,0,0,16,16H204a24,24,0,0,0,23.82-21l12-96A24,24,0,0,0,234,80.12ZM32,112H72v88H32ZM223.94,97l-12,96a8,8,0,0,1-7.94,7H88V105.89l36.71-73.43A24,24,0,0,1,144,56V80a8,8,0,0,0,8,8h64a8,8,0,0,1,7.94,9Z"></path></svg>
+                    </label>
+                  </li>
+                  <li>
+                    <input type="radio" id="isbadquest" name="quest" value="isbadquest" class="hidden peer" required="">
+                    <label for="isbadquest" class="inline-flex p-2 border border-gray-200 rounded-lg cursor-pointer peer-checked:border-red-400 hover:bg-gray-100">                           
+                      <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M239.82,157l-12-96A24,24,0,0,0,204,40H32A16,16,0,0,0,16,56v88a16,16,0,0,0,16,16H75.06l37.78,75.58A8,8,0,0,0,120,240a40,40,0,0,0,40-40V184h56a24,24,0,0,0,23.82-27ZM72,144H32V56H72Zm150,21.29a7.88,7.88,0,0,1-6,2.71H152a8,8,0,0,0-8,8v24a24,24,0,0,1-19.29,23.54L88,150.11V56H204a8,8,0,0,1,7.94,7l12,96A7.87,7.87,0,0,1,222,165.29Z"></path></svg>
+                    </label>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>

@@ -1,0 +1,140 @@
+@page
+@model ProfileOrderDetailModel
+@{
+    ViewData["Title"] = "پروفایل";
+    Layout = "_Layout";
+}
+
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <div class="md:w-3/12 bg-white shadow-lg rounded-2xl py-3 h-fit">
+        <svg class="fill-zinc-700 mx-auto" xmlns="http://www.w3.org/2000/svg" width="60" height="60" fill="" viewBox="0 0 256 256"><path d="M224,128a95.76,95.76,0,0,1-31.8,71.37A72,72,0,0,0,128,160a40,40,0,1,0-40-40,40,40,0,0,0,40,40,72,72,0,0,0-64.2,39.37h0A96,96,0,1,1,224,128Z" opacity="0.2"></path><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM74.08,197.5a64,64,0,0,1,107.84,0,87.83,87.83,0,0,1-107.84,0ZM96,120a32,32,0,1,1,32,32A32,32,0,0,1,96,120Zm97.76,66.41a79.66,79.66,0,0,0-36.06-28.75,48,48,0,1,0-59.4,0,79.66,79.66,0,0,0-36.06,28.75,88,88,0,1,1,131.52,0Z"></path></svg>
+        <div class="text-center font-semibold text-lg md:text-xl text-zinc-700">
+          امیررضا کریمی
+        </div>
+        <ul class="px-5 py-3 space-y-1">
+          @foreach (var item in Model.SidebarItems) {<li class="px-3 py-2 group flex gap-x-2 group items-center">
+            @Html.Raw(item.MarkerHtml)
+            </span>
+            @Html.Raw(item.LinkHtml)</svg>@item.Title
+            </a>
+          </li>
+          }
+        </ul>
+      </div>
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div>
+          <div class="text-zinc-800 text-lg mb-4 font-semibold">
+            جزئیات سفارش:
+          </div>
+          <!-- product -->
+          <div class="mt-7 flex flex-col md:flex-row border-b pb-4">
+            <div class="w-10/12 mx-auto md:max-w-32">
+              <img src="~/assets/image/products/1.webp" alt="">
+            </div>
+            <div class="mr-2 md:mr-5 w-full">
+              <!-- title -->
+              <div class="text-xs sm:text-sm text-zinc-700">
+                ساعت مچی مدل Apple
+              </div>
+              <div class="w-full space-y-2 mt-5">
+                @foreach (var item in Model.OrderItems1) {@Html.Raw(item.PrefixHtml)<div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Html.Raw(item.IconHtml)
+                    <span>@item.Label</span>
+                  </div>
+                </div>
+                }
+                <!-- price -->
+                <div class="text-gray-700 pt-4">
+                  <span class="text-xl font-bold">1,800,000</span>
+                  <span class="text-sm">تومان</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-7 flex flex-col md:flex-row">
+            <div class="w-10/12 mx-auto md:max-w-32">
+              <img src="~/assets/image/products/3.webp" alt="">
+            </div>
+            <div class="mr-2 md:mr-5 w-full">
+              <!-- title -->
+              <div class="text-xs sm:text-sm text-zinc-700">
+                هنذفری بلوتوثی مدل شیائومی حرفه ای
+              </div>
+              <div class="w-full space-y-2 mt-5">
+                @foreach (var item in Model.OrderItems2) {@Html.Raw(item.PrefixHtml)<div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Html.Raw(item.IconHtml)
+                    <span>@item.Label</span>
+                  </div>
+                </div>
+                }
+                <!-- price -->
+                <div class="text-gray-700 pt-4">
+                  <span class="text-xl font-bold">1,800,000</span>
+                  <span class="text-sm">تومان</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- details -->
+          <div class="px-2 sm:px-6 py-3 rounded-xl border mx-auto my-5 max-w-md">
+            <div class="flex gap-x-1 justify-center items-center text-zinc-700">
+              <svg class="fill-zinc-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-4,48a12,12,0,1,1-12,12A12,12,0,0,1,124,72Zm12,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"></path></svg>         
+              اطلاعات پرداخت
+            </div>
+            <div class="flex gap-x-1 justify-between items-center text-zinc-600 mt-5 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+              <div>
+                قیمت کالاها (2)
+              </div>
+              <div class="flex gap-x-1">
+                <div>
+                  1,700,000
+                </div>
+                <div>
+                  تومان
+                </div>
+              </div>
+            </div>
+            @foreach (var item in Model.ReceiptRows) {<div class="flex gap-x-1 justify-between items-center text-zinc-600 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+              <div>
+                @item.Label
+              </div>
+              <div class="flex gap-x-1">
+                <div>
+                  @Html.Raw(item.ValueHtml)
+                </div>
+              </div>
+            </div>
+            }
+            <div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+              <div>
+                جمع سبد خرید
+              </div>
+              <div class="flex gap-x-1">
+                <div>
+                  3,400,000
+                </div>
+                <div>
+                  تومان
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+              <div>
+                آدرس
+              </div>
+              <div>
+                خراسان رضوی - سبزوار - خیابان مرکزی
+              </div>
+            </div>
+            <button class="mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-600 to-sky-700 hover:opacity-80 transition text-gray-100 rounded-lg">
+              چاپ
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>

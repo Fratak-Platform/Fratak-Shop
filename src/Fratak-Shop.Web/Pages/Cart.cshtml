@@ -1,0 +1,106 @@
+@page
+@model CartModel
+@{
+    ViewData["Title"] = "سبد خرید";
+    Layout = "_Layout";
+}
+
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <span class="flex items-center justify-center mt-4 mb-8 md:mt-10 md:mb-14 gap-x-5">
+      <div class="w-full h-px bg-zinc-300">
+      </div>
+      <div class="text-xl md:text-4xl font-semibold text-zinc-700 min-w-max text-center">
+        سبد خرید
+      </div>
+      <div class="w-full h-px bg-zinc-300">
+      </div>
+    </span>
+    <div class="flex flex-col md:flex-row gap-5">
+      <div class="md:w-8/12">
+        <div class="bg-white border rounded-xl shadow-lg p-4">
+          <div class="mt-7 flex flex-col md:flex-row gap-y-5 border-b pb-4">
+            <div class="w-10/12 mx-auto md:max-w-36">
+              <img src="~/assets/image/products/1.webp" alt="">
+              <div class="flex h-10 w-24 items-center justify-between rounded-lg border border-gray-100 px-2 py-1 mt-5 mx-auto">
+                <button type="button" data-action="increment">
+                  <svg class="fill-green-600" xlink:href="#plus" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M222,128a6,6,0,0,1-6,6H134v82a6,6,0,0,1-12,0V134H40a6,6,0,0,1,0-12h82V40a6,6,0,0,1,12,0v82h82A6,6,0,0,1,222,128Z"></path></svg>
+                </button>
+                <input value="1" disabled="" type="number" class="flex h-5 w-full grow select-none items-center justify-center bg-transparent text-center text-sm text-zinc-700 outline-none">
+                <button type="button" data-action="decrement">
+                  <svg class="fill-red-600" xlink:href="#minus" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="" viewBox="0 0 256 256"><path d="M222,128a6,6,0,0,1-6,6H40a6,6,0,0,1,0-12H216A6,6,0,0,1,222,128Z"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="mr-2 md:mr-5 w-full">
+              <!-- title -->
+              <div class="text-xl text-zinc-700">
+                اپل واچ مدل apple watch PDA 3500ma سایز 12 اینچ حرفه ای
+              </div>
+              <div class="w-full space-y-2 mt-5">
+                @foreach (var item in Model.CartAttributes) {@Html.Raw(item.PrefixHtml)<div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Html.Raw(item.IconHtml)
+                    <span>@item.Label</span>
+                  </div>
+                </div>
+                }
+                <!-- price -->
+                <div class="text-gray-700 pt-4">
+                  <span class="text-xl font-bold">1,800,000</span>
+                  <span class="text-sm">تومان</span>
+                  <div class="text-xs text-red-400 mt-3">تنها 2 عدد در انبار باقی مانده</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white border rounded-xl shadow-lg p-4 md:w-4/12 h-fit space-y-5">
+        <div class="p-3">
+          <div class="flex gap-x-1 justify-between items-center text-zinc-600 px-2 py-3 font-semibold">
+            <div>
+              قیمت کالاها (2)
+            </div>
+            <div class="flex gap-x-1">
+              <div>
+                1,700,000
+              </div>
+              <div>
+                تومان
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-x-1 justify-between items-center text-red-500 font-semibold mt-3 px-2 py-3">
+            <div>
+              تخفیف
+            </div>
+            <div class="flex gap-x-1">
+              <div>
+                400,000
+              </div>
+              <div>
+                تومان
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-5 px-2 pt-5 font-black border-t">
+            <div>
+              جمع سبد خرید
+            </div>
+            <div class="flex gap-x-1">
+              <div>
+                3,400,000
+              </div>
+              <div>
+                تومان
+              </div>
+            </div>
+          </div>
+          <a asp-page="/Checkout" class="mx-auto block text-center w-full px-2 py-3 mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+            تایید و تکمیل سفارش
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>

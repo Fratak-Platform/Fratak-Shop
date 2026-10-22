@@ -1,0 +1,61 @@
+<footer class="mt-44 relative flex justify-center">
+    <div class="flex flex-col md:flex-row gap-y-7 justify-between md:items-center px-10 py-14 absolute mx-auto -top-32 bg-blue-600 w-11/12 rounded-2xl">
+      <div class="flex flex-col gap-y-5">
+        <p class="text-2xl text-center md:text-right md:text-4xl font-semibold text-gray-50">
+          بهترین خرید رو تجربه کن!
+        </p>
+        <p class="text-lg text-center md:text-xl text-gray-100">
+          به مشتریان خود خدمات شگفت انگیزی ارائه می دهیم.
+        </p>
+      </div>
+      <div class="md:w-6/12">
+        <p class="text-sm leading-7 md:text-lg text-gray-50">
+          برای داشتن مشتریان همیشه راضی، کنترل کیفی دقیق لازم داریم. ارتباط عالی با مشتریان یکی از ویژگی های ماست. ما دائما درحال بررسی کیفیت محصولات هستیم تا مشتریانمان بهترین خدمات را دریافت کنند.
+        </p>
+        <button class="text-gray-800 bg-white px-3 py-2 mt-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
+          مشاهده محصولات
+        </button>
+      </div>
+    </div>
+    <div class="bg-zinc-950 pt-80 lg:pt-40 w-full pb-20 md:pb-0">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-y-7 lg:grid-cols-3 px-10">
+        <div class="flex flex-col md:items-center">
+          <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
+            دسترسی سریع
+          </div>
+          <div class="">
+            <ul class="flex flex-col gap-y-4">
+              @foreach (var item in SampleData.FooterLinks) {<li>
+                @Html.Raw(item.LinkHtml)
+                </a>
+              </li>
+              }
+            </ul>
+          </div>
+        </div>
+        <div class="flex flex-col">
+          <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
+            راه های ارتباطی
+          </div>
+          <div>
+            <ul class="flex flex-col gap-y-4">
+              @foreach (var item in SampleData.FooterContacts) {<li>
+                <a class="text-gray-500 hover:text-blue-600 transition flex items-center gap-x-1 group w-fit" href="">
+                  <svg class="group-hover:fill-blue-600 fill-gray-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256">@Html.Raw(item.IconHtml)</path></svg>
+                @item.Text
+                </a>
+              </li>
+              }
+            </ul>
+          </div>
+        </div>
+        <div class="flex justify-center gap-x-5">
+          <img class="max-w-32 h-fit bg-white rounded-xl" src="~/assets/image/service/symbol-01.png" alt="">
+          <img class="max-w-32 h-fit bg-white rounded-xl" src="~/assets/image/service/symbol-02.png" alt="">
+        </div>
+      </div>
+      <div class="mt-5 border-t w-full text-xs text-zinc-500 pr-5 py-5">
+        تمامی حقوق توسط امیررضا کریمی محفوظ است.
+      </div>
+    </div>
+  </footer>

@@ -1,0 +1,66 @@
+@page
+@model FaqModel
+@{
+    ViewData["Title"] = "سوالات متداول";
+    Layout = "_Layout";
+}
+
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="bg-white border rounded-xl shadow-lg p-4">
+      <div>
+        <div class="-mx-4 flex flex-wrap">
+          <div class="w-full px-4">
+            <div class="mx-auto mb-[60px] max-w-[520px] text-center lg:mb-20">
+              <h2
+                class="my-4 text-3xl font-bold sm:text-[40px]/[48px]">
+                جواب سوال هاتو اینجا پیدا کن
+              </h2>
+              <p>
+                اگه جواب سوال موردنظرتون رو پیدا نکردید به پشتیبانی پیام دهید.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="-mx-4 flex flex-wrap">
+          <div class="w-full px-4 lg:w-1/2">
+            @foreach (var item in Model.FaqLeft) {<button class="group mb-8 w-full rounded-lg bg-white p-4 shadow-[0px_20px_95px_0px_rgba(201,203,204,0.30)] sm:p-8 lg:px-6 xl:px-8">
+              <div class="flex items-center justify-between h-8 px-3 rounded-lg text-zinc-700">
+                <span class="truncate">
+                  @item.Question
+                </span>
+                <svg class="size-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="max-h-0 overflow-hidden duration-300 group-focus:max-h-40 text-right text-sm">
+                <div class="py-5 px-4 text-zinc-700">
+                  با تسویه کردن سبد خرید، سفارش به صورت خودکار تایید میشه.ونیاز به کار خاصی از طرف شما یا ما نیست.
+                </div>
+              </div>
+            </button>
+            }
+          </div>
+          <div class="w-full px-4 lg:w-1/2">
+            @foreach (var item in Model.FaqRight) {<button class="group mb-8 w-full rounded-lg bg-white p-4 shadow-[0px_20px_95px_0px_rgba(201,203,204,0.30)] sm:p-8 lg:px-6 xl:px-8">
+              <div class="flex items-center justify-between h-8 px-3 rounded-lg text-zinc-700">
+                <span class="truncate">
+                  @item.QuestionStart سفارشم را @item.QuestionEnd
+                </span>
+                <svg class="size-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="max-h-0 overflow-hidden duration-300 group-focus:max-h-40 text-right text-sm">
+                <div class="py-5 px-4 text-zinc-700">
+                  با تسویه کردن سبد خرید، سفارش به صورت خودکار تایید میشه.ونیاز به کار خاصی از طرف شما یا ما نیست.
+                </div>
+              </div>
+            </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
