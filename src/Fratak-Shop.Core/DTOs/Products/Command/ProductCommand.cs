@@ -31,7 +31,9 @@ public class ProductFeatureCommand
 public class CreateProductCommand
 {
     public Guid CategoryId { get; set; }
+    public Guid? BrandId { get; set; }
     public string Name { get; set; } = null!;
+    public string? EnglishName { get; set; }
     public string Slug { get; set; } = null!;
     public string SKU { get; set; } = null!;
     public string? ShortDescription { get; set; }
@@ -58,7 +60,9 @@ public class EditProductCommand
 {
     public Guid Id { get; set; }
     public Guid CategoryId { get; set; }
+    public Guid? BrandId { get; set; }
     public string Name { get; set; } = null!;
+    public string? EnglishName { get; set; }
     public string Slug { get; set; } = null!;
     public string SKU { get; set; } = null!;
     public string? ShortDescription { get; set; }

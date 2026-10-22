@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Products;
@@ -44,7 +44,7 @@ public class Comment : BaseEntity
     public CommentStatus Status { get; set; }
 
     [ForeignKey(nameof(UserId))]
-    public User User { get; set; } = new();
+    public User? User { get; set; }
 
     [ForeignKey(nameof(ProductId))]
     public Product? Product { get; set; }

@@ -10,6 +10,9 @@ public interface IUserService
     Task<OperationResult> EditUserAsync(EditUserCommand command);
     Task<OperationResult> DeleteUserAsync(Guid id);
 
+    /// <summary>ویرایش نام، نام خانوادگی و ایمیل توسط خود کاربر.</summary>
+    Task<OperationResult> UpdateProfileAsync(UpdateProfileCommand command);
+
     /// <summary>تغییر رمز عبور با بررسی رمز فعلی (کاربر بدون رمز، رمز فعلی ندارد).</summary>
     Task<OperationResult> ChangePasswordAsync(ChangePasswordCommand command);
 

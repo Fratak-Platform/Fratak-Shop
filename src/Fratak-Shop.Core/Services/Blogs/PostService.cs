@@ -142,9 +142,16 @@ public class PostService(FratakShopDbContext context) : IPostService
         }
 
         if (filterParams.OnlyPublished == true)
-            query = query.Where(x => x.IsPublished);
-
-        query = query.OrderByDescending(x => x.CreatedAt);
+        {
+            var now = DateTimeOffset.UtcNow;
+            query = query
+                .Where(x => x.IsPublished && (x.PublishedAt == null || x.PublishedAt <= now))
+                .OrderByDescending(x => x.PublishedAt ?? x.CreatedAt);
+        }
+        else
+        {
+            query = query.OrderByDescending(x => x.CreatedAt);
+        }
 
         var skip = (filterParams.PageId - 1) * filterParams.Take;
 
@@ -162,6 +169,26 @@ public class PostService(FratakShopDbContext context) : IPostService
         result.GeneratePaging(query, filterParams.Take, filterParams.PageId);
 
         return result;
+    }
+
+    public async Task<List<BlogPostFilterData>> GetLatestPostsAsync(int take = 4, Guid? excludePostId = null)
+    {
+        if (take <= 0)
+            take = 4;
+
+        var now = DateTimeOffset.UtcNow;
+
+        var posts = await context.BlogPosts
+            .Include(x => x.Author)
+            .Include(x => x.BlogCategory)
+            .Where(x => x.IsPublished
+                        && (x.PublishedAt == null || x.PublishedAt <= now)
+                        && (excludePostId == null || x.Id != excludePostId))
+            .OrderByDescending(x => x.PublishedAt ?? x.CreatedAt)
+            .Take(take)
+            .ToListAsync();
+
+        return posts.MapFilterData();
     }
 
     public async Task<PostDto?> GetPostByAsync(string slug)

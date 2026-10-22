@@ -1,3 +1,5 @@
+using Fratak_Shop.Data.Entities.Marketing;
+
 namespace Fratak_Shop.Core.DTOs.Banners.Command;
 
 public class CreateBannerCommand
@@ -9,6 +11,7 @@ public class CreateBannerCommand
     public string? ImageAlt { get; set; }
     public string? ButtonText { get; set; }
     public string? LinkUrl { get; set; }
+    public BannerPosition Position { get; set; } = BannerPosition.HeroSlider;
     public int DisplayOrder { get; set; }
     public DateTimeOffset? StartAt { get; set; }
     public DateTimeOffset? EndAt { get; set; }
@@ -25,6 +28,7 @@ public class EditBannerCommand
     public string? ImageAlt { get; set; }
     public string? ButtonText { get; set; }
     public string? LinkUrl { get; set; }
+    public BannerPosition Position { get; set; } = BannerPosition.HeroSlider;
     public int DisplayOrder { get; set; }
     public DateTimeOffset? StartAt { get; set; }
     public DateTimeOffset? EndAt { get; set; }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Data.Utilities;
 
 namespace Fratak_Shop.Data.Entities.Marketing;
@@ -33,6 +33,11 @@ public class Banner : BaseEntity
     [MaxLength(500)]
     public string? LinkUrl { get; set; }
 
+    /// <summary>
+    /// Place of the banner on the storefront.
+    /// </summary>
+    public BannerPosition Position { get; set; } = BannerPosition.HeroSlider;
+
     public int DisplayOrder { get; set; }
 
     public DateTimeOffset? StartAt { get; set; }
@@ -40,4 +45,12 @@ public class Banner : BaseEntity
     public DateTimeOffset? EndAt { get; set; }
 
     public bool IsActive { get; set; } = true;
+}
+
+public enum BannerPosition
+{
+    None = 0,
+    HeroSlider = 1,       // اسلایدر اصلی صفحه نخست
+    WideBanner = 2,       // بنر تمام‌عرض میان صفحه نخست
+    PromoCard = 3,        // کارت‌های تبلیغاتی دوتایی صفحه نخست
 }

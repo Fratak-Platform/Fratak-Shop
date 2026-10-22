@@ -17,6 +17,12 @@ public interface IProductService
     Task<ProductDto?> GetProductBySlugAsync(string slug);
     Task<List<ProductDto>> GetProductsAsync();
 
+    /// <summary>محصولات فعال با شناسه‌های داده‌شده به همان ترتیب (برای مقایسه محصولات).</summary>
+    Task<List<ProductDto>> GetProductsByIdsAsync(IEnumerable<Guid> ids);
+
+    /// <summary>افزایش شمارنده بازدید محصول.</summary>
+    Task AddProductVisitAsync(Guid id);
+
     /// <summary>محصولات فعال و موجودِ هم‌دسته با محصول جاری.</summary>
     Task<List<ProductFilterData>> GetRelatedProductsAsync(Guid productId, int take = 8);
 }

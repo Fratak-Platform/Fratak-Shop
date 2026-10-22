@@ -3,6 +3,7 @@ using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.Mappers.Products;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Products;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +23,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (!categoryExists)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
 
+        if (command.BrandId.HasValue && !await context.Brands.AnyAsync(x => x.Id == command.BrandId.Value))
+            return OperationResult.NotFound("برند مورد نظر یافت نشد.");
+
         var slug = command.Slug.Trim();
         var sku = command.SKU.Trim();
 
@@ -40,7 +44,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
         var product = new Product
         {
             CategoryId = command.CategoryId,
+            BrandId = command.BrandId,
             Name = command.Name.Trim(),
+            EnglishName = command.EnglishName?.Trim(),
             Slug = slug,
             SKU = sku,
             ShortDescription = command.ShortDescription,
@@ -86,6 +92,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (!categoryExists)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
 
+        if (command.BrandId.HasValue && !await context.Brands.AnyAsync(x => x.Id == command.BrandId.Value))
+            return OperationResult.NotFound("برند مورد نظر یافت نشد.");
+
         var slug = command.Slug.Trim();
         var sku = command.SKU.Trim();
 
@@ -104,7 +113,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
             return OperationResult.Error(childError);
 
         product.CategoryId = command.CategoryId;
+        product.BrandId = command.BrandId;
         product.Name = command.Name.Trim();
+        product.EnglishName = command.EnglishName?.Trim();
         product.Slug = slug;
         product.SKU = sku;
         product.ShortDescription = command.ShortDescription;
@@ -177,76 +188,124 @@ public class ProductService(FratakShopDbContext context) : IProductService
 
     public async Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams)
     {
-        var query = context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .AsQueryable();
+        var now = DateTimeOffset.UtcNow;
+
+        var query = context.Products.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filterParams.Search))
         {
             var search = filterParams.Search.Trim();
             query = query.Where(x => x.Name.Contains(search)
+                                     || (x.EnglishName != null && x.EnglishName.Contains(search))
                                      || x.Slug.Contains(search)
-                                     || x.SKU.Contains(search));
+                                     || x.SKU.Contains(search)
+                                     || (x.Brand != null && x.Brand.Name.Contains(search)));
         }
 
         if (filterParams.CategoryId.HasValue)
-            query = query.Where(x => x.CategoryId == filterParams.CategoryId.Value);
+            query = query.Where(x => x.CategoryId == filterParams.CategoryId.Value
+                                     || x.Category.ParentId == filterParams.CategoryId.Value);
 
         if (!string.IsNullOrWhiteSpace(filterParams.CategorySlug))
         {
             var categorySlug = filterParams.CategorySlug.Trim();
-            query = query.Where(x => x.Category.Slug == categorySlug);
+            query = query.Where(x => x.Category.Slug == categorySlug
+                                     || (x.Category.ParentCategory != null && x.Category.ParentCategory.Slug == categorySlug));
         }
 
+        if (filterParams.BrandId.HasValue)
+            query = query.Where(x => x.BrandId == filterParams.BrandId.Value);
+
+        var brandSlugs = filterParams.BrandSlugs
+            .Where(slug => !string.IsNullOrWhiteSpace(slug))
+            .Select(slug => slug.Trim())
+            .Distinct()
+            .ToList();
+
+        if (brandSlugs.Count > 0)
+            query = query.Where(x => x.Brand != null && brandSlugs.Contains(x.Brand.Slug));
+
+        if (filterParams.ExcludeProductId.HasValue)
+            query = query.Where(x => x.Id != filterParams.ExcludeProductId.Value);
+
+        // قیمت نهایی؛ همان قاعده PriceCalculator به زبان SQL.
+        var withFinalPrice = query.Select(x => new
+        {
+            Product = x,
+            HasDiscount = x.DiscountPrice != null
+                          && x.DiscountPrice < x.Price
+                          && (x.DiscountStartAt == null || x.DiscountStartAt <= now)
+                          && (x.DiscountEndAt == null || x.DiscountEndAt >= now),
+        }).Select(x => new
+        {
+            x.Product,
+            x.HasDiscount,
+            FinalPrice = x.HasDiscount ? x.Product.DiscountPrice!.Value : x.Product.Price,
+        });
+
         if (filterParams.MinPrice.HasValue)
-            query = query.Where(x => x.Price >= filterParams.MinPrice.Value);
+            withFinalPrice = withFinalPrice.Where(x => x.FinalPrice >= filterParams.MinPrice.Value);
 
         if (filterParams.MaxPrice.HasValue)
-            query = query.Where(x => x.Price <= filterParams.MaxPrice.Value);
+            withFinalPrice = withFinalPrice.Where(x => x.FinalPrice <= filterParams.MaxPrice.Value);
+
+        if (filterParams.OnlyDiscounted == true)
+            withFinalPrice = withFinalPrice.Where(x => x.HasDiscount);
 
         if (filterParams.OnlyAvailable == true)
-            query = query.Where(x => x.StockQuantity > 0);
+            withFinalPrice = withFinalPrice.Where(x => x.Product.StockQuantity > 0);
 
         if (filterParams.OnlyActive == true)
-            query = query.Where(x => x.IsActive);
+            withFinalPrice = withFinalPrice.Where(x => x.Product.IsActive);
 
-        query = filterParams.SortBy switch
+        withFinalPrice = filterParams.SortBy switch
         {
-            ProductSortBy.Oldest => query.OrderBy(x => x.CreatedAt),
-            ProductSortBy.Cheapest => query.OrderBy(x => x.Price),
-            ProductSortBy.MostExpensive => query.OrderByDescending(x => x.Price),
-            ProductSortBy.MostStock => query.OrderByDescending(x => x.StockQuantity),
-            _ => query.OrderByDescending(x => x.CreatedAt),
+            ProductSortBy.Oldest => withFinalPrice.OrderBy(x => x.Product.CreatedAt),
+            ProductSortBy.Cheapest => withFinalPrice.OrderBy(x => x.FinalPrice),
+            ProductSortBy.MostExpensive => withFinalPrice.OrderByDescending(x => x.FinalPrice),
+            ProductSortBy.MostStock => withFinalPrice.OrderByDescending(x => x.Product.StockQuantity),
+            ProductSortBy.MostViewed => withFinalPrice.OrderByDescending(x => x.Product.ViewCount)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            ProductSortBy.BestSelling => withFinalPrice.OrderByDescending(x => x.Product.SalesCount)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            ProductSortBy.MostDiscounted => withFinalPrice.OrderByDescending(x => x.Product.Price - x.FinalPrice)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            _ => withFinalPrice.OrderByDescending(x => x.Product.CreatedAt),
         };
+
+        // Include ها پس از پروجکشن دوباره اعمال می‌شوند تا قطعاً در نتیجه نهایی بارگذاری شوند.
+        var productsQuery = withFinalPrice
+            .Select(x => x.Product)
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
+            .Include(x => x.Images)
+            .AsSplitQuery();
 
         var skip = (filterParams.PageId - 1) * filterParams.Take;
 
-        var products = await query
+        var products = await productsQuery
             .Skip(skip)
             .Take(filterParams.Take)
             .ToListAsync();
 
+        var data = products.MapFilterData();
+        await FillRatingsAsync(data);
+
         var result = new ProductFilterResult
         {
-            Data = products.MapFilterData(),
+            Data = data,
             FilterParams = filterParams,
         };
 
-        result.GeneratePaging(query, filterParams.Take, filterParams.PageId);
+        result.GeneratePaging(await withFinalPrice.CountAsync(), filterParams.Take, filterParams.PageId);
 
         return result;
     }
 
     public async Task<ProductDto?> GetProductByIdAsync(Guid id)
     {
-        var product = await context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .Include(x => x.Features)
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        return product?.Map();
+        var product = await ProductDetailsQuery().FirstOrDefaultAsync(x => x.Id == id);
+        return await MapWithRatingAsync(product);
     }
 
     public async Task<ProductDto?> GetProductBySlugAsync(string slug)
@@ -254,25 +313,44 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (string.IsNullOrWhiteSpace(slug))
             return null;
 
-        var product = await context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .Include(x => x.Features)
-            .FirstOrDefaultAsync(x => x.Slug == slug.Trim());
+        var normalizedSlug = slug.Trim();
 
-        return product?.Map();
+        var product = await ProductDetailsQuery().FirstOrDefaultAsync(x => x.Slug == normalizedSlug);
+        return await MapWithRatingAsync(product);
     }
 
     public async Task<List<ProductDto>> GetProductsAsync()
     {
-        var products = await context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .Include(x => x.Features)
+        var products = await ProductDetailsQuery()
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
         return products.Map();
+    }
+
+    public async Task<List<ProductDto>> GetProductsByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0)
+            return [];
+
+        var products = await ProductDetailsQuery()
+            .Where(x => idList.Contains(x.Id) && x.IsActive)
+            .ToListAsync();
+
+        var ratings = await GetRatingsAsync(idList);
+
+        // ترتیب درخواستی حفظ می‌شود (مثلاً ترتیب افزودن به لیست مقایسه).
+        return idList
+            .Select(id => products.FirstOrDefault(p => p.Id == id))
+            .Where(p => p is not null)
+            .Select(p =>
+            {
+                var dto = p!.Map();
+                ApplyRating(dto, ratings);
+                return dto;
+            })
+            .ToList();
     }
 
     public async Task<List<ProductFilterData>> GetRelatedProductsAsync(Guid productId, int take = 8)
@@ -293,12 +371,95 @@ public class ProductService(FratakShopDbContext context) : IProductService
                         && x.IsActive
                         && x.StockQuantity > 0)
             .Include(x => x.Category)
+            .Include(x => x.Brand)
             .Include(x => x.Images)
-            .OrderByDescending(x => x.CreatedAt)
+            .OrderByDescending(x => x.SalesCount)
+            .ThenByDescending(x => x.CreatedAt)
             .Take(take)
             .ToListAsync();
 
-        return products.MapFilterData();
+        var data = products.MapFilterData();
+        await FillRatingsAsync(data);
+
+        return data;
+    }
+
+    public async Task AddProductVisitAsync(Guid id)
+    {
+        // به‌روزرسانی مستقیم در دیتابیس تا بازدیدهای هم‌زمان از دست نروند.
+        await context.Products
+            .Where(x => x.Id == id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.ViewCount, x => x.ViewCount + 1));
+    }
+
+    private IQueryable<Product> ProductDetailsQuery()
+    {
+        return context.Products
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
+            .Include(x => x.Images)
+            .Include(x => x.Features)
+            .AsSplitQuery();
+    }
+
+    private async Task<ProductDto?> MapWithRatingAsync(Product? product)
+    {
+        if (product is null)
+            return null;
+
+        var dto = product.Map();
+        var ratings = await GetRatingsAsync([product.Id]);
+        ApplyRating(dto, ratings);
+
+        return dto;
+    }
+
+    /// <summary>
+    /// میانگین امتیاز و تعداد دیدگاه‌های تاییدشده هر محصول با یک کوئری گروه‌بندی‌شده.
+    /// </summary>
+    private async Task<Dictionary<Guid, (double Average, int Count)>> GetRatingsAsync(List<Guid> productIds)
+    {
+        if (productIds.Count == 0)
+            return [];
+
+        var rows = await context.Comments
+            .Where(c => c.ProductId != null
+                        && productIds.Contains(c.ProductId.Value)
+                        && c.ParentId == null
+                        && c.Status == CommentStatus.Approved)
+            .GroupBy(c => c.ProductId!.Value)
+            .Select(g => new
+            {
+                ProductId = g.Key,
+                Count = g.Count(),
+                Average = g.Where(c => c.Rating != null).Average(c => (double?)c.Rating) ?? 0,
+            })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.ProductId, r => (r.Average, r.Count));
+    }
+
+    private async Task FillRatingsAsync(List<ProductFilterData> products)
+    {
+        var ratings = await GetRatingsAsync(products.Select(p => p.Id).ToList());
+
+        foreach (var product in products)
+        {
+            if (!ratings.TryGetValue(product.Id, out var rating))
+                continue;
+
+            product.AverageRating = Math.Round(rating.Average, 1);
+            product.ReviewCount = rating.Count;
+        }
+    }
+
+    private static void ApplyRating(ProductDto product, Dictionary<Guid, (double Average, int Count)> ratings)
+    {
+        if (!ratings.TryGetValue(product.Id, out var rating))
+            return;
+
+        product.AverageRating = Math.Round(rating.Average, 1);
+        product.ReviewCount = rating.Count;
     }
 
     private static List<ProductImage> BuildImages(List<ProductImageCommand> images)

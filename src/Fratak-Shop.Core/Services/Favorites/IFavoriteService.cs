@@ -10,5 +10,6 @@ public interface IFavoriteService
     Task<OperationResult> RemoveFavoriteAsync(Guid id);
     Task<OperationResult> RemoveFavoriteAsync(Guid userId, Guid productId);
     Task<List<FavoriteDto>> GetFavoritesByUserIdAsync(Guid userId);
+    Task<bool> IsFavoriteAsync(Guid userId, Guid productId);
     Task<FavoriteDto?> GetFavoriteByIdAsync(Guid id);
 }

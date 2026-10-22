@@ -20,6 +20,8 @@ public static class PostMapper
             AuthorId = post.AuthorId,
             AuthorName = post.Author.DisplayName() ?? string.Empty,
             BlogCategoryId = post.BlogCategoryId,
+            BlogCategoryName = post.BlogCategory?.Name,
+            BlogCategorySlug = post.BlogCategory?.Slug,
             Title = post.Title,
             Slug = post.Slug,
             Excerpt = post.Excerpt,

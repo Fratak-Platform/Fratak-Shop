@@ -9,7 +9,12 @@ public class ProductFilterData : BaseDto
 {
     public Guid CategoryId { get; set; }
     public string? CategoryName { get; set; }
+    public string? CategorySlug { get; set; }
+    public Guid? BrandId { get; set; }
+    public string? BrandName { get; set; }
+    public string? BrandSlug { get; set; }
     public string Name { get; set; } = null!;
+    public string? EnglishName { get; set; }
     public string Slug { get; set; } = null!;
     public string SKU { get; set; } = null!;
 
@@ -17,12 +22,28 @@ public class ProductFilterData : BaseDto
     public decimal? DiscountPrice { get; set; }
     public decimal FinalPrice { get; set; }
     public bool HasActiveDiscount { get; set; }
+    public DateTimeOffset? DiscountEndAt { get; set; }
+
+    /// <summary>درصد تخفیف فعال (عدد صحیح ۰ تا ۱۰۰).</summary>
+    public int DiscountPercent => HasActiveDiscount && Price > 0
+        ? (int)Math.Round((Price - FinalPrice) / Price * 100)
+        : 0;
 
     public string? PrimaryImageName { get; set; }
     public string? PrimaryImageAlt { get; set; }
 
     public int StockQuantity { get; set; }
+    public bool IsInStock => StockQuantity > 0;
     public bool IsActive { get; set; }
+
+    public int ViewCount { get; set; }
+    public int SalesCount { get; set; }
+
+    /// <summary>میانگین امتیاز دیدگاه‌های تاییدشده (۰ یعنی بدون امتیاز).</summary>
+    public double AverageRating { get; set; }
+
+    /// <summary>تعداد دیدگاه‌های تاییدشده.</summary>
+    public int ReviewCount { get; set; }
 }
 
 /// <summary>
@@ -35,6 +56,9 @@ public enum ProductSortBy
     Cheapest = 3,
     MostExpensive = 4,
     MostStock = 5,
+    MostViewed = 6,
+    BestSelling = 7,
+    MostDiscounted = 8,
 }
 
 /// <summary>
@@ -47,8 +71,23 @@ public class ProductFilterParams : BaseFilterParam
 
     public Guid? CategoryId { get; set; }
 
+    /// <summary>
+    /// اسلاگ دسته‌بندی؛ محصولات زیردسته‌های مستقیم آن هم برگردانده می‌شوند.
+    /// </summary>
     public string? CategorySlug { get; set; }
 
+    public Guid? BrandId { get; set; }
+
+    /// <summary>فیلتر چندتایی برند بر اساس اسلاگ.</summary>
+    public List<string> BrandSlugs { get; set; } = [];
+
+    /// <summary>فقط محصولات دارای تخفیف فعال.</summary>
+    public bool? OnlyDiscounted { get; set; }
+
+    /// <summary>محصولی که باید از نتایج حذف شود (مثلاً محصول جاری).</summary>
+    public Guid? ExcludeProductId { get; set; }
+
+    /// <summary>بازه قیمت روی قیمت نهایی (با احتساب تخفیف فعال) اعمال می‌شود.</summary>
     public decimal? MinPrice { get; set; }
 
     public decimal? MaxPrice { get; set; }

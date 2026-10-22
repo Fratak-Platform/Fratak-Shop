@@ -52,6 +52,7 @@ public static class MessageMapper
             PhoneNumber = message.PhoneNumber,
             Email = message.Email,
             Subject = message.Subject,
+            Content = message.Content,
             IsRead = message.IsRead,
             ReadAt = message.ReadAt,
             RepliedAt = message.RepliedAt,

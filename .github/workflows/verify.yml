@@ -1,0 +1,142 @@
+name: Verify
+
+# Full verification of the storefront:
+#   1. builds every project and reports all compiler errors as a commit comment,
+#   2. (optional) generates an EF Core migration when .github/ef-migration-request exists,
+#   3. boots the web app against a real SQL Server and smoke-tests every public page.
+
+on:
+  push:
+    branches:
+      - dev
+      - master
+      - "arena/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.build.outputs.ok }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore Fratak-Shop.slnx
+
+      - name: Build
+        id: build
+        run: |
+          set +e
+          dotnet build Fratak-Shop.slnx --no-restore -c Release -v minimal -clp:NoSummary > build.log 2>&1
+          code=$?
+          grep -E ": error " build.log | sed -E 's#^.*/(src/[^(]+)#\1#' | sed -E 's# \[/home.*$##' | sort -u > errors.txt
+          echo "Build exit code: $code ($(wc -l < errors.txt) unique errors)"
+          if [ $code -eq 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+
+      - name: Report errors
+        if: steps.build.outputs.ok != 'true' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "### Build failed"; echo '```'; head -c 60000 errors.txt; echo '```'; } > body.md
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@body.md > /dev/null
+          head -n 40 errors.txt | while read -r line; do echo "::error::$line"; done
+          exit 1
+
+  migration:
+    name: Generate EF migration
+    needs: build
+    if: needs.build.outputs.ok == 'true' && github.event_name == 'push' && hashFiles('.github/ef-migration-request') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Generate migration and commit it
+        run: |
+          name=$(head -n 1 .github/ef-migration-request | tr -d '[:space:]')
+          dotnet tool install --global dotnet-ef --version 10.0.13
+          dotnet ef migrations add "$name" --project src/Fratak-Shop.Data --startup-project src/Fratak-Shop.Data --output-dir Migrations
+          git rm -q .github/ef-migration-request
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Fratak-Shop.Data/Migrations
+          git commit -m "Add EF Core migration: $name"
+          git push origin HEAD:${{ github.ref_name }}
+
+  smoke:
+    name: Smoke test (SQL Server)
+    needs: build
+    if: needs.build.outputs.ok == 'true' && hashFiles('.github/ef-migration-request') == ''
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Smoke_Test_Passw0rd!"
+        ports:
+          - 1433:1433
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish web app
+        run: dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out
+
+      - name: Run app and request pages
+        env:
+          ConnectionDefault: "Server=localhost,1433;Database=FratakShopSmoke;User Id=sa;Password=Smoke_Test_Passw0rd!;TrustServerCertificate=True;MultipleActiveResultSets=true"
+          Shop__SeedDemoData: "true"
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: "http://localhost:5080"
+        run: |
+          cd out
+          nohup dotnet Fratak-Shop.Web.dll > ../app.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -s -o /dev/null http://localhost:5080/; then break; fi
+            sleep 2
+          done
+          cd ..
+          bash .github/scripts/smoke-test.sh http://localhost:5080 > smoke.txt 2>&1
+          echo "status=$?" >> "$GITHUB_ENV"
+          cat smoke.txt
+
+      - name: Report smoke results
+        if: always() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### Smoke test"
+            echo '```'; cat smoke.txt 2>/dev/null | head -c 30000; echo '```'
+            echo "#### App log (errors)"
+            echo '```'; grep -E -A12 "fail:|Unhandled|Exception" app.log 2>/dev/null | head -c 25000; echo '```'
+          } > body.md
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@body.md > /dev/null
+          if [ "${status:-1}" != "0" ]; then exit 1; fi

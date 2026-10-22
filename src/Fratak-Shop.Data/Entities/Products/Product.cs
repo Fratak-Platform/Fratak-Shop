@@ -1,5 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Favorites;
@@ -17,9 +18,18 @@ public class Product : BaseEntity
 {
     public Guid CategoryId { get; set; }
 
+    public Guid? BrandId { get; set; }
+
     [Required]
     [MaxLength(250)]
     public string Name { get; set; } = null!;
+
+    /// <summary>
+    /// Latin / original model name shown under the Persian title,
+    /// e.g. "Apple Watch Series 7 41mm".
+    /// </summary>
+    [MaxLength(250)]
+    public string? EnglishName { get; set; }
 
     [Required]
     [MaxLength(250)]
@@ -55,8 +65,21 @@ public class Product : BaseEntity
 
     public DateTimeOffset? PublishedAt { get; set; }
 
+    /// <summary>
+    /// Number of product page visits; drives the "most viewed" ordering.
+    /// </summary>
+    public int ViewCount { get; set; }
+
+    /// <summary>
+    /// Number of units sold through placed orders; drives the "best selling" ordering.
+    /// </summary>
+    public int SalesCount { get; set; }
+
     [ForeignKey(nameof(CategoryId))]
     public Category Category { get; set; } = null!;
+
+    [ForeignKey(nameof(BrandId))]
+    public Brand? Brand { get; set; }
 
     public List<ProductImage> Images { get; set; } = [];
 

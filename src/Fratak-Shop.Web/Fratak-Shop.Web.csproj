@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Fratak-Shop.Core\Fratak-Shop.Core.csproj" />
+    <ProjectReference Include="..\Fratak-Shop.Data\Fratak-Shop.Data.csproj" />
   </ItemGroup>
 
 </Project>

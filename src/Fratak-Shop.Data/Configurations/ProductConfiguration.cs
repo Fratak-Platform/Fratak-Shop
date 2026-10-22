@@ -14,6 +14,14 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .HasForeignKey(p => p.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // SetNull: deleting a brand keeps its products (without a brand).
+        builder.HasOne(p => p.Brand)
+            .WithMany(b => b.Products)
+            .HasForeignKey(p => p.BrandId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(p => p.BrandId);
+
         builder.HasIndex(p => p.Slug)
             .IsUnique();
 

@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Comments.Command;
+using Fratak_Shop.Core.DTOs.Comments.Command;
 using Fratak_Shop.Core.DTOs.Comments.Query;
 using Fratak_Shop.Core.Mappers.Comment;
 using Fratak_Shop.Core.Utilities;
@@ -172,22 +172,36 @@ public class CommentService(FratakShopDbContext context) : ICommentService
         return comment?.Map();
     }
 
-    public async Task<List<CommentDto>> GetCommentsByPostAsync(Guid blogPostId)
+    public async Task<List<CommentDto>> GetCommentsByPostAsync(Guid blogPostId, bool onlyApproved = false)
     {
-        var comments = await context.Comments
-            .Include(c => c.Replies)
-            .Where(c => c.BlogPostId == blogPostId && c.ParentId == null)
+        var query = onlyApproved
+            ? context.Comments.Include(c => c.Replies
+                .Where(r => r.Status == CommentStatus.Approved)
+                .OrderBy(r => r.CreatedAt))
+            : context.Comments.Include(c => c.Replies.OrderBy(r => r.CreatedAt));
+
+        var comments = await query
+            .Where(c => c.BlogPostId == blogPostId
+                        && c.ParentId == null
+                        && (!onlyApproved || c.Status == CommentStatus.Approved))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
         return comments.Map();
     }
 
-    public async Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId)
+    public async Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId, bool onlyApproved = false)
     {
-        var comments = await context.Comments
-            .Include(c => c.Replies)
-            .Where(c => c.ProductId == productId && c.ParentId == null)
+        var query = onlyApproved
+            ? context.Comments.Include(c => c.Replies
+                .Where(r => r.Status == CommentStatus.Approved)
+                .OrderBy(r => r.CreatedAt))
+            : context.Comments.Include(c => c.Replies.OrderBy(r => r.CreatedAt));
+
+        var comments = await query
+            .Where(c => c.ProductId == productId
+                        && c.ParentId == null
+                        && (!onlyApproved || c.Status == CommentStatus.Approved))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 

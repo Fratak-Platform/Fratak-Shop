@@ -99,6 +99,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
 
             // رزرو موجودی در زمان ثبت سفارش؛ در صورت لغو یا مرجوعی برگشت داده می‌شود.
             product.StockQuantity -= request.Quantity;
+            product.SalesCount += request.Quantity;
         }
 
         var payable = CalculatePayable(order);
@@ -318,6 +319,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         var order = await context.Orders
             .Include(x => x.Items)
             .ThenInclude(x => x.Product)
+            .ThenInclude(x => x!.Images)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         return order?.Map();
@@ -331,6 +333,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         var order = await context.Orders
             .Include(x => x.Items)
             .ThenInclude(x => x.Product)
+            .ThenInclude(x => x!.Images)
             .FirstOrDefaultAsync(x => x.OrderNumber == orderNumber.Trim());
 
         return order?.Map();
@@ -406,6 +409,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
                 continue;
 
             product.StockQuantity += item.Quantity;
+            product.SalesCount = Math.Max(0, product.SalesCount - item.Quantity);
         }
     }
 

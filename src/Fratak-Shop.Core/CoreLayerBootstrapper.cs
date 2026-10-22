@@ -1,4 +1,5 @@
-﻿using Fratak_Shop.Core.Services.Blogs;
+using Fratak_Shop.Core.Services.Blogs;
+using Fratak_Shop.Core.Services.Brands;
 using Fratak_Shop.Core.Services.Categories;
 using Fratak_Shop.Core.Services.Comments;
 using Fratak_Shop.Core.Services.Faqs;
@@ -21,6 +22,7 @@ public static class CoreLayerBootstrapper
     public static IServiceCollection AddFratakShopCore(this IServiceCollection services)
     {
         services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IBrandService, BrandService>();
         services.AddScoped<IBlogCategoryService, BlogCategoryService>();
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<IFaqItemService, FaqItemService>();

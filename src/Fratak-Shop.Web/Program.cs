@@ -1,34 +1,89 @@
-﻿using Fratak_Shop.Data.Extensions;
+using Fratak_Shop.Core;
+using Fratak_Shop.Data.Extensions;
+using Fratak_Shop.Web.Extensions;
+using Fratak_Shop.Web.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddRazorPages();
+// ── MVC / Razor Pages ──────────────────────────────────────────────
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AddPageRoute("/Error404", "/404");
+})
+.AddRazorPagesOptions(o =>
+{
+    // Lower-case URLs
+    o.Conventions.ConfigureFilter(new Microsoft.AspNetCore.Mvc.ViewFeatures.Filters.AutoValidateAntiforgeryTokenAttribute());
+});
 
-// Data layer (EF Core DbContext) — connection string comes from "ConnectionDefault".
-builder.Services.AddFratakShopData(builder.Configuration["ConnectionDefault"]!);
+builder.Services.AddControllers();
 
+// ── Infrastructure ─────────────────────────────────────────────────
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(48);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.Name = ".Fratak.Session";
+});
+
+builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Login";
+        options.LogoutPath = "/Logout";
+        options.AccessDeniedPath = "/Login";
+        options.Cookie.Name = ".Fratak.Auth";
+        options.Cookie.HttpOnly = true;
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
+        options.SlidingExpiration = true;
+    });
+
+builder.Services.AddAntiforgery(o => o.HeaderName = "X-CSRF-TOKEN");
+
+// ── App layers ─────────────────────────────────────────────────────
+var connectionString = builder.Configuration["ConnectionDefault"]
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionDefault not configured.");
+
+builder.Services.AddFratakShopData(connectionString);
+builder.Services.AddFratakShopCore();
+builder.Services.AddFratakShopWeb();
+
+// ── Build ──────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ── Pipeline ───────────────────────────────────────────────────────
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseExceptionHandler("/Error404");
     app.UseHsts();
 }
+else
+{
+    app.UseDeveloperExceptionPage();
+}
+
+app.UseStatusCodePagesWithReExecute("/Error404");
 
 app.UseHttpsRedirection();
-
+app.UseStaticFiles();
 app.UseRouting();
 
+app.UseSession();
+app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapStaticAssets();
-app.MapRazorPages()
-   .WithStaticAssets();
+// SEO 301 redirects — must be after routing so we have the path, before endpoints.
+app.UseMiddleware<SeoRedirectMiddleware>();
 
-// Applies pending migrations and seeds the location dictionary.
+app.MapStaticAssets();
+app.MapRazorPages();
+app.MapControllers();
+
+// ── DB migrate + seed ──────────────────────────────────────────────
 await app.Services.InitializeFratakShopDataAsync();
 
 app.Run();

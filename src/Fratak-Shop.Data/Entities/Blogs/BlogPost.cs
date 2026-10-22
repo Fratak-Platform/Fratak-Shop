@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Users;
@@ -45,10 +45,10 @@ public class BlogPost : BaseEntity
     public SeoMetaData? Seo { get; set; }
 
     [ForeignKey(nameof(AuthorId))]
-    public User Author { get; set; } = new();
+    public User? Author { get; set; }
 
     [ForeignKey(nameof(BlogCategoryId))]
-    public BlogCategory BlogCategory { get; set; } = new();
+    public BlogCategory BlogCategory { get; set; } = null!;
 
     public List<Comment> Comments { get; set; } = [];
 }

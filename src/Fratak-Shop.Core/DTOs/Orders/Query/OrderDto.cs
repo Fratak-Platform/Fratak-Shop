@@ -54,6 +54,9 @@ public class OrderItemDto : BaseDto
     /// <summary>اسلاگ محصول؛ اگر محصول حذف شده باشد خالی است.</summary>
     public string? ProductSlug { get; set; }
 
+    /// <summary>تصویر اصلی محصول؛ اگر محصول حذف شده باشد خالی است.</summary>
+    public string? ProductImageName { get; set; }
+
     public decimal UnitPrice { get; set; }
     public decimal DiscountAmount { get; set; }
     public int Quantity { get; set; }

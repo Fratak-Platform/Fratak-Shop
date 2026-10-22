@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Fratak_Shop.Data.Entities.Blogs;
+using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Faqs;
@@ -27,6 +28,8 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<Location> Locations { get; set; } = null!;
 
     public DbSet<Category> Categories { get; set; } = null!;
+
+    public DbSet<Brand> Brands { get; set; } = null!;
 
     public DbSet<Product> Products { get; set; } = null!;
 

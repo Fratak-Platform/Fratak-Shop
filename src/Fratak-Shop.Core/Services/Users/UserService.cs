@@ -82,6 +82,33 @@ public class UserService(FratakShopDbContext context) : IUserService
         return OperationResult.Success("کاربر با موفقیت ویرایش شد.");
     }
 
+    public async Task<OperationResult> UpdateProfileAsync(UpdateProfileCommand command)
+    {
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == command.UserId);
+        if (user is null)
+            return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
+
+        var email = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email.Trim();
+
+        if (email is not null && !email.IsValidEmail())
+            return OperationResult.Error("ایمیل وارد‌شده معتبر نیست.");
+
+        if (command.FirstName?.Trim().Length > 100 || command.LastName?.Trim().Length > 100)
+            return OperationResult.Error("نام و نام خانوادگی حداکثر ۱۰۰ کاراکتر هستند.");
+
+        // تغییر ایمیل، وضعیت تایید آن را باطل می‌کند.
+        if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+            user.IsEmailVerified = false;
+
+        user.FirstName = string.IsNullOrWhiteSpace(command.FirstName) ? null : command.FirstName.Trim();
+        user.LastName = string.IsNullOrWhiteSpace(command.LastName) ? null : command.LastName.Trim();
+        user.Email = email;
+
+        await context.SaveChangesAsync();
+
+        return OperationResult.Success("اطلاعات حساب کاربری با موفقیت ذخیره شد.");
+    }
+
     public async Task<OperationResult> DeleteUserAsync(Guid id)
     {
         var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == id);

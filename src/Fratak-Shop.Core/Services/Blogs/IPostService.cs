@@ -16,6 +16,9 @@ public interface IPostService
     public Task<PostDto?> GetPostByAsync(string slug);
     public Task<PostDto?> GetPostByAsync(Guid id);
 
+    /// <summary>آخرین مقالات منتشرشده (برای صفحه نخست و ستون کناری مقاله).</summary>
+    public Task<List<BlogPostFilterData>> GetLatestPostsAsync(int take = 4, Guid? excludePostId = null);
+
 
 
 

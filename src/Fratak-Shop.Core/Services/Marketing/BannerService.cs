@@ -27,6 +27,7 @@ public class BannerService(FratakShopDbContext context) : IBannerService
             ImageAlt = command.ImageAlt,
             ButtonText = command.ButtonText,
             LinkUrl = command.LinkUrl,
+            Position = command.Position,
             DisplayOrder = command.DisplayOrder,
             StartAt = command.StartAt,
             EndAt = command.EndAt,
@@ -58,6 +59,7 @@ public class BannerService(FratakShopDbContext context) : IBannerService
         banner.ImageAlt = command.ImageAlt;
         banner.ButtonText = command.ButtonText;
         banner.LinkUrl = command.LinkUrl;
+        banner.Position = command.Position;
         banner.DisplayOrder = command.DisplayOrder;
         banner.StartAt = command.StartAt;
         banner.EndAt = command.EndAt;
@@ -89,12 +91,13 @@ public class BannerService(FratakShopDbContext context) : IBannerService
             .Map();
     }
 
-    public async Task<List<BannerDto>> GetActiveBannersAsync()
+    public async Task<List<BannerDto>> GetActiveBannersAsync(BannerPosition? position = null)
     {
         var now = DateTimeOffset.UtcNow;
 
         var banners = await context.Banners
             .Where(x => x.IsActive
+                        && (position == null || x.Position == position)
                         && (!x.StartAt.HasValue || x.StartAt <= now)
                         && (!x.EndAt.HasValue || x.EndAt >= now))
             .OrderBy(x => x.DisplayOrder)

@@ -21,6 +21,7 @@ public static class BannerMapper
             ImageAlt = banner.ImageAlt,
             ButtonText = banner.ButtonText,
             LinkUrl = banner.LinkUrl,
+            Position = banner.Position,
             DisplayOrder = banner.DisplayOrder,
             StartAt = banner.StartAt,
             EndAt = banner.EndAt,

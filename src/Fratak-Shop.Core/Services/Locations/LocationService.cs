@@ -156,6 +156,26 @@ public class LocationService(FratakShopDbContext context) : ILocationService
         return item?.Map();
     }
 
+    public async Task<List<LocationDto>> GetProvincesAsync()
+    {
+        var provinces = await context.Locations
+            .Where(x => x.Type == LocationType.Province && x.IsActive)
+            .OrderBy(x => x.Name)
+            .ToListAsync();
+
+        return provinces.Map();
+    }
+
+    public async Task<List<LocationDto>> GetCitiesAsync(Guid provinceId)
+    {
+        var cities = await context.Locations
+            .Where(x => x.ParentId == provinceId && x.Type == LocationType.City && x.IsActive)
+            .OrderBy(x => x.Name)
+            .ToListAsync();
+
+        return cities.Map();
+    }
+
     public async Task<List<LocationDto>> GetChildrenByParentIdAsync(Guid? parentId)
     {
         var children = await context.Locations

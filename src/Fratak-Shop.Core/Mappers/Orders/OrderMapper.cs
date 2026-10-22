@@ -64,6 +64,11 @@ public static class OrderMapper
             ProductName = item.ProductName,
             SKU = item.SKU,
             ProductSlug = item.Product?.Slug,
+            ProductImageName = item.Product?.Images
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.DisplayOrder)
+                .Select(image => image.ImageName)
+                .FirstOrDefault(),
             UnitPrice = item.UnitPrice,
             DiscountAmount = item.DiscountAmount,
             Quantity = item.Quantity,

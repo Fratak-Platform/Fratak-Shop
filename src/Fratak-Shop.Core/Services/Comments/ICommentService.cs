@@ -13,8 +13,10 @@ public interface ICommentService
     Task<OperationResult> RejectCommentAsync(Guid id);
 
     Task<CommentDto?> GetCommentByIdAsync(Guid id);
-    Task<List<CommentDto>> GetCommentsByPostAsync(Guid blogPostId);
-    Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId);
+    /// <param name="onlyApproved">برای وب‌سایت: فقط دیدگاه‌ها و پاسخ‌های تاییدشده.</param>
+    Task<List<CommentDto>> GetCommentsByPostAsync(Guid blogPostId, bool onlyApproved = false);
+    /// <param name="onlyApproved">برای وب‌سایت: فقط دیدگاه‌ها و پاسخ‌های تاییدشده.</param>
+    Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId, bool onlyApproved = false);
     Task<List<CommentDto>> GetRepliesAsync(Guid parentId);
     Task<CommentFilterResult> GetCommentsByFilterAsync(CommentFilterParams filterParams);
 }
