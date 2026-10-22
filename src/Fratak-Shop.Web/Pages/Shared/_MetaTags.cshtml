@@ -37,5 +37,6 @@
 }
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.JsonLd)))
 {
-  <script type="application/ld+json">@Html.Raw(Meta(PageMetaKeys.JsonLd))</script>
+  @* "!" opts the element out of tag helpers so the type attribute is not re-encoded. *@
+  <!script type="application/ld+json">@Html.Raw(Meta(PageMetaKeys.JsonLd))</!script>
 }

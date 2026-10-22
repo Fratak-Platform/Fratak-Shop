@@ -56,6 +56,24 @@ expect 200 /product/xiaomi-redmi-watch-3-active
 contains "ساعت هوشمند شیائومی"
 contains "application/ld+json"
 
+expect 200 /
+contains "Haylou"
+contains "تخفیف های ویژه زمان دار"
+
+expect 200 /product/sony-playstation-5
+contains "محصول موجود نمیباشد"
+
+expect 200 /brand/apple
+contains "MacBook"
+
+echo "== Compare"
+expect 200 /product/haylou-t15
+TOKEN=$(token)
+PRODUCT=$(grep -o 'name="productId" value="[0-9a-f-]\{36\}"' /tmp/smoke-body | head -1 | grep -o '[0-9a-f-]\{36\}')
+expect 302 "/compare?handler=Add" --data-urlencode "__RequestVerificationToken=$TOKEN" --data-urlencode "productId=$PRODUCT"
+expect 200 /compare
+contains "Haylou"
+
 echo "== Not found"
 expect 404 /product/this-product-does-not-exist
 expect 404 /this/page/does/not/exist
@@ -102,7 +120,17 @@ TARGET=$(location "/checkout?handler=PlaceOrder" --data-urlencode "__RequestVeri
   --data-urlencode "Input.AddressId=$ADDRESS" --data-urlencode "Input.ShippingMethod=post" \
   --data-urlencode "Input.PaymentMethod=CashOnDelivery" --data-urlencode "Input.Note=smoke test")
 case "$TARGET" in
-  */checkout/success/*) pass "order placed -> $TARGET"; expect 200 "${TARGET#$BASE}"; contains "سفارش شما با موفقیت ثبت شد" ;;
+  */checkout/success/*)
+    pass "order placed -> $TARGET"
+    expect 200 "${TARGET#$BASE}"
+    contains "سفارش شما با موفقیت ثبت شد"
+    ORDER_NO="${TARGET##*/}"
+    expect 200 "/profile/orders/$ORDER_NO"
+    contains "لغو سفارش"
+    TOKEN=$(token)
+    expect 302 "/profile/orders/$ORDER_NO?handler=Cancel" --data-urlencode "__RequestVerificationToken=$TOKEN"
+    expect 200 "/profile/orders/$ORDER_NO"
+    contains "لغو شده" ;;
   *) fail "place order redirected to '$TARGET'" ;;
 esac
 
