@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.DTOs.Contents;
+using Fratak_Shop.Core.Mappers.Blog;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Contents;
@@ -148,6 +149,6 @@ public class ContentPageService(FratakShopDbContext context, IMemoryCache cache)
         IsActive = page.IsActive,
         ShowInFooter = page.ShowInFooter,
         DisplayOrder = page.DisplayOrder,
-        Seo = page.Seo,
+        Seo = page.Seo.MapSeoMetaData(),
     };
 }

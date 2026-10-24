@@ -32,6 +32,7 @@ public static class CoreLayerBootstrapper
         services.AddMemoryCache();
 
         services.AddScoped<IStoreSettingService, StoreSettingService>();
+        services.AddScoped<Services.Seo.ISitemapService, Services.Seo.SitemapService>();
         services.AddScoped<IShippingService, ShippingService>();
         services.AddScoped<IWalletService, WalletService>();
         services.AddScoped<IPaymentTransactionService, PaymentTransactionService>();

@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Contents;
 using Fratak_Shop.Data.Entities.Pages;
@@ -19,7 +20,7 @@ public class ContentPageDto : BaseDto
     public bool IsActive { get; set; }
     public bool ShowInFooter { get; set; }
     public int DisplayOrder { get; set; }
-    public SeoMetaData? Seo { get; set; }
+    public SeoMetaDataDto? Seo { get; set; }
 }
 
 /// <summary>Light link to a content page (footer, sitemap).</summary>

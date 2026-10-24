@@ -48,6 +48,7 @@ public static class StoreDefaultsSeeder
             SupportEmail = "support@fratak.shop",
             Address = "تهران، خیابان ولیعصر، پلاک ۱۲۳",
             WorkingHours = "شنبه تا پنجشنبه ۹ تا ۱۸",
+            MapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d5487.320972393403!2d59.6102611712093!3d36.28800020180445!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3f6c91ef5993b861%3A0xbc78a4fdeb4d00b5!2z2K3YsdmFINin2YXYp9mFINix2LbYpyDYudmE24zZhyDYp9mE2LPZhNin2YU!5e0!3m2!1sen!2sus!4v1690833786920!5m2!1sen!2sus",
             InstagramUrl = "https://instagram.com/",
             TelegramUrl = "https://t.me/",
             FooterTitle = "بهترین خرید رو تجربه کن!",

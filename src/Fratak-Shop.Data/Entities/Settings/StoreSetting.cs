@@ -46,6 +46,10 @@ public class StoreSetting : BaseEntity
     [MaxLength(200)]
     public string? WorkingHours { get; set; }
 
+    /// <summary>Map iframe URL of the contact page (Google Maps / Neshan / OSM embed link, https only).</summary>
+    [MaxLength(1000)]
+    public string? MapEmbedUrl { get; set; }
+
     // ── Social networks ──────────────────────────────────────────────────
     [MaxLength(500)]
     public string? InstagramUrl { get; set; }

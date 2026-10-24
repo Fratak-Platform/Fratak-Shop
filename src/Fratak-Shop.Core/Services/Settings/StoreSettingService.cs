@@ -85,6 +85,23 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (!string.IsNullOrWhiteSpace(command.SupportEmail) && !command.SupportEmail.Trim().IsValidEmail())
             return "ایمیل پشتیبانی معتبر نیست.";
 
+        if (!string.IsNullOrWhiteSpace(command.MapEmbedUrl) && !IsHttps(command.MapEmbedUrl))
+            return "آدرس نقشه باید یک لینک https باشد.";
+
+        var links = new[]
+        {
+            command.InstagramUrl, command.TelegramUrl, command.WhatsAppUrl, command.LinkedinUrl,
+            command.TwitterUrl, command.AparatUrl, command.YoutubeUrl,
+        };
+        if (links.Any(link => !string.IsNullOrWhiteSpace(link) && !IsHttp(link)))
+            return "لینک شبکه‌های اجتماعی باید با http:// یا https:// شروع شود.";
+
         return null;
     }
+
+    private static bool IsHttps(string url) =>
+        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+
+    private static bool IsHttp(string url) =>
+        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
 }

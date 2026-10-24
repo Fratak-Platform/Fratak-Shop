@@ -21,6 +21,7 @@ public static class StoreSettingMapper
             Address = entity.Address,
             PostalCode = entity.PostalCode,
             WorkingHours = entity.WorkingHours,
+            MapEmbedUrl = entity.MapEmbedUrl,
             InstagramUrl = entity.InstagramUrl,
             TelegramUrl = entity.TelegramUrl,
             WhatsAppUrl = entity.WhatsAppUrl,
@@ -74,6 +75,7 @@ public static class StoreSettingMapper
         entity.Address = command.Address;
         entity.PostalCode = command.PostalCode;
         entity.WorkingHours = command.WorkingHours;
+        entity.MapEmbedUrl = command.MapEmbedUrl;
         entity.InstagramUrl = command.InstagramUrl;
         entity.TelegramUrl = command.TelegramUrl;
         entity.WhatsAppUrl = command.WhatsAppUrl;

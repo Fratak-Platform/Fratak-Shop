@@ -197,7 +197,7 @@ public class UserService(FratakShopDbContext context) : IUserService
         if (user.LockoutEndAt > now)
         {
             var minutes = (int)Math.Ceiling((user.LockoutEndAt.Value - now).TotalMinutes);
-            return OperationResult<UserDto>.Error($"به دلیل تلاش‌های ناموفق متعدد، ورود با رمز عبور تا {minutes} دقیقه دیگر مسدود است. می‌توانید با کد یک‌بارمصرف وارد شوید.");
+            return OperationResult<UserDto>.Error($"به دلیل تلاش‌های ناموفق متعدد، ورود به این حساب تا {minutes} دقیقه دیگر امکان‌پذیر نیست.");
         }
 
         if (!PasswordHasher.Verify(command.Password, user.PasswordHash))

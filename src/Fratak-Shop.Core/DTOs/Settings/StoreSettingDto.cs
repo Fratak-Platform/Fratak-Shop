@@ -15,6 +15,7 @@ public class StoreSettingCommand
     public string? Address { get; set; }
     public string? PostalCode { get; set; }
     public string? WorkingHours { get; set; }
+    public string? MapEmbedUrl { get; set; }
     public string? InstagramUrl { get; set; }
     public string? TelegramUrl { get; set; }
     public string? WhatsAppUrl { get; set; }
