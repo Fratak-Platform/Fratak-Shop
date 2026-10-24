@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Utilities;
@@ -41,6 +41,29 @@ public class Order : BaseEntity
     public string? ShippingMethod { get; set; }
 
     public DateTimeOffset? RequestedDeliveryDate { get; set; }
+
+    public Guid? ShippingMethodId { get; set; }
+
+    public Guid? DeliveryTimeSlotId { get; set; }
+
+    /// <summary>Snapshot of the chosen delivery time window (e.g. "۹ تا ۱۲").</summary>
+    [MaxLength(100)]
+    public string? DeliveryTimeSlotTitle { get; set; }
+
+    /// <summary>Unpaid online orders are cancelled automatically after this moment.</summary>
+    public DateTimeOffset? PaymentDeadline { get; set; }
+
+    public DateTimeOffset? CancelledAt { get; set; }
+
+    public OrderCancelledBy? CancelledBy { get; set; }
+
+    [MaxLength(500)]
+    public string? CancellationReason { get; set; }
+
+    /// <summary>Amount returned to the customer's wallet (cancellation / return).</summary>
+    public decimal RefundedAmount { get; set; }
+
+    public DateTimeOffset? RefundedAt { get; set; }
 
     [Required]
     [MaxLength(250)]
@@ -97,6 +120,14 @@ public enum OrderStatus
     Delivered = 5,
     Cancelled = 6,
     Returned = 7,
+}
+
+public enum OrderCancelledBy
+{
+    None = 0,
+    Customer = 1,
+    Admin = 2,
+    System = 3,
 }
 
 public enum PaymentMethod

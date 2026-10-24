@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Seeders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,7 +24,7 @@ public static class FratakShopBootstrapper
 
     /// <summary>
     /// Applies pending migrations and seeds the reference data
-    /// (location dictionary: country, provinces, cities). Call once at application startup.
+    /// (location dictionary, store settings, shipping methods, content pages, ...). Call once at application startup.
     /// </summary>
     public static async Task InitializeFratakShopDataAsync(this IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
     {
@@ -35,5 +35,6 @@ public static class FratakShopBootstrapper
 
         await context.Database.MigrateAsync(cancellationToken);
         await LocationSeeder.SeedAsync(context, cancellationToken);
+        await StoreDefaultsSeeder.SeedAsync(context, cancellationToken);
     }
 }

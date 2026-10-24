@@ -3,6 +3,7 @@ using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
+using Fratak_Shop.Data.Entities.Contents;
 using Fratak_Shop.Data.Entities.Faqs;
 using Fratak_Shop.Data.Entities.Favorites;
 using Fratak_Shop.Data.Entities.Locations;
@@ -10,10 +11,14 @@ using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Pages;
+using Fratak_Shop.Data.Entities.Payments;
 using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Data.Entities.SeoRedirects;
+using Fratak_Shop.Data.Entities.Settings;
+using Fratak_Shop.Data.Entities.Shipping;
 using Fratak_Shop.Data.Entities.Shopping;
 using Fratak_Shop.Data.Entities.Users;
+using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Utilities;
 using Microsoft.EntityFrameworkCore;
 
@@ -64,6 +69,30 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<PageAlert> PageAlerts { get; set; } = null!;
 
     public DbSet<SeoRedirect> SeoRedirects { get; set; } = null!;
+
+    public DbSet<StoreSetting> StoreSettings { get; set; } = null!;
+
+    public DbSet<ShippingMethod> ShippingMethods { get; set; } = null!;
+
+    public DbSet<DeliveryTimeSlot> DeliveryTimeSlots { get; set; } = null!;
+
+    public DbSet<WalletTransaction> WalletTransactions { get; set; } = null!;
+
+    public DbSet<WithdrawalRequest> WithdrawalRequests { get; set; } = null!;
+
+    public DbSet<PaymentTransaction> PaymentTransactions { get; set; } = null!;
+
+    public DbSet<UserRefreshToken> UserRefreshTokens { get; set; } = null!;
+
+    public DbSet<ContentPage> ContentPages { get; set; } = null!;
+
+    public DbSet<SiteFeature> SiteFeatures { get; set; } = null!;
+
+    public DbSet<HomeSection> HomeSections { get; set; } = null!;
+
+    public DbSet<TrustBadge> TrustBadges { get; set; } = null!;
+
+    public DbSet<FaqCategory> FaqCategories { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -153,6 +182,10 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
             foreach (var index in entityType.GetIndexes().Where(i => i.IsUnique))
             {
+                // Indexes that already declare a soft-delete aware filter keep it.
+                if (index.GetFilter()?.Contains("[IsDeleted]", StringComparison.Ordinal) == true)
+                    continue;
+
                 index.SetFilter("[IsDeleted] = 0");
             }
         }

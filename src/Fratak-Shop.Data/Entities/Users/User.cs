@@ -1,10 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Favorites;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Shopping;
+using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Utilities;
 
 namespace Fratak_Shop.Data.Entities.Users;
@@ -37,6 +38,22 @@ public class User : BaseEntity
 
     public DateTimeOffset? LastLoginAt { get; set; }
 
+    /// <summary>
+    /// Random value that changes whenever the credentials change (password change,
+    /// "sign out everywhere"); issued tokens carrying an old stamp are rejected.
+    /// </summary>
+    [MaxLength(64)]
+    public string? SecurityStamp { get; set; }
+
+    /// <summary>Consecutive failed password sign-ins (reset on success).</summary>
+    public int FailedLoginCount { get; set; }
+
+    /// <summary>Password sign-in is blocked until this moment (brute-force protection).</summary>
+    public DateTimeOffset? LockoutEndAt { get; set; }
+
+    /// <summary>Current wallet balance in Toman (ledger: <see cref="WalletTransactions"/>).</summary>
+    public decimal WalletBalance { get; set; }
+
     public List<UserAddress> Addresses { get; set; } = [];
 
     public List<Cart> Carts { get; set; } = [];
@@ -50,6 +67,12 @@ public class User : BaseEntity
     public List<Message> Messages { get; set; } = [];
 
     public List<Favorite> Favorites { get; set; } = [];
+
+    public List<WalletTransaction> WalletTransactions { get; set; } = [];
+
+    public List<WithdrawalRequest> WithdrawalRequests { get; set; } = [];
+
+    public List<UserRefreshToken> RefreshTokens { get; set; } = [];
 }
 
 public enum UserRole
