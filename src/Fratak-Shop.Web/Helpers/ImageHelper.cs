@@ -38,6 +38,16 @@ public static class ImageHelper
             .Select(w => $"/media/{w}/{path} {w}w"));
     }
 
+    /// <summary>One optimized copy at <paramref name="width"/> (thumbnails), or the original URL.</summary>
+    public static string Sized(string? url, int width, bool enabled = true)
+    {
+        if (!enabled || !Infrastructure.Media.MediaEndpoints.IsOptimizable(url))
+            return url ?? string.Empty;
+
+        var size = Infrastructure.Media.MediaEndpoints.Widths.FirstOrDefault(w => w >= width, Infrastructure.Media.MediaEndpoints.Widths[^1]);
+        return $"/media/{size}/{url!.TrimStart('/')}";
+    }
+
     private static string Resolve(string? imageName, string folder, string placeholder)
     {
         if (string.IsNullOrWhiteSpace(imageName))

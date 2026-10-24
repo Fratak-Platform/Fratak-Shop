@@ -16,6 +16,7 @@ public interface IPaymentFlowService
 {
     Task<PaymentStartResult> StartOrderPaymentAsync(OrderDto order, Guid userId);
     Task<PaymentStartResult> StartWalletTopUpAsync(Guid userId, decimal amount);
+    Task<PaymentStartResult> StartGiftCardPaymentAsync(Guid userId, Guid giftCardId);
     Task<PaymentCallbackResult> HandleCallbackAsync(string? authority, string? status);
 }
 
@@ -38,6 +39,7 @@ public class PaymentFlowService(
     IPaymentTransactionService transactions,
     IStoreSettingService settingService,
     IUserService userService,
+    Fratak_Shop.Core.Services.Marketing.IGiftCardService giftCards,
     LinkGenerator links,
     IHttpContextAccessor httpContextAccessor,
     ILogger<PaymentFlowService> logger) : IPaymentFlowService
@@ -83,11 +85,35 @@ public class PaymentFlowService(
         }, $"شارژ کیف پول - {settings.SiteName}", userId);
     }
 
-    private async Task<PaymentStartResult> StartAsync(CreatePaymentCommand command, string description, Guid userId)
+    public async Task<PaymentStartResult> StartGiftCardPaymentAsync(Guid userId, Guid giftCardId)
+    {
+        var settings = await settingService.GetAsync();
+        if (!settings.IsGiftCardEnabled || !settings.HasZarinPal)
+            return new PaymentStartResult(false, null, "پرداخت اینترنتی کارت هدیه در حال حاضر فعال نیست.");
+
+        // Only the buyer's own unpaid card; the amount always comes from the database.
+        var card = await giftCards.GetPendingAsync(userId, giftCardId);
+        if (card is null)
+            return new PaymentStartResult(false, null, "کارت هدیه پرداخت‌نشده‌ای با این مشخصات یافت نشد.");
+
+        return await StartAsync(new CreatePaymentCommand
+        {
+            Purpose = PaymentPurpose.GiftCard,
+            UserId = userId,
+            Amount = card.Amount,
+            Gateway = "ZarinPal",
+        }, $"خرید کارت هدیه {card.Reference} - {settings.SiteName}", userId,
+            paymentId => giftCards.AttachPaymentAsync(card.Id, paymentId));
+    }
+
+    private async Task<PaymentStartResult> StartAsync(CreatePaymentCommand command, string description, Guid userId, Func<Guid, Task>? onCreated = null)
     {
         var created = await transactions.CreateAsync(command);
         if (!created.IsSuccess())
             return new PaymentStartResult(false, null, created.Message);
+
+        if (onCreated is not null)
+            await onCreated(created.Data);
 
         var settings = await settingService.GetAsync();
         var user = await userService.GetUserByIdAsync(userId);

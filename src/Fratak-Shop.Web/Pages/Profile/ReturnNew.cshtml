@@ -1,0 +1,122 @@
+@page "/profile/returns/new/{orderNumber}"
+@model Fratak_Shop.Web.Pages.Profile.ReturnNewModel
+@{
+    Layout = "_Layout";
+    var settings = Site.Settings;
+    var eligibility = Model.Eligibility;
+    const string inputClass = "text-sm block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-700 outline-none transition-all focus:border-sky-400";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Returns" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-5">
+        <nav class="text-xs text-zinc-400" aria-label="مسیر">
+          <a href="/profile/orders/@eligibility.OrderNumber.ToLowerInvariant()" class="hover:text-sky-600">سفارش <span dir="ltr">@eligibility.OrderNumber</span></a>
+          <span class="mx-1">/</span>
+          <span>درخواست مرجوعی</span>
+        </nav>
+        <h1 class="text-zinc-800 text-lg font-semibold">درخواست مرجوعی سفارش <span dir="ltr">@eligibility.OrderNumber</span></h1>
+
+        @if (!eligibility.IsEligible)
+        {
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700" role="alert">@eligibility.Reason</div>
+          <a href="/profile/orders/@eligibility.OrderNumber.ToLowerInvariant()" class="inline-block rounded-lg border px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50">بازگشت به سفارش</a>
+        }
+        else
+        {
+          if (eligibility.Deadline is { } deadline)
+          {
+            <p class="text-sm text-zinc-500">مهلت ثبت مرجوعی این سفارش تا <b class="text-zinc-700">@Format.Date(deadline)</b> است.</p>
+          }
+          <partial name="_ValidationSummary" />
+          <form method="post" enctype="multipart/form-data" class="space-y-6"
+                data-confirm="درخواست مرجوعی ثبت شود؟ پس از تایید، کالا را با بسته‌بندی کامل ارسال کنید." data-confirm-title="ثبت مرجوعی" data-confirm-ok="ثبت درخواست">
+            <section>
+              <h2 class="mb-3 text-sm font-semibold text-zinc-700">۱. کالا و تعداد</h2>
+              <ul class="space-y-3">
+                @foreach (var item in eligibility.Items)
+                {
+                  var current = Model.Quantities.GetValueOrDefault(item.OrderItemId);
+                  <li class="flex flex-wrap items-center gap-3 rounded-xl border p-3 @(item.ReturnableQuantity == 0 ? "opacity-60" : "")">
+                    <img src="@ImageHelper.Sized(ImageHelper.Product(item.ImageName), 160, settings.IsImageOptimizationEnabled)" alt="" width="56" height="56" loading="lazy" class="h-14 w-14 rounded-lg object-contain">
+                    <div class="min-w-0 flex-1">
+                      <div class="line-clamp-1 text-sm text-zinc-700">@item.ProductName</div>
+                      <div class="mt-1 text-xs text-zinc-500">
+                        مبلغ برگشتی هر عدد: <b class="text-zinc-700">@Format.Toman(item.UnitRefundAmount)</b>
+                        — خریداری‌شده: @Format.Number(item.OrderedQuantity)
+                      </div>
+                    </div>
+                    @if (item.ReturnableQuantity > 0)
+                    {
+                      <label class="flex items-center gap-x-2 text-xs text-zinc-600">
+                        تعداد مرجوعی
+                        <select name="Quantities[@item.OrderItemId]" class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+                          @for (var q = 0; q <= item.ReturnableQuantity; q++)
+                          {
+                            <option value="@q" selected="@(q == current)">@q</option>
+                          }
+                        </select>
+                      </label>
+                    }
+                    else
+                    {
+                      <span class="text-xs text-zinc-400">قبلاً درخواست شده</span>
+                    }
+                  </li>
+                }
+              </ul>
+              <p class="mt-2 text-[11px] text-zinc-400">مبلغ برگشتی پس از کسر سهم تخفیف هر کالا محاسبه شده و به کیف پول شما واریز می‌شود.</p>
+            </section>
+
+            <section>
+              <h2 class="mb-3 text-sm font-semibold text-zinc-700">۲. علت مرجوعی</h2>
+              <div class="grid gap-2 sm:grid-cols-2">
+                @foreach (var reason in Model.Reasons)
+                {
+                  <label class="flex cursor-pointer items-start gap-x-2 rounded-xl border p-3 text-sm transition has-[:checked]:border-sky-400 has-[:checked]:bg-sky-50">
+                    <input type="radio" name="ReasonId" value="@reason.Id" required checked="@(Model.ReasonId == reason.Id)" class="mt-1 accent-sky-500">
+                    <span>
+                      <span class="text-zinc-700">@reason.Title</span>
+                      @if (reason.RequiresImage)
+                      {
+                        <span class="mr-1 rounded bg-amber-50 px-1 text-[10px] text-amber-600">نیاز به تصویر</span>
+                      }
+                      @if (!string.IsNullOrWhiteSpace(reason.Hint))
+                      {
+                        <span class="mt-1 block text-[11px] text-zinc-400">@reason.Hint</span>
+                      }
+                    </span>
+                  </label>
+                }
+              </div>
+            </section>
+
+            <section>
+              <h2 class="mb-3 text-sm font-semibold text-zinc-700">۳. توضیحات و تصویر</h2>
+              <label for="Description" class="block text-xs text-zinc-600 mb-1">توضیحات (اختیاری)</label>
+              <textarea id="Description" name="Description" rows="3" maxlength="1000" class="@inputClass" placeholder="مشکل کالا را کوتاه توضیح دهید">@Model.Description</textarea>
+              <div class="mt-3" data-review-images data-max="@settings.ReturnMaxImages" data-max-kb="4096">
+                <label class="flex cursor-pointer items-center justify-center gap-x-2 rounded-lg border border-dashed border-gray-300 px-3 py-3 text-sm text-zinc-600 transition hover:border-sky-400 hover:bg-sky-50">
+                  @Icons.Svg("Image", "fill-sky-500", 20)
+                  <span>افزودن تصویر کالا (حداکثر @Format.Number(settings.ReturnMaxImages) عدد، هر کدام تا ۴ مگابایت)</span>
+                  <input type="file" name="Images" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-review-images-input>
+                </label>
+                <div class="mt-2 grid grid-cols-3 gap-2 empty:hidden sm:grid-cols-5" data-review-images-preview></div>
+              </div>
+            </section>
+
+            @if (!string.IsNullOrWhiteSpace(settings.ReturnPolicyText))
+            {
+              <details class="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                <summary class="cursor-pointer font-semibold">شرایط مرجوعی کالا</summary>
+                <p class="mt-2 whitespace-pre-line leading-7">@settings.ReturnPolicyText</p>
+              </details>
+            }
+
+            <button type="submit" class="w-full rounded-lg bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 sm:w-auto">ثبت درخواست مرجوعی</button>
+          </form>
+        }
+      </div>
+    </div>
+  </main>

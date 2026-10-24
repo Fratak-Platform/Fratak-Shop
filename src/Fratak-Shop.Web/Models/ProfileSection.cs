@@ -14,4 +14,9 @@ public enum ProfileSection
     Sessions,
     Notifications,
     Club,
+    GiftCards,
+    Invite,
+    Returns,
+    Tickets,
+    Alerts,
 }

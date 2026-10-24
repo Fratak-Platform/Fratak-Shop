@@ -9,9 +9,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;
 
-public class OrderDetailModel(IOrderService orderService, ISiteContext site) : ShopPageModel
+public class OrderDetailModel(IOrderService orderService, IReturnService returnService, IOrderFeedbackService feedbackService, ISiteContext site) : ShopPageModel
 {
     public OrderDto Order { get; private set; } = null!;
+
+    /// <summary>Return requests of this order and whether a new one can be started.</summary>
+    public List<Core.DTOs.Engagement.ReturnRequestDto> Returns { get; private set; } = [];
+    public Core.DTOs.Engagement.ReturnEligibilityDto? ReturnEligibility { get; private set; }
+
+    /// <summary>Shopping-experience rating (after delivery).</summary>
+    public OrderFeedbackState? Feedback { get; private set; }
+
+    [BindProperty]
+    public FeedbackInput FeedbackForm { get; set; } = new();
 
     /// <summary>
     /// Self-cancellation is allowed until the shop starts preparing the order
@@ -44,6 +54,7 @@ public class OrderDetailModel(IOrderService orderService, ISiteContext site) : S
             return NotFound();
 
         Order = order;
+        await LoadEngagementAsync();
         ViewData[PageMetaKeys.Title] = $"سفارش {order.OrderNumber}";
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
         return Page();
@@ -68,5 +79,49 @@ public class OrderDetailModel(IOrderService orderService, ISiteContext site) : S
         var result = await orderService.CancelOrderByCustomerAsync(order.Id, CurrentUserId!.Value, reason);
         ShowResult(result);
         return RedirectToPage(new { orderNumber });
+    }
+
+    public async Task<IActionResult> OnPostFeedbackAsync(string orderNumber)
+    {
+        var order = await orderService.GetOrderByNumberAsync(orderNumber);
+        if (order is null || order.UserId != CurrentUserId)
+            return NotFound();
+
+        var result = await feedbackService.SubmitAsync(CurrentUserId!.Value, new SubmitOrderFeedbackCommand
+        {
+            OrderNumber = order.OrderNumber,
+            OverallRating = FeedbackForm.Overall,
+            DeliveryRating = FeedbackForm.Delivery,
+            PackagingRating = FeedbackForm.Packaging,
+            ProductMatchRating = FeedbackForm.ProductMatch,
+            WouldRecommend = FeedbackForm.WouldRecommend,
+            Comment = FeedbackForm.Comment,
+        });
+        ShowResult(result);
+        return Redirect($"/profile/orders/{order.OrderNumber.ToLowerInvariant()}#feedback");
+    }
+
+    private async Task LoadEngagementAsync()
+    {
+        var userId = CurrentUserId!.Value;
+        if (site.Settings.IsReturnEnabled)
+        {
+            Returns = await returnService.GetByOrderAsync(userId, Order.Id);
+            if (Order.Status == OrderStatus.Delivered)
+                ReturnEligibility = await returnService.GetEligibilityAsync(userId, Order.OrderNumber);
+        }
+
+        if (site.Settings.IsOrderFeedbackEnabled || Order.Status == OrderStatus.Delivered)
+            Feedback = await feedbackService.GetStateAsync(userId, Order.Id);
+    }
+
+    public class FeedbackInput
+    {
+        [Range(1, 5)] public int Overall { get; set; }
+        [Range(1, 5)] public int Delivery { get; set; }
+        [Range(1, 5)] public int Packaging { get; set; }
+        [Range(1, 5)] public int ProductMatch { get; set; }
+        public bool? WouldRecommend { get; set; }
+        [StringLength(1000)] public string? Comment { get; set; }
     }
 }

@@ -21,6 +21,7 @@ public class CartModel(
     ICartSessionService cartSession,
     ICouponService couponService,
     IRecommendationService recommendations,
+    ISaveForLaterService saveForLater,
     ISiteContext site,
     IPageMetaService pageMeta) : ShopPageModel
 {
@@ -37,11 +38,16 @@ public class CartModel(
 
     public List<ProductFilterData> Suggestions { get; private set; } = [];
 
+    /// <summary>"خرید بعدی" list: items moved out of the cart to buy later.</summary>
+    public List<SavedItemDto> Saved { get; private set; } = [];
+
     public decimal PayableAfterCoupon => Math.Max(0, (Cart?.PayableAmount ?? 0) - (Coupon?.ItemsDiscount ?? 0));
 
     public async Task OnGetAsync()
     {
         Cart = await cartSession.GetCartAsync();
+        if (Cart is not null && site.Settings.IsSaveForLaterEnabled)
+            Saved = await saveForLater.GetAsync(Cart.Id);
         await pageMeta.ApplyAsync(ViewData, SitePage.Cart, "سبد خرید");
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
 
@@ -153,6 +159,31 @@ public class CartModel(
         }
 
         return RedirectToLocal(returnUrl, "/Cart");
+    }
+
+    // ── خرید بعدی ─────────────────────────────────────────────────────
+    public async Task<IActionResult> OnPostSaveForLaterAsync(Guid productId)
+    {
+        var cart = await cartSession.GetCartAsync();
+        if (cart is not null && site.Settings.IsSaveForLaterEnabled)
+            ShowResult(await saveForLater.SaveForLaterAsync(cart.Id, productId));
+        return Redirect("/cart#saved");
+    }
+
+    public async Task<IActionResult> OnPostMoveToCartAsync(Guid productId)
+    {
+        var cart = await cartSession.GetCartAsync();
+        if (cart is not null && site.Settings.IsSaveForLaterEnabled)
+            ShowResult(await saveForLater.MoveToCartAsync(cart.Id, productId));
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostRemoveSavedAsync(Guid productId)
+    {
+        var cart = await cartSession.GetCartAsync();
+        if (cart is not null)
+            ShowResult(await saveForLater.RemoveAsync(cart.Id, productId));
+        return Redirect("/cart#saved");
     }
 
     public async Task<IActionResult> OnPostClearAsync()

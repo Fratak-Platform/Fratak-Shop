@@ -116,13 +116,14 @@
   // ── Share / copy link ────────────────────────────────────────────────
   document.querySelectorAll("[data-share]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      const url = new URL(btn.dataset.share, window.location.origin).toString();
+      const url = new URL(btn.dataset.share || btn.dataset.shareUrl || window.location.pathname, window.location.origin).toString();
+      const text = btn.dataset.shareText || "";
       try {
         if (navigator.share) {
-          await navigator.share({ title: btn.dataset.shareTitle || document.title, url });
+          await navigator.share(text ? { title: btn.dataset.shareTitle || document.title, text, url } : { title: btn.dataset.shareTitle || document.title, url });
         } else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(url);
-          if (window.FratakModal) window.FratakModal.toast("لینک کپی شد.", "success");
+          await navigator.clipboard.writeText(text ? text + "\n" + url : url);
+          if (window.FratakModal) window.FratakModal.toast(text ? "متن کپی شد." : "لینک کپی شد.", "success");
         }
       } catch (_) { /* user cancelled */ }
     });
@@ -417,6 +418,7 @@
     if (!input || !preview || typeof DataTransfer === "undefined") return;
 
     const max = parseInt(box.dataset.max || "3", 10);
+    const types = box.hasAttribute("data-allow-pdf") ? allowed.concat("application/pdf") : allowed;
     const maxBytes = parseInt(box.dataset.maxKb || "2048", 10) * 1024;
     let files = [];
 
@@ -428,10 +430,17 @@
         transfer.items.add(file);
         const item = document.createElement("div");
         item.className = "relative aspect-square overflow-hidden rounded-lg border bg-zinc-50";
-        const img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        img.alt = file.name;
-        img.className = "h-full w-full object-cover";
+        let img;
+        if (file.type === "application/pdf") {
+          img = document.createElement("div");
+          img.className = "flex h-full w-full items-center justify-center p-1 text-center text-[10px] break-all text-zinc-500";
+          img.textContent = "PDF\n" + file.name;
+        } else {
+          img = document.createElement("img");
+          img.src = URL.createObjectURL(file);
+          img.alt = file.name;
+          img.className = "h-full w-full object-cover";
+        }
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "absolute top-1 left-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm leading-none text-white";
@@ -454,8 +463,8 @@
           notify("حداکثر " + max + " تصویر قابل ارسال است.");
           break;
         }
-        if (!allowed.includes(file.type)) {
-          notify("فقط تصاویر JPG، PNG و WebP قابل ارسال هستند.");
+        if (!types.includes(file.type)) {
+          notify(types.length > allowed.length ? "فقط تصویر (JPG، PNG، WebP) یا PDF قابل ارسال است." : "فقط تصاویر JPG، PNG و WebP قابل ارسال هستند.");
           continue;
         }
         if (file.size > maxBytes) {

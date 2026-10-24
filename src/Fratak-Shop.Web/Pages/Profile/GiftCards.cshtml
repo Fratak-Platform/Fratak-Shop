@@ -1,0 +1,184 @@
+@page "/profile/gift-cards"
+@model Fratak_Shop.Web.Pages.Profile.GiftCardsModel
+@using Fratak_Shop.Data.Entities.Marketing
+@{
+    Layout = "_Layout";
+    var settings = Site.Settings;
+    const string inputClass = "text-sm block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-700 outline-none transition-all focus:border-sky-400";
+    const string card = "rounded-xl border p-4";
+    static (string Text, string Css) StatusOf(GiftCardStatus status) => status switch
+    {
+        GiftCardStatus.PendingPayment => ("در انتظار پرداخت", "bg-amber-50 text-amber-600"),
+        GiftCardStatus.Active => ("فعال – استفاده نشده", "bg-emerald-50 text-emerald-600"),
+        GiftCardStatus.Redeemed => ("استفاده شده", "bg-zinc-100 text-zinc-500"),
+        GiftCardStatus.Cancelled => ("لغو شده", "bg-red-50 text-red-500"),
+        GiftCardStatus.Expired => ("منقضی", "bg-red-50 text-red-500"),
+        _ => ("-", "bg-zinc-100 text-zinc-500"),
+    };
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.GiftCards" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-6">
+        <div class="flex flex-wrap items-center gap-3">
+          @Icons.Svg("Gift", "fill-rose-500", 28)
+          <h1 class="text-zinc-800 text-lg font-semibold">کارت هدیه</h1>
+        </div>
+        <p class="text-sm leading-7 text-zinc-500">
+          کارت هدیه بخرید و کد آن را به دوستتان (یا هر کسی) بدهید؛ با وارد کردن کد در همین صفحه، مبلغ کارت به کیف پول او اضافه می‌شود.
+          اعتبار هر کارت @Format.Number(settings.GiftCardValidDays) روز از زمان صدور است.
+        </p>
+
+        <div class="grid gap-5 lg:grid-cols-2">
+          <!-- redeem -->
+          <section class="@card" id="redeem">
+            <h2 class="mb-3 flex items-center gap-x-2 font-semibold text-zinc-700">@Icons.Svg("Ticket", "fill-sky-500", 20) استفاده از کارت هدیه</h2>
+            @if (Model.ActiveForm == "redeem")
+            {
+              <partial name="_ValidationSummary" />
+            }
+            <form method="post" asp-page-handler="Redeem" class="space-y-3">
+              <label for="Code" class="block text-xs text-zinc-600">کد ۱۶ کاراکتری کارت</label>
+              <input id="Code" name="Code" value="@Model.Code" type="text" required maxlength="24" autocomplete="off" spellcheck="false" dir="ltr"
+                     placeholder="ABCD-EFGH-JKMN-PQRS" class="@inputClass text-center font-mono uppercase tracking-widest">
+              @if (Model.Captcha is not null)
+              {
+                <partial name="_Captcha" model="Model.Captcha" />
+              }
+              <button type="submit" class="w-full rounded-lg bg-sky-500 px-2 py-2.5 text-sm text-white transition hover:bg-sky-400">ثبت کد و شارژ کیف پول</button>
+              <p class="text-[11px] leading-5 text-zinc-400">
+                مبلغ کارت هدیه به بخش «اعتبار هدیه» کیف پول اضافه می‌شود و برای خرید از فروشگاه قابل استفاده است@(settings.IsGiftCardCreditWithdrawable ? " و قابل برداشت نیز هست" : " (قابل برداشت نقدی نیست)").
+              </p>
+            </form>
+          </section>
+
+          <!-- buy -->
+          <section class="@card" id="buy">
+            <h2 class="mb-3 flex items-center gap-x-2 font-semibold text-zinc-700">@Icons.Svg("Gift", "fill-rose-500", 20) خرید کارت هدیه</h2>
+            @if (Model.ActiveForm == "buy")
+            {
+              <partial name="_ValidationSummary" />
+            }
+            <form method="post" asp-page-handler="Buy" class="space-y-3">
+              <div class="flex flex-wrap gap-2">
+                @foreach (var preset in settings.GiftCardPresets)
+                {
+                  <button type="button" data-amount-preset="@preset.ToString("0")" data-amount-target="#Purchase_Amount" class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50">@Format.Price(preset)</button>
+                }
+              </div>
+              <label for="Purchase_Amount" class="block text-xs text-zinc-600">مبلغ (تومان)</label>
+              <input id="Purchase_Amount" name="Purchase.Amount" value="@Model.Purchase.Amount.ToString("0")" type="number" inputmode="numeric" dir="ltr" required
+                     min="@settings.GiftCardMinAmount.ToString("0")" max="@settings.GiftCardMaxAmount.ToString("0")" step="1000" class="@inputClass">
+              <p class="text-[11px] text-zinc-500">از @Format.Toman(settings.GiftCardMinAmount) تا @Format.Toman(settings.GiftCardMaxAmount)، مضرب ۱٬۰۰۰ تومان</p>
+              <label for="Purchase_RecipientName" class="block text-xs text-zinc-600">نام گیرنده (اختیاری)</label>
+              <input id="Purchase_RecipientName" name="Purchase.RecipientName" value="@Model.Purchase.RecipientName" maxlength="100" class="@inputClass">
+              <label for="Purchase_Message" class="block text-xs text-zinc-600">پیام شما (اختیاری)</label>
+              <textarea id="Purchase_Message" name="Purchase.Message" rows="2" maxlength="500" class="@inputClass">@Model.Purchase.Message</textarea>
+              <fieldset class="space-y-2 text-sm text-zinc-600">
+                <legend class="mb-1 text-xs text-zinc-600">روش پرداخت</legend>
+                @if (settings.HasZarinPal)
+                {
+                  <label class="flex items-center gap-x-2"><input type="radio" name="Purchase.PayWithWallet" value="false" checked="@(!Model.Purchase.PayWithWallet)" class="accent-sky-500"> درگاه پرداخت اینترنتی (زرین‌پال)</label>
+                }
+                @if (settings.IsWalletEnabled)
+                {
+                  <label class="flex items-center gap-x-2"><input type="radio" name="Purchase.PayWithWallet" value="true" checked="@(Model.Purchase.PayWithWallet || !settings.HasZarinPal)" class="accent-sky-500"> موجودی قابل برداشت کیف پول</label>
+                }
+              </fieldset>
+              @if (!string.IsNullOrWhiteSpace(settings.GiftCardTerms))
+              {
+                <p class="rounded-lg bg-zinc-50 p-2 text-[11px] leading-5 text-zinc-500">@settings.GiftCardTerms</p>
+              }
+              <button type="submit" class="w-full rounded-lg bg-rose-500 px-2 py-2.5 text-sm text-white transition hover:bg-rose-400"
+                      data-confirm="کارت هدیه با مبلغ انتخاب‌شده صادر شود؟" data-confirm-title="خرید کارت هدیه" data-confirm-ok="ادامه">پرداخت و صدور کارت</button>
+            </form>
+          </section>
+        </div>
+
+        <!-- purchased -->
+        <section>
+          <h2 class="mb-3 font-semibold text-zinc-700">کارت‌های خریداری‌شده</h2>
+          @if (Model.Purchased.Count == 0)
+          {
+            <p class="rounded-xl border border-dashed p-6 text-center text-sm text-zinc-400">هنوز کارت هدیه‌ای نخریده‌اید.</p>
+          }
+          <div class="grid gap-4 md:grid-cols-2">
+            @foreach (var gift in Model.Purchased)
+            {
+              var status = StatusOf(gift.Status);
+              <article id="card-@gift.Reference" class="relative overflow-hidden rounded-2xl bg-gradient-to-l from-rose-500 to-amber-400 p-4 text-white shadow">
+                <div class="flex items-start justify-between gap-2">
+                  <div>
+                    <div class="text-xs opacity-80">کارت هدیه @settings.SiteName</div>
+                    <div class="mt-1 text-2xl font-bold">@Format.Toman(gift.Amount)</div>
+                  </div>
+                  <span class="rounded-full px-2 py-0.5 text-[11px] @status.Css">@status.Text</span>
+                </div>
+                @if (gift.Status == GiftCardStatus.Active && gift.Code is not null)
+                {
+                  <div class="mt-4 flex items-center gap-2 rounded-xl bg-white/20 p-2">
+                    <code class="flex-1 select-all text-center font-mono text-base tracking-widest" dir="ltr">@gift.Code</code>
+                    <button type="button" data-copy="@gift.Code" class="rounded-lg bg-white px-2 py-1 text-xs text-rose-600 hover:bg-rose-50" aria-label="کپی کد">@Icons.Svg("Copy", "fill-rose-600", 16)</button>
+                    <button type="button" data-share="" data-share-title="کارت هدیه @settings.SiteName" data-share-text="یک کارت هدیه @Format.Toman(gift.Amount) برای تو! کد: @gift.Code — در بخش «کارت هدیه» پروفایل وارد کن." data-share-url="/profile/gift-cards#redeem"
+                            class="rounded-lg bg-white px-2 py-1 text-xs text-rose-600 hover:bg-rose-50" aria-label="ارسال برای دوست">@Icons.Svg("ShareNetwork", "fill-rose-600", 16)</button>
+                  </div>
+                  <p class="mt-2 text-[11px] opacity-90">این کد مثل پول نقد است؛ فقط به گیرنده بدهید.</p>
+                }
+                else
+                {
+                  <div class="mt-4 font-mono text-sm opacity-90" dir="ltr">••••-••••-••••-@gift.CodeLast4</div>
+                }
+                <dl class="mt-3 grid grid-cols-2 gap-1 text-[11px] opacity-90">
+                  <dt>شماره پیگیری</dt><dd dir="ltr" class="text-left">@gift.Reference</dd>
+                  @if (!string.IsNullOrWhiteSpace(gift.RecipientName))
+                  {
+                    <dt>گیرنده</dt><dd class="text-left">@gift.RecipientName</dd>
+                  }
+                  <dt>تاریخ صدور</dt><dd class="text-left">@Format.Date(gift.ActivatedAt ?? gift.CreatedAt)</dd>
+                  @if (gift.Status == GiftCardStatus.Active && gift.ExpiresAt is { } expires)
+                  {
+                    <dt>اعتبار تا</dt><dd class="text-left">@Format.Date(expires)</dd>
+                  }
+                  @if (gift.RedeemedAt is { } redeemed)
+                  {
+                    <dt>استفاده شده در</dt><dd class="text-left">@Format.Date(redeemed)</dd>
+                  }
+                </dl>
+                @if (gift.Status == GiftCardStatus.PendingPayment && settings.HasZarinPal)
+                {
+                  <form method="post" asp-page-handler="Pay" asp-route-id="@gift.Id" class="mt-3">
+                    <button type="submit" class="w-full rounded-lg bg-white py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">پرداخت و فعال‌سازی</button>
+                  </form>
+                }
+              </article>
+            }
+          </div>
+        </section>
+
+        @if (Model.Redeemed.Count > 0)
+        {
+          <section>
+            <h2 class="mb-3 font-semibold text-zinc-700">کارت‌هایی که استفاده کرده‌اید</h2>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[480px] text-sm">
+                <thead class="bg-zinc-50 text-xs text-zinc-500">
+                  <tr><th class="p-2 text-right">کد</th><th class="p-2 text-right">مبلغ</th><th class="p-2 text-right">تاریخ استفاده</th></tr>
+                </thead>
+                <tbody class="divide-y">
+                  @foreach (var gift in Model.Redeemed)
+                  {
+                    <tr>
+                      <td class="p-2 font-mono text-zinc-500" dir="ltr">••••-@gift.CodeLast4</td>
+                      <td class="p-2 text-emerald-600">+@Format.Toman(gift.Amount)</td>
+                      <td class="p-2 text-zinc-500">@Format.Date(gift.RedeemedAt)</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+      </div>
+    </div>
+  </main>

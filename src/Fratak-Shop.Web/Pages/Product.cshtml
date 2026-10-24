@@ -62,10 +62,10 @@
                 @for (var i = 0; i < thumbs.Count; i++)
                 {
                   var slideNumber = i + 2;
-                  <img data-ui="slide-go" data-arg="@slideNumber" class="cursor-pointer border rounded-lg" src="@ImageHelper.Product(thumbs[i].ImageName)" alt="@(thumbs[i].AltText ?? p.Name)" loading="lazy">
+                  <img data-ui="slide-go" data-arg="@slideNumber" class="cursor-pointer border rounded-lg" src="@ImageHelper.Sized(ImageHelper.Product(thumbs[i].ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" alt="@(thumbs[i].AltText ?? p.Name)" loading="lazy">
                 }
                 <div data-ui="modal-open" data-arg="showImagesModal" role="button" tabindex="0" aria-label="نمایش همه تصاویر" class="cursor-pointer border rounded-lg flex justify-center items-center relative">
-                  <img class="blur-sm" src="@ImageHelper.Product(images[^1].ImageName)" alt="" loading="lazy">
+                  <img class="blur-sm" src="@ImageHelper.Sized(ImageHelper.Product(images[^1].ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" alt="" loading="lazy">
                   @Icons.Svg("Images", "fill-zinc-800 absolute", 28)
                 </div>
               </div>
@@ -92,7 +92,7 @@
                         @foreach (var image in images)
                         {
                           <div class="mySlides">
-                            <img class="mx-auto max-h-[60vh]" src="@ImageHelper.Product(image.ImageName)" alt="@(image.AltText ?? p.Name)" loading="lazy">
+                            <img class="mx-auto max-h-[60vh]" src="@ImageHelper.Product(image.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(image.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="(min-width: 1024px) 60vw, 100vw" alt="@(image.AltText ?? p.Name)" loading="lazy">
                           </div>
                         }
                         <div class="absolute top-32 w-full">
@@ -107,7 +107,7 @@
                           @for (var i = 0; i < images.Count; i++)
                           {
                             var slideNumber = i + 1;
-                            <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md cursor-pointer" src="@ImageHelper.Product(images[i].ImageName)" data-ui="slide-go" data-arg="@slideNumber" alt="" loading="lazy">
+                            <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md cursor-pointer" src="@ImageHelper.Sized(ImageHelper.Product(images[i].ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" data-ui="slide-go" data-arg="@slideNumber" alt="" loading="lazy">
                           }
                         </div>
                       </div>

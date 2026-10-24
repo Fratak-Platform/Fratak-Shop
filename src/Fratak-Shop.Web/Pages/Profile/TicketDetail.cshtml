@@ -1,0 +1,90 @@
+@page "/profile/tickets/{ticketNumber}"
+@model Fratak_Shop.Web.Pages.Profile.TicketDetailModel
+@{
+    Layout = "_Layout";
+    var settings = Site.Settings;
+    var ticket = Model.Detail.Ticket;
+    var status = Fratak_Shop.Web.Pages.Profile.TicketsModel.StatusOf(ticket.Status);
+    var number = ticket.TicketNumber.ToLowerInvariant();
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Tickets" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-5">
+        <nav class="text-xs text-zinc-400" aria-label="مسیر"><a href="/profile/tickets" class="hover:text-sky-600">تیکت‌ها</a><span class="mx-1">/</span><span dir="ltr">@ticket.TicketNumber</span></nav>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-zinc-800 text-lg font-semibold">@ticket.Subject</h1>
+          <span class="rounded-full px-2.5 py-0.5 text-xs @status.Css">@status.Text</span>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+          <span>شماره: <b dir="ltr">@ticket.TicketNumber</b></span>
+          <span>بخش: @ticket.DepartmentTitle</span>
+          <span>اولویت: @Fratak_Shop.Web.Pages.Profile.TicketsModel.PriorityText(ticket.Priority)</span>
+          @if (!string.IsNullOrEmpty(ticket.OrderNumber))
+          {
+            <a href="/profile/orders/@ticket.OrderNumber.ToLowerInvariant()" class="text-sky-600 hover:underline">سفارش <span dir="ltr">@ticket.OrderNumber</span></a>
+          }
+          <span>ایجاد: @Format.DateTime(ticket.CreatedAt)</span>
+        </div>
+
+        <ol class="space-y-4">
+          @foreach (var message in Model.Detail.Messages)
+          {
+            <li class="flex @(message.IsStaff ? "justify-end" : "justify-start")">
+              <div class="max-w-[90%] rounded-2xl p-4 text-sm leading-7 sm:max-w-[75%] @(message.IsStaff ? "rounded-tl-sm bg-sky-50 text-zinc-700" : "rounded-tr-sm border bg-white text-zinc-700")">
+                <div class="mb-1 flex flex-wrap items-center gap-2 text-xs">
+                  <b class="@(message.IsStaff ? "text-sky-700" : "text-zinc-600")">@(message.IsStaff ? $"پشتیبانی {settings.SiteName}" : "شما")</b>
+                  @if (message.IsStaff && !string.IsNullOrWhiteSpace(message.AuthorName))
+                  {
+                    <span class="text-zinc-400">(@message.AuthorName)</span>
+                  }
+                  <span class="text-zinc-400">@Format.DateTime(message.CreatedAt)</span>
+                </div>
+                <p class="whitespace-pre-line break-words">@message.Content</p>
+                @if (message.Attachments.Count > 0)
+                {
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    @foreach (var file in message.Attachments)
+                    {
+                      <a href="/profile/tickets/@number?handler=Attachment&amp;name=@Uri.EscapeDataString(file.FileName)" class="inline-flex items-center gap-x-1 rounded-lg border bg-white px-2 py-1 text-xs text-zinc-600 hover:border-sky-300 hover:text-sky-600">
+                        @Icons.Svg("Paperclip", "fill-current", 14)
+                        @(file.ContentType == "application/pdf" ? "PDF" : "تصویر") – @Format.Number(Math.Max(1, file.SizeBytes / 1024)) KB
+                      </a>
+                    }
+                  </div>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+
+        @if (Model.Detail.CanReply)
+        {
+          <section id="reply" class="rounded-xl border p-4">
+            <h2 class="mb-3 text-sm font-semibold text-zinc-700">@(ticket.Status == Fratak_Shop.Data.Entities.Support.TicketStatus.Closed ? "باز کردن دوباره با ارسال پاسخ" : "ارسال پاسخ")</h2>
+            <form method="post" asp-page-handler="Reply" asp-route-ticketNumber="@ticket.TicketNumber" enctype="multipart/form-data" class="space-y-3">
+              <textarea name="Reply" rows="4" maxlength="4000" placeholder="پیام شما" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-sky-400"></textarea>
+              <div data-review-images data-allow-pdf data-max="@settings.TicketMaxAttachments" data-max-kb="@settings.TicketMaxAttachmentSizeKb">
+                <label class="flex cursor-pointer items-center justify-center gap-x-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-zinc-600 transition hover:border-sky-400 hover:bg-sky-50">
+                  @Icons.Svg("Paperclip", "fill-sky-500", 18)
+                  <span>پیوست (تصویر یا PDF، حداکثر @Format.Number(settings.TicketMaxAttachments) فایل)</span>
+                  <input type="file" name="Attachments" accept="image/jpeg,image/png,image/webp,application/pdf" multiple class="sr-only" data-review-images-input>
+                </label>
+                <div class="mt-2 grid grid-cols-3 gap-2 empty:hidden sm:grid-cols-6" data-review-images-preview></div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="submit" class="rounded-lg bg-sky-500 px-5 py-2 text-sm text-white hover:bg-sky-400">ارسال پاسخ</button>
+              </div>
+            </form>
+          </section>
+        }
+        @if (Model.Detail.CanClose)
+        {
+          <form method="post" asp-page-handler="Close" asp-route-ticketNumber="@ticket.TicketNumber" data-confirm="مشکل حل شد و تیکت بسته شود؟" data-confirm-ok="بستن تیکت">
+            <button type="submit" class="rounded-lg border px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50">مشکل حل شد – بستن تیکت</button>
+          </form>
+        }
+      </div>
+    </div>
+  </main>

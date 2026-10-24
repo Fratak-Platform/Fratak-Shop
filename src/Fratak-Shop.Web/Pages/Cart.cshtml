@@ -41,7 +41,7 @@
           <div class="mt-7 flex flex-col md:flex-row gap-y-5 border-b pb-4">
             <div class="w-10/12 mx-auto md:max-w-36">
               <a href="/product/@item.ProductSlug">
-                <img src="@ImageHelper.Product(item.ImageName)" alt="@(item.ImageAlt ?? item.ProductName)" loading="lazy">
+                <img src="@ImageHelper.Sized(ImageHelper.Product(item.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@(item.ImageAlt ?? item.ProductName)" loading="lazy" decoding="async">
               </a>
               @if (item.IsAvailable)
               {
@@ -70,10 +70,19 @@
                 <a href="/product/@item.ProductSlug" class="text-xl text-zinc-700">
                   @(item.ProductName ?? "این محصول دیگر موجود نیست")
                 </a>
-                <form method="post" asp-page-handler="Remove">
-                  <input type="hidden" name="productId" value="@item.ProductId" />
-                  <button type="submit" class="text-xs text-red-400 hover:text-red-500 whitespace-nowrap">حذف</button>
-                </form>
+                <div class="flex shrink-0 items-center gap-x-3">
+                  @if (Site.Settings.IsSaveForLaterEnabled && item.IsAvailable)
+                  {
+                    <form method="post" asp-page-handler="SaveForLater">
+                      <input type="hidden" name="productId" value="@item.ProductId" />
+                      <button type="submit" class="whitespace-nowrap text-xs text-sky-600 hover:text-sky-700" title="از سبد خارج و در لیست خرید بعدی نگه داشته می‌شود">خرید بعدی</button>
+                    </form>
+                  }
+                  <form method="post" asp-page-handler="Remove">
+                    <input type="hidden" name="productId" value="@item.ProductId" />
+                    <button type="submit" class="text-xs text-red-400 hover:text-red-500 whitespace-nowrap">حذف</button>
+                  </form>
+                </div>
               </div>
               <div class="w-full space-y-2 mt-5">
                 <div class="flex items-center gap-x-2 text-xs text-zinc-500">
@@ -192,6 +201,53 @@
         </div>
       </div>
     </div>
+    }
+    @if (Model.Saved.Count > 0)
+    {
+      <section id="saved" class="mt-8 rounded-xl border bg-white p-4 shadow-lg">
+        <h2 class="mb-1 font-semibold text-zinc-700">لیست خرید بعدی <span class="text-sm font-normal text-zinc-400">(@Model.Saved.Count کالا)</span></h2>
+        <p class="mb-4 text-xs text-zinc-500">این کالاها در سبد حساب نمی‌شوند؛ هر وقت خواستید به سبد برگردانید. قیمت‌ها لحظه‌ای است.</p>
+        <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          @foreach (var saved in Model.Saved)
+          {
+            <li class="flex gap-3 rounded-xl border p-3">
+              <a href="/product/@saved.ProductSlug" class="shrink-0">
+                <img src="@ImageHelper.Sized(ImageHelper.Product(saved.ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" alt="" width="72" height="72" loading="lazy" class="h-[72px] w-[72px] rounded-lg object-contain @(saved.IsAvailable ? "" : "grayscale opacity-60")">
+              </a>
+              <div class="min-w-0 flex-1">
+                <a href="/product/@saved.ProductSlug" class="line-clamp-2 text-sm text-zinc-700 hover:text-sky-600">@saved.ProductName</a>
+                <div class="mt-1 text-sm">
+                  @if (saved.IsAvailable)
+                  {
+                    if (saved.FinalPrice < saved.Price)
+                    {
+                      <span class="ml-1 text-xs text-zinc-400 line-through">@Format.Price(saved.Price)</span>
+                    }
+                    <b class="text-zinc-700">@Format.Toman(saved.FinalPrice)</b>
+                  }
+                  else
+                  {
+                    <span class="text-xs text-red-400">ناموجود</span>
+                  }
+                </div>
+                <div class="mt-2 flex items-center gap-x-3 text-xs">
+                  @if (saved.IsAvailable)
+                  {
+                    <form method="post" asp-page-handler="MoveToCart">
+                      <input type="hidden" name="productId" value="@saved.ProductId" />
+                      <button type="submit" class="rounded-lg bg-sky-500 px-3 py-1 text-white hover:bg-sky-400">انتقال به سبد</button>
+                    </form>
+                  }
+                  <form method="post" asp-page-handler="RemoveSaved">
+                    <input type="hidden" name="productId" value="@saved.ProductId" />
+                    <button type="submit" class="text-red-400 hover:text-red-500">حذف</button>
+                  </form>
+                </div>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
     }
     <partial name="_ProductRail" model='new ProductRailModel(Model.IsEmpty ? "پیشنهاد برای شما" : "پیشنهاد برای تکمیل خرید", Model.Suggestions)' />
   </main>

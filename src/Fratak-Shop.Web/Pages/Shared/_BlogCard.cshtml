@@ -4,7 +4,7 @@
 }
 <div class="bg-white rounded-2xl border border-zinc-300 group flex flex-col">
   <a href="@url" class="image-box">
-    <img class="rounded-t-2xl w-full aspect-video object-cover" src="@ImageHelper.Blog(Model.ImageName)" alt="@(Model.ImageAlt ?? Model.Title)" loading="lazy" />
+    <img class="rounded-t-2xl w-full aspect-video object-cover" src="@ImageHelper.Blog(Model.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Blog(Model.ImageName), Site.Settings.IsImageOptimizationEnabled, 960)" sizes="(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw" alt="@(Model.ImageAlt ?? Model.Title)" loading="lazy" decoding="async" />
   </a>
   <div class="p-2 md:p-4 mt-2 flex flex-col flex-1">
     @if (!string.IsNullOrWhiteSpace(Model.CategoryPostDto?.Name))

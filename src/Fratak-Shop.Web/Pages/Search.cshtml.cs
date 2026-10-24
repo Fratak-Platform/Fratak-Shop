@@ -22,8 +22,15 @@ public class SearchModel(
     ICategoryService categoryService,
     IBrandService brandService,
     IProductFilterService filterService,
+    Fratak_Shop.Core.Services.Searches.ISearchInsightsService insights,
     IPageMetaService pageMeta) : ShopPageModel
 {
+    /// <summary>Spelling suggestion when a text search found nothing.</summary>
+    public string? DidYouMean { get; private set; }
+
+    /// <summary>Popular searches offered on an empty result.</summary>
+    public IReadOnlyList<string> PopularSearches { get; private set; } = [];
+
     public const int PageSize = 16;
 
     public static readonly (ProductSortBy Value, string Title)[] SortOptions =
@@ -147,7 +154,30 @@ public class SearchModel(
             Specifications = specifications,
         };
 
+        var hasQuery = !string.IsNullOrWhiteSpace(Query);
+        if (hasQuery)
+        {
+            Query = Query!.Trim();
+            if (Query.Length > 100)
+                Query = Query[..100];
+            filter.Search = Query;
+            filter.SearchTermGroups = await insights.ExpandAsync(Query); // synonyms
+        }
+
         Result = await productService.GetProductByFilterAsync(filter);
+
+        if (hasQuery && PageNumber <= 1)
+        {
+            var visitor = CurrentUserId?.ToString("N") ?? HttpContext.Connection.RemoteIpAddress?.ToString();
+            await insights.LogAsync(Query, Result.EntityCount, visitor);
+        }
+
+        if (Result.Data.Count == 0)
+        {
+            if (hasQuery)
+                DidYouMean = await insights.DidYouMeanAsync(Query);
+            PopularSearches = await insights.GetPopularAsync();
+        }
         if (attributes.Count > 0)
             Facets = await productService.GetSpecificationFacetsAsync(filter, attributes);
 
@@ -177,6 +207,8 @@ public class SearchModel(
                 Helpers.ImageHelper.Category(Category.ImageName));
             ViewData[PageMetaKeys.SitePage] = SitePage.CategoryDetails;
             ViewData[PageMetaKeys.AlertCategoryId] = Category.Id;
+            pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"), (Category.Name, $"/category/{Category.Slug}"));
+            AddItemList();
         }
         else if (SingleBrand is not null)
         {
@@ -184,6 +216,11 @@ public class SearchModel(
             pageMeta.Apply(ViewData, SingleBrand.Seo, $"محصولات {SingleBrand.Name}", SingleBrand.Description,
                 Helpers.ImageHelper.Brand(SingleBrand.LogoName));
             ViewData[PageMetaKeys.SitePage] = SitePage.Products;
+            if (IsBrandPage)
+            {
+                pageMeta.AddBreadcrumbs(ViewData, ("برندها", null), (SingleBrand.Name, $"/brand/{SingleBrand.Slug}"));
+                AddItemList();
+            }
         }
         else if (!string.IsNullOrWhiteSpace(Query))
         {
@@ -197,8 +234,33 @@ public class SearchModel(
             await pageMeta.ApplyAsync(ViewData, SitePage.Products, Heading, "لیست محصولات فروشگاه با امکان فیلتر بر اساس دسته بندی، برند و قیمت.");
         }
 
+        else if (!Discounted && Sort != ProductSortBy.BestSelling)
+            pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"));
+
         // Filtered / paginated variations should not compete with the main listing.
         if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || MaxPrice.HasValue || SelectedSpecifications.Count > 0)
             ViewData[PageMetaKeys.Robots] = "noindex, follow";
+    }
+
+    /// <summary>ItemList JSON-LD of the products shown on a category / brand page (first page only).</summary>
+    private void AddItemList()
+    {
+        if (PageNumber > 1 || Result.Data.Count == 0)
+            return;
+
+        pageMeta.AddJsonLd(ViewData, new Dictionary<string, object?>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "ItemList",
+            ["name"] = Heading,
+            ["numberOfItems"] = Result.EntityCount,
+            ["itemListElement"] = Result.Data.Select((p, index) => new Dictionary<string, object?>
+            {
+                ["@type"] = "ListItem",
+                ["position"] = index + 1,
+                ["url"] = pageMeta.AbsoluteUrl($"/product/{p.Slug}"),
+                ["name"] = p.Name,
+            }).ToList(),
+        });
     }
 }

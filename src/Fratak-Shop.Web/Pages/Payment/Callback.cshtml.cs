@@ -24,6 +24,9 @@ public class CallbackModel(IPaymentFlowService paymentFlow) : ShopPageModel
         if (result.Purpose == PaymentPurpose.WalletTopUp)
             return RedirectToPage("/Profile/Wallet");
 
+        if (result.Purpose == PaymentPurpose.GiftCard)
+            return RedirectToPage("/Profile/GiftCards");
+
         if (string.IsNullOrEmpty(result.OrderNumber))
             return RedirectToPage("/Index");
 

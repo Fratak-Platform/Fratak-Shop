@@ -31,7 +31,7 @@
     </div>
   }
   <a href="@url" class="image-box mb-6 block">
-    <img class="w-full mx-auto" src="@ImageHelper.Product(Model.PrimaryImageName)" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" />
+    <img class="w-full mx-auto" src="@ImageHelper.Product(Model.PrimaryImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(Model.PrimaryImageName), Site.Settings.IsImageOptimizationEnabled, 640)" sizes="(min-width: 768px) 240px, 45vw" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" decoding="async" />
   </a>
   @if (!string.IsNullOrWhiteSpace(Model.EnglishName))
   {

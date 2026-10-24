@@ -27,9 +27,10 @@
                     <picture>
                       @if (!string.IsNullOrWhiteSpace(banner.MobileImageName))
                       {
-                        <source media="(max-width: 768px)" srcset="@ImageHelper.Banner(banner.MobileImageName)">
+                        <source media="(max-width: 768px)" srcset="@(ImageHelper.Srcset(ImageHelper.Banner(banner.MobileImageName), Site.Settings.IsImageOptimizationEnabled, 960) ?? ImageHelper.Banner(banner.MobileImageName))" sizes="100vw">
                       }
                       <img class="w-full h-60 md:h-auto object-cover object-bottom" src="@ImageHelper.Banner(banner.ImageName)" alt="@(banner.ImageAlt ?? banner.Title)"
+                           srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw"
                            loading="@(first ? "eager" : "lazy")" fetchpriority="@(first ? "high" : "auto")" decoding="async">
                     </picture>
                   </a>
@@ -50,7 +51,7 @@
               @foreach (var category in block.Categories)
               {
                 <a href="/category/@category.Slug" class="rounded-xl group hover:shadow-xl hover:bg-blue-500 shadow-lg transition-all delay-75 bg-gray-50 hover:scale-105 relative">
-                  <img class="rounded-xl p-5 md:group-hover:scale-125 transition-all duration-500" src="@ImageHelper.Category(category.ImageName)" alt="@category.Name" loading="lazy" decoding="async">
+                  <img class="rounded-xl p-5 md:group-hover:scale-125 transition-all duration-500" src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async">
                   <p class="text-center text-zinc-500 group-hover:text-zinc-50 pb-2 delay-75">@category.Name</p>
                 </a>
               }
@@ -182,7 +183,7 @@
           {
             <div>
               <a href="@UrlSafety.Link(banner.LinkUrl)">
-                <img class="rounded-xl lg:rounded-3xl my-14 w-full" src="@ImageHelper.Banner(banner.ImageName)" alt="@(banner.ImageAlt ?? banner.Title)" loading="lazy" decoding="async">
+                <img class="rounded-xl lg:rounded-3xl my-14 w-full" src="@ImageHelper.Banner(banner.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw" alt="@(banner.ImageAlt ?? banner.Title)" loading="lazy" decoding="async">
               </a>
             </div>
           }

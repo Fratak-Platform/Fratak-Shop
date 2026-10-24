@@ -205,7 +205,7 @@
                         <!-- Product -->
                         <div class="relative min-w-fit">
                           <a href="/product/@item.ProductSlug">
-                            <img alt="@item.ImageAlt" class="h-[96px] w-[96px] object-contain" src="@ImageHelper.Product(item.ImageName)" loading="lazy" width="96" height="96">
+                            <img alt="@item.ImageAlt" class="h-[96px] w-[96px] object-contain" src="@ImageHelper.Sized(ImageHelper.Product(item.ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" loading="lazy" width="96" height="96">
                           </a>
                         </div>
                         <div class="w-full space-y-1.5">

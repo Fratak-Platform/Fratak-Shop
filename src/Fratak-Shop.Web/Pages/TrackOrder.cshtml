@@ -71,7 +71,7 @@
             @foreach (var item in order.Items)
             {
               <li class="flex items-center gap-3 p-3 text-sm">
-                <img src="@ImageHelper.Product(item.ProductImageName)" alt="" class="h-12 w-12 rounded-lg object-contain" loading="lazy" width="48" height="48">
+                <img src="@ImageHelper.Sized(ImageHelper.Product(item.ProductImageName), 160, Site.Settings.IsImageOptimizationEnabled)" alt="" class="h-12 w-12 rounded-lg object-contain" loading="lazy" width="48" height="48">
                 <div class="min-w-0 flex-1 text-zinc-700">@item.ProductName</div>
                 <div class="text-xs text-zinc-500">× @item.Quantity</div>
               </li>

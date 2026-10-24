@@ -39,7 +39,7 @@
               </button>
             </form>
             <a href="/product/@product.Slug">
-              <img class="w-10/12 mx-auto max-w-64 max-h-64 mb-5 object-contain" src="@ImageHelper.Product(product.Images.FirstOrDefault()?.ImageName)" alt="@product.Name" loading="lazy">
+              <img class="w-10/12 mx-auto max-w-64 max-h-64 mb-5 object-contain" src="@ImageHelper.Sized(ImageHelper.Product(product.Images.FirstOrDefault()?.ImageName), 480, Site.Settings.IsImageOptimizationEnabled)" alt="@product.Name" loading="lazy" decoding="async">
             </a>
             @if (product.AverageRating > 0)
             {
@@ -107,7 +107,7 @@
                                 </div>
                               }
                               <div class="image-box mb-6">
-                                <img class="mx-auto max-h-40" src="@ImageHelper.Product(item.PrimaryImageName)" alt="@item.Name" loading="lazy">
+                                <img class="mx-auto max-h-40" src="@ImageHelper.Sized(ImageHelper.Product(item.PrimaryImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@item.Name" loading="lazy" decoding="async">
                               </div>
                               <div class="space-y-2">
                                 <span class="h-auto md:h-10 flex justify-between">
