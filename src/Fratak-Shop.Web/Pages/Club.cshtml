@@ -1,241 +1,31 @@
 @page "/club"
 @model ClubModel
-@using Fratak_Shop.Data.Entities.Loyalty
 @{
     Layout = "_Layout";
-    var program = Model.Program;
-    var summary = Model.Summary;
-    static string RuleIcon(LoyaltyAction action) => action switch
-    {
-        LoyaltyAction.Registration => "UserCircle",
-        LoyaltyAction.CompleteProfile => "ListChecks",
-        LoyaltyAction.FirstOrder => "Sparkle",
-        LoyaltyAction.Purchase => "Orders",
-        LoyaltyAction.ProductReview => "Mail",
-        LoyaltyAction.Referral or LoyaltyAction.ReferralSignup => "UsersThree",
-        LoyaltyAction.Birthday => "Gift",
-        _ => "Coins",
-    };
-    static string RewardIcon(LoyaltyRewardType type) => type switch
-    {
-        LoyaltyRewardType.WalletCredit => "Wallet",
-        LoyaltyRewardType.FreeShippingCoupon => "Target",
-        _ => "Ticket",
-    };
-    static string TxClass(int points) => points >= 0 ? "text-green-600" : "text-red-500";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.CustomerClub;
+    var settings = Site.Settings;
+    var club = new ClubViewModel(Model.Program, null);
 }
 
-  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6 pb-10">
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6 pb-10 space-y-10">
     <section class="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-sky-500 to-indigo-600 p-6 md:p-10 text-white shadow-lg">
-      <div class="md:flex items-center justify-between gap-6">
-        <div class="max-w-xl">
-          <div class="flex items-center gap-x-2">
-            @Icons.Svg("Crown", "fill-amber-300", 32)
-            <h1 class="text-xl md:text-2xl font-bold">باشگاه مشتریان @Site.Settings.SiteName</h1>
-          </div>
-          <p class="mt-3 text-sm md:text-base leading-8 text-sky-50">
-            با هر خرید، ثبت دیدگاه و دعوت از دوستان امتیاز بگیرید، به سطح‌های بالاتر برسید و امتیازهایتان را به اعتبار کیف پول یا کد تخفیف اختصاصی تبدیل کنید.
-          </p>
-          @if (summary is null)
-          {
-            <div class="mt-5 flex flex-wrap gap-3">
-              <a href="/login?returnUrl=%2Fclub" class="rounded-xl bg-white px-6 py-3 text-sm font-bold text-sky-600 hover:bg-sky-50">ورود و عضویت در باشگاه</a>
-            </div>
-          }
+      <div class="max-w-2xl">
+        <div class="flex items-center gap-x-2">
+          @Icons.Svg("Crown", "fill-amber-300", 32)
+          <h1 class="text-xl md:text-2xl font-bold">@settings.LoyaltyName @settings.SiteName</h1>
         </div>
-        @if (summary is not null)
+        @if (!string.IsNullOrWhiteSpace(settings.LoyaltyProgramDescription))
         {
-          <div class="mt-6 md:mt-0 w-full md:w-96 rounded-2xl bg-white/10 p-5 backdrop-blur">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-sky-100">امتیاز قابل استفاده</span>
-              @if (summary.Tier is not null)
-              {
-                <span class="rounded-full bg-white px-3 py-1 text-xs font-bold" style="color:@(summary.Tier.Color ?? "#0284c7")">سطح @summary.Tier.Name</span>
-              }
-            </div>
-            <div class="mt-2 flex items-end gap-x-2">
-              <span class="text-4xl font-extrabold">@Format.Number(summary.Points)</span>
-              <span class="mb-1 text-sm">امتیاز</span>
-            </div>
-            @if (summary.NextTier is not null)
-            {
-              <div class="mt-4 text-xs text-sky-100">
-                @Format.Number(Math.Max(0, summary.NextTier.MinLifetimePoints - summary.LifetimePoints)) امتیاز تا سطح «@summary.NextTier.Name»
-              </div>
-              <div class="mt-2 h-2 w-full rounded-full bg-white/20" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@summary.ProgressPercent">
-                <div class="h-2 rounded-full bg-amber-300" style="width:@(summary.ProgressPercent)%"></div>
-              </div>
-            }
-            @if (summary.ExpiringSoon > 0)
-            {
-              <div class="mt-3 text-xs text-amber-200">@Format.Number(summary.ExpiringSoon) امتیاز شما به زودی منقضی می‌شود.</div>
-            }
-          </div>
+          <p class="mt-3 text-sm md:text-base leading-8 text-sky-50">@settings.LoyaltyProgramDescription</p>
         }
+        <div class="mt-5 flex flex-wrap gap-3">
+          <a href="/register" class="rounded-xl bg-white px-6 py-3 text-sm font-bold text-sky-600 hover:bg-sky-50">عضویت رایگان</a>
+          <a href="/login?returnUrl=%2Fprofile%2Fclub" class="rounded-xl border border-white/60 px-6 py-3 text-sm text-white hover:bg-white/10">ورود به حساب</a>
+        </div>
       </div>
     </section>
 
-    @if (summary is not null && !string.IsNullOrWhiteSpace(summary.ReferralCode))
-    {
-      <section class="mt-6 rounded-2xl bg-white p-5 shadow-lg md:flex items-center gap-5">
-        <div class="flex items-center gap-x-3">
-          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">@Icons.Svg("UsersThree", "fill-violet-500", 26)</span>
-          <div>
-            <h2 class="font-semibold text-zinc-800">دوستانتان را دعوت کنید</h2>
-            <p class="mt-1 text-xs leading-6 text-zinc-500">دوست شما با کد معرف شما ثبت نام می‌کند و هدیه می‌گیرد؛ شما هم پس از اولین خرید او امتیاز می‌گیرید. (@Format.Number(summary.ReferralCount) دعوت موفق)</p>
-          </div>
-        </div>
-        <div class="mt-4 md:mt-0 md:mr-auto flex flex-wrap items-center gap-2">
-          <span class="rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2 font-bold tracking-widest text-violet-700" dir="ltr">@summary.ReferralCode</span>
-          <button type="button" data-copy="@summary.ReferralCode" class="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50">کپی کد</button>
-          @if (Model.ReferralLink is not null)
-          {
-            <button type="button" data-copy="@Model.ReferralLink" class="rounded-lg bg-violet-500 px-3 py-2 text-sm text-white hover:bg-violet-600">کپی لینک دعوت</button>
-          }
-        </div>
-      </section>
-    }
-
-    <section class="mt-8" aria-labelledby="earn-title">
-      <h2 id="earn-title" class="mb-4 flex items-center gap-x-2 text-lg font-semibold text-zinc-800">@Icons.Svg("Coins", "fill-amber-500", 24) روش‌های کسب امتیاز</h2>
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach (var rule in program.Rules)
-        {
-          <div class="rounded-2xl bg-white p-5 shadow">
-            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-sky-50">@Icons.Svg(RuleIcon(rule.Action), "fill-sky-500", 22)</span>
-            <h3 class="mt-3 font-semibold text-zinc-800">@rule.Title</h3>
-            <div class="mt-1 text-sm font-bold text-amber-600">@rule.PointsText</div>
-            @if (!string.IsNullOrWhiteSpace(rule.Description))
-            {
-              <p class="mt-2 text-xs leading-6 text-zinc-500">@rule.Description</p>
-            }
-          </div>
-        }
-      </div>
-    </section>
-
-    @if (program.Tiers.Count > 0)
-    {
-      <section class="mt-10" aria-labelledby="tiers-title">
-        <h2 id="tiers-title" class="mb-4 flex items-center gap-x-2 text-lg font-semibold text-zinc-800">@Icons.Svg("Medal", "fill-sky-500", 24) سطح‌های باشگاه</h2>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          @foreach (var tier in program.Tiers)
-          {
-            var current = summary?.Tier?.Id == tier.Id;
-            <div class="rounded-2xl bg-white p-5 shadow border-t-4 @(current ? "ring-2 ring-sky-400" : "")" style="border-top-color:@(tier.Color ?? "#0ea5e9")">
-              <div class="flex items-center justify-between">
-                <h3 class="font-bold text-zinc-800">@tier.Name</h3>
-                @if (current)
-                {
-                  <span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-600">سطح فعلی شما</span>
-                }
-              </div>
-              <div class="mt-2 text-xs text-zinc-500">از @Format.Number(tier.MinLifetimePoints) امتیاز کل</div>
-              <div class="mt-3 text-sm text-zinc-700">ضریب امتیاز خرید: <span class="font-bold">×@tier.PointsMultiplier.ToString("0.##")</span></div>
-              @if (!string.IsNullOrWhiteSpace(tier.Benefits))
-              {
-                <p class="mt-2 text-xs leading-6 text-zinc-500 whitespace-pre-line">@tier.Benefits</p>
-              }
-            </div>
-          }
-        </div>
-      </section>
-    }
-
-    @if (program.Rewards.Count > 0)
-    {
-      <section class="mt-10" aria-labelledby="rewards-title">
-        <h2 id="rewards-title" class="mb-4 flex items-center gap-x-2 text-lg font-semibold text-zinc-800">@Icons.Svg("Gift", "fill-rose-500", 24) جوایز باشگاه</h2>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          @foreach (var reward in program.Rewards)
-          {
-            var canRedeem = summary?.CanRedeem(reward) == true;
-            <div class="flex flex-col rounded-2xl bg-white p-5 shadow">
-              <span class="flex h-11 w-11 items-center justify-center rounded-full bg-rose-50">@Icons.Svg(RewardIcon(reward.Type), "fill-rose-500", 22)</span>
-              <h3 class="mt-3 font-semibold text-zinc-800">@reward.Title</h3>
-              @if (!string.IsNullOrWhiteSpace(reward.Description))
-              {
-                <p class="mt-2 text-xs leading-6 text-zinc-500">@reward.Description</p>
-              }
-              @if (reward.MinTierName is not null)
-              {
-                <div class="mt-2 text-xs text-violet-600">ویژه سطح «@reward.MinTierName» و بالاتر</div>
-              }
-              <div class="mt-auto pt-4 flex items-center justify-between gap-2">
-                <span class="text-sm font-bold text-amber-600">@Format.Number(reward.PointsCost) امتیاز</span>
-                @if (summary is null)
-                {
-                  <a href="/login?returnUrl=%2Fclub" class="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-600 hover:bg-zinc-200">ورود برای دریافت</a>
-                }
-                else
-                {
-                  <form method="post" asp-page-handler="Redeem" data-confirm="@($"{reward.PointsCost:N0} امتیاز برای «{reward.Title}» کسر شود؟")">
-                    <input type="hidden" name="rewardId" value="@reward.Id" />
-                    <button type="submit" disabled="@(!canRedeem)" class="rounded-lg px-3 py-2 text-xs font-bold transition @(canRedeem ? "bg-sky-500 text-white hover:bg-sky-400" : "bg-zinc-100 text-zinc-400 cursor-not-allowed")">
-                      دریافت جایزه
-                    </button>
-                  </form>
-                }
-              </div>
-            </div>
-          }
-        </div>
-      </section>
-    }
-
-    @if (summary is not null)
-    {
-      <div class="mt-10 grid gap-6 lg:grid-cols-2">
-        <section class="rounded-2xl bg-white p-5 shadow" aria-labelledby="coupons-title">
-          <h2 id="coupons-title" class="mb-4 flex items-center gap-x-2 font-semibold text-zinc-800">@Icons.Svg("Ticket", "fill-sky-500", 22) کدهای تخفیف شما</h2>
-          @if (summary.Coupons.Count == 0)
-          {
-            <p class="py-6 text-center text-sm text-zinc-500">در حال حاضر کد تخفیفی برای شما فعال نیست.</p>
-          }
-          <ul class="space-y-3">
-            @foreach (var coupon in summary.Coupons)
-            {
-              <li class="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-sky-200 bg-sky-50/50 p-3">
-                <div class="min-w-0 flex-1">
-                  <div class="text-sm font-semibold text-zinc-800">@coupon.Title</div>
-                  <div class="mt-1 text-xs text-zinc-500">
-                    @coupon.ValueText
-                    @if (coupon.MinOrderAmount > 0)
-                    {
-                      <span> | حداقل خرید @Format.Toman(coupon.MinOrderAmount)</span>
-                    }
-                    @if (coupon.EndsAt.HasValue)
-                    {
-                      <span> | تا @Format.Date(coupon.EndsAt.Value)</span>
-                    }
-                  </div>
-                </div>
-                <span class="rounded-lg bg-white px-3 py-1.5 font-bold tracking-wider text-sky-700" dir="ltr">@coupon.Code</span>
-                <button type="button" data-copy="@coupon.Code" class="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50">کپی</button>
-              </li>
-            }
-          </ul>
-        </section>
-
-        <section class="rounded-2xl bg-white p-5 shadow" aria-labelledby="history-title">
-          <h2 id="history-title" class="mb-4 flex items-center gap-x-2 font-semibold text-zinc-800">@Icons.Svg("History", "fill-zinc-500", 22) تاریخچه امتیازها</h2>
-          @if (summary.Transactions.Count == 0)
-          {
-            <p class="py-6 text-center text-sm text-zinc-500">هنوز امتیازی ثبت نشده است.</p>
-          }
-          <ul class="divide-y divide-zinc-100">
-            @foreach (var tx in summary.Transactions)
-            {
-              <li class="flex items-center gap-3 py-3 text-sm">
-                <div class="min-w-0 flex-1">
-                  <div class="text-zinc-700 truncate">@(tx.Description ?? "-")</div>
-                  <div class="mt-1 text-xs text-zinc-400">@Format.DateTime(tx.CreatedAt)</div>
-                </div>
-                <span class="font-bold @TxClass(tx.Points)" dir="ltr">@(tx.Points > 0 ? "+" : "")@Format.Number(tx.Points)</span>
-              </li>
-            }
-          </ul>
-        </section>
-      </div>
-    }
+    <partial name="_ClubEarnRules" model="club" />
+    <partial name="_ClubTiers" model="club" />
+    <partial name="_ClubRewards" model="club" />
   </main>

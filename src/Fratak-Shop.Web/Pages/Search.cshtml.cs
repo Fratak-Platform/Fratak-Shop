@@ -65,7 +65,17 @@ public class SearchModel(
 
     public ProductFilterResult Result { get; private set; } = null!;
     public List<CategoryDto> Categories { get; private set; } = [];
-    public List<BrandDto> Brands { get; private set; } = [];
+    /// <summary>Brand filter options of the current listing (with product counts).</summary>
+    public List<BrandFacetDto> BrandFacets { get; private set; } = [];
+
+    /// <summary>/brand/{slug}: the brand is fixed by the URL, so no brand filter box.</summary>
+    public bool IsBrandPage { get; private set; }
+
+    /// <summary>
+    /// Brand and specification filters are category specific: without a category only the
+    /// general filters (and the specs marked "ShowWithoutCategory") are offered.
+    /// </summary>
+    public bool ShowBrandFilter => !IsBrandPage && BrandFacets.Count > 0;
     public CategoryDto? Category { get; private set; }
     public BrandDto? SingleBrand { get; private set; }
     public PagerModel Pager { get; private set; } = null!;
@@ -85,7 +95,8 @@ public class SearchModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
-        BrandSlugs = BrandSlugs.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+        BrandSlugs = BrandSlugs.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct().Take(20).ToList();
+        IsBrandPage = Request.Path.StartsWithSegments("/brand", StringComparison.OrdinalIgnoreCase);
 
         if (!string.IsNullOrWhiteSpace(CategorySlug))
         {
@@ -139,8 +150,16 @@ public class SearchModel(
         if (attributes.Count > 0)
             Facets = await productService.GetSpecificationFacetsAsync(filter, attributes);
 
+        if (!IsBrandPage)
+        {
+            if (Category is not null)
+                BrandFacets = await productService.GetBrandFacetsAsync(filter);
+            else if (BrandSlugs.Count > 0)
+                // No category: only the already selected brands stay visible, so they can be removed.
+                BrandFacets = (await productService.GetBrandFacetsAsync(filter)).Where(b => b.IsSelected).ToList();
+        }
+
         Categories = await categoryService.GetMenuCategoriesAsync();
-        Brands = await brandService.GetActiveBrandsAsync();
         Pager = PagerModel.From(Result, Request);
 
         await ApplySeoAsync();
@@ -155,12 +174,15 @@ public class SearchModel(
             Heading = Category.Name;
             pageMeta.Apply(ViewData, Category.Seo, $"خرید {Category.Name}", Category.Description,
                 Helpers.ImageHelper.Category(Category.ImageName));
+            ViewData[PageMetaKeys.SitePage] = SitePage.CategoryDetails;
+            ViewData[PageMetaKeys.AlertCategoryId] = Category.Id;
         }
         else if (SingleBrand is not null)
         {
             Heading = $"محصولات {SingleBrand.Name}";
             pageMeta.Apply(ViewData, SingleBrand.Seo, $"محصولات {SingleBrand.Name}", SingleBrand.Description,
                 Helpers.ImageHelper.Brand(SingleBrand.LogoName));
+            ViewData[PageMetaKeys.SitePage] = SitePage.Products;
         }
         else if (!string.IsNullOrWhiteSpace(Query))
         {

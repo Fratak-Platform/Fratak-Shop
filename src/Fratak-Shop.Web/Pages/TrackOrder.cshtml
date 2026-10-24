@@ -3,6 +3,7 @@
 @using Fratak_Shop.Data.Entities.Orders
 @{
     Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.OrderTracking;
     const string inputClass = "text-sm block w-full bg-zinc-50 rounded-xl border border-gray-300 px-4 py-3 text-gray-700 outline-none transition-all focus:border-sky-500";
     var order = Model.Order;
     var steps = Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps;

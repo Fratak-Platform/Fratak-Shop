@@ -33,11 +33,13 @@
     <div class="h-9" aria-hidden="true"></div>
   }
   <partial name="_StatusMessage" />
-  <partial name="_PageAlerts" />
+  @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Top })
   @RenderBody()
+  @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Bottom })
   <partial name="_Footer" />
 
   <!-- main javaScript code -->
+  <script src="~/assets/js/modal.js" asp-append-version="true"></script>
   <script src="~/assets/js/main.js" asp-append-version="true"></script>
   <script src="~/assets/js/shop.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)

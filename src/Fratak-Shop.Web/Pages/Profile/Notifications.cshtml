@@ -3,6 +3,7 @@
 @using Fratak_Shop.Data.Entities.Notifications
 @{
     Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.Notifications;
     var data = Model.Notifications;
     static string CategoryIcon(NotificationCategory category) => category switch
     {

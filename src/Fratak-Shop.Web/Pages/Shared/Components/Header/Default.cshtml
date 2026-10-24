@@ -364,10 +364,10 @@
               @if (Site.Settings.IsLoyaltyEnabled)
               {
               <li>
-                <a class="flex items-center justify-between gap-x-2 rounded-lg p-2 text-zinc-700 hover:text-zinc-800 transition hover:bg-gray-100" asp-page="/Club">
+                <a class="flex items-center justify-between gap-x-2 rounded-lg p-2 text-zinc-700 hover:text-zinc-800 transition hover:bg-gray-100" asp-page="/Profile/Club">
                   <span class="flex items-center gap-x-2">
                     @Icons.Svg("Crown", "fill-[#4d4d4d]", 20)
-                    <span class="text-sm">@Site.Settings.LoyaltyProgramName</span>
+                    <span class="text-sm">@Site.Settings.LoyaltyName</span>
                   </span>
                 </a>
               </li>

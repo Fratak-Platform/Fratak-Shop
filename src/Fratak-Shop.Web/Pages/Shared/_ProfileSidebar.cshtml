@@ -18,7 +18,7 @@
     }
     if (Site.Settings.IsLoyaltyEnabled)
     {
-        items.Insert(Site.Settings.IsWalletEnabled ? 3 : 2, (ProfileSection.Club, "/Club", "باشگاه مشتریان", "Crown"));
+        items.Insert(Site.Settings.IsWalletEnabled ? 3 : 2, (ProfileSection.Club, "/Profile/Club", Site.Settings.LoyaltyName, "Crown"));
     }
 }
 <div class="md:w-3/12 bg-white shadow-lg rounded-2xl py-3 h-fit">

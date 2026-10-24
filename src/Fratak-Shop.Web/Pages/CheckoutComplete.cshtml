@@ -2,6 +2,7 @@
 @model CheckoutCompleteModel
 @{
     Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.CheckoutComplete;
     var order = Model.Order;
     var paidOnline = order.PaymentStatus == Fratak_Shop.Data.Entities.Orders.PaymentStatus.Paid;
 }

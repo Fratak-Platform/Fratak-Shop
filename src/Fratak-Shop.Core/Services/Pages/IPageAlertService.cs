@@ -16,4 +16,10 @@ public interface IPageAlertService
     Task<List<PageAlertDto>> GetAlertsByPageAsync(SitePage page, AlertPosition? position = null);
     Task<List<PageAlertDto>> GetActiveAlertsAsync(SitePage page, AlertPosition? position = null);
     Task<PageAlertDto?> GetAlertByIdAsync(Guid id);
+
+    /// <summary>
+    /// Alerts to show now for the visitor on the page (alerts of the page and of "all pages",
+    /// matching audience, product / category and display window). Served from a short cache.
+    /// </summary>
+    Task<List<PageAlertDto>> GetVisibleAlertsAsync(PageAlertContext alertContext);
 }

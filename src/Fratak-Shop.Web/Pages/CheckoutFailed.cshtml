@@ -2,6 +2,7 @@
 @model CheckoutFailedModel
 @{
     Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.Checkout;
     var order = Model.Order;
 }
 

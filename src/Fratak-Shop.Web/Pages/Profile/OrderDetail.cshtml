@@ -3,6 +3,7 @@
 @using Fratak_Shop.Data.Entities.Orders
 @{
     Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.OrderDetails;
     var order = Model.Order;
     var stepIndex = Array.FindIndex(Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps, s => s.Status == order.Status);
     var cancelled = order.Status is OrderStatus.Cancelled or OrderStatus.Returned;
@@ -107,10 +108,11 @@
             }
             <div class="mt-5 grid grid-cols-2 gap-2 print:hidden">
               <a href="/profile/orders/@order.OrderNumber.ToLowerInvariant()/invoice" class="flex items-center justify-center gap-x-1 px-2 py-3 text-sm bg-gradient-to-bl from-sky-600 to-sky-700 hover:opacity-80 transition text-gray-100 rounded-lg">
-                @Icons.Svg("Receipt", "fill-white", 18) فاکتور و PDF
+                @Icons.Svg("Receipt", "fill-white", 18) @(string.IsNullOrEmpty(order.InvoiceNumber) ? "پیش‌فاکتور و PDF" : "فاکتور و PDF")
               </a>
-              <button type="button" data-ui="print" class="flex items-center justify-center gap-x-1 px-2 py-3 text-sm border border-sky-600 text-sky-700 hover:bg-sky-50 transition rounded-lg">
-                @Icons.Svg("Printer", "fill-sky-700", 18) چاپ
+              <button type="button" data-invoice-quick-print="/profile/orders/@order.OrderNumber.ToLowerInvariant()/invoice?print=1"
+                      class="flex items-center justify-center gap-x-1 px-2 py-3 text-sm border border-sky-600 text-sky-700 hover:bg-sky-50 transition rounded-lg disabled:opacity-60 disabled:cursor-wait">
+                @Icons.Svg("Printer", "fill-sky-700", 18) <span data-label>چاپ فاکتور</span>
               </button>
             </div>
             @if (Model.CanCancel)

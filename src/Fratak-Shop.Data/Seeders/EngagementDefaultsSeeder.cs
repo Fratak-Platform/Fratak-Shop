@@ -3,7 +3,10 @@ using Fratak_Shop.Data.Entities.Contents;
 using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Data.Entities.Notifications;
+using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Shipping;
+using Fratak_Shop.Data.Entities.Shopping;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Data.Seeders;
@@ -30,6 +33,196 @@ public static class EngagementDefaultsSeeder
         await SeedLoyaltyAsync(context, cancellationToken);
         await SeedNotificationTemplatesAsync(context, cancellationToken);
         await SeedBroadcastsAsync(context, cancellationToken);
+
+        // Round 4
+        await BackfillRound4SettingsAsync(context, cancellationToken);
+        await UpdateLoyaltyTextsAsync(context, cancellationToken);
+        await SeedShippingRatesAsync(context, cancellationToken);
+        await SeedAbandonedCartStepsAsync(context, cancellationToken);
+        await SeedPageAlertsAsync(context, cancellationToken);
+    }
+
+    /// <summary>Texts of the round-4 settings (club description, install suggestion) – once, when still empty.</summary>
+    private static async Task BackfillRound4SettingsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        var settings = await context.StoreSettings.AsTracking().OrderBy(s => s.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        if (settings is null || settings.PwaInstallPromptTitle is not null || settings.LoyaltyProgramDescription is not null)
+            return;
+
+        settings.LoyaltyProgramDescription = "با هر خرید و فعالیت در فروشگاه امتیاز بگیرید، به سطح‌های بالاتر برسید و امتیازها را با اعتبار خرید، کد تخفیف و ارسال رایگان عوض کنید. امتیاز خرید پس از تحویل سفارش به حساب شما اضافه می‌شود.";
+        settings.LoyaltyReferralDescription = "لینک یا کد معرف خود را برای دوستانتان بفرستید؛ با ثبت‌نام و اولین خرید آن‌ها، هر دو امتیاز می‌گیرید.";
+        settings.PwaInstallPromptTitle = "فراتک شاپ را نصب کنید";
+        settings.PwaInstallPromptText = "دسترسی سریع‌تر از صفحه اصلی گوشی، بدون نیاز به دانلود از فروشگاه برنامه‌ها.";
+        settings.InvoiceNumberPrefix ??= "INV";
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Purchase points are now given once the order is delivered (anti-abuse). Updates the default
+    /// texts of existing installations – only rows that still have the original default text.
+    /// </summary>
+    private static async Task UpdateLoyaltyTextsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        var updates = new (LoyaltyAction Action, string OldText, string NewText)[]
+        {
+            (LoyaltyAction.Purchase, "به ازای هر ۱۰ هزار تومان خرید، ۱ امتیاز (حداکثر ۲۰۰۰ امتیاز در هر سفارش)", PurchaseRuleText),
+            (LoyaltyAction.FirstOrder, "امتیاز ویژه اولین سفارش پرداخت‌شده", FirstOrderRuleText),
+        };
+
+        foreach (var (action, oldText, newText) in updates)
+        {
+            await context.LoyaltyRules
+                .Where(r => r.Action == action && r.Description == oldText)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.Description, newText), cancellationToken);
+        }
+    }
+
+    private const string PurchaseRuleText = "به ازای هر ۱۰ هزار تومان خرید، ۱ امتیاز (حداکثر ۲۰۰۰ امتیاز در هر سفارش) — پس از تحویل سفارش";
+    private const string FirstOrderRuleText = "امتیاز ویژه اولین سفارش — پس از تحویل سفارش";
+
+    /// <summary>
+    /// Sample province / city shipping rules: post is priced by province (unlisted provinces keep
+    /// the base cost), Kish has its own city price and Abu Musa is blocked for every method.
+    /// Runs once, when the rules table is empty and the post method exists.
+    /// </summary>
+    private static async Task SeedShippingRatesAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        if (await context.ShippingRates.IgnoreQueryFilters().AnyAsync(cancellationToken))
+            return;
+
+        var post = await context.ShippingMethods.AsTracking().FirstOrDefaultAsync(m => m.Code == "post", cancellationToken);
+        if (post is null)
+            return;
+
+        var locationIds = new[] { "123", "130", "111", "122", "1220003002193", "1220001001563" }
+            .Select(LocationSeeder.ProvinceId)
+            .ToList();
+        var existing = await context.Locations.Where(l => locationIds.Contains(l.Id)).Select(l => l.Id).ToListAsync(cancellationToken);
+        if (existing.Count != locationIds.Count)
+            return;
+
+        post.PricingMode = ShippingPricingMode.ByLocation;
+
+        context.ShippingRates.AddRange(
+            new ShippingRate { ShippingMethodId = post.Id, ProvinceId = LocationSeeder.ProvinceId("123"), Cost = 45_000, Note = "تهران" },
+            new ShippingRate { ShippingMethodId = post.Id, ProvinceId = LocationSeeder.ProvinceId("130"), Cost = 50_000, Note = "البرز" },
+            new ShippingRate { ShippingMethodId = post.Id, ProvinceId = LocationSeeder.ProvinceId("111"), Cost = 85_000, ExtraDeliveryDays = 2, Note = "مناطق دوردست" },
+            new ShippingRate { ShippingMethodId = post.Id, ProvinceId = LocationSeeder.ProvinceId("122"), Cost = 80_000, ExtraDeliveryDays = 1, Note = "هرمزگان" },
+            new ShippingRate
+            {
+                ShippingMethodId = post.Id,
+                ProvinceId = LocationSeeder.ProvinceId("122"),
+                CityId = LocationSeeder.ProvinceId("1220003002193"),
+                Cost = 95_000,
+                ExtraDeliveryDays = 2,
+                Note = "جزیره کیش",
+            },
+            new ShippingRate
+            {
+                ProvinceId = LocationSeeder.ProvinceId("122"),
+                CityId = LocationSeeder.ProvinceId("1220001001563"),
+                IsBlocked = true,
+                Note = "ارسال به جزیره ابوموسی فعلاً امکان‌پذیر نیست",
+            });
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Default abandoned-cart reminders: a notice after 1 hour, a personal 5% code after 24 hours.</summary>
+    private static async Task SeedAbandonedCartStepsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        if (await context.AbandonedCartReminderSteps.IgnoreQueryFilters().AnyAsync(cancellationToken))
+            return;
+
+        context.AbandonedCartReminderSteps.AddRange(
+            new AbandonedCartReminderStep
+            {
+                StepNumber = 1,
+                DelayMinutes = 60,
+                Channel = ReminderChannel.Notification,
+                Title = "سبد خریدتان منتظر شماست",
+                Message = "{Name} عزیز، {ItemCount} کالا به ارزش {CartAmount} تومان در سبد خرید شما مانده است. موجودی کالاها محدود است؛ همین حالا خرید را تکمیل کنید.",
+                SmsText = "{Name} عزیز، سبد خرید شما در {SiteName} منتظر شماست.",
+            },
+            new AbandonedCartReminderStep
+            {
+                StepNumber = 2,
+                DelayMinutes = 24 * 60,
+                Channel = ReminderChannel.Notification,
+                Title = "یک هدیه برای تکمیل خرید",
+                Message = "{Name} عزیز، با کد اختصاصی {CouponCode} سفارش خود را با {CouponValue} تخفیف تکمیل کنید. این کد فقط تا چند روز معتبر است.",
+                SmsText = "کد تخفیف اختصاصی شما در {SiteName}: {CouponCode}",
+                IncludeCoupon = true,
+                CouponType = CouponType.Percentage,
+                CouponValue = 5,
+                CouponMaxDiscountAmount = 200_000,
+                CouponValidDays = 3,
+            });
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Sample page alerts (product, cart, checkout, order pages). Runs once, when the table is empty.</summary>
+    private static async Task SeedPageAlertsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        if (await context.PageAlerts.IgnoreQueryFilters().AnyAsync(cancellationToken))
+            return;
+
+        context.PageAlerts.AddRange(
+            new PageAlert
+            {
+                Page = SitePage.ProductDetails,
+                Position = AlertPosition.BelowMainImage,
+                Type = AlertType.Success,
+                Title = "ضمانت اصالت کالا",
+                Content = "همه کالاها اصل هستند و تا ۷ روز با حفظ شرایط اولیه قابل بازگشت‌اند.",
+                LinkUrl = "/page/return-policy",
+                LinkText = "شرایط بازگشت",
+                DisplayOrder = 1,
+            },
+            new PageAlert
+            {
+                Page = SitePage.Cart,
+                Position = AlertPosition.AboveContent,
+                Type = AlertType.Info,
+                Content = "با هر خرید امتیاز باشگاه مشتریان بگیرید؛ امتیاز پس از تحویل سفارش به حساب شما اضافه می‌شود.",
+                LinkUrl = "/club",
+                LinkText = "باشگاه مشتریان",
+                IsDismissible = true,
+                DisplayOrder = 1,
+            },
+            new PageAlert
+            {
+                Page = SitePage.Checkout,
+                Position = AlertPosition.AboveContent,
+                Type = AlertType.Warning,
+                Content = "پیش از پرداخت، آدرس و شماره تماس گیرنده را بررسی کنید تا سفارش بدون تأخیر به دستتان برسد.",
+                IsDismissible = true,
+                DisplayOrder = 1,
+            },
+            new PageAlert
+            {
+                Page = SitePage.CheckoutComplete,
+                Position = AlertPosition.AboveContent,
+                Type = AlertType.Info,
+                Content = "فاکتور سفارش پس از پرداخت از بخش «سفارش‌های من» قابل مشاهده، چاپ و دریافت PDF است.",
+                LinkUrl = "/profile/orders",
+                LinkText = "سفارش‌های من",
+                Audience = AlertAudience.SignedIn,
+                DisplayOrder = 1,
+            },
+            new PageAlert
+            {
+                Page = SitePage.OrderDetails,
+                Position = AlertPosition.AboveContent,
+                Type = AlertType.Info,
+                Content = "تا پیش از شروع آماده‌سازی می‌توانید سفارش را لغو کنید؛ مبلغ پرداختی بلافاصله به کیف پول شما برمی‌گردد.",
+                IsDismissible = true,
+                DisplayOrder = 1,
+            });
+
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -244,8 +437,8 @@ public static class EngagementDefaultsSeeder
             context.LoyaltyRules.AddRange(
                 new LoyaltyRule { Action = LoyaltyAction.Registration, Title = "عضویت در باشگاه", Description = "هدیه ثبت‌نام در سایت", Points = 100, MaxTimesPerUser = 1, DisplayOrder = 1 },
                 new LoyaltyRule { Action = LoyaltyAction.CompleteProfile, Title = "تکمیل اطلاعات حساب", Description = "ثبت نام، نام خانوادگی و ایمیل", Points = 50, MaxTimesPerUser = 1, DisplayOrder = 2 },
-                new LoyaltyRule { Action = LoyaltyAction.FirstOrder, Title = "اولین خرید", Description = "امتیاز ویژه اولین سفارش پرداخت‌شده", Points = 200, MaxTimesPerUser = 1, DisplayOrder = 3 },
-                new LoyaltyRule { Action = LoyaltyAction.Purchase, Title = "هر خرید", Description = "به ازای هر ۱۰ هزار تومان خرید، ۱ امتیاز (حداکثر ۲۰۰۰ امتیاز در هر سفارش)", PointsPerStep = 1, AmountStep = 10_000, MaxPointsPerEvent = 2000, DisplayOrder = 4 },
+                new LoyaltyRule { Action = LoyaltyAction.FirstOrder, Title = "اولین خرید", Description = FirstOrderRuleText, Points = 200, MaxTimesPerUser = 1, DisplayOrder = 3 },
+                new LoyaltyRule { Action = LoyaltyAction.Purchase, Title = "هر خرید", Description = PurchaseRuleText, PointsPerStep = 1, AmountStep = 10_000, MaxPointsPerEvent = 2000, DisplayOrder = 4 },
                 new LoyaltyRule { Action = LoyaltyAction.ProductReview, Title = "ثبت دیدگاه", Description = "برای هر دیدگاه تأییدشده (حداکثر ۲۰ بار)", Points = 20, MaxTimesPerUser = 20, DisplayOrder = 5 },
                 new LoyaltyRule { Action = LoyaltyAction.Referral, Title = "معرفی دوستان", Description = "وقتی دوست شما با کد معرف ثبت‌نام کند و اولین خریدش را انجام دهد", Points = 300, DisplayOrder = 6 },
                 new LoyaltyRule { Action = LoyaltyAction.ReferralSignup, Title = "ثبت‌نام با کد معرف", Description = "هدیه کاربر جدیدی که با کد معرف ثبت‌نام می‌کند", Points = 100, MaxTimesPerUser = 1, DisplayOrder = 7 },

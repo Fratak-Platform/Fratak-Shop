@@ -112,7 +112,7 @@ public class SiteContext(
         var path = url.Split('?', '#')[0].TrimEnd('/').ToLowerInvariant();
         return path switch
         {
-            "/club" => _settings.IsLoyaltyEnabled,
+            "/club" or "/profile/club" => _settings.IsLoyaltyEnabled,
             "/track-order" => _settings.IsGuestOrderTrackingEnabled,
             "/profile/wallet" => _settings.IsWalletEnabled,
             _ => true,

@@ -13,7 +13,7 @@ namespace Fratak_Shop.Web.Pages;
 /// Database driven static pages (about us, terms, privacy, return policy, ...).
 /// Pages can be added, edited or disabled from the admin panel without code changes.
 /// </summary>
-public class ContentPageModel(IContentPageService contentPages, IPageAlertService pageAlerts, IPageMetaService pageMeta) : ShopPageModel
+public class ContentPageModel(IContentPageService contentPages, IPageMetaService pageMeta) : ShopPageModel
 {
     public ContentPageDto PageContent { get; private set; } = null!;
 
@@ -43,8 +43,7 @@ public class ContentPageModel(IContentPageService contentPages, IPageAlertServic
             });
         }
 
-        if (page.PageKey is { } key)
-            ViewData[PageMetaKeys.Alerts] = await pageAlerts.GetActiveAlertsAsync(key);
+        ViewData[PageMetaKeys.SitePage] = page.PageKey ?? SitePage.ContentPage;
 
         return Page();
     }

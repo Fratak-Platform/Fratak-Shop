@@ -91,6 +91,8 @@ done
 echo "== Round 3: public features"
 expect 200 /club
 contains "باشگاه"
+contains "عضویت رایگان"
+expect 302 /profile/club
 expect 200 /track-order
 expect 302 /login/code
 expect 200 "/products?page=2"
@@ -103,11 +105,20 @@ contains '"short_name"'
 expect 200 /sw.js
 expect 200 /offline.html
 # Specification filters (f-{slug}): water resistance IPX5 -> Haylou only.
-expect 200 /search -G --data-urlencode "f-water=IPX5"
+# Without a category only general filters: no brand or specification boxes.
+expect 200 /search
+lacks 'name="f-water"'
+lacks 'type="checkbox" name="brand"'
+contains "برای فیلتر بر اساس برند"
+# Category listing: its own brand + specification filters (water resistance IPX5 -> Haylou only).
+expect 200 /search -G --data-urlencode "category=earbuds" --data-urlencode "f-water=IPX5"
 contains "Haylou"
 lacks "MacBook"
-expect 200 /search
-contains 'name="f-'
+contains 'name="f-water"'
+contains 'type="checkbox" name="brand"'
+# Brand page: the brand is fixed by the URL, no brand box.
+expect 200 /brand/apple
+lacks 'type="checkbox" name="brand"'
 # Guests may preview a code on the cart; an unknown code must not be stored.
 expect 200 /cart
 
@@ -148,22 +159,27 @@ TOKEN=$(token)
 expect 302 /login --data-urlencode "__RequestVerificationToken=$TOKEN" \
   --data-urlencode "Input.PhoneNumber=09120000000" --data-urlencode "Input.Password=123456" --data-urlencode "Input.RememberMe=true"
 if grep -q "fratak_at" "$JAR" && grep -q "fratak_rt" "$JAR"; then pass "JWT access + refresh cookies issued"; else fail "auth cookies missing"; fi
-for path in /profile /profile/orders /profile/addresses /profile/favorites /profile/messages /profile/info /profile/password /profile/wallet /profile/sessions /profile/notifications; do
+for path in /profile /profile/orders /profile/addresses /profile/favorites /profile/messages /profile/info /profile/password /profile/wallet /profile/sessions /profile/notifications /profile/club; do
   expect 200 "$path"
 done
 expect 200 /profile/password
 contains "ورود دو مرحله"
-expect 200 /club
+expect 302 /club
+expect 200 /profile/club
 contains "rewardId"
+contains "کدهای تخفیف شما"
 
 echo "== Club: redeem points (500 -> wallet credit)"
 REWARD=$(grep -o 'name="rewardId" value="[0-9a-f-]\{36\}"' /tmp/smoke-body | head -1 | grep -o '[0-9a-f-]\{36\}')
 TOKEN=$(token)
 if [ -n "$REWARD" ]; then
-  expect 302 "/club?handler=Redeem" --data-urlencode "__RequestVerificationToken=$TOKEN" --data-urlencode "rewardId=$REWARD"
-  expect 200 /club
+  expect 302 "/profile/club?handler=Redeem" --data-urlencode "__RequestVerificationToken=$TOKEN" --data-urlencode "rewardId=$REWARD"
+  expect 200 /profile/club
+  # Club credit is promotional: shown as gift credit, never withdrawable.
+  expect 200 /profile/wallet
+  contains "اعتبار هدیه: <span"
 else
-  fail "no reward to redeem on /club"
+  fail "no reward to redeem on /profile/club"
 fi
 
 echo "== Location API"

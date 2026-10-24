@@ -1,0 +1,28 @@
+@model ClubViewModel
+@if (Model.Program.Tiers.Count > 0)
+{
+  <section aria-labelledby="tiers-title">
+    <h2 id="tiers-title" class="mb-4 flex items-center gap-x-2 text-lg font-semibold text-zinc-800">@Icons.Svg("Medal", "fill-sky-500", 24) سطح‌های باشگاه</h2>
+    <div class="grid gap-3 grid-cols-2 xl:grid-cols-4">
+      @foreach (var tier in Model.Program.Tiers)
+      {
+        var current = Model.Summary?.Tier?.Id == tier.Id;
+        <div class="rounded-2xl border border-t-4 bg-white p-4 @(current ? "ring-2 ring-sky-400" : "")" style="border-top-color:@(tier.Color ?? "#0ea5e9")">
+          <div class="flex flex-wrap items-center justify-between gap-1">
+            <h3 class="font-bold text-zinc-800">@tier.Name</h3>
+            @if (current)
+            {
+              <span class="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] text-sky-600">سطح فعلی شما</span>
+            }
+          </div>
+          <div class="mt-2 text-xs text-zinc-500">از @Format.Number(tier.MinLifetimePoints) امتیاز کل</div>
+          <div class="mt-2 text-sm text-zinc-700">ضریب امتیاز خرید: <span class="font-bold">×@tier.PointsMultiplier.ToString("0.##")</span></div>
+          @if (!string.IsNullOrWhiteSpace(tier.Benefits))
+          {
+            <p class="mt-2 text-xs leading-6 text-zinc-500 whitespace-pre-line">@tier.Benefits</p>
+          }
+        </div>
+      }
+    </div>
+  </section>
+}

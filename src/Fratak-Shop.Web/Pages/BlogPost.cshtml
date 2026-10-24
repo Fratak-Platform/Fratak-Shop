@@ -2,6 +2,7 @@
 @model BlogPostModel
 @{
     Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.BlogPostDetails;
     var post = Model.Post;
 }
 

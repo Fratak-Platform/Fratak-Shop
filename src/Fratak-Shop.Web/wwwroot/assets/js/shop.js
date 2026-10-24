@@ -2,7 +2,12 @@
  * Storefront behaviour (no dependencies):
  *  - [data-countdown]      : discount countdown (unix ms) with [data-cd=days|hours|minutes|seconds]
  *  - [data-autosubmit]     : submit the owning form on change
- *  - form[data-confirm]    : confirmation dialog before submit
+ *  - form[data-confirm]    : custom confirmation dialog before submit (modal.js)
+ *                            data-confirm-title / data-confirm-ok / data-confirm-danger
+ *  - [data-alert-id]       : page alerts; dismissible ones are remembered in localStorage
+ *  - [data-width]          : percentage width (CSP: no inline styles in markup)
+ *  - [data-card-input]     : bank card number grouping (4-4-4-4)
+ *  - [data-invoice-quick-print]: print the A4 invoice without leaving the page (hidden iframe)
  *  - [data-toast]          : auto-hide / close status messages
  *  - [data-share]          : native share or copy link
  *  - [data-filter-list]    : client-side filtering of a list (brand filter)
@@ -62,8 +67,29 @@
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
 
-    if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+    if (form.dataset.confirm && form.dataset.confirmed !== "1") {
       event.preventDefault();
+      event.stopImmediatePropagation();
+      const submitter = event.submitter || null;
+      const ask = window.FratakModal
+        ? window.FratakModal.confirm({
+            title: form.dataset.confirmTitle,
+            message: form.dataset.confirm,
+            okText: form.dataset.confirmOk,
+            danger: "confirmDanger" in form.dataset,
+          })
+        : Promise.resolve(window.confirm(form.dataset.confirm));
+      ask.then((confirmed) => {
+        if (!confirmed) return;
+        form.dataset.confirmed = "1";
+        try {
+          if (typeof form.requestSubmit === "function") form.requestSubmit(submitter && submitter.form === form ? submitter : undefined);
+          else form.submit();
+        } finally {
+          // A page that stays open (validation error) asks again next time.
+          setTimeout(() => delete form.dataset.confirmed, 0);
+        }
+      });
       return;
     }
 
@@ -92,7 +118,7 @@
           await navigator.share({ title: btn.dataset.shareTitle || document.title, url });
         } else if (navigator.clipboard) {
           await navigator.clipboard.writeText(url);
-          window.alert("لینک کپی شد.");
+          if (window.FratakModal) window.FratakModal.toast("لینک کپی شد.", "success");
         }
       } catch (_) { /* user cancelled */ }
     });
@@ -259,6 +285,118 @@
         btn.textContent = "کپی شد";
         setTimeout(() => (btn.textContent = old), 1500);
       } catch (_) { /* clipboard unavailable */ }
+    });
+  });
+  // ── Page alerts: close + remember ([data-alert-id][data-dismissible]) ──
+  const DISMISSED_KEY = "fratak:dismissed-alerts";
+  const readDismissed = () => {
+    try {
+      const list = JSON.parse(localStorage.getItem(DISMISSED_KEY) || "[]");
+      return Array.isArray(list) ? list : [];
+    } catch (_) {
+      return [];
+    }
+  };
+  const dismissed = readDismissed();
+  document.querySelectorAll("[data-alert-id][data-dismissible]").forEach((alertBox) => {
+    const id = alertBox.dataset.alertId;
+    const removeBox = () => {
+      const group = alertBox.closest("[data-page-alerts]");
+      alertBox.remove();
+      if (group && !group.querySelector("[data-alert-id]")) group.remove();
+    };
+    if (dismissed.includes(id)) {
+      removeBox();
+      return;
+    }
+    const close = alertBox.querySelector("[data-alert-close]");
+    if (!close) return;
+    close.addEventListener("click", () => {
+      const list = readDismissed().filter((x) => x !== id);
+      list.push(id);
+      try {
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify(list.slice(-50)));
+      } catch (_) { /* private mode */ }
+      removeBox();
+    });
+  });
+
+  // ── Percentage widths ([data-width]) ─────────────────────────────────
+  document.querySelectorAll("[data-width]").forEach((bar) => {
+    const value = Math.max(0, Math.min(100, Number(bar.dataset.width) || 0));
+    bar.style.width = `${value}%`;
+  });
+
+  // ── Bank card input ([data-card-input]) ──────────────────────────────
+  const toLatinDigits = (value) => value
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+  document.querySelectorAll("[data-card-input]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const digits = toLatinDigits(input.value).replace(/\D/g, "").slice(0, 16);
+      const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+      if (grouped !== input.value) input.value = grouped;
+    });
+  });
+  // ── Quick invoice print (order page) ─────────────────────────────────
+  // The invoice is loaded in a hidden same-origin iframe and printed from there, so the
+  // printout is the A4 invoice – not the order page. iOS can't print iframes: open it instead.
+  const isIos = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  document.querySelectorAll("[data-invoice-quick-print]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const url = button.dataset.invoiceQuickPrint;
+      if (isIos) {
+        window.location.assign(url);
+        return;
+      }
+      if (button.disabled) return;
+
+      const label = button.querySelector("[data-label]");
+      const oldText = label ? label.textContent : "";
+      button.disabled = true;
+      if (label) label.textContent = "در حال آماده‌سازی...";
+
+      const frame = document.createElement("iframe");
+      frame.setAttribute("aria-hidden", "true");
+      frame.tabIndex = -1;
+      frame.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;";
+      let done = false;
+
+      const cleanup = () => {
+        window.removeEventListener("message", onMessage);
+        button.disabled = false;
+        if (label) label.textContent = oldText;
+        // Some browsers print asynchronously: keep the frame until the dialog is closed.
+        const remove = () => frame.remove();
+        try {
+          frame.contentWindow.addEventListener("afterprint", () => setTimeout(remove, 500), { once: true });
+        } catch (_) { /* ignore */ }
+        setTimeout(remove, 120000);
+      };
+
+      const onMessage = (event) => {
+        if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
+        if (!event.data || event.data.type !== "fratak-invoice-ready" || done) return;
+        done = true;
+        try {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } catch (_) {
+          window.open(url, "_blank", "noopener");
+        }
+        cleanup();
+      };
+
+      window.addEventListener("message", onMessage);
+      setTimeout(() => {
+        if (done) return;
+        done = true;
+        cleanup();
+        window.open(url, "_blank", "noopener");
+      }, 15000);
+
+      frame.src = url;
+      document.body.appendChild(frame);
     });
   });
 })();

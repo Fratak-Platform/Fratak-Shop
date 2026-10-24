@@ -17,7 +17,7 @@ namespace Fratak_Shop.Web.Services;
 /// </summary>
 public interface IPageMetaService
 {
-    /// <summary>Static pages: reads the <see cref="SitePage"/> SEO record and the page alerts.</summary>
+    /// <summary>Static pages: reads the <see cref="SitePage"/> SEO record and marks the page for the page alerts.</summary>
     Task ApplyAsync(ViewDataDictionary viewData, SitePage page, string defaultTitle, string? defaultDescription = null);
 
     /// <summary>Entity pages (product, category, post, content page): uses the entity SEO metadata.</summary>
@@ -54,12 +54,14 @@ public static class PageMetaKeys
 
     public const string PrevPage = "PrevPage";
     public const string NextPage = "NextPage";
-    public const string Alerts = "PageAlerts";
+    /// <summary>The <see cref="Fratak_Shop.Data.Entities.Pages.SitePage"/> of the request (page alerts).</summary>
+    public const string SitePage = "SitePage";
+    public const string AlertProductId = "AlertProductId";
+    public const string AlertCategoryId = "AlertCategoryId";
 }
 
 public class PageMetaService(
     IPageSeoService pageSeoService,
-    IPageAlertService pageAlertService,
     IHttpContextAccessor httpContextAccessor,
     ISiteContext site,
     ILogger<PageMetaService> logger) : IPageMetaService
@@ -74,21 +76,19 @@ public class PageMetaService(
     public async Task ApplyAsync(ViewDataDictionary viewData, SitePage page, string defaultTitle, string? defaultDescription = null)
     {
         PageSeoDto? pageSeo = null;
-        List<PageAlertDto> alerts = [];
 
         try
         {
             pageSeo = await pageSeoService.GetPageSeoByPageAsync(page);
-            alerts = await pageAlertService.GetActiveAlertsAsync(page);
         }
         catch (Exception exception)
         {
             // SEO data is optional – a failure here must never break the page.
-            logger.LogWarning(exception, "Page SEO / alerts of {Page} could not be loaded.", page);
+            logger.LogWarning(exception, "Page SEO of {Page} could not be loaded.", page);
         }
 
         Apply(viewData, pageSeo?.Seo, defaultTitle, defaultDescription);
-        viewData[PageMetaKeys.Alerts] = alerts;
+        viewData[PageMetaKeys.SitePage] = page;  // page alerts (rendered by the layout)
     }
 
     public void Apply(ViewDataDictionary viewData, SeoMetaDataDto? seo, string defaultTitle, string? defaultDescription = null,

@@ -1,6 +1,7 @@
 @{
     var settings = Site.Settings;
-    const string linkClass = "text-gray-500 hover:text-blue-600 transition flex items-center gap-x-1 group w-fit";
+    const string linkClass = "text-gray-500 hover:text-blue-600 transition flex items-center gap-x-1 group w-fit text-[13px] md:text-base leading-6";
+    const string headingClass = "text-sky-500 mb-3 md:mb-4 text-[15px] md:text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2";
     var socials = new (string? Url, string Icon, string Title)[]
     {
         (settings.InstagramUrl, "Instagram", "اینستاگرام"),
@@ -39,12 +40,12 @@
     <div class="bg-zinc-950 pt-80 lg:pt-40 w-full pb-20 md:pb-0">
       @if (Site.Features.Count > 0)
       {
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 px-10 pb-10 mb-10 border-b border-zinc-800">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 px-5 md:px-10 pb-8 md:pb-10 mb-8 md:mb-10 border-b border-zinc-800">
           @foreach (var feature in Site.Features)
           {
-            <div class="flex items-center gap-x-3">
-              <span class="shrink-0 rounded-full bg-zinc-900 p-3 text-sky-500">
-                @Icons.Svg(Icons.Has(feature.IconKey) ? feature.IconKey! : "CheckCircle", "fill-sky-500", 26)
+            <div class="flex flex-col sm:flex-row items-center sm:items-center text-center sm:text-right gap-2 sm:gap-x-3">
+              <span class="shrink-0 rounded-full bg-zinc-900 p-2.5 md:p-3 text-sky-500">
+                @Icons.Svg(Icons.Has(feature.IconKey) ? feature.IconKey! : "CheckCircle", "fill-sky-500", 24)
               </span>
               <div>
                 <p class="text-zinc-200 text-sm font-semibold">@feature.Title</p>
@@ -57,14 +58,15 @@
           }
         </div>
       }
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-y-7 gap-x-5 px-10 @(columns >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4")">
+      @* Mobile: two link sections per row; contact details and badges take a full row. *@
+      <div class="grid grid-cols-2 gap-y-8 gap-x-4 md:gap-x-5 px-5 md:px-10 @(columns >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4")">
         @foreach (var menu in footerMenus)
         {
-          <nav class="flex flex-col" aria-label="@menu.Title">
-            <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
+          <nav class="flex flex-col min-w-0" aria-label="@menu.Title">
+            <div class="@headingClass">
               @menu.Title
             </div>
-            <ul class="flex flex-col gap-y-4">
+            <ul class="flex flex-col gap-y-2.5 md:gap-y-4">
               @foreach (var item in menu.Items)
               {
                 var href = UrlSafety.Link(item.Url);
@@ -82,11 +84,11 @@
             </ul>
           </nav>
         }
-        <div class="flex flex-col">
-          <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
+        <div class="col-span-2 md:col-span-1 flex flex-col rounded-2xl bg-zinc-900/60 p-4 md:bg-transparent md:p-0">
+          <div class="@headingClass">
             راه های ارتباطی
           </div>
-          <ul class="flex flex-col gap-y-4">
+          <ul class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-y-3 gap-x-4 md:gap-y-4">
             @if (!string.IsNullOrWhiteSpace(settings.SupportPhone))
             {
               <li>
@@ -139,7 +141,7 @@
         </div>
         @if (Site.TrustBadges.Count > 0)
         {
-          <div class="flex flex-wrap justify-center lg:justify-end gap-5">
+          <div class="col-span-2 md:col-span-1 flex flex-wrap justify-center lg:justify-end gap-4 md:gap-5">
             @foreach (var badge in Site.TrustBadges)
             {
               if (UrlSafety.IsHttpUrl(badge.LinkUrl))
@@ -156,7 +158,7 @@
           </div>
         }
       </div>
-      <div class="mt-5 border-t border-zinc-800 w-full text-xs text-zinc-500 px-5 py-5">
+      <div class="mt-8 md:mt-5 border-t border-zinc-800 w-full text-center md:text-right text-xs text-zinc-500 px-5 py-5">
         @(settings.CopyrightText ?? $"تمامی حقوق برای {settings.SiteName} محفوظ است.") © @Format.Year(DateTimeOffset.UtcNow)
       </div>
     </div>
