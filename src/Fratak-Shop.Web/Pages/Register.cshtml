@@ -27,7 +27,11 @@
         <input asp-for="Input.Email" type="email" placeholder="ایمیل (اختیاری)" autocomplete="email" dir="ltr" class="@inputClass mb-7">
         <input asp-for="Input.PhoneNumber" type="tel" placeholder="شماره همراه" autocomplete="username" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass mb-7">
         <input asp-for="Input.Password" type="password" placeholder="رمز عبور (حداقل ۶ کاراکتر)" autocomplete="new-password" class="@inputClass mb-7">
-        <input asp-for="Input.ConfirmPassword" type="password" placeholder="تکرار رمز عبور" autocomplete="new-password" class="@inputClass">
+        <input asp-for="Input.ConfirmPassword" type="password" placeholder="تکرار رمز عبور" autocomplete="new-password" class="@inputClass mb-7">
+        @if (Site.Settings.IsReferralEnabled)
+        {
+          <input asp-for="Input.ReferralCode" type="text" placeholder="کد معرف (اختیاری)" autocomplete="off" maxlength="20" dir="ltr" class="@inputClass">
+        }
         <label class="flex items-center gap-x-2 mt-4 text-sm text-zinc-600 cursor-pointer">
           <input asp-for="Input.AcceptRules" type="checkbox" class="h-4 w-4 accent-sky-500">
           <span><a class="text-sky-500" href="/page/rules" target="_blank">قوانین و مقررات</a> را مطالعه کرده و می پذیرم</span>

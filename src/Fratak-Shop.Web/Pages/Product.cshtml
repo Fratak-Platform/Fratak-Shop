@@ -531,28 +531,9 @@
         </div>
       </div>
     </div>
-    @if (Model.RelatedProducts.Count > 0)
-    {
-      <div>
-        <div class="text-center text-3xl font-semibold text-gray-800 mt-20 mb-6">
-          محصولات مرتبط
-        </div>
-        <div class="w-full relative">
-          <div class="bg-blue-400 w-full h-44 rounded-3xl bottom-0 absolute z-0">
-          </div>
-          <div class="swiper productSlider1" data-slider="products">
-            <div class="swiper-wrapper items-start pb-5">
-              @foreach (var related in Model.RelatedProducts)
-              {
-                <partial name="_ProductSlideCard" model="related" />
-              }
-            </div>
-            <div class="swiper-button-next next-btn-2"></div>
-            <div class="swiper-button-prev prev-btn-2"></div>
-          </div>
-        </div>
-      </div>
-    }
+    <partial name="_ProductRail" model='new ProductRailModel("محصولات مرتبط", Model.RelatedProducts)' />
+    <partial name="_ProductRail" model='new ProductRailModel("معمولاً با هم خریده می‌شوند", Model.BoughtTogether, "مشتریانی که این کالا را خریده‌اند، این محصولات را هم سفارش داده‌اند")' />
+    <partial name="_ProductRail" model='new ProductRailModel("پیشنهاد برای شما", Model.ForYou, "بر اساس خریدها، علاقه‌مندی‌ها و بازدیدهای شما")' />
   </main>
 
 @section Scripts {

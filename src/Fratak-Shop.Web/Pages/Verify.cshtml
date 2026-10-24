@@ -16,22 +16,10 @@
             تایید حساب
           </h1>
           <div class="my-4 text-xs text-zinc-500">
-            لطفا کد 4 رقمی ارسال شده به شماره <span dir="ltr">@Model.PhoneNumber</span> را وارد کنید.
+            لطفا کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.PhoneNumber</span> را وارد کنید.
           </div>
-          @if (!string.IsNullOrWhiteSpace(Model.DevelopmentCode))
-          {
-            <div class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-2 text-xs text-yellow-700">
-              محیط توسعه: کد تایید <span class="font-bold" dir="ltr">@Model.DevelopmentCode</span> است.
-            </div>
-          }
-          <div class="mb-2" dir="ltr">
-            <div class="input-field mb-5 flex gap-x-4 justify-center">
-              <input type="number" name="Digits" aria-label="رقم اول" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" autocomplete="one-time-code" required />
-              <input type="number" name="Digits" aria-label="رقم دوم" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" disabled required />
-              <input type="number" name="Digits" aria-label="رقم سوم" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" disabled required />
-              <input type="number" name="Digits" aria-label="رقم چهارم" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" disabled required />
-            </div>
-          </div>
+          <partial name="_DevelopmentCode" model="Model.DevelopmentCode" />
+          <partial name="_OtpDigits" model="Model.CodeLength" />
           <div class="text-xs text-red-500" id="verify-code">
           </div>
           <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">

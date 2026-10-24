@@ -1,0 +1,44 @@
+@page "/login/code"
+@model LoginCodeModel
+@{
+    Layout = "_LayoutMinimal";
+}
+
+  <main class="max-w-[1600px] mx-auto">
+    <div class="flex justify-center items-center min-h-screen py-10">
+      <a class="absolute top-2 left-2 text-sm bg-sky-500 text-white rounded-md py-2 px-6" asp-page="/Index">
+        صفحه اصلی
+      </a>
+      <div class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
+        <form method="post">
+          <input type="hidden" asp-for="ReturnUrl" />
+          <input type="hidden" asp-for="Phone" />
+          <h1 class="mt-5 text-lg font-semibold text-zinc-800">
+            کد ورود
+          </h1>
+          <div class="my-4 text-xs text-zinc-500">
+            کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.Phone</span> را وارد کنید.
+            <a asp-page="/Login" asp-route-returnUrl="@Model.ReturnUrl" class="text-sky-500 mr-1">ویرایش شماره</a>
+          </div>
+          <partial name="_DevelopmentCode" model="Model.DevelopmentCode" />
+          <partial name="_OtpDigits" model="Model.CodeLength" />
+          @if (Model.ShowReferral)
+          {
+          <details class="mt-2 text-sm text-zinc-600">
+            <summary class="cursor-pointer text-xs text-sky-600">کد معرف دارید؟ (فقط برای ثبت نام جدید)</summary>
+            <input asp-for="ReferralCode" maxlength="20" dir="ltr" placeholder="مثلاً FRABC123" autocomplete="off"
+                   class="mt-2 text-sm block w-full bg-zinc-50 rounded-xl border border-gray-300 px-4 py-3 text-gray-700 outline-none focus:border-sky-500">
+          </details>
+          }
+          <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+            تایید و ورود
+          </button>
+        </form>
+        <form method="post" asp-page-handler="Resend" class="mt-4 text-sm">
+          <input type="hidden" name="phone" value="@Model.Phone" />
+          <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+          <button type="submit" class="text-sky-500 hover:text-sky-600">ارسال مجدد کد</button>
+        </form>
+      </div>
+    </div>
+  </main>

@@ -58,7 +58,8 @@ public class SearchModel(
     [BindProperty(SupportsGet = true)]
     public ProductSortBy Sort { get; set; } = ProductSortBy.Newest;
 
-    [BindProperty(SupportsGet = true, Name = "page")]
+    // FromQuery: "page" is also a Razor Pages route value (the page path), which would win over the query string.
+    [FromQuery(Name = "page")]
     public int PageNumber { get; set; } = 1;
 
     public ProductFilterResult Result { get; private set; } = null!;

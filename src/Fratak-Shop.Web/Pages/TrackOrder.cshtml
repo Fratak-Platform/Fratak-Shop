@@ -1,0 +1,87 @@
+@page "/track-order"
+@model TrackOrderModel
+@using Fratak_Shop.Data.Entities.Orders
+@{
+    Layout = "_Layout";
+    const string inputClass = "text-sm block w-full bg-zinc-50 rounded-xl border border-gray-300 px-4 py-3 text-gray-700 outline-none transition-all focus:border-sky-500";
+    var order = Model.Order;
+    var steps = Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps;
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1100px] mx-auto px-3 md:px-6 pb-10">
+    <div class="rounded-2xl bg-white p-5 md:p-8 shadow-lg">
+      <div class="flex items-center gap-x-2">
+        @Icons.Svg("Package", "fill-sky-500", 28)
+        <h1 class="text-lg md:text-xl font-semibold text-zinc-800">پیگیری سفارش</h1>
+      </div>
+      <p class="mt-2 text-sm text-zinc-500">شماره سفارش (مثل <span dir="ltr">FR-20260101-123456</span>) و شماره موبایلی را که هنگام خرید وارد کرده‌اید بنویسید.</p>
+      <div class="mt-5"><partial name="_ValidationSummary" /></div>
+      <form method="post" class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <input asp-for="Input.OrderNumber" placeholder="شماره سفارش" dir="ltr" maxlength="30" autocomplete="off" class="@inputClass" aria-label="شماره سفارش">
+        <input asp-for="Input.PhoneNumber" type="tel" inputmode="numeric" placeholder="شماره موبایل" dir="ltr" maxlength="11" autocomplete="tel" class="@inputClass" aria-label="شماره موبایل">
+        <button type="submit" class="rounded-xl bg-sky-500 px-8 py-3 text-sm font-bold text-white hover:bg-sky-400 transition">پیگیری</button>
+      </form>
+
+      @if (Model.Searched && order is null)
+      {
+        <div class="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600" role="alert">
+          سفارشی با این مشخصات پیدا نشد. شماره سفارش و شماره موبایل را بررسی کنید.
+        </div>
+      }
+
+      @if (order is not null)
+      {
+        var stepIndex = Array.FindIndex(steps, s => s.Status == order.Status);
+        var cancelled = order.Status is OrderStatus.Cancelled or OrderStatus.Returned;
+        <section class="mt-8 border-t border-zinc-100 pt-6" aria-label="نتیجه پیگیری">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="text-zinc-800 font-semibold">سفارش <span dir="ltr">#@order.OrderNumber</span></div>
+            <span class="rounded-full px-3 py-1 text-sm @Display.OrderStatusBadge(order.Status)">@Display.OrderStatus(order.Status)</span>
+          </div>
+          <div class="mt-2 text-xs text-zinc-500">ثبت شده در @Format.DateTime(order.CreatedAt) | وضعیت پرداخت: @Display.PaymentStatus(order.PaymentStatus)</div>
+          @if (!cancelled)
+          {
+            <ol class="mt-6 grid grid-cols-5 gap-2 text-center text-xs" aria-label="مراحل سفارش">
+              @for (var i = 0; i < steps.Length; i++)
+              {
+                var done = i <= stepIndex;
+                <li>
+                  <div class="h-2 rounded-full @(done ? "bg-sky-500" : "bg-gray-200")"></div>
+                  <div class="mt-2 @(done ? "text-sky-700" : "text-zinc-400")">@steps[i].Title</div>
+                </li>
+              }
+            </ol>
+          }
+          @if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+          {
+            <div class="mt-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              کد رهگیری مرسوله: <span class="font-semibold" dir="ltr">@order.TrackingCode</span>
+              @if (!string.IsNullOrWhiteSpace(order.ShippingMethod))
+              {
+                <span class="text-xs text-sky-600"> (@order.ShippingMethod)</span>
+              }
+            </div>
+          }
+          <ul class="mt-6 divide-y divide-zinc-100 rounded-xl border border-zinc-100">
+            @foreach (var item in order.Items)
+            {
+              <li class="flex items-center gap-3 p-3 text-sm">
+                <img src="@ImageHelper.Product(item.ProductImageName)" alt="" class="h-12 w-12 rounded-lg object-contain" loading="lazy" width="48" height="48">
+                <div class="min-w-0 flex-1 text-zinc-700">@item.ProductName</div>
+                <div class="text-xs text-zinc-500">× @item.Quantity</div>
+              </li>
+            }
+          </ul>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-50 px-4 py-3 text-sm">
+            <span class="text-zinc-600">مبلغ قابل پرداخت</span>
+            <span class="font-bold text-zinc-800">@Format.Toman(order.PayableAmount)</span>
+          </div>
+          <p class="mt-4 text-xs leading-6 text-zinc-500">
+            برای مشاهده جزئیات کامل، فاکتور و مدیریت سفارش
+            <a href="/login?returnUrl=@Uri.EscapeDataString("/profile/orders/" + order.OrderNumber.ToLowerInvariant())" class="text-sky-600">وارد حساب کاربری</a>
+            شوید.
+          </p>
+        </section>
+      }
+    </div>
+  </main>

@@ -12,4 +12,6 @@ public enum ProfileSection
     Password,
     Wallet,
     Sessions,
+    Notifications,
+    Club,
 }

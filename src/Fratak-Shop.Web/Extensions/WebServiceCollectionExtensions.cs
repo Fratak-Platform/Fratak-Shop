@@ -37,6 +37,7 @@ public static class WebServiceCollectionExtensions
 
         services.AddSingleton<IOtpService, OtpService>();
         services.AddSingleton<ISmsSender, LoggingSmsSender>();
+        services.AddSingleton<Infrastructure.Auth.ITwoFactorTicket, Infrastructure.Auth.TwoFactorTicket>();
 
         services.AddHostedService<OrderMaintenanceService>();
 

@@ -22,12 +22,15 @@ public class ProductModel(
     ICompareListService compareList,
     IPageMetaService pageMeta,
     IShippingService shippingService,
+    IRecommendationService recommendations,
     ISiteContext site) : ShopPageModel
 {
     public ProductDto Product { get; private set; } = null!;
     public List<CommentDto> Reviews { get; private set; } = [];
     public List<CommentDto> Questions { get; private set; } = [];
     public List<ProductFilterData> RelatedProducts { get; private set; } = [];
+    public List<ProductFilterData> BoughtTogether { get; private set; } = [];
+    public List<ProductFilterData> ForYou { get; private set; } = [];
     public bool IsFavorite { get; private set; }
     public bool IsInCompare { get; private set; }
 
@@ -52,6 +55,16 @@ public class ProductModel(
             return NotFound();
 
         await productService.AddProductVisitAsync(Product.Id);
+
+        if (site.Settings.IsRecommendationEnabled)
+        {
+            var viewed = RecentlyViewed.Read(Request);
+            BoughtTogether = await recommendations.GetBoughtTogetherAsync(Product.Id, 6);
+            var exclude = BoughtTogether.Select(p => p.Id).Concat(RelatedProducts.Select(p => p.Id)).Append(Product.Id).ToList();
+            ForYou = await recommendations.GetPersonalizedAsync(CurrentUserId, viewed, exclude, 10);
+        }
+
+        RecentlyViewed.Push(HttpContext, Product.Id);
         return Page();
     }
 

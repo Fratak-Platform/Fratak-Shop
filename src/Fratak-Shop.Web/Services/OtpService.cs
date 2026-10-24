@@ -32,7 +32,8 @@ public interface IOtpService
 /// <param name="Sent">False when the resend delay or the hourly limit prevented sending.</param>
 /// <param name="RetryAfter">Time until the next code can be requested.</param>
 /// <param name="DevelopmentCode">The code, only in the development environment (no SMS provider).</param>
-public record OtpSendResult(bool Sent, TimeSpan RetryAfter, string? DevelopmentCode);
+/// <param name="Blocked">True when the hourly limit of the number is reached.</param>
+public record OtpSendResult(bool Sent, TimeSpan RetryAfter, string? DevelopmentCode, bool Blocked = false);
 
 public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnvironment environment) : IOtpService
 {
@@ -64,7 +65,7 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
         })!;
 
         if (counter.Increment() > MaxCodesPerHour)
-            return new OtpSendResult(false, counter.ResetAt - now, null);
+            return new OtpSendResult(false, counter.ResetAt - now, null, Blocked: true);
 
         var max = (int)Math.Pow(10, CodeLength);
         var code = RandomNumberGenerator.GetInt32(max / 10, max).ToString();

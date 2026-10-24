@@ -124,11 +124,22 @@
     });
   });
 
-  // ── 4 digit verification code inputs ────────────────────────────────
+  // ── Persian / Arabic digits typed in numeric fields become latin digits ──
+  const toLatinDigits = (text) =>
+    String(text).replace(/[\u06F0-\u06F9\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) & 0xf));
+  document.addEventListener("input", (event) => {
+    const el = event.target;
+    if (!(el instanceof HTMLInputElement) || el.classList.contains("inputVerify")) return;
+    if (el.type !== "tel" && el.inputMode !== "numeric") return;
+    const latin = toLatinDigits(el.value);
+    if (latin !== el.value) el.value = latin;
+  });
+
+  // ── one-time code inputs (one box per digit) ────────────────────────
   const inputs = Array.from(document.querySelectorAll(".inputVerify"));
   inputs.forEach((input, index) => {
     input.addEventListener("input", () => {
-      input.value = input.value.replace(/\D/g, "").slice(-1);
+      input.value = toLatinDigits(input.value).replace(/\D/g, "").slice(-1);
       const next = inputs[index + 1];
       if (input.value && next) {
         next.removeAttribute("disabled");
@@ -146,7 +157,7 @@
       prev.focus();
     });
     input.addEventListener("paste", (event) => {
-      const text = (event.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "");
+      const text = toLatinDigits((event.clipboardData || window.clipboardData).getData("text")).replace(/\D/g, "");
       if (!text) return;
       event.preventDefault();
       inputs.forEach((target, i) => {

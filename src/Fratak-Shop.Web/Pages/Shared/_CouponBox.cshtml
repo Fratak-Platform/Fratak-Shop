@@ -1,0 +1,36 @@
+@model CouponBoxModel
+<div class="mt-4 rounded-xl border border-dashed border-sky-200 bg-sky-50/40 p-3">
+  @if (!string.IsNullOrWhiteSpace(Model.Code))
+  {
+    <div class="flex items-center gap-2">
+      @Icons.Svg("Ticket", Model.Evaluation is null ? "fill-red-400" : "fill-sky-500", 20)
+      <div class="min-w-0 flex-1 text-sm">
+        <div class="font-semibold text-zinc-700">کد تخفیف <span dir="ltr">@Model.Code</span></div>
+        @if (Model.Evaluation is { } evaluation)
+        {
+          <div class="text-xs text-emerald-600">
+            @(evaluation.FreeShipping && evaluation.ItemsDiscount == 0 ? "ارسال رایگان اعمال می‌شود" : $"{Format.Toman(evaluation.ItemsDiscount)} تخفیف")
+          </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(Model.Error))
+        {
+          <div class="text-xs text-red-500">@Model.Error</div>
+        }
+      </div>
+      <form method="post" asp-page="/Cart" asp-page-handler="RemoveCoupon">
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        <button type="submit" class="rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50">حذف</button>
+      </form>
+    </div>
+  }
+  else
+  {
+    <form method="post" asp-page="/Cart" asp-page-handler="Coupon" class="flex gap-2">
+      <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+      <label for="couponCode" class="sr-only">کد تخفیف</label>
+      <input id="couponCode" name="code" maxlength="50" dir="ltr" autocomplete="off" placeholder="کد تخفیف دارید؟"
+             class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 uppercase placeholder:normal-case placeholder:text-right outline-none focus:border-sky-400">
+      <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-sm text-white hover:bg-sky-400">اعمال</button>
+    </form>
+  }
+</div>

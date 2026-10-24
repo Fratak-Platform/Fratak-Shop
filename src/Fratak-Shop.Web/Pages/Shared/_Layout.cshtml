@@ -8,7 +8,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <partial name="_MetaTags" />
-  <meta name="theme-color" content="#0ea5e9">
+  <meta name="theme-color" content="@Site.ThemeColor">
   <link rel="icon" href="@Site.FaviconUrl">
   <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
   @* Linked separately (not through main.css @import) so the browser downloads them in parallel. *@
@@ -20,6 +20,11 @@
 </head>
 <body class="mx-auto bg-[#fcfcfc]">
   @await Component.InvokeAsync("Header")
+  @if (Site.ShowAnnouncement)
+  {
+    @* The header (with the announcement bar) is fixed: keep the page content below it. *@
+    <div class="h-9" aria-hidden="true"></div>
+  }
   <partial name="_StatusMessage" />
   <partial name="_PageAlerts" />
   @RenderBody()

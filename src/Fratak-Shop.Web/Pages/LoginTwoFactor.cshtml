@@ -1,0 +1,37 @@
+@page "/login/2fa"
+@model LoginTwoFactorModel
+@{
+    Layout = "_LayoutMinimal";
+}
+
+  <main class="max-w-[1600px] mx-auto">
+    <div class="flex justify-center items-center min-h-screen py-10">
+      <a class="absolute top-2 left-2 text-sm bg-sky-500 text-white rounded-md py-2 px-6" asp-page="/Index">
+        صفحه اصلی
+      </a>
+      <div class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
+        <form method="post">
+          <input type="hidden" asp-for="ReturnUrl" />
+          <div class="mt-5 flex items-center gap-x-2 text-zinc-800">
+            @Icons.Svg("ShieldCheck", "fill-sky-500", 24)
+            <h1 class="text-lg font-semibold">ورود دو مرحله‌ای</h1>
+          </div>
+          <div class="my-4 text-xs text-zinc-500">
+            رمز عبور تایید شد. برای ورود، کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.MaskedPhone</span> را وارد کنید.
+          </div>
+          <partial name="_DevelopmentCode" model="Model.DevelopmentCode" />
+          <partial name="_OtpDigits" model="Model.CodeLength" />
+          <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+            تایید و ورود
+          </button>
+        </form>
+        <div class="flex items-center justify-between mt-4 text-sm">
+          <form method="post" asp-page-handler="Resend">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <button type="submit" class="text-sky-500 hover:text-sky-600">ارسال مجدد کد</button>
+          </form>
+          <a asp-page="/Login" asp-route-mode="password" class="text-zinc-500 hover:text-zinc-600">انصراف</a>
+        </div>
+      </div>
+    </div>
+  </main>

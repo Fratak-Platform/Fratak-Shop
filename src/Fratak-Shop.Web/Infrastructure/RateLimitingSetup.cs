@@ -13,7 +13,7 @@ namespace Fratak_Shop.Web.Infrastructure;
 public static class RateLimitingSetup
 {
     private static readonly string[] CredentialPaths =
-        ["/login", "/register", "/verify", "/api/auth/token", "/api/auth/refresh", "/profile/password"];
+        ["/login", "/register", "/verify", "/track-order", "/api/auth/token", "/api/auth/refresh", "/profile/password"];
 
     public static IServiceCollection AddShopRateLimiting(this IServiceCollection services)
     {

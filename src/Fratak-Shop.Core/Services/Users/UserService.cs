@@ -213,7 +213,7 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
             : "ورود دو مرحله‌ای غیرفعال شد.");
     }
 
-    public async Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber)
+    public async Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber, bool allowRegistration = true)
     {
         var phone = phoneNumber?.Trim() ?? string.Empty;
         var error = Validate(phone, null, UserRole.Customer);
@@ -223,6 +223,9 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
         var now = DateTimeOffset.UtcNow;
         var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
         var created = false;
+
+        if (user is null && !allowRegistration)
+            return OperationResult<PhoneSignInResult>.Error("حسابی با این شماره موبایل ثبت نشده است؛ ابتدا از فرم ثبت نام استفاده کنید.");
 
         if (user is null)
         {

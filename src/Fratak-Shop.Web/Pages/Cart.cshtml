@@ -152,13 +152,20 @@
             </div>
           </div>
           }
+          @if (Model.Coupon is { ItemsDiscount: > 0 } coupon)
+          {
+            <div class="flex gap-x-1 justify-between items-center text-red-500 font-semibold mt-3 px-2 py-3">
+              <div>کد تخفیف <span dir="ltr">@coupon.Code</span></div>
+              <div>@Format.Toman(coupon.ItemsDiscount)</div>
+            </div>
+          }
           <div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-5 px-2 pt-5 font-black border-t">
             <div>
               جمع سبد خرید
             </div>
             <div class="flex gap-x-1">
               <div>
-                @Format.Price(cart.PayableAmount)
+                @Format.Price(Model.PayableAfterCoupon)
               </div>
               <div>
                 تومان
@@ -166,6 +173,10 @@
             </div>
           </div>
           <p class="text-xs text-zinc-500 px-2 mt-3">هزینه ارسال در مرحله بعد بر اساس روش ارسال محاسبه می‌شود.</p>
+          @if (Site.Settings.IsCouponEnabled)
+          {
+            <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/cart")' />
+          }
           @if (Model.HasProblems)
           {
             <div class="mx-auto block text-center w-full px-2 py-3 mt-8 bg-zinc-300 text-zinc-600 rounded-lg cursor-not-allowed">
@@ -182,4 +193,10 @@
       </div>
     </div>
     }
+    <partial name="_ProductRail" model='new ProductRailModel(Model.IsEmpty ? "پیشنهاد برای شما" : "پیشنهاد برای تکمیل خرید", Model.Suggestions)' />
   </main>
+
+@section Scripts {
+    <script src="~/assets/js/dependencies/swiper.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/sliders.js" asp-append-version="true"></script>
+}

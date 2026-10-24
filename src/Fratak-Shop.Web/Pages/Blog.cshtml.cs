@@ -17,7 +17,8 @@ public class BlogModel(IPostService postService, IBlogCategoryService blogCatego
     [BindProperty(SupportsGet = true, Name = "q")]
     public string? Query { get; set; }
 
-    [BindProperty(SupportsGet = true, Name = "page")]
+    // FromQuery: "page" is also a Razor Pages route value (the page path), which would win over the query string.
+    [FromQuery(Name = "page")]
     public int PageNumber { get; set; } = 1;
 
     public BlogPostFilterResult Result { get; private set; } = null!;

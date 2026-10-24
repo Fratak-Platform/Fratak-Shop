@@ -29,7 +29,7 @@ public interface IUserService
     /// Sign-in with a verified one-time SMS code: returns the user of the number and creates a
     /// passwordless customer account when the number is new (the phone counts as verified).
     /// </summary>
-    Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber);
+    Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber, bool allowRegistration = true);
 
     /// <summary>Two-step sign-in (password + SMS code); needs a password and a verified phone.</summary>
     Task<OperationResult> SetTwoFactorAsync(Guid userId, bool enabled);

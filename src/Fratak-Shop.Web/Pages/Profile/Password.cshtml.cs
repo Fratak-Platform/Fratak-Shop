@@ -19,15 +19,26 @@ public class PasswordModel(IUserService userService, IShopAuthService authServic
     [BindProperty]
     public PasswordInput Input { get; set; } = new();
 
-    public void OnGet()
+    public Core.DTOs.Users.Query.UserDto? CurrentUser { get; private set; }
+
+    public async Task OnGetAsync()
     {
-        ViewData[PageMetaKeys.Title] = "تغییر رمز عبور";
+        ViewData[PageMetaKeys.Title] = "رمز عبور و امنیت";
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
+        CurrentUser = await userService.GetUserByIdAsync(CurrentUserId!.Value);
+    }
+
+    /// <summary>Turns two-step sign-in (password + SMS code) on or off.</summary>
+    public async Task<IActionResult> OnPostTwoFactorAsync(bool enable)
+    {
+        ShowResult(await userService.SetTwoFactorAsync(CurrentUserId!.Value, enable));
+        return RedirectToPage();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        ViewData[PageMetaKeys.Title] = "تغییر رمز عبور";
+        ViewData[PageMetaKeys.Title] = "رمز عبور و امنیت";
+        CurrentUser = await userService.GetUserByIdAsync(CurrentUserId!.Value);
 
         if (!ModelState.IsValid)
             return Page();

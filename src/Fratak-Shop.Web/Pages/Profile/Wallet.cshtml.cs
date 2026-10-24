@@ -30,7 +30,8 @@ public class WalletModel(
 
     public static readonly decimal[] TopUpPresets = [100_000, 200_000, 500_000, 1_000_000];
 
-    [BindProperty(SupportsGet = true, Name = "page")]
+    // FromQuery: "page" is also a Razor Pages route value (the page path), which would win over the query string.
+    [FromQuery(Name = "page")]
     public int PageNumber { get; set; } = 1;
 
     [BindProperty]

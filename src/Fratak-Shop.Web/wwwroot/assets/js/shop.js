@@ -141,6 +141,7 @@
     const items = Number(summary.dataset.items || 0);
     const wallet = Number(summary.dataset.wallet || 0);
     const codMax = Number(summary.dataset.codMax || 0);
+    const couponDiscount = Number(summary.dataset.coupon || 0);
     const shippingOut = summary.querySelector("[data-shipping-output]");
     const totalOut = summary.querySelector("[data-total-output]");
     const freeHint = summary.querySelector("[data-free-hint]");
@@ -153,9 +154,17 @@
 
     const update = () => {
       const checked = document.querySelector("input[data-shipping-cost]:checked");
-      const cost = checked ? Number(checked.dataset.shippingCost) : 0;
-      const total = items + cost;
-      if (shippingOut) shippingOut.textContent = !checked ? "-" : cost === 0 ? "رایگان" : `${formatPrice(cost)} تومان`;
+      const fullCost = checked ? Number(checked.dataset.shippingCost) : 0;
+      const shippingDiscount = checked ? Math.min(fullCost, Number(checked.dataset.couponShipping || 0)) : 0;
+      const cost = fullCost - shippingDiscount;
+      const total = Math.max(0, items - couponDiscount) + cost;
+      if (shippingOut) {
+        shippingOut.textContent = !checked
+          ? "-"
+          : cost === 0
+            ? shippingDiscount > 0 ? "رایگان (کد تخفیف)" : "رایگان"
+            : `${formatPrice(cost)} تومان`;
+      }
       if (totalOut) totalOut.textContent = formatPrice(total);
 
       const remaining = checked ? Number(checked.dataset.remaining || 0) : 0;

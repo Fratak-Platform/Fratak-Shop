@@ -9,7 +9,7 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
 {
     private const string ContentSecurityPolicy =
         "default-src 'self'; " +
-        "img-src 'self' data: https:; " +
+        "img-src 'self' data: blob: https:; " +
         "script-src 'self'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "font-src 'self' data:; " +

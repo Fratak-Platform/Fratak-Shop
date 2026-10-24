@@ -9,7 +9,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages;
 
-public class RegisterModel(IUserService userService, IShopAuthService authService, IOtpService otpService, IPageMetaService pageMeta) : ShopPageModel
+public class RegisterModel(
+    IUserService userService,
+    IShopAuthService authService,
+    IOtpService otpService,
+    Core.Services.Events.IShopEvents events,
+    ISiteContext site,
+    IPageMetaService pageMeta) : ShopPageModel
 {
     [BindProperty]
     public RegisterInput Input { get; set; } = new();
@@ -23,6 +29,12 @@ public class RegisterModel(IUserService userService, IShopAuthService authServic
             return RedirectToLocal(ReturnUrl, "/Profile/Index");
 
         await pageMeta.ApplyAsync(ViewData, SitePage.Register, "ثبت نام");
+
+        // Invite links: /register?ref=CODE
+        var referral = Request.Query["ref"].ToString().Trim();
+        if (referral.Length is > 0 and <= 20)
+            Input.ReferralCode = referral;
+
         return Page();
     }
 
@@ -60,7 +72,8 @@ public class RegisterModel(IUserService userService, IShopAuthService authServic
         }
 
         await authService.SignInAsync(user, isPersistent: true);
-        await otpService.SendAsync(phoneNumber);
+        await events.UserRegisteredAsync(user.Id, site.Settings.IsReferralEnabled ? Input.ReferralCode?.Trim() : null);
+        await otpService.SendAsync(phoneNumber, OtpPurpose.VerifyPhone);
 
         SuccessMessage = "ثبت نام با موفقیت انجام شد؛ کد تایید برای شما پیامک شد.";
         return RedirectToPage("/Verify", new { returnUrl = ReturnUrl });
@@ -90,6 +103,9 @@ public class RegisterModel(IUserService userService, IShopAuthService authServic
         [Compare(nameof(Password), ErrorMessage = "تکرار رمز عبور با رمز عبور یکسان نیست.")]
         [DataType(DataType.Password)]
         public string ConfirmPassword { get; set; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? ReferralCode { get; set; }
 
         [Range(typeof(bool), "true", "true", ErrorMessage = "پذیرش قوانین و مقررات الزامی است.")]
         public bool AcceptRules { get; set; }

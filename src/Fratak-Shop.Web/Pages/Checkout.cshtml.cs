@@ -1,15 +1,18 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using Fratak_Shop.Core.DTOs.Locations.Query;
+using Fratak_Shop.Core.DTOs.Marketing;
 using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Shipping;
 using Fratak_Shop.Core.DTOs.Shopping.Query;
 using Fratak_Shop.Core.DTOs.Users.Query;
 using Fratak_Shop.Core.Services.Locations;
+using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Core.Services.Shipping;
 using Fratak_Shop.Core.Services.Shopping;
 using Fratak_Shop.Core.Services.Users;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Web.Infrastructure;
@@ -35,6 +38,7 @@ public class CheckoutModel(
     IShippingService shippingService,
     IOrderService orderService,
     IPaymentFlowService paymentFlow,
+    ICouponService couponService,
     ISiteContext site,
     IPageMetaService pageMeta) : ShopPageModel
 {
@@ -45,6 +49,16 @@ public class CheckoutModel(
     public List<ShippingOption> ShippingOptions { get; private set; } = [];
     public List<PaymentChoice> PaymentChoices { get; private set; } = [];
     public decimal WalletBalance { get; private set; }
+
+    /// <summary>The cart's discount code evaluated for this customer (null = none or not valid).</summary>
+    public CouponEvaluation? Coupon { get; private set; }
+
+    public string? CouponError { get; private set; }
+
+    private readonly Dictionary<Guid, decimal> _couponShippingDiscounts = [];
+
+    /// <summary>Shipping discount of a free-shipping coupon for the given method.</summary>
+    public decimal CouponShippingDiscount(Guid shippingMethodId) => _couponShippingDiscounts.GetValueOrDefault(shippingMethodId);
 
     /// <summary>Amount of the items (after product discounts) – base for free shipping and minimum order.</summary>
     public decimal ItemsAmount => Cart.PayableAmount;
@@ -135,6 +149,12 @@ public class CheckoutModel(
             timeSlotId = slot;
         }
 
+        if (!string.IsNullOrWhiteSpace(Cart.CouponCode) && Coupon is null)
+        {
+            ErrorMessage = $"کد تخفیف اعمال نمی‌شود: {CouponError} آن را حذف کنید یا کد دیگری وارد کنید.";
+            return Page();
+        }
+
         var user = await userService.GetUserByIdAsync(CurrentUserId!.Value);
         var recipient = $"{address.FirstName} {address.LastName}".Trim();
 
@@ -156,6 +176,7 @@ public class CheckoutModel(
             ShippingPostalCode = address.PostalCode,
             ShippingPhone = address.PhoneNumber,
             CustomerNote = string.IsNullOrWhiteSpace(Input.Note) ? null : Input.Note.Trim(),
+            CouponCode = Coupon?.Code,
             Items = Cart.Items
                 .Select(item => new OrderItemRequest { ProductId = item.ProductId, Quantity = item.Quantity })
                 .ToList(),
@@ -217,6 +238,8 @@ public class CheckoutModel(
             ? []
             : await shippingService.GetOptionsAsync(SelectedAddress.ProvinceId, ItemsAmount, DateTimeOffset.UtcNow, HttpContext.RequestAborted);
 
+        await EvaluateCouponAsync(userId);
+
         var user = await userService.GetUserByIdAsync(userId);
         WalletBalance = user?.WalletBalance ?? 0;
         PaymentChoices = BuildPaymentChoices();
@@ -224,6 +247,47 @@ public class CheckoutModel(
         await pageMeta.ApplyAsync(ViewData, SitePage.Checkout, "تکمیل سفارش");
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
         return true;
+    }
+
+    private async Task EvaluateCouponAsync(Guid userId)
+    {
+        if (!site.Settings.IsCouponEnabled || string.IsNullOrWhiteSpace(Cart.CouponCode))
+            return;
+
+        var lines = Cart.Items.Select(i => new CouponLine(i.ProductId, i.Quantity)).ToList();
+        var evaluation = await couponService.EvaluateAsync(new CouponEvaluationRequest
+        {
+            Code = Cart.CouponCode,
+            UserId = userId,
+            Lines = lines,
+            RequireUser = true,
+        });
+
+        if (!evaluation.IsSuccess() || evaluation.Data is null)
+        {
+            CouponError = evaluation.Message;
+            return;
+        }
+
+        Coupon = evaluation.Data;
+        if (!Coupon.FreeShipping)
+            return;
+
+        // Free-shipping codes may have a cap: the discount is computed per shipping method.
+        foreach (var option in ShippingOptions.Where(o => o.Cost > 0))
+        {
+            var perMethod = await couponService.EvaluateAsync(new CouponEvaluationRequest
+            {
+                Code = Cart.CouponCode,
+                UserId = userId,
+                Lines = lines,
+                ShippingCost = option.Cost,
+                RequireUser = true,
+            });
+
+            if (perMethod.IsSuccess() && perMethod.Data is not null)
+                _couponShippingDiscounts[option.Method.Id] = perMethod.Data.ShippingDiscount;
+        }
     }
 
     private List<PaymentChoice> BuildPaymentChoices()

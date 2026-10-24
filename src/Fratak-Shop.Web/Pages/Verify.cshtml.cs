@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Fratak_Shop.Web.Pages;
 
 /// <summary>
-/// Phone-number verification with a 4-digit one-time code (sent by SMS).
+/// Phone-number verification with a one-time code (sent by SMS).
 /// </summary>
 public class VerifyModel(IOtpService otpService, IUserService userService, IWebHostEnvironment environment) : ShopPageModel
 {
@@ -17,6 +17,8 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
     public string[] Digits { get; set; } = [];
 
     public string PhoneNumber { get; private set; } = string.Empty;
+
+    public int CodeLength => otpService.CodeLength;
 
     /// <summary>The code is shown on the page in development (no SMS provider configured).</summary>
     public string? DevelopmentCode { get; private set; }
@@ -46,7 +48,7 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
 
         var code = string.Concat(Digits.Select(d => d?.Trim()));
 
-        if (code.Length != 4 || !otpService.Verify(phone, code))
+        if (code.Length != otpService.CodeLength || !otpService.Verify(phone, code, OtpPurpose.VerifyPhone))
         {
             ErrorMessage = "کد وارد شده صحیح نیست یا منقضی شده است.";
             return RedirectToPage(new { returnUrl = ReturnUrl });
