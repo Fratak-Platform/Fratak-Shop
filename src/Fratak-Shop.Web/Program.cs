@@ -229,6 +229,9 @@ if (app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.SeedDemoData)
 {
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+    await Fratak_Shop.Web.Infrastructure.Seeders.Round5DemoSeeder.SeedAsync(
+        scope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>(),
+        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.DemoData"));
 }
 
 app.Run();

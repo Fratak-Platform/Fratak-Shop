@@ -48,3 +48,16 @@ public static class IranClock
         return new DateTimeOffset(local, TimeZone.GetUtcOffset(local));
     }
 }
+
+/// <summary>Solar Hijri formatting for texts created in the core layer (notifications, SMS).</summary>
+public static class PersianDate
+{
+    private static readonly System.Globalization.PersianCalendar Calendar = new();
+
+    /// <summary>"1405/08/02 - 14:30" in Iran time.</summary>
+    public static string Format(DateTimeOffset moment)
+    {
+        var local = TimeZoneInfo.ConvertTime(moment, IranClock.TimeZone).DateTime;
+        return $"{Calendar.GetYear(local):0000}/{Calendar.GetMonth(local):00}/{Calendar.GetDayOfMonth(local):00} - {local:HH:mm}";
+    }
+}

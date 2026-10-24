@@ -107,6 +107,10 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
             && !System.Text.RegularExpressions.Regex.IsMatch(command.InvoiceNumberPrefix.Trim(), "^[A-Za-z]{1,10}$"))
             return "پیشوند شماره فاکتور باید فقط حروف لاتین (حداکثر ۱۰ حرف) باشد.";
 
+        var round5 = ValidateRound5(command);
+        if (round5 is not null)
+            return round5;
+
         if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor))
             return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0ea5e9).";
 
@@ -123,6 +127,73 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         };
         if (links.Any(link => !string.IsNullOrWhiteSpace(link) && !IsHttp(link)))
             return "لینک شبکه‌های اجتماعی باید با http:// یا https:// شروع شود.";
+
+        return null;
+    }
+
+    /// <summary>Round 5 features (same ranges as the CK_StoreSettings_Round5 database check).</summary>
+    private static string? ValidateRound5(StoreSettingCommand command)
+    {
+        if (command.ProductAlertMaxPerUser is < 1 or > 500)
+            return "حداکثر «خبرم کن» هر کاربر باید بین ۱ تا ۵۰۰ باشد.";
+
+        if (command.GiftCardMinAmount < 10_000 || command.GiftCardMaxAmount < command.GiftCardMinAmount || command.GiftCardMaxAmount > 1_000_000_000)
+            return "حداقل و حداکثر مبلغ کارت هدیه معتبر نیست (حداقل ۱۰٬۰۰۰ تومان و حداکثر ≥ حداقل).";
+
+        if (command.GiftCardValidDays is < 1 or > 3650)
+            return "مدت اعتبار کارت هدیه باید بین ۱ تا ۳۶۵۰ روز باشد.";
+
+        if (!string.IsNullOrWhiteSpace(command.GiftCardPresetAmounts)
+            && !command.GiftCardPresetAmounts.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .All(part => long.TryParse(part, out var value) && value > 0))
+            return "مبالغ پیشنهادی کارت هدیه باید اعداد مثبت جدا شده با کاما باشند.";
+
+        if (command.ReferralCookieDays is < 1 or > 365)
+            return "مدت نگهداری کد دعوت باید بین ۱ تا ۳۶۵ روز باشد.";
+
+        if (command.CaptchaAfterFailedAttempts is < 0 or > 20)
+            return "تعداد تلاش ناموفق پیش از کپچا باید بین ۰ تا ۲۰ باشد.";
+
+        if (command.PriceHistoryDays is < 7 or > 730)
+            return "بازه نمودار تغییر قیمت باید بین ۷ تا ۷۳۰ روز باشد.";
+
+        if (command.MapDefaultLatitude is < -90 or > 90 || command.MapDefaultLongitude is < -180 or > 180 || command.MapDefaultZoom is < 1 or > 19)
+            return "موقعیت پیش‌فرض نقشه معتبر نیست.";
+
+        if (!string.IsNullOrWhiteSpace(command.MapTileUrl)
+            && (!command.MapTileUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                || !command.MapTileUrl.Contains("{z}") || !command.MapTileUrl.Contains("{x}") || !command.MapTileUrl.Contains("{y}")))
+            return "آدرس کاشی نقشه باید https و شامل {z}، {x} و {y} باشد.";
+
+        if (command.ReturnWindowDays is < 1 or > 365 || command.ReturnMaxImages is < 0 or > 10)
+            return "تنظیمات مرجوعی معتبر نیست (مهلت ۱ تا ۳۶۵ روز، حداکثر ۱۰ تصویر).";
+
+        if (command.OrderFeedbackWindowDays is < 1 or > 365)
+            return "مهلت ثبت نظر درباره تجربه خرید باید بین ۱ تا ۳۶۵ روز باشد.";
+
+        if (command.DefaultTheme is < 0 or > 2)
+            return "پوسته پیش‌فرض معتبر نیست.";
+
+        if (command.PopularSearchesCount is < 0 or > 30 || command.PopularSearchMinCount < 1)
+            return "تنظیمات جست‌وجوهای پرتکرار معتبر نیست.";
+
+        if (command.TicketMaxOpenPerUser is < 1 or > 50 || command.TicketMaxAttachments is < 0 or > 10 || command.TicketMaxAttachmentSizeKb is < 100 or > 10240)
+            return "تنظیمات تیکت پشتیبانی معتبر نیست.";
+
+        if (!string.IsNullOrWhiteSpace(command.VapidSubject)
+            && !command.VapidSubject.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)
+            && !command.VapidSubject.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return "شناسه VAPID باید با mailto: یا https:// شروع شود.";
+
+        if (command.ImageQuality is < 40 or > 95)
+            return "کیفیت تصاویر بهینه باید بین ۴۰ تا ۹۵ باشد.";
+
+        if (command.PageCacheSeconds is < 10 or > 86400)
+            return "مدت کش صفحات باید بین ۱۰ ثانیه تا ۱ روز باشد.";
+
+        if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
+            && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
+            return "نام کاربری ایکس (توییتر) معتبر نیست.";
 
         return null;
     }

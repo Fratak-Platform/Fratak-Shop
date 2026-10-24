@@ -56,6 +56,9 @@ public class NotificationContent
 
     /// <summary>SMS text; sent when not empty.</summary>
     public string? SmsText { get; set; }
+
+    /// <summary>Also send a browser push notification to the customer's subscribed devices.</summary>
+    public bool Push { get; set; } = true;
 }
 
 /// <summary>Manual broadcast (admin panel): coupon campaigns, news, maintenance notices, ...</summary>

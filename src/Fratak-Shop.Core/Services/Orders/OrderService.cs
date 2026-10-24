@@ -249,6 +249,9 @@ public class OrderService(
 
         await transaction.CommitAsync();
 
+        // Stock was reserved with bulk updates: availability on cached pages must refresh.
+        Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(Fratak_Shop.Data.Entities.Products.Product));
+
         await events.OrderPlacedAsync(order.Id);
         if (order.PaymentStatus == PaymentStatus.Paid)
             await events.OrderPaidAsync(order.Id);
@@ -372,6 +375,8 @@ public class OrderService(
             return OperationResult.Error(error);
 
         order.Status = status;
+        if (status == OrderStatus.Delivered)
+            order.DeliveredAt ??= DateTimeOffset.UtcNow; // starts the return / feedback windows
         await context.SaveChangesAsync();
 
         await events.OrderStatusChangedAsync(order.Id, status);
@@ -791,6 +796,9 @@ public class OrderService(
                     .SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity)
                     .SetProperty(p => p.SalesCount, p => p.SalesCount >= quantity ? p.SalesCount - quantity : 0));
         }
+
+        // Bulk updates bypass SaveChanges: tell the caches (availability shown on pages) explicitly.
+        Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(Fratak_Shop.Data.Entities.Products.Product));
     }
 
     private static string? ValidatePaymentMethod(CreateOrderCommand command, StoreSettingDto settings)

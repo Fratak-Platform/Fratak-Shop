@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Notifications;
 using Fratak_Shop.Core.Services.Loyalty;
 using Fratak_Shop.Core.Services.Notifications;
@@ -38,6 +39,11 @@ public interface IShopEvents
     Task CommentApprovedAsync(Guid commentId);
 
     Task SecurityEventAsync(Guid userId, NotificationEvent @event);
+
+    Task GiftCardPurchasedAsync(Guid userId, string reference, decimal amount);
+
+    /// <summary>Sign-in from a browser / device the customer never used before.</summary>
+    Task NewDeviceSignInAsync(Guid userId, string deviceName, string? ipAddress);
 }
 
 public class ShopEvents(
@@ -50,6 +56,7 @@ public class ShopEvents(
     private ILoyaltyService Loyalty => services.GetRequiredService<ILoyaltyService>();
     private Orders.IInvoiceService Invoices => services.GetRequiredService<Orders.IInvoiceService>();
     private Shopping.IAbandonedCartService AbandonedCarts => services.GetRequiredService<Shopping.IAbandonedCartService>();
+    private Orders.IOrderFeedbackService Feedback => services.GetRequiredService<Orders.IOrderFeedbackService>();
 
     public Task OrderPlacedAsync(Guid orderId) => RunAsync(nameof(OrderPlacedAsync), async () =>
     {
@@ -95,6 +102,7 @@ public class ShopEvents(
         {
             await Invoices.EnsureIssuedAsync(orderId);  // cash on delivery: invoice once delivered
             await Loyalty.OnOrderSettledAsync(orderId); // club points only for delivered orders (idempotent)
+            await Feedback.RequestAsync(orderId);       // «امتیاز به تجربه خرید»
         }
         else if (status is OrderStatus.Cancelled or OrderStatus.Returned)
             await Loyalty.RevertOrderAsync(orderId);
@@ -176,6 +184,31 @@ public class ShopEvents(
             Event = @event,
             Category = NotificationCategory.Security,
             LinkUrl = "/profile/password",
+        }));
+
+    public Task GiftCardPurchasedAsync(Guid userId, string reference, decimal amount) => RunAsync(nameof(GiftCardPurchasedAsync), () =>
+        Notifications.NotifyAsync(new NotificationRequest
+        {
+            UserId = userId,
+            Event = NotificationEvent.GiftCardPurchased,
+            Category = NotificationCategory.Wallet,
+            LinkUrl = "/profile/gift-cards",
+            Values = { ["Amount"] = amount.ToString("N0"), ["Reference"] = reference },
+        }));
+
+    public Task NewDeviceSignInAsync(Guid userId, string deviceName, string? ipAddress) => RunAsync(nameof(NewDeviceSignInAsync), () =>
+        Notifications.NotifyAsync(new NotificationRequest
+        {
+            UserId = userId,
+            Event = NotificationEvent.NewDeviceLogin,
+            Category = NotificationCategory.Security,
+            LinkUrl = "/profile/sessions",
+            Values =
+            {
+                ["Device"] = deviceName,
+                ["Ip"] = string.IsNullOrWhiteSpace(ipAddress) ? "نامشخص" : ipAddress,
+                ["Time"] = PersianDate.Format(DateTimeOffset.UtcNow),
+            },
         }));
 
     private async Task NotifyOrderAsync(OrderSnapshot order, NotificationEvent @event)

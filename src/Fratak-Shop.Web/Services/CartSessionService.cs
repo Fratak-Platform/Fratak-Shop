@@ -64,8 +64,9 @@ public class CartSessionService(IHttpContextAccessor httpContextAccessor, ICartS
         if (guestKey is null)
             return;
 
+        // Merged even when only «خرید بعدی» holds items.
         var guestCart = await cartService.GetCartBySessionAsync(guestKey);
-        if (guestCart is not null && guestCart.Items.Count > 0)
+        if (guestCart is not null)
             await cartService.MergeGuestCartAsync(guestKey, userId);
 
         httpContextAccessor.HttpContext?.Response.Cookies.Delete(GuestCookieName);

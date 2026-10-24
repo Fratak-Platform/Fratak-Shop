@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -19,7 +20,7 @@ public interface ISitemapService
 /// </summary>
 public class SitemapService(FratakShopDbContext context, IMemoryCache cache) : ISitemapService
 {
-    private const string CacheKey = "core:sitemap";
+    private const string CacheKey = CacheInvalidation.SitemapKey;
     private const int MaxUrls = 45_000; // sitemap protocol limit is 50,000
 
     public async Task<IReadOnlyList<SitemapEntry>> GetEntriesAsync(CancellationToken cancellationToken = default)

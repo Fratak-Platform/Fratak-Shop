@@ -222,6 +222,7 @@ public class CartService(FratakShopDbContext context) : ICartService
         var guestCart = await context.Carts
             .AsTracking()
             .Include(x => x.Items)
+            .Include(x => x.SavedItems)
             .FirstOrDefaultAsync(x => x.SessionKey == sessionKey.Trim() && x.UserId == null);
 
         if (guestCart is null)
@@ -230,6 +231,7 @@ public class CartService(FratakShopDbContext context) : ICartService
         var userCart = await context.Carts
             .AsTracking()
             .Include(x => x.Items)
+            .Include(x => x.SavedItems)
             .FirstOrDefaultAsync(x => x.UserId == userId);
 
         // کاربر سبدی ندارد؛ همان سبد مهمان به حساب او منتقل می‌شود.
@@ -288,6 +290,15 @@ public class CartService(FratakShopDbContext context) : ICartService
             {
                 existingItem.Quantity = quantity;
             }
+        }
+
+        // «خرید بعدی» of the guest moves along (unless already in the customer's cart or list).
+        foreach (var saved in guestCart.SavedItems.ToList())
+        {
+            if (userCart.SavedItems.All(x => x.ProductId != saved.ProductId) && userCart.Items.All(x => x.ProductId != saved.ProductId))
+                userCart.SavedItems.Add(new SavedCartItem { CartId = userCart.Id, ProductId = saved.ProductId, Quantity = saved.Quantity });
+
+            context.SavedCartItems.Remove(saved);
         }
 
         foreach (var item in guestCart.Items.ToList())

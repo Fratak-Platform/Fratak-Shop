@@ -20,6 +20,7 @@ using Fratak_Shop.Core.Services.Shopping;
 using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Core.Services.Wallets;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Fratak_Shop.Core;
 
@@ -30,6 +31,7 @@ public static class CoreLayerBootstrapper
         // Settings, shipping methods and layout content are read on every request and
         // cached in memory; the services invalidate the cache when the data changes.
         services.AddMemoryCache();
+        services.TryAddSingleton<Services.Notifications.IPushSender, Services.Notifications.NullPushSender>();
 
         services.AddScoped<IStoreSettingService, StoreSettingService>();
         services.AddScoped<Services.Seo.ISitemapService, Services.Seo.SitemapService>();
@@ -72,6 +74,22 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Products.ISearchSuggestService, Services.Products.SearchSuggestService>();
         services.AddScoped<Services.Reports.IReportService, Services.Reports.ReportService>();
         services.AddScoped<Services.Products.IRecommendationService, Services.Products.RecommendationService>();
+
+        // Round 5: alerts, price history, videos, gift cards, devices, «خرید بعدی», returns,
+        // shopping-experience rating, smart search, Q&A votes, support tickets, web push, SEO traffic.
+        services.AddScoped<IProductAlertService, ProductAlertService>();
+        services.AddScoped<IPriceHistoryService, PriceHistoryService>();
+        services.AddScoped<IProductVideoService, ProductVideoService>();
+        services.AddScoped<IGiftCardService, GiftCardService>();
+        services.AddScoped<IKnownDeviceService, KnownDeviceService>();
+        services.AddScoped<ISaveForLaterService, SaveForLaterService>();
+        services.AddScoped<IReturnService, ReturnService>();
+        services.AddScoped<IOrderFeedbackService, OrderFeedbackService>();
+        services.AddScoped<Services.Searches.ISearchInsightsService, Services.Searches.SearchInsightsService>();
+        services.AddScoped<ICommentEngagementService, CommentEngagementService>();
+        services.AddScoped<Services.Support.ITicketService, Services.Support.TicketService>();
+        services.AddScoped<Services.Notifications.IWebPushService, Services.Notifications.WebPushService>();
+        services.AddScoped<Services.Seo.ISeoTrafficService, Services.Seo.SeoTrafficService>();
 
         return services;
     }

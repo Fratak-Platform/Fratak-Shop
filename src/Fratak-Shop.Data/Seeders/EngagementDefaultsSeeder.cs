@@ -40,6 +40,9 @@ public static class EngagementDefaultsSeeder
         await SeedShippingRatesAsync(context, cancellationToken);
         await SeedAbandonedCartStepsAsync(context, cancellationToken);
         await SeedPageAlertsAsync(context, cancellationToken);
+
+        // Round 5
+        await Round5DefaultsSeeder.SeedAsync(context, cancellationToken);
     }
 
     /// <summary>Texts of the round-4 settings (club description, install suggestion) – once, when still empty.</summary>

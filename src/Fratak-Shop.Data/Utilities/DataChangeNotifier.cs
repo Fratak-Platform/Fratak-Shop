@@ -20,6 +20,9 @@ public static class DataChangeNotifier
 
     public static long VersionOf(Type type) => Versions.TryGetValue(type, out var version) ? version : 0;
 
+    /// <summary>Entity types that changed at least once since start-up.</summary>
+    public static ICollection<Type> KnownTypes() => Versions.Keys;
+
     public static void Publish(params Type[] types) => Publish((IReadOnlyCollection<Type>)types);
 
     public static void Publish(IReadOnlyCollection<Type> types)

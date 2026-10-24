@@ -38,6 +38,7 @@ public partial class NotificationService(
     IStoreSettingService settingService,
     IMemoryCache cache,
     ISmsSender smsSender,
+    IPushSender pushSender,
     ILogger<NotificationService> logger) : INotificationService
 {
     private static readonly TimeSpan UnreadCacheLifetime = TimeSpan.FromSeconds(60);
@@ -48,10 +49,11 @@ public partial class NotificationService(
         {
             string title, body;
             string? linkText, smsText;
-            bool inSite;
+            bool inSite, push;
             if (request.Content is { } content)
             {
                 (title, body, linkText, inSite, smsText) = (content.Title, content.Body, content.LinkText, content.InSite, content.SmsText);
+                push = content.Push;
             }
             else
             {
@@ -61,6 +63,8 @@ public partial class NotificationService(
 
                 (title, body, linkText, inSite) = (template.Title, template.Body, template.LinkText, template.IsActive);
                 smsText = template.SendSms ? template.SmsText : null;
+                // Every channel is switchable per event (admin panel): in-site = IsActive, SMS, push.
+                push = template.IsActive && template.SendPush;
             }
 
             var settings = await settingService.GetAsync();
@@ -89,6 +93,16 @@ public partial class NotificationService(
 
                 await context.SaveChangesAsync();
                 cache.Remove(UnreadKey(request.UserId));
+            }
+
+            if (push && settings.CanUseWebPush && !string.IsNullOrWhiteSpace(title))
+            {
+                pushSender.Enqueue(new PushMessage(
+                    request.UserId,
+                    Limit(Render(title, request.Values), 120),
+                    Limit(Render(body, request.Values), 240),
+                    IsSafeLink(request.LinkUrl) ? request.LinkUrl : "/profile/notifications",
+                    request.Event.ToString()));
             }
 
             if (!string.IsNullOrWhiteSpace(smsText))

@@ -26,8 +26,8 @@ public class PaymentTransactionService(
         if (command.Purpose == PaymentPurpose.OrderPayment && command.OrderId is null)
             return OperationResult<Guid>.Error("سفارش پرداخت مشخص نیست.");
 
-        if (command.Purpose == PaymentPurpose.WalletTopUp && command.UserId is null)
-            return OperationResult<Guid>.Error("برای شارژ کیف پول وارد حساب کاربری شوید.");
+        if (command.Purpose is PaymentPurpose.WalletTopUp or PaymentPurpose.GiftCard && command.UserId is null)
+            return OperationResult<Guid>.Error("برای این پرداخت وارد حساب کاربری شوید.");
 
         var transaction = new PaymentTransaction
         {
@@ -154,6 +154,7 @@ public class PaymentTransactionService(
             };
         }
 
+        Marketing.GiftCardActivation? giftCard = null;
         var result = new PaymentCompletionResult
         {
             Succeeded = true,
@@ -177,6 +178,33 @@ public class PaymentTransactionService(
                 throw new InvalidOperationException($"Wallet top-up {payment.Id} could not be credited: {credit.Message}");
 
             result.Message = $"کیف پول شما به مبلغ {payment.Amount:N0} تومان شارژ شد.";
+        }
+        else if (payment.Purpose == PaymentPurpose.GiftCard)
+        {
+            giftCard = await Marketing.GiftCardService.ActivatePaidAsync(context, payment.Id);
+            if (giftCard is { Activated: true })
+            {
+                result.Message = $"کارت هدیه {giftCard.Reference} به مبلغ {giftCard.Amount:N0} تومان صادر شد.";
+            }
+            else
+            {
+                // The card was cancelled meanwhile (paid after a day): the money goes to the wallet.
+                var credit = await walletService.CreditAsync(new WalletEntry
+                {
+                    UserId = payment.UserId!.Value,
+                    Amount = payment.Amount,
+                    Type = WalletTransactionType.TopUp,
+                    Description = $"مبلغ پرداختی کارت هدیه (منقضی شده) — کد پیگیری {refId}",
+                    PaymentTransactionId = payment.Id,
+                });
+
+                if (!credit.IsSuccess())
+                    throw new InvalidOperationException($"Gift card payment {payment.Id} could not be refunded to the wallet: {credit.Message}");
+
+                giftCard = null;
+                result.CreditedToWallet = true;
+                result.Message = "مهلت پرداخت کارت هدیه گذشته بود؛ مبلغ پرداختی به کیف پول شما واریز شد.";
+            }
         }
         else
         {
@@ -222,6 +250,8 @@ public class PaymentTransactionService(
         // Notifications / club points only after the payment is safely stored.
         if (payment.Purpose == PaymentPurpose.WalletTopUp)
             await events.WalletChangedAsync(payment.UserId!.Value, NotificationEvent.WalletTopUp, payment.Amount);
+        else if (giftCard is not null)
+            await events.GiftCardPurchasedAsync(giftCard.PurchaserUserId, giftCard.Reference, giftCard.Amount);
         else if (result.CreditedToWallet)
             await events.WalletChangedAsync(payment.UserId!.Value, NotificationEvent.WalletAdjusted, payment.Amount, result.Message);
         else if (payment.OrderId.HasValue)

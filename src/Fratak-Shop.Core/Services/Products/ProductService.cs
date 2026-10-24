@@ -204,16 +204,8 @@ public class ProductService(FratakShopDbContext context) : IProductService
 
         var query = context.Products.AsQueryable();
 
-        // Every word has to match somewhere (name, English name, slug, SKU, brand, category).
-        foreach (var term in SearchText.Terms(filterParams.Search))
-        {
-            query = query.Where(x => x.Name.Contains(term)
-                                     || (x.EnglishName != null && x.EnglishName.Contains(term))
-                                     || x.Slug.Contains(term)
-                                     || x.SKU.Contains(term)
-                                     || (x.Brand != null && (x.Brand.Name.Contains(term) || (x.Brand.EnglishName != null && x.Brand.EnglishName.Contains(term))))
-                                     || x.Category.Name.Contains(term));
-        }
+        // Every word (or one of its synonyms) has to match somewhere (name, English name, slug, SKU, brand, category).
+        query = ProductSearch.Apply(query, filterParams.SearchTermGroups ?? ProductSearch.PlainGroups(filterParams.Search));
 
         if (filterParams.CategoryId.HasValue)
             query = query.Where(x => x.CategoryId == filterParams.CategoryId.Value

@@ -72,7 +72,8 @@ public class CommentService(
 
         var isProductReview = command.ProductId is not null && command.ParentId is null && command.Type == CommentType.Review;
         var verifiedPurchase = false;
-        if (command.ProductId is not null && command.Type == CommentType.Review)
+        // Reviews and answers to product questions get the «خریدار» badge.
+        if (command.ProductId is not null && (command.Type == CommentType.Review || command.ParentId is not null))
             verifiedPurchase = await HasPurchasedAsync(command.UserId, command.ProductId.Value);
 
         if (isProductReview)
@@ -266,7 +267,27 @@ public class CommentService(
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
-        return comments.Map();
+        var result = comments.Map();
+
+        // Team answers first, then the most helpful customer answers.
+        var authorIds = result.SelectMany(c => c.Replies).Where(r => r.UserId.HasValue).Select(r => r.UserId!.Value).Distinct().ToList();
+        var staff = authorIds.Count == 0
+            ? new List<Guid>()
+            : await context.Users.Where(u => authorIds.Contains(u.Id) && u.Role != Data.Entities.Users.UserRole.Customer).Select(u => u.Id).ToListAsync();
+
+        foreach (var comment in result)
+        {
+            foreach (var reply in comment.Replies)
+                reply.IsStaff = reply.UserId.HasValue && staff.Contains(reply.UserId.Value);
+
+            comment.Replies = comment.Replies
+                .OrderByDescending(r => r.IsStaff)
+                .ThenByDescending(r => r.HelpfulCount - r.NotHelpfulCount)
+                .ThenBy(r => r.CreatedAt)
+                .ToList();
+        }
+
+        return result;
     }
 
     public async Task<List<CommentDto>> GetRepliesAsync(Guid parentId)

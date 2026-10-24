@@ -69,6 +69,12 @@ public class ProductFilterParams : BaseFilterParam
     /// <summary>جستجو در نام، اسلاگ و کد کالا.</summary>
     public string? Search { get; set; }
 
+    /// <summary>
+    /// Search words with their synonyms (from the smart search). When set, it replaces the plain
+    /// words of <see cref="Search"/>: every group must match, any alternative of a group may match.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<string>>? SearchTermGroups { get; set; }
+
     public Guid? CategoryId { get; set; }
 
     /// <summary>

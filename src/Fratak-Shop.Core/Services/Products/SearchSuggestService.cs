@@ -18,7 +18,7 @@ public interface ISearchSuggestService
     Task<SearchSuggestionsDto> SuggestAsync(string? query, CancellationToken cancellationToken = default);
 }
 
-public class SearchSuggestService(FratakShopDbContext context, IMemoryCache cache) : ISearchSuggestService
+public class SearchSuggestService(FratakShopDbContext context, IMemoryCache cache, Searches.ISearchInsightsService insights) : ISearchSuggestService
 {
     private const int ProductCount = 6;
     private const int LinkCount = 4;
@@ -33,7 +33,8 @@ public class SearchSuggestService(FratakShopDbContext context, IMemoryCache cach
         if (normalized.Length < ISearchSuggestService.MinLength)
             return new SearchSuggestionsDto { Query = normalized };
 
-        var key = "core:search-suggest:" + normalized.ToLowerInvariant();
+        // Version-keyed: a product/category/brand change makes every cached suggestion obsolete at once.
+        var key = $"core:search-suggest:{CacheInvalidation.CatalogVersion}:{normalized.ToLowerInvariant()}";
         return await cache.GetOrCreateAsync(key, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheLifetime;
@@ -47,15 +48,9 @@ public class SearchSuggestService(FratakShopDbContext context, IMemoryCache cach
         var first = terms[0];
         var now = DateTimeOffset.UtcNow;
 
-        var products = context.Products.Where(p => p.IsActive && p.Category.IsActive);
-        foreach (var term in terms)
-        {
-            products = products.Where(x => x.Name.Contains(term)
-                                           || (x.EnglishName != null && x.EnglishName.Contains(term))
-                                           || x.SKU.Contains(term)
-                                           || (x.Brand != null && (x.Brand.Name.Contains(term) || (x.Brand.EnglishName != null && x.Brand.EnglishName.Contains(term))))
-                                           || x.Category.Name.Contains(term));
-        }
+        // Same matching as the search page, synonyms included.
+        var groups = await insights.ExpandAsync(normalized);
+        var products = ProductSearch.Apply(context.Products.Where(p => p.IsActive && p.Category.IsActive), groups);
 
         var total = await products.CountAsync(cancellationToken);
         var rows = await products

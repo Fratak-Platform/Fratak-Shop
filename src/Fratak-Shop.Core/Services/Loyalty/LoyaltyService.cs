@@ -46,6 +46,12 @@ public interface ILoyaltyService
 
     Task<string?> EnsureReferralCodeAsync(Guid userId);
 
+    /// <summary>Invite-friends statistics of a customer.</summary>
+    Task<DTOs.Engagement.ReferralStatsDto> GetReferralStatsAsync(Guid userId);
+
+    /// <summary>Validates a referral code (exists and belongs to someone else than <paramref name="userId"/>).</summary>
+    Task<bool> IsValidReferralCodeAsync(string? code, Guid? userId = null);
+
     /// <summary>Expires points older than the configured lifetime (FIFO). Returns the number of affected customers.</summary>
     Task<int> ExpirePointsAsync(DateTimeOffset now, CancellationToken cancellationToken = default);
 
@@ -457,7 +463,77 @@ public class LoyaltyService(
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.ReferredByUserId, referrerId));
 
         if (linked == 1)
+        {
             await AwardAsync(newUserId, LoyaltyAction.ReferralSignup, "referral-signup", description: "ثبت‌نام با کد معرف");
+
+            var friendName = await context.Users.Where(u => u.Id == newUserId).Select(u => u.FirstName).FirstOrDefaultAsync();
+            await notifications.NotifyAsync(new NotificationRequest
+            {
+                UserId = referrerId.Value,
+                Event = NotificationEvent.ReferralJoined,
+                Category = NotificationCategory.Loyalty,
+                LinkUrl = "/profile/invite",
+                Values = { ["FriendName"] = string.IsNullOrWhiteSpace(friendName) ? "یکی از دوستانتان" : friendName },
+            });
+        }
+    }
+
+    public async Task<bool> IsValidReferralCodeAsync(string? code, Guid? userId = null)
+    {
+        if (string.IsNullOrWhiteSpace(code) || code.Trim().Length > 20)
+            return false;
+
+        var normalized = code.Trim().ToUpperInvariant();
+        return await context.Users.AnyAsync(u => u.ReferralCode == normalized && (userId == null || u.Id != userId));
+    }
+
+    public async Task<DTOs.Engagement.ReferralStatsDto> GetReferralStatsAsync(Guid userId)
+    {
+        var settings = await settingService.GetAsync();
+        var code = settings.IsReferralEnabled ? await EnsureReferralCodeAsync(userId) : null;
+
+        var friends = await context.Users
+            .Where(u => u.ReferredByUserId == userId)
+            .OrderByDescending(u => u.CreatedAt)
+            .Take(100)
+            .Select(u => new
+            {
+                u.FirstName,
+                u.LastName,
+                u.CreatedAt,
+                Purchased = context.Orders.Any(o => o.UserId == u.Id && o.Status == Data.Entities.Orders.OrderStatus.Delivered),
+            })
+            .ToListAsync();
+
+        var invited = await context.Users.CountAsync(u => u.ReferredByUserId == userId);
+        var earned = await context.LoyaltyTransactions
+            .Where(t => t.UserId == userId && t.Action == LoyaltyAction.Referral)
+            .SumAsync(t => (int?)t.Points) ?? 0;
+
+        var program = await GetProgramAsync();
+        int RuleOf(LoyaltyAction action) => program.Rules.FirstOrDefault(r => r.Action == action)?.Points ?? 0;
+
+        return new DTOs.Engagement.ReferralStatsDto
+        {
+            Code = code,
+            InvitedCount = invited,
+            PurchasedCount = friends.Count(f => f.Purchased),
+            PointsEarned = earned,
+            RewardPointsPerFriend = RuleOf(LoyaltyAction.Referral),
+            SignupBonusPoints = RuleOf(LoyaltyAction.ReferralSignup),
+            RewardDescription = program.Rules.FirstOrDefault(r => r.Action == LoyaltyAction.Referral) is { } rule
+                ? rule.Description ?? rule.Title
+                : null,
+            Friends = friends.Select(f => new DTOs.Engagement.ReferredFriend(MaskName(f.FirstName, f.LastName), f.CreatedAt, f.Purchased)).ToList(),
+        };
+    }
+
+    /// <summary>"علی م." – enough to recognise a friend, nothing more.</summary>
+    private static string MaskName(string? first, string? last)
+    {
+        if (string.IsNullOrWhiteSpace(first))
+            return "کاربر جدید";
+        return string.IsNullOrWhiteSpace(last) ? first.Trim() : $"{first.Trim()} {last.Trim()[0]}.";
     }
 
     public async Task<string?> EnsureReferralCodeAsync(Guid userId)
