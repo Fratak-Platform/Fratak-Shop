@@ -64,13 +64,16 @@ public class ReportService(FratakShopDbContext context) : IReportService
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var coupons = await orders
-            .Where(o => o.CouponCode != null)
-            .GroupBy(o => o.CouponCode!)
-            .Select(g => new CouponUsageRow(g.Key, g.Count(), g.Sum(o => o.CouponDiscountAmount), g.Sum(o => o.PayableAmount)))
-            .OrderByDescending(r => r.Discount)
-            .Take(50)
-            .ToListAsync(cancellationToken);
+        // Anonymous projection: EF translates ordering by its members (not by record properties).
+        var coupons = (await orders
+                .Where(o => o.CouponCode != null)
+                .GroupBy(o => o.CouponCode!)
+                .Select(g => new { Code = g.Key, Orders = g.Count(), Discount = g.Sum(o => o.CouponDiscountAmount), Sales = g.Sum(o => o.PayableAmount) })
+                .OrderByDescending(r => r.Discount)
+                .Take(50)
+                .ToListAsync(cancellationToken))
+            .Select(r => new CouponUsageRow(r.Code, r.Orders, r.Discount, r.Sales))
+            .ToList();
 
         return new DiscountReportDto
         {
@@ -101,12 +104,14 @@ public class ReportService(FratakShopDbContext context) : IReportService
             .Select(g => new { Type = g.Key, Points = g.Sum(t => t.Points), Users = g.Select(t => t.UserId).Distinct().Count() })
             .ToListAsync(cancellationToken);
 
-        var byAction = await transactions
-            .Where(t => t.Type == LoyaltyTransactionType.Earn && t.Action != null)
-            .GroupBy(t => t.Action!.Value)
-            .Select(g => new LoyaltyActionRow(g.Key, g.Sum(t => t.Points), g.Count()))
-            .OrderByDescending(r => r.Points)
-            .ToListAsync(cancellationToken);
+        var byAction = (await transactions
+                .Where(t => t.Type == LoyaltyTransactionType.Earn && t.Action != null)
+                .GroupBy(t => t.Action!.Value)
+                .Select(g => new { Action = g.Key, Points = g.Sum(t => t.Points), Count = g.Count() })
+                .OrderByDescending(r => r.Points)
+                .ToListAsync(cancellationToken))
+            .Select(r => new LoyaltyActionRow(r.Action, r.Points, r.Count))
+            .ToList();
 
         var active = await transactions.Select(t => t.UserId).Distinct().CountAsync(cancellationToken);
 

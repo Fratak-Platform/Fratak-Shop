@@ -17,6 +17,9 @@
  *  - [data-faq-search]     : client-side FAQ search
  *  - [data-amount-preset]  : fill an amount input (wallet top-up)
  *  - [data-copy]           : copy text to the clipboard
+ *  - [data-review-images]  : review photo picker (preview, remove, count/size/type checks)
+ *  - [data-search-suggest] : instant search suggestions in the header (/api/search/suggest)
+ *  - [data-pwa-install]    : "install the app" suggestion after a few page views
  *  - GET forms             : empty fields are not sent (clean URLs)
  */
 (function () {
