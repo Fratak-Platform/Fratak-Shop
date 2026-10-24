@@ -119,13 +119,13 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.UseExceptionHandler("/Error404");
+    app.UseExceptionHandler("/404");
     app.UseHsts();
     app.UseHttpsRedirection();
 }
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseStatusCodePagesWithReExecute("/Error404", "?code={0}");
+app.UseStatusCodePagesWithReExecute("/404", "?code={0}");
 app.UseResponseCompression();
 
 app.UseStaticFiles(new StaticFileOptions

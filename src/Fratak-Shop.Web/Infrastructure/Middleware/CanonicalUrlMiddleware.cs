@@ -34,6 +34,11 @@ public class CanonicalUrlMiddleware(RequestDelegate next)
         var request = context.Request;
         var path = request.Path.Value;
 
+        // Re-executed error pages (404, 500) must keep their status code.
+        if (context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodeReExecuteFeature>() is not null
+            || context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>() is not null)
+            return next(context);
+
         if (!(HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method))
             || string.IsNullOrEmpty(path)
             || path == "/"
