@@ -15,6 +15,8 @@ namespace Fratak_Shop.Core.Services.Users;
 public class UserService(FratakShopDbContext context) : IUserService
 {
     private const int MinimumPasswordLength = 6;
+    private const int MaxFailedLogins = 5;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
     public async Task<OperationResult> CreateUserAsync(CreateUserCommand command)
     {
@@ -43,6 +45,7 @@ public class UserService(FratakShopDbContext context) : IUserService
             Role = command.Role,
             IsPhoneVerified = command.IsPhoneVerified,
             IsEmailVerified = command.IsEmailVerified,
+            SecurityStamp = PasswordHasher.NewSecurityStamp(),
         };
 
         context.Users.Add(user);
@@ -68,6 +71,10 @@ public class UserService(FratakShopDbContext context) : IUserService
 
         if (phoneExists)
             return OperationResult.Error("این شماره موبایل قبلاً توسط کاربر دیگری ثبت شده است.");
+
+        // Changing the login identity or the permissions signs the user out everywhere.
+        if (user.PhoneNumber != phoneNumber || user.Role != command.Role)
+            user.SecurityStamp = PasswordHasher.NewSecurityStamp();
 
         user.PhoneNumber = phoneNumber;
         user.Email = command.Email?.Trim();
@@ -161,35 +168,104 @@ public class UserService(FratakShopDbContext context) : IUserService
             return OperationResult.Error("رمز عبور فعلی صحیح نیست.");
 
         user.PasswordHash = PasswordHasher.Hash(command.NewPassword);
+        user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+        user.FailedLoginCount = 0;
+        user.LockoutEndAt = null;
 
         await context.SaveChangesAsync();
 
         return OperationResult.Success("رمز عبور با موفقیت تغییر کرد.");
     }
 
-    public async Task<UserDto?> LoginAsync(LoginCommand command)
+    public async Task<OperationResult<UserDto>> LoginAsync(LoginCommand command)
     {
-        if (string.IsNullOrWhiteSpace(command.PhoneNumber) || string.IsNullOrWhiteSpace(command.Password))
-            return null;
+        const string invalidMessage = "شماره موبایل یا رمز عبور اشتباه است.";
+
+        if (string.IsNullOrWhiteSpace(command.PhoneNumber) || string.IsNullOrWhiteSpace(command.Password)
+            || command.Password.Length > 128)
+            return OperationResult<UserDto>.Error(invalidMessage);
 
         var phoneNumber = command.PhoneNumber.Trim();
+        var now = DateTimeOffset.UtcNow;
 
         var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phoneNumber);
+
+        // Accounts without a password (OTP sign-up) can't log in with a password.
+        if (user is null || string.IsNullOrWhiteSpace(user.PasswordHash))
+            return OperationResult<UserDto>.Error(invalidMessage);
+
+        if (user.LockoutEndAt > now)
+        {
+            var minutes = (int)Math.Ceiling((user.LockoutEndAt.Value - now).TotalMinutes);
+            return OperationResult<UserDto>.Error($"به دلیل تلاش‌های ناموفق متعدد، ورود با رمز عبور تا {minutes} دقیقه دیگر مسدود است. می‌توانید با کد یک‌بارمصرف وارد شوید.");
+        }
+
+        if (!PasswordHasher.Verify(command.Password, user.PasswordHash))
+        {
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= MaxFailedLogins)
+            {
+                user.LockoutEndAt = now.Add(LockoutDuration);
+                user.FailedLoginCount = 0;
+            }
+
+            await context.SaveChangesAsync();
+            return OperationResult<UserDto>.Error(invalidMessage);
+        }
+
+        user.FailedLoginCount = 0;
+        user.LockoutEndAt = null;
+        user.LastLoginAt = now;
+        user.SecurityStamp ??= PasswordHasher.NewSecurityStamp();
+        await context.SaveChangesAsync();
+
+        return OperationResult<UserDto>.Success(user.Map());
+    }
+
+    public async Task RecordLoginAsync(Guid userId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await context.Users
+            .Where(x => x.Id == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.LastLoginAt, now)
+                .SetProperty(x => x.FailedLoginCount, 0)
+                .SetProperty(x => x.LockoutEndAt, (DateTimeOffset?)null));
+    }
+
+    public async Task<string?> GetSecurityStampAsync(Guid userId)
+    {
+        var user = await context.Users
+            .Where(x => x.Id == userId)
+            .Select(x => new { x.SecurityStamp })
+            .FirstOrDefaultAsync();
+
         if (user is null)
             return null;
 
-        // کاربری که رمز عبور ثبت نکرده است (ورود با کد یک‌بارمصرف) با رمز وارد نمی‌شود؛
-        // PasswordHasher.Verify برای هش خالی مقدار true برمی‌گرداند و اینجا قابل استفاده نیست.
-        if (string.IsNullOrWhiteSpace(user.PasswordHash))
-            return null;
+        if (!string.IsNullOrEmpty(user.SecurityStamp))
+            return user.SecurityStamp;
 
-        if (!PasswordHasher.Verify(command.Password, user.PasswordHash))
-            return null;
+        // Users created before security stamps existed get one on first use.
+        var stamp = PasswordHasher.NewSecurityStamp();
+        await context.Users
+            .Where(x => x.Id == userId && x.SecurityStamp == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.SecurityStamp, stamp));
 
-        user.LastLoginAt = DateTimeOffset.UtcNow;
-        await context.SaveChangesAsync();
+        return await context.Users.Where(x => x.Id == userId).Select(x => x.SecurityStamp).FirstOrDefaultAsync();
+    }
 
-        return user.Map();
+    public async Task<string?> RotateSecurityStampAsync(Guid userId)
+    {
+        var stamp = PasswordHasher.NewSecurityStamp();
+        var now = DateTimeOffset.UtcNow;
+        var affected = await context.Users
+            .Where(x => x.Id == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.SecurityStamp, stamp)
+                .SetProperty(x => x.UpdatedAt, now));
+
+        return affected == 1 ? stamp : null;
     }
 
     public async Task<UserFilterResult> GetUsersByFilterAsync(UserFilterParams filterParams)

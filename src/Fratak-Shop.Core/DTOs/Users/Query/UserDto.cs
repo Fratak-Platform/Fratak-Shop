@@ -16,6 +16,8 @@ public class UserDto : BaseDto
     public bool IsPhoneVerified { get; set; }
     public bool IsEmailVerified { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
+    public decimal WalletBalance { get; set; }
+    public bool HasPassword { get; set; }
 
     public string? FullName => string.IsNullOrWhiteSpace(FirstName) && string.IsNullOrWhiteSpace(LastName)
         ? null

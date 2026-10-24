@@ -24,7 +24,19 @@ public class OrderDto : BaseDto
     public decimal PayableAmount { get; set; }
 
     public string? ShippingMethod { get; set; }
+    public Guid? ShippingMethodId { get; set; }
     public DateTimeOffset? RequestedDeliveryDate { get; set; }
+    public Guid? DeliveryTimeSlotId { get; set; }
+    public string? DeliveryTimeSlotTitle { get; set; }
+
+    /// <summary>Unpaid online orders are cancelled automatically after this moment.</summary>
+    public DateTimeOffset? PaymentDeadline { get; set; }
+
+    public DateTimeOffset? CancelledAt { get; set; }
+    public OrderCancelledBy? CancelledBy { get; set; }
+    public string? CancellationReason { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public DateTimeOffset? RefundedAt { get; set; }
 
     public string CustomerName { get; set; } = null!;
     public string CustomerPhone { get; set; } = null!;
@@ -41,6 +53,10 @@ public class OrderDto : BaseDto
     public DateTimeOffset? PaidAt { get; set; }
 
     public List<OrderItemDto> Items { get; set; } = [];
+
+    /// <summary>The order can still be paid online (pending, unpaid and not expired).</summary>
+    public bool IsAwaitingPayment(DateTimeOffset now) =>
+        OrderRules.IsPayable(Status, PaymentMethod, PaymentStatus, PaymentDeadline, now);
 }
 
 public class OrderItemDto : BaseDto

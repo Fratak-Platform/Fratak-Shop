@@ -22,6 +22,8 @@ public static class UserMapper
             IsPhoneVerified = user.IsPhoneVerified,
             IsEmailVerified = user.IsEmailVerified,
             LastLoginAt = user.LastLoginAt,
+            WalletBalance = user.WalletBalance,
+            HasPassword = !string.IsNullOrWhiteSpace(user.PasswordHash),
             Addresses = user.Addresses.Select(address => address.Map()).ToList(),
         };
     }

@@ -32,18 +32,31 @@ public static class PasswordHasher
         return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
 
+    /// <summary>
+    /// Constant-time verification of an Argon2id hash. An empty hash (account without a
+    /// password, e.g. OTP-only users) never matches — callers that allow setting a first
+    /// password must check for that case explicitly.
+    /// </summary>
     public static bool Verify(string password, string? passwordHash)
     {
-        if (string.IsNullOrWhiteSpace(passwordHash)) // در این سیستم امکان اینکه کاربر پسووردی برای خود تنظیم نکرده باشد هست
-            return true;                                      // گذاشتن این شرط یعنی اگر پسووردی که در دیتابیس ذخیره شده نال هست یعنی کاربر
-                                                              // کلمه عبوری ندارد وباید بگذاریم پسوورد خود را بدون وارد کردن پسوورد فعلی تنظیم کند
-        var parts = passwordHash.Split(':');
+        if (string.IsNullOrWhiteSpace(passwordHash) || string.IsNullOrEmpty(password))
+            return false;
 
+        var parts = passwordHash.Split(':');
         if (parts.Length != 2)
             return false;
 
-        var salt = Convert.FromBase64String(parts[0]);
-        var storedHash = Convert.FromBase64String(parts[1]);
+        byte[] salt;
+        byte[] storedHash;
+        try
+        {
+            salt = Convert.FromBase64String(parts[0]);
+            storedHash = Convert.FromBase64String(parts[1]);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
 
         var argon2 = new Argon2id(Encoding.UTF8.GetBytes(password))
         {
@@ -57,4 +70,7 @@ public static class PasswordHasher
 
         return CryptographicOperations.FixedTimeEquals(storedHash, computedHash);
     }
+
+    /// <summary>Random value that changes whenever the credentials or permissions of a user change.</summary>
+    public static string NewSecurityStamp() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
 }

@@ -26,7 +26,16 @@ public static class OrderMapper
             ShippingAmount = order.ShippingAmount,
             PayableAmount = order.PayableAmount,
             ShippingMethod = order.ShippingMethod,
+            ShippingMethodId = order.ShippingMethodId,
             RequestedDeliveryDate = order.RequestedDeliveryDate,
+            DeliveryTimeSlotId = order.DeliveryTimeSlotId,
+            DeliveryTimeSlotTitle = order.DeliveryTimeSlotTitle,
+            PaymentDeadline = order.PaymentDeadline,
+            CancelledAt = order.CancelledAt,
+            CancelledBy = order.CancelledBy,
+            CancellationReason = order.CancellationReason,
+            RefundedAmount = order.RefundedAmount,
+            RefundedAt = order.RefundedAt,
             CustomerName = order.CustomerName,
             CustomerPhone = order.CustomerPhone,
             ShippingProvince = order.ShippingProvince,
@@ -104,6 +113,8 @@ public static class OrderMapper
             TrackingCode = order.TrackingCode,
             ItemCount = order.Items.Count,
             PaidAt = order.PaidAt,
+            PaymentDeadline = order.PaymentDeadline,
+            RefundedAmount = order.RefundedAmount,
         };
     }
 
