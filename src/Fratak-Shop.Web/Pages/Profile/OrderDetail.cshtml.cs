@@ -67,7 +67,8 @@ public class OrderDetailModel(IOrderService orderService, IReturnService returnS
             return NotFound();
 
         Order = order;
-        if (!CanCancel || !ModelState.IsValid)
+        // Only the cancel field matters here (the feedback form on the same page is validated by its own handler).
+        if (!CanCancel || ModelState.GetFieldValidationState(nameof(CancelReason)) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid)
         {
             ErrorMessage = "این سفارش دیگر قابل لغو نیست؛ برای پیگیری با پشتیبانی تماس بگیرید.";
             return RedirectToPage(new { orderNumber });
