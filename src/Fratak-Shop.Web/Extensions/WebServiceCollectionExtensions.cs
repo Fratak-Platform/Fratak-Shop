@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.Services.Notifications;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Infrastructure.Seeders;
 using Fratak_Shop.Web.Services;
@@ -41,6 +42,20 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Auth.ITwoFactorTicket, Infrastructure.Auth.TwoFactorTicket>();
 
         services.AddHostedService<OrderMaintenanceService>();
+
+        // Round 5: captcha, secrets, uploads, web push, background jobs.
+        services.AddSingleton<Infrastructure.Security.ICaptchaService, Infrastructure.Security.CaptchaService>();
+        services.AddSingleton<Core.Services.Security.ISecretProtector, Infrastructure.Engagement.DataProtectionSecretProtector>();
+        services.AddSingleton<IUploadStore, UploadStore>();
+        services.AddSingleton<Infrastructure.Engagement.ChannelPushSender>();
+        services.Replace(ServiceDescriptor.Singleton<IPushSender>(sp => sp.GetRequiredService<Infrastructure.Engagement.ChannelPushSender>()));
+        services.AddHttpClient(Infrastructure.Engagement.WebPushDispatcher.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Fratak-Shop/1.0");
+        });
+        services.AddHostedService<Infrastructure.Engagement.WebPushDispatcher>();
+        services.AddHostedService<Infrastructure.Engagement.EngagementMaintenanceService>();
 
         return services;
     }

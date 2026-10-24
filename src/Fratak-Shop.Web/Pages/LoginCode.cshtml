@@ -22,6 +22,10 @@
           </div>
           <partial name="_DevelopmentCode" model="Model.DevelopmentCode" />
           <partial name="_OtpDigits" model="Model.CodeLength" />
+          @if (Model.Captcha is not null)
+          {
+            <partial name="_Captcha" model="Model.Captcha" />
+          }
           @if (Model.ShowReferral)
           {
           <details class="mt-2 text-sm text-zinc-600">

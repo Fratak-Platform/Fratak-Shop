@@ -8,6 +8,7 @@ using Fratak_Shop.Web.Services;
 namespace Fratak_Shop.Web.Pages;
 
 /// <summary>FAQ grouped by the categories managed in the database (FAQPage rich result).</summary>
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class FaqModel(IFaqItemService faqService, IPageMetaService pageMeta) : ShopPageModel
 {
     public List<FaqGroupDto> Groups { get; private set; } = [];

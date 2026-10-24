@@ -18,7 +18,8 @@
  *  - [data-amount-preset]  : fill an amount input (wallet top-up)
  *  - [data-copy]           : copy text to the clipboard
  *  - [data-review-images]  : review photo picker (preview, remove, count/size/type checks)
- *  - [data-search-suggest] : instant search suggestions in the header (/api/search/suggest)
+ *  - [data-search-suggest] : instant search suggestions in the header (/api/search/suggest),
+ *                            recent searches (localStorage) and popular searches (/api/search/popular)
  *  - [data-pwa-install]    : "install the app" suggestion after a few page views
  *  - GET forms             : empty fields are not sent (clean URLs)
  */
@@ -481,10 +482,37 @@
     return node;
   };
 
+  // Recent searches of this browser (never sent to the server).
+  const HISTORY_KEY = "fratak_search_history";
+  const history = {
+    read: () => {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]").filter((q) => typeof q === "string").slice(0, 8); } catch (_) { return []; }
+    },
+    add: (query) => {
+      const q = query.trim().slice(0, 100);
+      if (q.length < 2) return;
+      const list = history.read().filter((item) => item !== q);
+      list.unshift(q);
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 8))); } catch (_) { /* private mode */ }
+    },
+    clear: () => { try { localStorage.removeItem(HISTORY_KEY); } catch (_) { /* ignore */ } },
+  };
+  let popular = null;
+  const loadPopular = () => {
+    if (popular) return popular;
+    popular = fetch("/api/search/popular", { headers: { Accept: "application/json" } })
+      .then((response) => (response.ok ? response.json() : { items: [] }))
+      .then((data) => data.items || [])
+      .catch(() => []);
+    return popular;
+  };
+
   let uid = 0;
   forms.forEach((form) => {
     const input = form.querySelector('input[name="q"]');
     if (!input) return;
+
+    form.addEventListener("submit", () => history.add(input.value));
 
     const listId = "search-suggest-" + ++uid;
     const panel = make("div", "absolute inset-x-0 z-50 hidden max-h-[70vh] overflow-y-auto rounded-xl border bg-white text-right shadow-xl " +
@@ -544,6 +572,11 @@
 
       if (!data.products.length && !hasLinks) {
         panel.appendChild(make("div", "px-3 py-4 text-center text-sm text-zinc-500", "محصولی با این عبارت پیدا نشد."));
+        if (data.correction) {
+          const fix = option("/search?q=" + encodeURIComponent(data.correction), "justify-center border-t text-sky-600");
+          fix.textContent = "منظورتان «" + data.correction + "» بود؟";
+          panel.appendChild(fix);
+        }
         open();
         return;
       }
@@ -616,11 +649,52 @@
         .catch(() => { /* aborted or offline: the normal search still works */ });
     };
 
+    // Empty box: recent searches of this browser + popular searches of the shop.
+    const renderStart = () => {
+      const recent = history.read();
+      loadPopular().then((items) => {
+        if (input.value.trim().length >= 2) return;
+        panel.textContent = "";
+        active = -1;
+        if (!recent.length && !items.length) {
+          close();
+          return;
+        }
+        const chipRow = (title, list, extra) => {
+          const head = make("div", "flex items-center justify-between px-3 pt-3 pb-1 text-xs font-semibold text-zinc-400", null);
+          head.appendChild(make("span", null, title));
+          if (extra) head.appendChild(extra);
+          panel.appendChild(head);
+          const row = make("div", "flex flex-wrap gap-2 px-3 pb-3");
+          list.forEach((q) => {
+            const link = option("/search?q=" + encodeURIComponent(q), "rounded-full border px-3 py-1 text-xs");
+            link.classList.remove("px-3", "py-2", "text-sm");
+            link.textContent = q;
+            row.appendChild(link);
+          });
+          panel.appendChild(row);
+        };
+        if (recent.length) {
+          const clear = make("button", "text-[11px] font-normal text-red-400 hover:text-red-500", "پاک کردن");
+          clear.type = "button";
+          clear.addEventListener("click", (event) => {
+            event.preventDefault();
+            history.clear();
+            renderStart();
+            input.focus();
+          });
+          chipRow("جستجوهای اخیر شما", recent, clear);
+        }
+        if (items.length) chipRow("جستجوهای پرطرفدار", items);
+        open();
+      });
+    };
+
     input.addEventListener("input", () => {
       clearTimeout(timer);
       const query = input.value.trim();
       if (query.length < 2) {
-        close();
+        renderStart();
         return;
       }
       timer = setTimeout(() => load(query), 250);
@@ -644,7 +718,8 @@
     });
 
     input.addEventListener("focus", () => {
-      if (panel.childElementCount && input.value.trim().length >= 2) open();
+      if (input.value.trim().length < 2) renderStart();
+      else if (panel.childElementCount) open();
     });
 
     document.addEventListener("click", (event) => {

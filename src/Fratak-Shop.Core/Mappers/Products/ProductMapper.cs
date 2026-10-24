@@ -27,6 +27,8 @@ public static class ProductMapper
             EnglishName = product.EnglishName,
             Slug = product.Slug,
             SKU = product.SKU,
+            Gtin = product.Gtin,
+            Mpn = product.Mpn,
             ShortDescription = product.ShortDescription,
             Description = product.Description,
             Price = product.Price,

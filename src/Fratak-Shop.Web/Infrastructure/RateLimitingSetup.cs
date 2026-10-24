@@ -62,6 +62,10 @@ public static class RateLimitingSetup
         if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
             return Window("api:" + key, 60, TimeSpan.FromMinutes(1));
 
+        // Resized images: cheap when cached on disk, CPU-heavy on the first request of a size.
+        if (path.StartsWithSegments("/media", StringComparison.OrdinalIgnoreCase))
+            return Window("media:" + key, 600, TimeSpan.FromMinutes(1));
+
         if (HttpMethods.IsPost(request.Method))
         {
             // Cart quantity / favourite buttons are clicked often; other forms (contact, address, …) less so.

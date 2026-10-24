@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages;
 
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class BlogModel(IPostService postService, IBlogCategoryService blogCategoryService, IPageMetaService pageMeta) : ShopPageModel
 {
     [BindProperty(SupportsGet = true, Name = "category")]

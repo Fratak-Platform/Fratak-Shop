@@ -4,6 +4,7 @@ using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Infrastructure.Auth;
+using Fratak_Shop.Web.Infrastructure.Security;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,6 +49,7 @@ public class LoginModel(
             return RedirectToLocal(ReturnUrl, "/Profile/Index");
 
         await pageMeta.ApplyAsync(ViewData, SitePage.Login, "ورود به حساب کاربری");
+        PrepareCaptcha(IsPasswordMode ? CaptchaActions.Login : CaptchaActions.OtpSend);
         return Page();
     }
 
@@ -57,7 +59,7 @@ public class LoginModel(
         await pageMeta.ApplyAsync(ViewData, SitePage.Login, "ورود به حساب کاربری");
 
         ModelState.Clear();
-        if (!TryValidateModel(Input, nameof(Input)))
+        if (!VerifyCaptcha(CaptchaActions.Login) || !TryValidateModel(Input, nameof(Input)))
             return Page();
 
         var result = await userService.LoginAsync(new LoginCommand
@@ -69,9 +71,11 @@ public class LoginModel(
         if (!Succeeded(result) || result.Data is null)
         {
             ModelState.AddModelError(string.Empty, result.Message);
+            CaptchaFailed(CaptchaActions.Login);
             return Page();
         }
 
+        CaptchaPassed(CaptchaActions.Login);
         var user = result.Data;
 
         if (user.TwoFactorEnabled && site.Settings.IsTwoFactorAvailable)
@@ -98,11 +102,14 @@ public class LoginModel(
             return RedirectToPage(new { mode = "password", returnUrl = ReturnUrl });
 
         ModelState.Clear();
-        if (!TryValidateModel(Otp, nameof(Otp)))
+        if (!VerifyCaptcha(CaptchaActions.OtpSend) || !TryValidateModel(Otp, nameof(Otp)))
             return Page();
 
         var phone = Otp.PhoneNumber.Trim();
         var send = await otpService.SendAsync(phone, OtpPurpose.Login);
+
+        // Every SMS request counts: after a few from one IP the captcha is shown (SMS-bombing guard).
+        CaptchaFailed(CaptchaActions.OtpSend);
 
         if (send.Blocked)
         {

@@ -2,6 +2,7 @@ using Fratak_Shop.Core.Services.Events;
 using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Infrastructure.Security;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,7 +49,9 @@ public class LoginCodeModel(
             return RedirectToPage("/Login", new { returnUrl = ReturnUrl });
 
         DevelopmentCode = TempData[LoginModel.DevelopmentCodeKey] as string;
+        ReferralCode ??= ReferralCookie.Read(HttpContext);
         ViewData[PageMetaKeys.Title] = "کد ورود";
+        PrepareCaptcha(CaptchaActions.OtpVerify);
         return Page();
     }
 
@@ -60,11 +63,20 @@ public class LoginCodeModel(
         var phone = Phone!.Trim();
         var code = string.Concat(Digits.Select(d => d?.Trim()));
 
+        if (!VerifyCaptcha(CaptchaActions.OtpVerify))
+        {
+            ErrorMessage = "کد امنیتی (عدد داخل تصویر) درست وارد نشده است.";
+            return RedirectToPage(new { phone, returnUrl = ReturnUrl });
+        }
+
         if (code.Length != otpService.CodeLength || !otpService.Verify(phone, code, OtpPurpose.Login))
         {
+            CaptchaFailed(CaptchaActions.OtpVerify);
             ErrorMessage = "کد وارد شده صحیح نیست یا منقضی شده است.";
             return RedirectToPage(new { phone, returnUrl = ReturnUrl });
         }
+
+        CaptchaPassed(CaptchaActions.OtpVerify);
 
         var result = await userService.SignInWithPhoneAsync(phone, site.Settings.IsOtpRegistrationEnabled);
         if (!Succeeded(result) || result.Data is null)
@@ -78,7 +90,9 @@ public class LoginCodeModel(
 
         if (result.Data.Created)
         {
-            await events.UserRegisteredAsync(user.Id, site.Settings.IsReferralEnabled ? ReferralCode?.Trim() : null);
+            var referral = string.IsNullOrWhiteSpace(ReferralCode) ? ReferralCookie.Read(HttpContext) : ReferralCode.Trim();
+            await events.UserRegisteredAsync(user.Id, site.Settings.IsReferralEnabled ? referral : null);
+            ReferralCookie.Clear(HttpContext);
             SuccessMessage = "حساب کاربری شما ساخته شد؛ خوش آمدید.";
             return RedirectToPage("/Welcome", new { returnUrl = ReturnUrl });
         }
@@ -92,7 +106,15 @@ public class LoginCodeModel(
         if (!IsValidPhone())
             return RedirectToPage("/Login", new { returnUrl = ReturnUrl });
 
+        // Resending is an SMS request too: once the captcha is due, it has to be solved on the login form.
+        if (IsCaptchaRequired(CaptchaActions.OtpSend))
+        {
+            ErrorMessage = "برای دریافت کد جدید، کد امنیتی را در صفحه ورود وارد کنید.";
+            return RedirectToPage("/Login", new { returnUrl = ReturnUrl });
+        }
+
         var send = await otpService.SendAsync(Phone!.Trim(), OtpPurpose.Login);
+        CaptchaFailed(CaptchaActions.OtpSend);
         if (send.Sent)
             SuccessMessage = "کد ورود جدید ارسال شد.";
         else if (send.Blocked)

@@ -16,6 +16,7 @@ using Fratak_Shop.Core.Services.Shipping;
 namespace Fratak_Shop.Web.Pages;
 
 // Review photos: up to ReviewMaxImages × ReviewMaxImageSizeKb (both capped) plus the form fields.
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 [RequestFormLimits(MultipartBodyLengthLimit = 32 * 1024 * 1024)]
 [RequestSizeLimit(32 * 1024 * 1024)]
 public class ProductModel(
@@ -27,8 +28,19 @@ public class ProductModel(
     IShippingService shippingService,
     IRecommendationService recommendations,
     IReviewImageStore imageStore,
+    IProductVideoService videoService,
+    IProductAlertService alertService,
+    ICommentEngagementService engagement,
     ISiteContext site) : ShopPageModel
 {
+    public List<ProductVideoDto> Videos { get; private set; } = [];
+
+    /// <summary>«خبرم کن» subscriptions of the signed-in customer (guests: none).</summary>
+    public Core.DTOs.Engagement.ProductAlertState AlertState { get; private set; } = new(false, false, null);
+
+    /// <summary>Helpful votes of the signed-in customer by comment id (true = helpful).</summary>
+    public Dictionary<Guid, bool> MyVotes { get; private set; } = [];
+
     public ProductDto Product { get; private set; } = null!;
     public List<CommentDto> Reviews { get; private set; } = [];
     public List<CommentDto> Questions { get; private set; } = [];
@@ -64,8 +76,6 @@ public class ProductModel(
         if (!await LoadAsync(slug))
             return NotFound();
 
-        await productService.AddProductVisitAsync(Product.Id);
-
         if (site.Settings.IsRecommendationEnabled)
         {
             var viewed = RecentlyViewed.Read(Request);
@@ -74,7 +84,8 @@ public class ProductModel(
             ForYou = await recommendations.GetPersonalizedAsync(CurrentUserId, viewed, exclude, 10);
         }
 
-        RecentlyViewed.Push(HttpContext, Product.Id);
+        // Visit count and "recently viewed" come from the view beacon of shop.js (/api/products/{id}/view),
+        // so they also work when this page is served from the page cache.
         return Page();
     }
 
@@ -217,39 +228,115 @@ public class ProductModel(
             IsFavorite = await favoriteService.IsFavoriteAsync(CurrentUserId.Value, product.Id);
 
         IsInCompare = compareList.GetProductIds().Contains(product.Id);
+        Videos = await videoService.GetForProductAsync(product.Id);
+
+        if (CurrentUserId is { } signedIn)
+        {
+            if (site.Settings.IsProductAlertEnabled)
+                AlertState = await alertService.GetStateAsync(signedIn, product.Id);
+
+            if (site.Settings.IsCommentVotingEnabled)
+            {
+                var ids = comments.Select(c => c.Id).Concat(comments.SelectMany(c => c.Replies).Select(r => r.Id)).ToList();
+                MyVotes = await engagement.GetUserVotesAsync(signedIn, ids);
+            }
+        }
 
         var image = product.Images.FirstOrDefault()?.ImageName;
         pageMeta.Apply(ViewData, product.Seo, product.Name,
             product.ShortDescription ?? Format.Excerpt(product.Description, 160),
             ImageHelper.Product(image), "product");
 
-        ViewData[PageMetaKeys.JsonLd] ??= BuildJsonLd(product, image);
+        ViewData[PageMetaKeys.JsonLd] ??= BuildJsonLd(product);
+        var crumbs = new List<(string Name, string? Path)>();
+        if (!string.IsNullOrWhiteSpace(product.CategoryName) && !string.IsNullOrWhiteSpace(product.CategorySlug))
+            crumbs.Add((product.CategoryName, "/category/" + product.CategorySlug));
+        crumbs.Add((product.Name, null));
+        pageMeta.AddBreadcrumbs(ViewData, crumbs.ToArray());
         return true;
     }
 
-    private string BuildJsonLd(ProductDto product, string? image)
+    private string BuildJsonLd(ProductDto product)
     {
         var request = HttpContext.Request;
         var baseUrl = $"{request.Scheme}://{request.Host}";
+        var url = $"{baseUrl}/product/{product.Slug}";
+        var settings = site.Settings;
+
+        string Absolute(string path) => path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? path : baseUrl + path;
+
+        var images = product.Images.Count > 0
+            ? product.Images.Take(6).Select(i => Absolute(ImageHelper.Product(i.ImageName))).ToList()
+            : new List<string> { Absolute(ImageHelper.ProductPlaceholder) };
+
+        var offer = new Dictionary<string, object?>
+        {
+            ["@type"] = "Offer",
+            ["url"] = url,
+            ["priceCurrency"] = "IRR",
+            ["price"] = product.FinalPrice * 10,
+            ["priceValidUntil"] = product.HasActiveDiscount && product.DiscountEndAt is { } end ? end.ToString("yyyy-MM-dd") : null,
+            ["itemCondition"] = "https://schema.org/NewCondition",
+            ["availability"] = product.IsInStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+            ["seller"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = settings.SiteName },
+        };
+
+        if (settings.IsReturnEnabled && settings.ReturnWindowDays > 0)
+        {
+            offer["hasMerchantReturnPolicy"] = new Dictionary<string, object>
+            {
+                ["@type"] = "MerchantReturnPolicy",
+                ["applicableCountry"] = "IR",
+                ["returnPolicyCategory"] = "https://schema.org/MerchantReturnFiniteReturnWindow",
+                ["merchantReturnDays"] = settings.ReturnWindowDays,
+                ["returnMethod"] = "https://schema.org/ReturnByMail",
+            };
+        }
 
         var data = new Dictionary<string, object?>
         {
             ["@context"] = "https://schema.org",
             ["@type"] = "Product",
+            ["@id"] = url + "#product",
             ["name"] = product.Name,
+            ["alternateName"] = product.EnglishName,
+            ["url"] = url,
             ["sku"] = product.SKU,
-            ["image"] = baseUrl + ImageHelper.Product(image),
+            ["gtin"] = string.IsNullOrWhiteSpace(product.Gtin) ? null : product.Gtin,
+            ["mpn"] = string.IsNullOrWhiteSpace(product.Mpn) ? null : product.Mpn,
+            ["image"] = images,
             ["description"] = product.ShortDescription ?? Format.Excerpt(product.Description, 300),
+            ["category"] = product.CategoryName,
             ["brand"] = product.BrandName is null ? null : new Dictionary<string, object> { ["@type"] = "Brand", ["name"] = product.BrandName },
-            ["offers"] = new Dictionary<string, object>
-            {
-                ["@type"] = "Offer",
-                ["priceCurrency"] = "IRR",
-                ["price"] = product.FinalPrice * 10,
-                ["availability"] = product.IsInStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-                ["url"] = $"{baseUrl}/product/{product.Slug}",
-            },
+            ["offers"] = offer.Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value),
         };
+
+        // A few recent reviews (Google shows them as review snippets).
+        var reviews = Reviews.Where(r => r.Rating.HasValue).Take(5).Select(r => new Dictionary<string, object?>
+        {
+            ["@type"] = "Review",
+            ["author"] = new Dictionary<string, object> { ["@type"] = "Person", ["name"] = r.AuthorName },
+            ["datePublished"] = r.CreatedAt.ToString("yyyy-MM-dd"),
+            ["reviewBody"] = Format.Excerpt(r.Content, 500),
+            ["reviewRating"] = new Dictionary<string, object> { ["@type"] = "Rating", ["ratingValue"] = r.Rating!.Value, ["bestRating"] = 5, ["worstRating"] = 1 },
+        }).ToList();
+        if (reviews.Count > 0)
+            data["review"] = reviews;
+
+        if (Videos.Count > 0)
+        {
+            data["subjectOf"] = Videos.Take(3).Select(v => new Dictionary<string, object?>
+            {
+                ["@type"] = "VideoObject",
+                ["name"] = v.Title ?? product.Name,
+                ["description"] = v.Title ?? product.ShortDescription ?? product.Name,
+                ["thumbnailUrl"] = v.PosterImage is { } poster ? Absolute(ImageHelper.Product(poster)) : images[0],
+                ["uploadDate"] = v.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz"),
+                ["duration"] = v.DurationSeconds is { } seconds ? System.Xml.XmlConvert.ToString(TimeSpan.FromSeconds(seconds)) : null,
+                ["contentUrl"] = v.FileUrl is { } file ? Absolute(file) : null,
+                ["embedUrl"] = v.EmbedUrl,
+            }.Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value)).ToList();
+        }
 
         if (product.ReviewCount > 0 && product.AverageRating > 0)
         {

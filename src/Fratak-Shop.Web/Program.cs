@@ -10,7 +10,12 @@ using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Infrastructure.Auth;
 using Fratak_Shop.Web.Infrastructure.Middleware;
 using Fratak_Shop.Web.Infrastructure.Seeders;
+using Fratak_Shop.Web.Infrastructure.Media;
+using Fratak_Shop.Web.Infrastructure.PageCache;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.WebEncoders;
@@ -47,6 +52,23 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
+
+// Cacheable pages render forms without a token; shop.js fetches it before submitting.
+builder.Services.AddSingleton<IHtmlGenerator, DeferredAntiforgeryHtmlGenerator>();
+
+// Keys of antiforgery / captcha / gift-card code encryption survive restarts and deployments.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Fratak-Shop")
+    .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security:DataProtectionKeysPath"]
+                                               ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "keys")));
+
+// Page cache of public pages for anonymous visitors (see PageCachePolicy).
+builder.Services.AddOutputCache(options =>
+{
+    options.SizeLimit = 256L * 1024 * 1024;
+    options.MaximumBodySize = 4L * 1024 * 1024;
+    options.AddPolicy(PageCachePolicy.Name, new PageCachePolicy());
 });
 
 // Render Persian text as-is instead of HTML entities (smaller pages, readable source).
@@ -158,11 +180,15 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<SeoRedirectMiddleware>();
+app.UseReferralCapture();
+app.UseOutputCache();
 
 app.MapRazorPages();
 app.MapAuthApi();
 app.MapSeoEndpoints();
 app.MapPwaEndpoints();
+app.MapStorefrontApi();
+app.MapMediaEndpoints();
 
 // Cities of a province, used by the address forms (province → city select).
 app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid provinceId, ILocationService locations, HttpContext http) =>
@@ -174,14 +200,18 @@ app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid prov
 
 // Instant suggestions of the header search box (products, categories, brands).
 app.MapGet("/api/search/suggest", async (string? q, Fratak_Shop.Core.Services.Products.ISearchSuggestService suggestions,
+    Fratak_Shop.Core.Services.Searches.ISearchInsightsService insights,
     HttpContext http, CancellationToken cancellationToken) =>
 {
     var result = await suggestions.SuggestAsync(q, cancellationToken);
+    var nothing = result.Products.Count == 0 && result.Categories.Count == 0 && result.Brands.Count == 0;
+    var correction = nothing && result.Query.Length >= 2 ? await insights.DidYouMeanAsync(result.Query) : null;
     http.Response.Headers.CacheControl = "public, max-age=60";
     return Results.Ok(new
     {
         query = result.Query,
         total = result.TotalProducts,
+        correction,
         searchUrl = "/search?q=" + Uri.EscapeDataString(result.Query),
         products = result.Products.Select(p => new
         {
@@ -195,6 +225,14 @@ app.MapGet("/api/search/suggest", async (string? q, Fratak_Shop.Core.Services.Pr
         categories = result.Categories.Select(c => new { name = c.Name, url = "/category/" + c.Slug }),
         brands = result.Brands.Select(b => new { name = b.Name, url = "/brand/" + b.Slug }),
     });
+});
+
+// Popular searches of the shop (empty box of the header search).
+app.MapGet("/api/search/popular", async (Fratak_Shop.Core.Services.Searches.ISearchInsightsService insights, HttpContext http) =>
+{
+    var items = await insights.GetPopularAsync();
+    http.Response.Headers.CacheControl = "public, max-age=300";
+    return Results.Ok(new { items });
 });
 
 // Development only, from the local machine only: the management reports / abandoned-cart
@@ -222,8 +260,25 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// ── Caches follow data changes (storefront today, admin panel later) ──
+Fratak_Shop.Core.Utilities.CacheInvalidation.Wire(app.Services.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>());
+PageCachePolicy.WireEviction(app.Services.GetRequiredService<IOutputCacheStore>(), app.Logger);
+
 // ── Database: migrations, reference data and optional demo catalog ────
 await app.Services.InitializeFratakShopDataAsync();
+
+// Web push needs a VAPID key pair: generated once and stored in the settings row.
+using (var pushScope = app.Services.CreateScope())
+{
+    try
+    {
+        await pushScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Notifications.IWebPushService>().EnsureVapidKeysAsync();
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogError(exception, "Preparing the web push keys failed; push notifications stay off");
+    }
+}
 
 if (app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.SeedDemoData)
 {

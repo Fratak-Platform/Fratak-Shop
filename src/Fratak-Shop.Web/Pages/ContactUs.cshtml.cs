@@ -5,6 +5,7 @@ using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Infrastructure.Security;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,11 +30,12 @@ public class ContactUsModel(IMessageService messageService, IUserService userSer
         }
 
         await ApplySeoAsync();
+        PrepareCaptcha(CaptchaActions.Contact);
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (!ModelState.IsValid)
+        if (!VerifyCaptcha(CaptchaActions.Contact) || !ModelState.IsValid)
         {
             await ApplySeoAsync();
             return Page();
@@ -57,6 +59,7 @@ public class ContactUsModel(IMessageService messageService, IUserService userSer
             return Page();
         }
 
+        CaptchaFailed(CaptchaActions.Contact); // every message counts (spam guard)
         SuccessMessage = result.Message;
         return RedirectToPage();
     }

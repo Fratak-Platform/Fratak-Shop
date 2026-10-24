@@ -16,6 +16,7 @@ namespace Fratak_Shop.Web.Pages;
 /// Product listing: search results, category pages (/category/{slug}),
 /// brand pages (/brand/{slug}) and the special lists (discounts, best sellers).
 /// </summary>
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class SearchModel(
     IProductService productService,
     ICategoryService categoryService,

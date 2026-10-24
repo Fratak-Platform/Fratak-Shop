@@ -363,3 +363,8 @@ MigrationBackup/
 FodyWeavers.xsd
 # Customer uploads (review photos)
 src/Fratak-Shop.Web/wwwroot/uploads/comments/
+src/Fratak-Shop.Web/wwwroot/uploads/returns/
+src/Fratak-Shop.Web/wwwroot/uploads/videos/
+
+# Private runtime data: data-protection keys, ticket attachments, optimized image cache
+App_Data/

@@ -22,6 +22,11 @@ public class ProductDto : BaseDto
     public string? EnglishName { get; set; }
     public string Slug { get; set; } = null!;
     public string SKU { get; set; } = null!;
+
+    /// <summary>Barcode (EAN / UPC / ISBN) and manufacturer part number for search engines.</summary>
+    public string? Gtin { get; set; }
+    public string? Mpn { get; set; }
+
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
 

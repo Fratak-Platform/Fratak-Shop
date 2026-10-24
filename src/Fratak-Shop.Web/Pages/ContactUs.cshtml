@@ -35,6 +35,10 @@
               <textarea asp-for="Input.Content" class="border p-2 rounded-lg border-zinc-400 focus:outline-none w-full" placeholder="توضیحات" cols="30" rows="5" required></textarea>
             </div>
             <div>
+              @if (Model.Captcha is not null)
+              {
+                <partial name="_Captcha" model="Model.Captcha" />
+              }
               <button type="submit" class="bg-sky-600 hover:bg-sky-700 transition px-8 py-2 mt-2 rounded-lg text-white">
                 ارسال اطلاعات
               </button>

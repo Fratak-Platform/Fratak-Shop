@@ -29,6 +29,7 @@ public class TrackOrderModel(IOrderService orderService, ISiteContext site) : Sh
 
         ViewData[PageMetaKeys.Title] = "پیگیری سفارش";
         ViewData[PageMetaKeys.Description] = "پیگیری وضعیت سفارش با شماره سفارش و شماره موبایل، بدون نیاز به ورود.";
+        PrepareCaptcha(Infrastructure.Security.CaptchaActions.TrackOrder);
         return Page();
     }
 
@@ -37,11 +38,13 @@ public class TrackOrderModel(IOrderService orderService, ISiteContext site) : Sh
         if (OnGet() is not PageResult)
             return NotFound();
 
-        if (!ModelState.IsValid)
+        if (!VerifyCaptcha(Infrastructure.Security.CaptchaActions.TrackOrder) || !ModelState.IsValid)
             return Page();
 
         Searched = true;
         Order = await orderService.TrackOrderAsync(Input.OrderNumber, Input.PhoneNumber);
+        if (Order is null)
+            CaptchaFailed(Infrastructure.Security.CaptchaActions.TrackOrder); // order-number guessing guard
 
         // Signed-in owners get the full order page.
         if (Order is not null && Order.UserId.HasValue && Order.UserId == CurrentUserId)

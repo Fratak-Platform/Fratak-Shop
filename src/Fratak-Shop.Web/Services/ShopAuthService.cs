@@ -38,6 +38,8 @@ public class ShopAuthService(
     IRefreshTokenService refreshTokens,
     IAccessTokenService accessTokens,
     IMemoryCache cache,
+    IKnownDeviceService knownDevices,
+    ILogger<ShopAuthService> logger,
     IOptions<JwtOptions> jwtOptions) : IShopAuthService
 {
     private HttpContext Http => httpContextAccessor.HttpContext ?? throw new InvalidOperationException("No active HTTP context.");
@@ -62,6 +64,16 @@ public class ShopAuthService(
         AuthCookies.Write(http, access, refresh.Token, refresh.ExpiresAt, isPersistent);
 
         await cartSession.MergeGuestCartAsync(user.Id);
+
+        // New-device alert (all sign-in paths end here). Never blocks the login.
+        try
+        {
+            await knownDevices.RegisterSignInAsync(user.Id, ClientInfo.UserAgent(http), ClientInfo.IpAddress(http));
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Registering the sign-in device failed for {UserId}", user.Id);
+        }
     }
 
     public async Task RefreshClaimsAsync(Guid userId)

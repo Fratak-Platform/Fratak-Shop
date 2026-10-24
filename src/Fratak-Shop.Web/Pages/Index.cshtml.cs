@@ -23,6 +23,7 @@ namespace Fratak_Shop.Web.Pages;
 /// Home page built from the <c>HomeSections</c> table: the admin decides which blocks
 /// are shown, in which order, with which title / link / item count.
 /// </summary>
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class IndexModel(
     ISiteContentService siteContent,
     IBannerService bannerService,

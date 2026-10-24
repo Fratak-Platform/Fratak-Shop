@@ -13,6 +13,7 @@ namespace Fratak_Shop.Web.Pages;
 /// Database driven static pages (about us, terms, privacy, return policy, ...).
 /// Pages can be added, edited or disabled from the admin panel without code changes.
 /// </summary>
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class ContentPageModel(IContentPageService contentPages, IPageMetaService pageMeta) : ShopPageModel
 {
     public ContentPageDto PageContent { get; private set; } = null!;

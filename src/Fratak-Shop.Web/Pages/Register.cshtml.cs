@@ -4,6 +4,7 @@ using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Infrastructure.Security;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -30,11 +31,11 @@ public class RegisterModel(
 
         await pageMeta.ApplyAsync(ViewData, SitePage.Register, "ثبت نام");
 
-        // Invite links: /register?ref=CODE
+        // Invite links (/register?ref=CODE or any page with ?ref=) are remembered in a cookie.
         var referral = Request.Query["ref"].ToString().Trim();
-        if (referral.Length is > 0 and <= 20)
-            Input.ReferralCode = referral;
+        Input.ReferralCode = referral.Length is > 0 and <= 20 ? referral : ReferralCookie.Read(HttpContext);
 
+        PrepareCaptcha(CaptchaActions.Register);
         return Page();
     }
 
@@ -42,9 +43,11 @@ public class RegisterModel(
     {
         await pageMeta.ApplyAsync(ViewData, SitePage.Register, "ثبت نام");
 
-        if (!ModelState.IsValid)
+        if (!VerifyCaptcha(CaptchaActions.Register) || !ModelState.IsValid)
             return Page();
 
+        // Every attempt counts (account-enumeration / bulk sign-up guard).
+        CaptchaFailed(CaptchaActions.Register);
         var phoneNumber = Input.PhoneNumber.Trim();
 
         var result = await userService.CreateUserAsync(new CreateUserCommand
@@ -72,7 +75,9 @@ public class RegisterModel(
         }
 
         await authService.SignInAsync(user, isPersistent: true);
-        await events.UserRegisteredAsync(user.Id, site.Settings.IsReferralEnabled ? Input.ReferralCode?.Trim() : null);
+        var referralCode = string.IsNullOrWhiteSpace(Input.ReferralCode) ? ReferralCookie.Read(HttpContext) : Input.ReferralCode.Trim();
+        await events.UserRegisteredAsync(user.Id, site.Settings.IsReferralEnabled ? referralCode : null);
+        ReferralCookie.Clear(HttpContext);
         await otpService.SendAsync(phoneNumber, OtpPurpose.VerifyPhone);
 
         SuccessMessage = "ثبت نام با موفقیت انجام شد؛ کد تایید برای شما پیامک شد.";

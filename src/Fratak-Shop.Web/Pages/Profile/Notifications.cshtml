@@ -49,6 +49,19 @@
           </div>
         </div>
 
+        @if (Site.Settings.CanUseWebPush)
+        {
+          <div class="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-3" data-push>
+            @Icons.Svg("Bell", "fill-sky-500 shrink-0", 24)
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold text-zinc-700">اعلان مرورگر</div>
+              <p class="text-xs leading-6 text-zinc-500" data-push-status aria-live="polite">وضعیت اعلان مرورگر روی این دستگاه…</p>
+            </div>
+            <button type="button" data-push-toggle aria-pressed="false"
+                    class="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50 aria-pressed:bg-white aria-pressed:text-red-500 aria-pressed:ring-1 aria-pressed:ring-red-200">فعال کردن</button>
+          </div>
+        }
+
         @if (data.Items.Count == 0)
         {
           <div class="py-12 text-center text-zinc-500">

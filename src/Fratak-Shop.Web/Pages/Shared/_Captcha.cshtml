@@ -1,0 +1,17 @@
+@model Fratak_Shop.Web.Infrastructure.Security.CaptchaChallenge
+@* Smart captcha – rendered only after repeated failures from this IP. *@
+<div class="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10" data-captcha>
+  <label for="captcha-answer" class="block text-xs text-zinc-600 dark:text-zinc-300 mb-2">
+    برای ادامه، عدد داخل تصویر را وارد کنید
+  </label>
+  <div class="flex flex-wrap items-center gap-2">
+    <img src="@Model.Image" alt="تصویر کد امنیتی" width="160" height="54" class="rounded-lg border border-zinc-200 bg-white" data-captcha-image>
+    <button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 hover:text-sky-600" data-captcha-refresh aria-label="نمایش تصویر جدید" title="تصویر جدید">
+      @Icons.Svg("ArrowsClockwise", "fill-current", 18)
+    </button>
+    <input type="hidden" name="CaptchaToken" value="@Model.Token" data-captcha-token>
+    <input id="captcha-answer" name="CaptchaAnswer" type="text" inputmode="numeric" autocomplete="off" maxlength="6" dir="ltr" required
+           class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-center tracking-[0.4em] text-gray-700 outline-none focus:border-sky-500"
+           placeholder="-----">
+  </div>
+</div>

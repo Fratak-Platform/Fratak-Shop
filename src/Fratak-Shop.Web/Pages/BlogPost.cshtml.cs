@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages;
 
+[Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class BlogPostModel(IPostService postService, ICommentService commentService, IPageMetaService pageMeta) : ShopPageModel
 {
     public PostDto Post { get; private set; } = null!;

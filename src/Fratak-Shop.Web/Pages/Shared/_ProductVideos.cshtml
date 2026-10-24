@@ -1,0 +1,35 @@
+@model List<Fratak_Shop.Core.Services.Products.ProductVideoDto>
+@* Product videos: uploaded / direct files with the native player, Aparat in its embed frame. *@
+@if (Model.Count > 0)
+{
+  <div class="p-4 border-b dark:border-zinc-700" id="videos">
+    <h2 class="inline-block border-b border-b-sky-300 text-base font-normal text-zinc-800 dark:text-zinc-100">ویدیوی محصول</h2>
+    <div class="mt-5 grid gap-4 md:grid-cols-2">
+      @foreach (var video in Model)
+      {
+        <figure class="overflow-hidden rounded-xl border bg-black dark:border-zinc-700">
+          @if (video.EmbedUrl is not null)
+          {
+            <div class="relative w-full pt-[56.25%]">
+              <iframe src="@video.EmbedUrl" title="@(video.Title ?? "ویدیوی محصول")" loading="lazy" allowfullscreen
+                      allow="autoplay; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"
+                      class="absolute inset-0 h-full w-full border-0"></iframe>
+            </div>
+          }
+          else if (video.FileUrl is not null)
+          {
+            <video controls preload="metadata" playsinline class="aspect-video w-full bg-black"
+                   poster="@(video.PosterImage is null ? null : ImageHelper.Product(video.PosterImage))">
+              <source src="@video.FileUrl" type="@(video.MimeType ?? "video/mp4")">
+              مرورگر شما پخش ویدیو را پشتیبانی نمی‌کند. <a href="@video.FileUrl" class="text-sky-400">دانلود ویدیو</a>
+            </video>
+          }
+          @if (!string.IsNullOrWhiteSpace(video.Title))
+          {
+            <figcaption class="bg-white px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">@video.Title</figcaption>
+          }
+        </figure>
+      }
+    </div>
+  </div>
+}

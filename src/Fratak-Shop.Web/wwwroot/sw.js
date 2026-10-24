@@ -3,10 +3,11 @@
  *  - only same-origin GET requests for static assets (css / js / fonts) are cached;
  *  - pages (HTML) are never cached, they may contain personal data (cart, profile, orders);
  *  - POST and other non-GET requests, APIs, payment and auth URLs are never touched;
- *  - when a page can't be loaded because the device is offline, /offline.html is shown.
+ *  - when a page can't be loaded because the device is offline, /offline.html is shown;
+ *  - web push: shows the notification sent by the shop and opens its (same-origin) link.
  * Bump VERSION to drop the old caches after changing this file.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `fratak-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [
@@ -80,6 +81,48 @@ self.addEventListener("fetch", (event) => {
         if (cached) return cached;
         throw error;
       }
+    }),
+  );
+});
+
+// ── Web push ───────────────────────────────────────────────────────────
+// Payload (JSON, encrypted by the server): { title, body, url, tag }.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_) {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const title = data.title || "فراتک";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "/assets/image/pwa/icon-192.png",
+      badge: "/assets/image/pwa/icon-192.png",
+      tag: data.tag || undefined,
+      renotify: !!data.tag,
+      dir: "rtl",
+      lang: "fa",
+      data: { url: data.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  let target = "/";
+  try {
+    const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (url.origin === self.location.origin) target = url.pathname + url.search + url.hash;
+  } catch (_) { /* keep "/" */ }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if (new URL(client.url).pathname === target.split(/[?#]/)[0] && "focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(target);
     }),
   );
 });

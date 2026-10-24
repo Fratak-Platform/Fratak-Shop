@@ -21,6 +21,10 @@
         <input asp-for="Input.OrderNumber" placeholder="شماره سفارش" dir="ltr" maxlength="30" autocomplete="off" class="@inputClass" aria-label="شماره سفارش">
         <input asp-for="Input.PhoneNumber" type="tel" inputmode="numeric" placeholder="شماره موبایل" dir="ltr" maxlength="11" autocomplete="tel" class="@inputClass" aria-label="شماره موبایل">
         <button type="submit" class="rounded-xl bg-sky-500 px-8 py-3 text-sm font-bold text-white hover:bg-sky-400 transition">پیگیری</button>
+        @if (Model.Captcha is not null)
+        {
+          <div class="md:col-span-3"><partial name="_Captcha" model="Model.Captcha" /></div>
+        }
       </form>
 
       @if (Model.Searched && order is null)

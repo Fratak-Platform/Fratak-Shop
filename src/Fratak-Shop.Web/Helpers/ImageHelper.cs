@@ -23,6 +23,21 @@ public static class ImageHelper
 
     public static string Brand(string? imageName) => Resolve(imageName, "brands", BrandPlaceholder);
 
+    /// <summary>
+    /// <c>srcset</c> value with optimized copies (<c>/media/{w}/…</c>) up to <paramref name="maxWidth"/>,
+    /// or null (attribute omitted) for external / non-optimizable images or when optimization is off.
+    /// </summary>
+    public static string? Srcset(string? url, bool enabled = true, int maxWidth = 1280)
+    {
+        if (!enabled || !Infrastructure.Media.MediaEndpoints.IsOptimizable(url))
+            return null;
+
+        var path = url!.TrimStart('/');
+        return string.Join(", ", Infrastructure.Media.MediaEndpoints.Widths
+            .Where(w => w <= maxWidth)
+            .Select(w => $"/media/{w}/{path} {w}w"));
+    }
+
     private static string Resolve(string? imageName, string folder, string placeholder)
     {
         if (string.IsNullOrWhiteSpace(imageName))

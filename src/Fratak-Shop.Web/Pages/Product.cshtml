@@ -18,7 +18,7 @@
     var tooltipClass = "opacity-0 w-28 transition-all bg-zinc-800 text-white text-center text-xs rounded-lg py-2 absolute z-10 -left-11 group-hover:opacity-100 px-3 pointer-events-none";
 }
 
-  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6" data-product-view="@p.Id">
     <div class="bg-white border rounded-xl shadow-lg p-4">
       <div class="flex flex-col lg:flex-row gap-8">
         <!-- photo -->
@@ -53,7 +53,9 @@
                 </div>
               </button>
             </div>
-            <img class="w-10/12 lg:w-full mx-auto border-2 rounded-xl @(p.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(mainImage.ImageName)" alt="@(mainImage.AltText ?? p.Name)">
+            <img class="w-10/12 lg:w-full mx-auto border-2 rounded-xl @(p.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(mainImage.ImageName)"
+                 srcset="@ImageHelper.Srcset(ImageHelper.Product(mainImage.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="(min-width: 1024px) 30vw, 85vw"
+                 alt="@(mainImage.AltText ?? p.Name)" fetchpriority="high" decoding="async">
             @if (images.Count > 1)
             {
               <div class="grid grid-cols-5 gap-x-2 mt-4">
@@ -292,6 +294,7 @@
               </button>
             }
           </div>
+          <partial name="_ProductEngagement" model="Model" />
           @if (Model.FreeShippingFrom is { } freeFrom)
           {
             <div class="flex items-center gap-x-2 mt-4 text-zinc-600 text-sm">
@@ -306,6 +309,12 @@
         {
           <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#description">
             معرفی
+          </a>
+        }
+        @if (Model.Videos.Count > 0)
+        {
+          <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#videos">
+            ویدیو
           </a>
         }
         <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#proper">
@@ -329,6 +338,7 @@
           </div>
         </div>
       }
+      <partial name="_ProductVideos" model="Model.Videos" />
       <div class="p-4 border-b" id="proper">
         <span class="border-b-sky-300 border-b text-zinc-800">
           مشخصات محصول
@@ -511,10 +521,14 @@
                     }
                   </div>
                 }
+                @if (Site.Settings.IsCommentVotingEnabled)
+                {
+                  <partial name="_VoteButtons" model='new VoteButtonsModel(review.Id, review.HelpfulCount, review.NotHelpfulCount, Model.MyVotes.TryGetValue(review.Id, out var reviewVote) ? reviewVote : null)' />
+                }
                 @foreach (var reply in review.Replies)
                 {
                   <div class="mt-3 mr-6 rounded-lg bg-sky-50 p-3 text-sm text-zinc-600">
-                    <div class="text-xs text-sky-700 mb-1">پاسخ @reply.AuthorName</div>
+                    <div class="text-xs text-sky-700 mb-1">پاسخ @(reply.IsStaff ? Site.Settings.SiteName : reply.AuthorName)</div>
                     @reply.Content
                   </div>
                 }
@@ -569,13 +583,39 @@
                 </div>
                 @foreach (var answer in question.Replies)
                 {
-                  <div class="mr-6 rounded-lg bg-sky-50 p-3 text-sm text-zinc-600">
-                    <div class="transition flex items-center gap-x-1 text-xs text-sky-700 mb-1">
+                  <div class="mr-6 mb-2 rounded-lg p-3 text-sm text-zinc-600 @(answer.IsStaff ? "bg-sky-50 border border-sky-100" : "bg-zinc-50")">
+                    <div class="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-sky-700">
                       @Icons.Svg("Reply", "fill-sky-700", 14)
-                      پاسخ @answer.AuthorName
+                      <span>پاسخ @(answer.IsStaff ? Site.Settings.SiteName : answer.AuthorName)</span>
+                      @if (answer.IsStaff)
+                      {
+                        <span class="inline-flex items-center gap-x-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-700">@Icons.Svg("Storefront", "fill-sky-600", 12) پاسخ فروشگاه</span>
+                      }
+                      else if (answer.IsVerifiedPurchase)
+                      {
+                        <span class="inline-flex items-center gap-x-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-600">@Icons.Svg("SealCheck", "fill-emerald-500", 12) خریدار این محصول</span>
+                      }
+                      <span class="text-zinc-400">@Format.LongDate(answer.CreatedAt)</span>
                     </div>
                     @answer.Content
+                    @if (Site.Settings.IsCommentVotingEnabled && !answer.IsStaff)
+                    {
+                      <partial name="_VoteButtons" model='new VoteButtonsModel(answer.Id, answer.HelpfulCount, answer.NotHelpfulCount, Model.MyVotes.TryGetValue(answer.Id, out var answerVote) ? answerVote : null)' />
+                    }
                   </div>
+                }
+                @if (Site.Settings.IsCustomerAnswerEnabled)
+                {
+                  <details class="mr-6 mt-2 text-sm" data-answer-box>
+                    <summary class="cursor-pointer text-xs text-sky-600 hover:text-sky-700">این کالا را دارید؟ به این پرسش پاسخ دهید</summary>
+                    <form class="mt-2" data-answer-form="@question.Id">
+                      <textarea name="content" rows="3" required minlength="5" maxlength="1000" placeholder="پاسخ شما (پس از بررسی نمایش داده می‌شود)" class="@inputClass"></textarea>
+                      <div class="mt-2 flex items-center gap-x-3">
+                        <button type="submit" class="rounded-lg bg-sky-500 px-4 py-1.5 text-xs text-white hover:bg-sky-400">ثبت پاسخ</button>
+                        <span class="text-xs text-zinc-500" data-answer-status aria-live="polite"></span>
+                      </div>
+                    </form>
+                  </details>
                 }
               </div>
             }
