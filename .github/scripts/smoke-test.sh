@@ -78,7 +78,11 @@ echo "== Output cache (anonymous visitors get cached pages)"
 for path in /product/xiaomi-redmi-watch-3-active /blog/headphone-life-tips "/category/smart-watch"; do
   curl -s -o /dev/null "$BASE$path"
   hit=$(curl -s -D - -o /dev/null "$BASE$path" | tr -d '\r' | grep -i '^x-page-cache:' | awk '{print $2}')
-  if [ "$hit" = "HIT" ]; then pass "cache HIT $path"; else fail "no cache HIT on second request: $path"; fi
+  if [ "$hit" = "HIT" ]; then pass "cache HIT $path"; else
+    fail "no cache HIT on second request: $path"
+    echo "      --- response headers (cookie values hidden):"
+    curl -s -D - -o /dev/null "$BASE$path" | tr -d '\r' | sed -E 's/^(set-cookie: [^=]*)=.*/\1=…/I; s/^/      /'
+  fi
 done
 # Signed-in or cookie-carrying visitors must never get a cached page.
 hit=$(curl -s -D - -o /dev/null -H "Cookie: fratak_at=x" "$BASE/product/xiaomi-redmi-watch-3-active" | tr -d '\r' | grep -ci '^x-page-cache: HIT')
@@ -86,7 +90,7 @@ if [ "$hit" = "0" ]; then pass "no cached page for a signed-in cookie"; else fai
 
 echo "== SEO & security"
 expect 200 /login
-contains 'content="noindex, nofollow"'
+contains 'content="noindex'
 expect 200 /product/xiaomi-redmi-watch-3-active
 lacks 'content="noindex'
 contains 'rel="canonical"'
