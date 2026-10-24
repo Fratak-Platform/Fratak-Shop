@@ -158,6 +158,14 @@ app.UseStaticFiles(new StaticFileOptions
         var headers = context.Context.Response.Headers;
         var path = context.Context.Request.Path;
 
+        // Customer return photos: reachable only by their random name, never indexed or cached by proxies.
+        if (path.StartsWithSegments("/uploads/returns"))
+        {
+            headers["X-Robots-Tag"] = "noindex, nofollow";
+            headers[HeaderNames.CacheControl] = "private, max-age=86400";
+            return;
+        }
+
         // The service worker and the offline page must always be revalidated (updates).
         if (path.Equals("/sw.js") || path.Equals("/offline.html"))
         {

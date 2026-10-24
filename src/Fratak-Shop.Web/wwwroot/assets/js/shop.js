@@ -18,6 +18,7 @@
  *  - [data-amount-preset]  : fill an amount input (wallet top-up)
  *  - [data-copy]           : copy text to the clipboard
  *  - [data-review-images]  : review photo picker (preview, remove, count/size/type checks)
+ *  - [data-map-picker]     : address location on a map (lazy Leaflet, see the end of this file)
  *  - [data-search-suggest] : instant search suggestions in the header (/api/search/suggest),
  *                            recent searches (localStorage) and popular searches (/api/search/popular)
  *  - [data-pwa-install]    : "install the app" suggestion after a few page views
@@ -810,4 +811,142 @@
   });
 
   if (isIos && isSafari && eligible()) setTimeout(() => show("ios"), 2500);
+})();
+
+/*
+ * [data-map-picker]: address location picker (Leaflet, vendored under /assets/js/dependencies/leaflet).
+ * Leaflet is only downloaded when a picker becomes visible (checkout modal / address form),
+ * the map is resized when its container changes (modals) and the coordinates go to the hidden
+ * inputs named by data-lat-input / data-lng-input. Tiles come from data-tiles (store setting).
+ */
+(() => {
+  const pickers = document.querySelectorAll("[data-map-picker]");
+  if (!pickers.length) return;
+
+  const BASE = "/assets/js/dependencies/leaflet/";
+  let loading = null;
+  const loadLeaflet = () => {
+    if (window.L) return Promise.resolve(window.L);
+    if (loading) return loading;
+    loading = new Promise((resolve, reject) => {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = BASE + "leaflet.css";
+      document.head.appendChild(css);
+      const script = document.createElement("script");
+      script.src = BASE + "leaflet.js";
+      script.onload = () => resolve(window.L);
+      script.onerror = () => { loading = null; reject(new Error("leaflet")); };
+      document.head.appendChild(script);
+    });
+    return loading;
+  };
+
+  const round = (n) => Math.round(n * 1e6) / 1e6;
+
+  const init = (root) => {
+    if (root.dataset.mapReady) return;
+    root.dataset.mapReady = "1";
+    const canvas = root.querySelector("[data-map-canvas]");
+    const latInput = document.querySelector(root.dataset.latInput);
+    const lngInput = document.querySelector(root.dataset.lngInput);
+    const status = root.querySelector("[data-map-status]");
+    const clearBtn = root.querySelector("[data-map-clear]");
+    const locateBtn = root.querySelector("[data-map-locate]");
+    if (!canvas || !latInput || !lngInput) return;
+
+    const setStatus = (text, error) => {
+      if (!status) return;
+      status.textContent = text;
+      status.classList.toggle("text-red-500", !!error);
+      status.classList.toggle("text-zinc-500", !error);
+    };
+
+    loadLeaflet().then((L) => {
+      const lat = parseFloat(latInput.value);
+      const lng = parseFloat(lngInput.value);
+      const has = !isNaN(lat) && !isNaN(lng);
+      const center = has ? [lat, lng] : [parseFloat(root.dataset.defaultLat) || 35.6892, parseFloat(root.dataset.defaultLng) || 51.389];
+      const zoom = has ? 16 : parseInt(root.dataset.zoom, 10) || 12;
+
+      const map = L.map(canvas, { scrollWheelZoom: false, attributionControl: true }).setView(center, zoom);
+      L.tileLayer(root.dataset.tiles || "https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: root.dataset.attribution || "© OpenStreetMap",
+      }).addTo(map);
+      map.attributionControl.setPrefix(false);
+
+      const icon = L.icon({
+        iconUrl: BASE + "images/marker-icon.png",
+        iconRetinaUrl: BASE + "images/marker-icon-2x.png",
+        shadowUrl: BASE + "images/marker-shadow.png",
+        iconSize: [25, 41], iconAnchor: [12, 41], shadowSize: [41, 41],
+      });
+
+      let marker = null;
+      const place = (latlng, message) => {
+        const value = L.latLng(latlng);
+        latInput.value = String(round(value.lat));
+        lngInput.value = String(round(value.lng));
+        if (!marker) {
+          marker = L.marker(value, { draggable: true, icon, keyboard: true, title: "موقعیت تحویل" }).addTo(map);
+          marker.on("dragend", () => place(marker.getLatLng(), "موقعیت به‌روزرسانی شد."));
+        } else {
+          marker.setLatLng(value);
+        }
+        clearBtn?.classList.remove("hidden");
+        setStatus(message || "موقعیت ثبت شد؛ برای دقت بیشتر نشانگر را جابه‌جا کنید.");
+      };
+
+      if (has) place(center, "موقعیت ثبت شده است؛ برای تغییر روی نقشه بزنید یا نشانگر را جابه‌جا کنید.");
+      map.on("click", (e) => place(e.latlng));
+
+      clearBtn?.addEventListener("click", () => {
+        latInput.value = "";
+        lngInput.value = "";
+        if (marker) { map.removeLayer(marker); marker = null; }
+        clearBtn.classList.add("hidden");
+        setStatus("موقعیت حذف شد. (اختیاری)");
+      });
+
+      locateBtn?.addEventListener("click", () => {
+        if (!navigator.geolocation) { setStatus("مرورگر شما از موقعیت‌یابی پشتیبانی نمی‌کند.", true); return; }
+        setStatus("در حال دریافت موقعیت…");
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const here = [pos.coords.latitude, pos.coords.longitude];
+            map.setView(here, 17);
+            place(here, "موقعیت فعلی شما ثبت شد؛ در صورت نیاز نشانگر را دقیق کنید.");
+          },
+          () => setStatus("دسترسی به موقعیت داده نشد؛ روی نقشه انتخاب کنید.", true),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+      });
+
+      // Modals: the map is created while hidden → recompute its size when it gets one.
+      if ("ResizeObserver" in window) new ResizeObserver(() => map.invalidateSize()).observe(canvas);
+    }).catch(() => setStatus("بارگذاری نقشه انجام نشد؛ ثبت آدرس بدون نقشه هم ممکن است.", true));
+  };
+
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => entries.forEach((entry) => {
+      if (entry.isIntersecting) { io.unobserve(entry.target); init(entry.target); }
+    }), { rootMargin: "200px" });
+    pickers.forEach((p) => io.observe(p));
+  } else {
+    pickers.forEach(init);
+  }
+})();
+
+/* [data-compare-diff]: compare page – hide the rows where every product has the same value (remembered). */
+(() => {
+  const toggle = document.querySelector("[data-compare-diff]");
+  if (!toggle) return;
+  const KEY = "fratak:compare-diff";
+  const apply = () => {
+    document.querySelectorAll('[data-compare-row][data-same="true"]').forEach((row) => row.classList.toggle("hidden", toggle.checked));
+    try { localStorage.setItem(KEY, toggle.checked ? "1" : "0"); } catch { /* private mode */ }
+  };
+  try { toggle.checked = localStorage.getItem(KEY) === "1"; } catch { /* ignore */ }
+  toggle.addEventListener("change", apply);
+  apply();
 })();

@@ -4,6 +4,7 @@ namespace Fratak_Shop.Web.Infrastructure.Middleware;
 /// Security response headers for every response: a strict Content-Security-Policy
 /// (no inline scripts – all behaviour lives in /assets/js), MIME sniffing protection,
 /// clickjacking protection, referrer and browser-feature policies.
+/// Geolocation is allowed for this origin only (address map picker: "موقعیت فعلی من").
 /// </summary>
 public class SecurityHeadersMiddleware(RequestDelegate next)
 {
@@ -13,6 +14,10 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
         "script-src 'self'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "font-src 'self' data:; " +
+        // Product videos: uploads are same-origin, "direct URL" videos may live on a CDN.
+        "media-src 'self' https: blob:; " +
+        "worker-src 'self'; " +
+        "manifest-src 'self'; " +
         "connect-src 'self'; " +
         "frame-src 'self' https:; " +
         "form-action 'self' https://sandbox.zarinpal.com https://payment.zarinpal.com https://www.zarinpal.com; " +
@@ -28,7 +33,7 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "SAMEORIGIN";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()";
+            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()";
             headers["Cross-Origin-Opener-Policy"] = "same-origin";
             if (!headers.ContainsKey("Content-Security-Policy"))
                 headers["Content-Security-Policy"] = ContentSecurityPolicy;

@@ -97,6 +97,8 @@ public class OrderService(
             ShippingUnit = command.ShippingUnit?.Trim(),
             ShippingPostalCode = command.ShippingPostalCode.Trim(),
             ShippingPhone = command.ShippingPhone.Trim(),
+            ShippingLatitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLatitude : null,
+            ShippingLongitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLongitude : null,
             CustomerNote = command.CustomerNote.ToPlainText() is { Length: > 0 } note ? note : null,
         };
 
@@ -320,6 +322,8 @@ public class OrderService(
         order.ShippingUnit = command.ShippingUnit?.Trim();
         order.ShippingPostalCode = command.ShippingPostalCode.Trim();
         order.ShippingPhone = command.ShippingPhone.Trim();
+        order.ShippingLatitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLatitude : null;
+        order.ShippingLongitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLongitude : null;
         order.CustomerNote = command.CustomerNote.ToPlainText() is { Length: > 0 } note ? note : null;
 
         await context.SaveChangesAsync();

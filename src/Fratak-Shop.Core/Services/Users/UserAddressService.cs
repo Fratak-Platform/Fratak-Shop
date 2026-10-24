@@ -17,7 +17,8 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 {
     public async Task<OperationResult> CreateAddressAsync(CreateUserAddressCommand command)
     {
-        var error = Validate(command.Title, command.AddressLine, command.PostalCode, command.PhoneNumber);
+        var error = Validate(command.Title, command.AddressLine, command.PostalCode, command.PhoneNumber)
+                    ?? ValidateGeo(command.Latitude, command.Longitude);
         if (error is not null)
             return OperationResult.Error(error);
 
@@ -53,6 +54,8 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
             PostalCode = command.PostalCode.Trim(),
             PhoneNumber = command.PhoneNumber.Trim(),
             IsDefault = isDefault,
+            Latitude = RoundGeo(command.Latitude),
+            Longitude = RoundGeo(command.Longitude),
         };
 
         context.UserAddresses.Add(address);
@@ -70,7 +73,8 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
         if (address is null)
             return OperationResult.NotFound("آدرس مورد نظر یافت نشد.");
 
-        var error = Validate(command.Title, command.AddressLine, command.PostalCode, command.PhoneNumber);
+        var error = Validate(command.Title, command.AddressLine, command.PostalCode, command.PhoneNumber)
+                    ?? ValidateGeo(command.Latitude, command.Longitude);
         if (error is not null)
             return OperationResult.Error(error);
 
@@ -98,6 +102,8 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
         address.PostalCode = command.PostalCode.Trim();
         address.PhoneNumber = command.PhoneNumber.Trim();
         address.IsDefault = isDefault;
+        address.Latitude = RoundGeo(command.Latitude);
+        address.Longitude = RoundGeo(command.Longitude);
 
         await context.SaveChangesAsync();
 
@@ -240,4 +246,16 @@ public class UserAddressService(FratakShopDbContext context) : IUserAddressServi
 
         return phone.IsValidMobile() || phone.IsValidPhone();
     }
+
+    /// <summary>Map location: both coordinates or none, inside the valid range.</summary>
+    public static string? ValidateGeo(decimal? latitude, decimal? longitude)
+    {
+        if (latitude.HasValue != longitude.HasValue)
+            return "موقعیت روی نقشه کامل نیست؛ دوباره روی نقشه انتخاب کنید.";
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            return "موقعیت انتخاب‌شده روی نقشه معتبر نیست.";
+        return null;
+    }
+
+    private static decimal? RoundGeo(decimal? value) => value.HasValue ? Math.Round(value.Value, 6) : null;
 }

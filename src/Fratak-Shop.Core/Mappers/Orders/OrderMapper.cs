@@ -50,6 +50,8 @@ public static class OrderMapper
             ShippingBuildingNumber = order.ShippingBuildingNumber,
             ShippingUnit = order.ShippingUnit,
             ShippingPostalCode = order.ShippingPostalCode,
+            ShippingLatitude = order.ShippingLatitude,
+            ShippingLongitude = order.ShippingLongitude,
             ShippingPhone = order.ShippingPhone,
             CustomerNote = order.CustomerNote,
             PaidAt = order.PaidAt,

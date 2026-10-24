@@ -56,6 +56,8 @@ public static class SeoEndpoints
                 .AppendLine("Disallow: /welcome")
                 .AppendLine("Disallow: /logout")
                 .AppendLine("Disallow: /compare")
+                .AppendLine("Disallow: /track-order")
+                .AppendLine("Disallow: /uploads/returns/")
                 .AppendLine("Allow: /");
 
             if (!string.IsNullOrWhiteSpace(settings.RobotsTxtExtra))

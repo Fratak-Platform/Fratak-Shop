@@ -176,6 +176,8 @@ public class CheckoutModel(
             ShippingBuildingNumber = address.BuildingNumber,
             ShippingUnit = address.Unit,
             ShippingPostalCode = address.PostalCode,
+            ShippingLatitude = address.Latitude,
+            ShippingLongitude = address.Longitude,
             ShippingPhone = address.PhoneNumber,
             CustomerNote = string.IsNullOrWhiteSpace(Input.Note) ? null : Input.Note.Trim(),
             CouponCode = Coupon?.Code,

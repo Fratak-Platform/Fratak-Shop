@@ -66,6 +66,27 @@
     <input id="@(fieldId)_PostalCode" type="text" inputmode="numeric" name="@(p).PostalCode" value="@a.PostalCode" required pattern="[0-9]{10}" maxlength="10" dir="ltr" class="@inputClass">
   </div>
 </div>
+@if (Site.Settings.IsAddressMapEnabled)
+{
+  var inv = System.Globalization.CultureInfo.InvariantCulture;
+  var s = Site.Settings;
+  <div class="mt-7" data-map-picker
+       data-lat-input="#@(fieldId)_Latitude" data-lng-input="#@(fieldId)_Longitude"
+       data-default-lat="@s.MapDefaultLatitude.ToString(inv)" data-default-lng="@s.MapDefaultLongitude.ToString(inv)"
+       data-zoom="@s.MapDefaultZoom" data-tiles="@s.MapTileUrl" data-attribution="@s.MapAttribution">
+    <div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+      <span class="text-sm text-zinc-700">موقعیت روی نقشه <span class="text-xs text-zinc-400">(اختیاری؛ برای تحویل دقیق‌تر)</span></span>
+      <span class="flex items-center gap-x-3 text-xs">
+        <button type="button" data-map-locate class="text-sky-600 hover:text-sky-700">موقعیت فعلی من</button>
+        <button type="button" data-map-clear class="text-red-400 hover:text-red-500 @(a.Latitude.HasValue ? "" : "hidden")">حذف موقعیت</button>
+      </span>
+    </div>
+    <div data-map-canvas dir="ltr" class="relative z-0 h-64 w-full overflow-hidden rounded-lg border border-gray-300 bg-zinc-100" role="application" aria-label="نقشه انتخاب موقعیت"></div>
+    <p data-map-status class="mt-1 text-xs text-zinc-500">@(a.Latitude.HasValue ? "موقعیت ثبت شده است؛ برای تغییر روی نقشه بزنید یا نشانگر را جابه‌جا کنید." : "روی نقشه بزنید تا موقعیت ثبت شود.")</p>
+    <input type="hidden" id="@(fieldId)_Latitude" name="@(p).Latitude" value="@(a.Latitude?.ToString(inv))" />
+    <input type="hidden" id="@(fieldId)_Longitude" name="@(p).Longitude" value="@(a.Longitude?.ToString(inv))" />
+  </div>
+}
 <label class="flex items-center gap-x-2 mt-5 text-sm text-zinc-700 cursor-pointer">
   <input type="checkbox" name="@(p).IsDefault" value="true" checked="@(a.IsDefault ? "checked" : null)" class="h-4 w-4 accent-sky-500">
   آدرس پیش فرض من باشد

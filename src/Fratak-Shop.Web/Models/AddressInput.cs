@@ -49,6 +49,13 @@ public class AddressInput
 
     public bool IsDefault { get; set; }
 
+    /// <summary>Optional map location (filled by the map picker).</summary>
+    [Range(-90, 90)]
+    public decimal? Latitude { get; set; }
+
+    [Range(-180, 180)]
+    public decimal? Longitude { get; set; }
+
     public CreateUserAddressCommand ToCreateCommand(Guid userId) => new()
     {
         UserId = userId,
@@ -63,6 +70,8 @@ public class AddressInput
         PostalCode = PostalCode,
         PhoneNumber = PhoneNumber,
         IsDefault = IsDefault,
+        Latitude = Latitude,
+        Longitude = Longitude,
     };
 
     public EditUserAddressCommand ToEditCommand(Guid userId) => new()
@@ -80,6 +89,8 @@ public class AddressInput
         PostalCode = PostalCode,
         PhoneNumber = PhoneNumber,
         IsDefault = IsDefault,
+        Latitude = Latitude,
+        Longitude = Longitude,
     };
 
     public static AddressInput From(UserAddressDto address) => new()
@@ -96,6 +107,8 @@ public class AddressInput
         PostalCode = address.PostalCode,
         PhoneNumber = address.PhoneNumber,
         IsDefault = address.IsDefault,
+        Latitude = address.Latitude,
+        Longitude = address.Longitude,
     };
 }
 

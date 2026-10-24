@@ -61,6 +61,8 @@ public class CreateOrderCommand
     public string? ShippingUnit { get; set; }
     public string ShippingPostalCode { get; set; } = null!;
     public string ShippingPhone { get; set; } = null!;
+    public decimal? ShippingLatitude { get; set; }
+    public decimal? ShippingLongitude { get; set; }
 
     public string? CustomerNote { get; set; }
 
@@ -96,6 +98,8 @@ public class EditOrderCommand
     public string? ShippingUnit { get; set; }
     public string ShippingPostalCode { get; set; } = null!;
     public string ShippingPhone { get; set; } = null!;
+    public decimal? ShippingLatitude { get; set; }
+    public decimal? ShippingLongitude { get; set; }
 
     public string? CustomerNote { get; set; }
 }

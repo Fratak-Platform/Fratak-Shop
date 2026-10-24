@@ -140,28 +140,47 @@
       </div>
       @if (Model.Products.Count > 0)
       {
-        <div class="mt-5 pb-2 text-zinc-800 font-semibold">برند</div>
-        <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7">
-          @foreach (var product in Model.Products)
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm">
+          @if (Model.Products.Count > 1)
           {
-            <div class="text-center text-zinc-600 border-l last:border-l-0">@(product.BrandName ?? "-")</div>
+            <label class="flex cursor-pointer items-center gap-x-2 text-zinc-700">
+              <input type="checkbox" data-compare-diff class="h-4 w-4 accent-sky-500">
+              فقط تفاوت‌ها را نشان بده
+              <span class="text-xs text-zinc-400">(@Model.Rows.Count(r => !r.IsSame) ویژگی متفاوت)</span>
+            </label>
+          }
+          else
+          {
+            <span class="text-xs text-zinc-500">برای مقایسه حداقل یک کالای دیگر اضافه کنید.</span>
+          }
+          @if (Model.MixedCategories)
+          {
+            <span class="text-xs text-amber-600">کالاها از دسته‌بندی‌های متفاوت هستند؛ برخی ویژگی‌ها قابل مقایسه نیستند.</span>
           }
         </div>
-        <div class="mt-5 pb-2 text-zinc-800 font-semibold">گارانتی</div>
-        <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7">
-          @foreach (var product in Model.Products)
-          {
-            <div class="text-center text-zinc-600 border-l last:border-l-0">@(product.WarrantyTitle ?? "-")</div>
-          }
-        </div>
-        @foreach (var key in Model.FeatureKeys)
+        @foreach (var row in Model.Rows)
         {
-          <div class="mt-5 pb-2 text-zinc-800 font-semibold">@key</div>
-          <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7">
-            @foreach (var product in Model.Products)
-            {
-              <div class="text-center text-zinc-600 border-l last:border-l-0">@(Model.FeatureValue(product, key) ?? "-")</div>
-            }
+          <div data-compare-row data-same="@(row.IsSame ? "true" : "false")">
+            <div class="mt-5 pb-2 font-semibold text-zinc-800 flex items-center gap-x-2">
+              @row.Title
+              @if (row.IsSame)
+              {
+                <span class="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-normal text-zinc-400">یکسان</span>
+              }
+            </div>
+            <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base border-b pb-7 @(row.IsSame ? "" : "bg-sky-50/40")">
+              @for (var i = 0; i < row.Values.Count; i++)
+              {
+                var isBest = row.BestIndex == i;
+                <div class="text-center border-l last:border-l-0 px-1 @(isBest ? "font-semibold text-green-600" : "text-zinc-600")">
+                  @(row.Values[i] ?? "-")
+                  @if (isBest)
+                  {
+                    <span class="mr-1 inline-block rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-normal text-green-600">@row.BestLabel</span>
+                  }
+                </div>
+              }
+            </div>
           </div>
         }
         <div class="grid grid-cols-2 lg:grid-cols-4 text-sm lg:text-base py-7 gap-y-4">

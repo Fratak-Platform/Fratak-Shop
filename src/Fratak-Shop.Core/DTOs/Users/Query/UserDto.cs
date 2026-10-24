@@ -51,6 +51,9 @@ public class UserAddressDto : BaseDto
     public string PostalCode { get; set; } = null!;
     public string PhoneNumber { get; set; } = null!;
     public bool IsDefault { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public bool HasLocation => Latitude.HasValue && Longitude.HasValue;
 
     /// <summary>آدرس کامل به‌صورت یک متن.</summary>
     public string FullAddress =>

@@ -51,6 +51,12 @@
                     @Icons.Svg("MapPin")
                     @address.FullAddress
                   </div>
+                  @if (Site.Settings.IsAddressMapEnabled)
+                  {
+                    <div class="text-xs @(address.HasLocation ? "text-green-600" : "text-zinc-400")">
+                      @(address.HasLocation ? "موقعیت روی نقشه ثبت شده است" : "موقعیت روی نقشه ثبت نشده (از «ویرایش آدرس» اضافه کنید)")
+                    </div>
+                  }
                   <div class="flex gap-x-1 items-center">
                     @Icons.Svg("Envelope")
                     @address.PostalCode
