@@ -76,15 +76,12 @@
           </form>
         }
 
-        <div class="text-sm text-zinc-600 mt-4">
-          <span>
-            ثبت نام با رمز عبور و ایمیل؟
-          </span>
-          <a asp-page="/Register" asp-route-returnUrl="@Model.ReturnUrl" class="text-sky-500">
-            فرم ثبت نام
-          </a>
+        <div class="text-sm text-zinc-600 mt-4 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span>ثبت نام با رمز عبور و ایمیل؟</span>
+          <a asp-page="/Register" asp-route-returnUrl="@Model.ReturnUrl" class="text-sky-500">فرم ثبت نام</a>
           @if (Site.Settings.IsGuestOrderTrackingEnabled)
           {
+            <span class="text-zinc-300" aria-hidden="true">|</span>
             <a href="/track-order" class="text-sky-500">پیگیری سفارش بدون ورود</a>
           }
         </div>

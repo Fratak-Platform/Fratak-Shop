@@ -131,6 +131,8 @@
         case HomeSectionType.Newest:
         case HomeSectionType.MostViewed:
         case HomeSectionType.CategoryProducts:
+        case HomeSectionType.RecommendedForYou:
+        case HomeSectionType.RecentlyViewed:
           var moreLink = link ?? homeSection.Type switch
           {
               HomeSectionType.BestSellers => "/products?sort=BestSelling",
@@ -143,6 +145,8 @@
               HomeSectionType.BestSellers => "پرفروش ترین محصولات",
               HomeSectionType.MostViewed => "پربازدیدترین محصولات",
               HomeSectionType.CategoryProducts => homeSection.CategoryTitle ?? "محصولات",
+              HomeSectionType.RecommendedForYou => "پیشنهاد برای شما",
+              HomeSectionType.RecentlyViewed => "بازدیدهای اخیر شما",
               _ => "جدیدترین محصولات",
           };
           <section id="@block.DomId">

@@ -97,13 +97,25 @@ public class PaymentTransactionService(
             status = PaymentTransactionStatus.Failed;
 
         var now = DateTimeOffset.UtcNow;
-        await context.PaymentTransactions
+        var affected = await context.PaymentTransactions
             .Where(t => t.Id == id && (t.Status == PaymentTransactionStatus.Pending || t.Status == PaymentTransactionStatus.Verifying))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.Status, status)
                 .SetProperty(t => t.ResultCode, code)
                 .SetProperty(t => t.Message, Limit(message, 500))
                 .SetProperty(t => t.UpdatedAt, now));
+
+        // Tell the customer once (only the call that actually changed the status).
+        if (affected > 0)
+        {
+            var orderId = await context.PaymentTransactions
+                .Where(t => t.Id == id)
+                .Select(t => t.OrderId)
+                .FirstOrDefaultAsync();
+
+            if (orderId.HasValue)
+                await events.OrderPaymentFailedAsync(orderId.Value);
+        }
     }
 
     public async Task<PaymentCompletionResult> CompleteAsync(Guid id, string refId, string? cardPan, int code)

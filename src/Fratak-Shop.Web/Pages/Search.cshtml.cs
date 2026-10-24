@@ -20,6 +20,7 @@ public class SearchModel(
     IProductService productService,
     ICategoryService categoryService,
     IBrandService brandService,
+    IProductFilterService filterService,
     IPageMetaService pageMeta) : ShopPageModel
 {
     public const int PageSize = 16;
@@ -70,9 +71,17 @@ public class SearchModel(
     public PagerModel Pager { get; private set; } = null!;
     public string Heading { get; private set; } = "همه محصولات";
 
+    /// <summary>Specification filter boxes with value counts (query keys "f-{slug}").</summary>
+    public List<SpecificationFacetDto> Facets { get; private set; } = [];
+
+    /// <summary>Selected specification values by filter slug.</summary>
+    public Dictionary<string, List<string>> SelectedSpecifications { get; private set; } = [];
+
+    public const string SpecificationPrefix = "f-";
+
     public bool HasFilters =>
         !string.IsNullOrWhiteSpace(Query) || !string.IsNullOrWhiteSpace(CategorySlug) || BrandSlugs.Count > 0
-        || MinPrice.HasValue || MaxPrice.HasValue || Available || Discounted;
+        || MinPrice.HasValue || MaxPrice.HasValue || Available || Discounted || SelectedSpecifications.Count > 0;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -91,7 +100,26 @@ public class SearchModel(
         if (MinPrice.HasValue && MaxPrice.HasValue && MinPrice > MaxPrice)
             (MinPrice, MaxPrice) = (MaxPrice, MinPrice);
 
-        Result = await productService.GetProductByFilterAsync(new ProductFilterParams
+        // Only the filters configured for this listing are accepted (no arbitrary feature keys).
+        var attributes = await filterService.GetAttributesAsync(CategorySlug);
+        var specifications = new Dictionary<string, List<string>>();
+        foreach (var attribute in attributes)
+        {
+            var values = Request.Query[SpecificationPrefix + attribute.Slug]
+                .Where(v => !string.IsNullOrWhiteSpace(v) && v!.Length <= 200)
+                .Select(v => v!.Trim())
+                .Distinct()
+                .Take(10)
+                .ToList();
+
+            if (values.Count == 0)
+                continue;
+
+            specifications[attribute.FeatureKey] = values;
+            SelectedSpecifications[attribute.Slug] = values;
+        }
+
+        var filter = new ProductFilterParams
         {
             Search = Query,
             CategorySlug = CategorySlug,
@@ -104,7 +132,12 @@ public class SearchModel(
             SortBy = Sort,
             PageId = PageNumber,
             Take = PageSize,
-        });
+            Specifications = specifications,
+        };
+
+        Result = await productService.GetProductByFilterAsync(filter);
+        if (attributes.Count > 0)
+            Facets = await productService.GetSpecificationFacetsAsync(filter, attributes);
 
         Categories = await categoryService.GetMenuCategoriesAsync();
         Brands = await brandService.GetActiveBrandsAsync();
@@ -142,7 +175,7 @@ public class SearchModel(
         }
 
         // Filtered / paginated variations should not compete with the main listing.
-        if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || MaxPrice.HasValue)
+        if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || MaxPrice.HasValue || SelectedSpecifications.Count > 0)
             ViewData[PageMetaKeys.Robots] = "noindex, follow";
     }
 }

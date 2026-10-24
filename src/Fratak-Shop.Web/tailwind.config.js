@@ -10,6 +10,9 @@ module.exports = {
   ],
   // Classes used by the original template that are not referenced literally anymore.
   safelist: [
+    // Built in C# strings passed to partials (not always seen by the extractor).
+    "[&>svg]:hidden",
+    "xl:[&>svg]:block",
     "bg-red-700",
     "bg-sky-200",
     "border-t-blue-700",
@@ -45,6 +48,9 @@ module.exports = {
     "w-2.5",
     "w-5/12",
   ],
+  // The storefront has no dark theme: "dark:" classes must never follow the OS setting
+  // (white text on the white filter box was invisible in dark mode).
+  darkMode: "class",
   theme: {
     extend: {},
   },

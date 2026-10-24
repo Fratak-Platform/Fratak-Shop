@@ -170,3 +170,22 @@
   });
   if (inputs.length) inputs[0].focus();
 })();
+
+// ── PWA: the layout only links the manifest while the PWA is enabled in the settings ──
+(() => {
+  if (!("serviceWorker" in navigator)) return;
+  const enabled = !!document.querySelector('link[rel="manifest"]');
+  window.addEventListener("load", () => {
+    if (enabled) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+      return;
+    }
+    // Turned off in the settings: remove a worker installed earlier, with its caches.
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
+      if (registrations.length && window.caches) {
+        caches.keys().then((keys) => keys.filter((key) => key.startsWith("fratak-")).forEach((key) => caches.delete(key)));
+      }
+    });
+  });
+})();

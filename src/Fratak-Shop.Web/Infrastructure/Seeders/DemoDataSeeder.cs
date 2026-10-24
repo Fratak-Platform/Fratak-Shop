@@ -8,6 +8,7 @@ using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Entities.Locations;
+using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Products;
@@ -28,6 +29,7 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
     public const string DemoPhone = "09120000000";
     public const string DemoPassword = "123456";
     private const decimal DemoWalletBalance = 2_000_000;
+    private const int DemoLoyaltyPoints = 1_500;
 
     private const string Img = "/assets/image/";
 
@@ -221,8 +223,22 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
                 Role = UserRole.Customer,
                 IsPhoneVerified = true,
                 WalletBalance = DemoWalletBalance,
+                LoyaltyPoints = DemoLoyaltyPoints,
+                LoyaltyLifetimePoints = DemoLoyaltyPoints,
             };
             context.Users.Add(demoUser);
+
+            // Club points to try the rewards (500 → wallet credit, 800 → free shipping, 1000 → 10%).
+            context.LoyaltyTransactions.Add(new LoyaltyTransaction
+            {
+                User = demoUser,
+                Type = LoyaltyTransactionType.Earn,
+                Points = DemoLoyaltyPoints,
+                BalanceAfter = DemoLoyaltyPoints,
+                Description = "امتیاز هدیه حساب نمونه",
+                ReferenceKey = "demo:welcome",
+                ExpiresAt = now.AddYears(1),
+            });
 
             // Opening balance, so wallet payment can be tried right away (ledger stays consistent).
             context.WalletTransactions.Add(new WalletTransaction
@@ -232,6 +248,28 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
                 Amount = DemoWalletBalance,
                 BalanceAfter = DemoWalletBalance,
                 Description = "اعتبار هدیه حساب نمونه",
+            });
+        }
+
+        // Category-restricted coupon (headphones + earbuds), to try product/category conditions.
+        if (!await context.Coupons.IgnoreQueryFilters().AnyAsync(c => c.Code == "AUDIO15", cancellationToken))
+        {
+            context.Coupons.Add(new Coupon
+            {
+                Code = "AUDIO15",
+                Title = "۱۵٪ تخفیف هدفون و هندزفری",
+                Description = "فقط روی کالاهای دسته هدفون و هندزفری بی‌سیم؛ حداکثر ۲ میلیون تومان تخفیف.",
+                Type = CouponType.Percentage,
+                Value = 15,
+                MaxDiscountAmount = 2_000_000,
+                UsageLimitPerUser = 2,
+                EndsAt = now.AddMonths(3),
+                IsPublic = true,
+                Targets =
+                [
+                    new CouponTarget { TargetType = CouponTargetType.Category, TargetId = categories["headphone"].Id },
+                    new CouponTarget { TargetType = CouponTargetType.Category, TargetId = categories["earbuds"].Id },
+                ],
             });
         }
 

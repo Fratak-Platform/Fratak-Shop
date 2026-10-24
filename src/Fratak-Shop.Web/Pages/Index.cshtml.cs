@@ -30,6 +30,7 @@ public class IndexModel(
     IProductService productService,
     IBrandService brandService,
     IPostService postService,
+    IRecommendationService recommendations,
     ISiteContext site,
     IPageMetaService pageMeta) : ShopPageModel
 {
@@ -38,7 +39,8 @@ public class IndexModel(
     /// <summary>Swiper is only loaded when a slider is actually on the page.</summary>
     public bool NeedsSlider => Blocks.Any(b => b.Section.Type is HomeSectionType.HeroSlider or HomeSectionType.Deals
         or HomeSectionType.BestSellers or HomeSectionType.Newest or HomeSectionType.MostViewed
-        or HomeSectionType.CategoryProducts or HomeSectionType.Brands);
+        or HomeSectionType.CategoryProducts or HomeSectionType.Brands
+        or HomeSectionType.RecommendedForYou or HomeSectionType.RecentlyViewed);
 
     public async Task OnGetAsync()
     {
@@ -103,6 +105,19 @@ public class IndexModel(
 
                 case HomeSectionType.LatestPosts:
                     block.Posts = await postService.GetLatestPostsAsync(take);
+                    break;
+
+                // Personal blocks: only shown when something is known about the visitor.
+                case HomeSectionType.RecommendedForYou when site.Settings.IsRecommendationEnabled:
+                    var viewed = RecentlyViewed.Read(Request);
+                    if (CurrentUserId.HasValue || viewed.Count > 0)
+                        block.Products = await recommendations.GetPersonalizedAsync(CurrentUserId, viewed, viewed, take);
+                    break;
+
+                case HomeSectionType.RecentlyViewed:
+                    var recent = RecentlyViewed.Read(Request);
+                    if (recent.Count > 0)
+                        block.Products = await productService.GetCardsByIdsAsync(recent.Take(take));
                     break;
             }
 

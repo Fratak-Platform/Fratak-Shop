@@ -24,6 +24,7 @@ public static class EngagementDefaultsSeeder
 
         await BackfillSettingsAsync(context, cancellationToken);
         await SeedMenusAsync(context, cancellationToken);
+        await SeedPersonalHomeSectionsAsync(context, cancellationToken);
         await SeedFilterAttributesAsync(context, cancellationToken);
         await SeedCouponsAsync(context, cancellationToken);
         await SeedLoyaltyAsync(context, cancellationToken);
@@ -52,6 +53,42 @@ public static class EngagementDefaultsSeeder
         settings.AnnouncementUrl = "/club";
         settings.AnnouncementColor = "#0369a1";
         settings.InvoiceNote ??= "کالای فروخته‌شده تا ۷ روز با حفظ شرایط اولیه قابل بازگشت است. از خرید شما سپاسگزاریم.";
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the personal home blocks once (also to existing installations). A block the
+    /// admin deleted is soft deleted, so it is not added again.
+    /// </summary>
+    private static async Task SeedPersonalHomeSectionsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        if (await context.HomeSections.IgnoreQueryFilters()
+                .AnyAsync(s => s.Type == HomeSectionType.RecommendedForYou || s.Type == HomeSectionType.RecentlyViewed, cancellationToken))
+            return;
+
+        var bestSellers = await context.HomeSections
+            .Where(s => s.Type == HomeSectionType.BestSellers)
+            .Select(s => (int?)s.DisplayOrder)
+            .FirstOrDefaultAsync(cancellationToken);
+        var maxOrder = await context.HomeSections.Select(s => (int?)s.DisplayOrder).MaxAsync(cancellationToken) ?? 0;
+
+        context.HomeSections.AddRange(
+            new HomeSection
+            {
+                Type = HomeSectionType.RecommendedForYou,
+                Title = "پیشنهاد ویژه برای شما",
+                Subtitle = "بر اساس خریدها، علاقه‌مندی‌ها و بازدیدهای شما",
+                ItemCount = 10,
+                DisplayOrder = bestSellers ?? maxOrder + 1,
+            },
+            new HomeSection
+            {
+                Type = HomeSectionType.RecentlyViewed,
+                Title = "بازدیدهای اخیر شما",
+                ItemCount = 10,
+                DisplayOrder = maxOrder + 1,
+            });
 
         await context.SaveChangesAsync(cancellationToken);
     }

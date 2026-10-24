@@ -134,6 +134,15 @@ app.UseStaticFiles(new StaticFileOptions
     {
         // Versioned URLs (asp-append-version → ?v=hash) never change: cache for a year.
         var headers = context.Context.Response.Headers;
+        var path = context.Context.Request.Path;
+
+        // The service worker and the offline page must always be revalidated (updates).
+        if (path.Equals("/sw.js") || path.Equals("/offline.html"))
+        {
+            headers[HeaderNames.CacheControl] = "no-cache";
+            return;
+        }
+
         headers[HeaderNames.CacheControl] = context.Context.Request.Query.ContainsKey("v")
             ? "public, max-age=31536000, immutable"
             : "public, max-age=604800";
@@ -153,6 +162,7 @@ app.UseMiddleware<SeoRedirectMiddleware>();
 app.MapRazorPages();
 app.MapAuthApi();
 app.MapSeoEndpoints();
+app.MapPwaEndpoints();
 
 // Cities of a province, used by the address forms (province → city select).
 app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid provinceId, ILocationService locations, HttpContext http) =>
