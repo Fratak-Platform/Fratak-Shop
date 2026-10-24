@@ -152,7 +152,7 @@ for path in /profile /profile/orders /profile/addresses /profile/favorites /prof
   expect 200 "$path"
 done
 expect 200 /profile/password
-contains "دومرحله"
+contains "ورود دو مرحله"
 expect 200 /club
 contains "rewardId"
 
