@@ -74,7 +74,26 @@ contains "محصول موجود نمیباشد"
 expect 200 /brand/apple
 contains "MacBook"
 
+echo "== Output cache (anonymous visitors get cached pages)"
+for path in /product/xiaomi-redmi-watch-3-active /blog/headphone-life-tips "/category/smart-watch"; do
+  curl -s -o /dev/null "$BASE$path"
+  hit=$(curl -s -D - -o /dev/null "$BASE$path" | tr -d '\r' | grep -i '^x-page-cache:' | awk '{print $2}')
+  if [ "$hit" = "HIT" ]; then pass "cache HIT $path"; else fail "no cache HIT on second request: $path"; fi
+done
+# Signed-in or cookie-carrying visitors must never get a cached page.
+hit=$(curl -s -D - -o /dev/null -H "Cookie: fratak_at=x" "$BASE/product/xiaomi-redmi-watch-3-active" | tr -d '\r' | grep -ci '^x-page-cache: HIT')
+if [ "$hit" = "0" ]; then pass "no cached page for a signed-in cookie"; else fail "cached page served to a signed-in cookie"; fi
+
 echo "== SEO & security"
+expect 200 /login
+contains 'content="noindex, nofollow"'
+expect 200 /product/xiaomi-redmi-watch-3-active
+lacks 'content="noindex'
+contains 'rel="canonical"'
+contains '"BreadcrumbList"'
+expect 200 /blog/headphone-life-tips
+contains '"BlogPosting"'
+contains '"BreadcrumbList"'
 expect 301 /about-us
 expect 301 /rules
 expect 301 /Products
