@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Customer uploads (review photos)
+src/Fratak-Shop.Web/wwwroot/uploads/comments/

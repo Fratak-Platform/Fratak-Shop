@@ -15,6 +15,9 @@ using Fratak_Shop.Core.Services.Shipping;
 
 namespace Fratak_Shop.Web.Pages;
 
+// Review photos: up to ReviewMaxImages × ReviewMaxImageSizeKb (both capped) plus the form fields.
+[RequestFormLimits(MultipartBodyLengthLimit = 32 * 1024 * 1024)]
+[RequestSizeLimit(32 * 1024 * 1024)]
 public class ProductModel(
     IProductService productService,
     ICommentService commentService,
@@ -23,6 +26,7 @@ public class ProductModel(
     IPageMetaService pageMeta,
     IShippingService shippingService,
     IRecommendationService recommendations,
+    IReviewImageStore imageStore,
     ISiteContext site) : ShopPageModel
 {
     public ProductDto Product { get; private set; } = null!;
@@ -46,6 +50,12 @@ public class ProductModel(
     [BindProperty]
     public ReviewInput Review { get; set; } = new();
 
+    /// <summary>The signed-in customer already reviewed this product (form replaced by a note).</summary>
+    public bool HasReviewed { get; private set; }
+
+    /// <summary>The signed-in customer received this product (shown next to the form).</summary>
+    public bool HasPurchased { get; private set; }
+
     [BindProperty]
     public QuestionInput Question { get; set; } = new();
 
@@ -68,7 +78,7 @@ public class ProductModel(
         return Page();
     }
 
-    public async Task<IActionResult> OnPostReviewAsync(string slug)
+    public async Task<IActionResult> OnPostReviewAsync(string slug, List<IFormFile>? reviewImages)
     {
         if (!IsSignedIn)
             return RedirectToLogin($"/product/{slug}#comments");
@@ -85,9 +95,38 @@ public class ProductModel(
             return Redirect($"/product/{slug}#comments");
         }
 
+        var userId = CurrentUserId!.Value;
+        if (await commentService.HasReviewedAsync(userId, product.Id))
+        {
+            ErrorMessage = "شما قبلاً برای این محصول دیدگاه ثبت کرده‌اید.";
+            return Redirect($"/product/{slug}#comments");
+        }
+
+        List<CommentImageInput> images = [];
+        var files = reviewImages ?? [];
+        if (files.Any(f => f.Length > 0))
+        {
+            var settings = site.Settings;
+            if (!settings.IsReviewImageEnabled)
+            {
+                ErrorMessage = "ارسال تصویر برای دیدگاه‌ها فعال نیست.";
+                return Redirect($"/product/{slug}#comments");
+            }
+
+            var (saved, error) = await imageStore.SaveAsync(files, Math.Clamp(settings.ReviewMaxImages, 0, 10),
+                settings.ReviewMaxImageSizeKb, HttpContext.RequestAborted);
+            if (error is not null)
+            {
+                ErrorMessage = error;
+                return Redirect($"/product/{slug}#comments");
+            }
+
+            images = saved;
+        }
+
         var result = await commentService.CreateCommentAsync(new CreateCommentCommand
         {
-            UserId = CurrentUserId!.Value,
+            UserId = userId,
             ProductId = product.Id,
             Type = CommentType.Review,
             AuthorName = User.GetDisplayName(),
@@ -96,7 +135,11 @@ public class ProductModel(
             Content = Review.Content.Trim(),
             Rating = Review.Rating,
             IsRecommended = Review.IsRecommended,
+            Images = images,
         });
+
+        if (!Succeeded(result))
+            imageStore.Delete(images);
 
         ShowResult(result);
         return Redirect($"/product/{slug}#comments");
@@ -152,6 +195,12 @@ public class ProductModel(
                 .Where(t => t > 0)
                 .ToList();
             FreeShippingFrom = thresholds.Count > 0 ? thresholds.Min() : null;
+        }
+
+        if (CurrentUserId is { } userId)
+        {
+            HasReviewed = await commentService.HasReviewedAsync(userId, product.Id);
+            HasPurchased = await commentService.HasPurchasedAsync(userId, product.Id);
         }
 
         var comments = await commentService.GetCommentsByProductAsync(product.Id, onlyApproved: true);

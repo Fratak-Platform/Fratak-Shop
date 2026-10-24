@@ -370,9 +370,27 @@
             <div class="mt-6 mb-2 text-sm text-zinc-700">
               شما هم دیدگاه خود را ثبت کنید
             </div>
-            @if (User.IsSignedIn())
+            @if (User.IsSignedIn() && Model.HasReviewed)
             {
-              <form method="post" asp-page-handler="Review" asp-route-slug="@p.Slug">
+              <div class="flex items-start gap-x-2 rounded-xl bg-emerald-50 p-3 text-sm leading-7 text-emerald-700">
+                @Icons.Svg("CheckCircle", "fill-emerald-500 shrink-0 mt-1", 18)
+                <span>دیدگاه شما برای این محصول ثبت شده است. از همراهی شما سپاسگزاریم.</span>
+              </div>
+            }
+            else if (User.IsSignedIn() && Site.Settings.IsReviewOnlyForBuyers && !Model.HasPurchased)
+            {
+              <div class="flex items-start gap-x-2 rounded-xl bg-zinc-50 p-3 text-sm leading-7 text-zinc-600">
+                @Icons.Svg("Info", "fill-zinc-400 shrink-0 mt-1", 18)
+                <span>ثبت دیدگاه برای خریداران این محصول (پس از تحویل سفارش) فعال است.</span>
+              </div>
+            }
+            else if (User.IsSignedIn())
+            {
+              if (Model.HasPurchased)
+              {
+                <div class="mb-3 flex items-center gap-x-1 text-xs text-emerald-600">@Icons.Svg("SealCheck", "fill-emerald-500", 16) دیدگاه شما با نشان «خریدار این محصول» نمایش داده می‌شود.</div>
+              }
+              <form method="post" asp-page-handler="Review" asp-route-slug="@p.Slug" enctype="multipart/form-data">
                 <input type="text" asp-for="Review.Title" placeholder="عنوان دیدگاه" class="@inputClass" maxlength="250">
                 <div class="flex items-center justify-between my-3 text-sm text-zinc-600">
                   <label for="Review_Rating">امتیاز شما:</label>
@@ -405,6 +423,18 @@
                   </li>
                 </ul>
                 <textarea asp-for="Review.Content" placeholder="متن دیدگاه" cols="30" rows="7" required minlength="5" maxlength="2000" class="@inputClass"></textarea>
+                @if (Site.Settings.IsReviewImageEnabled && Site.Settings.ReviewMaxImages > 0)
+                {
+                  var maxImages = Math.Min(Site.Settings.ReviewMaxImages, 10);
+                  <div class="mt-3" data-review-images data-max="@maxImages" data-max-kb="@Site.Settings.ReviewMaxImageSizeKb">
+                    <label class="flex cursor-pointer items-center justify-center gap-x-2 rounded-lg border border-dashed border-gray-300 px-3 py-3 text-sm text-zinc-600 transition hover:border-sky-400 hover:bg-sky-50">
+                      @Icons.Svg("Image", "fill-sky-500", 20)
+                      <span>افزودن تصویر (حداکثر @maxImages عدد، هر کدام تا @Format.Number(Site.Settings.ReviewMaxImageSizeKb) کیلوبایت)</span>
+                      <input type="file" name="reviewImages" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-review-images-input>
+                    </label>
+                    <div class="mt-2 grid grid-cols-3 gap-2 empty:hidden" data-review-images-preview></div>
+                  </div>
+                }
                 <button type="submit" class="@submitClass">
                   ارسال
                 </button>
@@ -435,6 +465,12 @@
                   <div class="text-xs text-zinc-600">
                     @review.AuthorName
                   </div>
+                  @if (review.IsVerifiedPurchase)
+                  {
+                    <span class="inline-flex items-center gap-x-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-600">
+                      @Icons.Svg("SealCheck", "fill-emerald-500", 14) خریدار این محصول
+                    </span>
+                  }
                   @if (review.Rating.HasValue)
                   {
                     <div class="flex items-center gap-x-0.5" aria-label="امتیاز @review.Rating از ۵">
@@ -463,6 +499,18 @@
                 <div class="mt-2 text-zinc-600 text-sm leading-7">
                   @review.Content
                 </div>
+                @if (review.Images.Count > 0)
+                {
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (var image in review.Images)
+                    {
+                      var src = IReviewImageStore.WebPath + image;
+                      <a href="@src" target="_blank" rel="noopener" class="block h-20 w-20 overflow-hidden rounded-lg border bg-zinc-50">
+                        <img src="@src" alt="تصویر ارسالی @review.AuthorName" loading="lazy" class="h-full w-full object-cover" width="80" height="80">
+                      </a>
+                    }
+                  </div>
+                }
                 @foreach (var reply in review.Replies)
                 {
                   <div class="mt-3 mr-6 rounded-lg bg-sky-50 p-3 text-sm text-zinc-600">

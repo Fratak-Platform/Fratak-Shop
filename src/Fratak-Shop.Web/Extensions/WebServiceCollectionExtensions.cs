@@ -36,6 +36,7 @@ public static class WebServiceCollectionExtensions
         });
 
         services.AddSingleton<IOtpService, OtpService>();
+        services.AddSingleton<IReviewImageStore, ReviewImageStore>();
         services.AddSingleton<ISmsSender, LoggingSmsSender>();
         services.AddSingleton<Infrastructure.Auth.ITwoFactorTicket, Infrastructure.Auth.TwoFactorTicket>();
 

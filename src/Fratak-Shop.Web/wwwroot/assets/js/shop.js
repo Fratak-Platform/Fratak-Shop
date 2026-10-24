@@ -400,3 +400,67 @@
     });
   });
 })();
+
+/* Review photos: preview, remove, client-side count/size/type checks (the server re-checks everything). */
+(function () {
+  "use strict";
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
+  const notify = (message) => (window.FratakModal ? window.FratakModal.toast(message, "error") : null);
+
+  document.querySelectorAll("[data-review-images]").forEach((box) => {
+    const input = box.querySelector("[data-review-images-input]");
+    const preview = box.querySelector("[data-review-images-preview]");
+    if (!input || !preview || typeof DataTransfer === "undefined") return;
+
+    const max = parseInt(box.dataset.max || "3", 10);
+    const maxBytes = parseInt(box.dataset.maxKb || "2048", 10) * 1024;
+    let files = [];
+
+    const render = () => {
+      preview.querySelectorAll("img").forEach((img) => URL.revokeObjectURL(img.src));
+      preview.textContent = "";
+      const transfer = new DataTransfer();
+      files.forEach((file, index) => {
+        transfer.items.add(file);
+        const item = document.createElement("div");
+        item.className = "relative aspect-square overflow-hidden rounded-lg border bg-zinc-50";
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        img.className = "h-full w-full object-cover";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "absolute top-1 left-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-sm leading-none text-white";
+        remove.setAttribute("aria-label", "حذف تصویر");
+        remove.textContent = "×";
+        remove.addEventListener("click", () => {
+          files.splice(index, 1);
+          render();
+        });
+        item.append(img, remove);
+        preview.appendChild(item);
+      });
+      input.files = transfer.files;
+    };
+
+    input.addEventListener("change", () => {
+      const picked = Array.from(input.files || []);
+      for (const file of picked) {
+        if (files.length >= max) {
+          notify("حداکثر " + max + " تصویر قابل ارسال است.");
+          break;
+        }
+        if (!allowed.includes(file.type)) {
+          notify("فقط تصاویر JPG، PNG و WebP قابل ارسال هستند.");
+          continue;
+        }
+        if (file.size > maxBytes) {
+          notify("حجم تصویر «" + file.name + "» بیش از حد مجاز است.");
+          continue;
+        }
+        files.push(file);
+      }
+      render();
+    });
+  });
+})();

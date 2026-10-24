@@ -19,4 +19,10 @@ public interface ICommentService
     Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId, bool onlyApproved = false);
     Task<List<CommentDto>> GetRepliesAsync(Guid parentId);
     Task<CommentFilterResult> GetCommentsByFilterAsync(CommentFilterParams filterParams);
+
+    /// <summary>The customer received this product in a delivered order.</summary>
+    Task<bool> HasPurchasedAsync(Guid userId, Guid productId);
+
+    /// <summary>The customer already has a (pending or approved) review for this product.</summary>
+    Task<bool> HasReviewedAsync(Guid userId, Guid productId);
 }

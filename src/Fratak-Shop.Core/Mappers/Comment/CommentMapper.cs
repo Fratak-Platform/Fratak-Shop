@@ -24,6 +24,8 @@ public static class CommentMapper
             Rating = comment.Rating,
             IsRecommended = comment.IsRecommended,
             Status = comment.Status,
+            IsVerifiedPurchase = comment.IsVerifiedPurchase,
+            Images = comment.Images.OrderBy(i => i.DisplayOrder).Select(i => i.FileName).ToList(),
             Replies = comment.Replies
                 .Select(r => new CommentReplyDto
                 {

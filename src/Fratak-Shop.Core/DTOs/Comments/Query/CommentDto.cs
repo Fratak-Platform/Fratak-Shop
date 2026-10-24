@@ -16,6 +16,13 @@ public class CommentDto : BaseDto
     public byte? Rating { get; set; }
     public bool? IsRecommended { get; set; }
     public CommentStatus Status { get; set; }
+
+    /// <summary>The author bought (and received) this product.</summary>
+    public bool IsVerifiedPurchase { get; set; }
+
+    /// <summary>Review photo file names under /uploads/comments.</summary>
+    public List<string> Images { get; set; } = [];
+
     public List<CommentReplyDto> Replies { get; set; } = [];
 }
 
