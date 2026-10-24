@@ -83,6 +83,25 @@ public static class StoreSettingMapper
             IsPwaEnabled = entity.IsPwaEnabled,
             PwaShortName = entity.PwaShortName,
             ThemeColor = entity.ThemeColor,
+            WalletMaxWithdrawalAmount = entity.WalletMaxWithdrawalAmount,
+            WalletMaxPendingWithdrawals = entity.WalletMaxPendingWithdrawals,
+            LoyaltyProgramDescription = entity.LoyaltyProgramDescription,
+            LoyaltyReferralDescription = entity.LoyaltyReferralDescription,
+            IsAbandonedCartEnabled = entity.IsAbandonedCartEnabled,
+            AbandonedCartAfterMinutes = entity.AbandonedCartAfterMinutes,
+            AbandonedCartMinAmount = entity.AbandonedCartMinAmount,
+            AbandonedCartExpireDays = entity.AbandonedCartExpireDays,
+            IsReviewImageEnabled = entity.IsReviewImageEnabled,
+            ReviewMaxImages = entity.ReviewMaxImages,
+            ReviewMaxImageSizeKb = entity.ReviewMaxImageSizeKb,
+            IsReviewOnlyForBuyers = entity.IsReviewOnlyForBuyers,
+            IsInstantSearchEnabled = entity.IsInstantSearchEnabled,
+            InvoiceNumberPrefix = entity.InvoiceNumberPrefix,
+            IsPwaInstallPromptEnabled = entity.IsPwaInstallPromptEnabled,
+            PwaInstallPromptAfterPages = entity.PwaInstallPromptAfterPages,
+            PwaInstallPromptSnoozeDays = entity.PwaInstallPromptSnoozeDays,
+            PwaInstallPromptTitle = entity.PwaInstallPromptTitle,
+            PwaInstallPromptText = entity.PwaInstallPromptText,
         };
     }
 
@@ -161,5 +180,24 @@ public static class StoreSettingMapper
         entity.IsPwaEnabled = command.IsPwaEnabled;
         entity.PwaShortName = command.PwaShortName;
         entity.ThemeColor = command.ThemeColor;
+        entity.WalletMaxWithdrawalAmount = command.WalletMaxWithdrawalAmount;
+        entity.WalletMaxPendingWithdrawals = command.WalletMaxPendingWithdrawals;
+        entity.LoyaltyProgramDescription = command.LoyaltyProgramDescription;
+        entity.LoyaltyReferralDescription = command.LoyaltyReferralDescription;
+        entity.IsAbandonedCartEnabled = command.IsAbandonedCartEnabled;
+        entity.AbandonedCartAfterMinutes = command.AbandonedCartAfterMinutes;
+        entity.AbandonedCartMinAmount = command.AbandonedCartMinAmount;
+        entity.AbandonedCartExpireDays = command.AbandonedCartExpireDays;
+        entity.IsReviewImageEnabled = command.IsReviewImageEnabled;
+        entity.ReviewMaxImages = command.ReviewMaxImages;
+        entity.ReviewMaxImageSizeKb = command.ReviewMaxImageSizeKb;
+        entity.IsReviewOnlyForBuyers = command.IsReviewOnlyForBuyers;
+        entity.IsInstantSearchEnabled = command.IsInstantSearchEnabled;
+        entity.InvoiceNumberPrefix = command.InvoiceNumberPrefix;
+        entity.IsPwaInstallPromptEnabled = command.IsPwaInstallPromptEnabled;
+        entity.PwaInstallPromptAfterPages = command.PwaInstallPromptAfterPages;
+        entity.PwaInstallPromptSnoozeDays = command.PwaInstallPromptSnoozeDays;
+        entity.PwaInstallPromptTitle = command.PwaInstallPromptTitle;
+        entity.PwaInstallPromptText = command.PwaInstallPromptText;
     }
 }

@@ -31,6 +31,9 @@ public class CreateOrderCommand
     /// <summary>Destination province (used to validate province-limited shipping methods).</summary>
     public Guid? ShippingProvinceId { get; set; }
 
+    /// <summary>City of the address (province / city shipping rules).</summary>
+    public Guid? ShippingCityId { get; set; }
+
     /// <summary>Delivery day for methods with time slots.</summary>
     public DateOnly? DeliveryDate { get; set; }
 

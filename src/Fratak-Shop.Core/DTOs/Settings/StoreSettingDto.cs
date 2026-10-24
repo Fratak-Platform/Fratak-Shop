@@ -77,6 +77,27 @@ public class StoreSettingCommand
     public bool IsPwaEnabled { get; set; } = true;
     public string? PwaShortName { get; set; }
     public string? ThemeColor { get; set; }
+
+    // Round 4
+    public decimal WalletMaxWithdrawalAmount { get; set; }
+    public int WalletMaxPendingWithdrawals { get; set; } = 1;
+    public string? LoyaltyProgramDescription { get; set; }
+    public string? LoyaltyReferralDescription { get; set; }
+    public bool IsAbandonedCartEnabled { get; set; } = true;
+    public int AbandonedCartAfterMinutes { get; set; } = 60;
+    public decimal AbandonedCartMinAmount { get; set; }
+    public int AbandonedCartExpireDays { get; set; } = 7;
+    public bool IsReviewImageEnabled { get; set; } = true;
+    public int ReviewMaxImages { get; set; } = 3;
+    public int ReviewMaxImageSizeKb { get; set; } = 2048;
+    public bool IsReviewOnlyForBuyers { get; set; }
+    public bool IsInstantSearchEnabled { get; set; } = true;
+    public string? InvoiceNumberPrefix { get; set; } = "INV";
+    public bool IsPwaInstallPromptEnabled { get; set; } = true;
+    public int PwaInstallPromptAfterPages { get; set; } = 3;
+    public int PwaInstallPromptSnoozeDays { get; set; } = 14;
+    public string? PwaInstallPromptTitle { get; set; }
+    public string? PwaInstallPromptText { get; set; }
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

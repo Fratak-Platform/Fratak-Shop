@@ -1,6 +1,7 @@
 using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Orders.Query;
 using Fratak_Shop.Core.DTOs.Settings;
+using Fratak_Shop.Core.DTOs.Shipping;
 using Fratak_Shop.Core.DTOs.Wallets;
 using Fratak_Shop.Core.DTOs.Marketing;
 using Fratak_Shop.Core.Mappers.Orders;
@@ -117,6 +118,7 @@ public class OrderService(
                 DiscountAmount = (product.Price - finalUnitPrice) * request.Quantity,
                 Quantity = request.Quantity,
                 TotalAmount = finalUnitPrice * request.Quantity,
+                UnitCostPrice = product.PurchasePrice,
             });
         }
 
@@ -128,7 +130,8 @@ public class OrderService(
         if (command.ShippingMethodId.HasValue)
         {
             var shipping = await shippingService.ValidateSelectionAsync(command.ShippingMethodId.Value,
-                command.ShippingProvinceId, itemsTotal, command.DeliveryDate, command.DeliveryTimeSlotId, now);
+                new ShippingDestination(command.ShippingProvinceId, command.ShippingCityId), itemsTotal,
+                command.DeliveryDate, command.DeliveryTimeSlotId, now);
 
             if (!shipping.IsSuccess() || shipping.Data is null)
                 return OperationResult<OrderDto>.Error(shipping.Message);
@@ -225,6 +228,7 @@ public class OrderService(
                 Type = WalletTransactionType.OrderPayment,
                 Description = $"پرداخت سفارش {order.OrderNumber}",
                 OrderId = order.Id,
+                DebitSource = WalletDebitSource.PromotionalFirst,
             });
 
             if (!debit.IsSuccess())
@@ -234,6 +238,8 @@ public class OrderService(
                 return OperationResult<OrderDto>.Error(debit.Message);
             }
 
+            // Remember how much promotional credit was used: a refund returns it as promotional credit again.
+            order.WalletBonusAmount = Math.Min(order.PayableAmount, Math.Max(0, -debit.Data.BonusChange));
             order.PaymentStatus = PaymentStatus.Paid;
             order.Status = OrderStatus.Confirmed;
             order.PaidAt = now;
@@ -513,12 +519,16 @@ public class OrderService(
         var refundable = order.PayableAmount - order.RefundedAmount;
         var refunded = false;
 
+        // Promotional credit spent on the order comes back as promotional credit (never withdrawable).
+        var refundableBonus = Math.Clamp(order.WalletBonusAmount - order.RefundedBonusAmount, 0, Math.Max(0, refundable));
+
         if (loadedPayment == PaymentStatus.Paid && refundable > 0 && order.UserId.HasValue)
         {
             var credit = await walletService.CreditAsync(new WalletEntry
             {
                 UserId = order.UserId.Value,
                 Amount = refundable,
+                NonWithdrawableAmount = refundableBonus,
                 Type = WalletTransactionType.OrderRefund,
                 Description = targetStatus == OrderStatus.Returned
                     ? $"بازگشت وجه سفارش مرجوعی {order.OrderNumber}"
@@ -539,6 +549,7 @@ public class OrderService(
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(o => o.PaymentStatus, PaymentStatus.Refunded)
                     .SetProperty(o => o.RefundedAmount, o => o.RefundedAmount + refundable)
+                    .SetProperty(o => o.RefundedBonusAmount, o => o.RefundedBonusAmount + refundableBonus)
                     .SetProperty(o => o.RefundedAt, now));
 
             refunded = true;
@@ -552,7 +563,9 @@ public class OrderService(
 
         var action = targetStatus == OrderStatus.Returned ? "مرجوع" : "لغو";
         return OperationResult.Success(refunded
-            ? $"سفارش {action} شد و مبلغ {refundable:N0} تومان به کیف پول برگشت داده شد."
+            ? refundableBonus > 0
+                ? $"سفارش {action} شد و مبلغ {refundable:N0} تومان به کیف پول برگشت داده شد ({refundableBonus:N0} تومان آن اعتبار هدیه و فقط برای خرید قابل استفاده است)."
+                : $"سفارش {action} شد و مبلغ {refundable:N0} تومان به کیف پول برگشت داده شد."
             : $"سفارش {order.OrderNumber} {action} شد.");
     }
 

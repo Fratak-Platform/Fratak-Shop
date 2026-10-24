@@ -28,15 +28,28 @@ public class ProductFilterService(FratakShopDbContext context, IMemoryCache cach
             return await context.ProductFilterAttributes
                 .Where(f => f.IsActive)
                 .OrderBy(f => f.DisplayOrder)
-                .Select(f => new CachedAttribute(f.Slug, f.Title, f.FeatureKey, f.MaxValues, f.CategoryId))
+                .Select(f => new CachedAttribute(f.Slug, f.Title, f.FeatureKey, f.MaxValues, f.CategoryId, f.ShowWithoutCategory))
                 .ToListAsync();
         }) ?? [];
 
         if (all.Count == 0)
             return [];
 
+        // Without a category only the filters marked as general are offered (RAM, storage,
+        // water resistance … make no sense for "all products").
+        if (string.IsNullOrWhiteSpace(categorySlug))
+        {
+            return all
+                .Where(a => a.ShowWithoutCategory)
+                .GroupBy(a => a.FeatureKey)
+                .Select(g => g.First())
+                .Take(8)
+                .Select(a => new SpecificationFacetRequest(a.Slug, a.Title, a.FeatureKey, a.MaxValues))
+                .ToList();
+        }
+
         HashSet<Guid> scope = [];
-        if (!string.IsNullOrWhiteSpace(categorySlug) && all.Any(a => a.CategoryId.HasValue))
+        if (all.Any(a => a.CategoryId.HasValue))
         {
             var slug = categorySlug.Trim();
             var category = await context.Categories
@@ -70,5 +83,5 @@ public class ProductFilterService(FratakShopDbContext context, IMemoryCache cach
 
     public void InvalidateCache() => cache.Remove(CacheKeys.FilterAttributes);
 
-    private sealed record CachedAttribute(string Slug, string Title, string FeatureKey, int MaxValues, Guid? CategoryId);
+    private sealed record CachedAttribute(string Slug, string Title, string FeatureKey, int MaxValues, Guid? CategoryId, bool ShowWithoutCategory);
 }

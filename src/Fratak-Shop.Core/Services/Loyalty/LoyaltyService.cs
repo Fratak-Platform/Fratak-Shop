@@ -286,7 +286,9 @@ public class LoyaltyService(
             .Select(o => new { o.Id, o.UserId, o.OrderNumber, o.Status, o.PayableAmount, o.ShippingAmount, o.CreatedAt })
             .FirstOrDefaultAsync();
 
-        if (order?.UserId is null || order.Status is OrderStatus.Cancelled or OrderStatus.Returned)
+        // Points are earned only for delivered orders: awarding them at payment would let a
+        // customer redeem the points (e.g. as wallet credit) and then cancel the order.
+        if (order?.UserId is null || order.Status != OrderStatus.Delivered)
             return;
 
         var userId = order.UserId.Value;
@@ -296,8 +298,7 @@ public class LoyaltyService(
 
         // First settled order of the customer (others still open don't count).
         var otherSettled = await context.Orders.AnyAsync(o => o.UserId == userId && o.Id != order.Id
-            && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Returned
-            && (o.PaymentStatus == PaymentStatus.Paid || o.Status == OrderStatus.Delivered)
+            && o.Status == OrderStatus.Delivered
             && o.CreatedAt < order.CreatedAt);
 
         if (otherSettled)
@@ -386,6 +387,8 @@ public class LoyaltyService(
                 Amount = decimal.Floor(reward.Value),
                 Type = WalletTransactionType.LoyaltyReward,
                 Description = $"جایزه باشگاه مشتریان: {reward.Title}",
+                // Club credit is for purchases only – it can never be withdrawn.
+                NonWithdrawableAmount = decimal.Floor(reward.Value),
             });
 
             if (!credit.IsSuccess())
@@ -395,7 +398,7 @@ public class LoyaltyService(
                 return OperationResult.Error(credit.Message);
             }
 
-            detail = $"{reward.Value:N0} تومان به کیف پول شما اضافه شد.";
+            detail = $"{reward.Value:N0} تومان اعتبار خرید به کیف پول شما اضافه شد (فقط برای خرید قابل استفاده است).";
         }
         else
         {

@@ -48,6 +48,7 @@ public class ShopEvents(
     // Resolved lazily: the loyalty service depends on the wallet service, which raises events itself.
     private INotificationService Notifications => services.GetRequiredService<INotificationService>();
     private ILoyaltyService Loyalty => services.GetRequiredService<ILoyaltyService>();
+    private Orders.IInvoiceService Invoices => services.GetRequiredService<Orders.IInvoiceService>();
 
     public Task OrderPlacedAsync(Guid orderId) => RunAsync(nameof(OrderPlacedAsync), async () =>
     {
@@ -65,7 +66,7 @@ public class ShopEvents(
             return;
 
         await NotifyOrderAsync(order, NotificationEvent.OrderPaid);
-        await Loyalty.OnOrderSettledAsync(orderId);
+        await Invoices.EnsureIssuedAsync(orderId);
     });
 
     public Task OrderStatusChangedAsync(Guid orderId, OrderStatus status) => RunAsync(nameof(OrderStatusChangedAsync), async () =>
@@ -89,7 +90,10 @@ public class ShopEvents(
             await NotifyOrderAsync(order, @event);
 
         if (status == OrderStatus.Delivered)
-            await Loyalty.OnOrderSettledAsync(orderId); // cash on delivery: points after delivery (idempotent)
+        {
+            await Invoices.EnsureIssuedAsync(orderId);  // cash on delivery: invoice once delivered
+            await Loyalty.OnOrderSettledAsync(orderId); // club points only for delivered orders (idempotent)
+        }
         else if (status is OrderStatus.Cancelled or OrderStatus.Returned)
             await Loyalty.RevertOrderAsync(orderId);
     });

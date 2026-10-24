@@ -13,6 +13,34 @@ public class WalletEntry
     public Guid? OrderId { get; set; }
     public Guid? PaymentTransactionId { get; set; }
     public Guid? WithdrawalRequestId { get; set; }
+
+    /// <summary>
+    /// Credits only: part of <see cref="Amount"/> that is promotional credit (club reward,
+    /// gift, refund of promotional credit). It can be spent on orders but never withdrawn.
+    /// </summary>
+    public decimal NonWithdrawableAmount { get; set; }
+
+    /// <summary>Debits only: which part of the balance is used.</summary>
+    public WalletDebitSource DebitSource { get; set; } = WalletDebitSource.PromotionalFirst;
+}
+
+/// <summary>Order in which the two parts of the balance are used by a debit.</summary>
+public enum WalletDebitSource
+{
+    /// <summary>Purchases: promotional credit is spent before the customer's own money.</summary>
+    PromotionalFirst = 0,
+
+    /// <summary>Withdrawals: only the customer's own (withdrawable) money.</summary>
+    WithdrawableOnly = 1,
+
+    /// <summary>Corrections of real money: own money first, then promotional credit.</summary>
+    WithdrawableFirst = 2,
+}
+
+/// <summary>Result of a wallet movement.</summary>
+public record WalletMovement(decimal Balance, decimal BonusBalance, decimal BonusChange)
+{
+    public decimal WithdrawableBalance => Math.Max(0, Balance - BonusBalance);
 }
 
 public class WalletTransactionDto : BaseDto
@@ -24,6 +52,11 @@ public class WalletTransactionDto : BaseDto
     public decimal Amount { get; set; }
 
     public decimal BalanceAfter { get; set; }
+
+    /// <summary>Signed change of the non-withdrawable part.</summary>
+    public decimal BonusAmount { get; set; }
+
+    public decimal BonusBalanceAfter { get; set; }
     public string? Description { get; set; }
     public Guid? OrderId { get; set; }
     public string? OrderNumber { get; set; }
@@ -45,7 +78,9 @@ public class WithdrawalRequestDto : BaseDto
     public string? UserPhoneNumber { get; set; }
     public string? UserFullName { get; set; }
     public decimal Amount { get; set; }
-    public string Iban { get; set; } = null!;
+    public string? Iban { get; set; }
+    public string? CardNumber { get; set; }
+    public string? AccountNumber { get; set; }
     public string AccountHolder { get; set; } = null!;
     public WithdrawalStatus Status { get; set; }
     public string? AdminNote { get; set; }
@@ -55,7 +90,12 @@ public class WithdrawalRequestDto : BaseDto
     public bool CanBeCancelled => Status == WithdrawalStatus.Pending;
 
     /// <summary>IBAN with the middle digits hidden, for lists.</summary>
-    public string MaskedIban => Iban.Length > 10 ? $"{Iban[..6]}••••••••{Iban[^4..]}" : Iban;
+    public string? MaskedIban => Iban is { Length: > 10 } ? $"{Iban[..6]}••••••••{Iban[^4..]}" : Iban;
+
+    public string? MaskedCard => string.IsNullOrEmpty(CardNumber) ? null : BankAccountValidator.MaskCard(CardNumber);
+
+    /// <summary>Short destination text for lists (masked).</summary>
+    public string Destination => MaskedIban ?? MaskedCard ?? "-";
 }
 
 public class WithdrawalFilterParams : BaseFilterParam
@@ -70,8 +110,16 @@ public class CreateWithdrawalCommand
 {
     public Guid UserId { get; set; }
     public decimal Amount { get; set; }
-    public string Iban { get; set; } = null!;
+
+    /// <summary>Full name of the account owner (required).</summary>
     public string AccountHolder { get; set; } = null!;
+
+    /// <summary>Card number or IBAN is required (both may be given).</summary>
+    public string? CardNumber { get; set; }
+
+    public string? Iban { get; set; }
+
+    public string? AccountNumber { get; set; }
 }
 
 public class ChangeWithdrawalStatusCommand
@@ -85,6 +133,13 @@ public class ChangeWithdrawalStatusCommand
 public class WalletSummaryDto
 {
     public decimal Balance { get; set; }
+
+    /// <summary>Promotional credit: spendable on orders, not withdrawable.</summary>
+    public decimal BonusBalance { get; set; }
+
+    /// <summary>The customer's own money that can be withdrawn.</summary>
+    public decimal WithdrawableBalance => Math.Max(0, Balance - BonusBalance);
+
     public decimal PendingWithdrawals { get; set; }
     public decimal TotalCredits { get; set; }
     public decimal TotalDebits { get; set; }

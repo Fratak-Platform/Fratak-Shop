@@ -10,6 +10,8 @@ public class ShippingMethodDto
     public string? Description { get; set; }
     public ShippingMethodType Type { get; set; }
     public decimal Cost { get; set; }
+    public ShippingPricingMode PricingMode { get; set; }
+    public bool OnlyListedLocations { get; set; }
 
     /// <summary>null = the store-wide threshold, 0 = never free.</summary>
     public decimal? FreeShippingThreshold { get; set; }
@@ -26,7 +28,9 @@ public class ShippingMethodDto
     public List<DeliveryTimeSlotDto> TimeSlots { get; set; } = [];
 
     /// <summary>Human readable delivery estimate, e.g. "۲ تا ۴ روز کاری".</summary>
-    public string DeliveryEstimate => (MinDeliveryDays, MaxDeliveryDays) switch
+    public string DeliveryEstimate => Estimate(MinDeliveryDays, MaxDeliveryDays);
+
+    public static string Estimate(int minDays, int maxDays) => (minDays, maxDays) switch
     {
         (0, 0) => "همان روز",
         (var min, var max) when min == max => $"{min} روز کاری",
@@ -34,6 +38,44 @@ public class ShippingMethodDto
         (var min, var max) => $"{min} تا {max} روز کاری",
     };
 }
+
+/// <summary>Province / city rule of a shipping method (or of all methods).</summary>
+public class ShippingRateDto
+{
+    public Guid Id { get; set; }
+    public Guid? ShippingMethodId { get; set; }
+    public string? ShippingMethodTitle { get; set; }
+    public Guid? ProvinceId { get; set; }
+    public string? ProvinceName { get; set; }
+    public Guid? CityId { get; set; }
+    public string? CityName { get; set; }
+    public decimal? Cost { get; set; }
+    public decimal? FreeShippingThreshold { get; set; }
+    public int ExtraDeliveryDays { get; set; }
+    public bool IsBlocked { get; set; }
+    public string? Note { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class ShippingRateCommand
+{
+    public Guid Id { get; set; }
+    public Guid? ShippingMethodId { get; set; }
+    public Guid? ProvinceId { get; set; }
+    public Guid? CityId { get; set; }
+    public decimal? Cost { get; set; }
+    public decimal? FreeShippingThreshold { get; set; }
+    public int ExtraDeliveryDays { get; set; }
+    public bool IsBlocked { get; set; }
+    public string? Note { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>Destination of a shipment (province and, when known, city).</summary>
+public readonly record struct ShippingDestination(Guid? ProvinceId, Guid? CityId);
+
+/// <summary>A method that can't deliver to the destination, with the reason (shown at checkout).</summary>
+public record UnavailableShippingMethod(string Title, string Reason);
 
 public class DeliveryTimeSlotDto
 {
@@ -59,6 +101,9 @@ public class ShippingOption
 
     /// <summary>Selectable delivery days (only for methods with time slots).</summary>
     public List<DeliveryDayOption> Days { get; set; } = [];
+
+    /// <summary>Delivery estimate for the destination (method estimate + location extra days).</summary>
+    public string DeliveryEstimate { get; set; } = string.Empty;
 }
 
 public class DeliveryDayOption
@@ -99,6 +144,8 @@ public class ShippingMethodCommand
     public string? Description { get; set; }
     public ShippingMethodType Type { get; set; } = ShippingMethodType.Post;
     public decimal Cost { get; set; }
+    public ShippingPricingMode PricingMode { get; set; } = ShippingPricingMode.Fixed;
+    public bool OnlyListedLocations { get; set; }
     public decimal? FreeShippingThreshold { get; set; }
     public int MinDeliveryDays { get; set; } = 1;
     public int MaxDeliveryDays { get; set; } = 3;

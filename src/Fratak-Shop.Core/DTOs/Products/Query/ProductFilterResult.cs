@@ -125,3 +125,6 @@ public class SpecificationFacetValue
 }
 
 public class ProductFilterResult : BaseFilter<ProductFilterData, ProductFilterParams>;
+
+/// <summary>Brand option of a listing filter box.</summary>
+public record BrandFacetDto(string Slug, string Name, string? EnglishName, int Count, bool IsSelected);

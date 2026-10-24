@@ -6,12 +6,13 @@ using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Wallets;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Fratak_Shop.Core.Services.Wallets;
 
 public class WalletService(FratakShopDbContext context, IStoreSettingService settingService, IShopEvents events) : IWalletService
 {
-    private const int MaxPendingWithdrawals = 1;
+    private const int MaxConcurrencyRetries = 5;
 
     public async Task<decimal> GetBalanceAsync(Guid userId)
     {
@@ -23,7 +24,10 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
 
     public async Task<WalletSummaryDto> GetSummaryAsync(Guid userId)
     {
-        var balance = await GetBalanceAsync(userId);
+        var balances = await context.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.WalletBalance, u.WalletBonusBalance })
+            .FirstOrDefaultAsync();
 
         var totals = await context.WalletTransactions
             .Where(t => t.UserId == userId)
@@ -39,74 +43,135 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
             .Where(r => r.UserId == userId && (r.Status == WithdrawalStatus.Pending || r.Status == WithdrawalStatus.Approved))
             .SumAsync(r => r.Amount);
 
+        var balance = balances?.WalletBalance ?? 0;
         return new WalletSummaryDto
         {
             Balance = balance,
+            BonusBalance = Math.Clamp(balances?.WalletBonusBalance ?? 0, 0, balance),
             PendingWithdrawals = pending,
             TotalCredits = totals?.Credits ?? 0,
             TotalDebits = Math.Abs(totals?.Debits ?? 0),
         };
     }
 
-    public Task<OperationResult<decimal>> CreditAsync(WalletEntry entry) => ApplyAsync(entry, isCredit: true);
+    public Task<OperationResult<WalletMovement>> CreditAsync(WalletEntry entry) => ApplyAsync(entry, isCredit: true);
 
-    public Task<OperationResult<decimal>> DebitAsync(WalletEntry entry) => ApplyAsync(entry, isCredit: false);
+    public Task<OperationResult<WalletMovement>> DebitAsync(WalletEntry entry) => ApplyAsync(entry, isCredit: false);
 
-    private async Task<OperationResult<decimal>> ApplyAsync(WalletEntry entry, bool isCredit)
+    /// <summary>
+    /// Applies one movement to both parts of the balance (own money / promotional credit).
+    /// Optimistic concurrency: the UPDATE only succeeds when the balances are still the
+    /// values that were read, so parallel requests can never spend the same money twice.
+    /// </summary>
+    private async Task<OperationResult<WalletMovement>> ApplyAsync(WalletEntry entry, bool isCredit)
     {
         if (entry.UserId == Guid.Empty)
-            return OperationResult<decimal>.Error("کاربر کیف پول مشخص نیست.");
+            return OperationResult<WalletMovement>.Error("کاربر کیف پول مشخص نیست.");
 
         if (entry.Amount <= 0 || decimal.Truncate(entry.Amount) != entry.Amount)
-            return OperationResult<decimal>.Error("مبلغ تراکنش کیف پول معتبر نیست.");
+            return OperationResult<WalletMovement>.Error("مبلغ تراکنش کیف پول معتبر نیست.");
+
+        var nonWithdrawable = isCredit ? entry.NonWithdrawableAmount : 0;
+        if (nonWithdrawable < 0 || nonWithdrawable > entry.Amount || decimal.Truncate(nonWithdrawable) != nonWithdrawable)
+            return OperationResult<WalletMovement>.Error("مبلغ اعتبار غیرقابل برداشت معتبر نیست.");
 
         var ownsTransaction = context.Database.CurrentTransaction is null;
         await using var transaction = ownsTransaction ? await context.Database.BeginTransactionAsync() : null;
 
         var amount = entry.Amount;
-        var now = DateTimeOffset.UtcNow;
-        var users = context.Users.Where(u => u.Id == entry.UserId);
 
-        // Single atomic UPDATE: the balance check and the change happen in the same statement.
-        var affected = isCredit
-            ? await users.ExecuteUpdateAsync(s => s
-                .SetProperty(u => u.WalletBalance, u => u.WalletBalance + amount)
-                .SetProperty(u => u.UpdatedAt, now))
-            : await users.Where(u => u.WalletBalance >= amount).ExecuteUpdateAsync(s => s
-                .SetProperty(u => u.WalletBalance, u => u.WalletBalance - amount)
-                .SetProperty(u => u.UpdatedAt, now));
-
-        if (affected == 0)
+        for (var attempt = 0; attempt < MaxConcurrencyRetries; attempt++)
         {
-            if (transaction is not null)
-                await transaction.RollbackAsync();
+            var current = await context.Users
+                .Where(u => u.Id == entry.UserId)
+                .Select(u => new { u.WalletBalance, u.WalletBonusBalance })
+                .FirstOrDefaultAsync();
 
-            var userExists = await context.Users.AnyAsync(u => u.Id == entry.UserId);
-            return OperationResult<decimal>.Error(userExists
-                ? "موجودی کیف پول کافی نیست."
-                : "کاربر مورد نظر یافت نشد.");
+            if (current is null)
+                return await FailAsync(transaction, "کاربر مورد نظر یافت نشد.");
+
+            var balance = current.WalletBalance;
+            var bonus = Math.Clamp(current.WalletBonusBalance, 0, balance);
+            var withdrawable = balance - bonus;
+            decimal bonusChange;
+
+            if (isCredit)
+            {
+                bonusChange = nonWithdrawable;
+            }
+            else
+            {
+                switch (entry.DebitSource)
+                {
+                    case WalletDebitSource.WithdrawableOnly:
+                        if (withdrawable < amount)
+                            return await FailAsync(transaction, bonus > 0
+                                ? $"موجودی قابل برداشت شما {withdrawable:N0} تومان است؛ اعتبار هدیه و باشگاه مشتریان ({bonus:N0} تومان) فقط برای خرید قابل استفاده است."
+                                : "موجودی قابل برداشت کافی نیست.");
+                        bonusChange = 0;
+                        break;
+
+                    case WalletDebitSource.WithdrawableFirst:
+                        if (balance < amount)
+                            return await FailAsync(transaction, "موجودی کیف پول کافی نیست.");
+                        bonusChange = -(amount - Math.Min(withdrawable, amount));
+                        break;
+
+                    default:
+                        if (balance < amount)
+                            return await FailAsync(transaction, "موجودی کیف پول کافی نیست.");
+                        bonusChange = -Math.Min(bonus, amount);
+                        break;
+                }
+            }
+
+            var newBalance = isCredit ? balance + amount : balance - amount;
+            var newBonus = bonus + bonusChange;
+            var now = DateTimeOffset.UtcNow;
+            var readBalance = current.WalletBalance;
+            var readBonus = current.WalletBonusBalance;
+
+            var affected = await context.Users
+                .Where(u => u.Id == entry.UserId && u.WalletBalance == readBalance && u.WalletBonusBalance == readBonus)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(u => u.WalletBalance, newBalance)
+                    .SetProperty(u => u.WalletBonusBalance, newBonus)
+                    .SetProperty(u => u.UpdatedAt, now));
+
+            if (affected == 0)
+                continue; // changed in between – read again
+
+            context.WalletTransactions.Add(new WalletTransaction
+            {
+                UserId = entry.UserId,
+                Type = entry.Type,
+                Amount = isCredit ? amount : -amount,
+                BalanceAfter = newBalance,
+                BonusAmount = bonusChange,
+                BonusBalanceAfter = newBonus,
+                Description = Truncate(entry.Description, 500),
+                OrderId = entry.OrderId,
+                PaymentTransactionId = entry.PaymentTransactionId,
+                WithdrawalRequestId = entry.WithdrawalRequestId,
+            });
+
+            await context.SaveChangesAsync();
+
+            if (transaction is not null)
+                await transaction.CommitAsync();
+
+            return OperationResult<WalletMovement>.Success(new WalletMovement(newBalance, newBonus, bonusChange));
         }
 
-        var balance = await users.Select(u => u.WalletBalance).FirstAsync();
+        return await FailAsync(transaction, "کیف پول هم‌زمان در حال تغییر است؛ لطفاً دوباره تلاش کنید.");
+    }
 
-        context.WalletTransactions.Add(new WalletTransaction
-        {
-            UserId = entry.UserId,
-            Type = entry.Type,
-            Amount = isCredit ? amount : -amount,
-            BalanceAfter = balance,
-            Description = Truncate(entry.Description, 500),
-            OrderId = entry.OrderId,
-            PaymentTransactionId = entry.PaymentTransactionId,
-            WithdrawalRequestId = entry.WithdrawalRequestId,
-        });
-
-        await context.SaveChangesAsync();
-
+    private static async Task<OperationResult<WalletMovement>> FailAsync(IDbContextTransaction? transaction, string message)
+    {
         if (transaction is not null)
-            await transaction.CommitAsync();
+            await transaction.RollbackAsync();
 
-        return OperationResult<decimal>.Success(balance);
+        return OperationResult<WalletMovement>.Error(message);
     }
 
     public async Task<WalletTransactionFilterResult> GetTransactionsAsync(WalletTransactionFilterParams filterParams)
@@ -133,6 +198,8 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
                 Type = t.Type,
                 Amount = t.Amount,
                 BalanceAfter = t.BalanceAfter,
+                BonusAmount = t.BonusAmount,
+                BonusBalanceAfter = t.BonusBalanceAfter,
                 Description = t.Description,
                 OrderId = t.OrderId,
                 OrderNumber = t.OrderId == null
@@ -158,19 +225,44 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
         if (settings.WalletMinWithdrawalAmount > 0 && command.Amount < settings.WalletMinWithdrawalAmount)
             return OperationResult.Error($"حداقل مبلغ برداشت {settings.WalletMinWithdrawalAmount:N0} تومان است.");
 
-        var iban = IbanValidator.Normalize(command.Iban);
-        if (!IbanValidator.IsValid(iban))
-            return OperationResult.Error("شماره شبا معتبر نیست (IR و ۲۴ رقم).");
+        if (settings.WalletMaxWithdrawalAmount > 0 && command.Amount > settings.WalletMaxWithdrawalAmount)
+            return OperationResult.Error($"حداکثر مبلغ هر درخواست برداشت {settings.WalletMaxWithdrawalAmount:N0} تومان است.");
 
-        var holder = command.AccountHolder?.Trim();
-        if (string.IsNullOrWhiteSpace(holder) || holder.Length is < 3 or > 200)
-            return OperationResult.Error("نام صاحب حساب را وارد کنید.");
+        var holder = string.Join(' ', (command.AccountHolder ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (!BankAccountValidator.IsValidHolderName(holder))
+            return OperationResult.Error("نام و نام خانوادگی صاحب حساب را به صورت کامل و فقط با حروف وارد کنید.");
 
+        string? iban = null;
+        if (!string.IsNullOrWhiteSpace(command.Iban))
+        {
+            iban = IbanValidator.Normalize(command.Iban);
+            if (!IbanValidator.IsValid(iban))
+                return OperationResult.Error("شماره شبا معتبر نیست (IR و ۲۴ رقم).");
+        }
+
+        string? card = null;
+        if (!string.IsNullOrWhiteSpace(command.CardNumber))
+        {
+            card = BankAccountValidator.DigitsOnly(command.CardNumber);
+            if (!BankAccountValidator.IsValidCardNumber(card))
+                return OperationResult.Error("شماره کارت معتبر نیست (۱۶ رقم).");
+        }
+
+        if (iban is null && card is null)
+            return OperationResult.Error("برای واریز، شماره کارت یا شماره شبا را وارد کنید.");
+
+        var accountNumber = BankAccountValidator.NormalizeAccountNumber(command.AccountNumber);
+        if (!string.IsNullOrEmpty(accountNumber) && !BankAccountValidator.IsValidAccountNumber(accountNumber))
+            return OperationResult.Error("شماره حساب معتبر نیست.");
+
+        var maxPending = Math.Max(1, settings.WalletMaxPendingWithdrawals);
         var pendingCount = await context.WithdrawalRequests
             .CountAsync(r => r.UserId == command.UserId && r.Status == WithdrawalStatus.Pending);
 
-        if (pendingCount >= MaxPendingWithdrawals)
-            return OperationResult.Error("یک درخواست برداشت در انتظار بررسی دارید؛ پس از تعیین وضعیت آن می‌توانید درخواست جدید ثبت کنید.");
+        if (pendingCount >= maxPending)
+            return OperationResult.Error(maxPending == 1
+                ? "یک درخواست برداشت در انتظار بررسی دارید؛ پس از تعیین وضعیت آن می‌توانید درخواست جدید ثبت کنید."
+                : $"حداکثر {maxPending} درخواست برداشت در انتظار بررسی مجاز است.");
 
         await using var transaction = await context.Database.BeginTransactionAsync();
 
@@ -179,13 +271,16 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
             UserId = command.UserId,
             Amount = command.Amount,
             Iban = iban,
-            AccountHolder = holder.ToPlainText(),
+            CardNumber = card,
+            AccountNumber = string.IsNullOrEmpty(accountNumber) ? null : accountNumber,
+            AccountHolder = holder.ToPlainText(200),
             Status = WithdrawalStatus.Pending,
         };
 
         context.WithdrawalRequests.Add(request);
         await context.SaveChangesAsync();
 
+        // Only the customer's own money can leave the shop; promotional credit stays.
         var debit = await DebitAsync(new WalletEntry
         {
             UserId = command.UserId,
@@ -193,6 +288,7 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
             Type = WalletTransactionType.Withdrawal,
             Description = "درخواست برداشت از کیف پول",
             WithdrawalRequestId = request.Id,
+            DebitSource = WalletDebitSource.WithdrawableOnly,
         });
 
         if (!debit.IsSuccess())
@@ -271,6 +367,8 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
                 UserFullName = ((r.User.FirstName ?? "") + " " + (r.User.LastName ?? "")).Trim(),
                 Amount = r.Amount,
                 Iban = r.Iban,
+                CardNumber = r.CardNumber,
+                AccountNumber = r.AccountNumber,
                 AccountHolder = r.AccountHolder,
                 Status = r.Status,
                 AdminNote = r.AdminNote,
@@ -344,7 +442,7 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
         return OperationResult.Success("وضعیت درخواست برداشت به‌روزرسانی شد.");
     }
 
-    public async Task<OperationResult> AdjustBalanceAsync(Guid userId, decimal amount, string description)
+    public async Task<OperationResult> AdjustBalanceAsync(Guid userId, decimal amount, string description, bool promotional = true)
     {
         if (amount == 0)
             return OperationResult.Error("مبلغ را وارد کنید.");
@@ -352,12 +450,16 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
         if (string.IsNullOrWhiteSpace(description))
             return OperationResult.Error("علت تغییر موجودی را وارد کنید.");
 
+        var value = Math.Abs(amount);
         var entry = new WalletEntry
         {
             UserId = userId,
-            Amount = Math.Abs(amount),
+            Amount = value,
             Type = amount > 0 ? WalletTransactionType.AdminCredit : WalletTransactionType.AdminDebit,
-            Description = description.ToPlainText(),
+            Description = description.ToPlainText(500),
+            // Gifts / compensations are promotional (never withdrawable); real-money corrections are not.
+            NonWithdrawableAmount = amount > 0 && promotional ? value : 0,
+            DebitSource = promotional ? WalletDebitSource.PromotionalFirst : WalletDebitSource.WithdrawableFirst,
         };
 
         var result = amount > 0 ? await CreditAsync(entry) : await DebitAsync(entry);
@@ -366,6 +468,27 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
 
         await events.WalletChangedAsync(userId, NotificationEvent.WalletAdjusted, amount, entry.Description);
         return OperationResult.Success("موجودی کیف پول به‌روزرسانی شد.");
+    }
+
+    public async Task<OperationResult> GrantPromotionalCreditAsync(Guid userId, decimal amount, string description)
+    {
+        if (amount <= 0)
+            return OperationResult.Error("مبلغ اعتبار هدیه معتبر نیست.");
+
+        var result = await CreditAsync(new WalletEntry
+        {
+            UserId = userId,
+            Amount = decimal.Floor(amount),
+            Type = WalletTransactionType.PromotionCredit,
+            Description = description.ToPlainText(500),
+            NonWithdrawableAmount = decimal.Floor(amount),
+        });
+
+        if (!result.IsSuccess())
+            return OperationResult.Error(result.Message);
+
+        await events.WalletChangedAsync(userId, NotificationEvent.WalletAdjusted, amount, description);
+        return OperationResult.Success("اعتبار هدیه به کیف پول اضافه شد.");
     }
 
     private static string? Truncate(string? value, int length) =>

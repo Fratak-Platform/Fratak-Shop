@@ -40,6 +40,9 @@ public class CreateProductCommand
     public string? Description { get; set; }
     public decimal Price { get; set; }
     public decimal? DiscountPrice { get; set; }
+
+    /// <summary>Purchase / cost price (internal; profit reports). Never shown in the store.</summary>
+    public decimal? PurchasePrice { get; set; }
     public DateTimeOffset? DiscountStartAt { get; set; }
     public DateTimeOffset? DiscountEndAt { get; set; }
     public int StockQuantity { get; set; }
@@ -69,6 +72,9 @@ public class EditProductCommand
     public string? Description { get; set; }
     public decimal Price { get; set; }
     public decimal? DiscountPrice { get; set; }
+
+    /// <summary>Purchase / cost price (internal; profit reports). Never shown in the store.</summary>
+    public decimal? PurchasePrice { get; set; }
     public DateTimeOffset? DiscountStartAt { get; set; }
     public DateTimeOffset? DiscountEndAt { get; set; }
     public int StockQuantity { get; set; }

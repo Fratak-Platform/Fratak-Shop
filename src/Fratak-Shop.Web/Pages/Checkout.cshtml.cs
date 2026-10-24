@@ -47,6 +47,7 @@ public class CheckoutModel(
     public UserAddressDto? SelectedAddress { get; private set; }
     public List<LocationDto> Provinces { get; private set; } = [];
     public List<ShippingOption> ShippingOptions { get; private set; } = [];
+    public List<UnavailableShippingMethod> UnavailableShipping { get; private set; } = [];
     public List<PaymentChoice> PaymentChoices { get; private set; } = [];
     public decimal WalletBalance { get; private set; }
 
@@ -164,6 +165,7 @@ public class CheckoutModel(
             PaymentMethod = Input.PaymentMethod,
             ShippingMethodId = option.Method.Id,
             ShippingProvinceId = address.ProvinceId,
+            ShippingCityId = address.CityId,
             DeliveryDate = deliveryDate,
             DeliveryTimeSlotId = timeSlotId,
             CustomerName = string.IsNullOrWhiteSpace(recipient) ? user?.FullName ?? user?.PhoneNumber ?? "مشتری" : recipient,
@@ -234,9 +236,16 @@ public class CheckoutModel(
                           ?? Addresses.FirstOrDefault();
         Input.AddressId = SelectedAddress?.Id;
 
-        ShippingOptions = SelectedAddress is null
-            ? []
-            : await shippingService.GetOptionsAsync(SelectedAddress.ProvinceId, ItemsAmount, DateTimeOffset.UtcNow, HttpContext.RequestAborted);
+        if (SelectedAddress is not null)
+        {
+            var destination = new ShippingDestination(SelectedAddress.ProvinceId, SelectedAddress.CityId);
+            ShippingOptions = await shippingService.GetOptionsAsync(destination, ItemsAmount, DateTimeOffset.UtcNow, HttpContext.RequestAborted);
+            UnavailableShipping = await shippingService.GetUnavailableMethodsAsync(destination, HttpContext.RequestAborted);
+        }
+        else
+        {
+            ShippingOptions = [];
+        }
 
         await EvaluateCouponAsync(userId);
 

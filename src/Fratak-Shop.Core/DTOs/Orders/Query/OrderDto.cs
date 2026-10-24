@@ -41,6 +41,14 @@ public class OrderDto : BaseDto
     public decimal RefundedAmount { get; set; }
     public DateTimeOffset? RefundedAt { get; set; }
 
+    /// <summary>Part of the wallet payment made with promotional credit.</summary>
+    public decimal WalletBonusAmount { get; set; }
+    public decimal RefundedBonusAmount { get; set; }
+
+    /// <summary>Serial invoice number; null = pro-forma (not paid / delivered yet).</summary>
+    public string? InvoiceNumber { get; set; }
+    public DateTimeOffset? InvoiceIssuedAt { get; set; }
+
     public string CustomerName { get; set; } = null!;
     public string CustomerPhone { get; set; } = null!;
 

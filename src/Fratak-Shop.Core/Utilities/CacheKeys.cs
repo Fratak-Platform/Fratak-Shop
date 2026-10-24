@@ -19,6 +19,9 @@ public static class CacheKeys
     public const string NotificationTemplates = "core:notification-templates";
     public const string LoyaltyProgram = "core:loyalty-program";
     public const string FilterAttributes = "core:filter-attributes";
+    public const string ShippingRates = "core:shipping-rates";
+    public const string PageAlerts = "core:page-alerts";
+    public const string AbandonedCartSteps = "core:abandoned-cart-steps";
 
     public static string SecurityStamp(Guid userId) => $"core:security-stamp:{userId:N}";
 

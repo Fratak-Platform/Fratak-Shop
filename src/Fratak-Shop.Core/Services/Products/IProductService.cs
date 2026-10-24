@@ -16,6 +16,9 @@ public interface IProductService
 
     /// <summary>Value counts of filterable specifications for the current listing filters.</summary>
     Task<List<SpecificationFacetDto>> GetSpecificationFacetsAsync(ProductFilterParams filterParams, IReadOnlyList<SpecificationFacetRequest> attributes);
+
+    /// <summary>Brands that have products in the current listing (with counts); selected brands first.</summary>
+    Task<List<BrandFacetDto>> GetBrandFacetsAsync(ProductFilterParams filterParams, int take = 50);
     Task<ProductDto?> GetProductByIdAsync(Guid id);
     Task<ProductDto?> GetProductBySlugAsync(string slug);
     Task<List<ProductDto>> GetProductsAsync();

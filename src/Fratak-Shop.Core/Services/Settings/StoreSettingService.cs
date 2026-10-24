@@ -88,6 +88,25 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (command.LoyaltyPointsExpireDays is < 1 or > 3650)
             return "مهلت اعتبار امتیازها باید بین ۱ تا ۳۶۵۰ روز باشد (یا خالی برای نامحدود).";
 
+        if (command.WalletMaxWithdrawalAmount < 0 || command.WalletMaxPendingWithdrawals is < 1 or > 10)
+            return "سقف برداشت معتبر نیست (تعداد درخواست‌های باز بین ۱ تا ۱۰).";
+
+        if (command.WalletMaxWithdrawalAmount > 0 && command.WalletMaxWithdrawalAmount < command.WalletMinWithdrawalAmount)
+            return "حداکثر مبلغ برداشت نمی‌تواند کمتر از حداقل آن باشد.";
+
+        if (command.AbandonedCartAfterMinutes is < 10 or > 10080 || command.AbandonedCartExpireDays is < 1 or > 90 || command.AbandonedCartMinAmount < 0)
+            return "تنظیمات سبدهای رها شده معتبر نیست (۱۰ دقیقه تا ۷ روز، پیگیری ۱ تا ۹۰ روز).";
+
+        if (command.ReviewMaxImages is < 0 or > 10 || command.ReviewMaxImageSizeKb is < 100 or > 10240)
+            return "تنظیمات تصاویر دیدگاه معتبر نیست (حداکثر ۱۰ تصویر، ۱۰۰ کیلوبایت تا ۱۰ مگابایت).";
+
+        if (command.PwaInstallPromptAfterPages is < 0 or > 100 || command.PwaInstallPromptSnoozeDays is < 0 or > 365)
+            return "تنظیمات پیشنهاد نصب اپلیکیشن معتبر نیست.";
+
+        if (!string.IsNullOrWhiteSpace(command.InvoiceNumberPrefix)
+            && !System.Text.RegularExpressions.Regex.IsMatch(command.InvoiceNumberPrefix.Trim(), "^[A-Za-z]{1,10}$"))
+            return "پیشوند شماره فاکتور باید فقط حروف لاتین (حداکثر ۱۰ حرف) باشد.";
+
         if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor))
             return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0ea5e9).";
 

@@ -26,7 +26,10 @@ public class WalletModel(
     public WalletTransactionFilterResult Transactions { get; private set; } = null!;
     public List<WithdrawalRequestDto> Withdrawals { get; private set; } = [];
     public PagerModel Pager { get; private set; } = null!;
-    public bool HasPendingWithdrawal => Withdrawals.Any(w => w.CanBeCancelled);
+    public bool HasPendingWithdrawal => Withdrawals.Count(w => w.CanBeCancelled) >= Math.Max(1, site.Settings.WalletMaxPendingWithdrawals);
+
+    /// <summary>Error of the withdrawal form (shown next to the form, values are kept).</summary>
+    public string? WithdrawalError { get; private set; }
 
     public static readonly decimal[] TopUpPresets = [100_000, 200_000, 500_000, 1_000_000];
 
@@ -77,18 +80,29 @@ public class WalletModel(
         ModelState.Clear();
         if (!TryValidateModel(Withdrawal, nameof(Withdrawal)))
         {
-            ErrorMessage = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).FirstOrDefault()
-                           ?? "اطلاعات درخواست برداشت معتبر نیست.";
-            return RedirectToPage();
+            // Re-render with the entered values so the customer doesn't type everything again.
+            WithdrawalError = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).FirstOrDefault()
+                              ?? "اطلاعات درخواست برداشت معتبر نیست.";
+            await LoadAsync();
+            return Page();
         }
 
         var result = await walletService.RequestWithdrawalAsync(new CreateWithdrawalCommand
         {
             UserId = CurrentUserId!.Value,
             Amount = Withdrawal.Amount!.Value,
-            Iban = Withdrawal.Iban,
             AccountHolder = Withdrawal.AccountHolder.Trim(),
+            CardNumber = Withdrawal.CardNumber,
+            Iban = Withdrawal.Iban,
+            AccountNumber = Withdrawal.AccountNumber,
         });
+
+        if (!Succeeded(result))
+        {
+            WithdrawalError = result.Message;
+            await LoadAsync();
+            return Page();
+        }
 
         ShowResult(result);
         return RedirectToPage();
@@ -126,18 +140,29 @@ public class WalletModel(
         public decimal? Amount { get; set; }
     }
 
-    public class WithdrawalInput
+    public class WithdrawalInput : IValidatableObject
     {
         [Required(ErrorMessage = "مبلغ برداشت را وارد کنید.")]
         [Range(1_000, 10_000_000_000, ErrorMessage = "مبلغ برداشت معتبر نیست.")]
         public decimal? Amount { get; set; }
 
-        [Required(ErrorMessage = "شماره شبا را وارد کنید.")]
-        [MaxLength(34)]
-        public string Iban { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "نام صاحب حساب را وارد کنید.")]
-        [StringLength(100, MinimumLength = 3, ErrorMessage = "نام صاحب حساب معتبر نیست.")]
+        [Required(ErrorMessage = "نام و نام خانوادگی صاحب حساب را وارد کنید.")]
+        [StringLength(100, MinimumLength = 5, ErrorMessage = "نام و نام خانوادگی صاحب حساب را کامل وارد کنید.")]
         public string AccountHolder { get; set; } = string.Empty;
+
+        [MaxLength(30)]
+        public string? CardNumber { get; set; }
+
+        [MaxLength(40)]
+        public string? Iban { get; set; }
+
+        [MaxLength(40)]
+        public string? AccountNumber { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (string.IsNullOrWhiteSpace(CardNumber) && string.IsNullOrWhiteSpace(Iban))
+                yield return new ValidationResult("برای شناسایی حساب، شماره کارت یا شماره شبا را وارد کنید.", [nameof(CardNumber), nameof(Iban)]);
+        }
     }
 }

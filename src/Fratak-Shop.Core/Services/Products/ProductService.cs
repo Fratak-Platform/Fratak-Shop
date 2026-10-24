@@ -19,6 +19,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (error is not null)
             return OperationResult.Error(error);
 
+        if (command.PurchasePrice is < 0)
+            return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
+
         var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
         if (!categoryExists)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
@@ -53,6 +56,7 @@ public class ProductService(FratakShopDbContext context) : IProductService
             Description = command.Description,
             Price = command.Price,
             DiscountPrice = command.DiscountPrice,
+            PurchasePrice = command.PurchasePrice,
             DiscountStartAt = command.DiscountStartAt,
             DiscountEndAt = command.DiscountEndAt,
             StockQuantity = command.StockQuantity,
@@ -88,6 +92,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (error is not null)
             return OperationResult.Error(error);
 
+        if (command.PurchasePrice is < 0)
+            return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
+
         var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
         if (!categoryExists)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
@@ -122,6 +129,7 @@ public class ProductService(FratakShopDbContext context) : IProductService
         product.Description = command.Description;
         product.Price = command.Price;
         product.DiscountPrice = command.DiscountPrice;
+        product.PurchasePrice = command.PurchasePrice;
         product.DiscountStartAt = command.DiscountStartAt;
         product.DiscountEndAt = command.DiscountEndAt;
         product.StockQuantity = command.StockQuantity;
@@ -190,20 +198,21 @@ public class ProductService(FratakShopDbContext context) : IProductService
     /// Filtered products with their final price (same rule as PriceCalculator, in SQL).
     /// <paramref name="skipSpecificationKey"/> leaves one specification out (facet counts).
     /// </summary>
-    private IQueryable<PricedProduct> BuildFilterQuery(ProductFilterParams filterParams, string? skipSpecificationKey)
+    private IQueryable<PricedProduct> BuildFilterQuery(ProductFilterParams filterParams, string? skipSpecificationKey, bool skipBrands = false)
     {
         var now = DateTimeOffset.UtcNow;
 
         var query = context.Products.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(filterParams.Search))
+        // Every word has to match somewhere (name, English name, slug, SKU, brand, category).
+        foreach (var term in SearchText.Terms(filterParams.Search))
         {
-            var search = filterParams.Search.Trim();
-            query = query.Where(x => x.Name.Contains(search)
-                                     || (x.EnglishName != null && x.EnglishName.Contains(search))
-                                     || x.Slug.Contains(search)
-                                     || x.SKU.Contains(search)
-                                     || (x.Brand != null && x.Brand.Name.Contains(search)));
+            query = query.Where(x => x.Name.Contains(term)
+                                     || (x.EnglishName != null && x.EnglishName.Contains(term))
+                                     || x.Slug.Contains(term)
+                                     || x.SKU.Contains(term)
+                                     || (x.Brand != null && (x.Brand.Name.Contains(term) || (x.Brand.EnglishName != null && x.Brand.EnglishName.Contains(term))))
+                                     || x.Category.Name.Contains(term));
         }
 
         if (filterParams.CategoryId.HasValue)
@@ -226,7 +235,7 @@ public class ProductService(FratakShopDbContext context) : IProductService
             .Distinct()
             .ToList();
 
-        if (brandSlugs.Count > 0)
+        if (brandSlugs.Count > 0 && !skipBrands)
             query = query.Where(x => x.Brand != null && brandSlugs.Contains(x.Brand.Slug));
 
         if (filterParams.ExcludeProductId.HasValue)
@@ -312,6 +321,41 @@ public class ProductService(FratakShopDbContext context) : IProductService
         }
 
         return facets;
+    }
+
+    public async Task<List<BrandFacetDto>> GetBrandFacetsAsync(ProductFilterParams filterParams, int take = 50)
+    {
+        var selected = filterParams.BrandSlugs.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToHashSet();
+
+        // Brands of the current result set (brand selection itself left out, so others stay selectable).
+        var brands = await BuildFilterQuery(filterParams, null, skipBrands: true)
+            .Where(x => x.Product.Brand != null && x.Product.Brand.IsActive)
+            .GroupBy(x => new { x.Product.Brand!.Slug, x.Product.Brand.Name, x.Product.Brand.EnglishName })
+            .Select(g => new { g.Key.Slug, g.Key.Name, g.Key.EnglishName, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(Math.Clamp(take, 1, 200))
+            .ToListAsync();
+
+        var result = brands
+            .Select(b => new BrandFacetDto(b.Slug, b.Name, b.EnglishName, b.Count, selected.Contains(b.Slug)))
+            .ToList();
+
+        // Selected brands without products in this listing stay visible so they can be unchecked.
+        var missing = selected.Where(slug => result.All(b => b.Slug != slug)).ToList();
+        if (missing.Count > 0)
+        {
+            var extra = await context.Brands
+                .Where(b => missing.Contains(b.Slug))
+                .Select(b => new BrandFacetDto(b.Slug, b.Name, b.EnglishName, 0, true))
+                .ToListAsync();
+            result.AddRange(extra);
+        }
+
+        return result
+            .OrderByDescending(b => b.IsSelected)
+            .ThenByDescending(b => b.Count)
+            .ThenBy(b => b.Name, StringComparer.CurrentCulture)
+            .ToList();
     }
 
     private static Dictionary<string, List<string>> NormalizeSpecifications(Dictionary<string, List<string>>? specifications)

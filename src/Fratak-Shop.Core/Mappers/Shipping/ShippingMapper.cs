@@ -15,6 +15,8 @@ public static class ShippingMapper
             Description = method.Description,
             Type = method.Type,
             Cost = method.Cost,
+            PricingMode = method.PricingMode,
+            OnlyListedLocations = method.OnlyListedLocations,
             FreeShippingThreshold = method.FreeShippingThreshold,
             MinDeliveryDays = method.MinDeliveryDays,
             MaxDeliveryDays = method.MaxDeliveryDays,
@@ -54,6 +56,8 @@ public static class ShippingMapper
         method.Description = string.IsNullOrWhiteSpace(command.Description) ? null : command.Description.Trim();
         method.Type = command.Type;
         method.Cost = command.Cost;
+        method.PricingMode = command.PricingMode;
+        method.OnlyListedLocations = command.OnlyListedLocations;
         method.FreeShippingThreshold = command.FreeShippingThreshold;
         method.MinDeliveryDays = command.MinDeliveryDays;
         method.MaxDeliveryDays = command.MaxDeliveryDays;
@@ -73,5 +77,38 @@ public static class ShippingMapper
         slot.Capacity = command.Capacity;
         slot.IsActive = command.IsActive;
         slot.DisplayOrder = command.DisplayOrder;
+    }
+
+    public static ShippingRateDto Map(this ShippingRate rate)
+    {
+        return new ShippingRateDto
+        {
+            Id = rate.Id,
+            ShippingMethodId = rate.ShippingMethodId,
+            ShippingMethodTitle = rate.ShippingMethod?.Title,
+            ProvinceId = rate.ProvinceId,
+            ProvinceName = rate.Province?.Name,
+            CityId = rate.CityId,
+            CityName = rate.City?.Name,
+            Cost = rate.Cost,
+            FreeShippingThreshold = rate.FreeShippingThreshold,
+            ExtraDeliveryDays = rate.ExtraDeliveryDays,
+            IsBlocked = rate.IsBlocked,
+            Note = rate.Note,
+            IsActive = rate.IsActive,
+        };
+    }
+
+    public static void Apply(this ShippingRate rate, ShippingRateCommand command)
+    {
+        rate.ShippingMethodId = command.ShippingMethodId;
+        rate.ProvinceId = command.ProvinceId;
+        rate.CityId = command.CityId;
+        rate.Cost = command.Cost;
+        rate.FreeShippingThreshold = command.FreeShippingThreshold;
+        rate.ExtraDeliveryDays = command.ExtraDeliveryDays;
+        rate.IsBlocked = command.IsBlocked;
+        rate.Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim();
+        rate.IsActive = command.IsActive;
     }
 }
