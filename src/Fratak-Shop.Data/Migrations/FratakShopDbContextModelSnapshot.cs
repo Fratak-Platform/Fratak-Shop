@@ -333,6 +333,271 @@ namespace Fratak_Shop.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.ContentPage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("PageKey")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ShowInFooter")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PageKey");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("IsActive", "ShowInFooter", "DisplayOrder");
+
+                    b.ToTable("ContentPages");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.HomeSection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LinkUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Subtitle")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("IsActive", "DisplayOrder");
+
+                    b.ToTable("HomeSections", t =>
+                        {
+                            t.HasCheckConstraint("CK_HomeSections_ItemCount", "[ItemCount] >= 0 AND [ItemCount] <= 50");
+                        });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.SiteFeature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IconKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LinkUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive", "DisplayOrder");
+
+                    b.ToTable("SiteFeatures");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.TrustBadge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LinkUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive", "DisplayOrder");
+
+                    b.ToTable("TrustBadges");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Faqs.FaqCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IconKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("FaqCategories");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Faqs.FaqItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -342,6 +607,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<string>("Answer")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -367,6 +635,8 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.ToTable("FaqItems");
                 });
@@ -594,6 +864,16 @@ namespace Fratak_Shop.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("CancelledBy")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -614,6 +894,13 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("DeliveryTimeSlotId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DeliveryTimeSlotTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(18)
                         .HasColumnType("decimal(18,0)");
@@ -633,11 +920,21 @@ namespace Fratak_Shop.Data.Migrations
                         .HasPrecision(18)
                         .HasColumnType("decimal(18,0)");
 
+                    b.Property<DateTimeOffset?>("PaymentDeadline")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<int>("PaymentMethod")
                         .HasColumnType("int");
 
                     b.Property<int>("PaymentStatus")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("RefundedAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset?>("RefundedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("RequestedDeliveryDate")
                         .HasColumnType("datetimeoffset");
@@ -663,6 +960,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<string>("ShippingMethod")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("ShippingMethodId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ShippingPhone")
                         .IsRequired()
@@ -714,9 +1014,13 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("DeliveryTimeSlotId", "RequestedDeliveryDate");
+
+                    b.HasIndex("PaymentStatus", "PaymentDeadline");
+
                     b.ToTable("Orders", t =>
                         {
-                            t.HasCheckConstraint("CK_Orders_Amounts", "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0");
+                            t.HasCheckConstraint("CK_Orders_Amounts", "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0 AND [RefundedAmount] >= 0");
                         });
                 });
 
@@ -865,6 +1169,85 @@ namespace Fratak_Shop.Data.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("PageSeos");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Payments.PaymentTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("Authority")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CardPan")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Gateway")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RefId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ResultCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Authority")
+                        .IsUnique()
+                        .HasFilter("[Authority] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("PaymentTransactions", t =>
+                        {
+                            t.HasCheckConstraint("CK_PaymentTransactions_Amount", "[Amount] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.Product", b =>
@@ -1110,6 +1493,346 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("SeoRedirects");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Settings.StoreSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("AllowCustomerCancellation")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AparatUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BingSiteVerification")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("CashOnDeliveryMaxAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("CopyrightText")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DefaultMetaKeywords")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DefaultOgImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DeliveryDaysAhead")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeliveryOffDays")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FaviconUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FooterSubtitle")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("FooterText")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("FooterTitle")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("FreeShippingThreshold")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("GoogleSiteVerification")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("InstagramUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsCashOnDeliveryEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsOnlinePaymentEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsWalletEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsWalletPaymentEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsWalletTopUpEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsWithdrawalEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LinkedinUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("MapEmbedUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("MinimumOrderAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("OrganizationLegalName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("RobotsTxtExtra")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("SameDayLeadMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SiteDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SiteName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SupportEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("SupportPhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Tagline")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("TelegramUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("TitleSeparator")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("TwitterUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("UnpaidOrderTimeoutMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("WalletMaxTopUpAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal>("WalletMinTopUpAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal>("WalletMinWithdrawalAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("WhatsAppUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("WorkingHours")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("YoutubeUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ZarinPalMerchantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("nvarchar(36)");
+
+                    b.Property<bool>("ZarinPalSandbox")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StoreSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_StoreSettings_Values", "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 AND [WalletMinTopUpAmount] >= 0 AND [WalletMaxTopUpAmount] >= [WalletMinTopUpAmount] AND [WalletMinWithdrawalAmount] >= 0 AND [UnpaidOrderTimeoutMinutes] > 0 AND [DeliveryDaysAhead] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Shipping.DeliveryTimeSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ShippingMethodId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShippingMethodId", "DisplayOrder");
+
+                    b.ToTable("DeliveryTimeSlots", t =>
+                        {
+                            t.HasCheckConstraint("CK_DeliveryTimeSlots_Values", "[EndTime] > [StartTime] AND ([Capacity] IS NULL OR [Capacity] > 0)");
+                        });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Shipping.ShippingMethod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("Cost")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("FreeShippingThreshold")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxDeliveryDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinDeliveryDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ProvinceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("RequiresTimeSlot")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SupportsCashOnDelivery")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("ProvinceId");
+
+                    b.HasIndex("IsActive", "DisplayOrder");
+
+                    b.ToTable("ShippingMethods", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShippingMethods_Values", "[Cost] >= 0 AND [MinDeliveryDays] >= 0 AND [MaxDeliveryDays] >= [MinDeliveryDays]");
+                        });
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Shopping.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1201,6 +1924,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("FirstName")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1221,6 +1947,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTimeOffset?>("LockoutEndAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
 
@@ -1232,8 +1961,16 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
+                    b.Property<string>("SecurityStamp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("WalletBalance")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
 
                     b.HasKey("Id");
 
@@ -1241,7 +1978,10 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", t =>
+                        {
+                            t.HasCheckConstraint("CK_Users_WalletBalance", "[WalletBalance] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.UserAddress", b =>
@@ -1319,6 +2059,194 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserAddresses");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.UserRefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPersistent")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ReplacedByTokenId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("FamilyId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("UserId", "RevokedAt");
+
+                    b.ToTable("UserRefreshTokens");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Wallets.WalletTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PaymentTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("WithdrawalRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PaymentTransactionId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("WalletTransactions", t =>
+                        {
+                            t.HasCheckConstraint("CK_WalletTransactions_Values", "[Amount] <> 0 AND [BalanceAfter] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Wallets.WithdrawalRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountHolder")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("BankTrackingNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Iban")
+                        .IsRequired()
+                        .HasMaxLength(26)
+                        .HasColumnType("nvarchar(26)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("WithdrawalRequests", t =>
+                        {
+                            t.HasCheckConstraint("CK_WithdrawalRequests_Amount", "[Amount] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogCategory", b =>
@@ -2298,6 +3226,257 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.ContentPage", b =>
+                {
+                    b.OwnsOne("Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData", "Seo", b1 =>
+                        {
+                            b1.Property<Guid>("ContentPageId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("ArticleAuthorUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<DateTimeOffset?>("ArticleExpirationTime")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<DateTimeOffset?>("ArticleModifiedTime")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<DateTimeOffset?>("ArticlePublishedTime")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<string>("ArticleSection")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("ArticleTagsJson")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.Property<string>("AuthorName")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("BreadcrumbTitle")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("CanonicalUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("FocusKeyword")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<bool?>("IncludeInSitemap")
+                                .HasColumnType("bit");
+
+                            b1.Property<bool?>("IndexIfEmbedded")
+                                .HasColumnType("bit");
+
+                            b1.Property<bool?>("IsReviewed")
+                                .HasColumnType("bit");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<string>("MaxImagePreview")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<int?>("MaxSnippet")
+                                .HasColumnType("int");
+
+                            b1.Property<int?>("MaxVideoPreview")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("MetaDescription")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("MetaKeywords")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<bool?>("NoFollow")
+                                .HasColumnType("bit");
+
+                            b1.Property<bool?>("NoImageIndex")
+                                .HasColumnType("bit");
+
+                            b1.Property<bool?>("NoIndex")
+                                .HasColumnType("bit");
+
+                            b1.Property<bool?>("NoSnippet")
+                                .HasColumnType("bit");
+
+                            b1.Property<bool?>("NoTranslate")
+                                .HasColumnType("bit");
+
+                            b1.Property<string>("Notes")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.Property<string>("OgAudioUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("OgDescription")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("OgImageAlt")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<int?>("OgImageHeight")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("OgImageName")
+                                .HasMaxLength(250)
+                                .HasColumnType("nvarchar(250)");
+
+                            b1.Property<string>("OgImageType")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)");
+
+                            b1.Property<int?>("OgImageWidth")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("OgLocale")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<string>("OgLocaleAlternatesJson")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.Property<string>("OgSiteName")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("OgTitle")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("OgType")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)");
+
+                            b1.Property<string>("OgUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("OgVideoUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("PublisherName")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<DateTimeOffset?>("ReviewedAt")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<Guid?>("ReviewedByUserId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("SchemaType")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)");
+
+                            b1.Property<string>("SitemapChangeFrequency")
+                                .HasMaxLength(20)
+                                .HasColumnType("nvarchar(20)");
+
+                            b1.Property<DateTimeOffset?>("SitemapLastModified")
+                                .HasColumnType("datetimeoffset");
+
+                            b1.Property<decimal?>("SitemapPriority")
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<string>("SocialImageAlt")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("SocialImageName")
+                                .HasMaxLength(250)
+                                .HasColumnType("nvarchar(250)");
+
+                            b1.Property<string>("StructuredDataJsonLd")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.Property<string>("Title")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("Topic")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("XCard")
+                                .HasMaxLength(50)
+                                .HasColumnType("nvarchar(50)");
+
+                            b1.Property<string>("XCreator")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)");
+
+                            b1.Property<string>("XDescription")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("XImageAlt")
+                                .HasMaxLength(500)
+                                .HasColumnType("nvarchar(500)");
+
+                            b1.Property<string>("XImageName")
+                                .HasMaxLength(250)
+                                .HasColumnType("nvarchar(250)");
+
+                            b1.Property<string>("XSite")
+                                .HasMaxLength(100)
+                                .HasColumnType("nvarchar(100)");
+
+                            b1.Property<string>("XTitle")
+                                .HasMaxLength(200)
+                                .HasColumnType("nvarchar(200)");
+
+                            b1.Property<string>("XUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("nvarchar(2048)");
+
+                            b1.HasKey("ContentPageId");
+
+                            b1.ToTable("ContentPages");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ContentPageId");
+                        });
+
+                    b.Navigation("Seo");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.HomeSection", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Categories.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Faqs.FaqItem", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Faqs.FaqCategory", "Category")
+                        .WithMany("Items")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Category");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Favorites.Favorite", b =>
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Products.Product", "Product")
@@ -2596,6 +3775,23 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("Seo");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Payments.PaymentTransaction", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Orders.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Order");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.Product", b =>
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Brands.Brand", "Brand")
@@ -2864,6 +4060,27 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Shipping.DeliveryTimeSlot", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Shipping.ShippingMethod", "ShippingMethod")
+                        .WithMany("TimeSlots")
+                        .HasForeignKey("ShippingMethodId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ShippingMethod");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Shipping.ShippingMethod", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Locations.Location", "Province")
+                        .WithMany()
+                        .HasForeignKey("ProvinceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Province");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Shopping.Cart", b =>
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
@@ -2920,6 +4137,39 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.UserRefreshToken", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Wallets.WalletTransaction", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
+                        .WithMany("WalletTransactions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Wallets.WithdrawalRequest", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
+                        .WithMany("WithdrawalRequests")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogCategory", b =>
                 {
                     b.Navigation("BlogPosts");
@@ -2947,6 +4197,11 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("Replies");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Faqs.FaqCategory", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Locations.Location", b =>
                 {
                     b.Navigation("Children");
@@ -2966,6 +4221,11 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("Features");
 
                     b.Navigation("Images");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Shipping.ShippingMethod", b =>
+                {
+                    b.Navigation("TimeSlots");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Shopping.Cart", b =>
@@ -2988,6 +4248,12 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("Messages");
 
                     b.Navigation("Orders");
+
+                    b.Navigation("RefreshTokens");
+
+                    b.Navigation("WalletTransactions");
+
+                    b.Navigation("WithdrawalRequests");
                 });
 #pragma warning restore 612, 618
         }
