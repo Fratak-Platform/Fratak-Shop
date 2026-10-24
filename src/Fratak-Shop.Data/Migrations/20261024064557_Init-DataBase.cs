@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Fratak_Shop.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class initdatabase : Migration
+    public partial class InitDataBase : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,6 +23,7 @@ namespace Fratak_Shop.Data.Migrations
                     ImageAlt = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
                     ButtonText = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     LinkUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Position = table.Column<int>(type: "int", nullable: false),
                     DisplayOrder = table.Column<int>(type: "int", nullable: false),
                     StartAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     EndAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
@@ -114,6 +115,87 @@ namespace Fratak_Shop.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_BlogCategories", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Brands",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    EnglishName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    Slug = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    LogoName = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    DisplayOrder = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    Seo_Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_MetaDescription = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_CanonicalUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    Seo_MetaKeywords = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_FocusKeyword = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_BreadcrumbTitle = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_AuthorName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_PublisherName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_Language = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Seo_Topic = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_NoIndex = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_NoFollow = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_NoSnippet = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_NoImageIndex = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_NoTranslate = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_IndexIfEmbedded = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_MaxSnippet = table.Column<int>(type: "int", nullable: true),
+                    Seo_MaxImagePreview = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Seo_MaxVideoPreview = table.Column<int>(type: "int", nullable: true),
+                    Seo_OgTitle = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_OgDescription = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_OgUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    Seo_OgType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Seo_OgSiteName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_OgLocale = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Seo_OgLocaleAlternatesJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Seo_OgImageName = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
+                    Seo_OgImageType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Seo_OgImageWidth = table.Column<int>(type: "int", nullable: true),
+                    Seo_OgImageHeight = table.Column<int>(type: "int", nullable: true),
+                    Seo_OgImageAlt = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_OgVideoUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    Seo_OgAudioUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    Seo_XCard = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Seo_XTitle = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_XDescription = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_XUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    Seo_XImageName = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
+                    Seo_XImageAlt = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_XSite = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Seo_XCreator = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Seo_ArticleSection = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Seo_ArticlePublishedTime = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    Seo_ArticleModifiedTime = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    Seo_ArticleExpirationTime = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    Seo_ArticleAuthorUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
+                    Seo_ArticleTagsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Seo_SchemaType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Seo_StructuredDataJsonLd = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Seo_IncludeInSitemap = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_SitemapLastModified = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    Seo_SitemapPriority = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
+                    Seo_SitemapChangeFrequency = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Seo_SocialImageName = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
+                    Seo_SocialImageAlt = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Seo_Notes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Seo_IsReviewed = table.Column<bool>(type: "bit", nullable: true),
+                    Seo_ReviewedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    Seo_ReviewedByUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Brands", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -397,7 +479,9 @@ namespace Fratak_Shop.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BrandId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Name = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    EnglishName = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
                     Slug = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
                     SKU = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     ShortDescription = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
@@ -470,6 +554,8 @@ namespace Fratak_Shop.Data.Migrations
                     Seo_ReviewedByUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     PublishedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    ViewCount = table.Column<int>(type: "int", nullable: false),
+                    SalesCount = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     IsDeleted = table.Column<bool>(type: "bit", nullable: false),
@@ -479,6 +565,12 @@ namespace Fratak_Shop.Data.Migrations
                 {
                     table.PrimaryKey("PK_Products", x => x.Id);
                     table.CheckConstraint("CK_Products_PriceAndStock", "[Price] >= 0 AND ([DiscountPrice] IS NULL OR [DiscountPrice] >= 0) AND [StockQuantity] >= 0 AND ([WarrantyMonths] IS NULL OR [WarrantyMonths] >= 0)");
+                    table.ForeignKey(
+                        name: "FK_Products_Brands_BrandId",
+                        column: x => x.BrandId,
+                        principalTable: "Brands",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Products_Categories_CategoryId",
                         column: x => x.CategoryId,
@@ -961,6 +1053,13 @@ namespace Fratak_Shop.Data.Migrations
                 filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Brands_Slug",
+                table: "Brands",
+                column: "Slug",
+                unique: true,
+                filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CartItems_CartId_ProductId",
                 table: "CartItems",
                 columns: new[] { "CartId", "ProductId" },
@@ -1115,6 +1214,11 @@ namespace Fratak_Shop.Data.Migrations
                 column: "ProductId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Products_BrandId",
+                table: "Products",
+                column: "BrandId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Products_CategoryId",
                 table: "Products",
                 column: "CategoryId");
@@ -1230,6 +1334,9 @@ namespace Fratak_Shop.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "Users");
+
+            migrationBuilder.DropTable(
+                name: "Brands");
 
             migrationBuilder.DropTable(
                 name: "Categories");

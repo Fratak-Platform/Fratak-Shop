@@ -66,7 +66,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("BlogCategories");
+                    b.ToTable("BlogCategories", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogPost", b =>
@@ -140,7 +140,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("BlogPosts");
+                    b.ToTable("BlogPosts", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Brands.Brand", b =>
@@ -195,7 +195,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("Brands");
+                    b.ToTable("Brands", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Categories.Category", b =>
@@ -250,7 +250,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("Categories");
+                    b.ToTable("Categories", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Comments.Comment", b =>
@@ -325,7 +325,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Comments", t =>
+                    b.ToTable("Comments", null, t =>
                         {
                             t.HasCheckConstraint("CK_Comments_ProductOrBlogPost", "([ProductId] IS NOT NULL AND [BlogPostId] IS NULL) OR ([ProductId] IS NULL AND [BlogPostId] IS NOT NULL)");
 
@@ -394,7 +394,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("IsActive", "ShowInFooter", "DisplayOrder");
 
-                    b.ToTable("ContentPages");
+                    b.ToTable("ContentPages", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.HomeSection", b =>
@@ -448,7 +448,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("IsActive", "DisplayOrder");
 
-                    b.ToTable("HomeSections", t =>
+                    b.ToTable("HomeSections", null, t =>
                         {
                             t.HasCheckConstraint("CK_HomeSections_ItemCount", "[ItemCount] >= 0 AND [ItemCount] <= 50");
                         });
@@ -499,7 +499,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("IsActive", "DisplayOrder");
 
-                    b.ToTable("SiteFeatures");
+                    b.ToTable("SiteFeatures", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Contents.TrustBadge", b =>
@@ -544,7 +544,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("IsActive", "DisplayOrder");
 
-                    b.ToTable("TrustBadges");
+                    b.ToTable("TrustBadges", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Faqs.FaqCategory", b =>
@@ -595,7 +595,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("FaqCategories");
+                    b.ToTable("FaqCategories", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Faqs.FaqItem", b =>
@@ -638,7 +638,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("FaqItems");
+                    b.ToTable("FaqItems", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Favorites.Favorite", b =>
@@ -673,7 +673,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("Favorites");
+                    b.ToTable("Favorites", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Locations.Location", b =>
@@ -723,7 +723,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("Type");
 
-                    b.ToTable("Locations");
+                    b.ToTable("Locations", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Marketing.Banner", b =>
@@ -790,7 +790,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Banners");
+                    b.ToTable("Banners", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Messages.Message", b =>
@@ -855,7 +855,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Messages");
+                    b.ToTable("Messages", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Orders.Order", b =>
@@ -1018,7 +1018,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("PaymentStatus", "PaymentDeadline");
 
-                    b.ToTable("Orders", t =>
+                    b.ToTable("Orders", null, t =>
                         {
                             t.HasCheckConstraint("CK_Orders_Amounts", "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0 AND [RefundedAmount] >= 0");
                         });
@@ -1079,7 +1079,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("OrderItems", t =>
+                    b.ToTable("OrderItems", null, t =>
                         {
                             t.HasCheckConstraint("CK_OrderItems_Amounts", "[Quantity] > 0 AND [UnitPrice] >= 0 AND [DiscountAmount] >= 0 AND [TotalAmount] >= 0");
                         });
@@ -1138,7 +1138,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("Page", "Position");
 
-                    b.ToTable("PageAlerts");
+                    b.ToTable("PageAlerts", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Pages.PageSeo", b =>
@@ -1168,7 +1168,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("PageSeos");
+                    b.ToTable("PageSeos", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Payments.PaymentTransaction", b =>
@@ -1244,7 +1244,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId", "CreatedAt");
 
-                    b.ToTable("PaymentTransactions", t =>
+                    b.ToTable("PaymentTransactions", null, t =>
                         {
                             t.HasCheckConstraint("CK_PaymentTransactions_Amount", "[Amount] > 0");
                         });
@@ -1350,7 +1350,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("Products", t =>
+                    b.ToTable("Products", null, t =>
                         {
                             t.HasCheckConstraint("CK_Products_PriceAndStock", "[Price] >= 0 AND ([DiscountPrice] IS NULL OR [DiscountPrice] >= 0) AND [StockQuantity] >= 0 AND ([WarrantyMonths] IS NULL OR [WarrantyMonths] >= 0)");
                         });
@@ -1398,7 +1398,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("ProductFeatures");
+                    b.ToTable("ProductFeatures", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.ProductImage", b =>
@@ -1441,7 +1441,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("ProductImages");
+                    b.ToTable("ProductImages", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoRedirects.SeoRedirect", b =>
@@ -1490,7 +1490,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.ToTable("SeoRedirects");
+                    b.ToTable("SeoRedirects", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Settings.StoreSetting", b =>
@@ -1696,7 +1696,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("StoreSettings", t =>
+                    b.ToTable("StoreSettings", null, t =>
                         {
                             t.HasCheckConstraint("CK_StoreSettings_Values", "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 AND [WalletMinTopUpAmount] >= 0 AND [WalletMaxTopUpAmount] >= [WalletMinTopUpAmount] AND [WalletMinWithdrawalAmount] >= 0 AND [UnpaidOrderTimeoutMinutes] > 0 AND [DeliveryDaysAhead] > 0");
                         });
@@ -1747,7 +1747,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("ShippingMethodId", "DisplayOrder");
 
-                    b.ToTable("DeliveryTimeSlots", t =>
+                    b.ToTable("DeliveryTimeSlots", null, t =>
                         {
                             t.HasCheckConstraint("CK_DeliveryTimeSlots_Values", "[EndTime] > [StartTime] AND ([Capacity] IS NULL OR [Capacity] > 0)");
                         });
@@ -1827,7 +1827,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("IsActive", "DisplayOrder");
 
-                    b.ToTable("ShippingMethods", t =>
+                    b.ToTable("ShippingMethods", null, t =>
                         {
                             t.HasCheckConstraint("CK_ShippingMethods_Values", "[Cost] >= 0 AND [MinDeliveryDays] >= 0 AND [MaxDeliveryDays] >= [MinDeliveryDays]");
                         });
@@ -1864,7 +1864,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Carts");
+                    b.ToTable("Carts", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Shopping.CartItem", b =>
@@ -1902,7 +1902,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("CartItems", t =>
+                    b.ToTable("CartItems", null, t =>
                         {
                             t.HasCheckConstraint("CK_CartItems_Quantity", "[Quantity] > 0");
                         });
@@ -1978,7 +1978,7 @@ namespace Fratak_Shop.Data.Migrations
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
-                    b.ToTable("Users", t =>
+                    b.ToTable("Users", null, t =>
                         {
                             t.HasCheckConstraint("CK_Users_WalletBalance", "[WalletBalance] >= 0");
                         });
@@ -2058,7 +2058,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserAddresses");
+                    b.ToTable("UserAddresses", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.UserRefreshToken", b =>
@@ -2126,7 +2126,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId", "RevokedAt");
 
-                    b.ToTable("UserRefreshTokens");
+                    b.ToTable("UserRefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Wallets.WalletTransaction", b =>
@@ -2182,7 +2182,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId", "CreatedAt");
 
-                    b.ToTable("WalletTransactions", t =>
+                    b.ToTable("WalletTransactions", null, t =>
                         {
                             t.HasCheckConstraint("CK_WalletTransactions_Values", "[Amount] <> 0 AND [BalanceAfter] >= 0");
                         });
@@ -2243,7 +2243,7 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId", "Status");
 
-                    b.ToTable("WithdrawalRequests", t =>
+                    b.ToTable("WithdrawalRequests", null, t =>
                         {
                             t.HasCheckConstraint("CK_WithdrawalRequests_Amount", "[Amount] > 0");
                         });
@@ -2471,7 +2471,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("BlogCategoryId");
 
-                            b1.ToTable("BlogCategories");
+                            b1.ToTable("BlogCategories", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("BlogCategoryId");
@@ -2713,7 +2713,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("BlogPostId");
 
-                            b1.ToTable("BlogPosts");
+                            b1.ToTable("BlogPosts", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("BlogPostId");
@@ -2948,7 +2948,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("BrandId");
 
-                            b1.ToTable("Brands");
+                            b1.ToTable("Brands", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("BrandId");
@@ -3184,7 +3184,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("CategoryId");
 
-                            b1.ToTable("Categories");
+                            b1.ToTable("Categories", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("CategoryId");
@@ -3448,7 +3448,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("ContentPageId");
 
-                            b1.ToTable("ContentPages");
+                            b1.ToTable("ContentPages", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("ContentPageId");
@@ -3766,7 +3766,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("PageSeoId");
 
-                            b1.ToTable("PageSeos");
+                            b1.ToTable("PageSeos", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("PageSeoId");
@@ -4025,7 +4025,7 @@ namespace Fratak_Shop.Data.Migrations
 
                             b1.HasKey("ProductId");
 
-                            b1.ToTable("Products");
+                            b1.ToTable("Products", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("ProductId");
