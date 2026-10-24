@@ -1,12 +1,14 @@
 using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Loyalty;
 using Fratak_Shop.Core.Services.Orders;
+using Fratak_Shop.Core.Services.Shopping;
 
 namespace Fratak_Shop.Web.Infrastructure;
 
 /// <summary>
 /// Background housekeeping every few minutes: cancels online orders whose payment
 /// deadline passed (stock is released) and deletes expired / revoked refresh tokens.
+/// Abandoned carts of signed-in customers are detected and reminded on the same cycle.
 /// Hourly: loyalty birthday gifts (once per Persian year) and expiry of old points.
 /// </summary>
 public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<OrderMaintenanceService> logger) : BackgroundService
@@ -72,6 +74,20 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogError(exception, "Refresh token cleanup failed");
+        }
+
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var abandoned = scope.ServiceProvider.GetRequiredService<IAbandonedCartService>();
+            var result = await abandoned.ProcessAsync(now, stoppingToken);
+            if (result.Detected + result.RemindersSent + result.Closed > 0)
+                logger.LogInformation("Abandoned carts: {Detected} detected, {Sent} reminders sent, {Closed} closed",
+                    result.Detected, result.RemindersSent, result.Closed);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Abandoned cart processing failed");
         }
 
         if (now - _lastLoyaltyRun < LoyaltyInterval)

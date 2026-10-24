@@ -210,7 +210,7 @@
       </footer>
       <p class="inv-legal">
         @(Model.IsFinal ? "این صورتحساب به صورت الکترونیکی صادر شده است." : "این سند پیش‌فاکتور است و پس از پرداخت، صورتحساب با شماره سریال صادر می‌شود.")
-        <bdi>@Context.Request.Host.Value</bdi>
+        <bdi>@Model.SiteHost</bdi>
       </p>
     </article>
   </div>

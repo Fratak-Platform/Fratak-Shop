@@ -49,6 +49,7 @@ public class ShopEvents(
     private INotificationService Notifications => services.GetRequiredService<INotificationService>();
     private ILoyaltyService Loyalty => services.GetRequiredService<ILoyaltyService>();
     private Orders.IInvoiceService Invoices => services.GetRequiredService<Orders.IInvoiceService>();
+    private Shopping.IAbandonedCartService AbandonedCarts => services.GetRequiredService<Shopping.IAbandonedCartService>();
 
     public Task OrderPlacedAsync(Guid orderId) => RunAsync(nameof(OrderPlacedAsync), async () =>
     {
@@ -57,6 +58,7 @@ public class ShopEvents(
             return;
 
         await NotifyOrderAsync(order, NotificationEvent.OrderPlaced);
+        await AbandonedCarts.MarkRecoveredAsync(order.UserId.Value, order.Id, order.PayableAmount);
     });
 
     public Task OrderPaidAsync(Guid orderId) => RunAsync(nameof(OrderPaidAsync), async () =>

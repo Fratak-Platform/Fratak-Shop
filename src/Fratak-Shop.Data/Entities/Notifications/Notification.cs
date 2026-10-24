@@ -153,4 +153,5 @@ public enum NotificationEvent
     PasswordChanged = 70,
     TwoFactorEnabled = 71,
     TwoFactorDisabled = 72,
+    AbandonedCartReminder = 90,
 }

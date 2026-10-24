@@ -94,6 +94,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             item.Quantity = newQuantity;
         }
 
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
         return OperationResult.Success("محصول به سبد خرید اضافه شد.");
@@ -127,6 +128,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.Error($"موجودی محصول «{product.Name}» کافی نیست.");
 
         item.Quantity = command.Quantity;
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
         return OperationResult.Success("تعداد محصول در سبد خرید به‌روزرسانی شد.");
@@ -153,6 +155,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.NotFound("این محصول در سبد خرید شما وجود ندارد.");
 
         cart.Items.Remove(item);
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
         return OperationResult.Success("محصول از سبد خرید حذف شد.");
@@ -172,6 +175,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.NotFound("سبد خرید مورد نظر یافت نشد.");
 
         cart.CouponCode = null;
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
 
         if (cart.Items.Count == 0)
         {
@@ -195,6 +199,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             .Where(x => x.Id == cartId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.CouponCode, code)
+                .SetProperty(x => x.LastActivityAt, DateTimeOffset.UtcNow)
                 .SetProperty(x => x.UpdatedAt, DateTimeOffset.UtcNow));
 
         return affected == 0
@@ -232,6 +237,7 @@ public class CartService(FratakShopDbContext context) : ICartService
         {
             guestCart.UserId = userId;
             guestCart.SessionKey = null;
+            guestCart.LastActivityAt = DateTimeOffset.UtcNow;
             await context.SaveChangesAsync();
 
             return OperationResult.Success("سبد خرید مهمان به حساب کاربری شما منتقل شد.");
@@ -239,6 +245,7 @@ public class CartService(FratakShopDbContext context) : ICartService
 
         // A code entered as guest survives the sign-in.
         userCart.CouponCode ??= guestCart.CouponCode;
+        userCart.LastActivityAt = DateTimeOffset.UtcNow;
 
         var productIds = guestCart.Items
             .Select(item => item.ProductId)

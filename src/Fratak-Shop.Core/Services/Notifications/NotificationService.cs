@@ -46,9 +46,22 @@ public partial class NotificationService(
     {
         try
         {
-            var templates = await GetTemplatesAsync();
-            if (!templates.TryGetValue(request.Event, out var template))
-                return;
+            string title, body;
+            string? linkText, smsText;
+            bool inSite;
+            if (request.Content is { } content)
+            {
+                (title, body, linkText, inSite, smsText) = (content.Title, content.Body, content.LinkText, content.InSite, content.SmsText);
+            }
+            else
+            {
+                var templates = await GetTemplatesAsync();
+                if (!templates.TryGetValue(request.Event, out var template))
+                    return;
+
+                (title, body, linkText, inSite) = (template.Title, template.Body, template.LinkText, template.IsActive);
+                smsText = template.SendSms ? template.SmsText : null;
+            }
 
             var settings = await settingService.GetAsync();
             request.Values.TryAdd("SiteName", settings.SiteName);
@@ -60,7 +73,7 @@ public partial class NotificationService(
                 request.Values["Name"] = name ?? "کاربر";
             }
 
-            if (template.IsActive)
+            if (inSite && !string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(body))
             {
                 context.Notifications.Add(new Notification
                 {
@@ -68,21 +81,21 @@ public partial class NotificationService(
                     Audience = NotificationAudience.User,
                     Category = request.Category,
                     Event = request.Event,
-                    Title = Limit(Render(template.Title, request.Values), 200),
-                    Body = Limit(Render(template.Body, request.Values), 2000),
+                    Title = Limit(Render(title, request.Values), 200),
+                    Body = Limit(Render(body, request.Values), 2000),
                     LinkUrl = IsSafeLink(request.LinkUrl) ? request.LinkUrl : null,
-                    LinkText = template.LinkText,
+                    LinkText = linkText is null ? null : Limit(linkText, 100),
                 });
 
                 await context.SaveChangesAsync();
                 cache.Remove(UnreadKey(request.UserId));
             }
 
-            if (template.SendSms && !string.IsNullOrWhiteSpace(template.SmsText))
+            if (!string.IsNullOrWhiteSpace(smsText))
             {
                 var phone = await context.Users.Where(u => u.Id == request.UserId).Select(u => u.PhoneNumber).FirstOrDefaultAsync();
                 if (!string.IsNullOrWhiteSpace(phone))
-                    await smsSender.SendAsync(phone, Render(template.SmsText, request.Values));
+                    await smsSender.SendAsync(phone, Render(smsText, request.Values));
             }
         }
         catch (Exception exception)

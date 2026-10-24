@@ -53,6 +53,7 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserAddressService, UserAddressService>();
         services.AddScoped<ICartService, CartService>();
+        services.AddScoped<IAbandonedCartService, AbandonedCartService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IInvoiceService, InvoiceService>();

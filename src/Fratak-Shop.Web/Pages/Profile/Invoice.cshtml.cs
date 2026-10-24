@@ -19,6 +19,9 @@ public class InvoiceModel(IOrderService orderService, IInvoiceService invoiceSer
     /// <summary>Final invoice (has a serial number) or pro-forma.</summary>
     public bool IsFinal => !string.IsNullOrEmpty(Order.InvoiceNumber);
 
+    /// <summary>Shop address printed on the invoice (current host).</summary>
+    public string SiteHost => Request.Host.Value ?? string.Empty;
+
     [FromQuery(Name = "print")]
     public bool AutoPrint { get; set; }
 

@@ -36,6 +36,26 @@ public class NotificationRequest
     public Dictionary<string, string?> Values { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public string? LinkUrl { get; set; }
+
+    /// <summary>
+    /// Own texts instead of the event template (e.g. the configurable abandoned-cart
+    /// reminder steps). Placeholders are rendered the same way.
+    /// </summary>
+    public NotificationContent? Content { get; set; }
+}
+
+/// <summary>Texts of a notification that doesn't use a <see cref="NotificationTemplate"/>.</summary>
+public class NotificationContent
+{
+    public string Title { get; set; } = null!;
+    public string Body { get; set; } = null!;
+    public string? LinkText { get; set; }
+
+    /// <summary>Create the in-site notification.</summary>
+    public bool InSite { get; set; } = true;
+
+    /// <summary>SMS text; sent when not empty.</summary>
+    public string? SmsText { get; set; }
 }
 
 /// <summary>Manual broadcast (admin panel): coupon campaigns, news, maintenance notices, ...</summary>
