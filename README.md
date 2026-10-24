@@ -9,11 +9,13 @@ src/
 ├── Fratak-Shop.Data   → لایه داده: Entity ها، Configuration ها، DbContext، Migration ها، Seeder داده مرجع (استان/شهر)
 ├── Fratak-Shop.Core   → لایه سرویس: DTO ها، Mapper ها، سرویس‌ها (قوانین کسب‌وکار، اعتبارسنجی، OperationResult)
 └── Fratak-Shop.Web    → لایه وب: Razor Pages فروشگاه، سرویس‌های نمایشی، ViewComponent ها، استایل و اسکریپت
+tests/
+└── Fratak-Shop.Tests  → تست واحد (xUnit) و تست یکپارچه روی SQL Server واقعی
 ```
 
 | لایه | وابستگی | مسئولیت |
 |------|---------|---------|
-| Web  | Core, Data | صفحات، احراز هویت با کوکی، سبد خرید مهمان، سئو، درگاه پرداخت |
+| Web  | Core, Data | صفحات، احراز هویت (JWT در کوکی HttpOnly)، سبد خرید مهمان، سئو، درگاه پرداخت |
 | Core | Data | منطق کسب‌وکار؛ صفحات هرگز مستقیم به DbContext دسترسی ندارند |
 | Data | — | مدل داده و دیتابیس |
 
@@ -45,6 +47,15 @@ src/
 | `/track-order` | پیگیری سفارش بدون ورود با شماره سفارش + موبایل |
 | `/blog` ، `/blog/category/{slug}` ، `/blog/{slug}` | وبلاگ |
 | `/faq` ، `/page/{slug}` ، `/contact-us` ، `/coming-soon` | صفحات محتوایی پویا (درباره ما، قوانین، حریم خصوصی، ... از جدول `ContentPages`؛ آدرس‌های قدیمی با 301 منتقل می‌شوند) |
+| `/profile/gift-cards` | خرید کارت هدیه (کیف پول یا درگاه) و ثبت کد کارت هدیه دیگران (شارژ کیف پول) |
+| `/profile/invite` | لینک و کد دعوت قابل اشتراک (`/register?ref=CODE`) و آمار دعوت‌ها |
+| `/profile/alerts` | «خبرم کن»های من (موجود شدن / کاهش قیمت) |
+| `/profile/returns` ، `/profile/returns/new/{orderNumber}` ، `/profile/returns/{number}` | درخواست مرجوعی آنلاین (اقلام، دلیل، تصویر) و پیگیری آن |
+| `/profile/tickets` ، `/profile/tickets/new` ، `/profile/tickets/{number}` | تیکت پشتیبانی با پیوست |
+| `/profile/orders/{no}#feedback` | امتیاز تجربه خرید پس از تحویل |
+| `/cart#saved` | «خرید بعدی» (کالاهای کنار گذاشته از سبد) |
+| `/media/{width}/{path}` | نسخه WebP تغییر اندازه‌یافته تصاویر (برای `srcset`، با کش طولانی) |
+| `/api/products/{id}/price-history` ، `/api/products/{id}/alerts` ، `/api/comments/{id}/vote` ، `/api/push/*` ، `/api/captcha` | API های داخلی صفحات (با توکن ضدجعل) |
 | `/sitemap.xml` ، `/robots.txt` ، `/manifest.webmanifest` | تولید خودکار از دیتابیس |
 
 ## اجرا
@@ -83,9 +94,22 @@ dotnet run --project src/Fratak-Shop.Web
 | `PageAlerts` | هشدارهای هر صفحه و موقعیت (بالای صفحه، زیر تصویر محصول، ...)، مخاطب (همه/مهمان/کاربر)، محصول یا دسته خاص، لینک، قابل بستن، بازه زمانی |
 | `AbandonedCarts`, `AbandonedCartReminderSteps` | سبدهای رهاشده (ارزش، بازگشت به سفارش) و مراحل یادآوری قابل تنظیم (تأخیر، متن، اعلان/پیامک، کد تخفیف شخصی) |
 | `CommentImages` | تصاویر دیدگاه‌ها (حداکثر تعداد و حجم در `StoreSettings`) |
+| `ProductAlerts`, `ProductPriceHistories` | «خبرم کن» (موجود شدن/کاهش قیمت؛ کانال‌ها: اعلان، پیامک، پوش) و تاریخچه قیمت برای نمودار |
+| `GiftCards` | کارت‌های هدیه (فقط هش کد ذخیره می‌شود)، خریدار، دریافت‌کننده، وضعیت |
+| `SavedCartItems` | «خرید بعدی» |
+| `ReturnReasons`, `ReturnRequests`, `ReturnRequestItems`, `ReturnRequestImages` | مرجوعی آنلاین (دلایل قابل تنظیم، مهلت در `StoreSettings`) |
+| `OrderFeedbacks` | امتیاز تجربه خرید |
+| `SearchSynonyms`, `SearchQueryLogs` | مترادف‌های جستجو، جستجوهای پرتکرار و «منظورتان ... بود؟» |
+| `CommentVotes` | رأی «مفید بود» به دیدگاه/پاسخ |
+| `SupportDepartments`, `SupportTickets`, `SupportTicketMessages`, `SupportTicketAttachments` | تیکت پشتیبانی |
+| `WebPushSubscriptions`, `UserKnownDevices` | اشتراک پوش مرورگر و دستگاه‌های شناخته‌شده (هشدار ورود از دستگاه جدید) |
+| `ProductVideos` | ویدیوی محصول (فایل آپلودی یا لینک آپارات/یوتیوب) |
+| `SeoRedirects`, `SeoNotFoundLogs` | ریدایرکت‌های 301/302 و گزارش آدرس‌های 404 |
 
 پرچم‌های قابلیت‌ها هم در `StoreSettings` هستند: ورود با رمز/کد، ثبت‌نام با کد، تایید دومرحله‌ای، کد تخفیف، پیگیری مهمان، پیشنهاد محصول،
-باشگاه مشتریان و کد معرف، نوار اطلاعیه، PWA (نام کوتاه، رنگ تم) و اطلاعات فروشنده روی فاکتور.
+باشگاه مشتریان و کد معرف، نوار اطلاعیه، PWA (نام کوتاه، رنگ تم)، اطلاعات فروشنده روی فاکتور، کارت هدیه، کپچا، هشدار دستگاه جدید،
+خرید بعدی، نمودار قیمت، نقشه آدرس، مرجوعی، امتیاز تجربه خرید، حالت تاریک، جستجوی هوشمند، پرسش و پاسخ پیشرفته، مقایسه هوشمند،
+ویدیوی محصول، تیکت، پوش مرورگر (کلیدهای VAPID خودکار ساخته می‌شوند)، بهینه‌سازی تصویر و کش خروجی صفحات (`IsPageCacheEnabled` / `PageCacheSeconds`).
 
 در `appsettings.json` فقط تنظیمات استقرار باقی مانده است:
 
@@ -117,6 +141,15 @@ dotnet run --project src/Fratak-Shop.Web
 * **گزارش‌های مدیریتی (فقط داده):** `IReportService` (تخفیف‌ها، امتیاز و اعتبار هدیه، سود بر اساس قیمت خرید ثبت‌شده در هر قلم سفارش) و `IAbandonedCartService.GetStatsAsync`. در Development خروجی JSON از `/_dev/reports` (فقط از خود سرور) در دسترس است.
 * **تصاویر دیدگاه:** در `/uploads/comments/` با نام تصادفی ذخیره می‌شوند؛ محتوای واقعی فایل (JPG/PNG/WebP) بررسی و اطلاعات اضافه (EXIF/GPS، XMP، توضیحات، داده انتهای فایل) حذف می‌شود (`ImageSanitizer`، بدون System.Drawing).
 * **پیامک:** `ISmsSender` — پیاده‌سازی فعلی پیامک را در لاگ می‌نویسد (و در Development کد تایید روی صفحه نمایش داده می‌شود)؛ برای Production یک ارائه‌دهنده (کاوه‌نگار، SMS.ir، ...) ثبت کنید.
+* **کش خروجی صفحات:** صفحات عمومی (اصلی، لیست‌ها، محصول، وبلاگ، صفحات محتوایی) برای بازدیدکننده‌ی **بدون کوکی** کش می‌شوند (هدر `X-Page-Cache: HIT`).
+  هر تغییر داده از طریق `DbContext` (محصول، قیمت، موجودی، دیدگاه، تنظیمات، منو، ...) کش‌های مربوط را فوراً پاک می‌کند (`DataChangeNotifier` → `CacheInvalidation`)
+  و نسخه کاتالوگ را بالا می‌برد؛ کاربر واردشده، سبد دارای کالا یا درخواست POST هرگز صفحه کش‌شده نمی‌گیرد. توکن ضدجعل فرم‌ها در صفحات کش‌شده با `/api/antiforgery` گرفته می‌شود.
+* **تصاویر بهینه:** `/media/{w}/{path}` تصویر را با SkiaSharp به WebP با عرض استاندارد (۱۶۰ تا ۱۲۸۰) تبدیل و روی دیسک کش می‌کند؛ صفحات با `srcset` و `loading="lazy"` از آن استفاده می‌کنند.
+* **کپچا:** پس از چند تلاش ناموفق (`CaptchaAfterFailures`) در ورود، ارسال کد، ثبت‌نام، تماس، کارت هدیه و پیگیری سفارش نمایش داده می‌شود (SVG سمت سرور، بدون سرویس خارجی).
+* **پوش مرورگر:** Web Push استاندارد (VAPID + رمزنگاری aes128gcm بدون کتابخانه خارجی)؛ فقط به سرویس‌های پوش شناخته‌شده ارسال می‌شود.
+* **حالت تاریک:** `theme.js` قبل از رندر صفحه کلاس `dark` را اعمال می‌کند (بدون پرش رنگ) و انتخاب کاربر در `localStorage` می‌ماند؛ پیش‌فرض از `StoreSettings.DefaultTheme`.
+* **سئو:** عنوان/توضیح/canonical/OG/robots/JSON-LD از رکورد سئوی هر موجودیت یا صفحه (`PageSeos`)؛ JSON-LD محصول (پیشنهاد، امتیاز، دیدگاه، ویدیو، سیاست مرجوعی)، مقاله،
+  مسیر (Breadcrumb)، سوالات متداول، سازمان و جستجوی سایت. صفحات شخصی/تراکنشی (`PrivatePaths`) همیشه `noindex` هستند و همان فهرست در robots.txt قرار می‌گیرد.
 * **تصاویر:** نام فایل‌های آپلودی از مسیر `/uploads/{products|categories|blogs|banners|brands}/` خوانده می‌شود (`Helpers/ImageHelper`).
 
 ## استایل (Tailwind CSS)
@@ -137,9 +170,26 @@ dotnet ef migrations add <Name> --project src/Fratak-Shop.Data --startup-project
 
 (`FratakShopDbContextFactory` رشته اتصال طراحی را از متغیر محیطی `FRATAK_SHOP_CONNECTION` می‌خواند.)
 
+## تست‌ها
+
+```bash
+# فقط تست‌های واحد (بدون دیتابیس)
+dotnet test --filter "Category!=Integration"
+
+# همه تست‌ها؛ تست‌های یکپارچه یک دیتابیس موقت می‌سازند و در پایان حذف می‌کنند
+export FRATAK_TEST_SQL="Server=localhost,1433;User Id=sa;Password=...;TrustServerCertificate=True"
+dotnet test
+```
+
+* **واحد:** کد کارت هدیه، نرمال‌سازی متن و جستجوی فازی، اسلاگ، XSS، رمزنگاری Web Push، اعتبارسنجی کارت/شبا، هش رمز، قوانین سفارش و قیمت،
+  تشخیص دستگاه، لینک ویدیو، پاک‌شدن کش، سیاست کش صفحات، `srcset`، قالب تاریخ، کپچا و سئو.
+* **یکپارچه (SQL Server واقعی، همان Migration ها و Seeder ها):** کیف پول دوبخشی و برداشت هم‌زمان، خرید و ثبت کارت هدیه (یک‌بار مصرف حتی هم‌زمان، قفل حدس کد)،
+  خرید بعدی، به‌روزشدن فوری تنظیمات و مترادف‌ها پس از تغییر.
+
 ## CI
 
-* `Build` — بیلد کامل Solution.
+* `Build` — بیلد کامل Solution و تست‌های واحد.
 * `Verify` — بیلد هر پروژه با گزارش کامل خطاها، و اجرای برنامه روی SQL Server واقعی همراه با **تست دود سرتاسری**
   (`.github/scripts/smoke-test.sh`): همه صفحات عمومی، ورود، سبد خرید، ثبت سفارش پرداخت در محل، پرداخت اینترنتی با درگاه آزمایشی،
-  ثبت دیدگاه، علاقه‌مندی، فرم تماس و ثبت‌نام.
+  ثبت دیدگاه، علاقه‌مندی، فرم تماس و ثبت‌نام، کش صفحات و سئو؛ سپس همه تست‌ها (واحد + یکپارچه) روی SQL Server. خطاها به‌صورت کامنت روی commit ثبت می‌شوند.
+* راهنمای تست دستی هر فرایند: [`docs/QA-CHECKLIST.md`](docs/QA-CHECKLIST.md).
