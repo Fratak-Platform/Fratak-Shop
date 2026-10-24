@@ -5,6 +5,7 @@ using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Web.Helpers;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
 using Fratak_Shop.Web.Infrastructure.Security;
 using Fratak_Shop.Web.Services.Payments;
 using Microsoft.AspNetCore.Mvc;

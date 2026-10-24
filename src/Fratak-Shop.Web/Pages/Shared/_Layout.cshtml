@@ -2,7 +2,7 @@
     var settings = Site.Settings;
 }
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" class="scroll-smooth">
+<html lang="fa" dir="rtl" class="scroll-smooth" data-theme-default="@(Site.Settings.IsDarkModeEnabled ? (Site.Settings.DefaultTheme == 1 ? "dark" : Site.Settings.DefaultTheme == 2 ? "system" : "light") : null)">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -23,6 +23,11 @@
   <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/dependencies/swiper.min.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/style.css" asp-append-version="true">
+  @if (Site.Settings.IsDarkModeEnabled)
+  {
+    <link rel="stylesheet" href="~/assets/css/dark.css" asp-append-version="true">
+    <script src="~/assets/js/theme.js" asp-append-version="true"></script>
+  }
   @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="mx-auto bg-[#fcfcfc]">

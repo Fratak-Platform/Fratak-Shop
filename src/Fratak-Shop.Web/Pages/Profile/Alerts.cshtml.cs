@@ -2,6 +2,7 @@ using Fratak_Shop.Core.DTOs.Engagement;
 using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;

@@ -167,6 +167,14 @@
       </div>
       <!-- buttonn -->
       <div class="flex items-center justify-center gap-x-3 ml-3 md:ml-5">
+        @if (Site.Settings.IsDarkModeEnabled)
+        {
+          <button type="button" data-theme-toggle class="flex items-center rounded-lg p-2 text-zinc-600 fill-zinc-600 hover:bg-sky-100" aria-label="تغییر پوسته">
+            <span class="ti ti-light">@Icons.Svg("Sun", null, 24)</span>
+            <span class="ti ti-dark">@Icons.Svg("Moon", null, 24)</span>
+            <span class="ti ti-system">@Icons.Svg("CircleHalf", null, 24)</span>
+          </button>
+        }
         <!-- card -->
         <div class="flex items-center hover:bg-sky-100 p-2 rounded-lg">
           <button type="button" class="relative" aria-label="سبد خرید" data-ui="cart-open" aria-controls="cardHeader">
