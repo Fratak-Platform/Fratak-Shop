@@ -1,108 +1,168 @@
 @{
-    var shop = ShopSettings.Value;
-    var quickLinks = new (string Page, string Title)[]
-    {
-        ("/Index", "صفحه اصلی"),
-        ("/Search", "همه محصولات"),
-        ("/Blog", "وبلاگ"),
-        ("/Faq", "سوالات متداول"),
-        ("/Rules", "قوانین و مقررات"),
-        ("/AboutUs", "درباره ما"),
-        ("/ContactUs", "تماس با ما"),
-    };
+    var settings = Site.Settings;
     const string linkClass = "text-gray-500 hover:text-blue-600 transition flex items-center gap-x-1 group w-fit";
+    var socials = new (string? Url, string Icon, string Title)[]
+    {
+        (settings.InstagramUrl, "Instagram", "اینستاگرام"),
+        (settings.TelegramUrl, "Telegram", "تلگرام"),
+        (settings.WhatsAppUrl, "WhatsApp", "واتساپ"),
+        (settings.LinkedinUrl, "Linkedin", "لینکدین"),
+        (settings.TwitterUrl, "XLogo", "ایکس"),
+        (settings.YoutubeUrl, "Youtube", "یوتیوب"),
+        (settings.AparatUrl, "PlayCircle", "آپارات"),
+    };
+    var activeSocials = socials.Where(s => UrlSafety.IsHttpUrl(s.Url)).ToList();
 }
 <footer class="mt-44 relative flex justify-center">
     <div class="flex flex-col md:flex-row gap-y-7 justify-between md:items-center px-10 py-14 absolute mx-auto -top-32 bg-blue-600 w-11/12 rounded-2xl">
       <div class="flex flex-col gap-y-5">
         <p class="text-2xl text-center md:text-right md:text-4xl font-semibold text-gray-50">
-          @shop.Tagline
+          @(settings.FooterTitle ?? settings.Tagline ?? settings.SiteName)
         </p>
-        <p class="text-lg text-center md:text-xl text-gray-100">
-          به مشتریان خود خدمات شگفت انگیزی ارائه می دهیم.
-        </p>
+        @if (!string.IsNullOrWhiteSpace(settings.FooterSubtitle))
+        {
+          <p class="text-lg text-center md:text-xl text-gray-100">@settings.FooterSubtitle</p>
+        }
       </div>
       <div class="md:w-6/12">
-        <p class="text-sm leading-7 md:text-lg text-gray-50">
-          برای داشتن مشتریان همیشه راضی، کنترل کیفی دقیق لازم داریم. ارتباط عالی با مشتریان یکی از ویژگی های ماست. ما دائما درحال بررسی کیفیت محصولات هستیم تا مشتریانمان بهترین خدمات را دریافت کنند.
-        </p>
+        @if (!string.IsNullOrWhiteSpace(settings.FooterText))
+        {
+          <p class="text-sm leading-7 md:text-lg text-gray-50">@settings.FooterText</p>
+        }
         <a asp-page="/Search" class="inline-block text-gray-800 bg-white px-3 py-2 mt-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
           مشاهده محصولات
         </a>
       </div>
     </div>
     <div class="bg-zinc-950 pt-80 lg:pt-40 w-full pb-20 md:pb-0">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-y-7 lg:grid-cols-3 px-10">
-        <div class="flex flex-col md:items-center">
+      @if (Site.Features.Count > 0)
+      {
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 px-10 pb-10 mb-10 border-b border-zinc-800">
+          @foreach (var feature in Site.Features)
+          {
+            <div class="flex items-center gap-x-3">
+              <span class="shrink-0 rounded-full bg-zinc-900 p-3 text-sky-500">
+                @Icons.Svg(Icons.Has(feature.IconKey) ? feature.IconKey! : "CheckCircle", "fill-sky-500", 26)
+              </span>
+              <div>
+                <p class="text-zinc-200 text-sm font-semibold">@feature.Title</p>
+                @if (!string.IsNullOrWhiteSpace(feature.Description))
+                {
+                  <p class="text-zinc-500 text-xs mt-1 leading-5">@feature.Description</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-y-7 lg:grid-cols-4 px-10">
+        <nav class="flex flex-col" aria-label="دسترسی سریع">
           <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
             دسترسی سریع
           </div>
-          <div class="">
+          <ul class="flex flex-col gap-y-4">
+            <li><a class="@linkClass" asp-page="/Index">@Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14) صفحه اصلی</a></li>
+            <li><a class="@linkClass" href="/products">@Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14) همه محصولات</a></li>
+            <li><a class="@linkClass" asp-page="/Blog">@Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14) وبلاگ</a></li>
+            <li><a class="@linkClass" asp-page="/Faq">@Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14) سوالات متداول</a></li>
+            <li><a class="@linkClass" asp-page="/ContactUs">@Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14) تماس با ما</a></li>
+          </ul>
+        </nav>
+        @if (Site.FooterPages.Count > 0)
+        {
+          <nav class="flex flex-col" aria-label="راهنما">
+            <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
+              راهنما و قوانین
+            </div>
             <ul class="flex flex-col gap-y-4">
-              @foreach (var link in quickLinks)
+              @foreach (var page in Site.FooterPages)
               {
                 <li>
-                  <a class="@linkClass" asp-page="@link.Page">
+                  <a class="@linkClass" asp-page="/ContentPage" asp-route-slug="@page.Slug">
                     @Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14)
-                    @link.Title
+                    @page.Title
                   </a>
                 </li>
               }
             </ul>
-          </div>
-        </div>
+          </nav>
+        }
         <div class="flex flex-col">
           <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
             راه های ارتباطی
           </div>
-          <div>
-            <ul class="flex flex-col gap-y-4">
-              @if (!string.IsNullOrWhiteSpace(shop.SupportPhone))
+          <ul class="flex flex-col gap-y-4">
+            @if (!string.IsNullOrWhiteSpace(settings.SupportPhone))
+            {
+              <li>
+                <a class="@linkClass" href="tel:@settings.SupportPhone" dir="ltr">
+                  @Icons.Svg("Phone", "group-hover:fill-blue-600 fill-gray-500")
+                  @settings.SupportPhone
+                </a>
+              </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings.SupportEmail))
+            {
+              <li>
+                <a class="@linkClass" href="mailto:@settings.SupportEmail">
+                  @Icons.Svg("Envelope", "group-hover:fill-blue-600 fill-gray-500")
+                  @settings.SupportEmail
+                </a>
+              </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings.Address))
+            {
+              <li>
+                <span class="@linkClass">
+                  @Icons.Svg("MapPin", "group-hover:fill-blue-600 fill-gray-500 shrink-0")
+                  @settings.Address
+                </span>
+              </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings.WorkingHours))
+            {
+              <li>
+                <span class="@linkClass">
+                  @Icons.Svg("Clock", "group-hover:fill-blue-600 fill-gray-500")
+                  @settings.WorkingHours
+                </span>
+              </li>
+            }
+          </ul>
+          @if (activeSocials.Count > 0)
+          {
+            <div class="flex flex-wrap gap-2 mt-5">
+              @foreach (var social in activeSocials)
               {
-                <li>
-                  <a class="@linkClass" href="tel:@shop.SupportPhone" dir="ltr">
-                    @Icons.Svg("Phone", "group-hover:fill-blue-600 fill-gray-500")
-                    @shop.SupportPhone
-                  </a>
-                </li>
+                <a href="@social.Url" target="_blank" rel="noopener noreferrer me" title="@social.Title" aria-label="@social.Title"
+                   class="rounded-full bg-zinc-900 p-2 text-zinc-400 hover:text-sky-500 transition">
+                  @Icons.Svg(social.Icon, "fill-current", 22)
+                </a>
               }
-              @if (!string.IsNullOrWhiteSpace(shop.SupportEmail))
+            </div>
+          }
+        </div>
+        @if (Site.TrustBadges.Count > 0)
+        {
+          <div class="flex flex-wrap justify-center lg:justify-end gap-5">
+            @foreach (var badge in Site.TrustBadges)
+            {
+              if (UrlSafety.IsHttpUrl(badge.LinkUrl))
               {
-                <li>
-                  <a class="@linkClass" href="mailto:@shop.SupportEmail">
-                    @Icons.Svg("Envelope", "group-hover:fill-blue-600 fill-gray-500")
-                    @shop.SupportEmail
-                  </a>
-                </li>
+                <a href="@badge.LinkUrl" target="_blank" rel="noopener noreferrer" title="@badge.Title">
+                  <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128">
+                </a>
               }
-              @if (!string.IsNullOrWhiteSpace(shop.Address))
+              else
               {
-                <li>
-                  <span class="@linkClass">
-                    @Icons.Svg("MapPin", "group-hover:fill-blue-600 fill-gray-500")
-                    @shop.Address
-                  </span>
-                </li>
+                <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128">
               }
-              @if (!string.IsNullOrWhiteSpace(shop.WorkingHours))
-              {
-                <li>
-                  <span class="@linkClass">
-                    @Icons.Svg("Clock", "group-hover:fill-blue-600 fill-gray-500")
-                    @shop.WorkingHours
-                  </span>
-                </li>
-              }
-            </ul>
+            }
           </div>
-        </div>
-        <div class="flex justify-center gap-x-5">
-          <img class="max-w-32 h-fit bg-white rounded-xl" src="~/assets/image/service/symbol-01.png" alt="نماد اعتماد" loading="lazy">
-          <img class="max-w-32 h-fit bg-white rounded-xl" src="~/assets/image/service/symbol-02.png" alt="نماد ساماندهی" loading="lazy">
-        </div>
+        }
       </div>
-      <div class="mt-5 border-t w-full text-xs text-zinc-500 pr-5 py-5">
-        تمامی حقوق برای @shop.SiteName محفوظ است. © @DateTime.Now.Year
+      <div class="mt-5 border-t border-zinc-800 w-full text-xs text-zinc-500 px-5 py-5">
+        @(settings.CopyrightText ?? $"تمامی حقوق برای {settings.SiteName} محفوظ است.") © @Format.Year(DateTimeOffset.UtcNow)
       </div>
     </div>
   </footer>

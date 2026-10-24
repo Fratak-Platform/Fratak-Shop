@@ -10,4 +10,6 @@ public enum ProfileSection
     Messages,
     PersonalInfo,
     Password,
+    Wallet,
+    Sessions,
 }

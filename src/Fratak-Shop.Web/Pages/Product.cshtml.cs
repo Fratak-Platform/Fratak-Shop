@@ -11,7 +11,7 @@ using Fratak_Shop.Web.Helpers;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
+using Fratak_Shop.Core.Services.Shipping;
 
 namespace Fratak_Shop.Web.Pages;
 
@@ -21,7 +21,8 @@ public class ProductModel(
     IFavoriteService favoriteService,
     ICompareListService compareList,
     IPageMetaService pageMeta,
-    IOptions<ShopOptions> shopOptions) : ShopPageModel
+    IShippingService shippingService,
+    ISiteContext site) : ShopPageModel
 {
     public ProductDto Product { get; private set; } = null!;
     public List<CommentDto> Reviews { get; private set; } = [];
@@ -33,7 +34,11 @@ public class ProductModel(
     /// <summary>Share of reviewers who recommend the product (null = no data).</summary>
     public int? RecommendPercent { get; private set; }
 
-    public ShopOptions Shop => shopOptions.Value;
+    /// <summary>Fastest delivery of the active shipping methods (days, 0 = same day).</summary>
+    public int? MinDeliveryDays { get; private set; }
+
+    /// <summary>Lowest free-shipping threshold of the active methods (null = no free shipping).</summary>
+    public decimal? FreeShippingFrom { get; private set; }
 
     [BindProperty]
     public ReviewInput Review { get; set; } = new();
@@ -124,6 +129,17 @@ public class ProductModel(
             return false;
 
         Product = product;
+
+        var methods = await shippingService.GetActiveMethodsAsync(HttpContext.RequestAborted);
+        if (methods.Count > 0)
+        {
+            MinDeliveryDays = methods.Min(m => m.MinDeliveryDays);
+            var thresholds = methods
+                .Select(m => m.FreeShippingThreshold ?? site.Settings.FreeShippingThreshold)
+                .Where(t => t > 0)
+                .ToList();
+            FreeShippingFrom = thresholds.Count > 0 ? thresholds.Min() : null;
+        }
 
         var comments = await commentService.GetCommentsByProductAsync(product.Id, onlyApproved: true);
         Reviews = comments.Where(c => c.Type != CommentType.Question).ToList();

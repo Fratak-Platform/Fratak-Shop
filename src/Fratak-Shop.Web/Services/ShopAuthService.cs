@@ -1,58 +1,125 @@
-using System.Security.Claims;
 using Fratak_Shop.Core.DTOs.Users.Query;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Fratak_Shop.Core.Services.Auth;
+using Fratak_Shop.Core.Services.Users;
+using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Infrastructure.Auth;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace Fratak_Shop.Web.Services;
 
 /// <summary>
-/// Cookie sign-in / sign-out for storefront customers. Signing in also moves the
-/// guest cart into the customer's cart so nothing added before login is lost.
+/// Storefront sign-in based on JWT: a short lived access token plus a rotating refresh
+/// token, both in HttpOnly cookies. Signing in also moves the guest cart into the
+/// customer's cart so nothing added before login is lost.
 /// </summary>
 public interface IShopAuthService
 {
     Task SignInAsync(UserDto user, bool isPersistent);
+
+    /// <summary>Re-issues the access token of the current session (after the name / phone changed).</summary>
+    Task RefreshClaimsAsync(Guid userId);
+
+    /// <summary>Logs out the current device.</summary>
     Task SignOutAsync();
+
+    /// <summary>
+    /// Invalidates every token of the user (new security stamp) and starts a fresh
+    /// session on the current device. Used after a password change.
+    /// </summary>
+    Task SignOutOtherDevicesAsync(Guid userId, bool keepCurrent = true);
 }
 
-public class ShopAuthService(IHttpContextAccessor httpContextAccessor, ICartSessionService cartSession) : IShopAuthService
+public class ShopAuthService(
+    IHttpContextAccessor httpContextAccessor,
+    ICartSessionService cartSession,
+    IUserService userService,
+    IRefreshTokenService refreshTokens,
+    IAccessTokenService accessTokens,
+    IMemoryCache cache,
+    IOptions<JwtOptions> jwtOptions) : IShopAuthService
 {
+    private HttpContext Http => httpContextAccessor.HttpContext ?? throw new InvalidOperationException("No active HTTP context.");
+
     public async Task SignInAsync(UserDto user, bool isPersistent)
     {
-        var httpContext = httpContextAccessor.HttpContext
-                          ?? throw new InvalidOperationException("No active HTTP context.");
+        var http = Http;
+        var jwt = jwtOptions.Value;
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.PhoneNumber),
-            new(ClaimTypes.MobilePhone, user.PhoneNumber),
-            new(ClaimTypes.Role, user.Role.ToString()),
-        };
+        // A previous session in this browser is replaced, not left dangling.
+        if (http.Request.Cookies.TryGetValue(AuthCookies.RefreshCookie, out var previous) && !string.IsNullOrEmpty(previous))
+            await refreshTokens.RevokeAsync(previous, "replaced by new login");
 
-        if (!string.IsNullOrWhiteSpace(user.FullName))
-            claims.Add(new Claim(ClaimTypes.GivenName, user.FullName));
+        var stamp = await userService.GetSecurityStampAsync(user.Id)
+                    ?? throw new InvalidOperationException("User no longer exists.");
 
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var refresh = await refreshTokens.IssueAsync(user.Id, isPersistent,
+            isPersistent ? jwt.PersistentRefreshLifetime : jwt.SessionRefreshLifetime,
+            ClientInfo.IpAddress(http), ClientInfo.UserAgent(http));
 
-        await httpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(identity),
-            new AuthenticationProperties
-            {
-                IsPersistent = isPersistent,
-                AllowRefresh = true,
-            });
+        var access = accessTokens.Create(user, stamp, refresh.FamilyId, isPersistent);
+        AuthCookies.Write(http, access, refresh.Token, refresh.ExpiresAt, isPersistent);
 
         await cartSession.MergeGuestCartAsync(user.Id);
     }
 
-    public async Task SignOutAsync()
+    public async Task RefreshClaimsAsync(Guid userId)
     {
-        var httpContext = httpContextAccessor.HttpContext;
-        if (httpContext is null)
+        var http = Http;
+        var sessionId = http.User.GetSessionId();
+        var user = await userService.GetUserByIdAsync(userId);
+        var stamp = await userService.GetSecurityStampAsync(userId);
+        if (user is null || stamp is null || sessionId is null)
             return;
 
-        await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        cache.Remove(CacheKeys.SecurityStamp(userId));
+        AuthCookies.WriteAccess(http, accessTokens.Create(user, stamp, sessionId.Value, http.User.IsPersistentSession()));
+    }
+
+    public async Task SignOutAsync()
+    {
+        var http = Http;
+        if (http.Request.Cookies.TryGetValue(AuthCookies.RefreshCookie, out var refresh) && !string.IsNullOrEmpty(refresh))
+            await refreshTokens.RevokeAsync(refresh, "logout");
+
+        AuthCookies.Clear(http);
+    }
+
+    public async Task SignOutOtherDevicesAsync(Guid userId, bool keepCurrent = true)
+    {
+        var http = Http;
+        var currentSession = http.User.GetSessionId();
+        var wasPersistent = http.User.IsPersistentSession();
+
+        await userService.RotateSecurityStampAsync(userId);
+        cache.Remove(CacheKeys.SecurityStamp(userId));
+        await refreshTokens.RevokeAllAsync(userId, "security stamp changed");
+
+        if (!keepCurrent || currentSession is null)
+        {
+            AuthCookies.Clear(http);
+            return;
+        }
+
+        var user = await userService.GetUserByIdAsync(userId);
+        if (user is null)
+        {
+            AuthCookies.Clear(http);
+            return;
+        }
+
+        await SignInAsync(user, wasPersistent);
+    }
+}
+
+public static class ClientInfo
+{
+    public static string? IpAddress(HttpContext context) => context.Connection.RemoteIpAddress?.ToString();
+
+    public static string? UserAgent(HttpContext context)
+    {
+        var value = context.Request.Headers.UserAgent.ToString();
+        return string.IsNullOrWhiteSpace(value) ? null : value.Length > 256 ? value[..256] : value;
     }
 }

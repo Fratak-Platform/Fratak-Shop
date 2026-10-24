@@ -17,15 +17,27 @@ public static class WebServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
 
+        services.AddScoped<ISiteContext, SiteContext>();
+        services.AddScoped<SiteContextPageFilter>();
         services.AddScoped<ICartSessionService, CartSessionService>();
         services.AddScoped<IShopAuthService, ShopAuthService>();
         services.AddScoped<ICompareListService, CompareListService>();
         services.AddScoped<IPageMetaService, PageMetaService>();
-        services.AddScoped<IPaymentGateway, SandboxPaymentGateway>();
+        services.AddScoped<IPaymentFlowService, PaymentFlowService>();
         services.AddScoped<DemoDataSeeder>();
+
+        // ZarinPal API client (typed HttpClient: pooled handlers, short timeout).
+        services.AddHttpClient<IPaymentGateway, ZarinPalGateway>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Fratak-Shop/1.0");
+        });
 
         services.AddSingleton<IOtpService, OtpService>();
         services.AddSingleton<ISmsSender, LoggingSmsSender>();
+
+        services.AddHostedService<OrderMaintenanceService>();
 
         return services;
     }

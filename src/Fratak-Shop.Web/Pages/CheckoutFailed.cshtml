@@ -21,15 +21,20 @@
         پرداخت با شکست انجام شد
       </div>
       <div class="text-red-400 text-center text-sm mt-2">
-        سفارش شما ثبت شده و در انتظار پرداخت است؛ لطفا دوباره سعی کنید.
+        @if (order.IsAwaitingPayment(DateTimeOffset.UtcNow))
+        {
+          <text>سفارش شما ثبت شده و در انتظار پرداخت است؛ تا @Format.DateTime(order.PaymentDeadline) فرصت پرداخت دارید.</text>
+        }
+        else
+        {
+          <text>مهلت پرداخت این سفارش به پایان رسیده است.</text>
+        }
       </div>
       <div class="px-2 sm:px-6 py-3 rounded-xl shadow-lg border mx-auto my-5 max-w-md">
         <partial name="_OrderReceipt" model="order" />
-        @if (order.Status == Fratak_Shop.Data.Entities.Orders.OrderStatus.Pending)
+        @if (order.IsAwaitingPayment(DateTimeOffset.UtcNow))
         {
-          <a asp-page="/Payment/Start" asp-route-orderNumber="@order.OrderNumber" class="mx-auto block text-center w-full px-2 py-3 mt-5 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
-            پرداخت مجدد
-          </a>
+          <partial name="_PayOrderButton" model="order" />
         }
         <a asp-page="/Profile/Orders" class="mx-auto block text-center w-full px-2 py-3 mt-3 text-sm border border-sky-500 text-sky-600 rounded-lg">
           سفارش های من

@@ -49,10 +49,8 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
 
         if (Succeeded(result))
         {
-            // Refresh the auth cookie so the new name shows up in the header.
-            var user = await userService.GetUserByIdAsync(CurrentUserId!.Value);
-            if (user is not null)
-                await authService.SignInAsync(user, isPersistent: true);
+            // Re-issue the access token so the new name shows up in the header.
+            await authService.RefreshClaimsAsync(CurrentUserId!.Value);
         }
 
         ShowResult(result);

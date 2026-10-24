@@ -16,7 +16,7 @@ public static class Format
         "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
     ];
 
-    private static readonly TimeZoneInfo IranTimeZone = ResolveIranTimeZone();
+    private static readonly TimeZoneInfo IranTimeZone = Fratak_Shop.Core.Utilities.IranClock.TimeZone;
 
     /// <summary>1350000 → "1,350,000"</summary>
     public static string Price(decimal amount) => amount.ToString("#,0", CultureInfo.InvariantCulture);
@@ -37,6 +37,18 @@ public static class Format
 
     public static string DateTime(DateTimeOffset date) => $"{Date(date)} - {ToIranTime(date):HH:mm}";
 
+    public static string DateTime(DateTimeOffset? date) => date.HasValue ? DateTime(date.Value) : "-";
+
+    /// <summary>Local calendar day (delivery days): "شنبه ۳ آبان".</summary>
+    public static string Day(DateOnly date)
+    {
+        var value = date.ToDateTime(TimeOnly.MinValue);
+        return $"{DayName(value.DayOfWeek)} {PersianCalendar.GetDayOfMonth(value)} {PersianMonths[PersianCalendar.GetMonth(value) - 1]}";
+    }
+
+    /// <summary>Signed wallet amount: "+150,000" / "-90,000".</summary>
+    public static string SignedPrice(decimal amount) => amount > 0 ? $"+{Price(amount)}" : $"-{Price(Math.Abs(amount))}";
+
     /// <summary>Long Solar Hijri date, e.g. "1 آبان 1405".</summary>
     public static string LongDate(DateTimeOffset date)
     {
@@ -51,7 +63,9 @@ public static class Format
         return $"{PersianMonths[PersianCalendar.GetMonth(local) - 1]} {PersianCalendar.GetYear(local)}";
     }
 
-    public static string DayName(DateTimeOffset date) => ToIranTime(date).DayOfWeek switch
+    public static string DayName(DateTimeOffset date) => DayName(ToIranTime(date).DayOfWeek);
+
+    public static string DayName(DayOfWeek day) => day switch
     {
         DayOfWeek.Saturday => "شنبه",
         DayOfWeek.Sunday => "یکشنبه",
@@ -61,6 +75,9 @@ public static class Format
         DayOfWeek.Thursday => "پنجشنبه",
         _ => "جمعه",
     };
+
+    /// <summary>Solar Hijri year, e.g. "1405".</summary>
+    public static string Year(DateTimeOffset date) => PersianCalendar.GetYear(ToIranTime(date)).ToString();
 
     public static string DayOfMonth(DateTimeOffset date) => PersianCalendar.GetDayOfMonth(ToIranTime(date)).ToString();
 
@@ -92,23 +109,4 @@ public static class Format
     public static long UnixMilliseconds(DateTimeOffset date) => date.ToUnixTimeMilliseconds();
 
     private static System.DateTime ToIranTime(DateTimeOffset date) => TimeZoneInfo.ConvertTime(date, IranTimeZone).DateTime;
-
-    private static TimeZoneInfo ResolveIranTimeZone()
-    {
-        foreach (var id in new[] { "Asia/Tehran", "Iran Standard Time" })
-        {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(id);
-            }
-            catch (TimeZoneNotFoundException)
-            {
-            }
-            catch (InvalidTimeZoneException)
-            {
-            }
-        }
-
-        return TimeZoneInfo.CreateCustomTimeZone("Iran", TimeSpan.FromHours(3.5), "Iran", "Iran");
-    }
 }

@@ -2,68 +2,79 @@
 @{
     var cart = Model.Cart;
     var cartItems = cart?.Items ?? [];
+    var siteName = Site.Settings.SiteName;
+    var logo = Site.LogoUrl;
+    const string megaLink = "flex items-center gap-x-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-sky-50 hover:text-sky-600 transition";
 }
 <header class="fixed w-full border-b z-40 bg-white">
     <!-- header -->
     <div class="flex items-center justify-between pt-2 pb-4 gap-y-5 flex-wrap lg:flex-nowrap">
       <!-- btn menu mobile -->
-      <svg class="md:hidden mr-3 md:mr-5" onclick="showNavbarMobile()" xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#000000" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
+      <button type="button" class="md:hidden mr-3 md:mr-5" data-ui="nav-open" aria-label="باز کردن منو" aria-controls="navbarMobile">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#000000" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
+      </button>
       <!-- navbar moblie -->
-      <div class="flex absolute w-full h-screen z-50 -right-full top-0 transition-all ease-out duration-500" id="navbarMobile">
-        <div class="bg-white w-9/12 h-screen py-5 drop-shadow-2xl max-w-md">
+      <div class="flex fixed w-full h-[100dvh] z-50 -right-full top-0 transition-all ease-out duration-500 md:hidden" id="navbarMobile">
+        <nav class="bg-white w-9/12 h-full py-5 drop-shadow-2xl max-w-md overflow-y-auto overscroll-contain" aria-label="منوی اصلی">
           <div class="mx-auto mb-5">
             <a asp-page="/Index">
-              <img class="w-44 mx-auto" src="~/assets/image/logo.png" alt="">
+              <img class="w-44 mx-auto" src="@logo" alt="@siteName" width="176" height="48">
             </a>
           </div>
           <ul class="flex flex-col gap-y-3 px-2">
-                            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
-                <a asp-page="/Index">
-                  صفحه اصلی
-                </a>
-              </li>
-              <li class="text-zinc-700 hover:text-zinc-900 group">
-                <div class="relative">
-                  <div class="flex gap-x-1 items-center hover:bg-gray-200 transition p-2 rounded-lg">
-                    فروشگاه
-                    <svg class="group-hover:rotate-180 transition-all duration-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#000000" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
-                  </div>
-                  <div class="bg-white hidden group-hover:flex flex-col p-2 top-5 w-full rounded-lg shadow-xl">
-                    <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Search">
-                      همه محصولات
-                    </a>
-                    @foreach (var category in Model.Categories)
+            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
+              <a class="block" asp-page="/Index">صفحه اصلی</a>
+            </li>
+            <li class="text-zinc-700">
+              <details class="group/shop">
+                <summary class="flex gap-x-1 items-center justify-between hover:bg-gray-200 transition p-2 rounded-lg cursor-pointer list-none">
+                  <span>فروشگاه</span>
+                  @Icons.Svg("CaretDown", "group-open/shop:rotate-180 transition-transform duration-300", 16)
+                </summary>
+                <div class="flex flex-col p-2 mt-1 rounded-lg bg-gray-50">
+                  <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-2 rounded-md transition-all font-semibold" href="/products">همه محصولات</a>
+                  @foreach (var category in Model.Categories)
+                  {
+                    if (category.SubCategories.Count == 0)
                     {
-                      <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" href="/category/@category.Slug">
-                        @category.Name
-                      </a>
+                      <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-2 rounded-md transition-all" href="/category/@category.Slug">@category.Name</a>
+                      continue;
                     }
-                  </div>
+                    <details class="group/cat">
+                      <summary class="flex items-center justify-between px-2 py-2 rounded-md hover:bg-gray-200 cursor-pointer list-none">
+                        <span>@category.Name</span>
+                        @Icons.Svg("CaretDown", "group-open/cat:rotate-180 transition-transform duration-300", 14)
+                      </summary>
+                      <div class="flex flex-col pr-3 border-r border-sky-200 mr-2 mb-1">
+                        <a class="px-2 py-1.5 text-sm text-sky-600" href="/category/@category.Slug">همه @category.Name</a>
+                        @foreach (var sub in category.SubCategories)
+                        {
+                          <a class="px-2 py-1.5 text-sm text-zinc-600 hover:text-sky-600" href="/category/@sub.Slug">@sub.Name</a>
+                        }
+                      </div>
+                    </details>
+                  }
                 </div>
-              </li>
-                            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
-                <a href="/search?discounted=true">
-                  شگفت انگیز ها
-                </a>
-              </li>
-                            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
-                <a href="/search?sort=BestSelling">
-                  پرفروش ترین ها
-                </a>
-              </li>
-                            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
-                <a asp-page="/Blog">
-                  وبلاگ
-                </a>
-              </li>
-                            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
-                <a asp-page="/ContactUs">
-                  ارتباط با ما
-                </a>
-              </li>
+              </details>
+            </li>
+            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
+              <a class="block" href="/products?discounted=true">شگفت انگیز ها</a>
+            </li>
+            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
+              <a class="block" href="/products?sort=BestSelling">پرفروش ترین ها</a>
+            </li>
+            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
+              <a class="block" asp-page="/Blog">وبلاگ</a>
+            </li>
+            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
+              <a class="block" asp-page="/Faq">سوالات متداول</a>
+            </li>
+            <li class="text-zinc-700 hover:text-zinc-900 hover:bg-gray-200 transition p-2 rounded-lg">
+              <a class="block" asp-page="/ContactUs">ارتباط با ما</a>
+            </li>
           </ul>
-        </div>
-        <div class="bg-white/30 w-3/12 sm:w-5/12 backdrop-blur-sm" onclick="hideNavbarMobile()">
+        </nav>
+        <div class="bg-white/30 w-3/12 sm:w-5/12 backdrop-blur-sm" data-ui="nav-close" aria-hidden="true">
         </div>
       </div>
       <!-- fixed navbar mobile -->
@@ -119,7 +130,7 @@
             </form>
         </div>
         <div class="flex-1 group">
-            <button id="btn-back-to-top" onclick="backToTop()" class="flex items-end justify-center text-center mx-auto px-1 pt-2 w-full text-gray-400 group-hover:text-sky-600">
+            <button type="button" id="btn-back-to-top" data-ui="back-to-top" class="flex items-end justify-center text-center mx-auto px-1 pt-2 w-full text-gray-400 group-hover:text-sky-600">
               <span class="flex flex-col justify-center items-center pt-1 pb-1">
                 <svg class="fill-zinc-700 group-hover:fill-sky-600" xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm37.66-101.66a8,8,0,0,1-11.32,11.32L136,107.31V168a8,8,0,0,1-16,0V107.31l-18.34,18.35a8,8,0,0,1-11.32-11.32l32-32a8,8,0,0,1,11.32,0Z"></path></svg>
                 <span class="block text-xs pb-1 pt-1">
@@ -132,8 +143,8 @@
       </div>
       <!-- logo -->
       <div class="mr-0 md:mr-5">
-        <a asp-page="/Index" aria-label="@ShopSettings.Value.SiteName">
-          <img class="w-32 md:w-44" src="~/assets/image/logo.png" alt="@ShopSettings.Value.SiteName">
+        <a asp-page="/Index" aria-label="@siteName">
+          <img class="w-32 md:w-44" src="@logo" alt="@siteName" width="176" height="48">
         </a>
       </div>
       <!-- search input -->
@@ -149,8 +160,8 @@
       <div class="flex items-center justify-center gap-x-3 ml-3 md:ml-5">
         <!-- card -->
         <div class="flex items-center hover:bg-sky-100 p-2 rounded-lg">
-          <button type="button" class="relative" aria-label="سبد خرید" onclick="showCard()">
-            <img class="w-10" src="~/assets/image/Cart.png" alt="سبد خرید">
+          <button type="button" class="relative" aria-label="سبد خرید" data-ui="cart-open" aria-controls="cardHeader">
+            <img class="w-10" src="~/assets/image/Cart.png" alt="" width="40" height="40">
             @if (Model.CartCount > 0)
             {
             <span class="absolute -right-3 -top-3 flex h-5 w-5 drop-shadow-lg items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white">
@@ -158,24 +169,20 @@
             </span>
             }
           </button>
-          <div class="left-0 top-0 w-[22rem] sm:w-[400px] rounded-lg bg-gray-300 shadow-lg absolute h-screen z-50 hidden" id="cardHeader">
-            <div onclick="closeCard()" class="overflow-x-hidden overflow-y-auto fixed h-full inset-0 -z-10 bg-gray-600 bg-opacity-50 w-full">
-            </div>
-            <div class="bg-white h-screen">
+          <div class="fixed inset-0 z-50 hidden" id="cardHeader" role="dialog" aria-modal="true" aria-label="سبد خرید">
+            <div data-ui="cart-close" class="absolute inset-0 bg-gray-600/50" aria-hidden="true"></div>
+            <div class="absolute inset-y-0 left-0 flex flex-col w-[22rem] max-w-full sm:w-[400px] h-[100dvh] bg-white shadow-lg">
               <!-- Head -->
-              <div class="flex items-center justify-between p-4 pb-2 border-b mx-5 bg-white">
+              <div class="shrink-0 flex items-center justify-between p-4 pb-2 border-b mx-5 bg-white">
                 <div class="text-zinc-500">
                   @Model.CartCount کالا
                 </div>
-                <button onclick="closeCard()" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center">
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>  
+                <button data-ui="cart-close" type="button" aria-label="بستن سبد خرید" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
                 </button>
               </div>
-              <!-- main -->
-              <div class="h-full">
-                <!-- Items -->
-                <div class="h-60 bg-white">
-                  <ul class="main-scroll h-full space-y-2 divide-y divide-gray-100 overflow-y-auto p-5 pl-2">
+              <!-- Items: only this list scrolls, and only when it doesn't fit -->
+              <ul class="main-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-gray-100 px-5 pl-2">
                     @if (cartItems.Count == 0)
                     {
                       <li class="py-10 text-center text-sm text-zinc-500">
@@ -184,12 +191,12 @@
                     }
                     @foreach (var item in cartItems)
                     {
-                    <li class="border-b">
-                      <div class="flex gap-x-2 py-5">
+                    <li>
+                      <div class="flex gap-x-2 py-4">
                         <!-- Product -->
                         <div class="relative min-w-fit">
                           <a href="/product/@item.ProductSlug">
-                            <img alt="@item.ImageAlt" class="h-[120px] w-[120px] object-contain" src="@ImageHelper.Product(item.ImageName)" loading="lazy">
+                            <img alt="@item.ImageAlt" class="h-[96px] w-[96px] object-contain" src="@ImageHelper.Product(item.ImageName)" loading="lazy" width="96" height="96">
                           </a>
                         </div>
                         <div class="w-full space-y-1.5">
@@ -241,31 +248,29 @@
                       </div>
                     </li>
                     }
-                  </ul>
-                </div>
-                <!-- Down Price -->
-                <div class="flex items-center justify-between border-t border-gray-100 p-5 absolute w-full bottom-0 bg-white">
-                  <div class="flex flex-col items-center gap-y-1">
-                    <div class="text-sm text-zinc-600">
-                      مبلغ قابل پرداخت
-                    </div>
-                    <div class="text-zinc-600">
-                      <span class="font-bold">@Format.Price(cart?.PayableAmount ?? 0)</span>
-                      <span class="text-xs">تومان</span>
-                    </div>
+              </ul>
+              <!-- Down Price -->
+              <div class="shrink-0 flex items-center justify-between border-t border-gray-100 p-5 bg-white">
+                <div class="flex flex-col items-center gap-y-1">
+                  <div class="text-sm text-zinc-600">
+                    مبلغ قابل پرداخت
                   </div>
-                  @if (cartItems.Count > 0)
-                  {
-                    <div class="flex gap-x-2">
-                      <a asp-page="/Cart" class="py-3 px-3 text-sm border border-sky-500 text-sky-600 rounded-xl text-center">
-                        مشاهده سبد
-                      </a>
-                      <a asp-page="/Checkout" class="w-28 py-3 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-xl text-center">
-                        ثبت سفارش
-                      </a>
-                    </div>
-                  }
+                  <div class="text-zinc-600">
+                    <span class="font-bold">@Format.Price(cart?.PayableAmount ?? 0)</span>
+                    <span class="text-xs">تومان</span>
+                  </div>
                 </div>
+                @if (cartItems.Count > 0)
+                {
+                  <div class="flex gap-x-2">
+                    <a asp-page="/Cart" class="py-3 px-3 text-sm border border-sky-500 text-sky-600 rounded-xl text-center">
+                      مشاهده سبد
+                    </a>
+                    <a asp-page="/Checkout" class="w-28 py-3 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-xl text-center">
+                      ثبت سفارش
+                    </a>
+                  </div>
+                }
               </div>
             </div>
           </div>
@@ -279,7 +284,8 @@
               @Model.DisplayName
             </span>
           </button>
-          <div class="z-50 group-hover:block left-0 top-[39px] w-60 rounded-lg bg-white shadow-lg hidden absolute">
+          <div class="z-50 group-hover:block group-focus-within:block left-0 top-full pt-1 w-60 hidden absolute">
+          <div class="rounded-lg bg-white shadow-lg border">
             <ul class="space-y-1 p-2">
               <li class="border-b">
                 <a class="flex items-center justify-between gap-x-2 rounded-lg p-2 text-zinc-700 hover:text-zinc-800 transition hover:bg-gray-100" asp-page="/Profile/Index">
@@ -297,6 +303,17 @@
                   </span>
                 </a>
               </li>
+              @if (Site.Settings.IsWalletEnabled)
+              {
+              <li>
+                <a class="flex items-center justify-between gap-x-2 rounded-lg p-2 text-zinc-700 hover:text-zinc-800 transition hover:bg-gray-100" asp-page="/Profile/Wallet">
+                  <span class="flex items-center gap-x-2">
+                    @Icons.Svg("Wallet", "fill-[#4d4d4d]", 20)
+                    <span class="text-sm">کیف پول</span>
+                  </span>
+                </a>
+              </li>
+              }
               <li>
                 <a class="flex items-center justify-between gap-x-2 rounded-lg p-2 text-zinc-700 hover:text-zinc-800 transition hover:bg-gray-100" asp-page="/Profile/Favorites">
                   <span class="flex items-center gap-x-2">
@@ -325,6 +342,7 @@
               </li>
             </ul>
           </div>
+          </div>
         </div>
         }
         else
@@ -338,102 +356,78 @@
         }
       </div>
     </div>
-    <!-- menus -->
-    <div class="hidden md:block pb-2">
-      <ul class="flex gap-x-3 lg:gap-x-3 xl:gap-x-5">
-        <li class="text-zinc-700 transition group">
-          <div class="relative block">
-            <a href="/search">
-            <div class="flex gap-x-1 items-center group-hover:text-zinc-600 hover:bg-gray-200 transition p-2 rounded-lg">
-              <svg class="fill-gray-600" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256"><path d="M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48v48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48v48Zm-96,32H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48v48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,200,136Zm0,64H152V152h48v48Z"></path></svg>
-                فروشگاه
-              <svg class="group-hover:rotate-180 transition-all duration-500 fill-zinc-600" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="#000000" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
-            </div>
-            </a>
-            <div class="absolute hidden group-hover:flex top-28 h-auto rounded-lg w-11/12 lg:w-10/12 shadow-lg border z-50 bg-white items-center gap-x-5 xl:gap-x-14 py-5">
-              @foreach (var category in Model.Categories.Take(5))
-              {
-                <div class="space-y-2">
-                  <a href="/category/@category.Slug" class="flex items-center gap-x-1 text-zinc-700 hover:text-sky-600">
-                    <span class="h-5 w-0.5 rounded-full bg-sky-500"></span>
-                    <div class="text-sm">@category.Name</div>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M164.24,203.76a6,6,0,1,1-8.48,8.48l-80-80a6,6,0,0,1,0-8.48l80-80a6,6,0,0,1,8.48,8.48L88.49,128Z"></path></svg>
-                  </a>
-                  <ul>
-                    @foreach (var sub in category.SubCategories.Take(8))
-                    {
+    <!-- menus: the mega menu is positioned against this bar, so it spans the full header width -->
+    <nav class="hidden md:block pb-2 relative" aria-label="منوی اصلی">
+      <ul class="flex gap-x-3 xl:gap-x-5 px-3 md:px-5">
+        <li class="text-zinc-700 group">
+          <a href="/products" class="flex gap-x-1 items-center group-hover:bg-gray-100 group-hover:text-sky-600 transition p-2 rounded-lg" aria-haspopup="true">
+            @Icons.Svg("Grid", "fill-gray-600 group-hover:fill-sky-600", 20)
+            فروشگاه
+            @Icons.Svg("CaretDown", "group-hover:rotate-180 transition-transform duration-300 fill-zinc-600", 12)
+          </a>
+          <!-- -mt-2 + pt-2 bridge the bar padding so the pointer never "falls" into a gap -->
+          <div class="absolute inset-x-0 top-full -mt-2 pt-2 z-50 hidden group-hover:block group-focus-within:block">
+            <div class="mx-3 md:mx-5 flex gap-6 rounded-b-2xl border bg-white p-5 lg:p-6 shadow-xl max-h-[70vh] overflow-y-auto">
+              <div class="grid flex-1 grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-5 gap-y-6">
+                @foreach (var category in Model.Categories.Take(6))
+                {
+                  <div class="space-y-2 min-w-0">
+                    <a href="/category/@category.Slug" class="flex items-center gap-x-1 font-semibold text-zinc-800 hover:text-sky-600">
+                      <span class="h-5 w-0.5 rounded-full bg-sky-500 shrink-0"></span>
+                      <span class="text-sm truncate">@category.Name</span>
+                      @Icons.Svg("ChevronLeft", "fill-zinc-500 shrink-0", 12)
+                    </a>
+                    <ul>
+                      @foreach (var sub in category.SubCategories.Take(7))
+                      {
+                        <li>
+                          <a class="block py-1.5 text-xs text-zinc-600 hover:text-sky-700 truncate" href="/category/@sub.Slug">@sub.Name</a>
+                        </li>
+                      }
                       <li>
-                        <a class="block py-2 text-xs text-zinc-600 hover:text-sky-700" href="/category/@sub.Slug">
-                          @sub.Name
-                        </a>
+                        <a class="block py-1.5 text-xs text-sky-600 hover:text-sky-700" href="/category/@category.Slug">مشاهده همه</a>
                       </li>
-                    }
-                    @if (category.SubCategories.Count == 0)
-                    {
-                      <li>
-                        <a class="block py-2 text-xs text-zinc-600 hover:text-sky-700" href="/category/@category.Slug">
-                          مشاهده همه محصولات
-                        </a>
-                      </li>
-                    }
-                  </ul>
-                </div>
-              }
-              <img class="w-36 lg:w-64 mx-auto h-full" src="~/assets/image/Electronics.webp" alt="دسته بندی محصولات">
+                    </ul>
+                  </div>
+                }
+                @if (Model.Categories.Count == 0)
+                {
+                  <p class="col-span-full text-sm text-zinc-500">هنوز دسته بندی ثبت نشده است.</p>
+                }
+              </div>
+              <div class="hidden lg:flex w-56 shrink-0 flex-col gap-y-1 border-r pr-5">
+                <a class="@megaLink" href="/products">@Icons.Svg("Storefront", "fill-sky-500", 18) همه محصولات</a>
+                <a class="@megaLink" href="/products?discounted=true">@Icons.Svg("Percent", "fill-red-500", 18) شگفت انگیز ها</a>
+                <a class="@megaLink" href="/products?sort=BestSelling">@Icons.Svg("Fire", "fill-orange-500", 18) پرفروش ترین ها</a>
+                <a class="@megaLink" href="/products?sort=Newest">@Icons.Svg("Tag", "fill-emerald-500", 18) جدیدترین ها</a>
+                <a class="@megaLink" asp-page="/Compare">@Icons.Svg("Grid", "fill-zinc-500", 18) مقایسه محصولات</a>
+                @if (Model.Categories.Count > 6)
+                {
+                  <p class="mt-3 px-3 text-xs text-zinc-400">دسته بندی های دیگر</p>
+                  @foreach (var category in Model.Categories.Skip(6).Take(6))
+                  {
+                    <a class="block px-3 py-1 text-xs text-zinc-600 hover:text-sky-600" href="/category/@category.Slug">@category.Name</a>
+                  }
+                }
+              </div>
             </div>
           </div>
         </li>
-        <li class="text-zinc-700 hover:text-zinc-600 hover:bg-gray-100 transition p-2 rounded-lg">
-          <a href="/search?discounted=true">
-            شگفت انگیز ها
-          </a>
+        <li class="text-zinc-700 hover:text-sky-600 hover:bg-gray-100 transition p-2 rounded-lg">
+          <a href="/products?discounted=true">شگفت انگیز ها</a>
         </li>
-        <li class="text-zinc-700 hover:text-zinc-600 hover:bg-gray-100 transition p-2 rounded-lg">
-          <a href="/search?sort=BestSelling">
-            پرفروش ترین ها
-          </a>
+        <li class="text-zinc-700 hover:text-sky-600 hover:bg-gray-100 transition p-2 rounded-lg">
+          <a href="/products?sort=BestSelling">پرفروش ترین ها</a>
         </li>
-        <li class="text-zinc-700 hover:text-zinc-600 hover:bg-gray-100 transition p-2 rounded-lg">
-          <a asp-page="/ContactUs">
-            ارتباط با ما
-          </a>
+        <li class="text-zinc-700 hover:text-sky-600 hover:bg-gray-100 transition p-2 rounded-lg">
+          <a asp-page="/Blog">وبلاگ</a>
         </li>
-        <li class="text-zinc-700 hover:text-zinc-600 hover:bg-gray-100 transition p-2 rounded-lg">
-          <a asp-page="/Blog">
-            وبلاگ
-          </a>
+        <li class="text-zinc-700 hover:text-sky-600 hover:bg-gray-100 transition p-2 rounded-lg">
+          <a asp-page="/Faq">سوالات متداول</a>
         </li>
-        <li class="text-zinc-700 transition group">
-          <div class="relative block">
-            <div class="flex gap-x-1 items-center group-hover:text-zinc-600 hover:bg-gray-200 transition p-2 rounded-lg">
-              صفحات
-              <svg class="group-hover:rotate-180 transition-all duration-500 group-hover:fill-sky-500" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#000000" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
-            </div>
-            <div class="bg-white hidden group-hover:flex flex-col p-2 absolute top-28 w-44 rounded-lg shadow-xl">
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/AboutUs">
-                درباره ما
-              </a>
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Faq">
-                سوالات متداول
-              </a>
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Rules">
-                قوانین و مقررات
-              </a>
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Compare">
-                مقایسه محصولات
-              </a>
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Cart">
-                سبد خرید
-              </a>
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Profile/Index">
-                پروفایل کاربری
-              </a>
-              <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-1 rounded-md mb-1 transition-all" asp-page="/Search">
-                همه محصولات
-              </a>
-            </div>
-          </div>
+        <li class="text-zinc-700 hover:text-sky-600 hover:bg-gray-100 transition p-2 rounded-lg">
+          <a asp-page="/ContactUs">ارتباط با ما</a>
         </li>
       </ul>
-    </div>
+    </nav>
   </header>

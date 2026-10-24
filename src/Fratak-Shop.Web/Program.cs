@@ -1,17 +1,23 @@
+using System.IO.Compression;
+using System.Net;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using Fratak_Shop.Core;
 using Fratak_Shop.Core.Services.Locations;
 using Fratak_Shop.Data.Extensions;
 using Fratak_Shop.Web.Extensions;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Infrastructure.Auth;
 using Fratak_Shop.Web.Infrastructure.Middleware;
 using Fratak_Shop.Web.Infrastructure.Seeders;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using System.Text.Encodings.Web;
-using System.Text.Unicode;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.WebEncoders;
+using Microsoft.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // ── Presentation ──────────────────────────────────────────────────────
 builder.Services.AddRazorPages(options =>
@@ -22,6 +28,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizePage("/CheckoutComplete");
     options.Conventions.AuthorizePage("/CheckoutFailed");
     options.Conventions.AuthorizeFolder("/Payment");
+    options.Conventions.AllowAnonymousToPage("/Payment/Callback");
     options.Conventions.AuthorizePage("/Verify");
     options.Conventions.AuthorizePage("/Welcome");
 
@@ -31,6 +38,15 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AddPageRoute("/Search", "brand/{brand}");
     options.Conventions.AddPageRoute("/Blog", "blog/category/{category}");
     options.Conventions.AddPageRoute("/Error404", "404");
+})
+.AddMvcOptions(options => options.Filters.Add<SiteContextPageFilter>());
+
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "fratak_af";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 // Render Persian text as-is instead of HTML entities (smaller pages, readable source).
@@ -43,21 +59,44 @@ builder.Services.Configure<RouteOptions>(options =>
     options.LowercaseQueryStrings = false;
 });
 
-builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.LogoutPath = "/logout";
-        options.AccessDeniedPath = "/login";
-        options.Cookie.Name = ".Fratak.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromDays(30);
-        options.SlidingExpiration = true;
-    });
+// ── Security & performance ────────────────────────────────────────────
+builder.Services.AddShopAuthentication(builder.Configuration);
+builder.Services.AddShopRateLimiting();
 
-builder.Services.AddAuthorization();
+// Static assets and XML/text only: HTML is not compressed here because it carries
+// per-user secrets (BREACH); let the reverse proxy decide for HTML.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ["text/css", "application/javascript", "text/javascript", "image/svg+xml", "application/xml", "text/xml", "text/plain", "font/ttf", "application/font-woff"];
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+
+var behindProxy = builder.Configuration.GetValue<bool>("Security:BehindProxy");
+if (behindProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        options.ForwardLimit = 1;
+        // Only proxies listed here are trusted (loopback is trusted by default);
+        // trusting everyone would let clients spoof their IP and bypass rate limits.
+        foreach (var proxy in builder.Configuration.GetSection("Security:KnownProxies").Get<string[]>() ?? [])
+        {
+            if (IPAddress.TryParse(proxy, out var address))
+                options.KnownProxies.Add(address);
+        }
+    });
+}
+
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
 
 // ── Application layers ────────────────────────────────────────────────
 var connectionString = builder.Configuration["ConnectionDefault"]
@@ -71,6 +110,9 @@ builder.Services.AddFratakShopWeb(builder.Configuration);
 var app = builder.Build();
 
 // ── HTTP pipeline ─────────────────────────────────────────────────────
+if (behindProxy)
+    app.UseForwardedHeaders();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -82,22 +124,41 @@ else
     app.UseHttpsRedirection();
 }
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStatusCodePagesWithReExecute("/Error404", "?code={0}");
+app.UseResponseCompression();
 
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        // Versioned URLs (asp-append-version → ?v=hash) never change: cache for a year.
+        var headers = context.Context.Response.Headers;
+        headers[HeaderNames.CacheControl] = context.Context.Request.Query.ContainsKey("v")
+            ? "public, max-age=31536000, immutable"
+            : "public, max-age=604800";
+    },
+});
+
+app.UseMiddleware<CanonicalUrlMiddleware>();
 app.UseRouting();
+app.UseRateLimiter();
 
+app.UseMiddleware<TokenRefreshMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<SeoRedirectMiddleware>();
 
 app.MapRazorPages();
+app.MapAuthApi();
+app.MapSeoEndpoints();
 
 // Cities of a province, used by the address forms (province → city select).
-app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid provinceId, ILocationService locations) =>
+app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid provinceId, ILocationService locations, HttpContext http) =>
 {
     var cities = await locations.GetCitiesAsync(provinceId);
+    http.Response.Headers.CacheControl = "public, max-age=3600";
     return Results.Ok(cities.Select(city => new { id = city.Id, name = city.Name }));
 });
 

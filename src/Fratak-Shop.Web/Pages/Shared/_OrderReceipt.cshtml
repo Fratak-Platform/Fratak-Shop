@@ -36,6 +36,13 @@
   <div>هزینه ارسال (@Model.ShippingMethod)</div>
   <div>@(Model.ShippingAmount == 0 ? "رایگان" : Format.Toman(Model.ShippingAmount))</div>
 </div>
+@if (Model.RequestedDeliveryDate.HasValue)
+{
+  <div class="@row">
+    <div>زمان تحویل</div>
+    <div>@Format.Date(Model.RequestedDeliveryDate)@(string.IsNullOrWhiteSpace(Model.DeliveryTimeSlotTitle) ? "" : $" ({Model.DeliveryTimeSlotTitle})")</div>
+  </div>
+}
 <div class="@row">
   <div>روش پرداخت</div>
   <div>@Display.PaymentMethod(Model.PaymentMethod)</div>
@@ -58,3 +65,10 @@
     <div>تومان</div>
   </div>
 </div>
+@if (Model.RefundedAmount > 0)
+{
+  <div class="@row text-emerald-700">
+    <div>بازگشت به کیف پول</div>
+    <div>@Format.Toman(Model.RefundedAmount)</div>
+  </div>
+}

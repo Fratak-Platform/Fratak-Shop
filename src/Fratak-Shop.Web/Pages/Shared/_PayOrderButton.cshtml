@@ -1,0 +1,7 @@
+@model OrderDto
+@* Starts the ZarinPal payment of an unpaid order (POST + antiforgery). *@
+<form method="post" asp-page="/Payment/Start" asp-route-orderNumber="@Model.OrderNumber" class="w-full">
+  <button type="submit" class="mx-auto block text-center w-full px-2 py-3 mt-5 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+    پرداخت آنلاین @Format.Toman(Model.PayableAmount)
+  </button>
+</form>

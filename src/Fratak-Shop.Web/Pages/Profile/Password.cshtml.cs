@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;
 
-public class PasswordModel(IUserService userService) : ShopPageModel
+public class PasswordModel(IUserService userService, IShopAuthService authService) : ShopPageModel
 {
     public static readonly string[] Rules =
     [
@@ -45,7 +45,11 @@ public class PasswordModel(IUserService userService) : ShopPageModel
             return Page();
         }
 
-        SuccessMessage = result.Message;
+        // The password change rotated the security stamp: every other device is signed
+        // out (refresh tokens revoked) and this browser gets a fresh session.
+        await authService.SignOutOtherDevicesAsync(CurrentUserId!.Value, keepCurrent: true);
+
+        SuccessMessage = result.Message + " سایر دستگاه‌ها از حساب شما خارج شدند.";
         return RedirectToPage("/Profile/Index");
     }
 

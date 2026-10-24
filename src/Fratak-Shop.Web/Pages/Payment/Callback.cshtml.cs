@@ -1,39 +1,37 @@
-using Fratak_Shop.Core.Services.Orders;
-using Fratak_Shop.Data.Entities.Orders;
+using Fratak_Shop.Data.Entities.Payments;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Services.Payments;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Payment;
 
-/// <summary>Gateway return URL: verifies the payment and updates the order.</summary>
-public class CallbackModel(IOrderService orderService, IPaymentGateway gateway, ILogger<CallbackModel> logger) : ShopPageModel
+/// <summary>
+/// ZarinPal return URL (<c>?Authority=...&amp;Status=OK|NOK</c>). Anonymous on purpose:
+/// a payment must be verified even when the customer's session expired meanwhile.
+/// The transaction is found by its authority, never by user input.
+/// </summary>
+public class CallbackModel(IPaymentFlowService paymentFlow) : ShopPageModel
 {
-    public async Task<IActionResult> OnGetAsync(string orderNumber)
+    public async Task<IActionResult> OnGetAsync([FromQuery(Name = "Authority")] string? authority, [FromQuery(Name = "Status")] string? status)
     {
-        var order = await orderService.GetOrderByNumberAsync(orderNumber);
-        if (order is null || order.UserId != CurrentUserId)
-            return NotFound();
+        var result = await paymentFlow.HandleCallbackAsync(authority, status);
 
-        if (order.PaymentStatus == PaymentStatus.Paid)
-            return RedirectToPage("/CheckoutComplete", new { orderNumber });
+        if (result.Succeeded)
+            SuccessMessage = result.Message;
+        else
+            ErrorMessage = result.Message;
 
-        var verify = await gateway.VerifyAsync(order, Request.Query);
+        if (result.Purpose == PaymentPurpose.WalletTopUp)
+            return RedirectToPage("/Profile/Wallet");
 
-        if (!verify.Succeeded)
-        {
-            await orderService.ChangePaymentStatusAsync(order.Id, PaymentStatus.Failed);
-            ErrorMessage = verify.Error ?? "پرداخت ناموفق بود.";
-            return RedirectToPage("/CheckoutFailed", new { orderNumber });
-        }
+        if (string.IsNullOrEmpty(result.OrderNumber))
+            return RedirectToPage("/Index");
 
-        await orderService.ChangePaymentStatusAsync(order.Id, PaymentStatus.Paid, verify.TransactionId);
+        if (result.IsPending)
+            return RedirectToPage("/Profile/OrderDetail", new { orderNumber = result.OrderNumber });
 
-        var statusResult = await orderService.ChangeOrderStatusAsync(order.Id, OrderStatus.Confirmed);
-        if (statusResult.Status != Core.Utilities.EnOperationResultStatus.Success)
-            logger.LogWarning("Order {OrderNumber} paid but could not be confirmed: {Message}", orderNumber, statusResult.Message);
-
-        SuccessMessage = "پرداخت با موفقیت انجام شد.";
-        return RedirectToPage("/CheckoutComplete", new { orderNumber });
+        return result.Succeeded
+            ? RedirectToPage("/CheckoutComplete", new { orderNumber = result.OrderNumber })
+            : RedirectToPage("/CheckoutFailed", new { orderNumber = result.OrderNumber });
     }
 }

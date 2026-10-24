@@ -1,6 +1,6 @@
 @model ProfileSection
 @{
-    var items = new (ProfileSection Section, string Page, string Title, string Icon)[]
+    var items = new List<(ProfileSection Section, string Page, string Title, string Icon)>
     {
         (ProfileSection.Dashboard, "/Profile/Index", "پیشخوان", "Home"),
         (ProfileSection.Orders, "/Profile/Orders", "سفارش ها", "Orders"),
@@ -9,7 +9,12 @@
         (ProfileSection.Messages, "/Profile/Messages", "پیغام ها", "Mail"),
         (ProfileSection.PersonalInfo, "/Profile/PersonalInfo", "اطلاعات حساب کاربری", "UserCircle"),
         (ProfileSection.Password, "/Profile/Password", "تغییر رمز عبور", "Shield"),
+        (ProfileSection.Sessions, "/Profile/Sessions", "دستگاه های فعال", "Devices"),
     };
+    if (Site.Settings.IsWalletEnabled)
+    {
+        items.Insert(2, (ProfileSection.Wallet, "/Profile/Wallet", "کیف پول", "Wallet"));
+    }
 }
 <div class="md:w-3/12 bg-white shadow-lg rounded-2xl py-3 h-fit">
   @Icons.Svg("Profile", "fill-zinc-700 mx-auto", 60)

@@ -64,6 +64,13 @@
             </div>
           </div>
         </div>
+        @if (Site.Settings.IsWalletEnabled)
+        {
+          <a asp-page="/Profile/Wallet" class="mt-5 flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 hover:bg-sky-100 transition">
+            <span class="flex items-center gap-x-2">@Icons.Svg("Wallet", "fill-sky-700", 22) موجودی کیف پول: <strong>@Format.Toman(Model.CurrentUser.WalletBalance)</strong></span>
+            <span class="text-xs">مدیریت کیف پول</span>
+          </a>
+        }
         <div class="mt-10 overflow-x-auto">
           <div class="flex items-center justify-between mb-4">
             <div class="text-zinc-800 text-lg">

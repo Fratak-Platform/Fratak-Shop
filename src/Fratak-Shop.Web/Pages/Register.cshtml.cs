@@ -51,8 +51,9 @@ public class RegisterModel(IUserService userService, IShopAuthService authServic
             return Page();
         }
 
-        var user = await userService.LoginAsync(new LoginCommand { PhoneNumber = phoneNumber, Password = Input.Password });
-        if (user is null)
+        var login = await userService.LoginAsync(new LoginCommand { PhoneNumber = phoneNumber, Password = Input.Password });
+        var user = login.Data;
+        if (!Succeeded(login) || user is null)
         {
             SuccessMessage = "ثبت نام انجام شد؛ لطفاً وارد شوید.";
             return RedirectToPage("/Login", new { returnUrl = ReturnUrl });

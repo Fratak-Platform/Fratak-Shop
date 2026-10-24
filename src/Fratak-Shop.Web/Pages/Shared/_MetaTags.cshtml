@@ -1,7 +1,9 @@
 @{
-    var shop = ShopSettings.Value;
+    var settings = Site.Settings;
     string? Meta(string key) => ViewData[key] as string;
+    var title = Meta(PageMetaKeys.Title);
 }
+  <title>@Site.Title(title)</title>
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Description)))
 {
   <meta name="description" content="@Meta(PageMetaKeys.Description)">
@@ -10,18 +12,32 @@
 {
   <meta name="keywords" content="@Meta(PageMetaKeys.Keywords)">
 }
-@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Robots)))
-{
-  <meta name="robots" content="@Meta(PageMetaKeys.Robots)">
-}
+  <meta name="robots" content="@(Meta(PageMetaKeys.Robots) ?? "index, follow, max-image-preview:large")">
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
 {
   <link rel="canonical" href="@Meta(PageMetaKeys.Canonical)">
+  <link rel="alternate" hreflang="fa-IR" href="@Meta(PageMetaKeys.Canonical)">
 }
-  <meta property="og:site_name" content="@shop.SiteName">
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.PrevPage)))
+{
+  <link rel="prev" href="@Meta(PageMetaKeys.PrevPage)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.NextPage)))
+{
+  <link rel="next" href="@Meta(PageMetaKeys.NextPage)">
+}
+@if (!string.IsNullOrWhiteSpace(settings.GoogleSiteVerification))
+{
+  <meta name="google-site-verification" content="@settings.GoogleSiteVerification">
+}
+@if (!string.IsNullOrWhiteSpace(settings.BingSiteVerification))
+{
+  <meta name="msvalidate.01" content="@settings.BingSiteVerification">
+}
+  <meta property="og:site_name" content="@settings.SiteName">
   <meta property="og:locale" content="fa_IR">
   <meta property="og:type" content="@(Meta(PageMetaKeys.OgType) ?? "website")">
-  <meta property="og:title" content="@(Meta(PageMetaKeys.OgTitle) ?? Meta(PageMetaKeys.Title) ?? shop.SiteName)">
+  <meta property="og:title" content="@(Meta(PageMetaKeys.OgTitle) ?? Site.Title(title))">
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgDescription)))
 {
   <meta property="og:description" content="@Meta(PageMetaKeys.OgDescription)">
@@ -34,9 +50,23 @@
 {
   <meta property="og:image" content="@Meta(PageMetaKeys.OgImage)">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="@Meta(PageMetaKeys.OgImage)">
 }
+  <meta name="twitter:title" content="@(Meta(PageMetaKeys.OgTitle) ?? Site.Title(title))">
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgDescription)))
+{
+  <meta name="twitter:description" content="@Meta(PageMetaKeys.OgDescription)">
+}
+@* "!" opts the elements out of tag helpers so the type attribute is not re-encoded.
+   JSON is serialized with <, >, & escaped, so it can never close the script element. *@
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.JsonLd)))
 {
-  @* "!" opts the element out of tag helpers so the type attribute is not re-encoded. *@
   <!script type="application/ld+json">@Html.Raw(Meta(PageMetaKeys.JsonLd))</!script>
+}
+@if (ViewData[PageMetaKeys.JsonLdBlocks] is List<string> blocks)
+{
+  foreach (var block in blocks)
+  {
+  <!script type="application/ld+json">@Html.Raw(block)</!script>
+  }
 }

@@ -6,10 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Payment;
 
-/// <summary>Sends the customer to the payment gateway for an unpaid order.</summary>
-public class StartModel(IOrderService orderService, IPaymentGateway gateway) : ShopPageModel
+/// <summary>
+/// Sends the customer to ZarinPal for an unpaid order. POST only (antiforgery
+/// protected) because it registers a new gateway transaction.
+/// </summary>
+public class StartModel(IOrderService orderService, IPaymentFlowService paymentFlow) : ShopPageModel
 {
-    public async Task<IActionResult> OnGetAsync(string orderNumber)
+    public IActionResult OnGet(string orderNumber) => RedirectToPage("/Profile/OrderDetail", new { orderNumber });
+
+    public async Task<IActionResult> OnPostAsync(string orderNumber)
     {
         var order = await orderService.GetOrderByNumberAsync(orderNumber);
         if (order is null || order.UserId != CurrentUserId)
@@ -18,21 +23,13 @@ public class StartModel(IOrderService orderService, IPaymentGateway gateway) : S
         if (order.PaymentStatus == PaymentStatus.Paid)
             return RedirectToPage("/CheckoutComplete", new { orderNumber });
 
-        if (order.Status is OrderStatus.Cancelled or OrderStatus.Returned)
+        var start = await paymentFlow.StartOrderPaymentAsync(order, CurrentUserId!.Value);
+        if (!start.Succeeded)
         {
-            ErrorMessage = "این سفارش لغو شده و قابل پرداخت نیست.";
-            return RedirectToPage("/Profile/Orders");
+            ErrorMessage = start.Error;
+            return RedirectToPage("/Profile/OrderDetail", new { orderNumber });
         }
 
-        var callbackUrl = Url.Page("/Payment/Callback", null, new { orderNumber }, Request.Scheme)!;
-        var request = await gateway.RequestAsync(order, callbackUrl);
-
-        if (!request.Succeeded || string.IsNullOrWhiteSpace(request.RedirectUrl))
-        {
-            ErrorMessage = request.Error ?? "اتصال به درگاه پرداخت برقرار نشد.";
-            return RedirectToPage("/CheckoutFailed", new { orderNumber });
-        }
-
-        return Redirect(request.RedirectUrl);
+        return Redirect(start.RedirectUrl!);
     }
 }

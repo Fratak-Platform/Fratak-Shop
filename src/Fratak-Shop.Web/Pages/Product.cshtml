@@ -13,7 +13,6 @@
     var inputClass = "focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none";
     var submitClass = "mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg";
     var tooltipClass = "opacity-0 w-28 transition-all bg-zinc-800 text-white text-center text-xs rounded-lg py-2 absolute z-10 -left-11 group-hover:opacity-100 px-3 pointer-events-none";
-    var minDelivery = Model.Shop.ShippingMethods.Count > 0 ? Model.Shop.ShippingMethods.Min(m => m.MinDeliveryDays) : 2;
 }
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
@@ -58,9 +57,9 @@
                 @for (var i = 0; i < thumbs.Count; i++)
                 {
                   var slideNumber = i + 2;
-                  <img onclick="showImagesProduct(); currentSlide(@slideNumber)" class="cursor-pointer border rounded-lg" src="@ImageHelper.Product(thumbs[i].ImageName)" alt="@(thumbs[i].AltText ?? p.Name)" loading="lazy">
+                  <img data-ui="slide-go" data-arg="@slideNumber" class="cursor-pointer border rounded-lg" src="@ImageHelper.Product(thumbs[i].ImageName)" alt="@(thumbs[i].AltText ?? p.Name)" loading="lazy">
                 }
-                <div onclick="showImagesProduct()" class="cursor-pointer border rounded-lg flex justify-center items-center relative">
+                <div data-ui="modal-open" data-arg="showImagesModal" role="button" tabindex="0" aria-label="نمایش همه تصاویر" class="cursor-pointer border rounded-lg flex justify-center items-center relative">
                   <img class="blur-sm" src="@ImageHelper.Product(images[^1].ImageName)" alt="" loading="lazy">
                   @Icons.Svg("Images", "fill-zinc-800 absolute", 28)
                 </div>
@@ -69,8 +68,8 @@
             <!-- product images modal -->
             <div class="max-w-2xl mx-auto relative">
               <!-- Main modal -->
-              <div id="showImagesModal" class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
-                <div onclick="closeImagesProduct()" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
+              <div id="showImagesModal" data-modal class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
+                <div data-ui="modal-close" data-arg="showImagesModal" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
                 </div>
                 <div class="relative w-12/12 sm:w-10/12 lg:w-full lg:max-w-[1600px] px-2 mb-4 z-50 mt-2 lg:mt-2 mx-auto">
                   <!-- Modal content -->
@@ -79,7 +78,7 @@
                         <h3 class="text-gray-800 font-semibold">
                           عکس های محصول
                         </h3>
-                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" onclick="closeImagesProduct()" aria-label="بستن">
+                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" data-ui="modal-close" data-arg="showImagesModal" aria-label="بستن">
                           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
                         </button>
                       </div>
@@ -91,10 +90,10 @@
                           </div>
                         }
                         <div class="absolute top-32 w-full">
-                          <a class="next hover:bg-gray-300 absolute left-0 select-none p-3 rounded-r-md cursor-pointer" onclick="plusSlides(1)">
+                          <a class="next hover:bg-gray-300 absolute left-0 select-none p-3 rounded-r-md cursor-pointer" data-ui="slide-next" role="button" aria-label="تصویر بعدی">
                             @Icons.Svg("CaretLeft", "hover:bg-gray-300", 32)
                           </a>
-                          <a class="prev hover:bg-gray-300 absolute right-0 select-none p-3 rounded-l-md cursor-pointer" onclick="plusSlides(-1)">
+                          <a class="prev hover:bg-gray-300 absolute right-0 select-none p-3 rounded-l-md cursor-pointer" data-ui="slide-prev" role="button" aria-label="تصویر قبلی">
                             @Icons.Svg("CaretRight", "hover:bg-gray-300", 32)
                           </a>
                         </div>
@@ -102,7 +101,7 @@
                           @for (var i = 0; i < images.Count; i++)
                           {
                             var slideNumber = i + 1;
-                            <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md cursor-pointer" src="@ImageHelper.Product(images[i].ImageName)" onclick="currentSlide(@slideNumber)" alt="" loading="lazy">
+                            <img class="demo align-middle w-[20%] lg:w-[10%] h-auto opacity-60 hover:opacity-100 border border-gray-300 rounded-md cursor-pointer" src="@ImageHelper.Product(images[i].ImageName)" data-ui="slide-go" data-arg="@slideNumber" alt="" loading="lazy">
                           }
                         </div>
                       </div>
@@ -214,7 +213,12 @@
             <div class="flex gap-x-1 items-center text-zinc-600 text-sm py-5">
               @Icons.Svg("Truck", "fill-zinc-700")
               <div>
-                ارسال از @minDelivery روز کاری
+                @(Model.MinDeliveryDays switch
+                {
+                    null => "ارسال به سراسر کشور",
+                    0 => "امکان تحویل همان روز",
+                    var days => $"ارسال از {days} روز کاری",
+                })
               </div>
             </div>
             @if (Model.RecommendPercent.HasValue)
@@ -284,11 +288,11 @@
               </button>
             }
           </div>
-          @if (Model.Shop.FreeShippingThreshold > 0)
+          @if (Model.FreeShippingFrom is { } freeFrom)
           {
             <div class="flex items-center gap-x-2 mt-4 text-zinc-600 text-sm">
               @Icons.Svg("Package", "fill-zinc-600 shrink-0")
-              هزینه ارسال برای سبد خرید بالای @Format.Toman(Model.Shop.FreeShippingThreshold) رایگان میباشد.
+              هزینه ارسال برای سبد خرید بالای @Format.Toman(freeFrom) رایگان میباشد.
             </div>
           }
         </div>
@@ -536,7 +540,7 @@
         <div class="w-full relative">
           <div class="bg-blue-400 w-full h-44 rounded-3xl bottom-0 absolute z-0">
           </div>
-          <div class="swiper productSlider1">
+          <div class="swiper productSlider1" data-slider="products">
             <div class="swiper-wrapper items-start pb-5">
               @foreach (var related in Model.RelatedProducts)
               {
@@ -552,6 +556,6 @@
   </main>
 
 @section Scripts {
-    <script src="~/assets/js/dependencies/swiper.min.js"></script>
-    <script src="~/assets/js/sliders.js"></script>
+    <script src="~/assets/js/dependencies/swiper.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/sliders.js" asp-append-version="true"></script>
 }

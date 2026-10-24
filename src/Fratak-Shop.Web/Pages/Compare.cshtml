@@ -60,21 +60,21 @@
         {
         <div class="justify-center items-center flex min-h-40">
           <!-- btn select modal -->
-          <button type="button" onclick="showSelectProduct()" class="block mx-auto border-2 border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-700 px-8 py-3 rounded-lg hover:bg-gray-100 transition">
+          <button type="button" data-ui="modal-open" data-arg="showSelectP" class="block mx-auto border-2 border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-700 px-8 py-3 rounded-lg hover:bg-gray-100 transition">
             @(Model.Products.Count == 0 ? "انتخاب کالا برای مقایسه" : "افزودن کالا")
           </button>
           <!-- select modal -->
           <div class="max-w-2xl mx-auto relative">
               <!-- Main modal -->
-              <div id="showSelectP" class="overflow-x-hidden overflow-y-auto z-50 fixed @(openModal ? "flex" : "hidden") h-modal h-full inset-0 justify-center items-center">
-                <div onclick="closeSelectP()" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
+              <div id="showSelectP" data-modal data-open="@(openModal ? "true" : "false")" class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
+                <div data-ui="modal-close" data-arg="showSelectP" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
                 </div>
                 <div class="relative w-12/12 sm:w-10/12 lg:w-7/12 px-4 h-screen mb-4 z-50 mt-10 mx-auto">
                   <!-- Modal content -->
                   <div class="bg-white rounded-lg shadow-lg relative overflow-y-visible">
                       <div class="flex justify-between items-center p-4 border-b">
                         <h3 class="text-gray-700">انتخاب کالا برای مقایسه</h3>
-                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" onclick="closeSelectP()" id="closeSelectP">
+                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" data-ui="modal-close" data-arg="showSelectP" id="closeSelectP" aria-label="بستن">
                           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>  
                         </button>
                       </div>

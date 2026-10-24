@@ -1,0 +1,177 @@
+@page "/profile/wallet"
+@model Fratak_Shop.Web.Pages.Profile.WalletModel
+@{
+    Layout = "_Layout";
+    var settings = Site.Settings;
+    var summary = Model.Summary;
+    const string inputClass = "text-sm block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-700 outline-none transition-all focus:border-sky-400";
+    const string card = "rounded-xl border p-4";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Wallet" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-6">
+        <h1 class="text-zinc-800 text-lg font-semibold">کیف پول</h1>
+
+        <!-- balance -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="col-span-2 lg:col-span-1 rounded-xl bg-gradient-to-bl from-sky-500 to-sky-700 p-4 text-white">
+            <div class="flex items-center gap-x-2 text-sm opacity-90">@Icons.Svg("Wallet", "fill-white", 20) موجودی قابل استفاده</div>
+            <div class="mt-3 text-2xl font-black">@Format.Price(summary.Balance) <span class="text-sm font-normal">تومان</span></div>
+          </div>
+          <div class="@card">
+            <div class="text-xs text-zinc-500">در انتظار برداشت</div>
+            <div class="mt-2 font-semibold text-amber-600">@Format.Toman(summary.PendingWithdrawals)</div>
+          </div>
+          <div class="@card">
+            <div class="text-xs text-zinc-500">مجموع واریزی ها</div>
+            <div class="mt-2 font-semibold text-emerald-600">@Format.Toman(summary.TotalCredits)</div>
+          </div>
+          <div class="@card">
+            <div class="text-xs text-zinc-500">مجموع برداشت ها و پرداخت ها</div>
+            <div class="mt-2 font-semibold text-zinc-700">@Format.Toman(summary.TotalDebits)</div>
+          </div>
+        </section>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+          @if (settings.CanTopUpWallet)
+          {
+            <!-- top up -->
+            <section class="@card">
+              <h2 class="mb-3 font-semibold text-zinc-700">افزایش موجودی</h2>
+              <form method="post" asp-page-handler="TopUp" class="space-y-3">
+                <div class="flex flex-wrap gap-2">
+                  @foreach (var preset in Fratak_Shop.Web.Pages.Profile.WalletModel.TopUpPresets.Where(p => p >= settings.WalletMinTopUpAmount && p <= settings.WalletMaxTopUpAmount))
+                  {
+                    <button type="button" data-amount-preset="@preset" data-amount-target="#TopUp_Amount" class="rounded-lg border border-sky-200 px-3 py-1.5 text-xs text-sky-700 hover:bg-sky-50">@Format.Price(preset)</button>
+                  }
+                </div>
+                <label for="TopUp_Amount" class="block text-xs text-zinc-600">مبلغ (تومان)</label>
+                <input id="TopUp_Amount" name="TopUp.Amount" type="number" inputmode="numeric" dir="ltr" required
+                       min="@settings.WalletMinTopUpAmount.ToString("0")" max="@settings.WalletMaxTopUpAmount.ToString("0")" step="1000" class="@inputClass">
+                <p class="text-[11px] text-zinc-500">حداقل @Format.Toman(settings.WalletMinTopUpAmount) و حداکثر @Format.Toman(settings.WalletMaxTopUpAmount) — پرداخت از طریق درگاه امن زرین‌پال</p>
+                <button type="submit" class="w-full rounded-lg bg-sky-500 px-2 py-2.5 text-sm text-white hover:bg-sky-400 transition">پرداخت و شارژ کیف پول</button>
+              </form>
+            </section>
+          }
+
+          @if (settings.CanWithdraw)
+          {
+            <!-- withdrawal -->
+            <section class="@card">
+              <h2 class="mb-3 font-semibold text-zinc-700">درخواست برداشت وجه</h2>
+              @if (Model.HasPendingWithdrawal)
+              {
+                <p class="text-sm leading-7 text-zinc-600">یک درخواست برداشت در حال بررسی دارید؛ پس از تعیین وضعیت آن می توانید درخواست جدید ثبت کنید.</p>
+              }
+              else if (summary.Balance < settings.WalletMinWithdrawalAmount)
+              {
+                <p class="text-sm leading-7 text-zinc-600">حداقل مبلغ برداشت @Format.Toman(settings.WalletMinWithdrawalAmount) است.</p>
+              }
+              else
+              {
+                <form method="post" asp-page-handler="Withdraw" class="space-y-3" data-confirm="مبلغ درخواستی تا زمان بررسی از موجودی کسر می شود. ادامه می دهید؟">
+                  <div>
+                    <label for="Withdrawal_Amount" class="block mb-1 text-xs text-zinc-600">مبلغ (تومان)</label>
+                    <input id="Withdrawal_Amount" name="Withdrawal.Amount" type="number" inputmode="numeric" dir="ltr" required
+                           min="@settings.WalletMinWithdrawalAmount.ToString("0")" max="@summary.Balance.ToString("0")" step="1000" class="@inputClass">
+                  </div>
+                  <div>
+                    <label for="Withdrawal_Iban" class="block mb-1 text-xs text-zinc-600">شماره شبا</label>
+                    <input id="Withdrawal_Iban" name="Withdrawal.Iban" type="text" dir="ltr" required maxlength="34" placeholder="IR000000000000000000000000"
+                           autocomplete="off" pattern="^\s*(IR|ir)?[0-9\s]{24,30}$" class="@inputClass">
+                  </div>
+                  <div>
+                    <label for="Withdrawal_AccountHolder" class="block mb-1 text-xs text-zinc-600">نام صاحب حساب</label>
+                    <input id="Withdrawal_AccountHolder" name="Withdrawal.AccountHolder" type="text" required maxlength="100" class="@inputClass">
+                  </div>
+                  <button type="submit" class="w-full rounded-lg border border-sky-500 px-2 py-2.5 text-sm text-sky-700 hover:bg-sky-50 transition">ثبت درخواست برداشت</button>
+                </form>
+              }
+            </section>
+          }
+        </div>
+
+        @if (Model.Withdrawals.Count > 0)
+        {
+          <section>
+            <h2 class="mb-3 font-semibold text-zinc-700">درخواست های برداشت</h2>
+            <div class="overflow-x-auto rounded-xl border">
+              <table class="w-full min-w-[620px] text-sm text-right">
+                <thead class="bg-gray-50 text-xs text-zinc-500">
+                  <tr><th class="p-3">تاریخ</th><th class="p-3">مبلغ</th><th class="p-3">شبا</th><th class="p-3">وضعیت</th><th class="p-3"></th></tr>
+                </thead>
+                <tbody>
+                  @foreach (var w in Model.Withdrawals)
+                  {
+                    <tr class="border-t">
+                      <td class="p-3">@Format.Date(w.CreatedAt)</td>
+                      <td class="p-3">@Format.Toman(w.Amount)</td>
+                      <td class="p-3" dir="ltr">@w.MaskedIban</td>
+                      <td class="p-3">
+                        <span class="rounded-full px-2 py-1 text-xs @Display.WithdrawalStatusBadge(w.Status)">@Display.WithdrawalStatus(w.Status)</span>
+                        @if (!string.IsNullOrWhiteSpace(w.BankTrackingNumber))
+                        {
+                          <div class="mt-1 text-[11px] text-zinc-500">پیگیری: <span dir="ltr">@w.BankTrackingNumber</span></div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(w.AdminNote))
+                        {
+                          <div class="mt-1 text-[11px] text-zinc-500">@w.AdminNote</div>
+                        }
+                      </td>
+                      <td class="p-3 text-left">
+                        @if (w.CanBeCancelled)
+                        {
+                          <form method="post" asp-page-handler="CancelWithdrawal" asp-route-id="@w.Id" data-confirm="درخواست برداشت لغو شود؟">
+                            <button type="submit" class="text-xs text-red-500 hover:underline">لغو</button>
+                          </form>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+
+        <section>
+          <h2 class="mb-3 font-semibold text-zinc-700">گردش حساب</h2>
+          @if (Model.Transactions.Data.Count == 0)
+          {
+            <p class="rounded-xl border border-dashed p-6 text-center text-sm text-zinc-500">هنوز تراکنشی ثبت نشده است.</p>
+          }
+          else
+          {
+            <ul class="divide-y rounded-xl border">
+              @foreach (var tx in Model.Transactions.Data)
+              {
+                <li class="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+                  <div>
+                    <div class="font-semibold text-zinc-700">@Display.WalletTransactionType(tx.Type)</div>
+                    <div class="mt-1 text-xs text-zinc-500">
+                      @Format.DateTime(tx.CreatedAt)
+                      @if (!string.IsNullOrWhiteSpace(tx.OrderNumber))
+                      {
+                        <text> • </text><a asp-page="/Profile/OrderDetail" asp-route-orderNumber="@tx.OrderNumber" class="text-sky-600" dir="ltr">@tx.OrderNumber</a>
+                      }
+                      @if (!string.IsNullOrWhiteSpace(tx.Description))
+                      {
+                        <text> • @tx.Description</text>
+                      }
+                    </div>
+                  </div>
+                  <div class="text-left">
+                    <div class="font-bold @(tx.IsCredit ? "text-emerald-600" : "text-red-500")" dir="ltr">@Format.SignedPrice(tx.Amount)</div>
+                    <div class="mt-1 text-[11px] text-zinc-400">مانده: @Format.Price(tx.BalanceAfter)</div>
+                  </div>
+                </li>
+              }
+            </ul>
+            <partial name="_Pagination" model="Model.Pager" />
+          }
+        </section>
+      </div>
+    </div>
+  </main>

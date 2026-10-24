@@ -1,7 +1,5 @@
 @{
-    var shop = ShopSettings.Value;
-    var title = ViewData[PageMetaKeys.Title] as string;
-    var description = ViewData[PageMetaKeys.Description] as string;
+    var settings = Site.Settings;
 }
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" class="scroll-smooth">
@@ -9,10 +7,15 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@(string.IsNullOrWhiteSpace(title) ? shop.SiteName : $"{title} | {shop.SiteName}")</title>
   <partial name="_MetaTags" />
-  <link rel="icon" href="~/assets/image/logo.png">
-  <link rel="stylesheet" href="~/assets/css/main.css" asp-append-version="true">
+  <meta name="theme-color" content="#0ea5e9">
+  <link rel="icon" href="@Site.FaviconUrl">
+  <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  @* Linked separately (not through main.css @import) so the browser downloads them in parallel. *@
+  <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/dependencies/swiper.min.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/style.css" asp-append-version="true">
   @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="mx-auto bg-[#fcfcfc]">

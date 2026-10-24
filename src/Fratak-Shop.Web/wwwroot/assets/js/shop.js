@@ -7,7 +7,11 @@
  *  - [data-share]          : native share or copy link
  *  - [data-filter-list]    : client-side filtering of a list (brand filter)
  *  - [data-province-select]: load cities of the selected province
- *  - [data-checkout-summary]: live shipping cost / total on the checkout page
+ *  - [data-checkout-summary]: live shipping cost / total / slots / payment rules on checkout
+ *  - [data-address-switch] : reload checkout with the options of another address
+ *  - [data-faq-search]     : client-side FAQ search
+ *  - [data-amount-preset]  : fill an amount input (wallet top-up)
+ *  - [data-copy]           : copy text to the clipboard
  *  - GET forms             : empty fields are not sent (clean URLs)
  */
 (function () {
@@ -131,19 +135,121 @@
     if (province.value) load();
   });
 
-  // ── Checkout totals ──────────────────────────────────────────────────
+  // ── Checkout: shipping cost, delivery slots, payment availability ──
   const summary = document.querySelector("[data-checkout-summary]");
   if (summary) {
-    const payable = Number(summary.dataset.payable || 0);
+    const items = Number(summary.dataset.items || 0);
+    const wallet = Number(summary.dataset.wallet || 0);
+    const codMax = Number(summary.dataset.codMax || 0);
     const shippingOut = summary.querySelector("[data-shipping-output]");
     const totalOut = summary.querySelector("[data-total-output]");
+    const freeHint = summary.querySelector("[data-free-hint]");
+    const freeRemaining = summary.querySelector("[data-free-remaining]");
+    const paymentHint = document.querySelector("[data-payment-hint]");
+    const shippingInputs = document.querySelectorAll("input[data-shipping-cost]");
+    const slotGroups = document.querySelectorAll("[data-slot-group]");
+    const cod = document.querySelector('input[data-payment="CashOnDelivery"]');
+    const walletInput = document.querySelector('input[data-payment="Wallet"]');
+
     const update = () => {
       const checked = document.querySelector("input[data-shipping-cost]:checked");
       const cost = checked ? Number(checked.dataset.shippingCost) : 0;
+      const total = items + cost;
       if (shippingOut) shippingOut.textContent = !checked ? "-" : cost === 0 ? "رایگان" : `${formatPrice(cost)} تومان`;
-      if (totalOut) totalOut.textContent = formatPrice(payable + cost);
+      if (totalOut) totalOut.textContent = formatPrice(total);
+
+      const remaining = checked ? Number(checked.dataset.remaining || 0) : 0;
+      if (freeHint) freeHint.classList.toggle("hidden", !(remaining > 0));
+      if (freeRemaining) freeRemaining.textContent = formatPrice(remaining);
+
+      // Only the time slots of the selected method are shown and submitted.
+      slotGroups.forEach((group) => {
+        const active = checked && checked.dataset.slotPanel === group.id;
+        group.classList.toggle("hidden", !active);
+        group.querySelectorAll('input[type="radio"]').forEach((radio) => {
+          if (!active) radio.checked = false;
+        });
+      });
+
+      const hints = [];
+      if (cod) {
+        const allowed = (!checked || checked.dataset.cod === "1") && (codMax <= 0 || total <= codMax);
+        cod.disabled = !allowed;
+        if (!allowed) hints.push("پرداخت در محل برای این روش ارسال یا این مبلغ امکان‌پذیر نیست.");
+      }
+      if (walletInput) {
+        const enough = wallet >= total;
+        walletInput.disabled = !enough;
+        if (!enough) hints.push(`موجودی کیف پول (${formatPrice(wallet)} تومان) برای پرداخت کل مبلغ کافی نیست.`);
+      }
+      const selected = document.querySelector('input[name="Input.PaymentMethod"]:checked');
+      if (!selected || selected.disabled) {
+        if (selected) selected.checked = false;
+        const first = document.querySelector('input[name="Input.PaymentMethod"]:not(:disabled)');
+        if (first) first.checked = true;
+      }
+      if (paymentHint) {
+        paymentHint.textContent = hints.join(" ");
+        paymentHint.classList.toggle("hidden", hints.length === 0);
+      }
     };
-    document.querySelectorAll("input[data-shipping-cost]").forEach((r) => r.addEventListener("change", update));
+
+    shippingInputs.forEach((r) => r.addEventListener("change", update));
     update();
   }
+
+  // Changing the delivery address reloads the page with the options of that address.
+  document.querySelectorAll("input[data-address-switch]").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set("addressId", radio.value);
+      window.location.assign(url.toString());
+    });
+  });
+
+  // ── FAQ search ───────────────────────────────────────────────────────
+  const faqSearch = document.querySelector("[data-faq-search]");
+  if (faqSearch) {
+    const empty = document.querySelector("[data-faq-empty]");
+    faqSearch.addEventListener("input", () => {
+      const term = faqSearch.value.trim().toLowerCase();
+      let visible = 0;
+      document.querySelectorAll("[data-faq-group]").forEach((group) => {
+        let groupVisible = 0;
+        group.querySelectorAll("[data-faq-item]").forEach((item) => {
+          const match = term === "" || item.textContent.toLowerCase().includes(term);
+          item.hidden = !match;
+          if (match) groupVisible++;
+          if (match && term !== "") item.open = true;
+        });
+        group.hidden = groupVisible === 0;
+        visible += groupVisible;
+      });
+      if (empty) empty.classList.toggle("hidden", visible > 0);
+    });
+  }
+
+  // ── Amount presets (wallet top-up) ───────────────────────────────────
+  document.querySelectorAll("[data-amount-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = document.querySelector(btn.dataset.amountTarget);
+      if (input) {
+        input.value = btn.dataset.amountPreset;
+        input.focus();
+      }
+    });
+  });
+
+  // ── Copy to clipboard ([data-copy]) ──────────────────────────────────
+  document.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        const old = btn.textContent;
+        btn.textContent = "کپی شد";
+        setTimeout(() => (btn.textContent = old), 1500);
+      } catch (_) { /* clipboard unavailable */ }
+    });
+  });
 })();

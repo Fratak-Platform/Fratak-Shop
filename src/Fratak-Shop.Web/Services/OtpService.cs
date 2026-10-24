@@ -52,14 +52,15 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
         if (!cache.TryGetValue<OtpEntry>(key, out var entry) || entry is null)
             return false;
 
-        if (string.Equals(entry.Code, code?.Trim(), StringComparison.Ordinal))
+        var given = System.Text.Encoding.ASCII.GetBytes(code?.Trim() ?? string.Empty);
+        var expected = System.Text.Encoding.ASCII.GetBytes(entry.Code);
+        if (CryptographicOperations.FixedTimeEquals(given, expected))
         {
             cache.Remove(key);
             return true;
         }
 
-        entry.Attempts++;
-        if (entry.Attempts >= MaxAttempts)
+        if (entry.RegisterFailedAttempt() >= MaxAttempts)
             cache.Remove(key);
 
         return false;
@@ -71,7 +72,9 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
     {
         public string Code { get; } = code;
         public DateTimeOffset SentAt { get; } = sentAt;
-        public int Attempts { get; set; }
+        private int _attempts;
+
+        public int RegisterFailedAttempt() => Interlocked.Increment(ref _attempts);
     }
 }
 

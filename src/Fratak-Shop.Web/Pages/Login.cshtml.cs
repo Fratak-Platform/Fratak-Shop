@@ -32,18 +32,19 @@ public class LoginModel(IUserService userService, IShopAuthService authService, 
         if (!ModelState.IsValid)
             return Page();
 
-        var user = await userService.LoginAsync(new LoginCommand
+        var result = await userService.LoginAsync(new LoginCommand
         {
             PhoneNumber = Input.PhoneNumber.Trim(),
             Password = Input.Password,
         });
 
-        if (user is null)
+        if (!Succeeded(result) || result.Data is null)
         {
-            ModelState.AddModelError(string.Empty, "شماره موبایل یا رمز عبور اشتباه است.");
+            ModelState.AddModelError(string.Empty, result.Message);
             return Page();
         }
 
+        var user = result.Data;
         await authService.SignInAsync(user, Input.RememberMe);
         SuccessMessage = $"{user.FullName ?? "کاربر"} عزیز، خوش آمدید.";
 

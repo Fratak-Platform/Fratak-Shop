@@ -10,6 +10,8 @@
 @using Fratak_Shop.Core.DTOs.Comments.Query
 @using Fratak_Shop.Core.DTOs.Categories.Query
 @using Fratak_Shop.Core.DTOs.Brands.Query
+@using Fratak_Shop.Core.DTOs.Contents
+@using Fratak_Shop.Core.DTOs.Settings
 @namespace Fratak_Shop.Web.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
-@inject Microsoft.Extensions.Options.IOptions<ShopOptions> ShopSettings
+@inject ISiteContext Site

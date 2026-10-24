@@ -1,5 +1,5 @@
 @{
-    var shop = ShopSettings.Value;
+    var settings = Site.Settings;
     var title = ViewData[PageMetaKeys.Title] as string;
 }
 <!DOCTYPE html>
@@ -8,10 +8,14 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@(string.IsNullOrWhiteSpace(title) ? shop.SiteName : $"{title} | {shop.SiteName}")</title>
+  <title>@Site.Title(title)</title>
   <meta name="robots" content="noindex, follow">
-  <link rel="icon" href="~/assets/image/logo.png">
-  <link rel="stylesheet" href="~/assets/css/main.css" asp-append-version="true">
+  <link rel="icon" href="@Site.FaviconUrl">
+  @* Linked separately (not through main.css @import) so the browser downloads them in parallel. *@
+  <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/dependencies/swiper.min.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/style.css" asp-append-version="true">
 </head>
 <body class="mx-auto bg-[#fcfcfc]">
   <partial name="_StatusMessage" />

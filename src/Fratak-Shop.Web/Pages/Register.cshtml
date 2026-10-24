@@ -12,7 +12,7 @@
       </a>
       <form method="post" class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
         <input type="hidden" asp-for="ReturnUrl" />
-        <a asp-page="/Index"><img class="w-36 mx-auto" src="~/assets/image/logo.png" alt="@ShopSettings.Value.SiteName"></a>
+        <a asp-page="/Index"><img class="w-36 mx-auto" src="@Site.LogoUrl" alt="@Site.Settings.SiteName" width="144" height="40"></a>
         <h1 class="mt-5 text-lg font-semibold text-zinc-800">
           ثبت نام در سایت
         </h1>
@@ -30,7 +30,7 @@
         <input asp-for="Input.ConfirmPassword" type="password" placeholder="تکرار رمز عبور" autocomplete="new-password" class="@inputClass">
         <label class="flex items-center gap-x-2 mt-4 text-sm text-zinc-600 cursor-pointer">
           <input asp-for="Input.AcceptRules" type="checkbox" class="h-4 w-4 accent-sky-500">
-          <span><a class="text-sky-500" asp-page="/Rules" target="_blank">قوانین و مقررات</a> را مطالعه کرده و می پذیرم</span>
+          <span><a class="text-sky-500" href="/page/rules" target="_blank">قوانین و مقررات</a> را مطالعه کرده و می پذیرم</span>
         </label>
         <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
           ثبت نام
@@ -44,7 +44,7 @@
           </a>
         </div>
         <div class="mt-8 text-xs text-zinc-500">
-          ثبت نام شما به معنای پذیرش <a class="text-sky-400 hover:text-sky-500 transition" asp-page="/Rules"> قوانین و مقررات</a> @ShopSettings.Value.SiteName میباشد.
+          ثبت نام شما به معنای پذیرش <a class="text-sky-400 hover:text-sky-500 transition" href="/page/rules"> قوانین و مقررات</a> @Site.Settings.SiteName میباشد.
         </div>
       </form>
     </div>
