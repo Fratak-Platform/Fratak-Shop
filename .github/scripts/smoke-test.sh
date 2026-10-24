@@ -245,10 +245,16 @@ case "$TARGET" in
     expect 200 "/profile/orders/$ORDER_NO/invoice"
     contains "data-invoice-pdf"
     contains "AUDIO15"
+    # Unpaid cash-on-delivery order: pro-forma, fixed A4 sheet, amount in words.
+    contains "پیش‌فاکتور"
+    contains "مبلغ قابل پرداخت به حروف"
+    contains "inv-sheet"
     expect 200 /profile/notifications
     contains_i "$ORDER_NO"
     expect 200 "/profile/orders/$ORDER_NO"
     contains "لغو سفارش"
+    contains "data-invoice-quick-print"
+    contains "data-confirm"
     TOKEN=$(token)
     expect 302 "/profile/orders/$ORDER_NO?handler=Cancel" --data-urlencode "__RequestVerificationToken=$TOKEN"
     expect 200 "/profile/orders/$ORDER_NO"
@@ -269,7 +275,12 @@ TARGET=$(location "/checkout?handler=PlaceOrder" --data-urlencode "__RequestVeri
   --data-urlencode "Input.DeliverySlot=$SLOT" --data-urlencode "Input.PaymentMethod=Wallet")
 case "$TARGET" in
   */checkout/success/*) pass "wallet order -> $TARGET"; expect 200 "${TARGET#$BASE}"; contains "پرداخت با موفقیت انجام شد"
-    expect 200 /profile/wallet; contains "پرداخت سفارش" ;;
+    expect 200 /profile/wallet; contains "پرداخت سفارش"
+    # Paid order: final invoice with a serial number.
+    WALLET_NO="${TARGET##*/}"
+    expect 200 "/profile/orders/$WALLET_NO/invoice"
+    contains "صورتحساب فروش کالا و خدمات"
+    contains "INV-" ;;
   *) fail "wallet order redirected to '$TARGET'" ;;
 esac
 
@@ -301,6 +312,75 @@ TOKEN=$(token)
 expect 302 "/product/haylou-t15?handler=Review" --data-urlencode "__RequestVerificationToken=$TOKEN" \
   --data-urlencode "Review.Title=عالی" --data-urlencode "Review.Content=کیفیت صدا خیلی خوب است." \
   --data-urlencode "Review.Rating=5" --data-urlencode "Review.IsRecommended=true"
+
+echo "== Review photos (metadata stripped) + one review per product"
+python3 - <<'PY'
+import struct
+def seg(marker, data):
+    return b"\xff" + bytes([marker]) + struct.pack(">H", len(data) + 2) + data
+tiff = b"MM\x00\x2a\x00\x00\x00\x08" + struct.pack(">H", 1) + struct.pack(">HHIHH", 0x0112, 3, 1, 6, 0) + b"\x00" * 4 + b"GPSSECRET"
+jpeg = (b"\xff\xd8" + seg(0xE0, b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00") + seg(0xE1, b"Exif\x00\x00" + tiff)
+        + seg(0xFE, b"COMMENTSECRET") + seg(0xDB, b"\x00" + bytes(range(1, 65)))
+        + seg(0xC0, b"\x08" + struct.pack(">HH", 16, 24) + b"\x01\x01\x11\x00")
+        + seg(0xC4, b"\x00" + bytes([0, 1] + [0] * 14) + b"\x00") + seg(0xDA, b"\x01\x01\x00\x00\x3f\x00")
+        + b"\x12\x34\x56\xff\xd9" + b"TRAILERSECRET")
+open("/tmp/smoke-review.jpg", "wb").write(jpeg)
+open("/tmp/smoke-fake.jpg", "wb").write(b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>")
+PY
+expect 200 /product/apple-airpods-pro-2
+contains 'enctype="multipart/form-data"'
+contains 'name="reviewImages"'
+TOKEN=$(token)
+# A script disguised as .jpg is rejected by its content.
+expect 302 "/product/apple-airpods-pro-2?handler=Review" -F "__RequestVerificationToken=$TOKEN" \
+  -F "Review.Content=تست فایل جعلی" -F "Review.Rating=4" -F "reviewImages=@/tmp/smoke-fake.jpg;type=image/jpeg"
+expect 200 /product/apple-airpods-pro-2
+contains "فقط تصاویر JPG، PNG و WebP"
+TOKEN=$(token)
+expect 302 "/product/apple-airpods-pro-2?handler=Review" -F "__RequestVerificationToken=$TOKEN" \
+  -F "Review.Title=صدای عالی" -F "Review.Content=حذف نویز فوق‌العاده است." -F "Review.Rating=5" \
+  -F "reviewImages=@/tmp/smoke-review.jpg;type=image/jpeg"
+expect 200 /product/apple-airpods-pro-2
+contains "دیدگاه شما برای این محصول ثبت شده است"
+UPLOADED=$(ls -t out/wwwroot/uploads/comments/*.jpg 2>/dev/null | head -1)
+if [ -n "$UPLOADED" ]; then
+  if grep -q "GPSSECRET\|COMMENTSECRET\|TRAILERSECRET" "$UPLOADED"; then fail "review photo still has metadata: $UPLOADED"; else pass "review photo stored without metadata"; fi
+  if grep -q "Exif" "$UPLOADED"; then pass "orientation kept"; else fail "orientation dropped"; fi
+  case "$(basename "$UPLOADED")" in [0-9a-f]*.jpg) pass "random file name $(basename "$UPLOADED")" ;; *) fail "unexpected file name $UPLOADED" ;; esac
+else
+  pass "upload folder not visible from the script (skipped file checks)"
+fi
+# Second review for the same product is refused.
+expect 200 /product/haylou-t15
+contains "دیدگاه شما برای این محصول ثبت شده است"
+TOKEN=$(token)
+expect 302 "/product/haylou-t15?handler=Review" --data-urlencode "__RequestVerificationToken=$TOKEN" \
+  --data-urlencode "Review.Content=دیدگاه دوم برای همان محصول" --data-urlencode "Review.Rating=3"
+expect 200 /product/haylou-t15
+contains "قبلاً برای این محصول دیدگاه"
+
+echo "== Search suggestions"
+expect 200 /api/search/suggest -G --data-urlencode "q=haylou"
+contains '"/product/haylou-t15"'
+contains '"searchUrl"'
+expect 200 /api/search/suggest -G --data-urlencode "q=ه"
+contains '"products":[]'
+expect 200 /
+contains "data-search-suggest"
+
+echo "== PWA install prompt + page alerts"
+expect 200 /product/haylou-t15
+contains "data-pwa-install"
+contains "data-page-alerts"
+expect 200 /cart
+lacks "data-pwa-install"
+
+echo "== Reports (development only, loopback)"
+expect 200 /_dev/reports
+contains '"grossSales"'
+contains '"pointsEarned"'
+contains '"grossProfit"'
+contains '"recoveryRate"'
 
 echo "== Favorites"
 expect 200 /product/apple-airpods-pro-2

@@ -55,6 +55,10 @@ public static class RateLimitingSetup
         if (HttpMethods.IsPost(request.Method) && CredentialPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)))
             return Window("auth:" + key, 10, TimeSpan.FromMinutes(1));
 
+        // Typing in the search box sends a request per pause: a larger, separate budget.
+        if (path.StartsWithSegments("/api/search", StringComparison.OrdinalIgnoreCase))
+            return Window("search:" + key, 120, TimeSpan.FromMinutes(1));
+
         if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
             return Window("api:" + key, 60, TimeSpan.FromMinutes(1));
 

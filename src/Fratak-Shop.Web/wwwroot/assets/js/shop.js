@@ -464,3 +464,263 @@
     });
   });
 })();
+
+/* Instant search suggestions (GET /api/search/suggest?q=), keyboard navigable. */
+(function () {
+  "use strict";
+  const forms = document.querySelectorAll("form[data-search-suggest]");
+  if (!forms.length || !window.fetch) return;
+
+  const make = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  };
+
+  let uid = 0;
+  forms.forEach((form) => {
+    const input = form.querySelector('input[name="q"]');
+    if (!input) return;
+
+    const listId = "search-suggest-" + ++uid;
+    const panel = make("div", "absolute inset-x-0 z-50 hidden max-h-[70vh] overflow-y-auto rounded-xl border bg-white text-right shadow-xl " +
+      (form.hasAttribute("data-suggest-up") ? "bottom-full mb-2" : "top-full mt-2"));
+    panel.id = listId;
+    panel.setAttribute("role", "listbox");
+    form.appendChild(panel);
+
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-controls", listId);
+    input.setAttribute("aria-expanded", "false");
+
+    let timer = null;
+    let controller = null;
+    let active = -1;
+    const cache = new Map();
+
+    const options = () => Array.from(panel.querySelectorAll("[data-suggest-option]"));
+    const close = () => {
+      panel.classList.add("hidden");
+      input.setAttribute("aria-expanded", "false");
+      active = -1;
+    };
+    const open = () => {
+      panel.classList.remove("hidden");
+      input.setAttribute("aria-expanded", "true");
+    };
+    const highlight = (index) => {
+      const items = options();
+      items.forEach((item, i) => item.classList.toggle("bg-sky-50", i === index));
+      active = index;
+      if (items[index]) {
+        input.setAttribute("aria-activedescendant", items[index].id);
+        items[index].scrollIntoView({ block: "nearest" });
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    };
+
+    let optionId = 0;
+    const option = (href, className) => {
+      const link = make("a", "flex items-center gap-x-3 px-3 py-2 text-sm text-zinc-700 transition hover:bg-sky-50 " + (className || ""));
+      link.href = href;
+      link.id = listId + "-o" + ++optionId;
+      link.setAttribute("role", "option");
+      link.setAttribute("data-suggest-option", "");
+      return link;
+    };
+
+    const section = (title) => make("div", "px-3 pt-3 pb-1 text-xs font-semibold text-zinc-400", title);
+
+    const render = (data) => {
+      panel.textContent = "";
+      active = -1;
+      const hasLinks = data.categories.length || data.brands.length;
+
+      if (!data.products.length && !hasLinks) {
+        panel.appendChild(make("div", "px-3 py-4 text-center text-sm text-zinc-500", "محصولی با این عبارت پیدا نشد."));
+        open();
+        return;
+      }
+
+      if (data.products.length) {
+        panel.appendChild(section("محصولات"));
+        data.products.forEach((product) => {
+          const link = option(product.url);
+          const img = make("img", "h-11 w-11 shrink-0 rounded-lg bg-zinc-50 object-contain");
+          img.src = product.image;
+          img.alt = "";
+          img.loading = "lazy";
+          img.width = 44;
+          img.height = 44;
+          const text = make("div", "min-w-0 flex-1");
+          text.appendChild(make("div", "truncate", product.name));
+          const price = make("div", "mt-0.5 flex items-center gap-x-2 text-xs");
+          if (product.available) {
+            price.appendChild(make("span", "font-semibold text-zinc-800", product.price));
+            if (product.oldPrice) price.appendChild(make("span", "text-zinc-400 line-through", product.oldPrice));
+          } else {
+            price.appendChild(make("span", "text-red-400", "ناموجود"));
+          }
+          text.appendChild(price);
+          link.append(img, text);
+          panel.appendChild(link);
+        });
+      }
+
+      const chips = (title, items) => {
+        if (!items.length) return;
+        panel.appendChild(section(title));
+        const row = make("div", "flex flex-wrap gap-2 px-3 pb-2");
+        items.forEach((item) => {
+          const link = option(item.url, "rounded-full border px-3 py-1 text-xs");
+          link.classList.remove("px-3", "py-2", "text-sm");
+          link.textContent = item.name;
+          row.appendChild(link);
+        });
+        panel.appendChild(row);
+      };
+      chips("دسته‌بندی‌ها", data.categories);
+      chips("برندها", data.brands);
+
+      const all = option(data.searchUrl, "justify-center border-t font-semibold text-sky-600");
+      all.textContent = data.total > data.products.length
+        ? "مشاهده همه " + data.total.toLocaleString("fa-IR") + " نتیجه"
+        : "مشاهده نتایج جستجو";
+      panel.appendChild(all);
+      open();
+    };
+
+    const load = (query) => {
+      if (cache.has(query)) {
+        render(cache.get(query));
+        return;
+      }
+      if (controller) controller.abort();
+      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      fetch("/api/search/suggest?q=" + encodeURIComponent(query), {
+        headers: { Accept: "application/json" },
+        signal: controller ? controller.signal : undefined,
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (!data || input.value.trim() !== query) return;
+          cache.set(query, data);
+          render(data);
+        })
+        .catch(() => { /* aborted or offline: the normal search still works */ });
+    };
+
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      const query = input.value.trim();
+      if (query.length < 2) {
+        close();
+        return;
+      }
+      timer = setTimeout(() => load(query), 250);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      const items = options();
+      if (event.key === "ArrowDown" && items.length) {
+        event.preventDefault();
+        if (panel.classList.contains("hidden")) open();
+        highlight((active + 1) % items.length);
+      } else if (event.key === "ArrowUp" && items.length) {
+        event.preventDefault();
+        highlight(active <= 0 ? items.length - 1 : active - 1);
+      } else if (event.key === "Enter" && active >= 0 && items[active]) {
+        event.preventDefault();
+        window.location.href = items[active].href;
+      } else if (event.key === "Escape") {
+        close();
+      }
+    });
+
+    input.addEventListener("focus", () => {
+      if (panel.childElementCount && input.value.trim().length >= 2) open();
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!form.contains(event.target)) close();
+    });
+  });
+})();
+
+/* PWA install suggestion after a few page views (counts in localStorage, snoozed for N days on "later"). */
+(function () {
+  "use strict";
+  const box = document.querySelector("[data-pwa-install]");
+  if (!box) return;
+
+  const KEY_VIEWS = "fratak_pwa_views";
+  const KEY_SNOOZE = "fratak_pwa_snooze_until";
+  const KEY_DONE = "fratak_pwa_installed";
+  const store = {
+    get: (key) => { try { return localStorage.getItem(key); } catch (_) { return null; } },
+    set: (key, value) => { try { localStorage.setItem(key, value); } catch (_) { /* private mode */ } },
+  };
+
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  if (standalone || store.get(KEY_DONE)) return;
+
+  const views = (parseInt(store.get(KEY_VIEWS) || "0", 10) || 0) + 1;
+  store.set(KEY_VIEWS, String(views));
+
+  const after = parseInt(box.dataset.after || "3", 10);
+  const snoozeDays = parseInt(box.dataset.snooze || "14", 10);
+  const snoozedUntil = parseInt(store.get(KEY_SNOOZE) || "0", 10) || 0;
+  const eligible = () => views >= after && Date.now() > snoozedUntil;
+
+  const ua = window.navigator.userAgent || "";
+  const isIos = /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+  const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios|opios/i.test(ua);
+
+  let deferred = null;
+
+  const show = (mode) => {
+    box.querySelector("[data-pwa-native]").classList.toggle("hidden", mode !== "native");
+    box.querySelector("[data-pwa-ios]").classList.toggle("hidden", mode !== "ios");
+    box.hidden = false;
+  };
+  const hide = () => { box.hidden = true; };
+  const snooze = () => {
+    store.set(KEY_SNOOZE, String(Date.now() + snoozeDays * 86400000));
+    hide();
+  };
+
+  box.querySelectorAll("[data-pwa-later]").forEach((button) => button.addEventListener("click", snooze));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !box.hidden) snooze();
+  });
+
+  box.querySelector("[data-pwa-accept]").addEventListener("click", () => {
+    if (!deferred) { hide(); return; }
+    const prompt = deferred;
+    deferred = null;
+    prompt.prompt();
+    prompt.userChoice
+      .then((choice) => {
+        if (choice && choice.outcome === "accepted") store.set(KEY_DONE, "1");
+        else snooze();
+      })
+      .catch(snooze)
+      .finally(hide);
+  });
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferred = event;
+    if (eligible()) setTimeout(() => show("native"), 1500);
+  });
+
+  window.addEventListener("appinstalled", () => {
+    store.set(KEY_DONE, "1");
+    hide();
+  });
+
+  if (isIos && isSafari && eligible()) setTimeout(() => show("ios"), 2500);
+})();

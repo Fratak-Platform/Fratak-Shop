@@ -37,6 +37,7 @@
   @RenderBody()
   @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Bottom })
   <partial name="_Footer" />
+  <partial name="_PwaInstallPrompt" />
 
   <!-- main javaScript code -->
   <script src="~/assets/js/modal.js" asp-append-version="true"></script>

@@ -1,0 +1,42 @@
+@using Fratak_Shop.Data.Entities.Pages
+@{
+    var settings = Site.Settings;
+    // Not while paying: no distraction on cart / checkout.
+    var sitePage = ViewData[PageMetaKeys.SitePage] as SitePage?;
+    var skip = sitePage is SitePage.Checkout or SitePage.Cart;
+    var appName = settings.PwaShortName ?? settings.SiteName;
+    var title = settings.PwaInstallPromptTitle ?? $"{appName} را نصب کنید";
+    var text = settings.PwaInstallPromptText ?? "دسترسی سریع‌تر از صفحه اصلی گوشی، بدون نیاز به دانلود از فروشگاه برنامه‌ها.";
+}
+@if (settings.IsPwaEnabled && settings.IsPwaInstallPromptEnabled && !skip)
+{
+  <section id="pwaInstall" hidden data-pwa-install data-after="@Math.Clamp(settings.PwaInstallPromptAfterPages, 1, 50)" data-snooze="@Math.Clamp(settings.PwaInstallPromptSnoozeDays, 1, 365)"
+           class="fixed inset-x-3 bottom-20 z-[95] mx-auto max-w-md rounded-2xl border bg-white p-4 shadow-2xl md:bottom-6 md:left-6 md:right-auto md:mx-0"
+           role="dialog" aria-labelledby="pwaInstallTitle" aria-describedby="pwaInstallText">
+    <button type="button" data-pwa-later class="absolute top-2 left-2 rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100" aria-label="بستن">
+      @Icons.Svg("Close", "fill-zinc-400", 16)
+    </button>
+    <div class="flex items-start gap-x-3">
+      <img src="~/assets/image/pwa/icon-192.png" alt="" width="52" height="52" class="h-12 w-12 shrink-0 rounded-xl border">
+      <div class="min-w-0 pl-5">
+        <h2 id="pwaInstallTitle" class="text-sm font-bold text-zinc-800">@title</h2>
+        <p id="pwaInstallText" class="mt-1 text-xs leading-6 text-zinc-500">@text</p>
+      </div>
+    </div>
+    @* Chrome / Edge / Samsung Internet: the native install dialog. *@
+    <div class="mt-3 flex items-center justify-end gap-2" data-pwa-native>
+      <button type="button" data-pwa-later class="rounded-lg px-4 py-2 text-sm text-zinc-500 hover:bg-zinc-100">بعداً</button>
+      <button type="button" data-pwa-accept class="flex items-center gap-x-1 rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold text-white hover:bg-sky-600">
+        @Icons.Svg("Download", "fill-white", 18) نصب برنامه
+      </button>
+    </div>
+    @* iPhone / iPad (Safari has no install dialog): short instructions. *@
+    <div class="mt-3 hidden rounded-xl bg-sky-50 p-3 text-xs leading-7 text-sky-800" data-pwa-ios>
+      <div class="flex flex-wrap items-center gap-1">۱. در نوار پایین Safari روی دکمه اشتراک‌گذاری @Icons.Svg("Export", "fill-sky-600", 16) بزنید.</div>
+      <div>۲. گزینه «Add to Home Screen» یا «افزودن به صفحه اصلی» را انتخاب کنید.</div>
+      <div class="mt-2 text-left">
+        <button type="button" data-pwa-later class="rounded-lg px-3 py-1.5 text-sky-700 hover:bg-sky-100">متوجه شدم</button>
+      </div>
+    </div>
+  </section>
+}

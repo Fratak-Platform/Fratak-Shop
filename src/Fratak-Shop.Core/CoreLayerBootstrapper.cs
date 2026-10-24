@@ -69,6 +69,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Notifications.INotificationService, Services.Notifications.NotificationService>();
         services.AddScoped<IMenuService, MenuService>();
         services.AddScoped<Services.Products.IProductFilterService, Services.Products.ProductFilterService>();
+        services.AddScoped<Services.Products.ISearchSuggestService, Services.Products.SearchSuggestService>();
+        services.AddScoped<Services.Reports.IReportService, Services.Reports.ReportService>();
         services.AddScoped<Services.Products.IRecommendationService, Services.Products.RecommendationService>();
 
         return services;

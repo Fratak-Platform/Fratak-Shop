@@ -172,6 +172,56 @@ app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid prov
     return Results.Ok(cities.Select(city => new { id = city.Id, name = city.Name }));
 });
 
+// Instant suggestions of the header search box (products, categories, brands).
+app.MapGet("/api/search/suggest", async (string? q, Fratak_Shop.Core.Services.Products.ISearchSuggestService suggestions,
+    HttpContext http, CancellationToken cancellationToken) =>
+{
+    var result = await suggestions.SuggestAsync(q, cancellationToken);
+    http.Response.Headers.CacheControl = "public, max-age=60";
+    return Results.Ok(new
+    {
+        query = result.Query,
+        total = result.TotalProducts,
+        searchUrl = "/search?q=" + Uri.EscapeDataString(result.Query),
+        products = result.Products.Select(p => new
+        {
+            name = p.Name,
+            url = "/product/" + p.Slug,
+            image = Fratak_Shop.Web.Helpers.ImageHelper.Product(p.ImageName),
+            price = Fratak_Shop.Web.Helpers.Format.Toman(p.FinalPrice),
+            oldPrice = p.FinalPrice < p.Price ? Fratak_Shop.Web.Helpers.Format.Price(p.Price) : null,
+            available = p.IsAvailable,
+        }),
+        categories = result.Categories.Select(c => new { name = c.Name, url = "/category/" + c.Slug }),
+        brands = result.Brands.Select(b => new { name = b.Name, url = "/brand/" + b.Slug }),
+    });
+});
+
+// Development only, from the local machine only: the management reports / abandoned-cart
+// figures as JSON, to check the services until the admin panel shows them. Never mapped in production.
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/_dev/reports", async (HttpContext http, int? days,
+        Fratak_Shop.Core.Services.Reports.IReportService reports,
+        Fratak_Shop.Core.Services.Shopping.IAbandonedCartService abandonedCarts,
+        CancellationToken cancellationToken) =>
+    {
+        var remote = http.Connection.RemoteIpAddress;
+        if (remote is null || !IPAddress.IsLoopback(remote))
+            return Results.NotFound();
+
+        var period = Fratak_Shop.Core.DTOs.Reports.ReportPeriod.LastDays(days ?? 30);
+        http.Response.Headers.CacheControl = "no-store";
+        return Results.Ok(new
+        {
+            discounts = await reports.GetDiscountReportAsync(period, cancellationToken),
+            loyalty = await reports.GetLoyaltyReportAsync(period, cancellationToken),
+            profit = await reports.GetProfitReportAsync(period, 10, cancellationToken),
+            abandonedCarts = await abandonedCarts.GetStatsAsync(period.From, period.To),
+        });
+    });
+}
+
 // ── Database: migrations, reference data and optional demo catalog ────
 await app.Services.InitializeFratakShopDataAsync();
 
