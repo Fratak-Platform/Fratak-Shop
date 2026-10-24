@@ -38,4 +38,9 @@ public enum SitePage
     UserWallet = 28,      // کیف پول کاربر
     Compare = 29,         // مقایسه محصولات
     ContentPage = 30,     // صفحات محتوایی دیگر
+    CheckoutComplete = 31, // ثبت موفق سفارش
+    OrderDetails = 32,    // جزئیات سفارش (پروفایل)
+    CustomerClub = 33,    // باشگاه مشتریان
+    Notifications = 34,   // اعلان‌ها
+    AllPages = 100,       // همه صفحات
 }

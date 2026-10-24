@@ -12,6 +12,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique();
 
         builder.Property(u => u.WalletBalance).HasPrecision(18, 0);
+        builder.Property(u => u.WalletBonusBalance).HasPrecision(18, 0);
 
         builder.HasIndex(u => u.ReferralCode)
             .IsUnique()
@@ -24,6 +25,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable(t =>
         {
             t.HasCheckConstraint("CK_Users_WalletBalance", "[WalletBalance] >= 0");
+            t.HasCheckConstraint("CK_Users_WalletBonusBalance", "[WalletBonusBalance] >= 0 AND [WalletBonusBalance] <= [WalletBalance]");
             t.HasCheckConstraint("CK_Users_LoyaltyPoints", "[LoyaltyPoints] >= 0 AND [LoyaltyLifetimePoints] >= 0");
         });
     }

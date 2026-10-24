@@ -30,6 +30,38 @@ public class ShippingMethodConfiguration : IEntityTypeConfiguration<ShippingMeth
     }
 }
 
+public class ShippingRateConfiguration : IEntityTypeConfiguration<ShippingRate>
+{
+    public void Configure(EntityTypeBuilder<ShippingRate> builder)
+    {
+        builder.HasOne(r => r.ShippingMethod)
+            .WithMany(m => m.Rates)
+            .HasForeignKey(r => r.ShippingMethodId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(r => r.Province)
+            .WithMany()
+            .HasForeignKey(r => r.ProvinceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(r => r.City)
+            .WithMany()
+            .HasForeignKey(r => r.CityId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(r => new { r.ShippingMethodId, r.ProvinceId, r.CityId });
+        builder.HasIndex(r => r.CityId);
+
+        builder.Property(r => r.Cost).HasPrecision(18, 0);
+        builder.Property(r => r.FreeShippingThreshold).HasPrecision(18, 0);
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_ShippingRates_Values",
+            "([ProvinceId] IS NOT NULL OR [CityId] IS NOT NULL) AND ([Cost] IS NULL OR [Cost] >= 0) " +
+            "AND ([FreeShippingThreshold] IS NULL OR [FreeShippingThreshold] >= 0) AND [ExtraDeliveryDays] >= 0"));
+    }
+}
+
 public class DeliveryTimeSlotConfiguration : IEntityTypeConfiguration<DeliveryTimeSlot>
 {
     public void Configure(EntityTypeBuilder<DeliveryTimeSlot> builder)

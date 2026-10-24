@@ -122,6 +122,17 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public DbSet<NotificationTemplate> NotificationTemplates { get; set; } = null!;
 
+    public DbSet<ShippingRate> ShippingRates { get; set; } = null!;
+
+    public DbSet<CommentImage> CommentImages { get; set; } = null!;
+
+    public DbSet<AbandonedCart> AbandonedCarts { get; set; } = null!;
+
+    public DbSet<AbandonedCartReminderStep> AbandonedCartReminderSteps { get; set; } = null!;
+
+    /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
+    public const string InvoiceSerialSequence = "InvoiceSerials";
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
@@ -135,6 +146,9 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
         // Entity-specific rules (relationships, indexes, check constraints, ...)
         // live in the Configuration classes and stay there.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FratakShopDbContext).Assembly);
+
+        // Gap-free-ish, concurrency safe serial numbers for sales invoices.
+        modelBuilder.HasSequence<long>(InvoiceSerialSequence).StartsAt(1).IncrementsBy(1);
 
         // Cross-cutting soft-delete rules are applied once here so no
         // configuration has to repeat them.

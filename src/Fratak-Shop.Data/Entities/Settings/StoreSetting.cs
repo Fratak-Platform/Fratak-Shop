@@ -136,6 +136,12 @@ public class StoreSetting : BaseEntity
 
     public decimal WalletMinWithdrawalAmount { get; set; } = 50_000;
 
+    /// <summary>Maximum amount of one withdrawal request (0 = unlimited).</summary>
+    public decimal WalletMaxWithdrawalAmount { get; set; }
+
+    /// <summary>Open (pending) withdrawal requests a customer may have at the same time.</summary>
+    public int WalletMaxPendingWithdrawals { get; set; } = 1;
+
     // ── SEO ──────────────────────────────────────────────────────────────
     [MaxLength(10)]
     public string TitleSeparator { get; set; } = "|";
@@ -194,6 +200,40 @@ public class StoreSetting : BaseEntity
     /// <summary>Invite friends with a personal code (rules: Referral / ReferralSignup).</summary>
     public bool IsReferralEnabled { get; set; } = true;
 
+    /// <summary>Intro text of the club page.</summary>
+    [MaxLength(1000)]
+    public string? LoyaltyProgramDescription { get; set; }
+
+    /// <summary>Text of the "invite friends" box.</summary>
+    [MaxLength(500)]
+    public string? LoyaltyReferralDescription { get; set; }
+
+    // ── Abandoned carts ──────────────────────────────────────────────────
+    public bool IsAbandonedCartEnabled { get; set; } = true;
+
+    /// <summary>A signed-in customer's cart counts as abandoned after this many idle minutes.</summary>
+    public int AbandonedCartAfterMinutes { get; set; } = 60;
+
+    /// <summary>Carts below this items total are ignored (0 = all).</summary>
+    public decimal AbandonedCartMinAmount { get; set; }
+
+    /// <summary>Open abandoned carts are no longer followed after this many days.</summary>
+    public int AbandonedCartExpireDays { get; set; } = 7;
+
+    // ── Reviews ──────────────────────────────────────────────────────────
+    public bool IsReviewImageEnabled { get; set; } = true;
+
+    public int ReviewMaxImages { get; set; } = 3;
+
+    public int ReviewMaxImageSizeKb { get; set; } = 2048;
+
+    /// <summary>Only customers who received the product can write a review.</summary>
+    public bool IsReviewOnlyForBuyers { get; set; }
+
+    // ── Search ───────────────────────────────────────────────────────────
+    /// <summary>Instant suggestions (products, categories, brands) while typing.</summary>
+    public bool IsInstantSearchEnabled { get; set; } = true;
+
     // ── Announcement bar (top of every page) ────────────────────────────
     public bool IsAnnouncementEnabled { get; set; }
 
@@ -227,6 +267,10 @@ public class StoreSetting : BaseEntity
     [MaxLength(1000)]
     public string? InvoiceNote { get; set; }
 
+    /// <summary>Prefix of serial invoice numbers (INV → INV-1405-000001).</summary>
+    [MaxLength(10)]
+    public string? InvoiceNumberPrefix { get; set; } = "INV";
+
     // ── Progressive web app ──────────────────────────────────────────────
     public bool IsPwaEnabled { get; set; } = true;
 
@@ -236,4 +280,19 @@ public class StoreSetting : BaseEntity
     /// <summary>Browser / app theme colour (hex).</summary>
     [MaxLength(20)]
     public string? ThemeColor { get; set; }
+
+    /// <summary>Suggest installing the app (custom banner) after the visitor has browsed a little.</summary>
+    public bool IsPwaInstallPromptEnabled { get; set; } = true;
+
+    /// <summary>Number of page views before the install suggestion appears.</summary>
+    public int PwaInstallPromptAfterPages { get; set; } = 3;
+
+    /// <summary>Days the suggestion stays hidden after the visitor closes it.</summary>
+    public int PwaInstallPromptSnoozeDays { get; set; } = 14;
+
+    [MaxLength(100)]
+    public string? PwaInstallPromptTitle { get; set; }
+
+    [MaxLength(300)]
+    public string? PwaInstallPromptText { get; set; }
 }

@@ -25,7 +25,13 @@ public class ShippingMethod : BaseEntity
 
     public ShippingMethodType Type { get; set; } = ShippingMethodType.Post;
 
+    /// <summary>Default cost; with <see cref="ShippingPricingMode.ByLocation"/> province / city rates override it.</summary>
     public decimal Cost { get; set; }
+
+    public ShippingPricingMode PricingMode { get; set; } = ShippingPricingMode.Fixed;
+
+    /// <summary>The method is offered only in locations that have a (non-blocked) rate.</summary>
+    public bool OnlyListedLocations { get; set; }
 
     /// <summary>Method specific free-shipping threshold; null = the store-wide threshold applies, 0 = never free.</summary>
     public decimal? FreeShippingThreshold { get; set; }
@@ -52,6 +58,14 @@ public class ShippingMethod : BaseEntity
     public Location? Province { get; set; }
 
     public List<DeliveryTimeSlot> TimeSlots { get; set; } = [];
+
+    public List<ShippingRate> Rates { get; set; } = [];
+}
+
+public enum ShippingPricingMode
+{
+    Fixed = 0,       // یک هزینه ثابت برای کل کشور
+    ByLocation = 1,  // هزینه بر اساس استان / شهر
 }
 
 public enum ShippingMethodType

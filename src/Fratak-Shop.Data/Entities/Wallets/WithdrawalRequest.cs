@@ -16,11 +16,19 @@ public class WithdrawalRequest : BaseEntity
 
     public decimal Amount { get; set; }
 
-    /// <summary>IBAN (شبا) in the IR + 24 digits format.</summary>
-    [Required]
+    /// <summary>IBAN (شبا) in the IR + 24 digits format. Either this or <see cref="CardNumber"/> is required.</summary>
     [MaxLength(26)]
-    public string Iban { get; set; } = null!;
+    public string? Iban { get; set; }
 
+    /// <summary>16 digit bank card number (Luhn checked).</summary>
+    [MaxLength(16)]
+    public string? CardNumber { get; set; }
+
+    /// <summary>Optional bank account number.</summary>
+    [MaxLength(30)]
+    public string? AccountNumber { get; set; }
+
+    /// <summary>Full name of the account / card owner.</summary>
     [Required]
     [MaxLength(200)]
     public string AccountHolder { get; set; } = null!;

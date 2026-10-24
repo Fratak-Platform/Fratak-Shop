@@ -36,6 +36,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.DiscountPrice)
             .HasPrecision(18, 0);
 
+        builder.Property(p => p.PurchasePrice).HasPrecision(18, 0);
+        builder.ToTable(t => t.HasCheckConstraint("CK_Products_PurchasePrice", "[PurchasePrice] IS NULL OR [PurchasePrice] >= 0"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Products_PriceAndStock",
             "[Price] >= 0 AND ([DiscountPrice] IS NULL OR [DiscountPrice] >= 0) AND [StockQuantity] >= 0 AND ([WarrantyMonths] IS NULL OR [WarrantyMonths] >= 0)"));

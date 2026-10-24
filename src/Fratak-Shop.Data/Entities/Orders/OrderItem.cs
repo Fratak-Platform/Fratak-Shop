@@ -31,6 +31,9 @@ public class OrderItem : BaseEntity
 
     public decimal TotalAmount { get; set; }
 
+    /// <summary>Purchase (cost) price of one unit at the time of sale – for profit reports, never shown to customers.</summary>
+    public decimal? UnitCostPrice { get; set; }
+
     [ForeignKey(nameof(OrderId))]
     public Order Order { get; set; } = null!;
 

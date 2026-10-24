@@ -30,6 +30,12 @@ public class ProductFilterAttribute : BaseEntity
     /// <summary>Only offered on this category (and its children); null = everywhere.</summary>
     public Guid? CategoryId { get; set; }
 
+    /// <summary>
+    /// Shown on listings without a selected category (only for filters that make sense
+    /// for every product, e.g. colour). Category specific filters stay hidden there.
+    /// </summary>
+    public bool ShowWithoutCategory { get; set; }
+
     /// <summary>Maximum number of values shown in the box.</summary>
     public int MaxValues { get; set; } = 30;
 

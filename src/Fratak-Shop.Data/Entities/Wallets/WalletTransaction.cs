@@ -20,6 +20,15 @@ public class WalletTransaction : BaseEntity
 
     public decimal BalanceAfter { get; set; }
 
+    /// <summary>
+    /// Signed change of the non-withdrawable (promotional) part of the balance in this
+    /// movement; 0 when only the customer's own money moved.
+    /// </summary>
+    public decimal BonusAmount { get; set; }
+
+    /// <summary>Non-withdrawable balance after this movement.</summary>
+    public decimal BonusBalanceAfter { get; set; }
+
     [MaxLength(500)]
     public string? Description { get; set; }
 
@@ -44,4 +53,5 @@ public enum WalletTransactionType
     AdminCredit = 6,         // افزایش توسط مدیر
     AdminDebit = 7,          // کاهش توسط مدیر
     LoyaltyReward = 8,       // تبدیل امتیاز باشگاه مشتریان
+    PromotionCredit = 9,     // اعتبار هدیه / کمپین (غیرقابل برداشت)
 }

@@ -75,6 +75,21 @@ public class Order : BaseEntity
 
     public DateTimeOffset? RefundedAt { get; set; }
 
+    /// <summary>
+    /// Part of a wallet payment that was paid with non-withdrawable (promotional) credit.
+    /// Refunds return this part as non-withdrawable credit again.
+    /// </summary>
+    public decimal WalletBonusAmount { get; set; }
+
+    /// <summary>Non-withdrawable part of <see cref="RefundedAmount"/>.</summary>
+    public decimal RefundedBonusAmount { get; set; }
+
+    /// <summary>Serial sales invoice number (e.g. INV-1405-000123), issued once the order is paid.</summary>
+    [MaxLength(30)]
+    public string? InvoiceNumber { get; set; }
+
+    public DateTimeOffset? InvoiceIssuedAt { get; set; }
+
     [Required]
     [MaxLength(250)]
     public string CustomerName { get; set; } = null!;

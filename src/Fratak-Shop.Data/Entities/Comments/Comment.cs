@@ -43,6 +43,9 @@ public class Comment : BaseEntity
 
     public CommentStatus Status { get; set; }
 
+    /// <summary>The author bought this product (a delivered order) – shown as a badge.</summary>
+    public bool IsVerifiedPurchase { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
@@ -56,6 +59,34 @@ public class Comment : BaseEntity
     public Comment? Parent { get; set; }
 
     public List<Comment> Replies { get; set; } = [];
+
+    public List<CommentImage> Images { get; set; } = [];
+}
+
+/// <summary>
+/// Photo attached to a product review. Files are re-validated (magic bytes),
+/// stripped of metadata (EXIF/GPS) and stored under a random name.
+/// Shown only after the review is approved.
+/// </summary>
+public class CommentImage : BaseEntity
+{
+    public Guid CommentId { get; set; }
+
+    /// <summary>Random file name under /uploads/comments.</summary>
+    [Required]
+    [MaxLength(100)]
+    public string FileName { get; set; } = null!;
+
+    [Required]
+    [MaxLength(50)]
+    public string ContentType { get; set; } = null!;
+
+    public int SizeBytes { get; set; }
+
+    public int DisplayOrder { get; set; }
+
+    [ForeignKey(nameof(CommentId))]
+    public Comment Comment { get; set; } = null!;
 }
 
 public enum CommentType

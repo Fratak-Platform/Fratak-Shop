@@ -19,8 +19,14 @@ public class WalletTransactionConfiguration : IEntityTypeConfiguration<WalletTra
 
         builder.Property(t => t.Amount).HasPrecision(18, 0);
         builder.Property(t => t.BalanceAfter).HasPrecision(18, 0);
+        builder.Property(t => t.BonusAmount).HasPrecision(18, 0);
+        builder.Property(t => t.BonusBalanceAfter).HasPrecision(18, 0);
 
-        builder.ToTable(t => t.HasCheckConstraint("CK_WalletTransactions_Values", "[Amount] <> 0 AND [BalanceAfter] >= 0"));
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_WalletTransactions_Values", "[Amount] <> 0 AND [BalanceAfter] >= 0");
+            t.HasCheckConstraint("CK_WalletTransactions_Bonus", "[BonusBalanceAfter] >= 0 AND [BonusBalanceAfter] <= [BalanceAfter] AND ABS([BonusAmount]) <= ABS([Amount])");
+        });
     }
 }
 
@@ -38,6 +44,10 @@ public class WithdrawalRequestConfiguration : IEntityTypeConfiguration<Withdrawa
 
         builder.Property(r => r.Amount).HasPrecision(18, 0);
 
-        builder.ToTable(t => t.HasCheckConstraint("CK_WithdrawalRequests_Amount", "[Amount] > 0"));
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_WithdrawalRequests_Amount", "[Amount] > 0");
+            t.HasCheckConstraint("CK_WithdrawalRequests_Destination", "[Iban] IS NOT NULL OR [CardNumber] IS NOT NULL");
+        });
     }
 }

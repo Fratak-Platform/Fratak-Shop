@@ -26,6 +26,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.PayableAmount).HasPrecision(18, 0);
         builder.Property(o => o.RefundedAmount).HasPrecision(18, 0);
         builder.Property(o => o.CouponDiscountAmount).HasPrecision(18, 0);
+        builder.Property(o => o.WalletBonusAmount).HasPrecision(18, 0);
+        builder.Property(o => o.RefundedBonusAmount).HasPrecision(18, 0);
+
+        builder.HasIndex(o => o.InvoiceNumber)
+            .IsUnique()
+            .HasFilter("[InvoiceNumber] IS NOT NULL AND [IsDeleted] = 0");
 
         builder.HasIndex(o => o.CouponId);
 
@@ -36,5 +42,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Orders_Amounts",
             "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0 AND [RefundedAmount] >= 0 AND [CouponDiscountAmount] >= 0"));
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_Orders_WalletBonus",
+            "[WalletBonusAmount] >= 0 AND [WalletBonusAmount] <= [PayableAmount] AND [RefundedBonusAmount] >= 0 AND [RefundedBonusAmount] <= [RefundedAmount]"));
     }
 }

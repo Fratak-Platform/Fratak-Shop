@@ -48,6 +48,12 @@ public class Product : BaseEntity
 
     public decimal? DiscountPrice { get; set; }
 
+    /// <summary>
+    /// Purchase / cost price of one unit (internal, never shown to customers).
+    /// Snapshotted on order items for profit reports.
+    /// </summary>
+    public decimal? PurchasePrice { get; set; }
+
     public DateTimeOffset? DiscountStartAt { get; set; }
 
     public DateTimeOffset? DiscountEndAt { get; set; }

@@ -19,6 +19,9 @@ public class Cart : BaseEntity
     [MaxLength(50)]
     public string? CouponCode { get; set; }
 
+    /// <summary>Last time an item was added, changed or removed (abandoned-cart detection).</summary>
+    public DateTimeOffset? LastActivityAt { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 

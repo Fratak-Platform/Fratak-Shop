@@ -55,6 +55,12 @@ public class User : BaseEntity
     /// <summary>Current wallet balance in Toman (ledger: <see cref="WalletTransactions"/>).</summary>
     public decimal WalletBalance { get; set; }
 
+    /// <summary>
+    /// Part of <see cref="WalletBalance"/> that came from promotions (club rewards,
+    /// gifts, admin credits). It can only be spent on orders and is never withdrawable.
+    /// </summary>
+    public decimal WalletBonusBalance { get; set; }
+
     /// <summary>Birthday (customer club gift).</summary>
     public DateOnly? BirthDate { get; set; }
 
