@@ -13,7 +13,7 @@ namespace Fratak_Shop.Web.Pages;
 [IgnoreAntiforgeryToken]
 public class Error404Model(IPageMetaService pageMeta) : ShopPageModel
 {
-    public int StatusCode { get; private set; } = StatusCodes.Status404NotFound;
+    public new int StatusCode { get; private set; } = StatusCodes.Status404NotFound;
 
     public bool IsNotFound => StatusCode == StatusCodes.Status404NotFound;
 

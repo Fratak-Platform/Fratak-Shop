@@ -56,6 +56,9 @@ builder.Services.AddAntiforgery(options =>
 
 // Cacheable pages render forms without a token; shop.js fetches it before submitting.
 builder.Services.AddSingleton<IHtmlGenerator, DeferredAntiforgeryHtmlGenerator>();
+// TempData without the "delete cookie" header on every page (it made pages uncacheable).
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.ViewFeatures.CookieTempDataProvider>();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider, CacheFriendlyTempDataProvider>();
 
 // Keys of antiforgery / captcha / gift-card code encryption survive restarts and deployments.
 builder.Services.AddDataProtection()
