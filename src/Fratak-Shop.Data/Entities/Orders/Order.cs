@@ -31,7 +31,17 @@ public class Order : BaseEntity
 
     public decimal SubtotalAmount { get; set; }
 
+    /// <summary>Order level discount (coupon + manual discount).</summary>
     public decimal DiscountAmount { get; set; }
+
+    public Guid? CouponId { get; set; }
+
+    /// <summary>Snapshot of the used coupon code.</summary>
+    [MaxLength(50)]
+    public string? CouponCode { get; set; }
+
+    /// <summary>Part of <see cref="DiscountAmount"/> that came from the coupon (shipping discount included).</summary>
+    public decimal CouponDiscountAmount { get; set; }
 
     public decimal ShippingAmount { get; set; }
 

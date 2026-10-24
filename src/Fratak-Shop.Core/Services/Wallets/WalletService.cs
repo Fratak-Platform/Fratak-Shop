@@ -1,3 +1,5 @@
+using Fratak_Shop.Core.Services.Events;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Core.DTOs.Wallets;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Utilities;
@@ -7,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Core.Services.Wallets;
 
-public class WalletService(FratakShopDbContext context, IStoreSettingService settingService) : IWalletService
+public class WalletService(FratakShopDbContext context, IStoreSettingService settingService, IShopEvents events) : IWalletService
 {
     private const int MaxPendingWithdrawals = 1;
 
@@ -201,6 +203,7 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
         }
 
         await transaction.CommitAsync();
+        await events.WalletChangedAsync(command.UserId, NotificationEvent.WithdrawalRequested, command.Amount);
         return OperationResult.Success("درخواست برداشت ثبت شد و مبلغ آن تا زمان واریز در کیف پول شما مسدود است.");
     }
 
@@ -330,6 +333,14 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
         }
 
         await transaction.CommitAsync();
+
+        await events.WalletChangedAsync(request.UserId, command.Status switch
+        {
+            WithdrawalStatus.Approved => NotificationEvent.WithdrawalApproved,
+            WithdrawalStatus.Paid => NotificationEvent.WithdrawalPaid,
+            _ => NotificationEvent.WithdrawalRejected,
+        }, request.Amount);
+
         return OperationResult.Success("وضعیت درخواست برداشت به‌روزرسانی شد.");
     }
 
@@ -350,9 +361,11 @@ public class WalletService(FratakShopDbContext context, IStoreSettingService set
         };
 
         var result = amount > 0 ? await CreditAsync(entry) : await DebitAsync(entry);
-        return result.IsSuccess()
-            ? OperationResult.Success("موجودی کیف پول به‌روزرسانی شد.")
-            : OperationResult.Error(result.Message);
+        if (!result.IsSuccess())
+            return OperationResult.Error(result.Message);
+
+        await events.WalletChangedAsync(userId, NotificationEvent.WalletAdjusted, amount, entry.Description);
+        return OperationResult.Success("موجودی کیف پول به‌روزرسانی شد.");
     }
 
     private static string? Truncate(string? value, int length) =>

@@ -43,4 +43,5 @@ public enum WalletTransactionType
     WithdrawalReversal = 5,  // برگشت درخواست برداشت
     AdminCredit = 6,         // افزایش توسط مدیر
     AdminDebit = 7,          // کاهش توسط مدیر
+    LoyaltyReward = 8,       // تبدیل امتیاز باشگاه مشتریان
 }

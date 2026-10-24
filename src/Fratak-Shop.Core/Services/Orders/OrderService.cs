@@ -2,7 +2,10 @@ using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Orders.Query;
 using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Core.DTOs.Wallets;
+using Fratak_Shop.Core.DTOs.Marketing;
 using Fratak_Shop.Core.Mappers.Orders;
+using Fratak_Shop.Core.Services.Events;
+using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Services.Shipping;
 using Fratak_Shop.Core.Services.Wallets;
@@ -22,7 +25,9 @@ public class OrderService(
     FratakShopDbContext context,
     IStoreSettingService settingService,
     IShippingService shippingService,
-    IWalletService walletService) : IOrderService
+    IWalletService walletService,
+    ICouponService couponService,
+    IShopEvents events) : IOrderService
 {
     /// <summary>مسیرهای مجاز تغییر وضعیت سفارش.</summary>
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
@@ -140,6 +145,31 @@ public class OrderService(
             order.RequestedDeliveryDate = selection.RequestedDeliveryDate;
         }
 
+        CouponEvaluation? coupon = null;
+        if (!string.IsNullOrWhiteSpace(command.CouponCode))
+        {
+            if (!settings.IsCouponEnabled)
+                return OperationResult<OrderDto>.Error("استفاده از کد تخفیف در حال حاضر غیرفعال است.");
+
+            var evaluation = await couponService.EvaluateAsync(new CouponEvaluationRequest
+            {
+                Code = command.CouponCode,
+                UserId = command.UserId,
+                Lines = requested.Select(item => new CouponLine(item.ProductId, item.Quantity)).ToList(),
+                ShippingCost = order.ShippingAmount,
+                RequireUser = true,
+            });
+
+            if (!evaluation.IsSuccess())
+                return OperationResult<OrderDto>.Error(evaluation.Message).WithCode("coupon");
+
+            coupon = evaluation.Data!;
+            order.CouponId = coupon.CouponId;
+            order.CouponCode = coupon.Code;
+            order.CouponDiscountAmount = coupon.TotalDiscount;
+            order.DiscountAmount += coupon.TotalDiscount;
+        }
+
         var payable = CalculatePayable(order);
         if (payable < 0)
             return OperationResult<OrderDto>.Error("مبلغ قابل پرداخت سفارش نمی‌تواند منفی باشد.");
@@ -175,6 +205,17 @@ public class OrderService(
         context.Orders.Add(order);
         await context.SaveChangesAsync();
 
+        if (coupon is not null)
+        {
+            var usage = await couponService.RecordUsageAsync(coupon.CouponId, order.UserId, order.Id, coupon.TotalDiscount);
+            if (!usage.IsSuccess())
+            {
+                await transaction.RollbackAsync();
+                context.ChangeTracker.Clear();
+                return OperationResult<OrderDto>.Error(usage.Message).WithCode("coupon");
+            }
+        }
+
         if (command.PaymentMethod == PaymentMethod.Wallet)
         {
             var debit = await walletService.DebitAsync(new WalletEntry
@@ -201,6 +242,10 @@ public class OrderService(
         }
 
         await transaction.CommitAsync();
+
+        await events.OrderPlacedAsync(order.Id);
+        if (order.PaymentStatus == PaymentStatus.Paid)
+            await events.OrderPaidAsync(order.Id);
 
         return OperationResult<OrderDto>.Success(order.Map(), $"سفارش با شماره {order.OrderNumber} با موفقیت ثبت شد.");
     }
@@ -230,6 +275,9 @@ public class OrderService(
             .AsTracking()
             .Include(x => x.Items)
             .FirstAsync(x => x.Id == command.Id);
+
+        var previousStatus = order.Status;
+        var previousPayment = order.PaymentStatus;
 
         if (!cancelled)
         {
@@ -266,6 +314,15 @@ public class OrderService(
         order.CustomerNote = command.CustomerNote.ToPlainText() is { Length: > 0 } note ? note : null;
 
         await context.SaveChangesAsync();
+
+        if (!cancelled)
+        {
+            if (order.PaymentStatus == PaymentStatus.Paid && previousPayment != PaymentStatus.Paid)
+                await events.OrderPaidAsync(order.Id);
+
+            if (order.Status != previousStatus)
+                await events.OrderStatusChangedAsync(order.Id, order.Status);
+        }
 
         return OperationResult.Success("سفارش با موفقیت ویرایش شد.");
     }
@@ -310,6 +367,8 @@ public class OrderService(
 
         order.Status = status;
         await context.SaveChangesAsync();
+
+        await events.OrderStatusChangedAsync(order.Id, status);
 
         return OperationResult.Success("وضعیت سفارش با موفقیت تغییر کرد.");
     }
@@ -449,6 +508,7 @@ public class OrderService(
         }
 
         await RestoreStockAsync(order.Items);
+        await couponService.ReleaseUsageAsync(order.Id);
 
         var refundable = order.PayableAmount - order.RefundedAmount;
         var refunded = false;
@@ -485,7 +545,10 @@ public class OrderService(
         }
 
         if (transaction is not null)
+        {
             await transaction.CommitAsync();
+            await events.OrderStatusChangedAsync(order.Id, targetStatus);
+        }
 
         var action = targetStatus == OrderStatus.Returned ? "مرجوع" : "لغو";
         return OperationResult.Success(refunded
@@ -503,6 +566,7 @@ public class OrderService(
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
+        var wasPaid = order.PaymentStatus == PaymentStatus.Paid;
         order.PaymentStatus = paymentStatus;
 
         if (paymentStatus == PaymentStatus.Paid)
@@ -512,6 +576,9 @@ public class OrderService(
             order.TransactionId = transactionId.Trim();
 
         await context.SaveChangesAsync();
+
+        if (paymentStatus == PaymentStatus.Paid && !wasPaid)
+            await events.OrderPaidAsync(order.Id);
 
         return OperationResult.Success("وضعیت پرداخت سفارش با موفقیت به‌روزرسانی شد.");
     }
@@ -528,10 +595,14 @@ public class OrderService(
         order.TrackingCode = trackingCode.Trim();
 
         // ثبت کد رهگیری یعنی سفارش تحویل پست/پیک شده است.
-        if (order.Status is OrderStatus.Confirmed or OrderStatus.Processing)
+        var shipped = order.Status is OrderStatus.Confirmed or OrderStatus.Processing;
+        if (shipped)
             order.Status = OrderStatus.Shipped;
 
         await context.SaveChangesAsync();
+
+        if (shipped)
+            await events.OrderStatusChangedAsync(order.Id, OrderStatus.Shipped);
 
         return OperationResult.Success("کد رهگیری مرسوله با موفقیت ثبت شد.");
     }
@@ -632,6 +703,24 @@ public class OrderService(
             .ThenInclude(x => x.Product)
             .ThenInclude(x => x!.Images)
             .FirstOrDefaultAsync(x => x.OrderNumber == orderNumber.Trim());
+
+        return order?.Map();
+    }
+
+    public async Task<OrderDto?> TrackOrderAsync(string orderNumber, string phoneNumber)
+    {
+        var number = orderNumber?.Trim().ToUpperInvariant();
+        var phone = phoneNumber?.Trim();
+        if (string.IsNullOrWhiteSpace(number) || number.Length > 30 || string.IsNullOrWhiteSpace(phone) || !phone.IsValidMobile())
+            return null;
+
+        var order = await context.Orders
+            .Include(x => x.Items)
+            .ThenInclude(x => x.Product)
+            .ThenInclude(x => x!.Images)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(x => x.OrderNumber == number
+                                      && (x.CustomerPhone == phone || x.ShippingPhone == phone || (x.User != null && x.User.PhoneNumber == phone)));
 
         return order?.Map();
     }

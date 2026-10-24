@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Favorites;
+using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Shopping;
@@ -54,6 +55,25 @@ public class User : BaseEntity
     /// <summary>Current wallet balance in Toman (ledger: <see cref="WalletTransactions"/>).</summary>
     public decimal WalletBalance { get; set; }
 
+    /// <summary>Birthday (customer club gift).</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>Password sign-in additionally requires a one-time SMS code.</summary>
+    public bool TwoFactorEnabled { get; set; }
+
+    /// <summary>Current customer-club points (ledger: <see cref="LoyaltyTransactions"/>).</summary>
+    public int LoyaltyPoints { get; set; }
+
+    /// <summary>All points ever earned; decides the club level.</summary>
+    public int LoyaltyLifetimePoints { get; set; }
+
+    /// <summary>Personal invite code (customer club referral).</summary>
+    [MaxLength(20)]
+    public string? ReferralCode { get; set; }
+
+    /// <summary>The customer who invited this user.</summary>
+    public Guid? ReferredByUserId { get; set; }
+
     public List<UserAddress> Addresses { get; set; } = [];
 
     public List<Cart> Carts { get; set; } = [];
@@ -73,6 +93,8 @@ public class User : BaseEntity
     public List<WithdrawalRequest> WithdrawalRequests { get; set; } = [];
 
     public List<UserRefreshToken> RefreshTokens { get; set; } = [];
+
+    public List<LoyaltyTransaction> LoyaltyTransactions { get; set; } = [];
 }
 
 public enum UserRole

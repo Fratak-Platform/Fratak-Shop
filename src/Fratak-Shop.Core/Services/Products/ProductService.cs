@@ -186,7 +186,11 @@ public class ProductService(FratakShopDbContext context) : IProductService
         return OperationResult.Success("موجودی محصول با موفقیت به‌روزرسانی شد.");
     }
 
-    public async Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams)
+    /// <summary>
+    /// Filtered products with their final price (same rule as PriceCalculator, in SQL).
+    /// <paramref name="skipSpecificationKey"/> leaves one specification out (facet counts).
+    /// </summary>
+    private IQueryable<PricedProduct> BuildFilterQuery(ProductFilterParams filterParams, string? skipSpecificationKey)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -228,6 +232,15 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (filterParams.ExcludeProductId.HasValue)
             query = query.Where(x => x.Id != filterParams.ExcludeProductId.Value);
 
+        // Specification filters: OR inside one specification, AND between specifications.
+        foreach (var (key, values) in NormalizeSpecifications(filterParams.Specifications))
+        {
+            if (key == skipSpecificationKey)
+                continue;
+
+            query = query.Where(x => x.Features.Any(f => f.Key == key && values.Contains(f.Value)));
+        }
+
         // قیمت نهایی؛ همان قاعده PriceCalculator به زبان SQL.
         var withFinalPrice = query.Select(x => new
         {
@@ -236,10 +249,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
                           && x.DiscountPrice < x.Price
                           && (x.DiscountStartAt == null || x.DiscountStartAt <= now)
                           && (x.DiscountEndAt == null || x.DiscountEndAt >= now),
-        }).Select(x => new
+        }).Select(x => new PricedProduct
         {
-            x.Product,
-            x.HasDiscount,
+            Product = x.Product,
+            HasDiscount = x.HasDiscount,
             FinalPrice = x.HasDiscount ? x.Product.DiscountPrice!.Value : x.Product.Price,
         });
 
@@ -257,6 +270,82 @@ public class ProductService(FratakShopDbContext context) : IProductService
 
         if (filterParams.OnlyActive == true)
             withFinalPrice = withFinalPrice.Where(x => x.Product.IsActive);
+
+        return withFinalPrice;
+    }
+
+    public async Task<List<SpecificationFacetDto>> GetSpecificationFacetsAsync(ProductFilterParams filterParams,
+        IReadOnlyList<SpecificationFacetRequest> attributes)
+    {
+        var selected = NormalizeSpecifications(filterParams.Specifications);
+        var facets = new List<SpecificationFacetDto>();
+
+        foreach (var attribute in attributes)
+        {
+            var productIds = BuildFilterQuery(filterParams, attribute.FeatureKey).Select(x => x.Product.Id);
+            var featureKey = attribute.FeatureKey;
+
+            var values = await context.ProductFeatures
+                .Where(f => f.Key == featureKey && f.ValueType != FeatureValueType.Object && productIds.Contains(f.ProductId))
+                .GroupBy(f => f.Value)
+                .Select(g => new { Value = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
+                .Take(Math.Clamp(attribute.MaxValues, 1, 100))
+                .ToListAsync();
+
+            selected.TryGetValue(featureKey, out var chosen);
+            if (values.Count == 0 && chosen is null)
+                continue;
+
+            facets.Add(new SpecificationFacetDto
+            {
+                Slug = attribute.Slug,
+                Title = attribute.Title,
+                FeatureKey = featureKey,
+                Values = values
+                    .Select(v => new SpecificationFacetValue { Value = v.Value, Count = v.Count, IsSelected = chosen?.Contains(v.Value) == true })
+                    .Concat((chosen ?? []).Where(c => values.All(v => v.Value != c))
+                        .Select(c => new SpecificationFacetValue { Value = c, Count = 0, IsSelected = true }))
+                    .OrderByDescending(v => v.IsSelected).ThenBy(v => v.Value, StringComparer.CurrentCulture)
+                    .ToList(),
+            });
+        }
+
+        return facets;
+    }
+
+    private static Dictionary<string, List<string>> NormalizeSpecifications(Dictionary<string, List<string>>? specifications)
+    {
+        var result = new Dictionary<string, List<string>>();
+        if (specifications is null)
+            return result;
+
+        foreach (var (key, values) in specifications.Take(8))
+        {
+            var cleaned = values
+                .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length <= 200)
+                .Select(v => v.Trim())
+                .Distinct()
+                .Take(10)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(key) && cleaned.Count > 0)
+                result[key.Trim()] = cleaned;
+        }
+
+        return result;
+    }
+
+    private sealed class PricedProduct
+    {
+        public Product Product { get; set; } = null!;
+        public bool HasDiscount { get; set; }
+        public decimal FinalPrice { get; set; }
+    }
+
+    public async Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams)
+    {
+        var withFinalPrice = BuildFilterQuery(filterParams, skipSpecificationKey: null);
 
         withFinalPrice = filterParams.SortBy switch
         {
@@ -351,6 +440,31 @@ public class ProductService(FratakShopDbContext context) : IProductService
                 return dto;
             })
             .ToList();
+    }
+
+    public async Task<List<ProductFilterData>> GetCardsByIdsAsync(IEnumerable<Guid> ids, bool onlyInStock = false)
+    {
+        var idList = ids.Distinct().Take(48).ToList();
+        if (idList.Count == 0)
+            return [];
+
+        var products = await context.Products
+            .Where(x => idList.Contains(x.Id) && x.IsActive && (!onlyInStock || x.StockQuantity > 0))
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
+            .Include(x => x.Images)
+            .AsSplitQuery()
+            .ToListAsync();
+
+        var data = idList
+            .Select(id => products.FirstOrDefault(p => p.Id == id))
+            .Where(p => p is not null)
+            .Select(p => p!)
+            .ToList()
+            .MapFilterData();
+
+        await FillRatingsAsync(data);
+        return data;
     }
 
     public async Task<List<ProductFilterData>> GetRelatedProductsAsync(Guid productId, int take = 8)

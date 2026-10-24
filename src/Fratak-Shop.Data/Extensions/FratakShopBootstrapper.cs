@@ -36,5 +36,6 @@ public static class FratakShopBootstrapper
         await context.Database.MigrateAsync(cancellationToken);
         await LocationSeeder.SeedAsync(context, cancellationToken);
         await StoreDefaultsSeeder.SeedAsync(context, cancellationToken);
+        await EngagementDefaultsSeeder.SeedAsync(context, cancellationToken);
     }
 }

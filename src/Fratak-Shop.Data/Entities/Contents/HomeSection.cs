@@ -52,4 +52,6 @@ public enum HomeSectionType
     Features = 10,         // مزایای خرید
     Brands = 11,           // برندها
     LatestPosts = 12,      // آخرین مقالات
+    RecommendedForYou = 13, // پیشنهاد ویژه برای شما (بر اساس خریدها و بازدیدها)
+    RecentlyViewed = 14,   // بازدیدهای اخیر شما
 }

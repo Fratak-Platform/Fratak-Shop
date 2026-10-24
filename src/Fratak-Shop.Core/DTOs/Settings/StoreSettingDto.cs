@@ -53,6 +53,30 @@ public class StoreSettingCommand
     public string? BingSiteVerification { get; set; }
     public string? RobotsTxtExtra { get; set; }
     public string? OrganizationLegalName { get; set; }
+    public bool IsPasswordLoginEnabled { get; set; } = true;
+    public bool IsOtpLoginEnabled { get; set; } = true;
+    public bool IsOtpRegistrationEnabled { get; set; } = true;
+    public bool IsTwoFactorAvailable { get; set; } = true;
+    public bool IsCouponEnabled { get; set; } = true;
+    public bool IsGuestOrderTrackingEnabled { get; set; } = true;
+    public bool IsRecommendationEnabled { get; set; } = true;
+    public bool IsLoyaltyEnabled { get; set; } = true;
+    public string? LoyaltyProgramName { get; set; }
+    public int? LoyaltyPointsExpireDays { get; set; }
+    public bool IsReferralEnabled { get; set; } = true;
+    public bool IsAnnouncementEnabled { get; set; }
+    public string? AnnouncementText { get; set; }
+    public string? AnnouncementUrl { get; set; }
+    public string? AnnouncementColor { get; set; }
+    public string? FooterButtonText { get; set; }
+    public string? FooterButtonUrl { get; set; }
+    public string? SellerEconomicCode { get; set; }
+    public string? SellerNationalId { get; set; }
+    public string? SellerRegistrationNumber { get; set; }
+    public string? InvoiceNote { get; set; }
+    public bool IsPwaEnabled { get; set; } = true;
+    public string? PwaShortName { get; set; }
+    public string? ThemeColor { get; set; }
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>
@@ -80,6 +104,12 @@ public class StoreSettingDto : StoreSettingCommand
     public bool CanPayWithWallet => IsWalletEnabled && IsWalletPaymentEnabled;
 
     public bool CanTopUpWallet => IsWalletEnabled && IsWalletTopUpEnabled && HasZarinPal;
+
+    /// <summary>Name of the customer club shown in the storefront.</summary>
+    public string LoyaltyName => string.IsNullOrWhiteSpace(LoyaltyProgramName) ? "باشگاه مشتریان" : LoyaltyProgramName;
+
+    /// <summary>At least one sign-in method is always available (password is the fallback).</summary>
+    public bool PasswordLoginAvailable => IsPasswordLoginEnabled || !IsOtpLoginEnabled;
 
     public bool CanWithdraw => IsWalletEnabled && IsWithdrawalEnabled;
 }

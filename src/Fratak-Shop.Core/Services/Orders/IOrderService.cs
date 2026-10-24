@@ -44,6 +44,9 @@ public interface IOrderService
     Task<OrderFilterResult> GetOrdersByFilterAsync(OrderFilterParams filterParams);
     Task<OrderDto?> GetOrderByIdAsync(Guid id);
     Task<OrderDto?> GetOrderByNumberAsync(string orderNumber);
+
+    /// <summary>Order tracking without signing in: the order is returned only when the mobile number matches it.</summary>
+    Task<OrderDto?> TrackOrderAsync(string orderNumber, string phoneNumber);
     Task<List<OrderFilterData>> GetOrdersByUserAsync(Guid userId);
     Task<List<OrderFilterData>> GetOrdersAsync();
 }

@@ -23,6 +23,8 @@ public static class OrderMapper
             TrackingCode = order.TrackingCode,
             SubtotalAmount = order.SubtotalAmount,
             DiscountAmount = order.DiscountAmount,
+            CouponCode = order.CouponCode,
+            CouponDiscountAmount = order.CouponDiscountAmount,
             ShippingAmount = order.ShippingAmount,
             PayableAmount = order.PayableAmount,
             ShippingMethod = order.ShippingMethod,

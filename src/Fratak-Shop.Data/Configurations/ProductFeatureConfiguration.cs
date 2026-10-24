@@ -16,5 +16,8 @@ public class ProductFeatureConfiguration : IEntityTypeConfiguration<ProductFeatu
         // A product can hold each feature key only once.
         builder.HasIndex(f => new { f.ProductId, f.Key })
             .IsUnique();
+
+        // Listing filters look values up by specification key.
+        builder.HasIndex(f => f.Key);
     }
 }

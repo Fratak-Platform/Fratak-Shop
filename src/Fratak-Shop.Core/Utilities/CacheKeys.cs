@@ -15,6 +15,10 @@ public static class CacheKeys
     public const string HomeSections = "core:home-sections";
     public const string FaqGroups = "core:faq-groups";
     public const string MenuCategories = "core:menu-categories";
+    public const string Menus = "core:menus";
+    public const string NotificationTemplates = "core:notification-templates";
+    public const string LoyaltyProgram = "core:loyalty-program";
+    public const string FilterAttributes = "core:filter-attributes";
 
     public static string SecurityStamp(Guid userId) => $"core:security-stamp:{userId:N}";
 

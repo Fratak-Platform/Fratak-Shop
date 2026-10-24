@@ -15,6 +15,10 @@ public class Cart : BaseEntity
     [MaxLength(100)]
     public string? SessionKey { get; set; }
 
+    /// <summary>Discount code applied to the cart (re-validated at checkout).</summary>
+    [MaxLength(50)]
+    public string? CouponCode { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 

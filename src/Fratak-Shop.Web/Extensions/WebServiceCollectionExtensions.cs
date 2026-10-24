@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Infrastructure.Seeders;
 using Fratak_Shop.Web.Services;

@@ -171,13 +171,35 @@ public class CartService(FratakShopDbContext context) : ICartService
         if (cart is null)
             return OperationResult.NotFound("سبد خرید مورد نظر یافت نشد.");
 
+        cart.CouponCode = null;
+
         if (cart.Items.Count == 0)
+        {
+            await context.SaveChangesAsync();
             return OperationResult.Success("سبد خرید شما خالی است.");
+        }
 
         cart.Items.Clear();
         await context.SaveChangesAsync();
 
         return OperationResult.Success("سبد خرید خالی شد.");
+    }
+
+    public async Task<OperationResult> SetCouponAsync(Guid cartId, string? couponCode)
+    {
+        var code = string.IsNullOrWhiteSpace(couponCode) ? null : couponCode.Trim().ToUpperInvariant();
+        if (code is { Length: > 50 })
+            return OperationResult.Error("کد تخفیف معتبر نیست.");
+
+        var affected = await context.Carts
+            .Where(x => x.Id == cartId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.CouponCode, code)
+                .SetProperty(x => x.UpdatedAt, DateTimeOffset.UtcNow));
+
+        return affected == 0
+            ? OperationResult.NotFound("سبد خرید مورد نظر یافت نشد.")
+            : OperationResult.Success(code is null ? "کد تخفیف حذف شد." : "کد تخفیف ثبت شد.");
     }
 
     public async Task<OperationResult> MergeGuestCartAsync(string sessionKey, Guid userId)
@@ -214,6 +236,9 @@ public class CartService(FratakShopDbContext context) : ICartService
 
             return OperationResult.Success("سبد خرید مهمان به حساب کاربری شما منتقل شد.");
         }
+
+        // A code entered as guest survives the sign-in.
+        userCart.CouponCode ??= guestCart.CouponCode;
 
         var productIds = guestCart.Items
             .Select(item => item.ProductId)

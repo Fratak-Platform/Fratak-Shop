@@ -18,6 +18,10 @@ public class UserDto : BaseDto
     public DateTimeOffset? LastLoginAt { get; set; }
     public decimal WalletBalance { get; set; }
     public bool HasPassword { get; set; }
+    public bool TwoFactorEnabled { get; set; }
+    public DateOnly? BirthDate { get; set; }
+    public int LoyaltyPoints { get; set; }
+    public string? ReferralCode { get; set; }
 
     public string? FullName => string.IsNullOrWhiteSpace(FirstName) && string.IsNullOrWhiteSpace(LastName)
         ? null

@@ -3,6 +3,7 @@ using Fratak_Shop.Core.DTOs.Users.Query;
 using Fratak_Shop.Core.Mappers.Users;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,7 @@ namespace Fratak_Shop.Core.Services.Users;
 /// مدیریت کاربران: ثبت‌نام و ورود (Argon2id)، ویرایش اطلاعات، تغییر رمز عبور و
 /// لیست کاربران. رمز عبور هیچ‌گاه به‌صورت متن ساده ذخیره یا برگردانده نمی‌شود.
 /// </summary>
-public class UserService(FratakShopDbContext context) : IUserService
+public class UserService(FratakShopDbContext context, Events.IShopEvents events) : IUserService
 {
     private const int MinimumPasswordLength = 6;
     private const int MaxFailedLogins = 5;
@@ -111,7 +112,17 @@ public class UserService(FratakShopDbContext context) : IUserService
         user.LastName = string.IsNullOrWhiteSpace(command.LastName) ? null : command.LastName.Trim();
         user.Email = email;
 
+        if (command.BirthDate.HasValue)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (command.BirthDate > today.AddYears(-5) || command.BirthDate < today.AddYears(-110))
+                return OperationResult.Error("تاریخ تولد معتبر نیست.");
+        }
+
+        user.BirthDate = command.BirthDate;
+
         await context.SaveChangesAsync();
+        await events.ProfileUpdatedAsync(user.Id);
 
         return OperationResult.Success("اطلاعات حساب کاربری با موفقیت ذخیره شد.");
     }
@@ -173,8 +184,86 @@ public class UserService(FratakShopDbContext context) : IUserService
         user.LockoutEndAt = null;
 
         await context.SaveChangesAsync();
+        await events.SecurityEventAsync(user.Id, NotificationEvent.PasswordChanged);
 
         return OperationResult.Success("رمز عبور با موفقیت تغییر کرد.");
+    }
+
+    public async Task<OperationResult> SetTwoFactorAsync(Guid userId, bool enabled)
+    {
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        if (user is null)
+            return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
+
+        if (enabled && string.IsNullOrWhiteSpace(user.PasswordHash))
+            return OperationResult.Error("برای فعال‌سازی ورود دو مرحله‌ای ابتدا یک رمز عبور برای حساب خود تعیین کنید.");
+
+        if (enabled && !user.IsPhoneVerified)
+            return OperationResult.Error("برای فعال‌سازی ورود دو مرحله‌ای ابتدا شماره موبایل خود را تایید کنید.");
+
+        if (user.TwoFactorEnabled == enabled)
+            return OperationResult.Success(enabled ? "ورود دو مرحله‌ای از قبل فعال است." : "ورود دو مرحله‌ای از قبل غیرفعال است.");
+
+        user.TwoFactorEnabled = enabled;
+        await context.SaveChangesAsync();
+        await events.SecurityEventAsync(user.Id, enabled ? NotificationEvent.TwoFactorEnabled : NotificationEvent.TwoFactorDisabled);
+
+        return OperationResult.Success(enabled
+            ? "ورود دو مرحله‌ای فعال شد؛ از این پس پس از رمز عبور، کد پیامکی هم لازم است."
+            : "ورود دو مرحله‌ای غیرفعال شد.");
+    }
+
+    public async Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber)
+    {
+        var phone = phoneNumber?.Trim() ?? string.Empty;
+        var error = Validate(phone, null, UserRole.Customer);
+        if (error is not null)
+            return OperationResult<PhoneSignInResult>.Error(error);
+
+        var now = DateTimeOffset.UtcNow;
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+        var created = false;
+
+        if (user is null)
+        {
+            // The one-time code proved the ownership of the number: passwordless account.
+            user = new User
+            {
+                PhoneNumber = phone,
+                Role = UserRole.Customer,
+                IsPhoneVerified = true,
+                SecurityStamp = PasswordHasher.NewSecurityStamp(),
+                LastLoginAt = now,
+            };
+            context.Users.Add(user);
+            created = true;
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Registered at the same moment by another request (unique phone number).
+                context.ChangeTracker.Clear();
+                user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+                if (user is null)
+                    return OperationResult<PhoneSignInResult>.Error("ورود انجام نشد؛ لطفاً دوباره تلاش کنید.");
+                created = false;
+            }
+        }
+
+        if (!created)
+        {
+            user.IsPhoneVerified = true;
+            user.LastLoginAt = now;
+            user.FailedLoginCount = 0;
+            user.LockoutEndAt = null;
+            user.SecurityStamp ??= PasswordHasher.NewSecurityStamp();
+            await context.SaveChangesAsync();
+        }
+
+        return OperationResult<PhoneSignInResult>.Success(new PhoneSignInResult(user.Map(), created));
     }
 
     public async Task<OperationResult<UserDto>> LoginAsync(LoginCommand command)

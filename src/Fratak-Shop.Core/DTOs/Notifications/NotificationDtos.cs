@@ -1,0 +1,54 @@
+using Fratak_Shop.Data.Entities.Notifications;
+
+namespace Fratak_Shop.Core.DTOs.Notifications;
+
+public class NotificationDto
+{
+    public Guid Id { get; set; }
+    public NotificationCategory Category { get; set; }
+    public string Title { get; set; } = null!;
+    public string Body { get; set; } = null!;
+    public string? LinkUrl { get; set; }
+    public string? LinkText { get; set; }
+    public bool IsPinned { get; set; }
+    public bool IsBroadcast { get; set; }
+    public bool IsRead { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public class NotificationPage
+{
+    public List<NotificationDto> Items { get; set; } = [];
+    public int TotalCount { get; set; }
+    public int UnreadCount { get; set; }
+    public int PageId { get; set; }
+    public int PageCount { get; set; }
+}
+
+/// <summary>Personal notification produced from a <see cref="NotificationTemplate"/>.</summary>
+public class NotificationRequest
+{
+    public Guid UserId { get; set; }
+    public NotificationEvent Event { get; set; }
+    public NotificationCategory Category { get; set; } = NotificationCategory.System;
+
+    /// <summary>Placeholder values, e.g. ["OrderNumber"] = "FS-1001".</summary>
+    public Dictionary<string, string?> Values { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public string? LinkUrl { get; set; }
+}
+
+/// <summary>Manual broadcast (admin panel): coupon campaigns, news, maintenance notices, ...</summary>
+public class CreateBroadcastCommand
+{
+    public NotificationAudience Audience { get; set; } = NotificationAudience.AllCustomers;
+    public Guid? LoyaltyTierId { get; set; }
+    public NotificationCategory Category { get; set; } = NotificationCategory.Promotion;
+    public string Title { get; set; } = null!;
+    public string Body { get; set; } = null!;
+    public string? LinkUrl { get; set; }
+    public string? LinkText { get; set; }
+    public bool IsPinned { get; set; }
+    public DateTimeOffset? PublishAt { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
+}

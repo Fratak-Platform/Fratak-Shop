@@ -43,6 +43,9 @@ public class CreateOrderCommand
     /// <summary>تخفیف دستی سفارش (جدا از تخفیف قیمت هر محصول).</summary>
     public decimal DiscountAmount { get; set; }
 
+    /// <summary>Discount code typed by the customer (validated again when the order is placed).</summary>
+    public string? CouponCode { get; set; }
+
     public decimal ShippingAmount { get; set; }
 
     public string CustomerName { get; set; } = null!;

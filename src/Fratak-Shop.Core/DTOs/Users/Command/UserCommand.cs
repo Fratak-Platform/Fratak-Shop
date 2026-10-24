@@ -46,6 +46,7 @@ public class UpdateProfileCommand
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? Email { get; set; }
+    public DateOnly? BirthDate { get; set; }
 }
 
 public class ChangePasswordCommand

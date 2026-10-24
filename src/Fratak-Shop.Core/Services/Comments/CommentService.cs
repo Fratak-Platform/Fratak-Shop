@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Core.Services.Comments;
 
-public class CommentService(FratakShopDbContext context) : ICommentService
+public class CommentService(FratakShopDbContext context, Events.IShopEvents events) : ICommentService
 {
     public async Task<OperationResult> CreateCommentAsync(CreateCommentCommand command)
     {
@@ -147,6 +147,9 @@ public class CommentService(FratakShopDbContext context) : ICommentService
 
         comment.Status = CommentStatus.Approved;
         await context.SaveChangesAsync();
+
+        // Club points for approved product reviews.
+        await events.CommentApprovedAsync(comment.Id);
 
         return OperationResult.Success("کامنت با موفقیت تایید شد.");
     }

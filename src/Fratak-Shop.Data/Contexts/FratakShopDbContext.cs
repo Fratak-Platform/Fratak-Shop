@@ -7,8 +7,10 @@ using Fratak_Shop.Data.Entities.Contents;
 using Fratak_Shop.Data.Entities.Faqs;
 using Fratak_Shop.Data.Entities.Favorites;
 using Fratak_Shop.Data.Entities.Locations;
+using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Data.Entities.Messages;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.Payments;
@@ -93,6 +95,32 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<TrustBadge> TrustBadges { get; set; } = null!;
 
     public DbSet<FaqCategory> FaqCategories { get; set; } = null!;
+
+    public DbSet<Menu> Menus { get; set; } = null!;
+
+    public DbSet<MenuItem> MenuItems { get; set; } = null!;
+
+    public DbSet<ProductFilterAttribute> ProductFilterAttributes { get; set; } = null!;
+
+    public DbSet<Coupon> Coupons { get; set; } = null!;
+
+    public DbSet<CouponTarget> CouponTargets { get; set; } = null!;
+
+    public DbSet<CouponUsage> CouponUsages { get; set; } = null!;
+
+    public DbSet<LoyaltyRule> LoyaltyRules { get; set; } = null!;
+
+    public DbSet<LoyaltyTier> LoyaltyTiers { get; set; } = null!;
+
+    public DbSet<LoyaltyReward> LoyaltyRewards { get; set; } = null!;
+
+    public DbSet<LoyaltyTransaction> LoyaltyTransactions { get; set; } = null!;
+
+    public DbSet<Notification> Notifications { get; set; } = null!;
+
+    public DbSet<NotificationRead> NotificationReads { get; set; } = null!;
+
+    public DbSet<NotificationTemplate> NotificationTemplates { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

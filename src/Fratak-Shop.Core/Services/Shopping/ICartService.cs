@@ -14,6 +14,9 @@ public interface ICartService
     Task<OperationResult> RemoveItemAsync(RemoveCartItemCommand command);
     Task<OperationResult> ClearCartAsync(Guid cartId);
 
+    /// <summary>Stores (or removes, with null) the discount code of the cart.</summary>
+    Task<OperationResult> SetCouponAsync(Guid cartId, string? couponCode);
+
     /// <summary>
     /// انتقال اقلام سبد خرید مهمان به سبد کاربر پس از ورود؛ اگر کاربر سبد نداشته
     /// باشد، همان سبد مهمان به نام او ثبت می‌شود.

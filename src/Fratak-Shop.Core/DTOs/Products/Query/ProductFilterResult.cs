@@ -99,6 +99,29 @@ public class ProductFilterParams : BaseFilterParam
     public bool? OnlyActive { get; set; }
 
     public ProductSortBy SortBy { get; set; } = ProductSortBy.Newest;
+
+    /// <summary>Specification filters: feature key → accepted values (see ProductFilterAttribute).</summary>
+    public Dictionary<string, List<string>> Specifications { get; set; } = [];
+}
+
+/// <summary>A filterable specification for the facet query.</summary>
+public record SpecificationFacetRequest(string Slug, string Title, string FeatureKey, int MaxValues);
+
+/// <summary>Filter box of a specification with the value counts of the current result.</summary>
+public class SpecificationFacetDto
+{
+    public string Slug { get; set; } = null!;
+    public string Title { get; set; } = null!;
+    public string FeatureKey { get; set; } = null!;
+    public List<SpecificationFacetValue> Values { get; set; } = [];
+    public bool HasSelection => Values.Any(v => v.IsSelected);
+}
+
+public class SpecificationFacetValue
+{
+    public string Value { get; set; } = null!;
+    public int Count { get; set; }
+    public bool IsSelected { get; set; }
 }
 
 public class ProductFilterResult : BaseFilter<ProductFilterData, ProductFilterParams>;

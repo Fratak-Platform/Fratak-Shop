@@ -13,6 +13,9 @@ public interface IProductService
     Task<OperationResult> UpdateStockAsync(Guid id, int stockQuantity);
 
     Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams);
+
+    /// <summary>Value counts of filterable specifications for the current listing filters.</summary>
+    Task<List<SpecificationFacetDto>> GetSpecificationFacetsAsync(ProductFilterParams filterParams, IReadOnlyList<SpecificationFacetRequest> attributes);
     Task<ProductDto?> GetProductByIdAsync(Guid id);
     Task<ProductDto?> GetProductBySlugAsync(string slug);
     Task<List<ProductDto>> GetProductsAsync();
@@ -25,4 +28,7 @@ public interface IProductService
 
     /// <summary>محصولات فعال و موجودِ هم‌دسته با محصول جاری.</summary>
     Task<List<ProductFilterData>> GetRelatedProductsAsync(Guid productId, int take = 8);
+
+    /// <summary>Product cards of active products in the given order (recommendations, recently viewed).</summary>
+    Task<List<ProductFilterData>> GetCardsByIdsAsync(IEnumerable<Guid> ids, bool onlyInStock = false);
 }

@@ -60,6 +60,15 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IPageSeoService, PageSeoService>();
         services.AddScoped<ISeoRedirectService, SeoRedirectService>();
 
+        // Engagement: coupons, customer club, notifications, menus, filters, recommendations.
+        services.AddScoped<Services.Events.IShopEvents, Services.Events.ShopEvents>();
+        services.AddScoped<ICouponService, CouponService>();
+        services.AddScoped<Services.Loyalty.ILoyaltyService, Services.Loyalty.LoyaltyService>();
+        services.AddScoped<Services.Notifications.INotificationService, Services.Notifications.NotificationService>();
+        services.AddScoped<IMenuService, MenuService>();
+        services.AddScoped<Services.Products.IProductFilterService, Services.Products.ProductFilterService>();
+        services.AddScoped<Services.Products.IRecommendationService, Services.Products.RecommendationService>();
+
         return services;
     }
 }

@@ -25,6 +25,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.ShippingAmount).HasPrecision(18, 0);
         builder.Property(o => o.PayableAmount).HasPrecision(18, 0);
         builder.Property(o => o.RefundedAmount).HasPrecision(18, 0);
+        builder.Property(o => o.CouponDiscountAmount).HasPrecision(18, 0);
+
+        builder.HasIndex(o => o.CouponId);
 
         // Used by the background job that expires unpaid online orders.
         builder.HasIndex(o => new { o.PaymentStatus, o.PaymentDeadline });
@@ -32,6 +35,6 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Orders_Amounts",
-            "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0 AND [RefundedAmount] >= 0"));
+            "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0 AND [RefundedAmount] >= 0 AND [CouponDiscountAmount] >= 0"));
     }
 }

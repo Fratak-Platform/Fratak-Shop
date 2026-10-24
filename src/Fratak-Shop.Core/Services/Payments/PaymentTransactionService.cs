@@ -1,9 +1,11 @@
 using Fratak_Shop.Core.DTOs.Payments;
 using Fratak_Shop.Core.DTOs.Wallets;
+using Fratak_Shop.Core.Services.Events;
 using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Core.Services.Wallets;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Payments;
 using Fratak_Shop.Data.Entities.Wallets;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +15,8 @@ namespace Fratak_Shop.Core.Services.Payments;
 public class PaymentTransactionService(
     FratakShopDbContext context,
     IOrderService orderService,
-    IWalletService walletService) : IPaymentTransactionService
+    IWalletService walletService,
+    IShopEvents events) : IPaymentTransactionService
 {
     public async Task<OperationResult<Guid>> CreateAsync(CreatePaymentCommand command)
     {
@@ -203,6 +206,15 @@ public class PaymentTransactionService(
         }
 
         await dbTransaction.CommitAsync();
+
+        // Notifications / club points only after the payment is safely stored.
+        if (payment.Purpose == PaymentPurpose.WalletTopUp)
+            await events.WalletChangedAsync(payment.UserId!.Value, NotificationEvent.WalletTopUp, payment.Amount);
+        else if (result.CreditedToWallet)
+            await events.WalletChangedAsync(payment.UserId!.Value, NotificationEvent.WalletAdjusted, payment.Amount, result.Message);
+        else if (payment.OrderId.HasValue)
+            await events.OrderPaidAsync(payment.OrderId.Value);
+
         return result;
     }
 

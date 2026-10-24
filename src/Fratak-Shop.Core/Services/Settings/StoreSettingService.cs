@@ -85,6 +85,15 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (!string.IsNullOrWhiteSpace(command.SupportEmail) && !command.SupportEmail.Trim().IsValidEmail())
             return "ایمیل پشتیبانی معتبر نیست.";
 
+        if (command.LoyaltyPointsExpireDays is < 1 or > 3650)
+            return "مهلت اعتبار امتیازها باید بین ۱ تا ۳۶۵۰ روز باشد (یا خالی برای نامحدود).";
+
+        if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor))
+            return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0ea5e9).";
+
+        if (!IsSiteLink(command.AnnouncementUrl) || !IsSiteLink(command.FooterButtonUrl))
+            return "لینک‌ها باید با / شروع شوند یا آدرس کامل http(s) باشند.";
+
         if (!string.IsNullOrWhiteSpace(command.MapEmbedUrl) && !IsHttps(command.MapEmbedUrl))
             return "آدرس نقشه باید یک لینک https باشد.";
 
@@ -98,6 +107,16 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
 
         return null;
     }
+
+    private static bool IsHexColor(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || System.Text.RegularExpressions.Regex.IsMatch(value.Trim(), "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$");
+
+    /// <summary>Site-relative path ("/club", not "//evil") or an absolute http(s) URL.</summary>
+    private static bool IsSiteLink(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || (value.StartsWith('/') && !value.StartsWith("//") && !value.Contains('\\'))
+        || IsHttp(value);
 
     private static bool IsHttps(string url) =>
         Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;

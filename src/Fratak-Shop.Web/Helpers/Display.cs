@@ -91,6 +91,7 @@ public static class Display
         Data.Entities.Wallets.WalletTransactionType.WithdrawalReversal => "برگشت درخواست برداشت",
         Data.Entities.Wallets.WalletTransactionType.AdminCredit => "افزایش اعتبار",
         Data.Entities.Wallets.WalletTransactionType.AdminDebit => "کسر اعتبار",
+        Data.Entities.Wallets.WalletTransactionType.LoyaltyReward => "جایزه باشگاه مشتریان",
         _ => "تراکنش",
     };
 

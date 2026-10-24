@@ -15,6 +15,18 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.Property(s => s.WalletMaxTopUpAmount).HasPrecision(18, 0);
         builder.Property(s => s.WalletMinWithdrawalAmount).HasPrecision(18, 0);
 
+        // Existing rows get the same defaults as new installations.
+        builder.Property(s => s.IsPasswordLoginEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsOtpLoginEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsOtpRegistrationEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsTwoFactorAvailable).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsCouponEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsGuestOrderTrackingEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsRecommendationEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsLoyaltyEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsReferralEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPwaEnabled).HasDefaultValue(true).HasSentinel(true);
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Values",
             "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 " +

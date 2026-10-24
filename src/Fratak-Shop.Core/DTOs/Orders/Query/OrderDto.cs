@@ -23,6 +23,9 @@ public class OrderDto : BaseDto
     public decimal ShippingAmount { get; set; }
     public decimal PayableAmount { get; set; }
 
+    public string? CouponCode { get; set; }
+    public decimal CouponDiscountAmount { get; set; }
+
     public string? ShippingMethod { get; set; }
     public Guid? ShippingMethodId { get; set; }
     public DateTimeOffset? RequestedDeliveryDate { get; set; }

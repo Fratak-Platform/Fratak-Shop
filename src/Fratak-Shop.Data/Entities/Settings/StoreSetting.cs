@@ -159,4 +159,81 @@ public class StoreSetting : BaseEntity
     /// <summary>Registered/legal name used in the Organization structured data.</summary>
     [MaxLength(200)]
     public string? OrganizationLegalName { get; set; }
+
+    // ── Sign-in ──────────────────────────────────────────────────────────
+    /// <summary>Sign-in with mobile number + password.</summary>
+    public bool IsPasswordLoginEnabled { get; set; } = true;
+
+    /// <summary>Sign-in with a one-time SMS code.</summary>
+    public bool IsOtpLoginEnabled { get; set; } = true;
+
+    /// <summary>A verified code for an unknown number creates the account (SMS sign-up).</summary>
+    public bool IsOtpRegistrationEnabled { get; set; } = true;
+
+    /// <summary>Customers may turn on two-step sign-in (password + SMS code).</summary>
+    public bool IsTwoFactorAvailable { get; set; } = true;
+
+    // ── Marketing ────────────────────────────────────────────────────────
+    public bool IsCouponEnabled { get; set; } = true;
+
+    /// <summary>Order tracking with order number + mobile number, without signing in.</summary>
+    public bool IsGuestOrderTrackingEnabled { get; set; } = true;
+
+    /// <summary>Personal recommendations / "bought together" / recently viewed blocks.</summary>
+    public bool IsRecommendationEnabled { get; set; } = true;
+
+    // ── Customer club ────────────────────────────────────────────────────
+    public bool IsLoyaltyEnabled { get; set; } = true;
+
+    [MaxLength(100)]
+    public string? LoyaltyProgramName { get; set; }
+
+    /// <summary>Earned points expire after this many days (null = never).</summary>
+    public int? LoyaltyPointsExpireDays { get; set; }
+
+    /// <summary>Invite friends with a personal code (rules: Referral / ReferralSignup).</summary>
+    public bool IsReferralEnabled { get; set; } = true;
+
+    // ── Announcement bar (top of every page) ────────────────────────────
+    public bool IsAnnouncementEnabled { get; set; }
+
+    [MaxLength(300)]
+    public string? AnnouncementText { get; set; }
+
+    [MaxLength(500)]
+    public string? AnnouncementUrl { get; set; }
+
+    /// <summary>Background colour (hex, e.g. #0284c7).</summary>
+    [MaxLength(20)]
+    public string? AnnouncementColor { get; set; }
+
+    // ── Footer call to action ────────────────────────────────────────────
+    [MaxLength(100)]
+    public string? FooterButtonText { get; set; }
+
+    [MaxLength(500)]
+    public string? FooterButtonUrl { get; set; }
+
+    // ── Invoice (seller details) ─────────────────────────────────────────
+    [MaxLength(20)]
+    public string? SellerEconomicCode { get; set; }
+
+    [MaxLength(20)]
+    public string? SellerNationalId { get; set; }
+
+    [MaxLength(30)]
+    public string? SellerRegistrationNumber { get; set; }
+
+    [MaxLength(1000)]
+    public string? InvoiceNote { get; set; }
+
+    // ── Progressive web app ──────────────────────────────────────────────
+    public bool IsPwaEnabled { get; set; } = true;
+
+    [MaxLength(30)]
+    public string? PwaShortName { get; set; }
+
+    /// <summary>Browser / app theme colour (hex).</summary>
+    [MaxLength(20)]
+    public string? ThemeColor { get; set; }
 }

@@ -59,6 +59,30 @@ public static class StoreSettingMapper
             BingSiteVerification = entity.BingSiteVerification,
             RobotsTxtExtra = entity.RobotsTxtExtra,
             OrganizationLegalName = entity.OrganizationLegalName,
+            IsPasswordLoginEnabled = entity.IsPasswordLoginEnabled,
+            IsOtpLoginEnabled = entity.IsOtpLoginEnabled,
+            IsOtpRegistrationEnabled = entity.IsOtpRegistrationEnabled,
+            IsTwoFactorAvailable = entity.IsTwoFactorAvailable,
+            IsCouponEnabled = entity.IsCouponEnabled,
+            IsGuestOrderTrackingEnabled = entity.IsGuestOrderTrackingEnabled,
+            IsRecommendationEnabled = entity.IsRecommendationEnabled,
+            IsLoyaltyEnabled = entity.IsLoyaltyEnabled,
+            LoyaltyProgramName = entity.LoyaltyProgramName,
+            LoyaltyPointsExpireDays = entity.LoyaltyPointsExpireDays,
+            IsReferralEnabled = entity.IsReferralEnabled,
+            IsAnnouncementEnabled = entity.IsAnnouncementEnabled,
+            AnnouncementText = entity.AnnouncementText,
+            AnnouncementUrl = entity.AnnouncementUrl,
+            AnnouncementColor = entity.AnnouncementColor,
+            FooterButtonText = entity.FooterButtonText,
+            FooterButtonUrl = entity.FooterButtonUrl,
+            SellerEconomicCode = entity.SellerEconomicCode,
+            SellerNationalId = entity.SellerNationalId,
+            SellerRegistrationNumber = entity.SellerRegistrationNumber,
+            InvoiceNote = entity.InvoiceNote,
+            IsPwaEnabled = entity.IsPwaEnabled,
+            PwaShortName = entity.PwaShortName,
+            ThemeColor = entity.ThemeColor,
         };
     }
 
@@ -113,5 +137,29 @@ public static class StoreSettingMapper
         entity.BingSiteVerification = command.BingSiteVerification;
         entity.RobotsTxtExtra = command.RobotsTxtExtra;
         entity.OrganizationLegalName = command.OrganizationLegalName;
+        entity.IsPasswordLoginEnabled = command.IsPasswordLoginEnabled;
+        entity.IsOtpLoginEnabled = command.IsOtpLoginEnabled;
+        entity.IsOtpRegistrationEnabled = command.IsOtpRegistrationEnabled;
+        entity.IsTwoFactorAvailable = command.IsTwoFactorAvailable;
+        entity.IsCouponEnabled = command.IsCouponEnabled;
+        entity.IsGuestOrderTrackingEnabled = command.IsGuestOrderTrackingEnabled;
+        entity.IsRecommendationEnabled = command.IsRecommendationEnabled;
+        entity.IsLoyaltyEnabled = command.IsLoyaltyEnabled;
+        entity.LoyaltyProgramName = command.LoyaltyProgramName;
+        entity.LoyaltyPointsExpireDays = command.LoyaltyPointsExpireDays;
+        entity.IsReferralEnabled = command.IsReferralEnabled;
+        entity.IsAnnouncementEnabled = command.IsAnnouncementEnabled;
+        entity.AnnouncementText = command.AnnouncementText;
+        entity.AnnouncementUrl = command.AnnouncementUrl;
+        entity.AnnouncementColor = command.AnnouncementColor;
+        entity.FooterButtonText = command.FooterButtonText;
+        entity.FooterButtonUrl = command.FooterButtonUrl;
+        entity.SellerEconomicCode = command.SellerEconomicCode;
+        entity.SellerNationalId = command.SellerNationalId;
+        entity.SellerRegistrationNumber = command.SellerRegistrationNumber;
+        entity.InvoiceNote = command.InvoiceNote;
+        entity.IsPwaEnabled = command.IsPwaEnabled;
+        entity.PwaShortName = command.PwaShortName;
+        entity.ThemeColor = command.ThemeColor;
     }
 }
