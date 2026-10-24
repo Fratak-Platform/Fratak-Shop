@@ -54,4 +54,7 @@ public enum WalletTransactionType
     AdminDebit = 7,          // کاهش توسط مدیر
     LoyaltyReward = 8,       // تبدیل امتیاز باشگاه مشتریان
     PromotionCredit = 9,     // اعتبار هدیه / کمپین (غیرقابل برداشت)
+    GiftCardRedeem = 10,     // فعال‌سازی کارت هدیه
+    GiftCardPurchase = 11,   // خرید کارت هدیه با کیف پول
+    ReturnRefund = 12,       // بازگشت وجه کالای مرجوعی
 }

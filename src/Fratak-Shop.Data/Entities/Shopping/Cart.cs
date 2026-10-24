@@ -26,4 +26,7 @@ public class Cart : BaseEntity
     public User? User { get; set; }
 
     public List<CartItem> Items { get; set; } = [];
+
+    /// <summary>"Next purchase" list (not part of the cart totals).</summary>
+    public List<SavedCartItem> SavedItems { get; set; } = [];
 }

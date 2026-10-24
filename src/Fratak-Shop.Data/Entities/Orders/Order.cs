@@ -129,6 +129,14 @@ public class Order : BaseEntity
 
     public DateTimeOffset? PaidAt { get; set; }
 
+    /// <summary>Moment the order was delivered (return / feedback windows start here).</summary>
+    public DateTimeOffset? DeliveredAt { get; set; }
+
+    /// <summary>Snapshot of the address location picked on the map.</summary>
+    public decimal? ShippingLatitude { get; set; }
+
+    public decimal? ShippingLongitude { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 

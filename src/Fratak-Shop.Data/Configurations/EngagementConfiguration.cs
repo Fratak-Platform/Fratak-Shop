@@ -192,6 +192,7 @@ public class NotificationTemplateConfiguration : IEntityTypeConfiguration<Notifi
     public void Configure(EntityTypeBuilder<NotificationTemplate> builder)
     {
         builder.HasIndex(t => t.Event).IsUnique();
+        builder.Property(t => t.SendPush).HasDefaultValue(true).HasSentinel(true);
     }
 }
 

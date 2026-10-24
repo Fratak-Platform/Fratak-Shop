@@ -15,10 +15,12 @@ using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.Payments;
 using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Searches;
 using Fratak_Shop.Data.Entities.SeoRedirects;
 using Fratak_Shop.Data.Entities.Settings;
 using Fratak_Shop.Data.Entities.Shipping;
 using Fratak_Shop.Data.Entities.Shopping;
+using Fratak_Shop.Data.Entities.Support;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Utilities;
@@ -130,6 +132,47 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public DbSet<AbandonedCartReminderStep> AbandonedCartReminderSteps { get; set; } = null!;
 
+    // Round 5
+    public DbSet<ProductAlert> ProductAlerts { get; set; } = null!;
+
+    public DbSet<ProductPriceHistory> ProductPriceHistories { get; set; } = null!;
+
+    public DbSet<ProductVideo> ProductVideos { get; set; } = null!;
+
+    public DbSet<GiftCard> GiftCards { get; set; } = null!;
+
+    public DbSet<UserKnownDevice> UserKnownDevices { get; set; } = null!;
+
+    public DbSet<SavedCartItem> SavedCartItems { get; set; } = null!;
+
+    public DbSet<ReturnRequest> ReturnRequests { get; set; } = null!;
+
+    public DbSet<ReturnRequestItem> ReturnRequestItems { get; set; } = null!;
+
+    public DbSet<ReturnRequestImage> ReturnRequestImages { get; set; } = null!;
+
+    public DbSet<ReturnReason> ReturnReasons { get; set; } = null!;
+
+    public DbSet<OrderFeedback> OrderFeedbacks { get; set; } = null!;
+
+    public DbSet<SearchSynonym> SearchSynonyms { get; set; } = null!;
+
+    public DbSet<SearchQueryLog> SearchQueryLogs { get; set; } = null!;
+
+    public DbSet<CommentVote> CommentVotes { get; set; } = null!;
+
+    public DbSet<SupportDepartment> SupportDepartments { get; set; } = null!;
+
+    public DbSet<SupportTicket> SupportTickets { get; set; } = null!;
+
+    public DbSet<SupportTicketMessage> SupportTicketMessages { get; set; } = null!;
+
+    public DbSet<SupportTicketAttachment> SupportTicketAttachments { get; set; } = null!;
+
+    public DbSet<WebPushSubscription> WebPushSubscriptions { get; set; } = null!;
+
+    public DbSet<SeoNotFoundLog> SeoNotFoundLogs { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 
@@ -157,15 +200,83 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        ApplyAuditDates();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        var changed = BeforeSave();
+        var result = base.SaveChanges(acceptAllChangesOnSuccess);
+        DataChangeNotifier.Publish(changed);
+        return result;
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        ApplyAuditDates();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var changed = BeforeSave();
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        DataChangeNotifier.Publish(changed);
+        return result;
     }
+
+    /// <summary>Audit dates, price history; returns the changed entity types (for cache invalidation).</summary>
+    private HashSet<Type> BeforeSave()
+    {
+        TrackPriceChanges();
+        ApplyAuditDates();
+
+        return ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(entry => entry.Metadata.ClrType)
+            .ToHashSet();
+    }
+
+    /// <summary>
+    /// Writes a <see cref="ProductPriceHistory"/> row whenever the price the customer pays (or the
+    /// in-stock state) of a product changes – whoever changes it (storefront, admin panel, import).
+    /// </summary>
+    private void TrackPriceChanges()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var entry in ChangeTracker.Entries<Product>().ToList())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified))
+                continue;
+
+            var product = entry.Entity;
+            var final = FinalPrice(product.Price, product.DiscountPrice, product.DiscountStartAt, product.DiscountEndAt, now);
+            var inStock = product.StockQuantity > 0;
+
+            if (entry.State == EntityState.Modified)
+            {
+                var original = entry.OriginalValues;
+                var oldFinal = FinalPrice(
+                    original.GetValue<decimal>(nameof(Product.Price)),
+                    original.GetValue<decimal?>(nameof(Product.DiscountPrice)),
+                    original.GetValue<DateTimeOffset?>(nameof(Product.DiscountStartAt)),
+                    original.GetValue<DateTimeOffset?>(nameof(Product.DiscountEndAt)),
+                    now);
+                var oldPrice = original.GetValue<decimal>(nameof(Product.Price));
+                var wasInStock = original.GetValue<int>(nameof(Product.StockQuantity)) > 0;
+
+                if (oldFinal == final && oldPrice == product.Price && wasInStock == inStock)
+                    continue;
+            }
+
+            if (product.Id == Guid.Empty)
+                product.Id = Guid.NewGuid();
+
+            ProductPriceHistories.Add(new ProductPriceHistory
+            {
+                ProductId = product.Id,
+                Price = product.Price,
+                FinalPrice = final,
+                IsInStock = inStock,
+            });
+        }
+    }
+
+    /// <summary>Same rule as the storefront price calculator (sale price inside its window).</summary>
+    public static decimal FinalPrice(decimal price, decimal? discountPrice, DateTimeOffset? start, DateTimeOffset? end, DateTimeOffset now) =>
+        discountPrice is { } sale && sale < price && (start is null || start <= now) && (end is null || end >= now)
+            ? sale
+            : price;
 
     /// <summary>
     /// Fills CreatedAt/UpdatedAt automatically and turns hard deletes into

@@ -41,6 +41,64 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.Property(s => s.PwaInstallPromptSnoozeDays).HasDefaultValue(14).HasSentinel(14);
         builder.Property(s => s.InvoiceNumberPrefix).HasDefaultValue("INV");
 
+        // Round 5
+        builder.Property(s => s.IsProductAlertEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ProductAlertMaxPerUser).HasDefaultValue(50).HasSentinel(50);
+        builder.Property(s => s.IsGiftCardEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.GiftCardMinAmount).HasPrecision(18, 0);
+        builder.Property(s => s.GiftCardMinAmount).HasDefaultValue(100000m).HasSentinel(100000m);
+        builder.Property(s => s.GiftCardMaxAmount).HasPrecision(18, 0);
+        builder.Property(s => s.GiftCardMaxAmount).HasDefaultValue(10000000m).HasSentinel(10000000m);
+        builder.Property(s => s.GiftCardPresetAmounts).HasDefaultValue("200000,500000,1000000,2000000");
+        builder.Property(s => s.GiftCardValidDays).HasDefaultValue(365).HasSentinel(365);
+        builder.Property(s => s.ReferralCookieDays).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.IsCaptchaEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.CaptchaAfterFailedAttempts).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.IsNewDeviceAlertEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsSaveForLaterEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPriceHistoryEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PriceHistoryDays).HasDefaultValue(90).HasSentinel(90);
+        builder.Property(s => s.IsAddressMapEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.MapTileUrl).HasDefaultValue("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+        builder.Property(s => s.MapAttribution).HasDefaultValue("© OpenStreetMap");
+        builder.Property(s => s.MapDefaultLatitude).HasPrecision(9, 6);
+        builder.Property(s => s.MapDefaultLatitude).HasDefaultValue(35.6892m).HasSentinel(35.6892m);
+        builder.Property(s => s.MapDefaultLongitude).HasPrecision(9, 6);
+        builder.Property(s => s.MapDefaultLongitude).HasDefaultValue(51.3890m).HasSentinel(51.3890m);
+        builder.Property(s => s.MapDefaultZoom).HasDefaultValue(12).HasSentinel(12);
+        builder.Property(s => s.IsReturnEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ReturnWindowDays).HasDefaultValue(7).HasSentinel(7);
+        builder.Property(s => s.ReturnMaxImages).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.IsOrderFeedbackEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.OrderFeedbackWindowDays).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.IsDarkModeEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsSearchSynonymsEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPopularSearchesEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PopularSearchesCount).HasDefaultValue(8).HasSentinel(8);
+        builder.Property(s => s.PopularSearchMinCount).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.IsDidYouMeanEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsCustomerAnswerEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsCommentVotingEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsSmartCompareEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsProductVideoEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsTicketEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.TicketMaxOpenPerUser).HasDefaultValue(5).HasSentinel(5);
+        builder.Property(s => s.TicketMaxAttachments).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.TicketMaxAttachmentSizeKb).HasDefaultValue(2048).HasSentinel(2048);
+        builder.Property(s => s.IsWebPushEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsImageOptimizationEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ImageQuality).HasDefaultValue(80).HasSentinel(80);
+        builder.Property(s => s.IsPageCacheEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PageCacheSeconds).HasDefaultValue(300).HasSentinel(300);
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round5",
+            "[ProductAlertMaxPerUser] >= 0 AND [GiftCardMinAmount] > 0 AND [GiftCardMaxAmount] >= [GiftCardMinAmount] AND [GiftCardValidDays] >= 0 " +
+            "AND [ReferralCookieDays] >= 0 AND [CaptchaAfterFailedAttempts] >= 0 AND [PriceHistoryDays] > 0 AND [MapDefaultZoom] BETWEEN 1 AND 19 " +
+            "AND [ReturnWindowDays] >= 0 AND [ReturnMaxImages] BETWEEN 0 AND 10 AND [OrderFeedbackWindowDays] >= 0 AND [DefaultTheme] BETWEEN 0 AND 2 " +
+            "AND [PopularSearchesCount] BETWEEN 0 AND 30 AND [PopularSearchMinCount] >= 1 AND [TicketMaxOpenPerUser] >= 1 " +
+            "AND [TicketMaxAttachments] BETWEEN 0 AND 10 AND [TicketMaxAttachmentSizeKb] > 0 AND [ImageQuality] BETWEEN 40 AND 95 AND [PageCacheSeconds] >= 0"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Values",
             "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 " +

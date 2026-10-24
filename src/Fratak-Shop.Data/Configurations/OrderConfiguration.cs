@@ -28,6 +28,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.CouponDiscountAmount).HasPrecision(18, 0);
         builder.Property(o => o.WalletBonusAmount).HasPrecision(18, 0);
         builder.Property(o => o.RefundedBonusAmount).HasPrecision(18, 0);
+        builder.Property(o => o.ShippingLatitude).HasPrecision(9, 6);
+        builder.Property(o => o.ShippingLongitude).HasPrecision(9, 6);
 
         builder.HasIndex(o => o.InvoiceNumber)
             .IsUnique()

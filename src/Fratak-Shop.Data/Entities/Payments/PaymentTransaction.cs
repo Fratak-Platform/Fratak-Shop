@@ -56,6 +56,7 @@ public enum PaymentPurpose
     None = 0,
     OrderPayment = 1,
     WalletTopUp = 2,
+    GiftCard = 3,
 }
 
 public enum PaymentTransactionStatus

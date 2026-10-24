@@ -162,6 +162,10 @@ public class StoreSetting : BaseEntity
     [MaxLength(2000)]
     public string? RobotsTxtExtra { get; set; }
 
+    /// <summary>X (Twitter) account of the shop, e.g. @fratak (twitter:site).</summary>
+    [MaxLength(50)]
+    public string? XSiteHandle { get; set; }
+
     /// <summary>Registered/legal name used in the Organization structured data.</summary>
     [MaxLength(200)]
     public string? OrganizationLegalName { get; set; }
@@ -295,4 +299,197 @@ public class StoreSetting : BaseEntity
 
     [MaxLength(300)]
     public string? PwaInstallPromptText { get; set; }
+
+    // ═══ Round 5 ═══════════════════════════════════════════════════════
+
+    // ── Product alerts (notify me) ──
+
+    /// <summary>"Notify me" for back-in-stock and price drops. Channels follow the BackInStock / PriceDrop notification templates (in-site, push, SMS).</summary>
+    public bool IsProductAlertEnabled { get; set; } = true;
+
+    /// <summary>Active alerts a customer can have at the same time.</summary>
+    public int ProductAlertMaxPerUser { get; set; } = 50;
+
+    // ── Gift cards ──
+
+    /// <summary>Customers can buy gift cards and redeem codes into their wallet.</summary>
+    public bool IsGiftCardEnabled { get; set; } = true;
+
+    public decimal GiftCardMinAmount { get; set; } = 100000m;
+
+    public decimal GiftCardMaxAmount { get; set; } = 10000000m;
+
+    /// <summary>Comma-separated amounts offered as quick choices.</summary>
+    [MaxLength(200)]
+    public string? GiftCardPresetAmounts { get; set; } = "200000,500000,1000000,2000000";
+
+    /// <summary>Validity after purchase (0 = never expires).</summary>
+    public int GiftCardValidDays { get; set; } = 365;
+
+    /// <summary>Redeemed amount is withdrawable money. Default false: purchase-only credit, so gift cards can't be used to move money out.</summary>
+    public bool IsGiftCardCreditWithdrawable { get; set; }
+
+    /// <summary>Terms shown on the gift card page.</summary>
+    [MaxLength(2000)]
+    public string? GiftCardTerms { get; set; }
+
+    // ── Referral sharing ──
+
+    /// <summary>Text sent with the invite link ({Link}, {Code}, {SiteName}).</summary>
+    [MaxLength(500)]
+    public string? ReferralShareText { get; set; }
+
+    /// <summary>Days an invite link is remembered on the visitor's browser.</summary>
+    public int ReferralCookieDays { get; set; } = 30;
+
+    // ── Smart captcha ──
+
+    /// <summary>Ask for a captcha after repeated failures (sign-in, SMS code, gift card, contact form).</summary>
+    public bool IsCaptchaEnabled { get; set; } = true;
+
+    /// <summary>Failures (per IP and action) before the captcha is required.</summary>
+    public int CaptchaAfterFailedAttempts { get; set; } = 3;
+
+    // ── Security alerts ──
+
+    /// <summary>Notify the customer when the account is used on a new device / browser.</summary>
+    public bool IsNewDeviceAlertEnabled { get; set; } = true;
+
+    // ── Cart ──
+
+    /// <summary>"Next purchase" list in the cart.</summary>
+    public bool IsSaveForLaterEnabled { get; set; } = true;
+
+    // ── Price history ──
+
+    /// <summary>Price history chart on the product page.</summary>
+    public bool IsPriceHistoryEnabled { get; set; } = true;
+
+    /// <summary>Days shown in the chart.</summary>
+    public int PriceHistoryDays { get; set; } = 90;
+
+    // ── Address map ──
+
+    /// <summary>Customers can pick the address location on a map.</summary>
+    public bool IsAddressMapEnabled { get; set; } = true;
+
+    /// <summary>Map tile URL template ({z}/{x}/{y}); e.g. OpenStreetMap or an Iranian tile provider.</summary>
+    [MaxLength(500)]
+    public string? MapTileUrl { get; set; } = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+    [MaxLength(200)]
+    public string? MapAttribution { get; set; } = "© OpenStreetMap";
+
+    /// <summary>Map centre when the customer has no location yet.</summary>
+    public decimal MapDefaultLatitude { get; set; } = 35.6892m;
+
+    public decimal MapDefaultLongitude { get; set; } = 51.3890m;
+
+    public int MapDefaultZoom { get; set; } = 12;
+
+    // ── Returns ──
+
+    /// <summary>Online return requests for delivered orders.</summary>
+    public bool IsReturnEnabled { get; set; } = true;
+
+    /// <summary>Days after delivery a return can be requested.</summary>
+    public int ReturnWindowDays { get; set; } = 7;
+
+    public int ReturnMaxImages { get; set; } = 3;
+
+    /// <summary>Short return conditions shown on the request form.</summary>
+    [MaxLength(2000)]
+    public string? ReturnPolicyText { get; set; }
+
+    // ── Order feedback ──
+
+    /// <summary>Customers rate the shopping experience of delivered orders.</summary>
+    public bool IsOrderFeedbackEnabled { get; set; } = true;
+
+    /// <summary>Days after delivery the order can be rated.</summary>
+    public int OrderFeedbackWindowDays { get; set; } = 30;
+
+    // ── Appearance ──
+
+    /// <summary>Customers can switch to the dark theme.</summary>
+    public bool IsDarkModeEnabled { get; set; } = true;
+
+    /// <summary>0 = light, 1 = dark, 2 = follow the device setting.</summary>
+    public int DefaultTheme { get; set; }
+
+    // ── Smart search ──
+
+    /// <summary>Expand queries with the synonym groups (SearchSynonyms).</summary>
+    public bool IsSearchSynonymsEnabled { get; set; } = true;
+
+    /// <summary>Show popular searches in the search box.</summary>
+    public bool IsPopularSearchesEnabled { get; set; } = true;
+
+    public int PopularSearchesCount { get; set; } = 8;
+
+    /// <summary>Searches a query needs before it can be listed as popular.</summary>
+    public int PopularSearchMinCount { get; set; } = 3;
+
+    /// <summary>Suggest a correction ("did you mean …") when a search has no result.</summary>
+    public bool IsDidYouMeanEnabled { get; set; } = true;
+
+    // ── Questions & answers ──
+
+    /// <summary>Customers can answer product questions (shown after approval, buyers get a badge).</summary>
+    public bool IsCustomerAnswerEnabled { get; set; } = true;
+
+    /// <summary>"Helpful" votes on reviews and answers.</summary>
+    public bool IsCommentVotingEnabled { get; set; } = true;
+
+    // ── Compare ──
+
+    /// <summary>Suggest similar products on the compare page and highlight differences.</summary>
+    public bool IsSmartCompareEnabled { get; set; } = true;
+
+    // ── Product video ──
+
+    public bool IsProductVideoEnabled { get; set; } = true;
+
+    // ── Support tickets ──
+
+    public bool IsTicketEnabled { get; set; } = true;
+
+    /// <summary>Open tickets a customer can have at the same time.</summary>
+    public int TicketMaxOpenPerUser { get; set; } = 5;
+
+    public int TicketMaxAttachments { get; set; } = 3;
+
+    public int TicketMaxAttachmentSizeKb { get; set; } = 2048;
+
+    // ── Browser push notifications ──
+
+    /// <summary>Browser push notifications (Web Push / VAPID; keys are generated automatically).</summary>
+    public bool IsWebPushEnabled { get; set; } = true;
+
+    /// <summary>Contact of the push sender (mailto: or https: URL). Defaults to the support e-mail / site URL.</summary>
+    [MaxLength(200)]
+    public string? VapidSubject { get; set; }
+
+    /// <summary>Generated automatically (base64url P-256 public key).</summary>
+    [MaxLength(200)]
+    public string? VapidPublicKey { get; set; }
+
+    // ── Image optimization ──
+
+    /// <summary>Serve resized WebP versions of uploaded images (generated once, cached on disk).</summary>
+    public bool IsImageOptimizationEnabled { get; set; } = true;
+
+    /// <summary>WebP quality (40–95).</summary>
+    public int ImageQuality { get; set; } = 80;
+
+    // ── Page cache ──
+
+    /// <summary>Cache public pages for guests; cleared automatically when the related data changes.</summary>
+    public bool IsPageCacheEnabled { get; set; } = true;
+
+    public int PageCacheSeconds { get; set; } = 300;
+
+    /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
+    [MaxLength(200)]
+    public string? VapidPrivateKey { get; set; }
 }

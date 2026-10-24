@@ -67,6 +67,14 @@ public class Product : BaseEntity
 
     public SeoMetaData? Seo { get; set; }
 
+    /// <summary>Global trade item number (EAN / UPC barcode) – product rich results.</summary>
+    [MaxLength(20)]
+    public string? Gtin { get; set; }
+
+    /// <summary>Manufacturer part number – product rich results.</summary>
+    [MaxLength(50)]
+    public string? Mpn { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTimeOffset? PublishedAt { get; set; }
@@ -90,6 +98,8 @@ public class Product : BaseEntity
     public List<ProductImage> Images { get; set; } = [];
 
     public List<ProductFeature> Features { get; set; } = [];
+
+    public List<ProductVideo> Videos { get; set; } = [];
 
     public List<Comment> Comments { get; set; } = [];
 

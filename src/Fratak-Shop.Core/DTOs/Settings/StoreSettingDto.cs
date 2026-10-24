@@ -52,6 +52,7 @@ public class StoreSettingCommand
     public string? GoogleSiteVerification { get; set; }
     public string? BingSiteVerification { get; set; }
     public string? RobotsTxtExtra { get; set; }
+    public string? XSiteHandle { get; set; }
     public string? OrganizationLegalName { get; set; }
     public bool IsPasswordLoginEnabled { get; set; } = true;
     public bool IsOtpLoginEnabled { get; set; } = true;
@@ -98,6 +99,58 @@ public class StoreSettingCommand
     public int PwaInstallPromptSnoozeDays { get; set; } = 14;
     public string? PwaInstallPromptTitle { get; set; }
     public string? PwaInstallPromptText { get; set; }
+
+    // Round 5
+    public bool IsProductAlertEnabled { get; set; } = true;
+    public int ProductAlertMaxPerUser { get; set; } = 50;
+    public bool IsGiftCardEnabled { get; set; } = true;
+    public decimal GiftCardMinAmount { get; set; } = 100000m;
+    public decimal GiftCardMaxAmount { get; set; } = 10000000m;
+    public string? GiftCardPresetAmounts { get; set; } = "200000,500000,1000000,2000000";
+    public int GiftCardValidDays { get; set; } = 365;
+    public bool IsGiftCardCreditWithdrawable { get; set; }
+    public string? GiftCardTerms { get; set; }
+    public string? ReferralShareText { get; set; }
+    public int ReferralCookieDays { get; set; } = 30;
+    public bool IsCaptchaEnabled { get; set; } = true;
+    public int CaptchaAfterFailedAttempts { get; set; } = 3;
+    public bool IsNewDeviceAlertEnabled { get; set; } = true;
+    public bool IsSaveForLaterEnabled { get; set; } = true;
+    public bool IsPriceHistoryEnabled { get; set; } = true;
+    public int PriceHistoryDays { get; set; } = 90;
+    public bool IsAddressMapEnabled { get; set; } = true;
+    public string? MapTileUrl { get; set; } = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+    public string? MapAttribution { get; set; } = "© OpenStreetMap";
+    public decimal MapDefaultLatitude { get; set; } = 35.6892m;
+    public decimal MapDefaultLongitude { get; set; } = 51.3890m;
+    public int MapDefaultZoom { get; set; } = 12;
+    public bool IsReturnEnabled { get; set; } = true;
+    public int ReturnWindowDays { get; set; } = 7;
+    public int ReturnMaxImages { get; set; } = 3;
+    public string? ReturnPolicyText { get; set; }
+    public bool IsOrderFeedbackEnabled { get; set; } = true;
+    public int OrderFeedbackWindowDays { get; set; } = 30;
+    public bool IsDarkModeEnabled { get; set; } = true;
+    public int DefaultTheme { get; set; }
+    public bool IsSearchSynonymsEnabled { get; set; } = true;
+    public bool IsPopularSearchesEnabled { get; set; } = true;
+    public int PopularSearchesCount { get; set; } = 8;
+    public int PopularSearchMinCount { get; set; } = 3;
+    public bool IsDidYouMeanEnabled { get; set; } = true;
+    public bool IsCustomerAnswerEnabled { get; set; } = true;
+    public bool IsCommentVotingEnabled { get; set; } = true;
+    public bool IsSmartCompareEnabled { get; set; } = true;
+    public bool IsProductVideoEnabled { get; set; } = true;
+    public bool IsTicketEnabled { get; set; } = true;
+    public int TicketMaxOpenPerUser { get; set; } = 5;
+    public int TicketMaxAttachments { get; set; } = 3;
+    public int TicketMaxAttachmentSizeKb { get; set; } = 2048;
+    public bool IsWebPushEnabled { get; set; } = true;
+    public string? VapidSubject { get; set; }
+    public bool IsImageOptimizationEnabled { get; set; } = true;
+    public int ImageQuality { get; set; } = 80;
+    public bool IsPageCacheEnabled { get; set; } = true;
+    public int PageCacheSeconds { get; set; } = 300;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>
@@ -106,6 +159,21 @@ public class StoreSettingDto : StoreSettingCommand
     public Guid Id { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>Public VAPID key for browser push subscriptions (generated automatically).</summary>
+    public string? VapidPublicKey { get; set; }
+
+    public bool CanUseWebPush => IsWebPushEnabled && IsPwaEnabled && !string.IsNullOrWhiteSpace(VapidPublicKey);
+
+    /// <summary>Gift card quick-choice amounts inside the allowed range.</summary>
+    public IReadOnlyList<decimal> GiftCardPresets =>
+        (GiftCardPresetAmounts ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part => decimal.TryParse(part, out var amount) ? amount : 0)
+            .Where(amount => amount >= GiftCardMinAmount && amount <= GiftCardMaxAmount)
+            .Distinct()
+            .OrderBy(amount => amount)
+            .ToList();
 
     /// <summary>Days of the week without delivery.</summary>
     public IReadOnlySet<DayOfWeek> OffDays =>

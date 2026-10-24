@@ -154,6 +154,7 @@ public enum LoyaltyAction
     Referral = 6,           // معرفی دوستان (پس از اولین خرید دوست)
     ReferralSignup = 7,     // ثبت‌نام با کد معرف (هدیه به کاربر جدید)
     Birthday = 8,           // هدیه تولد (سالی یک بار)
+    OrderFeedback = 9,      // امتیازدهی به تجربه خرید
 }
 
 public enum LoyaltyTransactionType

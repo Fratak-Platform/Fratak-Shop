@@ -42,5 +42,10 @@ public enum SitePage
     OrderDetails = 32,    // جزئیات سفارش (پروفایل)
     CustomerClub = 33,    // باشگاه مشتریان
     Notifications = 34,   // اعلان‌ها
+    UserTickets = 35,     // تیکت‌های پشتیبانی
+    UserReturns = 36,     // مرجوعی‌ها
+    GiftCards = 37,       // کارت هدیه
+    Invite = 38,          // دعوت دوستان
+    UserAlerts = 39,      // اطلاع‌رسانی‌های محصول (خبرم کن)
     AllPages = 100,       // همه صفحات
 }

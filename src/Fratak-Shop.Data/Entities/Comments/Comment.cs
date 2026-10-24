@@ -46,6 +46,11 @@ public class Comment : BaseEntity
     /// <summary>The author bought this product (a delivered order) – shown as a badge.</summary>
     public bool IsVerifiedPurchase { get; set; }
 
+    /// <summary>"Helpful" votes (denormalized from <see cref="Votes"/>).</summary>
+    public int HelpfulCount { get; set; }
+
+    public int NotHelpfulCount { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
@@ -61,6 +66,8 @@ public class Comment : BaseEntity
     public List<Comment> Replies { get; set; } = [];
 
     public List<CommentImage> Images { get; set; } = [];
+
+    public List<CommentVote> Votes { get; set; } = [];
 }
 
 /// <summary>

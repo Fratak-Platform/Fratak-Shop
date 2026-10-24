@@ -104,6 +104,9 @@ public class NotificationTemplate : BaseEntity
 
     public bool SendSms { get; set; }
 
+    /// <summary>Also send as a browser push notification to the customer's subscribed devices.</summary>
+    public bool SendPush { get; set; } = true;
+
     [MaxLength(500)]
     public string? SmsText { get; set; }
 }
@@ -126,6 +129,7 @@ public enum NotificationCategory
     Loyalty = 4,
     Promotion = 5,
     Security = 6,
+    Support = 7,
 }
 
 public enum NotificationEvent
@@ -141,17 +145,30 @@ public enum NotificationEvent
     OrderCancelled = 16,
     OrderReturned = 17,
     PaymentFailed = 18,
+    ReturnRequested = 20,
+    ReturnApproved = 21,
+    ReturnRejected = 22,
+    ReturnRefunded = 23,
+    OrderFeedbackRequest = 24,
     WalletTopUp = 30,
     WalletAdjusted = 31,
     WithdrawalRequested = 32,
     WithdrawalApproved = 33,
     WithdrawalPaid = 34,
     WithdrawalRejected = 35,
+    GiftCardPurchased = 36,
+    GiftCardRedeemed = 37,
     PointsEarned = 50,
     TierUpgraded = 51,
     RewardRedeemed = 52,
+    ReferralJoined = 53,
     PasswordChanged = 70,
     TwoFactorEnabled = 71,
     TwoFactorDisabled = 72,
+    NewDeviceLogin = 73,
     AbandonedCartReminder = 90,
+    BackInStock = 100,
+    PriceDrop = 101,
+    TicketCreated = 110,
+    TicketReplied = 111,
 }

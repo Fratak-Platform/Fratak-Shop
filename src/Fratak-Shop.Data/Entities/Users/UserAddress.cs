@@ -45,6 +45,11 @@ public class UserAddress : BaseEntity
 
     public bool IsDefault { get; set; }
 
+    /// <summary>Location picked on the map (optional, WGS84).</summary>
+    public decimal? Latitude { get; set; }
+
+    public decimal? Longitude { get; set; }
+
     [ForeignKey(nameof(UserId))] 
     public User User { get; set; } = null!;
 
