@@ -51,9 +51,11 @@ public class AddressInput
 
     /// <summary>Optional map location (filled by the map picker).</summary>
     [Range(-90, 90)]
+    [Microsoft.AspNetCore.Mvc.ModelBinder(typeof(Infrastructure.ModelBinding.InvariantDecimalModelBinder))]
     public decimal? Latitude { get; set; }
 
     [Range(-180, 180)]
+    [Microsoft.AspNetCore.Mvc.ModelBinder(typeof(Infrastructure.ModelBinding.InvariantDecimalModelBinder))]
     public decimal? Longitude { get; set; }
 
     public CreateUserAddressCommand ToCreateCommand(Guid userId) => new()
