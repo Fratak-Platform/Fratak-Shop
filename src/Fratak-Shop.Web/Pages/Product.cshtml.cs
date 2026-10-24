@@ -349,7 +349,7 @@ public class ProductModel(
         }
 
         var clean = data.Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value);
-        return JsonSerializer.Serialize(clean, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        return JsonSerializer.Serialize(clean, PageMetaService.JsonLdOptions);
     }
 
     public class ReviewInput

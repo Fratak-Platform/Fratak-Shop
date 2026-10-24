@@ -2,6 +2,10 @@
     var settings = Site.Settings;
     string? Meta(string key) => ViewData[key] as string;
     var title = Meta(PageMetaKeys.Title);
+    // Personal/transactional pages are never indexed, even if an SEO record says otherwise.
+    var robots = PrivatePaths.IsPrivate(ViewContext.HttpContext.Request.Path)
+        ? "noindex, nofollow"
+        : Meta(PageMetaKeys.Robots) ?? "index, follow, max-image-preview:large";
 }
   <title>@Site.Title(title)</title>
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Description)))
@@ -12,7 +16,7 @@
 {
   <meta name="keywords" content="@Meta(PageMetaKeys.Keywords)">
 }
-  <meta name="robots" content="@(Meta(PageMetaKeys.Robots) ?? "index, follow, max-image-preview:large")">
+  <meta name="robots" content="@robots">
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
 {
   <link rel="canonical" href="@Meta(PageMetaKeys.Canonical)">

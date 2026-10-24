@@ -54,6 +54,11 @@ public class BlogModel(IPostService postService, IBlogCategoryService blogCatego
         else
             await pageMeta.ApplyAsync(ViewData, SitePage.Blog, "وبلاگ", "جدیدترین مقالات، راهنمای خرید و اخبار دنیای تکنولوژی.");
 
+        if (Category is not null)
+            pageMeta.AddBreadcrumbs(ViewData, ("وبلاگ", "/blog"), (Category.Name, null));
+        else
+            pageMeta.AddBreadcrumbs(ViewData, ("وبلاگ", null));
+
         if (PageNumber > 1 || !string.IsNullOrWhiteSpace(Query))
             ViewData[PageMetaKeys.Robots] = "noindex, follow";
 

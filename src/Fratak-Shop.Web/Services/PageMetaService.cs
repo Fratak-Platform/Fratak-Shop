@@ -34,6 +34,21 @@ public interface IPageMetaService
     string? AbsoluteUrl(string? url);
 }
 
+/// <summary>Pages that are personal or transactional: never indexed, whatever the SEO settings say.</summary>
+public static class PrivatePaths
+{
+    public static readonly string[] Prefixes =
+    [
+        "/profile", "/checkout", "/cart", "/payment", "/api/", "/login", "/register",
+        "/verify", "/welcome", "/logout", "/compare", "/track-order", "/uploads/returns/",
+    ];
+
+    public static bool IsPrivate(Microsoft.AspNetCore.Http.PathString path) =>
+        path.HasValue && Prefixes.Any(prefix => prefix.EndsWith('/')
+            ? path.Value!.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            : path.StartsWithSegments(prefix, StringComparison.OrdinalIgnoreCase));
+}
+
 public static class PageMetaKeys
 {
     public const string Title = "Title";

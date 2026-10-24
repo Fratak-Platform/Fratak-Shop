@@ -64,8 +64,11 @@ public class ContactUsModel(IMessageService messageService, IUserService userSer
         return RedirectToPage();
     }
 
-    private Task ApplySeoAsync() =>
-        pageMeta.ApplyAsync(ViewData, SitePage.ContactUs, "تماس با ما", "راه های ارتباط با پشتیبانی فروشگاه و ارسال پیام.");
+    private async Task ApplySeoAsync()
+    {
+        await pageMeta.ApplyAsync(ViewData, SitePage.ContactUs, "تماس با ما", "راه های ارتباط با پشتیبانی فروشگاه و ارسال پیام.");
+        pageMeta.AddBreadcrumbs(ViewData, ("تماس با ما", null));
+    }
 
     public class ContactInput
     {

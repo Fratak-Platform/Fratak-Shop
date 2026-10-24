@@ -19,6 +19,7 @@ public class ComingSoonModel(IMessageService messageService) : ShopPageModel
     public void OnGet()
     {
         ViewData[PageMetaKeys.Title] = "به زودی";
+        ViewData[PageMetaKeys.Robots] = "noindex, follow"; // temporary page – keep it out of search results
     }
 
     public async Task<IActionResult> OnPostAsync()

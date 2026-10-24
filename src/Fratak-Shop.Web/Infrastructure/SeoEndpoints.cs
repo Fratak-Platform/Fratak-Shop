@@ -43,22 +43,10 @@ public static class SeoEndpoints
         app.MapGet("/robots.txt", async (HttpContext http, IStoreSettingService settingService, CancellationToken ct) =>
         {
             var settings = await settingService.GetAsync(ct);
-            var builder = new StringBuilder()
-                .AppendLine("User-agent: *")
-                .AppendLine("Disallow: /profile")
-                .AppendLine("Disallow: /checkout")
-                .AppendLine("Disallow: /cart")
-                .AppendLine("Disallow: /payment")
-                .AppendLine("Disallow: /api/")
-                .AppendLine("Disallow: /login")
-                .AppendLine("Disallow: /register")
-                .AppendLine("Disallow: /verify")
-                .AppendLine("Disallow: /welcome")
-                .AppendLine("Disallow: /logout")
-                .AppendLine("Disallow: /compare")
-                .AppendLine("Disallow: /track-order")
-                .AppendLine("Disallow: /uploads/returns/")
-                .AppendLine("Allow: /");
+            var builder = new StringBuilder().AppendLine("User-agent: *");
+            foreach (var prefix in Fratak_Shop.Web.Services.PrivatePaths.Prefixes)
+                builder.Append("Disallow: ").AppendLine(prefix);
+            builder.AppendLine("Allow: /");
 
             if (!string.IsNullOrWhiteSpace(settings.RobotsTxtExtra))
             {

@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Fratak_Shop.Web.Pages;
 
 [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
-public class BlogPostModel(IPostService postService, ICommentService commentService, IPageMetaService pageMeta) : ShopPageModel
+public class BlogPostModel(IPostService postService, ICommentService commentService, IPageMetaService pageMeta, ISiteContext site) : ShopPageModel
 {
     public PostDto Post { get; private set; } = null!;
     public List<CommentDto> Comments { get; private set; } = [];
@@ -40,6 +40,10 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
         pageMeta.Apply(ViewData, post.Seo, post.Title, post.Excerpt ?? Format.Excerpt(post.Content, 160),
             ImageHelper.Blog(post.ImageName), "article");
         ViewData[PageMetaKeys.JsonLd] ??= BuildJsonLd(post);
+        if (!string.IsNullOrWhiteSpace(post.BlogCategorySlug))
+            pageMeta.AddBreadcrumbs(ViewData, ("وبلاگ", "/blog"), (post.BlogCategoryName ?? "مقالات", $"/blog/category/{post.BlogCategorySlug}"), (post.Title, null));
+        else
+            pageMeta.AddBreadcrumbs(ViewData, ("وبلاگ", "/blog"), (post.Title, null));
 
         return Page();
     }
@@ -75,21 +79,33 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
 
     private string BuildJsonLd(PostDto post)
     {
-        var request = HttpContext.Request;
-        var baseUrl = $"{request.Scheme}://{request.Host}";
+        var url = pageMeta.AbsoluteUrl($"/blog/{post.Slug}");
+        var settings = site.Settings;
 
         var data = new Dictionary<string, object?>
         {
             ["@context"] = "https://schema.org",
             ["@type"] = "BlogPosting",
-            ["headline"] = post.Title,
-            ["image"] = baseUrl + ImageHelper.Blog(post.ImageName),
+            ["@id"] = url + "#article",
+            ["headline"] = post.Title.Length > 110 ? post.Title[..110] : post.Title,
+            ["description"] = post.Excerpt ?? Format.Excerpt(post.Content, 300),
+            ["image"] = pageMeta.AbsoluteUrl(ImageHelper.Blog(post.ImageName)),
             ["datePublished"] = (post.PublishedAt ?? post.CreatedAt).ToString("O"),
-            ["dateModified"] = post.UpdatedAt.ToString("O"),
+            ["dateModified"] = (post.UpdatedAt > (post.PublishedAt ?? post.CreatedAt) ? post.UpdatedAt : post.PublishedAt ?? post.CreatedAt).ToString("O"),
+            ["inLanguage"] = "fa-IR",
+            ["articleSection"] = post.BlogCategoryName,
             ["author"] = new Dictionary<string, object> { ["@type"] = "Person", ["name"] = string.IsNullOrWhiteSpace(post.AuthorName) ? "تیم محتوا" : post.AuthorName },
-            ["mainEntityOfPage"] = $"{baseUrl}/blog/{post.Slug}",
+            ["publisher"] = new Dictionary<string, object?>
+            {
+                ["@type"] = "Organization",
+                ["name"] = settings.SiteName,
+                ["logo"] = new Dictionary<string, object?> { ["@type"] = "ImageObject", ["url"] = pageMeta.AbsoluteUrl(site.LogoUrl) },
+            },
+            ["mainEntityOfPage"] = new Dictionary<string, object?> { ["@type"] = "WebPage", ["@id"] = url },
+            ["commentCount"] = Comments.Count,
         };
 
-        return JsonSerializer.Serialize(data, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        var clean = data.Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value);
+        return JsonSerializer.Serialize(clean, PageMetaService.JsonLdOptions);
     }
 }
