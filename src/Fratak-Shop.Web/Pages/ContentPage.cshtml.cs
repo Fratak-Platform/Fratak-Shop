@@ -15,7 +15,7 @@ namespace Fratak_Shop.Web.Pages;
 /// </summary>
 public class ContentPageModel(IContentPageService contentPages, IPageAlertService pageAlerts, IPageMetaService pageMeta) : ShopPageModel
 {
-    public ContentPageDto Content { get; private set; } = null!;
+    public ContentPageDto PageContent { get; private set; } = null!;
 
     public async Task<IActionResult> OnGetAsync(string slug)
     {
@@ -23,7 +23,7 @@ public class ContentPageModel(IContentPageService contentPages, IPageAlertServic
         if (page is null)
             return NotFound();
 
-        Content = page;
+        PageContent = page;
 
         var description = page.Summary ?? page.Content.ToPlainText(160);
         pageMeta.Apply(ViewData, page.Seo, page.Title, description, page.ImageUrl, "article");

@@ -75,12 +75,12 @@
               راهنما و قوانین
             </div>
             <ul class="flex flex-col gap-y-4">
-              @foreach (var page in Site.FooterPages)
+              @foreach (var footerPage in Site.FooterPages)
               {
                 <li>
-                  <a class="@linkClass" asp-page="/ContentPage" asp-route-slug="@page.Slug">
+                  <a class="@linkClass" asp-page="/ContentPage" asp-route-slug="@footerPage.Slug">
                     @Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14)
-                    @page.Title
+                    @footerPage.Title
                   </a>
                 </li>
               }

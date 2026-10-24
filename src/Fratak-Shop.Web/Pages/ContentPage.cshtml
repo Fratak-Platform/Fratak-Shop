@@ -2,7 +2,7 @@
 @model ContentPageModel
 @{
     Layout = "_Layout";
-    var page = Model.Content;
+    var item = Model.PageContent;
 }
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
@@ -10,26 +10,26 @@
       <ol class="flex items-center gap-x-2">
         <li><a asp-page="/Index" class="hover:text-sky-600">خانه</a></li>
         <li aria-hidden="true">/</li>
-        <li class="text-zinc-700" aria-current="page">@page.Title</li>
+        <li class="text-zinc-700" aria-current="page">@item.Title</li>
       </ol>
     </nav>
     <article class="bg-white border rounded-xl shadow-lg p-5 md:p-10">
       <header class="mx-auto mb-8 max-w-3xl text-center">
-        <h1 class="my-4 text-3xl font-bold sm:text-[40px]/[48px] text-zinc-800">@page.Title</h1>
-        @if (!string.IsNullOrWhiteSpace(page.Summary))
+        <h1 class="my-4 text-3xl font-bold sm:text-[40px]/[48px] text-zinc-800">@item.Title</h1>
+        @if (!string.IsNullOrWhiteSpace(item.Summary))
         {
-          <p class="text-zinc-600 leading-8">@page.Summary</p>
+          <p class="text-zinc-600 leading-8">@item.Summary</p>
         }
       </header>
-      @if (!string.IsNullOrWhiteSpace(page.ImageUrl))
+      @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
       {
-        <img class="mx-auto mb-8 max-h-96 rounded-2xl object-cover" src="@Url.Content(page.ImageUrl)" alt="@page.Title" loading="lazy">
+        <img class="mx-auto mb-8 max-h-96 rounded-2xl object-cover" src="@Url.Content(item.ImageUrl)" alt="@item.Title" loading="lazy">
       }
       <div class="prose-content mx-auto max-w-4xl text-zinc-700 leading-8">
-        @Html.Raw(page.Content)
+        @Html.Raw(item.Content)
       </div>
       <footer class="mx-auto mt-10 max-w-4xl border-t pt-4 text-xs text-zinc-400">
-        آخرین به روزرسانی: <time datetime="@page.UpdatedAt.ToString("yyyy-MM-dd")">@Format.LongDate(page.UpdatedAt)</time>
+        آخرین به روزرسانی: <time datetime="@item.UpdatedAt.ToString("yyyy-MM-dd")">@Format.LongDate(item.UpdatedAt)</time>
       </footer>
     </article>
   </main>

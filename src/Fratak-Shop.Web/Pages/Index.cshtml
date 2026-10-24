@@ -10,10 +10,10 @@
     <h1 class="sr-only">@(string.IsNullOrWhiteSpace(Site.Settings.Tagline) ? Site.Settings.SiteName : $"{Site.Settings.SiteName} - {Site.Settings.Tagline}")</h1>
     @foreach (var block in Model.Blocks)
     {
-      var section = block.Section;
-      var title = section.Title;
-      var link = UrlSafety.IsSafeLink(section.LinkUrl) ? section.LinkUrl!.Trim() : null;
-      switch (section.Type)
+      var homeSection = block.Section;
+      var title = homeSection.Title;
+      var link = UrlSafety.IsSafeLink(homeSection.LinkUrl) ? homeSection.LinkUrl!.Trim() : null;
+      switch (homeSection.Type)
       {
         case HomeSectionType.HeroSlider:
           <section aria-label="@(title ?? "اسلایدر")">
@@ -68,7 +68,7 @@
                     <div class="z-50 mt-14">
                       <div class="flex flex-col justify-center items-center">
                         <h2 class="text-center text-white text-sm md:text-xl font-semibold mb-2">@(title ?? "تخفیف های ویژه زمان دار")</h2>
-                        <p class="text-center text-white mb-5 text-xs md:text-base">@(section.Subtitle ?? "همین حالا سفارشتان را ثبت کنید!")</p>
+                        <p class="text-center text-white mb-5 text-xs md:text-base">@(homeSection.Subtitle ?? "همین حالا سفارشتان را ثبت کنید!")</p>
                         <img class="w-10/12 mx-auto" src="~/assets/image/off.png" alt="" loading="lazy">
                         <a href="@(link ?? "/products?discounted=true")" class="group border border-gray-300 bg-white hover:bg-blue-500 transition flex items-center justify-center gap-x-2 h-auto text-gray-600 hover:text-white mt-5 text-sm rounded-lg py-3 w-10/12 md:w-6/12 text-center">
                           مشاهده همه
@@ -131,26 +131,26 @@
         case HomeSectionType.Newest:
         case HomeSectionType.MostViewed:
         case HomeSectionType.CategoryProducts:
-          var moreLink = link ?? section.Type switch
+          var moreLink = link ?? homeSection.Type switch
           {
               HomeSectionType.BestSellers => "/products?sort=BestSelling",
               HomeSectionType.MostViewed => "/products?sort=MostViewed",
-              HomeSectionType.CategoryProducts when !string.IsNullOrWhiteSpace(section.CategorySlug) => $"/category/{section.CategorySlug}",
+              HomeSectionType.CategoryProducts when !string.IsNullOrWhiteSpace(homeSection.CategorySlug) => $"/category/{homeSection.CategorySlug}",
               _ => "/products?sort=Newest",
           };
-          var sliderTitle = title ?? section.Type switch
+          var sliderTitle = title ?? homeSection.Type switch
           {
               HomeSectionType.BestSellers => "پرفروش ترین محصولات",
               HomeSectionType.MostViewed => "پربازدیدترین محصولات",
-              HomeSectionType.CategoryProducts => section.CategoryTitle ?? "محصولات",
+              HomeSectionType.CategoryProducts => homeSection.CategoryTitle ?? "محصولات",
               _ => "جدیدترین محصولات",
           };
           <section id="@block.DomId">
             <div>
               <h2 class="text-center text-3xl font-semibold text-gray-800 mt-20">@sliderTitle</h2>
-              @if (!string.IsNullOrWhiteSpace(section.Subtitle))
+              @if (!string.IsNullOrWhiteSpace(homeSection.Subtitle))
               {
-                <p class="text-center text-zinc-500 mt-2">@section.Subtitle</p>
+                <p class="text-center text-zinc-500 mt-2">@homeSection.Subtitle</p>
               }
               <a href="@moreLink" class="flex justify-center items-center gap-x-1 group mb-6 mt-4 w-fit mx-auto text-blue-600">
                 مشاهده همه
