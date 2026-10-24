@@ -6,7 +6,7 @@ using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Comments;
-using Fratak_Shop.Data.Entities.Faqs;
+using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Entities.Locations;
 using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Data.Entities.Orders;
@@ -27,6 +27,7 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
 {
     public const string DemoPhone = "09120000000";
     public const string DemoPassword = "123456";
+    private const decimal DemoWalletBalance = 2_000_000;
 
     private const string Img = "/assets/image/";
 
@@ -219,8 +220,19 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
                 PasswordHash = PasswordHasher.Hash(DemoPassword),
                 Role = UserRole.Customer,
                 IsPhoneVerified = true,
+                WalletBalance = DemoWalletBalance,
             };
             context.Users.Add(demoUser);
+
+            // Opening balance, so wallet payment can be tried right away (ledger stays consistent).
+            context.WalletTransactions.Add(new WalletTransaction
+            {
+                User = demoUser,
+                Type = WalletTransactionType.AdminCredit,
+                Amount = DemoWalletBalance,
+                BalanceAfter = DemoWalletBalance,
+                Description = "اعتبار هدیه حساب نمونه",
+            });
         }
 
         var author = new User
@@ -273,21 +285,7 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
             postIndex++;
         }
 
-        // ── FAQ ───────────────────────────────────────────────────────
-        var faqs = new (string Q, string A)[]
-        {
-            ("چگونه سفارش خود را ثبت کنم؟", "محصول مورد نظر را به سبد خرید اضافه کنید، وارد حساب کاربری شوید و پس از انتخاب آدرس و روش ارسال، پرداخت را انجام دهید."),
-            ("هزینه ارسال چقدر است؟", "هزینه ارسال بر اساس روش ارسال انتخابی محاسبه می‌شود و برای سفارش‌های بالای سقف ارسال رایگان، رایگان است."),
-            ("زمان تحویل سفارش چقدر است؟", "سفارش‌های تهران با پیک فروشگاه از یک روز کاری و سایر شهرها با پست پیشتاز ۳ تا ۵ روز کاری تحویل می‌شوند."),
-            ("آیا امکان پرداخت در محل وجود دارد؟", "بله، در هنگام تکمیل سفارش می‌توانید روش پرداخت در محل را انتخاب کنید."),
-            ("چگونه سفارش خود را پیگیری کنم؟", "از بخش «سفارش‌های من» در پروفایل کاربری می‌توانید وضعیت و کد رهگیری سفارش را مشاهده کنید."),
-            ("شرایط مرجوع کردن کالا چیست؟", "تا ۷ روز پس از تحویل، در صورت سالم بودن کالا و بسته‌بندی، امکان مرجوع کردن وجود دارد."),
-            ("آیا کالاها گارانتی دارند؟", "تمامی کالاها دارای گارانتی معتبر هستند و مدت آن در صفحه هر محصول درج شده است."),
-            ("چگونه با پشتیبانی تماس بگیرم؟", "از طریق صفحه تماس با ما یا شماره پشتیبانی درج‌شده در پایین سایت با ما در ارتباط باشید."),
-        };
-
-        for (var i = 0; i < faqs.Length; i++)
-            context.FaqItems.Add(new FaqItem { Question = faqs[i].Q, Answer = faqs[i].A, DisplayOrder = i + 1 });
+        // FAQ, content pages and store settings are seeded by StoreDefaultsSeeder (Data layer).
 
         await context.SaveChangesAsync(cancellationToken);
 

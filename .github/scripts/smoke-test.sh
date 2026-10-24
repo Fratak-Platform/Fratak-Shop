@@ -43,7 +43,7 @@ for path in / /search /products /category/smart-watch /category/laptop /brand/ap
             "/search?sort=BestSelling" "/search?minPrice=1000000&maxPrice=5000000&available=true" \
             /product/xiaomi-redmi-watch-3-active /product/sony-playstation-5 \
             /blog /blog/headphone-life-tips /blog/category/buying-guide \
-            /faq /contact-us /about-us /rules /compare /coming-soon /login /register /cart /404; do
+            /faq /contact-us /page/about-us /page/rules /page/privacy /compare /coming-soon /login /register /cart /404; do
   want=200
   [ "$path" = "/404" ] && want=404
   expect "$want" "$path"
@@ -65,6 +65,20 @@ contains "محصول موجود نمیباشد"
 
 expect 200 /brand/apple
 contains "MacBook"
+
+echo "== SEO & security"
+expect 301 /about-us
+expect 301 /rules
+expect 301 /Products
+expect 200 /sitemap.xml
+contains "/page/about-us"
+contains "/product/"
+expect 200 /robots.txt
+contains "Sitemap:"
+curl -s -D /tmp/smoke-headers -o /dev/null "$BASE/"
+for header in "content-security-policy" "x-content-type-options: nosniff" "referrer-policy"; do
+  if grep -qi "^$header" /tmp/smoke-headers; then pass "header $header"; else fail "missing header $header"; fi
+done
 
 echo "== Compare"
 expect 200 /product/haylou-t15
@@ -89,7 +103,8 @@ expect 200 /login
 TOKEN=$(token)
 expect 302 /login --data-urlencode "__RequestVerificationToken=$TOKEN" \
   --data-urlencode "Input.PhoneNumber=09120000000" --data-urlencode "Input.Password=123456" --data-urlencode "Input.RememberMe=true"
-for path in /profile /profile/orders /profile/addresses /profile/favorites /profile/messages /profile/info /profile/password; do
+if grep -q "fratak_at" "$JAR" && grep -q "fratak_rt" "$JAR"; then pass "JWT access + refresh cookies issued"; else fail "auth cookies missing"; fi
+for path in /profile /profile/orders /profile/addresses /profile/favorites /profile/messages /profile/info /profile/password /profile/wallet /profile/sessions; do
   expect 200 "$path"
 done
 
@@ -112,12 +127,29 @@ expect 302 "/cart?handler=Add" --data-urlencode "__RequestVerificationToken=$TOK
 expect 200 /cart
 contains "Haylou"
 
-echo "== Checkout (cash on delivery)"
+echo "== Checkout (courier + time slot + cash on delivery)"
 expect 200 /checkout
 TOKEN=$(token)
 ADDRESS=$(grep -o 'name="Input.AddressId" value="[0-9a-f-]\{36\}"' /tmp/smoke-body | head -1 | grep -o '[0-9a-f-]\{36\}')
+# First shipping method that has a time-slot panel (courier) and its first selectable slot.
+read -r METHOD SLOT < <(python3 - <<'PY'
+import re
+html = open('/tmp/smoke-body', encoding='utf-8').read()
+panels = re.findall(r'id="slots-([0-9a-f-]{36})"', html)
+method = panels[0] if panels else ''
+slot = ''
+if method:
+    panel = html[html.index(f'id="slots-{method}"'):]
+    for m in re.finditer(r'<input type="radio"[^>]*name="Input.DeliverySlot"[^>]*>', panel, re.S):
+        if 'disabled' not in m.group(0):
+            slot = re.search(r'value="([^"]+)"', m.group(0)).group(1)
+            break
+print(method or '-', slot or '-')
+PY
+)
 TARGET=$(location "/checkout?handler=PlaceOrder" --data-urlencode "__RequestVerificationToken=$TOKEN" \
-  --data-urlencode "Input.AddressId=$ADDRESS" --data-urlencode "Input.ShippingMethod=post" \
+  --data-urlencode "Input.AddressId=$ADDRESS" --data-urlencode "Input.ShippingMethodId=$METHOD" \
+  --data-urlencode "Input.DeliverySlot=$SLOT" \
   --data-urlencode "Input.PaymentMethod=CashOnDelivery" --data-urlencode "Input.Note=smoke test")
 case "$TARGET" in
   */checkout/success/*)
@@ -134,7 +166,24 @@ case "$TARGET" in
   *) fail "place order redirected to '$TARGET'" ;;
 esac
 
-echo "== Checkout (online payment, sandbox gateway)"
+echo "== Checkout (wallet payment)"
+expect 200 /product/haylou-t15
+TOKEN=$(token)
+PRODUCT=$(grep -o 'name="productId" value="[0-9a-f-]\{36\}"' /tmp/smoke-body | head -1 | grep -o '[0-9a-f-]\{36\}')
+expect 302 "/cart?handler=Add" --data-urlencode "__RequestVerificationToken=$TOKEN" --data-urlencode "productId=$PRODUCT"
+expect 200 /checkout
+TOKEN=$(token)
+POST_METHOD=$(grep -o 'name="Input.ShippingMethodId" value="[0-9a-f-]\{36\}"' /tmp/smoke-body | grep -o '[0-9a-f-]\{36\}' | grep -v "$METHOD" | head -1)
+TARGET=$(location "/checkout?handler=PlaceOrder" --data-urlencode "__RequestVerificationToken=$TOKEN" \
+  --data-urlencode "Input.AddressId=$ADDRESS" --data-urlencode "Input.ShippingMethodId=${POST_METHOD:-$METHOD}" \
+  --data-urlencode "Input.DeliverySlot=$SLOT" --data-urlencode "Input.PaymentMethod=Wallet")
+case "$TARGET" in
+  */checkout/success/*) pass "wallet order -> $TARGET"; expect 200 "${TARGET#$BASE}"; contains "پرداخت با موفقیت انجام شد"
+    expect 200 /profile/wallet; contains "پرداخت سفارش" ;;
+  *) fail "wallet order redirected to '$TARGET'" ;;
+esac
+
+echo "== Checkout (online payment -> ZarinPal sandbox)"
 expect 200 /product/apple-airpods-pro-2
 TOKEN=$(token)
 PRODUCT=$(grep -o 'name="productId" value="[0-9a-f-]\{36\}"' /tmp/smoke-body | head -1 | grep -o '[0-9a-f-]\{36\}')
@@ -142,25 +191,18 @@ expect 302 "/cart?handler=Add" --data-urlencode "__RequestVerificationToken=$TOK
 expect 200 /checkout
 TOKEN=$(token)
 TARGET=$(location "/checkout?handler=PlaceOrder" --data-urlencode "__RequestVerificationToken=$TOKEN" \
-  --data-urlencode "Input.AddressId=$ADDRESS" --data-urlencode "Input.ShippingMethod=courier" \
-  --data-urlencode "Input.PaymentMethod=OnlineGateway")
+  --data-urlencode "Input.AddressId=$ADDRESS" --data-urlencode "Input.ShippingMethodId=${POST_METHOD:-$METHOD}" \
+  --data-urlencode "Input.DeliverySlot=$SLOT" --data-urlencode "Input.PaymentMethod=OnlineGateway")
 case "$TARGET" in
-  */payment/start/*)
-    pass "online order -> $TARGET"
-    SANDBOX=$(location "${TARGET#$BASE}")
-    case "$SANDBOX" in
-      */payment/sandbox/*)
-        pass "gateway -> $SANDBOX"
-        expect 200 "${SANDBOX#$BASE}"
-        CALLBACK=$(grep -o 'href="[^"]*status=ok"' /tmp/smoke-body | head -1 | sed 's/^href="//; s/"$//; s/&amp;/\&/g')
-        DONE=$(location "${CALLBACK#$BASE}")
-        case "$DONE" in
-          */checkout/success/*) pass "payment verified -> $DONE"; expect 200 "${DONE#$BASE}"; contains "پرداخت با موفقیت انجام شد" ;;
-          *) fail "payment callback redirected to '$DONE'" ;;
-        esac ;;
-      *) fail "payment start redirected to '$SANDBOX'" ;;
-    esac ;;
+  https://sandbox.zarinpal.com/pg/StartPay/*) pass "redirected to ZarinPal sandbox -> $TARGET" ;;
+  */checkout/failed/*) pass "order created; ZarinPal not reachable from CI -> $TARGET (expected offline)"; expect 200 "${TARGET#$BASE}" ;;
   *) fail "online order redirected to '$TARGET'" ;;
+esac
+# A forged callback must never mark anything as paid.
+DONE=$(location "/payment/callback?Authority=A000000000000000000000000000forged&Status=OK")
+case "$DONE" in
+  */checkout/success/*) fail "forged callback was accepted -> $DONE" ;;
+  *) pass "forged callback rejected -> $DONE" ;;
 esac
 
 echo "== Review"
