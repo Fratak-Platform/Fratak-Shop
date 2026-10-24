@@ -232,10 +232,8 @@ public class SearchModel(
         {
             Heading = Discounted ? "شگفت انگیزها" : Sort == ProductSortBy.BestSelling ? "پرفروش ترین ها" : "همه محصولات";
             await pageMeta.ApplyAsync(ViewData, SitePage.Products, Heading, "لیست محصولات فروشگاه با امکان فیلتر بر اساس دسته بندی، برند و قیمت.");
+            pageMeta.AddBreadcrumbs(ViewData, (Heading, null));
         }
-
-        else if (!Discounted && Sort != ProductSortBy.BestSelling)
-            pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"));
 
         // Filtered / paginated variations should not compete with the main listing.
         if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || MaxPrice.HasValue || SelectedSpecifications.Count > 0)
