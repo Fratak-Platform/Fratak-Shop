@@ -91,7 +91,7 @@ public class OrderFeedbackService(
         if (state.AlreadySubmitted)
             return OperationResult.Error("برای این سفارش قبلاً امتیاز ثبت کرده‌اید.");
         if (!state.CanSubmit)
-            return OperationResult.Error(state.Reason);
+            return OperationResult.Error(state.Reason ?? "ثبت امتیاز برای این سفارش ممکن نیست.");
 
         int[] ratings = [command.OverallRating, command.DeliveryRating, command.PackagingRating, command.ProductMatchRating];
         if (ratings.Any(r => r is < 1 or > 5))
