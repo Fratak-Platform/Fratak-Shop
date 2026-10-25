@@ -473,6 +473,70 @@ case "$TARGET" in
   *) fail "send code redirected to '$TARGET'" ;;
 esac
 
+# admin_login <phone> -> fresh cookie jar signed in with the demo password
+admin_login() {
+  rm -f "$JAR"; JAR="$(mktemp)"
+  expect 200 /login
+  local t; t=$(token)
+  expect 302 /login --data-urlencode "__RequestVerificationToken=$t" \
+    --data-urlencode "Input.PhoneNumber=$1" --data-urlencode "Input.Password=123456"
+}
+
+# first_link <page> <regex> -> first matching href on a page
+first_link() {
+  curl -s -b "$JAR" "$BASE$1" | grep -o "href=\"$2\"" | head -1 | sed 's/^href="//; s/"$//'
+}
+
+echo "== Admin panel: customers cannot see it"
+admin_login 09120000000
+expect 404 /admin
+expect 404 /admin/orders
+
+echo "== Admin panel: owner sees every page"
+admin_login 09120000009
+for path in /admin /admin/orders "/admin/orders?invoice=missing" "/admin/orders?status=Processing" /admin/orders/purchase-invoices \
+            /admin/returns "/admin/returns?status=all" /admin/customers /admin/feedback "/admin/feedback?period=all" /admin/products /admin/products/edit \
+            /admin/comments /admin/tickets "/admin/tickets?state=all" /admin/messages "/admin/messages?state=all" \
+            /admin/finance "/admin/finance?period=all" "/admin/finance?period=month" /admin/finance/payments /admin/finance/withdrawals "/admin/finance/withdrawals?status=" /admin/finance/wallet \
+            /admin/gift-cards /admin/notifications /admin/abandoned-carts "/admin/abandoned-carts?period=all" \
+            /admin/blog "/admin/blog?status=review" /admin/blog/edit /admin/content /admin/seo "/admin/seo?tab=404" "/admin/seo?tab=search" \
+            /admin/staff /admin/manage /admin/system /admin/system/live /admin/system/errors /admin/system/audit /admin/system/security; do
+  expect 200 "$path"
+done
+for tab in general contact footer orders payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
+  expect 200 "/admin/settings?tab=$tab"
+done
+for key in $(curl -s -b "$JAR" "$BASE/admin/manage" | grep -o 'href="/admin/manage/[a-z-]*"' | sed 's/.*manage\///; s/"$//' | sort -u); do
+  expect 200 "/admin/manage/$key"
+  if grep -q "href=\"/admin/manage/$key/edit\"" /tmp/smoke-body; then expect 200 "/admin/manage/$key/edit"; fi
+  item=$(grep -o "href=\"/admin/manage/$key/edit/[0-9a-f-]\{36\}[^\"]*\"" /tmp/smoke-body | head -1 | sed 's/^href="//; s/"$//; s/&amp;/\&/g')
+  if [ -n "$item" ]; then expect 200 "$item"; fi
+done
+
+echo "== Admin panel: detail pages"
+for spec in "/admin/orders|/admin/orders/[0-9a-f-]\{36\}" "/admin/customers|/admin/customers/[0-9a-f-]\{36\}" \
+            "/admin/products|/admin/products/edit/[0-9a-f-]\{36\}" "/admin/blog|/admin/blog/edit/[0-9a-f-]\{36\}" \
+            "/admin/tickets?state=all|/admin/tickets/[0-9a-f-]\{36\}" "/admin/returns?status=all|/admin/returns/[0-9a-f-]\{36\}" \
+            "/admin/staff|/admin/staff/[a-z]*/[0-9a-f-]\{36\}"; do
+  list="${spec%%|*}"; pattern="${spec#*|}"
+  link=$(first_link "$list" "$pattern")
+  if [ -n "$link" ]; then expect 200 "$link"; else echo "SKIP  no item on $list"; fi
+done
+
+echo "== Admin panel: exports"
+for path in "/admin/orders?handler=export&format=csv" "/admin/finance/payments?handler=export&format=csv" "/admin/finance/wallet?handler=export&format=xlsx" \
+            "/admin/customers?handler=export&format=csv" "/admin/messages?handler=export&format=csv&state=all" "/admin/gift-cards?handler=export&format=csv"; do
+  expect 200 "$path"
+done
+
+echo "== Admin panel: role permissions (content writer)"
+admin_login 09120000004
+expect 200 /admin/blog
+expect 200 /admin/blog/edit
+expect 302 /admin/finance
+expect 302 /admin/settings
+expect 302 /admin/staff
+
 echo
 echo "Smoke test finished with $FAILS failure(s)."
 rm -f "$JAR"
