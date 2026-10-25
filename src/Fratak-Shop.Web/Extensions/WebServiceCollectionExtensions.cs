@@ -63,6 +63,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<Infrastructure.Admin.AdminBadgeService>();
         services.AddScoped<Infrastructure.Admin.Manage.ManageEngine>();
         services.AddSingleton<Infrastructure.Admin.ActivityTracker>();
+        services.AddSingleton<Infrastructure.Admin.SecurityEventRecorder>();
         services.AddSingleton<Infrastructure.Admin.ErrorLogQueue>();
         services.AddSingleton<ILoggerProvider, Infrastructure.Admin.DbErrorLoggerProvider>();
         services.AddSingleton<Infrastructure.Admin.HealthService>();

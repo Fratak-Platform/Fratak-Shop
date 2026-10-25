@@ -11,7 +11,8 @@ public class LoginTwoFactorModel(
     ITwoFactorTicket ticket,
     IOtpService otpService,
     IUserService userService,
-    IShopAuthService authService) : ShopPageModel
+    IShopAuthService authService,
+    Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
 {
     [BindProperty(SupportsGet = true)]
     public string? ReturnUrl { get; set; }
@@ -47,6 +48,7 @@ public class LoginTwoFactorModel(
         var code = string.Concat(Digits.Select(d => d?.Trim()));
         if (code.Length != otpService.CodeLength || !otpService.Verify(user.PhoneNumber, code, OtpPurpose.TwoFactor))
         {
+            await securityEvents.RecordAsync(Data.Entities.Admin.SecurityEventType.OtpFailed, user.Id, user.PhoneNumber, "ورود دومرحله‌ای");
             ErrorMessage = "کد وارد شده صحیح نیست یا منقضی شده است.";
             return RedirectToPage(new { returnUrl = ReturnUrl });
         }

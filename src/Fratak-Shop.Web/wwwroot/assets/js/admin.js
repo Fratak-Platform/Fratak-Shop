@@ -182,7 +182,9 @@
   // ── Copy ─────────────────────────────────────────────────────────────
   $$("[data-copy]").forEach((button) => button.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(button.dataset.copy);
+      const value = button.dataset.copy || "";
+      const source = value.startsWith("#") ? document.querySelector(value) : null;
+      await navigator.clipboard.writeText(source ? (source.value || source.textContent || "") : value);
       if (window.FratakModal && window.FratakModal.toast) window.FratakModal.toast("کپی شد", "success");
     } catch (_) { /* ignore */ }
   }));

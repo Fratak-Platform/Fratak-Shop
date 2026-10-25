@@ -19,7 +19,7 @@
 </div>
 
 @if (u.IsBlocked) { <div class="a-alert a-alert-danger mb-4">این حساب مسدود است و نمی‌تواند وارد پنل شود.</div> }
-@if (!u.TwoFactorEnabled && (Model.MemberIsOwner || Model.Assigned.Count > 0)) { <div class="a-alert a-alert-warning mb-4">ورود دومرحله‌ای این همکار غیرفعال است. برای امنیت پنل، فعال‌سازی آن توصیه می‌شود.</div> }
+@if (!u.TwoFactorEnabled && (Model.MemberIsOwner || Model.Assigned.Count > 0)) { <div class="a-alert a-alert-warn mb-4">ورود دومرحله‌ای این همکار غیرفعال است. برای امنیت پنل، فعال‌سازی آن توصیه می‌شود.</div> }
 
 <div class="a-grid xl:grid-cols-3">
   <div class="xl:col-span-2 a-stack">

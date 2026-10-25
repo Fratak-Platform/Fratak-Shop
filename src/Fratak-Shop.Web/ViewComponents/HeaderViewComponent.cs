@@ -28,6 +28,9 @@ public class HeaderViewModel
 
     public int UnreadNotifications { get; init; }
 
+    /// <summary>Staff (owner or any admin role) see a link to the admin panel.</summary>
+    public bool IsStaff { get; init; }
+
     public int CartCount => Cart?.TotalQuantity ?? 0;
 }
 
@@ -39,6 +42,7 @@ public class HeaderViewComponent(
     ICartSessionService cartSession,
     ISiteContext site,
     INotificationService notifications,
+    Core.Services.Admin.IAdminAccessService adminAccess,
     IMemoryCache cache) : ViewComponent
 {
     public const string MenuCacheKey = "header:menu-categories";
@@ -53,6 +57,7 @@ public class HeaderViewComponent(
 
         var userId = UserClaimsPrincipal.GetUserId();
         var unread = userId.HasValue ? await notifications.GetUnreadCountAsync(userId.Value) : 0;
+        var isStaff = userId.HasValue && (await adminAccess.GetAccessAsync(userId.Value)).IsStaff;
 
         var model = new HeaderViewModel
         {
@@ -65,6 +70,7 @@ public class HeaderViewComponent(
             MainMenu = site.MenuItems(MenuLocation.HeaderMain),
             Shortcuts = site.MenuItems(MenuLocation.HeaderShortcuts),
             UnreadNotifications = unread,
+            IsStaff = isStaff,
         };
 
         return View(model);

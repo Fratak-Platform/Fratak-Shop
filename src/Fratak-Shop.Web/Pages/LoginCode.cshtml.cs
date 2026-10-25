@@ -17,7 +17,8 @@ public class LoginCodeModel(
     IUserService userService,
     IShopAuthService authService,
     IShopEvents events,
-    ISiteContext site) : ShopPageModel
+    ISiteContext site,
+    Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
 {
     [BindProperty(SupportsGet = true)]
     public string? Phone { get; set; }
@@ -72,6 +73,7 @@ public class LoginCodeModel(
         if (code.Length != otpService.CodeLength || !otpService.Verify(phone, code, OtpPurpose.Login))
         {
             CaptchaFailed(CaptchaActions.OtpVerify);
+            await securityEvents.RecordAsync(Data.Entities.Admin.SecurityEventType.OtpFailed, null, phone, "ورود با کد پیامکی");
             ErrorMessage = "کد وارد شده صحیح نیست یا منقضی شده است.";
             return RedirectToPage(new { phone, returnUrl = ReturnUrl });
         }
@@ -81,6 +83,8 @@ public class LoginCodeModel(
         var result = await userService.SignInWithPhoneAsync(phone, site.Settings.IsOtpRegistrationEnabled);
         if (!Succeeded(result) || result.Data is null)
         {
+            if (result.Message == UserService.BlockedMessage)
+                await securityEvents.RecordAsync(Data.Entities.Admin.SecurityEventType.BlockedUserLogin, null, phone, "ورود با کد پیامکی");
             ErrorMessage = result.Message;
             return RedirectToPage("/Login", new { returnUrl = ReturnUrl });
         }

@@ -1,0 +1,49 @@
+@page "/admin/system/errors/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.ErrorDetailModel
+@{
+    var e = Model.Error;
+    ViewData["Title"] = "جزئیات خطا";
+    var errorText = $"{e.ExceptionType}\n{e.Message}" + (e.StackTrace is null ? "" : "\n\n" + e.StackTrace);
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/system/errors" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <h2>جزئیات خطا</h2>
+    @if (e.IsResolved) { <span class="a-badge a-badge-green">رفع‌شده @(e.ResolvedAt is { } r ? AdminUi.Ago(r) : "")</span> } else { <span class="a-badge a-badge-red">باز</span> }
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/system/errors?fp=@e.Fingerprint">همه رخدادها</a>
+    @if (!e.IsResolved)
+    {
+      <form method="post" asp-page-handler="Resolve" asp-route-id="@e.Id"><input type="hidden" name="fingerprint" value="@e.Fingerprint"><button class="a-btn" type="submit">@Icons.Svg("Check", null, 18) رفع شد</button></form>
+    }
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">پیام</span><button type="button" class="a-btn a-btn-light a-btn-xs" data-copy="#err-text">کپی</button></div>
+      <div class="a-card-body">
+        <pre class="a-pre" id="err-text" dir="ltr">@errorText</pre>
+      </div>
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">کجا و چه زمانی؟</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>زمان</dt><dd>@Format.DateTime(e.CreatedAt)</dd>
+        <dt>سطح</dt><dd>@e.Level</dd>
+        <dt>منبع</dt><dd class="a-ltr text-xs break-all">@e.Category</dd>
+        <dt>درخواست</dt><dd class="a-ltr text-xs break-all">@e.Method @e.Path@e.QueryString</dd>
+        <dt>کاربر</dt><dd>@if (e.UserId is not null) { <a class="a-link" href="/admin/customers/@e.UserId">مشاهده کاربر</a> } else { <span>مهمان / سیستم</span> }</dd>
+        <dt>IP</dt><dd class="a-ltr">@e.IpAddress</dd>
+        <dt>مرورگر</dt><dd class="text-xs">@Display.Device(e.UserAgent)</dd>
+        <dt>TraceId</dt><dd class="a-ltr a-mono text-xs break-all">@e.TraceId</dd>
+        <dt>سرور</dt><dd class="a-ltr">@e.MachineName</dd>
+        <dt>اثر انگشت</dt><dd class="a-ltr a-mono text-xs break-all">@e.Fingerprint</dd>
+      </dl>
+    </div>
+  </div>
+</div>

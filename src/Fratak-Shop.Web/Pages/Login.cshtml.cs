@@ -20,7 +20,8 @@ public class LoginModel(
     IOtpService otpService,
     ITwoFactorTicket twoFactorTicket,
     ISiteContext site,
-    IPageMetaService pageMeta) : ShopPageModel
+    IPageMetaService pageMeta,
+    Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
 {
     public const string DevelopmentCodeKey = "OtpDevelopmentCode";
 
@@ -72,6 +73,10 @@ public class LoginModel(
         {
             ModelState.AddModelError(string.Empty, result.Message);
             CaptchaFailed(CaptchaActions.Login);
+            var eventType = result.Message == UserService.BlockedMessage ? Data.Entities.Admin.SecurityEventType.BlockedUserLogin
+                : result.Message?.Contains("تلاش‌های ناموفق") == true ? Data.Entities.Admin.SecurityEventType.LockedOut
+                : Data.Entities.Admin.SecurityEventType.LoginFailed;
+            await securityEvents.RecordAsync(eventType, null, Input.PhoneNumber.Trim(), "ورود با رمز عبور");
             return Page();
         }
 

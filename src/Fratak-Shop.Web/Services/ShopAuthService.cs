@@ -39,6 +39,7 @@ public class ShopAuthService(
     IAccessTokenService accessTokens,
     IMemoryCache cache,
     IKnownDeviceService knownDevices,
+    Infrastructure.Admin.SecurityEventRecorder securityEvents,
     ILogger<ShopAuthService> logger,
     IOptions<JwtOptions> jwtOptions) : IShopAuthService
 {
@@ -64,6 +65,7 @@ public class ShopAuthService(
         AuthCookies.Write(http, access, refresh.Token, refresh.ExpiresAt, isPersistent);
 
         await cartSession.MergeGuestCartAsync(user.Id);
+        await securityEvents.RecordAsync(Data.Entities.Admin.SecurityEventType.LoginSucceeded, user.Id, user.PhoneNumber);
 
         // New-device alert (all sign-in paths end here). Never blocks the login.
         try
