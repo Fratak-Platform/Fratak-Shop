@@ -240,6 +240,73 @@
     window.addEventListener("beforeunload", () => clearInterval(timer));
   });
 
+  // ── Search-result (Google) preview of the SEO fields ─────────────────
+  $$("[data-seo-preview]").forEach((box) => {
+    const title = $(box.dataset.title);
+    const desc = $(box.dataset.desc);
+    const titleFallback = box.dataset.titleFallback ? $(box.dataset.titleFallback) : null;
+    const descFallback = box.dataset.descFallback ? $(box.dataset.descFallback) : null;
+    const outTitle = $("[data-seo-preview-title]", box);
+    const outDesc = $("[data-seo-preview-desc]", box);
+    const cut = (text, max) => (text.length > max ? text.slice(0, max - 1) + "…" : text);
+    const update = () => {
+      const t = (title && title.value.trim()) || (titleFallback && titleFallback.value.trim()) || "عنوان صفحه";
+      const d = (desc && desc.value.trim()) || (descFallback && descFallback.value.trim()) || "توضیحات متا در نتایج جست‌وجو اینجا نمایش داده می‌شود.";
+      outTitle.textContent = cut(t, 65);
+      outDesc.textContent = cut(d, 165);
+    };
+    [title, desc, titleFallback, descFallback].forEach((f) => f && f.addEventListener("input", update));
+    update();
+  });
+
+  // ── Minimal HTML toolbar for content textareas (no inline scripts, CSP-safe) ──
+  $$("textarea[data-html-editor]").forEach((area) => {
+    const bar = document.createElement("div");
+    bar.className = "a-editor-bar";
+    const tools = [
+      ["H2", "<h2>", "</h2>"], ["H3", "<h3>", "</h3>"], ["پاراگراف", "<p>", "</p>"], ["B", "<strong>", "</strong>"],
+      ["I", "<em>", "</em>"], ["فهرست", "<ul>\n  <li>", "</li>\n</ul>"], ["آیتم", "<li>", "</li>"], ["نقل‌قول", "<blockquote>", "</blockquote>"],
+    ];
+    const wrap = (before, after) => {
+      const start = area.selectionStart, end = area.selectionEnd;
+      const selected = area.value.slice(start, end);
+      area.setRangeText(before + selected + after, start, end, "select");
+      area.focus();
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    tools.forEach(([label, before, after]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = label;
+      b.addEventListener("click", () => wrap(before, after));
+      bar.appendChild(b);
+    });
+    const link = document.createElement("button");
+    link.type = "button"; link.textContent = "لینک";
+    link.addEventListener("click", () => {
+      const url = window.prompt("آدرس لینک (مثلاً /product/... یا https://...)");
+      if (url && /^(https?:\/\/|\/)/i.test(url)) wrap('<a href="' + url.replace(/"/g, "&quot;") + '">', "</a>");
+    });
+    bar.appendChild(link);
+    const preview = document.createElement("button");
+    preview.type = "button"; preview.textContent = "پیش‌نمایش";
+    const pane = document.createElement("div");
+    pane.className = "a-editor-preview";
+    pane.hidden = true;
+    preview.addEventListener("click", () => {
+      pane.hidden = !pane.hidden;
+      if (!pane.hidden) {
+        // Rendered in an inert template-parsed fragment without scripts or handlers.
+        const doc = new DOMParser().parseFromString(area.value, "text/html");
+        doc.querySelectorAll("script, style, iframe, object, embed").forEach((n) => n.remove());
+        doc.querySelectorAll("*").forEach((n) => Array.from(n.attributes).forEach((a) => { if (/^on/i.test(a.name) || /javascript:/i.test(a.value)) n.removeAttribute(a.name); }));
+        pane.replaceChildren(...Array.from(doc.body.childNodes));
+      }
+    });
+    bar.appendChild(preview);
+    area.parentNode.insertBefore(bar, area);
+    area.parentNode.insertBefore(pane, area.nextSibling);
+  });
+
   // ── Leave-page warning for edited long forms ─────────────────────────
   $$("form[data-dirty-guard]").forEach((form) => {
     let dirty = false;
