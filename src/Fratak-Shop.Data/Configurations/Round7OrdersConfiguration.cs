@@ -39,3 +39,38 @@ public class CustomerNoteConfiguration : IEntityTypeConfiguration<CustomerNote>
         builder.HasIndex(n => new { n.UserId, n.IsPinned, n.CreatedAt });
     }
 }
+
+// ── بررسی خودکار تأمین‌کننده (فاز ۵) ──
+
+/// <summary>هر محصول حداکثر یک ردیف وضعیت دارد.</summary>
+public class SupplierProductStateConfiguration : IEntityTypeConfiguration<Fratak_Shop.Data.Entities.Products.SupplierProductState>
+{
+    public void Configure(EntityTypeBuilder<Fratak_Shop.Data.Entities.Products.SupplierProductState> builder)
+    {
+        builder.HasOne(s => s.Product).WithMany().HasForeignKey(s => s.ProductId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(s => s.ProductId).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(s => new { s.Status, s.ConsecutiveErrors });
+        builder.Property(s => s.SourcePrice).HasPrecision(18, 0);
+    }
+}
+
+public class SupplierSyncRunConfiguration : IEntityTypeConfiguration<Fratak_Shop.Data.Entities.Products.SupplierSyncRun>
+{
+    public void Configure(EntityTypeBuilder<Fratak_Shop.Data.Entities.Products.SupplierSyncRun> builder)
+    {
+        builder.HasIndex(r => r.StartedAt);
+    }
+}
+
+/// <summary>ایندکس (وضعیت، نوع) برای فهرست «منتظر تأیید» و (محصول، نوع، وضعیت) برای پیدا کردن ردیف باز هر محصول.</summary>
+public class SupplierChangeConfiguration : IEntityTypeConfiguration<Fratak_Shop.Data.Entities.Products.SupplierChange>
+{
+    public void Configure(EntityTypeBuilder<Fratak_Shop.Data.Entities.Products.SupplierChange> builder)
+    {
+        builder.HasOne(c => c.Product).WithMany().HasForeignKey(c => c.ProductId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(c => new { c.Status, c.Kind, c.CreatedAt });
+        builder.HasIndex(c => new { c.ProductId, c.Kind, c.Status });
+        builder.Property(c => c.OldValue).HasPrecision(18, 0);
+        builder.Property(c => c.NewValue).HasPrecision(18, 0);
+    }
+}

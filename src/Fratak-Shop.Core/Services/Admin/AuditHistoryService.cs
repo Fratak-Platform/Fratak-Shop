@@ -137,6 +137,11 @@ public sealed class AuditHistoryService(FratakShopDbContext context) : IAuditHis
         if (entity is not BaseEntity baseEntity || baseEntity.IsDeleted)
             return OperationResult<AuditRevertReport>.NotFound("این مورد وجود ندارد یا حذف شده است.");
 
+        // رفتار پیش‌فرض DbContext «بدون ردیابی» است و Find در این حالت ممکن است نمونهٔ ردیابی‌نشده برگرداند؛
+        // در آن صورت تغییر مقدارها ذخیره نمی‌شد (بازگردانی «موفق» اما بی‌اثر). با Attach حتماً ردیابی می‌شود.
+        if (context.Entry(entity).State == EntityState.Detached)
+            context.Attach(entity);
+
         var entry = context.Entry(entity);
         var reverted = new List<string>();
         var skipped = new List<string>();

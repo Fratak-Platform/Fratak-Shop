@@ -42,9 +42,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => new { o.DeliveryTimeSlotId, o.RequestedDeliveryDate });
 
         // لینک پرداخت سفارش‌های ثبت‌شده توسط کارمند: توکن یکتا و جست‌وجوی سریع در صفحهٔ /pay/{token}.
+        // فیلتر باید «[IsDeleted]» را هم داشته باشد؛ وگرنه قانون حذف نرم DbContext آن را با «[IsDeleted] = 0» جایگزین می‌کند
+        // و همهٔ سفارش‌های بدون توکن (NULL) با هم تکراری حساب می‌شوند.
         builder.HasIndex(o => o.PaymentToken)
             .IsUnique()
-            .HasFilter("[PaymentToken] IS NOT NULL");
+            .HasFilter("[PaymentToken] IS NOT NULL AND [IsDeleted] = 0");
 
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Orders_Amounts",

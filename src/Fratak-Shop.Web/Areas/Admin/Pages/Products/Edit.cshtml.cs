@@ -1,6 +1,7 @@
 using Fratak_Shop.Core.DTOs.Products.Command;
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Products;
+using Fratak_Shop.Core.Services.Suppliers;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
@@ -51,6 +52,9 @@ public sealed class ProductInput
     public string? SupplierUrl { get; set; }
     public string? SupplierSku { get; set; }
     public string? SupplierNote { get; set; }
+
+    /// <summary>«ناموجود دستی»: این محصول در بررسی خودکار تأمین‌کننده خوانده نشود.</summary>
+    public bool ExcludeFromSupplierSync { get; set; }
     public string? PrimaryImage { get; set; }
     public List<ProductImageInput> Images { get; set; } = [];
     public List<ProductFeatureInput> Features { get; set; } = [];
@@ -66,7 +70,7 @@ public sealed class ProductInput
 [RequestFormLimits(MultipartBodyLengthLimit = 41 * 1024 * 1024, ValueCountLimit = 4000)]
 [RequestSizeLimit(42 * 1024 * 1024)]
 public class EditModel(IProductService products, IAdminDataService data, IUploadStore uploads,
-    IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence) : AdminPageModel
+    IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence, ISupplierSyncService supplierSync) : AdminPageModel
 {
     private const int MaxImages = 12;
 
@@ -78,7 +82,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         ["DiscountStartAt"] = "شروع تخفیف", ["DiscountEndAt"] = "پایان تخفیف", ["PurchasePrice"] = "قیمت خرید", ["StockQuantity"] = "موجودی",
         ["WarrantyTitle"] = "گارانتی", ["WarrantyMonths"] = "ماه‌های گارانتی", ["IsActive"] = "فعال", ["PublishedAt"] = "تاریخ انتشار",
         ["Gtin"] = "GTIN", ["Mpn"] = "MPN", ["SupplierId"] = "تأمین‌کننده", ["SupplierUrl"] = "لینک منبع", ["SupplierSku"] = "کد نزد تأمین‌کننده",
-        ["SupplierNote"] = "یادداشت تأمین", ["MainImage"] = "تصویر اصلی",
+        ["SupplierNote"] = "یادداشت تأمین", ["MainImage"] = "تصویر اصلی", ["ExcludeFromSupplierSync"] = "خارج از بررسی تأمین‌کننده",
     };
 
     // ── ابزارهای ویرایش هم‌زمان (مرحلهٔ هفتم – فاز ۳) ──
@@ -104,6 +108,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
 
     public bool CanEditProduct => Can(AdminPermissions.ProductsManage);
     public bool CanSupplier => Can(AdminPermissions.ProductsSupplier);
+
+    /// <summary>آخرین نتیجهٔ بررسی خودکار تأمین‌کننده برای کارت «منبع خرید» (null = هنوز بررسی نشده).</summary>
+    public SupplierProductStatusDto? SupplierStatus { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(Guid? id)
     {
@@ -156,6 +163,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             Input.SupplierUrl = existing.SupplierUrl;
             Input.SupplierSku = existing.SupplierSku;
             Input.SupplierNote = existing.SupplierNote;
+            Input.ExcludeFromSupplierSync = existing.ExcludeFromSupplierSync;
             Input.PurchasePrice = existing.PurchasePrice;
         }
         else if (Input.SupplierId is null)
@@ -235,6 +243,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
                 WarrantyTitle = Input.WarrantyTitle?.Trim(), WarrantyMonths = Input.WarrantyMonths, IsActive = Input.IsActive,
                 Seo = Input.Seo.ApplyTo(null), Gtin = Input.Gtin, Mpn = Input.Mpn,
                 SupplierId = Input.SupplierId, SupplierUrl = Input.SupplierUrl, SupplierSku = Input.SupplierSku, SupplierNote = Input.SupplierNote,
+                ExcludeFromSupplierSync = Input.ExcludeFromSupplierSync,
                 Images = images, Features = features,
             });
         }
@@ -250,6 +259,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
                 PublishedAt = existing.PublishedAt,
                 Seo = Input.Seo.ApplyToCopy(existing.Seo), Gtin = Input.Gtin, Mpn = Input.Mpn,
                 SupplierId = Input.SupplierId, SupplierUrl = Input.SupplierUrl, SupplierSku = Input.SupplierSku, SupplierNote = Input.SupplierNote,
+                ExcludeFromSupplierSync = Input.ExcludeFromSupplierSync,
                 Images = images, Features = features,
             });
         }
@@ -373,7 +383,11 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             Suppliers = suppliers.Select(s => (s.Id, s.Name)).ToList();
         }
         if (ProductId is { } id)
+        {
             VideoCount = await data.Query<ProductVideo>().CountAsync(v => v.ProductId == id);
+            if (CanSupplier)
+                SupplierStatus = await supplierSync.GetProductStatusAsync(id);
+        }
     }
 
     private static ProductInput ToInput(Product p) => new()
@@ -384,7 +398,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         DiscountEnd = p.DiscountEndAt is { } e ? PersianDateInput.Format(IranClock.Today(e)) : null,
         PurchasePrice = p.PurchasePrice, StockQuantity = p.StockQuantity, WarrantyTitle = p.WarrantyTitle, WarrantyMonths = p.WarrantyMonths,
         IsActive = p.IsActive, Gtin = p.Gtin, Mpn = p.Mpn, SupplierId = p.SupplierId, SupplierUrl = p.SupplierUrl, SupplierSku = p.SupplierSku,
-        SupplierNote = p.SupplierNote,
+        SupplierNote = p.SupplierNote, ExcludeFromSupplierSync = p.ExcludeFromSupplierSync,
         PrimaryImage = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault(),
         Images = p.Images.OrderBy(i => i.DisplayOrder).Select(i => new ProductImageInput { ImageName = i.ImageName, AltText = i.AltText, DisplayOrder = i.DisplayOrder }).ToList(),
         Features = p.Features.Count == 0 ? [new ProductFeatureInput()] : p.Features.OrderBy(f => f.DisplayOrder).Select(f => new ProductFeatureInput { Key = f.Key, Value = f.Value }).ToList(),

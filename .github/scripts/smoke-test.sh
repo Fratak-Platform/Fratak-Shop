@@ -528,18 +528,28 @@ expect 200 "/admin/orders?sla=soon&source=staff"
 expect 200 /admin/orders/board
 contains_i "data-board-column"
 expect 200 /admin/orders/new
+contains_i "data-staff-lookup"
+expect 200 "/admin/orders/new?phone=09120000000"
 contains_i "data-staff-order"
 expect 200 "/admin/orders/new?handler=Products&q=%D8%A7"
 contains_i "["
 expect 404 /pay/not-a-valid-token
 expect 404 /pay/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 expect 200 "/admin/customers?tag=%D8%B9%D9%85%D8%AF%D9%87"
+echo "== Supplier sync (P5)"
+expect 200 /admin/products/supplier-sync
+contains_i "data-supplier-sync"
+for tab in problems auto history runs; do
+  expect 200 "/admin/products/supplier-sync?tab=$tab"
+done
+expect 200 "/admin/products/supplier-sync?kind=PriceChange&q=%D8%A7"
+expect 200 "/admin/products/supplier-sync?tab=not-a-tab"
 echo "== Realtime (SignalR hub + unread counter)"
 expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
 contains_i "connectionToken"
 expect 200 /api/notifications/unread
 contains_i "unread"
-for tab in general contact footer orders sla payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
+for tab in general contact footer orders sla supplier payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
   expect 200 "/admin/settings?tab=$tab"
 done
 for key in $(curl -s -b "$JAR" "$BASE/admin/manage" | grep -o 'href="/admin/manage/[a-z-]*"' | sed 's/.*manage\///; s/"$//' | sort -u); do
@@ -575,6 +585,7 @@ expect 302 /admin/settings
 expect 302 /admin/staff
 expect 302 /admin/orders/board
 expect 302 /admin/orders/new
+expect 302 /admin/products/supplier-sync
 
 echo
 echo "Smoke test finished with $FAILS failure(s)."

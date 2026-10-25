@@ -73,6 +73,16 @@ public static class SettingsRegistry
             I("SlaDeliveryMaxDays", "بیشترین روز تحویل پس از ارسال", "بعد از این مدت «تأیید تحویل» دیرکرد حساب می‌شود. مثال پست: ۴ (کل فرایند معمولاً ۳ تا ۷ روز)"),
             new("SlaWarningPercent", "هشدار «نزدیک به پایان مهلت» از چند درصد مهلت", SKind.Int, "مثال: ۷۵ یعنی وقتی سه‌چهارم مهلت گذشت، نشان نارنجی نمایش داده می‌شود.") { ShowWhen = "IsOrderSlaEnabled" },
         ]),
+        // بررسی خودکار لینک تأمین‌کننده؛ موتور در Core/Services/Suppliers، گزارش در /admin/products/supplier-sync.
+        new("supplier", "بررسی تأمین‌کننده", "ArrowsClockwise", "خواندن خودکار موجودی و قیمت هر محصول از لینک منبع خرید و گزارش تغییرها برای تأیید.",
+        [
+            B("IsSupplierSyncEnabled", "بررسی خودکار موجودی و قیمت تأمین‌کننده"),
+            new("SupplierSyncRunsPerDay", "تعداد بررسی در شبانه‌روز", SKind.Int, "۱ تا ۲۴؛ با فاصلهٔ مساوی از نیمه‌شب به وقت ایران. مثال: ۴ → ساعت ۰، ۶، ۱۲ و ۱۸.") { ShowWhen = "IsSupplierSyncEnabled" },
+            new("SupplierAutoOutOfStock", "ناموجود کردن خودکار", SKind.Bool, "اگر کالا در منبع تمام شد، موجودی فروشگاه بلافاصله صفر می‌شود (و اگر موجودی ما از منبع بیشتر بود، کم می‌شود) تا سفارش بدون کالا ثبت نشود. برگشت موجودی همیشه با تأیید شماست.") { ShowWhen = "IsSupplierSyncEnabled" },
+            new("SupplierStockMarginPercent", "حاشیهٔ اطمینان موجودی (درصد)", SKind.Int, "موجودی پیشنهادی ما این مقدار کمتر از منبع است. مثال: منبع ۵۰ و حاشیهٔ ۲۰ → پیشنهاد ۴۰.") { ShowWhen = "IsSupplierSyncEnabled" },
+            new("SupplierStockMaxQuantity", "سقف موجودی پیشنهادی هر کالا", SKind.Int, "حتی اگر منبع موجودی زیادی داشته باشد، بیشتر از این پیشنهاد نمی‌شود.") { ShowWhen = "IsSupplierSyncEnabled" },
+            new("SupplierRequestDelayMs", "فاصلهٔ درخواست‌ها به سایت منبع (میلی‌ثانیه)", SKind.Int, "برای اینکه سایت تأمین‌کننده ما را ربات مزاحم تشخیص ندهد. پیشنهاد: ۱۵۰۰") { ShowWhen = "IsSupplierSyncEnabled" },
+        ]),
         new("payment", "پرداخت", "CreditCard", "درگاه پرداخت و پرداخت در محل",
         [
             B("IsOnlinePaymentEnabled", "پرداخت آنلاین (زرین‌پال)"),

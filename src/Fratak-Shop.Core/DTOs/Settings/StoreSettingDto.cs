@@ -166,6 +166,12 @@ public class StoreSettingCommand
     public int CodMinDeliveredOrders { get; set; }
     public int CodMaxReturnedOrders { get; set; }
     public string? CodAllowedProvinces { get; set; }
+    public bool IsSupplierSyncEnabled { get; set; } = true;
+    public int SupplierSyncRunsPerDay { get; set; } = 4;
+    public bool SupplierAutoOutOfStock { get; set; } = true;
+    public int SupplierStockMarginPercent { get; set; } = 20;
+    public int SupplierStockMaxQuantity { get; set; } = 10;
+    public int SupplierRequestDelayMs { get; set; } = 1500;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

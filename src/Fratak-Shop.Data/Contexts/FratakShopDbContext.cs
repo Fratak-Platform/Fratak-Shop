@@ -220,6 +220,15 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     /// <summary>یادداشت‌های داخلی کارکنان دربارهٔ مشتری‌ها.</summary>
     public DbSet<Fratak_Shop.Data.Entities.Users.CustomerNote> CustomerNotes { get; set; } = null!;
 
+    /// <summary>آخرین وضعیت هر محصول در سایت تأمین‌کننده (فاز ۵).</summary>
+    public DbSet<SupplierProductState> SupplierProductStates { get; set; } = null!;
+
+    /// <summary>تاریخچهٔ اجراهای بررسی تأمین‌کننده.</summary>
+    public DbSet<SupplierSyncRun> SupplierSyncRuns { get; set; } = null!;
+
+    /// <summary>تغییرهای پیدا شده در بررسی تأمین‌کننده (خودکار یا منتظر تأیید).</summary>
+    public DbSet<SupplierChange> SupplierChanges { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

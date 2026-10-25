@@ -2,6 +2,7 @@ using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Orders;
+using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Data.Entities.Support;
 using Fratak_Shop.Data.Entities.Wallets;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,8 @@ public sealed class AdminBadgeService(FratakShopDbContext context, IMemoryCache 
             ["drafts"] = await context.BlogPosts.CountAsync(p => !p.IsPublished && p.SubmittedForReviewAt != null),
             ["seo"] = await context.SeoNotFoundLogs.CountAsync(l => !l.IsResolved && l.LastHitAt >= since),
             ["errors"] = await context.ErrorLogs.CountAsync(e => !e.IsResolved && e.CreatedAt >= since),
+            // پیشنهادهای منتظر تأیید بررسی تأمین‌کننده (مرحلهٔ هفتم – فاز ۵).
+            ["supplier"] = await context.SupplierChanges.CountAsync(c => c.Status == SupplierChangeStatus.Pending),
         };
 
         cache.Set("admin:badges", (IReadOnlyDictionary<string, int>)badges, TimeSpan.FromSeconds(30));

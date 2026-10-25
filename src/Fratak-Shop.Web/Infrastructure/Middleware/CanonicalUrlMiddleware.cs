@@ -8,7 +8,9 @@
 /// </summary>
 public class CanonicalUrlMiddleware(RequestDelegate next)
 {
-    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/api", "/_", "/.well-known", "/admin", "/health", "/hubs"];
+    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/api", "/_", "/.well-known", "/admin", "/health", "/hubs",
+        // توکن لینک پرداخت به حروف کوچک/بزرگ حساس است؛ کوچک کردن مسیر، لینک را خراب می‌کند.
+        "/pay/"];
 
     /// <summary>Old hard-coded pages → content page slugs.</summary>
     private static readonly Dictionary<string, string> LegacyPaths = new(StringComparer.OrdinalIgnoreCase)

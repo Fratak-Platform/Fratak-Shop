@@ -169,6 +169,12 @@ public static class StoreSettingMapper
             CodMinDeliveredOrders = entity.CodMinDeliveredOrders,
             CodMaxReturnedOrders = entity.CodMaxReturnedOrders,
             CodAllowedProvinces = entity.CodAllowedProvinces,
+            IsSupplierSyncEnabled = entity.IsSupplierSyncEnabled,
+            SupplierSyncRunsPerDay = entity.SupplierSyncRunsPerDay,
+            SupplierAutoOutOfStock = entity.SupplierAutoOutOfStock,
+            SupplierStockMarginPercent = entity.SupplierStockMarginPercent,
+            SupplierStockMaxQuantity = entity.SupplierStockMaxQuantity,
+            SupplierRequestDelayMs = entity.SupplierRequestDelayMs,
         };
     }
 
@@ -332,5 +338,11 @@ public static class StoreSettingMapper
         entity.CodMinDeliveredOrders = command.CodMinDeliveredOrders;
         entity.CodMaxReturnedOrders = command.CodMaxReturnedOrders;
         entity.CodAllowedProvinces = string.IsNullOrWhiteSpace(command.CodAllowedProvinces) ? null : command.CodAllowedProvinces.Trim();
+        entity.IsSupplierSyncEnabled = command.IsSupplierSyncEnabled;
+        entity.SupplierSyncRunsPerDay = command.SupplierSyncRunsPerDay;
+        entity.SupplierAutoOutOfStock = command.SupplierAutoOutOfStock;
+        entity.SupplierStockMarginPercent = command.SupplierStockMarginPercent;
+        entity.SupplierStockMaxQuantity = command.SupplierStockMaxQuantity;
+        entity.SupplierRequestDelayMs = command.SupplierRequestDelayMs;
     }
 }

@@ -62,6 +62,9 @@ public class CreateProductCommand
     public string? SupplierSku { get; set; }
     public string? SupplierNote { get; set; }
 
+    /// <summary>«ناموجود دستی»: از بررسی خودکار تأمین‌کننده خارج شود (مرحلهٔ هفتم – فاز ۵).</summary>
+    public bool ExcludeFromSupplierSync { get; set; }
+
     public List<ProductImageCommand> Images { get; set; } = [];
     public List<ProductFeatureCommand> Features { get; set; } = [];
 }
@@ -103,6 +106,9 @@ public class EditProductCommand
     public string? SupplierUrl { get; set; }
     public string? SupplierSku { get; set; }
     public string? SupplierNote { get; set; }
+
+    /// <summary>«ناموجود دستی»: از بررسی خودکار تأمین‌کننده خارج شود (مرحلهٔ هفتم – فاز ۵).</summary>
+    public bool ExcludeFromSupplierSync { get; set; }
 
     public List<ProductImageCommand> Images { get; set; } = [];
     public List<ProductFeatureCommand> Features { get; set; } = [];

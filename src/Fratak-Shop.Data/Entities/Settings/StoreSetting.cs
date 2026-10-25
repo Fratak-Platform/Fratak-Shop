@@ -548,6 +548,31 @@ public class StoreSetting : BaseEntity
     [MaxLength(1000)]
     public string? CodAllowedProvinces { get; set; }
 
+    // ── بررسی خودکار لینک تأمین‌کننده (مرحلهٔ هفتم – فاز ۵) ─────────────
+    // چند بار در روز موجودی و قیمت هر محصول در سایت تأمین‌کننده خوانده و با فروشگاه مقایسه می‌شود.
+    // پیاده‌سازی: Core/Services/Suppliers (موتور) و Web/Infrastructure/SupplierSyncWorker.cs (زمان‌بندی).
+
+    /// <summary>بررسی خودکار موجودی و قیمت تأمین‌کننده فعال باشد.</summary>
+    public bool IsSupplierSyncEnabled { get; set; } = true;
+
+    /// <summary>تعداد اجرا در شبانه‌روز (۱ تا ۲۴)، با فاصلهٔ مساوی از نیمه‌شب به وقت ایران. مثال: ۴ → ساعت ۰، ۶، ۱۲ و ۱۸.</summary>
+    public int SupplierSyncRunsPerDay { get; set; } = 4;
+
+    /// <summary>اگر کالا در منبع ناموجود شد، موجودی فروشگاه خودکار صفر شود (و اگر موجودی ما از منبع بیشتر بود، کم شود).</summary>
+    public bool SupplierAutoOutOfStock { get; set; } = true;
+
+    /// <summary>
+    /// موجودی پیشنهادی ما چند درصد کمتر از موجودی منبع باشد تا هرگز بیش از منبع نفروشیم.
+    /// مثال: منبع ۵۰ عدد و حاشیهٔ ۲۰٪ → پیشنهاد ۴۰ (با رعایت سقف).
+    /// </summary>
+    public int SupplierStockMarginPercent { get; set; } = 20;
+
+    /// <summary>سقف موجودی پیشنهادی برای هر کالا (حتی اگر منبع موجودی زیادی داشته باشد). مثال: ۱۰.</summary>
+    public int SupplierStockMaxQuantity { get; set; } = 10;
+
+    /// <summary>فاصلهٔ بین دو درخواست به یک سایت تأمین‌کننده (میلی‌ثانیه) تا فشار نیاورد و مسدود نشویم.</summary>
+    public int SupplierRequestDelayMs { get; set; } = 1500;
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

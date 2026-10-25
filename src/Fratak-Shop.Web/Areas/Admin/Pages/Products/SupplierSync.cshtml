@@ -1,0 +1,288 @@
+@page "/admin/products/supplier-sync"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.SupplierSyncModel
+@using Fratak_Shop.Core.Services.Suppliers
+@using Fratak_Shop.Data.Entities.Products
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@*
+  بررسی تأمین‌کننده (مرحلهٔ هفتم – فاز ۵).
+  • بالای صفحه: وضعیت زمان‌بندی، دکمهٔ «همین الان بررسی کن» و آمار.
+  • زبانه‌ها: منتظر تأیید / مشکل‌ها / تغییرهای خودکار / رسیدگی‌شده / اجراها.
+  • انتخاب ردیف‌ها نوار گروهی را نشان می‌دهد؛ پیش‌نمایش اثر (جمع تغییر موجودی، میانگین تغییر قیمت، هشدار زیان)
+    در wwwroot/assets/js/admin-supplier.js از data-* ردیف‌ها حساب می‌شود.
+*@
+@{
+    ViewData["Title"] = "بررسی تأمین‌کننده";
+    var d = Model.Dashboard;
+    var canApprove = Model.Can(AdminPermissions.ProductsManage);
+    var decidable = canApprove && (Model.Tab == "pending" || Model.Tab == "problems");
+    var request = HttpContext.Request;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>بررسی تأمین‌کننده</h2>
+    <p class="a-muted text-sm mt-1">
+      موجودی و قیمت هر محصول در سایت تأمین‌کننده @Format.Number(d.RunsPerDay) بار در روز خوانده و با فروشگاه مقایسه می‌شود.
+      @(d.AutoOutOfStock ? "کالای ناموجود در منبع خودکار ناموجود می‌شود؛" : "ناموجود کردن هم با تأیید شماست؛")
+      افزایش موجودی و تغییر قیمت همیشه منتظر تأیید می‌ماند.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Run">
+      <button type="submit" class="a-btn" disabled="@(d.IsRunning || Model.RunQueued)">
+        <span class="inline-flex">@Icons.Svg("ArrowsClockwise", d.IsRunning ? "animate-spin" : null, 18)</span>
+        @(d.IsRunning ? "در حال بررسی…" : Model.RunQueued ? "در صف شروع…" : "همین الان بررسی کن")
+      </button>
+    </form>
+    @if (Model.Can(AdminPermissions.SettingsManage))
+    {
+      <a class="a-btn a-btn-light" href="/admin/settings?tab=supplier">@Icons.Svg("Gear", null, 18) تنظیمات</a>
+    }
+    @if (Model.Can(AdminPermissions.SuppliersManage))
+    {
+      <a class="a-btn a-btn-light" href="/admin/manage/suppliers">@Icons.Svg("Factory", null, 18) تأمین‌کنندگان</a>
+    }
+  </div>
+</div>
+
+@if (!d.Enabled)
+{
+  <div class="a-alert a-alert-warn mb-4">بررسی زمان‌بندی‌شده در تنظیمات خاموش است؛ فقط با دکمهٔ «همین الان بررسی کن» اجرا می‌شود.</div>
+}
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Clock", null, 16) اجرای بعدی</div>
+    <div class="a-stat-value">@(d.Enabled ? Format.DateTime(d.NextRun) : "خاموش")</div>
+    <div class="a-stat-sub">آخرین: @(d.RecentRuns.Count > 0 ? Format.Relative(d.RecentRuns[0].StartedAt) : "هنوز اجرا نشده")</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("CheckCircle", null, 16) منتظر تأیید</div>
+    <div class="a-stat-value">@Format.Number(d.PendingCount)</div>
+    <div class="a-stat-sub">مشکل‌ها: @Format.Number(d.ProblemCount)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Package", null, 16) محصولات زیر نظر</div>
+    <div class="a-stat-value">@Format.Number(d.TrackedProducts)</div>
+    <div class="a-stat-sub">خارج از بررسی: @Format.Number(d.ExcludedProducts)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("LinkBreak", null, 16) بدون لینک منبع</div>
+    <div class="a-stat-value">@Format.Number(d.ProductsWithoutUrl)</div>
+    <div class="a-stat-sub"><a class="a-link" href="/admin/products?missing=source">مشاهده و تکمیل</a></div>
+  </div>
+</div>
+
+<nav class="a-tabs" aria-label="بخش‌ها">
+  @foreach (var tab in SupplierSyncModel.Tabs)
+  {
+    var count = tab.Key == "pending" ? d.PendingCount : tab.Key == "problems" ? d.ProblemCount : 0;
+    <a class="a-tab @(Model.Tab == tab.Key ? "is-active" : "")" href="@SupplierSyncModel.TabUrl(tab.Key)">
+      @tab.Title
+      @if (count > 0) { <span class="a-badge a-badge-red">@Format.Number(count)</span> }
+    </a>
+  }
+</nav>
+
+@if (Model.Tab == "runs")
+{
+  <div class="a-card">
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>شروع</th><th>نوع</th><th>مدت</th><th>بررسی‌شده</th><th>موجود / ناموجود</th><th>پیدا نشد / خطا</th><th>خودکار</th><th>پیشنهاد تازه</th><th>توضیح</th></tr></thead>
+        <tbody>
+          @foreach (var r in d.RecentRuns)
+          {
+            <tr>
+              <td data-label="شروع" class="nowrap">@Format.DateTime(r.StartedAt)</td>
+              <td data-label="نوع">
+                @if (r.Trigger == SupplierSyncTrigger.Manual)
+                {
+                  <span class="a-badge a-badge-sky">دستی</span><div class="a-muted text-xs">@r.StartedByName</div>
+                }
+                else
+                {
+                  <span class="a-badge a-badge-gray">زمان‌بندی</span>
+                }
+              </td>
+              <td data-label="مدت" class="nowrap">
+                @if (r.FinishedAt is { } finished)
+                {
+                  <span>@Format.Number((long)Math.Max(1, (finished - r.StartedAt).TotalSeconds)) ثانیه</span>
+                }
+                else
+                {
+                  <span class="a-badge a-badge-yellow">در جریان</span>
+                }
+              </td>
+              <td data-label="بررسی‌شده" class="num">@Format.Number(r.Checked)</td>
+              <td data-label="موجود / ناموجود" class="num">@Format.Number(r.InStock) / @Format.Number(r.OutOfStock)</td>
+              <td data-label="پیدا نشد / خطا" class="num">@Format.Number(r.NotFound) / <span class="@(r.Errors > 0 ? "text-red-600 font-semibold" : "")">@Format.Number(r.Errors)</span></td>
+              <td data-label="خودکار" class="num">@Format.Number(r.AutoApplied)</td>
+              <td data-label="پیشنهاد تازه" class="num">@Format.Number(r.NewProposals)</td>
+              <td data-label="توضیح" class="text-xs">@r.Message</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (d.RecentRuns.Count == 0)
+      {
+        <div class="a-empty">هنوز بررسی‌ای اجرا نشده است. «همین الان بررسی کن» را بزنید.</div>
+      }
+    </div>
+  </div>
+}
+else
+{
+  <div class="a-card mb-4">
+    <form method="get" class="a-card-body a-filters">
+      <input type="hidden" name="tab" value="@Model.Tab">
+      <div class="a-field" style="flex-basis:220px"><label class="a-label" for="f-q">جست‌وجو</label><input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام یا کد کالا"></div>
+      <div class="a-field">
+        <label class="a-label" for="f-kind">نوع</label>
+        <select id="f-kind" name="kind" class="a-select">
+          <option value="">همه</option>
+          @foreach (var kind in Enum.GetValues<SupplierChangeKind>())
+          {
+            <option value="@kind" selected="@(Model.Kind == kind)">@SupplierSyncRules.KindTitle(kind)</option>
+          }
+        </select>
+      </div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">@Icons.Svg("Funnel", null, 16) اعمال</button><a class="a-btn a-btn-light" href="@SupplierSyncModel.TabUrl(Model.Tab)">پاک کردن</a></div>
+    </form>
+  </div>
+
+  @if (Model.Tab == "pending" && Model.Changes.Total > 0)
+  {
+    <div class="a-alert a-alert-info mb-4">
+      عدد موجودی پیشنهادی را می‌توانید پیش از تأیید عوض کنید. با تأیید تغییر قیمت، <b>قیمت خرید</b> به‌روز می‌شود؛ اگر «قیمت فروش هم به همان اندازه تغییر کند» را بزنید، اختلاف به قیمت فروش و تخفیف هم اضافه می‌شود.
+    </div>
+  }
+
+  <div class="a-card" data-bulk data-supplier-sync>
+    @if (decidable)
+    {
+      <form method="post" asp-page-handler="Decide" id="sync-form" class="a-bulkbar" data-bulk-bar>
+        <span><b data-bulk-count>0</b> مورد</span>
+        <span class="a-muted text-xs" data-supplier-preview></span>
+        @if (Model.Tab == "pending")
+        {
+          <label class="a-check text-sm"><input type="checkbox" name="adjustSale" value="true"> قیمت فروش هم به همان اندازه تغییر کند</label>
+        }
+        <button type="submit" name="decision" value="approve" class="a-btn a-btn-sm a-btn-success" data-confirm="موارد انتخاب‌شده تأیید و روی محصولات اعمال شوند؟">@Icons.Svg("Check", null, 16) تأیید</button>
+        <button type="submit" name="decision" value="reject" class="a-btn a-btn-sm a-btn-light" data-confirm="موارد انتخاب‌شده رد شوند؟ همین عدد دوباره پیشنهاد نمی‌شود.">رد</button>
+      </form>
+    }
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead>
+          <tr>
+            @if (decidable) { <th class="sel"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th> }
+            <th>محصول</th><th>تغییر</th><th>قبلی ← تازه</th><th>منبع</th><th>قیمت فروش</th><th>زمان</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var c in Model.Changes.Items)
+          {
+            var isStock = SupplierSyncRules.IsStockKind(c.Kind);
+            var isPrice = c.Kind == SupplierChangeKind.PriceChange;
+            var editableQty = decidable && isStock && c.Status == SupplierChangeStatus.Pending;
+            <tr data-sync-row data-kind="@c.Kind" data-old="@SupplierSyncModel.Invariant(c.OldValue)" data-new="@SupplierSyncModel.Invariant(c.NewValue)" data-loss="@(c.LossWarning ? "1" : "0")">
+              @if (decidable) { <td class="sel" data-label=""><input type="checkbox" name="ids" value="@c.Id" form="sync-form" data-row-check aria-label="انتخاب @c.ProductName"></td> }
+              <td data-label="محصول">
+                <div class="flex items-center gap-3">
+                  <img class="a-thumb" src="@ImageHelper.Sized(ImageHelper.Product(c.ImageName), 160)" alt="" loading="lazy">
+                  <div class="min-w-0">
+                    <a class="a-link font-semibold line-clamp-2" href="/admin/products/edit/@c.ProductId">@c.ProductName</a>
+                    <div class="a-muted text-xs">
+                      <span class="a-ltr">@c.ProductSku</span>
+                      @if (!string.IsNullOrEmpty(c.SupplierUrl))
+                      {
+                        <a class="a-link" href="@c.SupplierUrl" target="_blank" rel="noopener noreferrer"><span class="inline-flex">@Icons.Svg("ArrowSquareOut", null, 12)</span> @(c.SupplierName ?? "منبع")</a>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td data-label="تغییر">
+                <span class="a-badge @SupplierSyncModel.KindCss(c.Kind)">@SupplierSyncRules.KindTitle(c.Kind)</span>
+                @if (c.Status != SupplierChangeStatus.Pending)
+                {
+                  <div class="a-muted text-xs mt-1">@SupplierSyncModel.StatusTitle(c.Status)@(c.DecidedByName is null ? "" : " – " + c.DecidedByName)</div>
+                }
+              </td>
+              <td data-label="قبلی ← تازه" class="nowrap">
+                @if (isPrice)
+                {
+                  <div><span class="a-muted">@(c.OldValue is { } op ? Format.Price(op) : "ثبت نشده")</span> ← <b>@(c.NewValue is { } np ? Format.Price(np) : "-")</b> <small class="a-muted">تومان</small></div>
+                  @if (c.Delta is { } delta)
+                  {
+                    <div class="text-xs @(delta > 0 ? "a-down" : "a-up")">@Format.SignedPrice(delta) @SupplierSyncModel.PercentText(c.DeltaPercent)</div>
+                  }
+                }
+                else if (isStock)
+                {
+                  <div class="flex items-center gap-1">
+                    <span class="a-muted">@(c.OldValue is { } os ? Format.Number((long)os) : "-")</span> ←
+                    @if (editableQty)
+                    {
+                      <input type="number" name="qty-@c.Id" form="sync-form" value="@((long)(c.NewValue ?? 0))" min="0" max="100000" class="a-input a-input-sm a-ltr" style="width:5rem" aria-label="موجودی تازهٔ @c.ProductName" data-sync-qty>
+                    }
+                    else
+                    {
+                      <b>@(c.NewValue is { } ns ? Format.Number((long)ns) : "-")</b>
+                    }
+                  </div>
+                  @if (c.Status == SupplierChangeStatus.Pending && c.CurrentStock != (int)(c.OldValue ?? c.CurrentStock))
+                  {
+                    <div class="text-xs text-amber-600">موجودی فعلی فروشگاه: @Format.Number(c.CurrentStock)</div>
+                  }
+                }
+                else
+                {
+                  <span class="text-xs">@c.Note</span>
+                }
+              </td>
+              <td data-label="منبع" class="text-xs">
+                @if (c.SourceStock is { } ss) { <span>@Format.Number(ss) عدد</span> }
+                else if (isStock && c.Kind != SupplierChangeKind.OutOfStock) { <span class="a-muted">موجود (تعداد نامعلوم)</span> }
+                @if (isStock && !string.IsNullOrEmpty(c.Note)) { <div class="a-muted">@c.Note</div> }
+              </td>
+              <td data-label="قیمت فروش" class="nowrap">
+                <span>@Format.Price(c.SalePrice)</span>
+                @if (isPrice && c.LossWarning)
+                {
+                  <div class="text-xs text-red-600 font-semibold"><span class="inline-flex">@Icons.Svg("Warning", null, 12)</span> با قیمت خرید تازه زیان‌ده است</div>
+                }
+                else if (isPrice && c.NewValue is { } cost && c.SalePrice > 0)
+                {
+                  <div class="a-muted text-xs">حاشیهٔ سود با قیمت تازه: @SupplierSyncModel.MarginText(c.SalePrice, cost)</div>
+                }
+              </td>
+              <td data-label="زمان" class="text-xs nowrap" title="@Format.DateTime(c.UpdatedAt)">@Format.Relative(c.DecidedAt ?? c.UpdatedAt)</td>
+              <td class="actions" data-label="">
+                @if (decidable)
+                {
+                  <button type="submit" form="sync-form" name="single" value="approve:@c.Id" class="a-icon-btn" aria-label="تأیید" title="تأیید">@Icons.Svg("Check", null, 18)</button>
+                  <button type="submit" form="sync-form" name="single" value="reject:@c.Id" class="a-icon-btn" aria-label="رد" title="رد" data-confirm="این پیشنهاد رد شود؟">@Icons.Svg("Prohibit", null, 18)</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Changes.Items.Count == 0)
+      {
+        <div class="a-empty">
+          @(Model.Tab == "pending" ? "پیشنهادی منتظر تأیید نیست." : Model.Tab == "problems" ? "مشکلی گزارش نشده است." : "موردی یافت نشد.")
+        </div>
+      }
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Changes.Page, Model.Changes.PageCount, Model.Changes.Total)" />
+  </div>
+}
+
+@section Scripts {
+  <script src="~/assets/js/admin-supplier.js" asp-append-version="true"></script>
+}

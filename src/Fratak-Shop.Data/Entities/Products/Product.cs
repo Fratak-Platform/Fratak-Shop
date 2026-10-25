@@ -92,6 +92,12 @@ public class Product : BaseEntity
 
     public Supplier? Supplier { get; set; }
 
+    /// <summary>
+    /// «ناموجود دستی»: کارمند عمداً این کالا را از بررسی خودکار تأمین‌کننده خارج کرده است
+    /// (مثلاً کالا را دیگر نمی‌فروشیم). این محصول در بررسی‌های زمان‌بندی‌شده خوانده نمی‌شود.
+    /// </summary>
+    public bool ExcludeFromSupplierSync { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTimeOffset? PublishedAt { get; set; }

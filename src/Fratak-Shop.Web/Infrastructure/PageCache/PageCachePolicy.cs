@@ -32,6 +32,8 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "EditDraft", "AuditLog", "ErrorLog", "SecurityLog", "StaffNotification", "AdminUserPreference", "AdminHelpArticle",
         "AdminRole", "AdminRolePermission", "UserAdminRole",
         "OrderMessage", "CustomerTag", "CustomerNote", "OrderNote", "PurchaseInvoice",
+        // گزارش بررسی تأمین‌کننده (تغییر واقعی موجودی روی خود Product ثبت می‌شود و کش را خالی می‌کند).
+        "SupplierProductState", "SupplierSyncRun", "SupplierChange", "Supplier",
     };
 
     /// <summary>True while rendering a response that may be stored in the page cache.</summary>

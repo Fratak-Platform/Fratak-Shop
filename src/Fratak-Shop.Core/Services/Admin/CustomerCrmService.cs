@@ -242,9 +242,11 @@ public partial class CustomerCrmService(FratakShopDbContext context, IMemoryCach
         var all = await cache.GetOrCreateAsync(PopularKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
-            return await context.CustomerTags.AsNoTracking().GroupBy(t => t.Tag)
-                .Select(g => new CustomerTagCount(g.Key, g.Count()))
+            // مرتب‌سازی باید پیش از ساختن رکورد باشد؛ EF مرتب‌سازی روی سازندهٔ رکورد را به SQL ترجمه نمی‌کند.
+            var rows = await context.CustomerTags.AsNoTracking().GroupBy(t => t.Tag)
+                .Select(g => new { Tag = g.Key, Count = g.Count() })
                 .OrderByDescending(t => t.Count).ThenBy(t => t.Tag).Take(100).ToListAsync();
+            return rows.Select(r => new CustomerTagCount(r.Tag, r.Count)).ToList();
         }) ?? [];
         return all.Take(Math.Clamp(take, 1, 100)).ToList();
     }

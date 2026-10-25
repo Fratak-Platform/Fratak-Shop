@@ -26,6 +26,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         nameof(AuditLog), nameof(ErrorLog), nameof(SecurityLog),
         "ProductPriceHistory", "SearchQueryLog", "SeoNotFoundLog", "UserRefreshToken", "UserKnownDevice",
         "NotificationRead", "WebPushSubscription", "CartItem", "Cart", "StaffNotification", "AdminUserPreference", "EditDraft",
+        // بررسی تأمین‌کننده: گزارش خودش تاریخچه دارد؛ فقط تغییر واقعی روی Product (موجودی/قیمت) در تاریخچه ثبت می‌شود.
+        "SupplierProductState", "SupplierSyncRun", "SupplierChange",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)

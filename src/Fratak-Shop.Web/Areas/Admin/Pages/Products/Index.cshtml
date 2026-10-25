@@ -14,6 +14,10 @@
     {
       <a href="/admin/products/edit" class="a-btn">@Icons.Svg("Plus", null, 18) محصول جدید</a>
     }
+    @if (Model.Can(AdminPermissions.ProductsSupplier))
+    {
+      <a href="/admin/products/supplier-sync" class="a-btn a-btn-light">@Icons.Svg("ArrowsClockwise", null, 18) بررسی تأمین‌کننده</a>
+    }
     <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
     <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
   </div>

@@ -110,6 +110,18 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
             "AND [SlaDeliveryMinDays] >= 0 AND [SlaDeliveryMaxDays] >= [SlaDeliveryMinDays] AND [PaymentLinkHours] >= 1 " +
             "AND [CodMinDeliveredOrders] >= 0 AND [CodMaxReturnedOrders] >= 0"));
 
+        // مرحلهٔ هفتم – فاز ۵: بررسی خودکار تأمین‌کننده.
+        builder.Property(s => s.IsSupplierSyncEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SupplierSyncRunsPerDay).HasDefaultValue(4).HasSentinel(4);
+        builder.Property(s => s.SupplierAutoOutOfStock).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SupplierStockMarginPercent).HasDefaultValue(20).HasSentinel(20);
+        builder.Property(s => s.SupplierStockMaxQuantity).HasDefaultValue(10).HasSentinel(10);
+        builder.Property(s => s.SupplierRequestDelayMs).HasDefaultValue(1500).HasSentinel(1500);
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_SupplierSync",
+            "[SupplierSyncRunsPerDay] BETWEEN 1 AND 24 AND [SupplierStockMarginPercent] BETWEEN 0 AND 90 " +
+            "AND [SupplierStockMaxQuantity] >= 1 AND [SupplierRequestDelayMs] >= 200"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));

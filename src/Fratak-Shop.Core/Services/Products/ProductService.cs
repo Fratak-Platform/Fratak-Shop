@@ -75,6 +75,7 @@ public class ProductService(FratakShopDbContext context) : IProductService
             SupplierUrl = Clean(command.SupplierUrl),
             SupplierSku = Clean(command.SupplierSku),
             SupplierNote = Clean(command.SupplierNote),
+            ExcludeFromSupplierSync = command.ExcludeFromSupplierSync,
             Images = BuildImages(command.Images),
             Features = BuildFeatures(command.Features),
         };
@@ -160,6 +161,7 @@ public class ProductService(FratakShopDbContext context) : IProductService
         product.SupplierUrl = Clean(command.SupplierUrl);
         product.SupplierSku = Clean(command.SupplierSku);
         product.SupplierNote = Clean(command.SupplierNote);
+        product.ExcludeFromSupplierSync = command.ExcludeFromSupplierSync;
 
         ReplaceImages(product, command.Images);
         SyncFeatures(product, command.Features);

@@ -43,6 +43,13 @@ public static class WebServiceCollectionExtensions
 
         services.AddHostedService<OrderMaintenanceService>();
 
+        // مرحلهٔ هفتم – فاز ۵: بررسی خودکار لینک تأمین‌کننده (HttpClient با محافظ SSRF + صف اجرای فوری + زمان‌بند).
+        services.AddHttpClient(Infrastructure.Suppliers.SupplierHttp.ClientName, Infrastructure.Suppliers.SupplierHttp.Configure)
+            .ConfigurePrimaryHttpMessageHandler(Infrastructure.Suppliers.SupplierHttp.CreateHandler);
+        services.AddSingleton<Core.Services.Suppliers.ISupplierHttp, Infrastructure.Suppliers.SupplierHttp>();
+        services.AddSingleton<Infrastructure.Suppliers.SupplierSyncQueue>();
+        services.AddHostedService<Infrastructure.Suppliers.SupplierSyncWorker>();
+
         // Round 5: captcha, secrets, uploads, web push, background jobs.
         services.AddSingleton<Infrastructure.Security.ICaptchaService, Infrastructure.Security.CaptchaService>();
         services.AddSingleton<Core.Services.Security.ISecretProtector, Infrastructure.Engagement.DataProtectionSecretProtector>();

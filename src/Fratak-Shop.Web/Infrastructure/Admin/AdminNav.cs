@@ -27,6 +27,7 @@ public static class AdminNav
             new AdminNavItem("نظرسنجی خرید", "/admin/feedback", "Smile", [P.OrdersView, P.TicketsManage])),
         new("کاتالوگ",
             new AdminNavItem("محصولات", "/admin/products", "Package", [P.ProductsView]),
+            new AdminNavItem("بررسی تأمین‌کننده", "/admin/products/supplier-sync", "ArrowsClockwise", [P.ProductsSupplier], "supplier"),
             new AdminNavItem("دسته‌بندی‌ها", "/admin/manage/categories", "Stack", [P.CatalogManage]),
             new AdminNavItem("برندها", "/admin/manage/brands", "Tag", [P.CatalogManage]),
             new AdminNavItem("تأمین‌کنندگان", "/admin/manage/suppliers", "Factory", [P.SuppliersManage]),

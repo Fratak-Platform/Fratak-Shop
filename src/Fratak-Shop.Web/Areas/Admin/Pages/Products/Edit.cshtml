@@ -214,6 +214,34 @@
               </div>
               <div class="a-field"><label class="a-label" for="p-snote">یادداشت خرید</label><input id="p-snote" name="Input.SupplierNote" value="@i.SupplierNote" class="a-input" maxlength="500" placeholder="مثلاً رنگ مشکی را انتخاب کنید"></div>
               <div class="a-field"><label class="a-label" for="p-mpn">MPN (کد سازنده)</label><input id="p-mpn" name="Input.Mpn" value="@i.Mpn" class="a-input a-ltr" maxlength="50"></div>
+              <div class="a-field">
+                <label class="a-check"><input type="checkbox" name="Input.ExcludeFromSupplierSync" value="true" checked="@i.ExcludeFromSupplierSync"> از بررسی خودکار تأمین‌کننده خارج شود (ناموجود دستی)</label>
+                <p class="a-help">برای کالایی که عمداً نمی‌فروشید؛ سیستم دیگر موجودی و قیمت آن را از منبع نمی‌خواند و پیشنهادی نمی‌سازد.</p>
+              </div>
+              @* آخرین نتیجهٔ بررسی خودکار تأمین‌کننده (مرحلهٔ هفتم – فاز ۵) *@
+              @if (Model.SupplierStatus is { } st)
+              {
+                <div class="a-alert @(st.ConsecutiveErrors > 0 || st.Status == Fratak_Shop.Data.Entities.Products.SupplierItemStatus.NotFound ? "a-alert-warn" : "a-alert-info")">
+                  <div class="min-w-0">
+                    <div class="font-semibold">
+                      آخرین بررسی منبع: @Fratak_Shop.Core.Services.Suppliers.SupplierSyncRules.StatusTitle(st.Status)
+                      @if (st.SourceStock is { } srcStock) { <span>(@Format.Number(srcStock) عدد)</span> }
+                      @if (st.SourcePrice is { } srcPrice) { <span>– قیمت منبع @Format.Toman(srcPrice)</span> }
+                    </div>
+                    <div class="text-xs mt-1">
+                      @Format.DateTime(st.CheckedAt)
+                      @if (!string.IsNullOrEmpty(st.SourceName)) { <span>· نام در منبع: «@st.SourceName»</span> }
+                      @if (st.AutoOutOfStock) { <span>· موجودی را سیستم صفر کرده است</span> }
+                    </div>
+                    @if (st.ConsecutiveErrors > 0) { <div class="text-xs mt-1">@Format.Number(st.ConsecutiveErrors) خطای پشت‌سرهم: @st.LastError</div> }
+                    else if (st.Status == Fratak_Shop.Data.Entities.Products.SupplierItemStatus.NotFound) { <div class="text-xs mt-1">@st.LastError</div> }
+                    @if (st.PendingChanges > 0)
+                    {
+                      <a class="a-link text-xs mt-1 inline-block" href="/admin/products/supplier-sync?q=@Uri.EscapeDataString(i.Name ?? "")">@Format.Number(st.PendingChanges) پیشنهاد منتظر تأیید</a>
+                    }
+                  </div>
+                </div>
+              }
             </div>
           </div>
         }

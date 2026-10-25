@@ -118,6 +118,15 @@ public static class ManageRegistry
                 new("Phone", "تلفن", MKind.Text) { Ltr = true, InList = true },
                 new("Email", "ایمیل", MKind.Text) { Ltr = true },
                 new("Notes", "یادداشت (شرایط خرید، حساب کاربری، …)", MKind.TextArea) { Wide = true },
+                new("SyncMode", "روش بررسی خودکار موجودی و قیمت", MKind.Enum)
+                {
+                    InList = true,
+                    Labels = new Dictionary<string, string>
+                    {
+                        ["Auto"] = "تشخیص خودکار", ["WooCommerce"] = "API ووکامرس", ["StructuredData"] = "داده‌های صفحهٔ محصول", ["Disabled"] = "بررسی نشود",
+                    },
+                    Help = "«تشخیص خودکار» برای اکثر سایت‌ها کافی است. گزارش‌ها در «محصولات ← بررسی تأمین‌کننده».",
+                },
                 Order(), Active(),
             ],
         },

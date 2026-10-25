@@ -218,6 +218,16 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (command.CodAllowedProvinces is { Length: > 1000 })
             return "فهرست استان‌های پرداخت در محل حداکثر ۱۰۰۰ نویسه است.";
 
+        // بررسی خودکار تأمین‌کننده: بیش از ۲۴ بار در روز فقط فشار بیهوده به سایت منبع است.
+        if (command.SupplierSyncRunsPerDay is < 1 or > 24)
+            return "تعداد بررسی تأمین‌کننده در روز باید بین ۱ تا ۲۴ باشد.";
+        if (command.SupplierStockMarginPercent is < 0 or > 90)
+            return "حاشیهٔ اطمینان موجودی باید بین ۰ تا ۹۰ درصد باشد.";
+        if (command.SupplierStockMaxQuantity is < 1 or > 100000)
+            return "سقف موجودی پیشنهادی باید بین ۱ تا ۱۰۰٬۰۰۰ باشد.";
+        if (command.SupplierRequestDelayMs is < 200 or > 30000)
+            return "فاصلهٔ درخواست‌ها به تأمین‌کننده باید بین ۲۰۰ تا ۳۰٬۰۰۰ میلی‌ثانیه باشد.";
+
         if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
             return "نام کاربری ایکس (توییتر) معتبر نیست.";
