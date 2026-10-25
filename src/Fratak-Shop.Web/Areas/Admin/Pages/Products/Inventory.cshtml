@@ -1,0 +1,183 @@
+@page "/admin/products/inventory"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.InventoryModel
+@using Fratak_Shop.Core.Services.Products
+@using Fratak_Shop.Data.Entities.Products
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@*
+  انبار و موجودی (مرحلهٔ هفتم – فاز ۵): آمار، پیش‌بینی اتمام موجودی و دفتر گردش موجودی.
+*@
+@{
+    ViewData["Title"] = "انبار و موجودی";
+    var s = Model.Summary;
+    var request = HttpContext.Request;
+    var cost = Model.Can(AdminPermissions.ProductsSupplier);
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/products" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>انبار و موجودی</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">پیش‌بینی با میانگین فروش @Format.Number(Model.Days) روز اخیر حساب می‌شود (سفارش‌های لغو/مرجوع‌شده حساب نمی‌شوند). پیشنهاد خرید برای پوشش @Format.Number(StockForecastRules.CoverDays) روز است.</p>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><span>محصولات فعال</span><b>@Format.Number(s.ActiveProducts)</b></div>
+  <a class="a-stat" href="/admin/products?stock=out"><span>ناموجود</span><b class="text-rose-600">@Format.Number(s.OutOfStock)</b></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("tab", "forecast"), ("level", "Critical"), ("page", null))"><span>بحرانی (کمتر از @Format.Number(StockForecastRules.CriticalDays) روز)</span><b class="text-rose-600">@Format.Number(s.Critical)</b></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("tab", "forecast"), ("level", "Soon"), ("page", null))"><span>به‌زودی (کمتر از @Format.Number(StockForecastRules.SoonDays) روز)</span><b class="text-amber-600">@Format.Number(s.Soon)</b></a>
+  <div class="a-stat"><span>کل موجودی (عدد)</span><b>@Format.Number(s.TotalUnits)</b></div>
+  @if (cost)
+  {
+    <div class="a-stat"><span>ارزش موجودی به قیمت خرید</span><b>@Format.Toman(s.StockValueAtCost)</b>
+      @if (s.MissingCost > 0) { <small class="a-muted"><a class="a-link" href="/admin/products?missing=cost">@Format.Number(s.MissingCost) محصول بدون قیمت خرید</a></small> }
+    </div>
+  }
+</div>
+
+<div class="a-tabs mb-4">
+  <a class="a-tab @(Model.Tab == "forecast" ? "is-active" : "")" href="/admin/products/inventory?days=@Model.Days">@Icons.Svg("ChartLine", null, 16) پیش‌بینی اتمام</a>
+  <a class="a-tab @(Model.Tab == "ledger" ? "is-active" : "")" href="/admin/products/inventory?tab=ledger">@Icons.Svg("ListChecks", null, 16) گردش موجودی</a>
+</div>
+
+@if (Model.Tab == "forecast")
+{
+  <form method="get" class="a-filters mb-4">
+    <input type="hidden" name="tab" value="forecast">
+    <div class="a-field"><label class="a-label" for="inv-q">جست‌وجو</label><input id="inv-q" name="q" value="@Model.Search" class="a-input" placeholder="نام یا کد کالا"></div>
+    <div class="a-field">
+      <label class="a-label" for="inv-days">بر اساس فروش</label>
+      <select id="inv-days" name="days" class="a-select">
+        @foreach (var w in InventoryModel.Windows)
+        {
+          <option value="@w" selected="@(Model.Days == w)">@Format.Number(w) روز اخیر</option>
+        }
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="inv-level">وضعیت</label>
+      <select id="inv-level" name="level" class="a-select">
+        <option value="">همه</option>
+        @foreach (var level in new[] { StockForecastLevel.OutOfStock, StockForecastLevel.Critical, StockForecastLevel.Soon, StockForecastLevel.Ok })
+        {
+          <option value="@level" selected="@(Model.Level == level)">@InventoryModel.LevelTitle(level)</option>
+        }
+      </select>
+    </div>
+    <div class="a-field flex items-end"><button type="submit" class="a-btn">@Icons.Svg("Funnel", null, 18) اعمال</button></div>
+  </form>
+
+  <div class="a-card">
+    @if (Model.Forecast.Items.Count == 0)
+    {
+      <div class="a-empty">در این بازه فروشی ثبت نشده یا موردی با این فیلتر نیست.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>محصول</th><th>موجودی</th><th>فروش بازه</th><th>فروش روزانه</th><th>کافی برای</th><th>وضعیت</th><th>پیشنهاد خرید</th></tr></thead>
+          <tbody>
+            @foreach (var r in Model.Forecast.Items)
+            {
+              <tr>
+                <td data-label="محصول">
+                  <a href="/admin/products/edit/@r.ProductId" class="flex items-center gap-2">
+                    <img class="a-thumb" src="@ImageHelper.Sized(ImageHelper.Product(r.ImageName), 160)" alt="" loading="lazy">
+                    <span><span class="font-semibold">@r.Name</span>
+                      <span class="block text-xs a-muted a-ltr">@r.Sku</span>
+                      @if (!r.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> }
+                    </span>
+                  </a>
+                </td>
+                <td data-label="موجودی" class="num">@Format.Number(r.Stock)</td>
+                <td data-label="فروش بازه" class="num">@Format.Number(r.SoldInWindow)</td>
+                <td data-label="فروش روزانه" class="num a-ltr">@InventoryModel.RateText(r.Forecast.DailyRate)</td>
+                <td data-label="کافی برای" class="nowrap">
+                  @if (r.Forecast.DaysLeft is { } days && days > 0)
+                  {
+                    <span>@InventoryModel.RateText(days) روز</span>
+                    if (r.EstimatedOutAt is { } outAt) { <span class="block text-xs a-muted">تا حدود @Format.Date(outAt)</span> }
+                  }
+                  else { <span>—</span> }
+                </td>
+                <td data-label="وضعیت"><span class="a-badge @InventoryModel.LevelCss(r.Forecast.Level)">@InventoryModel.LevelTitle(r.Forecast.Level)</span></td>
+                <td data-label="پیشنهاد خرید" class="num">@(r.Forecast.SuggestedReorder > 0 ? Format.Number(r.Forecast.SuggestedReorder) + " عدد" : "—")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_AdminPager" model="new PagerModel(Model.Forecast.Page, Model.Forecast.PageCount, Model.Forecast.Total)" />
+    }
+  </div>
+}
+else
+{
+  <form method="get" class="a-filters mb-4">
+    <input type="hidden" name="tab" value="ledger">
+    @if (Model.Product is { } pid) { <input type="hidden" name="product" value="@pid"> }
+    <div class="a-field"><label class="a-label" for="led-q">جست‌وجو</label><input id="led-q" name="q" value="@Model.Search" class="a-input" placeholder="نام، کد کالا یا شمارهٔ سفارش"></div>
+    <div class="a-field">
+      <label class="a-label" for="led-reason">دلیل</label>
+      <select id="led-reason" name="reason" class="a-select">
+        <option value="">همه</option>
+        @foreach (var reason in global::System.Enum.GetValues<StockMovementReason>())
+        {
+          <option value="@reason" selected="@(Model.Reason == reason)">@StockForecastRules.ReasonTitle(reason)</option>
+        }
+      </select>
+    </div>
+    <div class="a-field"><label class="a-label" for="led-from">از تاریخ</label><input id="led-from" name="from" value="@Model.From" class="a-input a-ltr" data-jalali placeholder="1404/08/01"></div>
+    <div class="a-field"><label class="a-label" for="led-to">تا تاریخ</label><input id="led-to" name="to" value="@Model.To" class="a-input a-ltr" data-jalali placeholder="1404/08/30"></div>
+    <div class="a-field flex items-end"><button type="submit" class="a-btn">@Icons.Svg("Funnel", null, 18) اعمال</button></div>
+  </form>
+  @if (Model.Product is not null)
+  {
+    <div class="a-alert a-alert-info mb-4">فقط گردش یک محصول نمایش داده می‌شود. <a class="a-link" href="/admin/products/inventory?tab=ledger">نمایش همه</a></div>
+  }
+
+  <div class="a-card">
+    @if (Model.Movements.Items.Count == 0)
+    {
+      <div class="a-empty">گردشی با این فیلتر ثبت نشده است. (ثبت گردش از مرحلهٔ هفتم شروع شده؛ تغییرهای قبل از آن در دفتر نیستند.)</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>زمان</th><th>محصول</th><th>تغییر</th><th>مانده</th><th>دلیل</th><th>مرجع</th><th>کاربر</th></tr></thead>
+          <tbody>
+            @foreach (var m in Model.Movements.Items)
+            {
+              <tr>
+                <td data-label="زمان" class="nowrap">@Format.DateTime(m.CreatedAt)</td>
+                <td data-label="محصول">
+                  <a class="a-link" href="/admin/products/inventory?tab=ledger&product=@m.ProductId">@(m.ProductName ?? "—")</a>
+                  <span class="block text-xs a-muted a-ltr">@m.ProductSku</span>
+                </td>
+                <td data-label="تغییر" class="num a-ltr font-bold @InventoryModel.DeltaCss(m.Delta)">@InventoryModel.DeltaText(m.Delta)</td>
+                <td data-label="مانده" class="num">@(m.BalanceAfter is { } b ? Format.Number(b) : "—")</td>
+                <td data-label="دلیل">
+                  <span class="a-badge a-badge-gray">@StockForecastRules.ReasonTitle(m.Reason)</span>
+                  @if (!string.IsNullOrEmpty(m.Note)) { <span class="block text-xs a-muted">@m.Note</span> }
+                </td>
+                <td data-label="مرجع">
+                  @if (m.OrderId is { } orderId)
+                  {
+                    <a class="a-link a-ltr" href="/admin/orders/@orderId">@(m.Reference ?? "سفارش")</a>
+                  }
+                  else { <span class="a-ltr">@(m.Reference ?? "—")</span> }
+                </td>
+                <td data-label="کاربر">@(m.UserName ?? "سیستم")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_AdminPager" model="new PagerModel(Model.Movements.Page, Model.Movements.PageCount, Model.Movements.Total)" />
+    }
+  </div>
+}

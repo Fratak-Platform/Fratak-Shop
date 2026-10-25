@@ -13,6 +13,8 @@ using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Utilities;
 using Microsoft.EntityFrameworkCore;
+using StockLedger = Fratak_Shop.Data.Utilities.StockLedger;
+using StockMovementReason = Fratak_Shop.Data.Entities.Products.StockMovementReason;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Fratak_Shop.Core.Services.Orders;
@@ -302,6 +304,7 @@ public class ReturnService(
                 await context.Products.IgnoreQueryFilters()
                     .Where(p => p.Id == line.Key)
                     .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity));
+                await StockLedger.RecordAsync(context, line.Key, quantity, StockMovementReason.Return, note: "دریافت کالای مرجوعی");
             }
         }
 

@@ -172,6 +172,8 @@ public class SupplierSyncService(
 
     public async Task<SupplierSyncRunResult?> RunAsync(SupplierSyncTrigger trigger, string? startedByName, CancellationToken cancellationToken)
     {
+        // هر تغییر موجودی در این اجرا با دلیل «تأمین‌کننده» در دفتر موجودی ثبت می‌شود.
+        using var stockReason = Fratak_Shop.Data.Utilities.StockContext.Begin(StockMovementReason.Supplier, "بررسی خودکار تأمین‌کننده");
         var current = await settings.GetAsync(cancellationToken);
         if (trigger == SupplierSyncTrigger.Scheduled && !current.IsSupplierSyncEnabled)
             return null;
@@ -642,6 +644,7 @@ public class SupplierSyncService(
 
     public async Task<OperationResult> ApproveAsync(IReadOnlyList<SupplierApproval> approvals, bool adjustSalePrice, Guid userId, string userName)
     {
+        using var stockReason = Fratak_Shop.Data.Utilities.StockContext.Begin(StockMovementReason.Supplier, "تأیید پیشنهاد تأمین‌کننده");
         if (approvals.Count == 0)
             return OperationResult.Error("هیچ موردی انتخاب نشده است.");
         if (approvals.Count > MaxBulk)

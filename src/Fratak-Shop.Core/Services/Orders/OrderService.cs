@@ -15,6 +15,8 @@ using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Wallets;
 using Microsoft.EntityFrameworkCore;
+using StockLedger = Fratak_Shop.Data.Utilities.StockLedger;
+using StockMovementReason = Fratak_Shop.Data.Entities.Products.StockMovementReason;
 
 namespace Fratak_Shop.Core.Services.Orders;
 
@@ -193,6 +195,10 @@ public class OrderService(
 
         await using var transaction = await context.Database.BeginTransactionAsync();
 
+        // شناسهٔ سفارش از الان معلوم باشد تا ردیف‌های دفتر موجودی به آن وصل شوند.
+        if (order.Id == Guid.Empty)
+            order.Id = Guid.NewGuid();
+
         // Reserve stock with conditional updates: two customers can never buy the last item twice.
         foreach (var item in order.Items)
         {
@@ -208,6 +214,10 @@ public class OrderService(
                 await transaction.RollbackAsync();
                 return OperationResult<OrderDto>.Error($"موجودی محصول «{item.ProductName}» کافی نیست.");
             }
+
+            // دفتر موجودی: «فروش» با شمارهٔ سفارش (اگر تراکنش برگردد این ردیف هم برمی‌گردد).
+            if (item.ProductId is { } soldProductId)
+                await StockLedger.RecordAsync(context, soldProductId, -quantity, StockMovementReason.Sale, order.Id, order.OrderNumber);
         }
 
         context.Orders.Add(order);
@@ -362,7 +372,7 @@ public class OrderService(
             return OperationResult.Error("سفارش پرداخت‌شده را ابتدا لغو کنید تا مبلغ آن به کیف پول مشتری برگردد.");
 
         if (order.Status is not (OrderStatus.Cancelled or OrderStatus.Returned))
-            await RestoreStockAsync(order.Items);
+            await RestoreStockAsync(order.Items, order.Id, order.OrderNumber, "حذف سفارش");
 
         context.Orders.Remove(order);
         await context.SaveChangesAsync();
@@ -527,7 +537,7 @@ public class OrderService(
             return OperationResult.Error("وضعیت سفارش هم‌زمان تغییر کرده است؛ صفحه را تازه کنید و دوباره تلاش کنید.");
         }
 
-        await RestoreStockAsync(order.Items);
+        await RestoreStockAsync(order.Items, order.Id, order.OrderNumber, "لغو سفارش");
         await couponService.ReleaseUsageAsync(order.Id);
 
         var refundable = order.PayableAmount - order.RefundedAmount;
@@ -839,7 +849,7 @@ public class OrderService(
     }
 
     /// <summary>Returns the reserved stock of the items (atomic SQL updates).</summary>
-    private async Task RestoreStockAsync(IEnumerable<OrderItem> items)
+    private async Task RestoreStockAsync(IEnumerable<OrderItem> items, Guid orderId, string? orderNumber, string note)
     {
         var quantities = items
             .Where(item => item.ProductId.HasValue)
@@ -854,6 +864,7 @@ public class OrderService(
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity)
                     .SetProperty(p => p.SalesCount, p => p.SalesCount >= quantity ? p.SalesCount - quantity : 0));
+            await StockLedger.RecordAsync(context, productId, quantity, StockMovementReason.OrderCancelled, orderId, orderNumber, note);
         }
 
         // Bulk updates bypass SaveChanges: tell the caches (availability shown on pages) explicitly.

@@ -205,6 +205,37 @@ public static class PersianDateInput
         return $"{Calendar.GetYear(value)}/{Calendar.GetMonth(value):00}/{Calendar.GetDayOfMonth(value):00}";
     }
 
+    /// <summary>
+    /// تاریخ و ساعت شمسی به وقت ایران؛ مثال: «1404/08/10 18:30» → همان لحظه. بدون ساعت ← <paramref name="defaultTime"/>
+    /// (پیش‌فرض ابتدای روز). نامعتبر → null. ورودی <c>data-jalali="datetime"</c> همین قالب را می‌سازد.
+    /// </summary>
+    public static DateTimeOffset? ParseDateTime(string? value, TimeOnly? defaultTime = null)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var text = Core.Utilities.SearchText.NormalizeDigits(value).Trim();
+        var parts = text.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var date = Parse(parts[0]);
+        if (date is null)
+            return null;
+        var time = defaultTime ?? TimeOnly.MinValue;
+        if (parts.Length == 2)
+        {
+            if (!TimeOnly.TryParseExact(parts[1], ["H:mm", "HH:mm"], CultureInfo.InvariantCulture, DateTimeStyles.None, out time))
+                return null;
+        }
+        return Core.Utilities.IranClock.At(date.Value, time);
+    }
+
+    /// <summary>«1404/08/10 18:30» به وقت ایران (برای پر کردن دوبارهٔ فرم).</summary>
+    public static string FormatDateTime(DateTimeOffset? moment)
+    {
+        if (moment is null)
+            return "";
+        var local = Core.Utilities.IranClock.ToLocal(moment.Value);
+        return $"{Format(DateOnly.FromDateTime(local.DateTime))} {local:HH:mm}";
+    }
+
     /// <summary>Iran-local [from, to) period of two inclusive Persian dates.</summary>
     public static Core.DTOs.Reports.ReportPeriod Period(string? from, string? to)
     {

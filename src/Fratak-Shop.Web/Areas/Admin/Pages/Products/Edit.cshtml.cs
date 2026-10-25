@@ -70,7 +70,8 @@ public sealed class ProductInput
 [RequestFormLimits(MultipartBodyLengthLimit = 41 * 1024 * 1024, ValueCountLimit = 4000)]
 [RequestSizeLimit(42 * 1024 * 1024)]
 public class EditModel(IProductService products, IAdminDataService data, IUploadStore uploads,
-    IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence, ISupplierSyncService supplierSync) : AdminPageModel
+    IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence, ISupplierSyncService supplierSync,
+    IInventoryService inventory, IProductCloneService cloner) : AdminPageModel
 {
     private const int MaxImages = 12;
 
@@ -111,6 +112,16 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
 
     /// <summary>آخرین نتیجهٔ بررسی خودکار تأمین‌کننده برای کارت «منبع خرید» (null = هنوز بررسی نشده).</summary>
     public SupplierProductStatusDto? SupplierStatus { get; private set; }
+
+    // ── ابزارهای کاتالوگ (مرحلهٔ هفتم – فاز ۵) ──
+    /// <summary>امتیاز کامل بودن محصول ذخیره‌شده (کارت «کامل بودن»).</summary>
+    public CompletenessResult? Completeness { get; private set; }
+
+    /// <summary>پیش‌بینی اتمام موجودی بر اساس فروش ۳۰ روز اخیر.</summary>
+    public StockForecast? Forecast { get; private set; }
+
+    /// <summary>آخرین گردش‌های موجودی همین محصول.</summary>
+    public List<StockMovementRow> Movements { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(Guid? id)
     {
@@ -181,10 +192,16 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         if (Input.ShortDescription?.Length > 1000)
             return await FailAsync("توضیح کوتاه حداکثر ۱۰۰۰ نویسه است.");
 
-        var discountStart = PersianDateInput.Parse(Input.DiscountStart);
-        var discountEnd = PersianDateInput.Parse(Input.DiscountEnd);
-        if ((!string.IsNullOrWhiteSpace(Input.DiscountStart) && discountStart is null) || (!string.IsNullOrWhiteSpace(Input.DiscountEnd) && discountEnd is null))
-            return await FailAsync("تاریخ شروع/پایان تخفیف را به‌صورت ۱۴۰۴/۰۸/۰۱ وارد کنید.");
+        // حراج زمان‌دار (مرحلهٔ هفتم): تاریخ با ساعت اختیاری؛ «1404/08/10 18:00». بدون ساعت: شروع از ابتدای روز و پایان تا آخر روز.
+        var discountStartAt = PersianDateInput.ParseDateTime(Input.DiscountStart);
+        var discountEndAt = PersianDateInput.ParseDateTime(Input.DiscountEnd, EndOfDay);
+        if ((!string.IsNullOrWhiteSpace(Input.DiscountStart) && discountStartAt is null) || (!string.IsNullOrWhiteSpace(Input.DiscountEnd) && discountEndAt is null))
+            return await FailAsync("تاریخ شروع/پایان تخفیف را به‌صورت ۱۴۰۴/۰۸/۰۱ یا با ساعت «۱۴۰۴/۰۸/۰۱ ۱۸:۰۰» وارد کنید.");
+        // «23:59» که فرم نشان می‌دهد همان آخر روز ذخیره‌شده است (بدون این، هر ذخیره ۵۹ ثانیه پایان را جابه‌جا می‌کرد).
+        if (discountEndAt is { } endAt && IranClock.ToLocal(endAt).TimeOfDay == new TimeSpan(23, 59, 0))
+            discountEndAt = endAt.AddSeconds(59);
+        if (discountStartAt is { } startAt && discountEndAt is { } finishAt && finishAt <= startAt)
+            return await FailAsync("پایان تخفیف باید بعد از شروع آن باشد.");
 
         // Images: kept ones (+ alt / order / primary) and the new uploads.
         var kept = Input.Images.Where(i => !i.Remove && !string.IsNullOrWhiteSpace(i.ImageName))
@@ -228,8 +245,6 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         var slug = string.IsNullOrWhiteSpace(Input.Slug) ? Slugify(Input.EnglishName ?? Input.Name) : Slugify(Input.Slug);
         var sku = string.IsNullOrWhiteSpace(Input.SKU) ? "FR-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant() : Input.SKU.Trim();
         var description = Input.Description.SanitizeOrNull();
-        var discountStartAt = discountStart is { } ds ? IranClock.StartOfDay(ds) : (DateTimeOffset?)null;
-        var discountEndAt = discountEnd is { } de ? IranClock.StartOfDay(de).AddDays(1).AddSeconds(-1) : (DateTimeOffset?)null;
 
         OperationResult result;
         if (existing is null)
@@ -320,6 +335,28 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         return Redirect($"/admin/products/edit/{id}#history");
     }
 
+    /// <summary>
+    /// «کپی محصول»: نسخهٔ غیرفعال با همان مشخصات، عکس‌ها (فایل‌ها هم کپی می‌شوند)، ویژگی‌ها و سئو؛
+    /// بعد از ساخت به صفحهٔ ویرایش کپی می‌رود. منطق در Core/Services/Products/ProductCloneService.cs است.
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostCloneAsync(Guid id)
+    {
+        // فایل‌های عکس کپی می‌شوند تا حذف عکس از یکی، عکس دیگری را خراب نکند (Delete فایل را از دیسک پاک می‌کند).
+        var names = await cloner.ImageNamesAsync(id);
+        var map = uploads.Duplicate(UploadArea.Products, names);
+        var result = await cloner.CloneAsync(id, map);
+        if (!Succeeded(result))
+        {
+            uploads.Delete(UploadArea.Products, map.Values);
+            ShowResult(result);
+            return Redirect($"/admin/products/edit/{id}");
+        }
+
+        ShowResult(result);
+        return Redirect($"/admin/products/edit/{result.Data}");
+    }
+
     [AdminPermission(AdminPermissions.ProductsDelete)]
     public async Task<IActionResult> OnPostDeleteAsync(Guid id)
     {
@@ -385,6 +422,13 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         if (ProductId is { } id)
         {
             VideoCount = await data.Query<ProductVideo>().CountAsync(v => v.ProductId == id);
+            var input = await data.Query<Product>().Where(p => p.Id == id).Select(ProductCompleteness.Projection).FirstOrDefaultAsync();
+            Completeness = input is null ? null : ProductCompleteness.Evaluate(input);
+            if (Can(AdminPermissions.ProductsView))
+            {
+                Forecast = await inventory.ForecastProductAsync(id);
+                Movements = (await inventory.ListMovementsAsync(new StockMovementQuery(ProductId: id, Take: 10))).Items;
+            }
             if (CanSupplier)
                 SupplierStatus = await supplierSync.GetProductStatusAsync(id);
         }
@@ -394,8 +438,8 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     {
         Name = p.Name, EnglishName = p.EnglishName, Slug = p.Slug, SKU = p.SKU, CategoryId = p.CategoryId, BrandId = p.BrandId,
         ShortDescription = p.ShortDescription, Description = p.Description, Price = p.Price, DiscountPrice = p.DiscountPrice,
-        DiscountStart = p.DiscountStartAt is { } s ? PersianDateInput.Format(IranClock.Today(s)) : null,
-        DiscountEnd = p.DiscountEndAt is { } e ? PersianDateInput.Format(IranClock.Today(e)) : null,
+        DiscountStart = DiscountText(p.DiscountStartAt, TimeOnly.MinValue),
+        DiscountEnd = DiscountText(p.DiscountEndAt, EndOfDay),
         PurchasePrice = p.PurchasePrice, StockQuantity = p.StockQuantity, WarrantyTitle = p.WarrantyTitle, WarrantyMonths = p.WarrantyMonths,
         IsActive = p.IsActive, Gtin = p.Gtin, Mpn = p.Mpn, SupplierId = p.SupplierId, SupplierUrl = p.SupplierUrl, SupplierSku = p.SupplierSku,
         SupplierNote = p.SupplierNote, ExcludeFromSupplierSync = p.ExcludeFromSupplierSync,
@@ -404,6 +448,23 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         Features = p.Features.Count == 0 ? [new ProductFeatureInput()] : p.Features.OrderBy(f => f.DisplayOrder).Select(f => new ProductFeatureInput { Key = f.Key, Value = f.Value }).ToList(),
         Seo = SeoInput.From(p.Seo),
     };
+
+    /// <summary>آخر روز برای پایان حراج بدون ساعت.</summary>
+    private static readonly TimeOnly EndOfDay = new(23, 59, 59);
+
+    /// <summary>
+    /// متن فرم برای زمان حراج: اگر ساعت همان پیش‌فرض باشد (ابتدا/انتهای روز) فقط تاریخ، وگرنه تاریخ و ساعت.
+    /// مثال: شروع 1404/08/10 00:00 ← «1404/08/10»؛ شروع 18:30 ← «1404/08/10 18:30».
+    /// </summary>
+    private static string? DiscountText(DateTimeOffset? moment, TimeOnly defaultTime)
+    {
+        if (moment is not { } value)
+            return null;
+        var local = IranClock.ToLocal(value);
+        return TimeOnly.FromTimeSpan(local.TimeOfDay) == defaultTime
+            ? PersianDateInput.Format(IranClock.Today(value))
+            : PersianDateInput.FormatDateTime(value);
+    }
 
     /// <summary>URL slug: lower-case, Persian letters and digits kept, everything else → '-'.</summary>
     public static string Slugify(string value)

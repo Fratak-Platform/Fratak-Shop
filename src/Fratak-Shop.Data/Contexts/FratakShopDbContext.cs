@@ -229,6 +229,15 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     /// <summary>تغییرهای پیدا شده در بررسی تأمین‌کننده (خودکار یا منتظر تأیید).</summary>
     public DbSet<SupplierChange> SupplierChanges { get; set; } = null!;
 
+    /// <summary>دفتر گردش موجودی (مرحلهٔ ۷ – فاز ۵).</summary>
+    public DbSet<StockMovement> StockMovements { get; set; } = null!;
+
+    /// <summary>دسته‌های تغییر گروهی قیمت (قابل برگرداندن).</summary>
+    public DbSet<PriceChangeBatch> PriceChangeBatches { get; set; } = null!;
+
+    /// <summary>مقدار قبلی/جدید هر محصول در دسته‌های تغییر قیمت.</summary>
+    public DbSet<PriceChangeItem> PriceChangeItems { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 
@@ -287,6 +296,7 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     private HashSet<Type> BeforeSave()
     {
         TrackPriceChanges();
+        TrackStockChanges();
         ApplyAuditDates();
 
         return ChangeTracker.Entries()
@@ -339,6 +349,60 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
                 IsInStock = inStock,
             });
         }
+    }
+
+    /// <summary>
+    /// دفتر گردش موجودی: هر بار که SaveChanges موجودی محصولی را عوض کند یک <see cref="StockMovement"/> می‌سازد.
+    /// <para>
+    /// دلیل: اول <see cref="StockContext"/> (اگر سرویسی تنظیم کرده)، وگرنه اگر کارمند پنل در کار است «دستی»، وگرنه «سیستم».
+    /// تغییرهایی که با ExecuteUpdate انجام می‌شوند از اینجا رد نمی‌شوند و خودشان <see cref="StockLedger"/> را صدا می‌زنند.
+    /// </para>
+    /// </summary>
+    private void TrackStockChanges()
+    {
+        var info = StockContext.Current;
+        var actor = Fratak_Shop.Data.Auditing.AuditContext.Current;
+
+        foreach (var entry in ChangeTracker.Entries<Product>().ToList())
+        {
+            int delta;
+            StockMovementReason reason;
+            if (entry.State == EntityState.Added)
+            {
+                delta = entry.Entity.StockQuantity;
+                reason = StockMovementReason.Initial;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                delta = entry.Entity.StockQuantity - entry.OriginalValues.GetValue<int>(nameof(Product.StockQuantity));
+                reason = info?.Reason ?? (actor is not null ? StockMovementReason.Manual : StockMovementReason.System);
+            }
+            else
+            {
+                continue;
+            }
+
+            if (delta == 0)
+                continue;
+
+            if (entry.Entity.Id == Guid.Empty)
+                entry.Entity.Id = Guid.NewGuid();
+
+            StockMovements.Add(new StockMovement
+            {
+                ProductId = entry.Entity.Id,
+                Delta = delta,
+                BalanceAfter = entry.Entity.StockQuantity,
+                Reason = reason,
+                OrderId = info?.OrderId,
+                Reference = Cut(info?.Reference, 100),
+                Note = Cut(info?.Note, 500),
+                UserId = actor?.UserId,
+                UserName = Cut(actor?.UserName, 200),
+            });
+        }
+
+        static string? Cut(string? value, int max) => value is null || value.Length <= max ? value : value[..max];
     }
 
     /// <summary>Same rule as the storefront price calculator (sale price inside its window).</summary>

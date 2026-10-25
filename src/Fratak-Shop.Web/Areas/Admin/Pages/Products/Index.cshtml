@@ -1,5 +1,6 @@
 @page
 @model Fratak_Shop.Web.Areas.Admin.Pages.Products.IndexModel
+@using Fratak_Shop.Core.Services.Products
 @{
     ViewData["Title"] = "محصولات";
     var request = HttpContext.Request;
@@ -13,7 +14,10 @@
     @if (canManage)
     {
       <a href="/admin/products/edit" class="a-btn">@Icons.Svg("Plus", null, 18) محصول جدید</a>
+      <a href="/admin/products/bulk-price" class="a-btn a-btn-light">@Icons.Svg("Calculator", null, 18) تغییر گروهی قیمت</a>
+      <a href="/admin/products/import" class="a-btn a-btn-light">@Icons.Svg("UploadSimple", null, 18) ورود از اکسل</a>
     }
+    <a href="/admin/products/inventory" class="a-btn a-btn-light">@Icons.Svg("Package", null, 18) انبار</a>
     @if (Model.Can(AdminPermissions.ProductsSupplier))
     {
       <a href="/admin/products/supplier-sync" class="a-btn a-btn-light">@Icons.Svg("ArrowsClockwise", null, 18) بررسی تأمین‌کننده</a>
@@ -111,16 +115,16 @@
 <div class="a-card" data-bulk>
   @if (canManage)
   {
-    <form method="post" asp-page-handler="Bulk" id="bulk-form" class="a-bulkbar" data-bulk-bar data-confirm="عملیات روی محصولات انتخاب‌شده انجام شود؟">
+    <form method="post" asp-page-handler="Bulk" id="bulk-form" class="a-bulkbar" data-bulk-bar>
       <span><b data-bulk-count>0</b> محصول</span>
       <select name="action" id="bulk-action" class="a-select a-input-sm" style="width:auto">
         <option value="activate">فعال‌سازی</option>
         <option value="deactivate">غیرفعال‌سازی</option>
-        <option value="price">تغییر قیمت درصدی</option>
         @if (Model.Can(AdminPermissions.ProductsDelete)) { <option value="delete">حذف</option> }
       </select>
-      <span data-show-when="#bulk-action=price"><input type="number" name="percent" step="0.5" min="-90" max="500" class="a-input a-input-sm a-ltr" style="width:6rem" placeholder="٪ مثلاً 10 یا -5" data-required-when-shown></span>
-      <button type="submit" class="a-btn a-btn-sm">اعمال</button>
+      <button type="submit" class="a-btn a-btn-sm" data-confirm="عملیات روی محصولات انتخاب‌شده انجام شود؟">اعمال</button>
+      @* تغییر قیمت همیشه با پیش‌نمایش اثر انجام می‌شود (صفحهٔ «تغییر گروهی قیمت»). *@
+      <button type="submit" class="a-btn a-btn-sm a-btn-light" formaction="/admin/products/bulk-price?handler=Select" data-keep-enabled>@Icons.Svg("Calculator", null, 16) تغییر قیمت با پیش‌نمایش</button>
     </form>
   }
   <div class="a-table-wrap">
@@ -128,7 +132,7 @@
       <thead>
         <tr>
           @if (canManage) { <th class="sel"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th> }
-          <th>محصول</th><th>دسته / برند</th><th>قیمت</th><th>موجودی</th><th>فروش</th><th>وضعیت</th>
+          <th>محصول</th><th>دسته / برند</th><th>قیمت</th><th>موجودی</th><th>فروش</th><th>وضعیت</th><th>کامل بودن</th>
           @if (canSupplier) { <th>منبع</th> }
           <th></th>
         </tr>
@@ -188,6 +192,13 @@
             <td data-label="وضعیت">
               <span class="a-badge @(p.IsActive ? "a-badge-green" : "a-badge-gray")">@(p.IsActive ? "فعال" : "غیرفعال")</span>
               @if (p.Stock <= 0) { <span class="a-badge a-badge-red">ناموجود</span> }
+            </td>
+            <td data-label="کامل بودن">
+              @if (p.Completeness is { } c)
+              {
+                var missing = string.Join("، ", c.Items.Where(x => !x.Done).Take(3).Select(x => x.Title));
+                <a href="/admin/products/edit/@p.Id#completeness" class="a-badge @ProductCompleteness.LevelCss(c.Level)" title="@(missing.Length > 0 ? "مانده: " + missing : "کامل است")">@Format.Number(c.Score)٪</a>
+              }
             </td>
             @if (canSupplier)
             {

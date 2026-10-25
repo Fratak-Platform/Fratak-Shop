@@ -63,6 +63,8 @@ public static class WebServiceCollectionExtensions
         });
         services.AddHostedService<Infrastructure.Engagement.WebPushDispatcher>();
         services.AddHostedService<Infrastructure.Engagement.EngagementMaintenanceService>();
+        // مرحلهٔ هفتم: پاک کردن کش صفحه‌ها در لحظهٔ شروع/پایان حراج زمان‌دار.
+        services.AddHostedService<Infrastructure.PageCache.DiscountBoundaryWatcher>();
 
         // مرحلهٔ هفتم: اتصال زنده (SignalR) برای اعلان لحظه‌ای سایت و پنل + هشدار ویرایش هم‌زمان.
         services.AddSignalR(options =>

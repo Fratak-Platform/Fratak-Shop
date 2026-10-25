@@ -31,6 +31,9 @@ public sealed class AdminProductRow
     public int ViewCount { get; init; }
     public bool IsActive { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>امتیاز کامل بودن (مرحلهٔ هفتم)؛ بعد از کوئری اصلی برای ردیف‌های همین صفحه پر می‌شود.</summary>
+    public CompletenessResult? Completeness { get; set; }
 }
 
 [AdminPermission(AdminPermissions.ProductsView, AdminPermissions.SeoManage)]
@@ -60,6 +63,13 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
         var total = await query.CountAsync();
         var rows = await Project(SortQuery(query)).Skip((page - 1) * 30).Take(30).ToListAsync();
         Products = new PagedList<AdminProductRow>(rows, total, page, 30);
+
+        // امتیاز کامل بودن: یک کوئری سبک (فقط طول‌ها و شمارش‌ها) برای ۳۰ ردیف همین صفحه.
+        var ids = rows.Select(r => r.Id).ToList();
+        var inputs = await data.Query<Product>().Where(p => ids.Contains(p.Id)).Select(ProductCompleteness.Projection).ToListAsync();
+        var scores = inputs.ToDictionary(i => i.ProductId, ProductCompleteness.Evaluate);
+        foreach (var row in rows)
+            row.Completeness = scores.GetValueOrDefault(row.Id);
 
         var all = data.Query<Product>();
         Counts = new Dictionary<string, int>
@@ -110,7 +120,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
     }
 
     [AdminPermission(AdminPermissions.ProductsManage)]
-    public async Task<IActionResult> OnPostBulkAsync(List<Guid> ids, string action, decimal? percent)
+    public async Task<IActionResult> OnPostBulkAsync(List<Guid> ids, string action)
     {
         ids = ids.Distinct().Take(200).ToList();
         if (ids.Count == 0)
@@ -139,28 +149,6 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
                 SuccessMessage = $"{done} محصول حذف شد (قابل بازیابی از پایگاه داده).";
                 break;
 
-            case "price":
-                if (percent is null or 0 or < -90 or > 500)
-                {
-                    ErrorMessage = "درصد تغییر قیمت باید بین ۹۰- و ۵۰۰ (و غیر صفر) باشد.";
-                    return BackToList();
-                }
-
-                foreach (var id in ids)
-                {
-                    var product = await data.FindAsync<Product>(id);
-                    if (product is null)
-                        continue;
-                    var factor = 1 + percent.Value / 100m;
-                    product.Price = RoundPrice(product.Price * factor);
-                    if (product.DiscountPrice is { } discount)
-                        product.DiscountPrice = RoundPrice(discount * factor);
-                    if (Succeeded(await data.UpdateAsync(product)))
-                        done++;
-                }
-                SuccessMessage = $"قیمت {done} محصول {Math.Abs(percent.Value)}٪ {(percent > 0 ? "افزایش" : "کاهش")} یافت.";
-                break;
-
             default:
                 ErrorMessage = "عملیات نامعتبر است.";
                 break;
@@ -169,12 +157,6 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
         return BackToList();
     }
 
-    /// <summary>Prices are rounded to whole hundreds of Toman (thousands above 100,000).</summary>
-    private static decimal RoundPrice(decimal value)
-    {
-        var step = value >= 100_000 ? 1000m : 100m;
-        return Math.Max(0, Math.Round(value / step, MidpointRounding.AwayFromZero) * step);
-    }
 
     private IQueryable<Product> Filter()
     {

@@ -544,6 +544,24 @@ for tab in problems auto history runs; do
 done
 expect 200 "/admin/products/supplier-sync?kind=PriceChange&q=%D8%A7"
 expect 200 "/admin/products/supplier-sync?tab=not-a-tab"
+echo "== Catalog tools (P5b): bulk price, inventory, import"
+expect 200 /admin/products/bulk-price
+contains_i "data-bulk-price"
+TOKEN=$(token)
+expect 200 "/admin/products/bulk-price?handler=Preview" --data-urlencode "__RequestVerificationToken=$TOKEN" \
+  --data-urlencode "Form.ScopeKind=filter" --data-urlencode "Form.State=active" --data-urlencode "Form.Target=0" \
+  --data-urlencode "Form.Mode=0" --data-urlencode "Form.Percent=5" --data-urlencode "Form.RoundStep=1000" --data-urlencode "Form.RoundDirection=0"
+contains_i "data-bp-preview"
+expect 200 /admin/products/inventory
+expect 200 "/admin/products/inventory?days=90&level=Critical"
+expect 200 "/admin/products/inventory?tab=ledger"
+expect 200 "/admin/products/inventory?tab=ledger&reason=Sale&from=1404/01/01&to=1404/12/29"
+expect 200 /admin/products/import
+expect 200 "/admin/products/import?handler=Template"
+expect 200 "/admin/products/import?handler=Template&format=csv"
+contains_i "کد کالا"
+expect 200 /admin/products
+contains_i "کامل بودن"
 echo "== Realtime (SignalR hub + unread counter)"
 expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
 contains_i "connectionToken"
@@ -586,6 +604,8 @@ expect 302 /admin/staff
 expect 302 /admin/orders/board
 expect 302 /admin/orders/new
 expect 302 /admin/products/supplier-sync
+expect 302 /admin/products/bulk-price
+expect 302 /admin/products/import
 
 echo
 echo "Smoke test finished with $FAILS failure(s)."

@@ -45,6 +45,14 @@ public interface IUploadStore
     string? GetPath(UploadArea area, string fileName);
 
     void Delete(UploadArea area, IEnumerable<string> fileNames);
+
+    /// <summary>
+    /// کپی فایل‌ها با نام تصادفی تازه (مرحلهٔ هفتم – «کپی محصول»). خروجی: نام قدیم → نام تازه؛
+    /// فایلی که نامش نامعتبر است یا روی دیسک نیست در خروجی نمی‌آید.
+    /// <para>چرا کپی؟ چون حذف تصویر از یک محصول فایل را از دیسک پاک می‌کند و نباید عکس محصول دیگر خراب شود.</para>
+    /// مثال: <c>Duplicate(UploadArea.Products, ["a1.webp"])</c> ← <c>{ "a1.webp": "9f3c….webp" }</c>.
+    /// </summary>
+    Dictionary<string, string> Duplicate(UploadArea area, IEnumerable<string> fileNames);
 }
 
 public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadStore> logger) : IUploadStore
@@ -120,6 +128,32 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
 
         var path = Path.Combine(Folder(area), name);
         return File.Exists(path) ? path : null;
+    }
+
+    public Dictionary<string, string> Duplicate(UploadArea area, IEnumerable<string> fileNames)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        var folder = Folder(area);
+        foreach (var fileName in fileNames.Distinct(StringComparer.Ordinal))
+        {
+            // همان بررسی GetPath: فقط نام سادهٔ فایل (بدون مسیر) پذیرفته می‌شود.
+            var source = GetPath(area, fileName);
+            if (source is null)
+                continue;
+
+            var name = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant() + Path.GetExtension(fileName).ToLowerInvariant();
+            try
+            {
+                File.Copy(source, Path.Combine(folder, name), overwrite: false);
+                map[fileName] = name;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                logger.LogWarning(exception, "Upload {File} could not be duplicated", fileName);
+            }
+        }
+
+        return map;
     }
 
     public void Delete(UploadArea area, IEnumerable<string> fileNames)

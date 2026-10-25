@@ -10,6 +10,8 @@ using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Wallets;
 using Microsoft.EntityFrameworkCore;
+using StockLedger = Fratak_Shop.Data.Utilities.StockLedger;
+using StockMovementReason = Fratak_Shop.Data.Entities.Products.StockMovementReason;
 
 namespace Fratak_Shop.Core.Services.Orders;
 
@@ -170,8 +172,11 @@ public class OrderMessageService(
 
         if (zeroStock && item.ProductId is { } productId)
         {
+            var stockBefore = await context.Products.Where(p => p.Id == productId).Select(p => p.StockQuantity).FirstOrDefaultAsync();
             await context.Products.Where(p => p.Id == productId)
                 .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, 0));
+            await StockLedger.RecordAsync(context, productId, -stockBefore, StockMovementReason.ItemUnavailable, orderId, order.OrderNumber,
+                "ناموجودی اعلام‌شده در سفارش");
             // به‌روزرسانی گروهی از SaveChanges عبور نمی‌کند: کش صفحات (وضعیت موجودی) باید صریحاً خبردار شود.
             Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(Fratak_Shop.Data.Entities.Products.Product));
         }

@@ -1,5 +1,7 @@
 @page "{id:guid?}"
 @model Fratak_Shop.Web.Areas.Admin.Pages.Products.EditModel
+@using Fratak_Shop.Core.Services.Products
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
 @{
     var inv = global::System.Globalization.CultureInfo.InvariantCulture;
     var i = Model.Input;
@@ -28,6 +30,13 @@
       @if (Model.Can(AdminPermissions.CommentsModerate))
       {
         <a href="/admin/comments?product=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("Chat", null, 18) نظرات و پرسش‌ها</a>
+      }
+      @if (Model.CanEditProduct)
+      {
+        <form method="post" asp-page-handler="Clone" asp-route-id="@Model.ProductId" class="contents"
+              data-confirm="یک کپی غیرفعال از این محصول (با عکس‌ها، مشخصات و سئو) ساخته شود؟ تغییرهای ذخیره‌نشدهٔ این صفحه در کپی نمی‌آیند.">
+          <button type="submit" class="a-btn a-btn-light">@Icons.Svg("Copy", null, 18) کپی محصول</button>
+        </form>
       }
     </div>
   }
@@ -175,8 +184,8 @@
               <input id="p-dprice" type="number" name="Input.DiscountPrice" value="@(i.DiscountPrice?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" data-money>
             </div>
             <div class="a-form-grid cols-2">
-              <div class="a-field"><label class="a-label" for="p-ds">شروع تخفیف</label><input id="p-ds" name="Input.DiscountStart" value="@i.DiscountStart" class="a-input a-ltr" placeholder="1404/08/01"></div>
-              <div class="a-field"><label class="a-label" for="p-de">پایان تخفیف</label><input id="p-de" name="Input.DiscountEnd" value="@i.DiscountEnd" class="a-input a-ltr" placeholder="1404/08/10"></div>
+              <div class="a-field"><label class="a-label" for="p-ds">شروع تخفیف</label><input id="p-ds" name="Input.DiscountStart" value="@i.DiscountStart" class="a-input a-ltr" data-jalali="datetime" placeholder="1404/08/01 18:00"></div>
+              <div class="a-field"><label class="a-label" for="p-de">پایان تخفیف</label><input id="p-de" name="Input.DiscountEnd" value="@i.DiscountEnd" class="a-input a-ltr" data-jalali="datetime" placeholder="1404/08/10 23:59"></div>
             </div>
             <div class="a-field">
               <label class="a-label req" for="p-stock">موجودی انبار</label>
@@ -295,5 +304,77 @@ else
         <div class="flex justify-end mt-4"><button type="submit" class="a-btn">ذخیره سئو</button></div>
       </div>
     </form>
+  </div>
+}
+
+@* ── کامل بودن و انبار (مرحلهٔ هفتم – فاز ۵) ── *@
+@if (!Model.IsNew)
+{
+  <div class="a-grid xl:grid-cols-2 mt-4">
+    @if (Model.Completeness is { } c)
+    {
+      <div class="a-card" id="completeness">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("ListChecks", null, 18) کامل بودن صفحهٔ محصول</span>
+          <span class="a-badge @ProductCompleteness.LevelCss(c.Level)">@Format.Number(c.Score) از ۱۰۰ · @ProductCompleteness.LevelTitle(c.Level)</span>
+        </div>
+        <div class="a-card-body">
+          <div class="h-2 rounded-full bg-gray-200 overflow-hidden mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@c.Score">
+            <div class="h-full @(c.Level == "good" ? "bg-emerald-500" : c.Level == "fair" ? "bg-amber-500" : "bg-rose-500")" style="width:@(c.Score)%"></div>
+          </div>
+          <ul class="space-y-2 text-sm">
+            @foreach (var item in c.Items)
+            {
+              <li class="flex items-start gap-2">
+                <span class="shrink-0 @(item.Done ? "text-emerald-600" : "text-rose-500")">@Icons.Svg(item.Done ? "CheckCircle" : "XCircle", null, 18)</span>
+                <span class="flex-1">
+                  <span class="@(item.Done ? "a-muted" : "font-semibold")">@item.Title</span>
+                  <span class="a-muted text-xs">(@Format.Number(item.Weight) امتیاز)</span>
+                  @if (!item.Done) { <span class="block text-xs a-muted">@item.Hint</span> }
+                </span>
+              </li>
+            }
+          </ul>
+          <p class="a-help mt-3">امتیاز بر اساس آخرین نسخهٔ ذخیره‌شده است؛ بعد از ذخیره به‌روز می‌شود.</p>
+        </div>
+      </div>
+    }
+    @if (Model.Forecast is { } fc)
+    {
+      <div class="a-card" id="inventory">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("ChartLine", null, 18) انبار و گردش موجودی</span>
+          <a class="a-link text-sm" href="/admin/products/inventory?tab=ledger&product=@Model.ProductId">همهٔ گردش‌ها</a>
+        </div>
+        <div class="a-card-body">
+          <div class="a-stats mb-3">
+            <div class="a-stat"><span>موجودی</span><b>@Format.Number(i.StockQuantity)</b></div>
+            <div class="a-stat"><span>فروش روزانه (۳۰ روز)</span><b class="a-ltr">@InventoryModel.RateText(fc.DailyRate)</b></div>
+            <div class="a-stat"><span>کافی برای</span><b>@(fc.DaysLeft is { } dl && dl > 0 ? InventoryModel.RateText(dl) + " روز" : "—")</b></div>
+            <div class="a-stat"><span>وضعیت</span><b><span class="a-badge @InventoryModel.LevelCss(fc.Level)">@InventoryModel.LevelTitle(fc.Level)</span></b>
+              @if (fc.SuggestedReorder > 0) { <small class="a-muted">پیشنهاد خرید: @Format.Number(fc.SuggestedReorder) عدد</small> }
+            </div>
+          </div>
+          @if (Model.Movements.Count == 0)
+          {
+            <div class="a-empty">هنوز گردشی برای این محصول ثبت نشده است.</div>
+          }
+          else
+          {
+            <ul class="a-timeline text-sm">
+              @foreach (var m in Model.Movements)
+              {
+                <li>
+                  <b class="a-ltr @InventoryModel.DeltaCss(m.Delta)">@InventoryModel.DeltaText(m.Delta)</b>
+                  <span>@StockForecastRules.ReasonTitle(m.Reason)</span>
+                  @if (m.BalanceAfter is { } balance) { <span class="a-muted">← مانده @Format.Number(balance)</span> }
+                  <span class="block text-xs a-muted">@Format.DateTime(m.CreatedAt) · @(m.UserName ?? "سیستم")@(m.Reference is null ? "" : " · " + m.Reference)</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
   </div>
 }
