@@ -292,6 +292,7 @@ details.a-details > summary::-webkit-details-marker { display: none; }
   .a-actionbar { margin: 16px -14px -14px; }
 }
 
+.a-stat-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; flex-shrink: 0; border-radius: 0.875rem; background: #eef2ff; color: var(--a-primary); }
 /* SEO preview & content editor */
 .a-seo-preview { border: 1px solid #e5e7eb; border-radius: 0.875rem; padding: 0.875rem 1rem; background: #fff; max-width: 40rem; }
 .a-seo-url { font-size: 0.75rem; color: #15803d; margin-bottom: 0.25rem; overflow-wrap: anywhere; }

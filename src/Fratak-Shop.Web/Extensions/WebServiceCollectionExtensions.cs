@@ -61,6 +61,7 @@ public static class WebServiceCollectionExtensions
         // health checks, background-job monitor and log retention.
         services.AddScoped<Infrastructure.Admin.AdminPageFilter>();
         services.AddScoped<Infrastructure.Admin.AdminBadgeService>();
+        services.AddScoped<Infrastructure.Admin.Manage.ManageEngine>();
         services.AddSingleton<Infrastructure.Admin.ActivityTracker>();
         services.AddSingleton<Infrastructure.Admin.ErrorLogQueue>();
         services.AddSingleton<ILoggerProvider, Infrastructure.Admin.DbErrorLoggerProvider>();

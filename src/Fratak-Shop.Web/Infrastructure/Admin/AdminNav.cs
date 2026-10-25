@@ -38,7 +38,7 @@ public static class AdminNav
             new AdminNavItem("درخواست‌های برداشت", "/admin/finance/withdrawals", "Bank", [P.WithdrawalsManage, P.FinanceView], "withdrawals"),
             new AdminNavItem("تراکنش‌های کیف پول", "/admin/finance/wallet", "Wallet", [P.FinanceView, P.CustomersWallet])),
         new("بازاریابی",
-            new AdminNavItem("کوپن‌ها", "/admin/coupons", "Percent", [P.MarketingManage]),
+            new AdminNavItem("کوپن‌ها", "/admin/manage/coupons", "Percent", [P.MarketingManage]),
             new AdminNavItem("کارت‌های هدیه", "/admin/gift-cards", "Gift", [P.GiftCardsManage]),
             new AdminNavItem("باشگاه مشتریان", "/admin/manage/loyalty-rewards", "Crown", [P.LoyaltyManage]),
             new AdminNavItem("بنرها", "/admin/manage/banners", "Image", [P.MarketingManage, P.ContentManage]),

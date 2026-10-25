@@ -1,0 +1,32 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Manage.IndexModel
+@{
+    ViewData["Title"] = "همه جدول‌ها";
+}
+<div class="a-page-head">
+  <div>
+    <h2>همه جدول‌ها و تنظیمات پایه</h2>
+    <p class="a-muted text-sm mt-1">داده‌های پایه فروشگاه که از اینجا قابل مدیریت‌اند (بر اساس دسترسی شما).</p>
+  </div>
+</div>
+@if (Model.Items.Count == 0)
+{
+  <div class="a-card"><div class="a-empty">جدولی برای مدیریت در دسترس شما نیست.</div></div>
+}
+@foreach (var group in Model.Items.GroupBy(i => i.Def.Group))
+{
+  <h3 class="a-section-title">@group.Key</h3>
+  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+    @foreach (var (def, count) in group)
+    {
+      <a href="/admin/manage/@def.Key" class="a-card a-card-body flex items-start gap-3 hover:shadow-md transition">
+        <span class="a-stat-icon">@Icons.Svg(def.Icon, null, 22)</span>
+        <span class="min-w-0">
+          <span class="block font-semibold text-gray-800">@def.Title</span>
+          <span class="block a-muted text-xs mt-1">@Format.Number(count) مورد</span>
+          @if (def.Description is not null) { <span class="block a-muted text-xs mt-1 line-clamp-2">@def.Description</span> }
+        </span>
+      </a>
+    }
+  </div>
+}

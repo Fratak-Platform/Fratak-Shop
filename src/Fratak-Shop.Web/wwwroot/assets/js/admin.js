@@ -307,6 +307,14 @@
     area.parentNode.insertBefore(pane, area.nextSibling);
   });
 
+  // ── Colour picker ↔ text field ───────────────────────────────────────
+  $$("input[type=color][data-color-for]").forEach((picker) => {
+    const text = $(picker.dataset.colorFor);
+    if (!text) return;
+    picker.addEventListener("input", () => { text.value = picker.value; text.dispatchEvent(new Event("input", { bubbles: true })); });
+    text.addEventListener("input", () => { if (/^#[0-9a-f]{6}$/i.test(text.value)) picker.value = text.value; });
+  });
+
   // ── Leave-page warning for edited long forms ─────────────────────────
   $$("form[data-dirty-guard]").forEach((form) => {
     let dirty = false;
