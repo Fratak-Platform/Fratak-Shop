@@ -2519,6 +2519,13 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("CreatedByStaffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedByStaffName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<string>("CustomerName")
                         .IsRequired()
                         .HasMaxLength(250)
@@ -2581,6 +2588,13 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<int>("PaymentStatus")
                         .HasColumnType("int");
 
+                    b.Property<string>("PaymentToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("ProcessingAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<decimal>("RefundedAmount")
                         .HasPrecision(18)
                         .HasColumnType("decimal(18,0)");
@@ -2593,6 +2607,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("decimal(18,0)");
 
                     b.Property<DateTimeOffset?>("RequestedDeliveryDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ShippedAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("ShippingAddress")
@@ -2647,6 +2664,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int>("SlaAlertedStage")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -2681,6 +2701,10 @@ namespace Fratak_Shop.Data.Migrations
                         .HasFilter("[InvoiceNumber] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.HasIndex("OrderNumber")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("PaymentToken")
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
 
@@ -2820,6 +2844,73 @@ namespace Fratak_Shop.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_OrderItems_Amounts", "[Quantity] > 0 AND [UnitPrice] >= 0 AND [DiscountAmount] >= 0 AND [TotalAmount] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Orders.OrderMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("FromStaff")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ItemName")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OrderItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ReadByCustomerAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ReadByStaffAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromStaff", "ReadByStaffAt");
+
+                    b.HasIndex("OrderId", "CreatedAt");
+
+                    b.ToTable("OrderMessages");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Orders.OrderNote", b =>
@@ -4103,6 +4194,16 @@ namespace Fratak_Shop.Data.Migrations
                         .HasPrecision(18)
                         .HasColumnType("decimal(18,0)");
 
+                    b.Property<string>("CodAllowedProvinces")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("CodMaxReturnedOrders")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CodMinDeliveredOrders")
+                        .HasColumnType("int");
+
                     b.Property<string>("CopyrightText")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
@@ -4304,6 +4405,11 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsOrderSlaEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsOtpLoginEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -4498,6 +4604,11 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(300);
 
+                    b.Property<int>("PaymentLinkHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(48);
+
                     b.Property<int>("PopularSearchMinCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -4609,6 +4720,36 @@ namespace Fratak_Shop.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SlaDeliveryMaxDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(4);
+
+                    b.Property<int>("SlaDeliveryMinDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(3);
+
+                    b.Property<int>("SlaPreparationHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(48);
+
+                    b.Property<int>("SlaSupplierOrderHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(24);
+
+                    b.Property<int>("SlaTrackingCodeHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(12);
+
+                    b.Property<int>("SlaWarningPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(75);
 
                     b.Property<string>("SupportEmail")
                         .HasMaxLength(255)
@@ -4725,6 +4866,8 @@ namespace Fratak_Shop.Data.Migrations
                             t.HasCheckConstraint("CK_StoreSettings_Round5", "[ProductAlertMaxPerUser] >= 0 AND [GiftCardMinAmount] > 0 AND [GiftCardMaxAmount] >= [GiftCardMinAmount] AND [GiftCardValidDays] >= 0 AND [ReferralCookieDays] >= 0 AND [CaptchaAfterFailedAttempts] >= 0 AND [PriceHistoryDays] > 0 AND [MapDefaultZoom] BETWEEN 1 AND 19 AND [ReturnWindowDays] >= 0 AND [ReturnMaxImages] BETWEEN 0 AND 10 AND [OrderFeedbackWindowDays] >= 0 AND [DefaultTheme] BETWEEN 0 AND 2 AND [PopularSearchesCount] BETWEEN 0 AND 30 AND [PopularSearchMinCount] >= 1 AND [TicketMaxOpenPerUser] >= 1 AND [TicketMaxAttachments] BETWEEN 0 AND 10 AND [TicketMaxAttachmentSizeKb] > 0 AND [ImageQuality] BETWEEN 40 AND 95 AND [PageCacheSeconds] >= 0");
 
                             t.HasCheckConstraint("CK_StoreSettings_Round6", "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1");
+
+                            t.HasCheckConstraint("CK_StoreSettings_Round7Orders", "[SlaSupplierOrderHours] >= 1 AND [SlaPreparationHours] >= 1 AND [SlaTrackingCodeHours] >= 1 AND [SlaDeliveryMinDays] >= 0 AND [SlaDeliveryMaxDays] >= [SlaDeliveryMinDays] AND [PaymentLinkHours] >= 1 AND [CodMinDeliveredOrders] >= 0 AND [CodMaxReturnedOrders] >= 0");
 
                             t.HasCheckConstraint("CK_StoreSettings_Values", "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 AND [WalletMinTopUpAmount] >= 0 AND [WalletMaxTopUpAmount] >= [WalletMinTopUpAmount] AND [WalletMinWithdrawalAmount] >= 0 AND [UnpaidOrderTimeoutMinutes] > 0 AND [DeliveryDaysAhead] > 0");
                         });
@@ -5407,6 +5550,90 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("TicketId", "CreatedAt");
 
                     b.ToTable("SupportTicketMessages");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.CustomerNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsPinned", "CreatedAt");
+
+                    b.ToTable("CustomerNotes");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.CustomerTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Tag")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Tag");
+
+                    b.HasIndex("UserId", "Tag")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("CustomerTags");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.User", b =>
@@ -7416,6 +7643,17 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Orders.OrderMessage", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Orders.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Orders.OrderNote", b =>
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Orders.Order", "Order")
@@ -8245,6 +8483,28 @@ namespace Fratak_Shop.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Ticket");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.CustomerNote", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.CustomerTag", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Users.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
