@@ -31,6 +31,7 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         // داده‌های فقط پنل مدیریت: پیش‌نویس خودکار هر چند ثانیه ذخیره می‌شود و نباید کش صفحات عمومی را خالی کند.
         "EditDraft", "AuditLog", "ErrorLog", "SecurityLog", "StaffNotification", "AdminUserPreference", "AdminHelpArticle",
         "AdminRole", "AdminRolePermission", "UserAdminRole",
+        "OrderMessage", "CustomerTag", "CustomerNote", "OrderNote", "PurchaseInvoice",
     };
 
     /// <summary>True while rendering a response that may be stored in the page cache.</summary>

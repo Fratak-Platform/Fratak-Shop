@@ -18,6 +18,70 @@ public static class Round7DefaultsSeeder
         ArgumentNullException.ThrowIfNull(context);
         await SeedReadyMessagesAsync(context, cancellationToken);
         await SeedHelpArticlesAsync(context, cancellationToken);
+        await BackfillOrderTimelineAsync(context, cancellationToken);
+        await SeedOrderTemplatesAsync(context, cancellationToken);
+    }
+
+    /// <summary>
+    /// قالب پیام رویدادهای جدید سفارش (لینک پرداخت و پیام فروشگاه). فقط رویدادهایی که قالب ندارند اضافه می‌شوند؛
+    /// پس اگر مدیر متن را در «قالب‌های پیام» ویرایش کرده باشد، دست نمی‌خورد.
+    /// </summary>
+    private static async Task SeedOrderTemplatesAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        var existing = await context.NotificationTemplates.IgnoreQueryFilters().Select(t => t.Event).ToListAsync(cancellationToken);
+        var templates = new[]
+        {
+            new NotificationTemplate
+            {
+                Event = NotificationEvent.OrderPaymentLink,
+                Title = "سفارش {OrderNumber} آمادهٔ پرداخت است",
+                Body = "{Name} عزیز، سفارش شما به مبلغ {Amount} تومان در {SiteName} ثبت شد. برای نهایی شدن، تا {LinkExpiry} از طریق لینک پرداخت امن اقدام کنید.",
+                LinkText = "پرداخت سفارش",
+                SendSms = true,
+                SmsText = "سفارش {OrderNumber} به مبلغ {Amount} تومان ثبت شد. پرداخت تا {LinkExpiry}: {PaymentLink}",
+                SendPush = true,
+            },
+            new NotificationTemplate
+            {
+                Event = NotificationEvent.OrderMessage,
+                Title = "پیام فروشگاه دربارهٔ سفارش {OrderNumber}",
+                Body = "{MessageText}",
+                LinkText = "مشاهده و پاسخ",
+                SendSms = true,
+                SmsText = "پیام جدید دربارهٔ سفارش {OrderNumber} در {SiteName}. لطفاً صفحهٔ سفارش را ببینید.",
+                SendPush = true,
+            },
+        };
+
+        var missing = templates.Where(t => !existing.Contains(t.Event)).ToList();
+        if (missing.Count == 0)
+            return;
+
+        context.NotificationTemplates.AddRange(missing);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// پرکردن زمان «شروع آماده‌سازی» و «ارسال» برای سفارش‌هایی که قبل از اضافه شدن این ستون‌ها ثبت شده‌اند.
+    /// <para>
+    /// چرا: محاسبهٔ زمان‌بندی (SLA) به <c>ProcessingAt</c> و <c>ShippedAt</c> نیاز دارد. برای سفارش‌های قدیمی
+    /// بهترین تخمین، آخرین زمان ویرایش سفارش (<c>UpdatedAt</c>) است؛ برای سفارش تحویل‌شده هم زمان تحویل.
+    /// این کار فقط ردیف‌هایی را که خالی‌اند تغییر می‌دهد، پس اجرای دوباره در هر راه‌اندازی بی‌خطر و سریع است.
+    /// </para>
+    /// </summary>
+    private static async Task BackfillOrderTimelineAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        await context.Orders
+            .Where(o => o.ProcessingAt == null && o.Status == Entities.Orders.OrderStatus.Processing)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ProcessingAt, o => (DateTimeOffset?)o.UpdatedAt), cancellationToken);
+
+        await context.Orders
+            .Where(o => o.ShippedAt == null && o.Status == Entities.Orders.OrderStatus.Shipped)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ShippedAt, o => (DateTimeOffset?)o.UpdatedAt), cancellationToken);
+
+        await context.Orders
+            .Where(o => o.ShippedAt == null && o.Status == Entities.Orders.OrderStatus.Delivered)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ShippedAt, o => (DateTimeOffset?)(o.DeliveredAt ?? o.UpdatedAt)), cancellationToken);
     }
 
     /// <summary>

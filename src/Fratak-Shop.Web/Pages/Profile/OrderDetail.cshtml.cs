@@ -9,8 +9,23 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;
 
-public class OrderDetailModel(IOrderService orderService, IReturnService returnService, IOrderFeedbackService feedbackService, ISiteContext site) : ShopPageModel
+public class OrderDetailModel(
+    IOrderService orderService,
+    IReturnService returnService,
+    IOrderFeedbackService feedbackService,
+    ISiteContext site,
+    IOrderMessageService messageService,
+    IOrderSlaService slaService) : ShopPageModel
 {
+    /// <summary>پیام‌های فروشگاه دربارهٔ این سفارش و پاسخ‌های مشتری (بخش «پیام‌ها»، لنگر #messages).</summary>
+    public List<OrderMessageDto> Messages { get; private set; } = [];
+
+    /// <summary>بازهٔ تحویل تخمینی بر اساس تنظیمات زمان‌بندی (مثلاً «۵ تا ۸ آبان»)؛ سفارش تحویل‌شده/لغوشده ← null.</summary>
+    public OrderDeliveryEstimate? Estimate { get; private set; }
+
+    /// <summary>مشتری فقط تا پیش از ارسال سفارش می‌تواند پیام بدهد (بعد از آن از تیکت پشتیبانی).</summary>
+    public bool CanReply => Order.Status is OrderStatus.Pending or OrderStatus.Confirmed or OrderStatus.Processing && Messages.Count > 0;
+
     public OrderDto Order { get; private set; } = null!;
 
     /// <summary>Return requests of this order and whether a new one can be started.</summary>
@@ -114,6 +129,36 @@ public class OrderDetailModel(IOrderService orderService, IReturnService returnS
 
         if (site.Settings.IsOrderFeedbackEnabled || Order.Status == OrderStatus.Delivered)
             Feedback = await feedbackService.GetStateAsync(userId, Order.Id);
+
+        Messages = await messageService.ListAsync(Order.Id);
+        if (Messages.Any(m => m.FromStaff && m.ReadByCustomerAt is null))
+            await messageService.MarkReadByCustomerAsync(Order.Id, userId);
+        (_, Estimate) = await slaService.GetForOrderAsync(Order.Id, HttpContext.RequestAborted);
+    }
+
+    /// <summary>پاسخ متنی مشتری به پیام فروشگاه (سقف ۱۰ پیام در ساعت در سرویس).</summary>
+    public async Task<IActionResult> OnPostReplyAsync(string orderNumber, string? body)
+    {
+        var order = await orderService.GetOrderByNumberAsync(orderNumber);
+        if (order is null || order.UserId != CurrentUserId)
+            return NotFound();
+
+        ShowResult(await messageService.ReplyFromCustomerAsync(order.Id, CurrentUserId!.Value, body));
+        return Redirect($"/profile/orders/{order.OrderNumber.ToLowerInvariant()}#messages");
+    }
+
+    /// <summary>
+    /// تصمیم مشتری دربارهٔ کالای ناموجود: <c>RemoveItem</c> (حذف کالا و ادامه) یا <c>CancelOrder</c> (لغو کل سفارش).
+    /// بازمحاسبهٔ مبلغ و بازگشت وجه به کیف پول را سرویس انجام می‌دهد.
+    /// </summary>
+    public async Task<IActionResult> OnPostDecideAsync(string orderNumber, Guid messageId, OrderMessageDecision decision)
+    {
+        var order = await orderService.GetOrderByNumberAsync(orderNumber);
+        if (order is null || order.UserId != CurrentUserId)
+            return NotFound();
+
+        ShowResult(await messageService.DecideAsync(order.Id, messageId, CurrentUserId!.Value, decision));
+        return Redirect($"/profile/orders/{order.OrderNumber.ToLowerInvariant()}#messages");
     }
 
     public class FeedbackInput

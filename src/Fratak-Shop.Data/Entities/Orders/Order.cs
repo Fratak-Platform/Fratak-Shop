@@ -132,6 +132,38 @@ public class Order : BaseEntity
     /// <summary>Moment the order was delivered (return / feedback windows start here).</summary>
     public DateTimeOffset? DeliveredAt { get; set; }
 
+    /// <summary>
+    /// زمان ورود سفارش به مرحلهٔ «در حال آماده‌سازی» (یعنی خرید از تأمین‌کننده ثبت شد).
+    /// کاربرد: محاسبهٔ زمان‌بندی (SLA) مرحلهٔ «آماده‌سازی تا ارسال» در <c>OrderSla</c>.
+    /// </summary>
+    public DateTimeOffset? ProcessingAt { get; set; }
+
+    /// <summary>
+    /// زمان ارسال سفارش (ثبت کد رهگیری یا تغییر وضعیت به «ارسال‌شده»).
+    /// کاربرد: محاسبهٔ بازهٔ تحویل تخمینی برای مشتری و هشدار تأخیر در تأیید تحویل.
+    /// </summary>
+    public DateTimeOffset? ShippedAt { get; set; }
+
+    /// <summary>
+    /// آخرین مرحلهٔ زمان‌بندی که برایش هشدار تأخیر به کارکنان فرستاده شده (عدد <c>OrderSlaStage</c>).
+    /// مثال: اگر ۱ باشد یعنی هشدار «ثبت خرید در تأمین‌کننده» قبلاً رفته و دوباره تکرار نمی‌شود.
+    /// </summary>
+    public int SlaAlertedStage { get; set; }
+
+    /// <summary>
+    /// توکن تصادفی لینک پرداخت سفارشی که کارمند در پنل ثبت کرده است (مثلاً <c>/pay/Xk29...</c>).
+    /// برای سفارش‌های معمولی سایت خالی است. مشتری با همین لینک بدون ورود هم می‌تواند پرداخت کند.
+    /// </summary>
+    [MaxLength(64)]
+    public string? PaymentToken { get; set; }
+
+    /// <summary>شناسهٔ کارمندی که سفارش را از پنل ثبت کرده است (برای سفارش‌های سایت خالی است).</summary>
+    public Guid? CreatedByStaffId { get; set; }
+
+    /// <summary>نام کارمند ثبت‌کننده (اسنپ‌شات، برای نمایش در جزئیات سفارش).</summary>
+    [MaxLength(150)]
+    public string? CreatedByStaffName { get; set; }
+
     /// <summary>Snapshot of the address location picked on the map.</summary>
     public decimal? ShippingLatitude { get; set; }
 

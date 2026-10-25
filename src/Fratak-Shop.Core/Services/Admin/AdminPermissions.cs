@@ -16,6 +16,9 @@ public static class AdminPermissions
     public const string OrdersCancel = "orders.cancel";
     public const string PurchaseInvoices = "orders.purchase-invoices";
 
+    /// <summary>ثبت سفارش از پنل برای مشتری و ارسال لینک پرداخت آنلاین (مرحلهٔ ۷).</summary>
+    public const string OrdersCreate = "orders.create";
+
     public const string ProductsView = "products.view";
     public const string ProductsManage = "products.manage";
     public const string ProductsDelete = "products.delete";
@@ -64,6 +67,7 @@ public static class AdminPermissions
         new(OrdersView, "سفارش‌ها", "مشاهده سفارش‌ها", "فهرست، جزئیات و چاپ فاکتور سفارش‌ها"),
         new(OrdersManage, "سفارش‌ها", "مدیریت سفارش‌ها", "تغییر وضعیت، کد رهگیری و یادداشت داخلی"),
         new(OrdersCancel, "سفارش‌ها", "لغو و مرجوع سفارش", "لغو سفارش و بازگشت وجه به کیف پول"),
+        new(OrdersCreate, "سفارش‌ها", "ثبت سفارش برای مشتری", "ثبت سفارش از پنل و ارسال لینک پرداخت آنلاین به مشتری"),
         new(PurchaseInvoices, "سفارش‌ها", "فاکتورهای خرید", "بارگذاری و مشاهده فاکتور خرید از تأمین‌کننده"),
 
         new(ProductsView, "محصولات", "مشاهده محصولات"),
@@ -117,7 +121,7 @@ public static class AdminPermissions
     [
         ("مدیر فروشگاه", "دسترسی کامل به همه بخش‌ها", "#7c3aed", All.Select(p => p.Key).ToArray()),
         ("مدیر فروش و سفارش‌ها", "پردازش سفارش‌ها، فاکتور خرید، مرجوعی و مشتریان", "#2563eb",
-            [Dashboard, OrdersView, OrdersManage, OrdersCancel, PurchaseInvoices, ProductsView, ProductsSupplier, CustomersView, ReturnsManage, TicketsManage, CommentsModerate]),
+            [Dashboard, OrdersView, OrdersManage, OrdersCancel, OrdersCreate, PurchaseInvoices, ProductsView, ProductsSupplier, CustomersView, ReturnsManage, TicketsManage, CommentsModerate]),
         ("انبار و محصولات", "مدیریت کاتالوگ، موجودی، قیمت و تأمین‌کنندگان", "#0891b2",
             [Dashboard, ProductsView, ProductsManage, ProductsSupplier, CatalogManage, SuppliersManage, OrdersView, PurchaseInvoices]),
         ("پشتیبانی", "تیکت، پیام‌ها، نظرات و پیگیری سفارش", "#16a34a",

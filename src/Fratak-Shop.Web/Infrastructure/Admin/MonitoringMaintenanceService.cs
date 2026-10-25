@@ -13,6 +13,7 @@ public sealed class MonitoringMaintenanceService(IServiceScopeFactory scopeFacto
         ("لغو سفارش‌های پرداخت‌نشده", TimeSpan.FromMinutes(5)),
         ("پاک‌سازی نشست‌های منقضی", TimeSpan.FromMinutes(5)),
         ("سبدهای رهاشده", TimeSpan.FromMinutes(5)),
+        (OrderMaintenanceService.SlaJobName, TimeSpan.FromMinutes(15)),
         ("هدیه تولد باشگاه", TimeSpan.FromHours(1)),
         ("انقضای امتیازها", TimeSpan.FromHours(1)),
         ("Product alerts", TimeSpan.FromMinutes(5)),

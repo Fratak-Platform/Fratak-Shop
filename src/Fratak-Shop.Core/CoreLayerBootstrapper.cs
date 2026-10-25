@@ -113,6 +113,11 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Admin.IEditDraftService, Services.Admin.EditDraftService>();
         services.AddScoped<Services.Admin.IAuditHistoryService, Services.Admin.AuditHistoryService>();
         services.AddScoped<Services.Admin.IAdminSearchService, Services.Admin.AdminSearchService>();
+        // مرحلهٔ هفتم – فاز ۴: زمان‌بندی سفارش، قوانین پرداخت در محل، پیام سفارش، لینک پرداخت و مشتریان.
+        services.AddScoped<Services.Orders.IOrderSlaService, Services.Orders.OrderSlaService>();
+        services.AddScoped<Services.Orders.ICashOnDeliveryPolicy, Services.Orders.CashOnDeliveryPolicy>();
+        services.AddScoped<Services.Orders.IOrderMessageService, Services.Orders.OrderMessageService>();
+        services.AddScoped<Services.Orders.IStaffOrderService, Services.Orders.StaffOrderService>();
 
         return services;
     }

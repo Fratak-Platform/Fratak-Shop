@@ -28,7 +28,8 @@ public class OrderService(
     IShippingService shippingService,
     IWalletService walletService,
     ICouponService couponService,
-    IShopEvents events) : IOrderService
+    IShopEvents events,
+    ICashOnDeliveryPolicy codPolicy) : IOrderService
 {
     /// <summary>مسیرهای مجاز تغییر وضعیت سفارش.</summary>
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
@@ -179,8 +180,10 @@ public class OrderService(
         if (payable < 0)
             return OperationResult<OrderDto>.Error("مبلغ قابل پرداخت سفارش نمی‌تواند منفی باشد.");
 
-        if (command.PaymentMethod == PaymentMethod.CashOnDelivery && !settings.AllowsCashOnDelivery(payable))
-            return OperationResult<OrderDto>.Error($"پرداخت در محل برای سفارش‌های بالای {settings.CashOnDeliveryMaxAmount:N0} تومان امکان‌پذیر نیست.");
+        // قوانین پرداخت در محل (سقف مبلغ، استان مجاز، سابقهٔ تحویل و مرجوعی) – بررسی نهایی سمت سرور.
+        if (command.PaymentMethod == PaymentMethod.CashOnDelivery
+            && await codPolicy.CheckAsync(settings, command.UserId, order.ShippingProvince, payable) is { } codError)
+            return OperationResult<OrderDto>.Error(codError);
 
         order.SubtotalAmount = order.Items.Sum(item => item.UnitPrice * item.Quantity);
         order.PayableAmount = payable;
@@ -254,7 +257,8 @@ public class OrderService(
         // Stock was reserved with bulk updates: availability on cached pages must refresh.
         Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(Fratak_Shop.Data.Entities.Products.Product));
 
-        await events.OrderPlacedAsync(order.Id);
+        if (!command.SkipPlacedEvent)
+            await events.OrderPlacedAsync(order.Id);
         if (order.PaymentStatus == PaymentStatus.Paid)
             await events.OrderPaidAsync(order.Id);
 
@@ -297,6 +301,8 @@ public class OrderService(
                 return OperationResult.Error(statusError);
 
             order.Status = command.Status;
+            if (order.Status != previousStatus)
+                StampTimeline(order, DateTimeOffset.UtcNow);
 
             // A refunded payment can't be turned back into "paid" from the edit form.
             if (order.PaymentStatus != PaymentStatus.Refunded)
@@ -379,8 +385,7 @@ public class OrderService(
             return OperationResult.Error(error);
 
         order.Status = status;
-        if (status == OrderStatus.Delivered)
-            order.DeliveredAt ??= DateTimeOffset.UtcNow; // starts the return / feedback windows
+        StampTimeline(order, DateTimeOffset.UtcNow);
         await context.SaveChangesAsync();
 
         await events.OrderStatusChangedAsync(order.Id, status);
@@ -621,7 +626,10 @@ public class OrderService(
 
         order.TrackingCode = trackingCode.Trim();
         if (shipped)
+        {
             order.Status = OrderStatus.Shipped;
+            StampTimeline(order, DateTimeOffset.UtcNow);
+        }
 
         await context.SaveChangesAsync();
 
@@ -789,6 +797,31 @@ public class OrderService(
         return await context.PurchaseInvoices.AnyAsync(i => i.OrderId == order.Id)
             ? null
             : "پیش از «در حال آماده‌سازی»، فاکتور خرید این سفارش از تأمین‌کننده را بارگذاری کنید.";
+    }
+
+    /// <summary>
+    /// ثبت زمان ورود سفارش به هر مرحله، فقط بار اول (<c>??=</c>) تا زمان واقعی شروع مرحله عوض نشود.
+    /// <para>
+    /// کاربرد: محاسبهٔ زمان‌بندی (<see cref="OrderSla"/>) و بازهٔ تحویل تخمینی مشتری.
+    /// مثال: سفارشی که امروز ساعت ۱۰ «در حال آماده‌سازی» شد، <c>ProcessingAt</c> = ۱۰ صبح امروز می‌گیرد؛
+    /// اگر از «ارسال‌شده» مستقیم «تحویل‌شده» شود، زمان ارسال قبلی دست نمی‌خورد.
+    /// </para>
+    /// </summary>
+    internal static void StampTimeline(Order order, DateTimeOffset now)
+    {
+        switch (order.Status)
+        {
+            case OrderStatus.Processing:
+                order.ProcessingAt ??= now;
+                break;
+            case OrderStatus.Shipped:
+                order.ShippedAt ??= now;
+                break;
+            case OrderStatus.Delivered:
+                order.ShippedAt ??= now;
+                order.DeliveredAt ??= now; // starts the return / feedback windows
+                break;
+        }
     }
 
     private static string? ValidateTransition(OrderStatus current, OrderStatus newStatus)

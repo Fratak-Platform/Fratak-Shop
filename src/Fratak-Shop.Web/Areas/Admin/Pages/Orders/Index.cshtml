@@ -10,6 +10,19 @@
 <div class="a-page-head">
   <h2>سفارش‌ها <span class="a-muted text-sm font-normal">(@Format.Number(list.Orders.Total) مورد · @Format.Toman(list.FilteredTotal))</span></h2>
   <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.OrdersCreate))
+    {
+      <a href="/admin/orders/new" class="a-btn">@Icons.Svg("Plus", null, 18) ثبت سفارش برای مشتری</a>
+    }
+    <a href="/admin/orders/board" class="a-btn a-btn-light">@Icons.Svg("Kanban", null, 18) نمای کانبان</a>
+    @if (Model.SlaSummary.Overdue > 0)
+    {
+      <a href="@AdminUi.With(request, ("sla", "overdue"), ("page", null))" class="a-btn a-btn-danger-soft" title="سفارش‌هایی که از مهلت مرحلهٔ فعلی گذشته‌اند">@Icons.Svg("Siren", null, 18) @Format.Number(Model.SlaSummary.Overdue) دیرکرد</a>
+    }
+    @if (Model.SlaSummary.Soon > 0)
+    {
+      <a href="@AdminUi.With(request, ("sla", "soon"), ("page", null))" class="a-btn a-btn-soft" title="سفارش‌هایی که بیشتر مهلتشان گذشته است">@Icons.Svg("Timer", null, 18) @Format.Number(Model.SlaSummary.Soon) نزدیک به پایان مهلت</a>
+    }
     @if (list.AwaitingInvoiceCount > 0)
     {
       <a href="?invoice=missing" class="a-btn a-btn-danger-soft">@Icons.Svg("Receipt", null, 18) @Format.Number(list.AwaitingInvoiceCount) سفارش بدون فاکتور خرید</a>
@@ -60,6 +73,22 @@
         <option value="">همه</option>
         <option value="missing" selected="@(Model.Invoice == "missing")">ثبت نشده</option>
         <option value="has" selected="@(Model.Invoice == "has")">ثبت شده</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-sla">زمان‌بندی</label>
+      <select id="f-sla" name="sla" class="a-select">
+        <option value="">همه</option>
+        <option value="overdue" selected="@(Model.Sla == "overdue")">دیرکرد</option>
+        <option value="soon" selected="@(Model.Sla == "soon")">نزدیک به پایان مهلت</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-src">منبع سفارش</label>
+      <select id="f-src" name="source" class="a-select">
+        <option value="">همه</option>
+        <option value="site" selected="@(Model.Source == "site")">سایت</option>
+        <option value="staff" selected="@(Model.Source == "staff")">ثبت در پنل</option>
       </select>
     </div>
     <div class="a-field"><label class="a-label" for="f-from">از تاریخ</label><input id="f-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/08/01"></div>
@@ -121,7 +150,17 @@
               <span class="a-badge @AdminUi.PaymentStatusBadge(o.PaymentStatus)">@Display.PaymentStatus(o.PaymentStatus)</span>
               <div class="a-muted text-xs mt-1">@Display.PaymentMethod(o.PaymentMethod)</div>
             </td>
-            <td data-label="وضعیت"><span class="a-badge @AdminUi.OrderStatusBadge(o.Status)">@AdminUi.OrderStatus(o.Status)</span></td>
+            <td data-label="وضعیت">
+              <span class="a-badge @AdminUi.OrderStatusBadge(o.Status)">@AdminUi.OrderStatus(o.Status)</span>
+              @if (Model.SlaMap.TryGetValue(o.Id, out var slaResult))
+              {
+                <div class="mt-1"><partial name="_SlaBadge" model="slaResult" /></div>
+              }
+              @if (o.CreatedByStaffName is not null)
+              {
+                <div class="a-muted text-xs mt-1" title="ثبت‌شده توسط @o.CreatedByStaffName">ثبت در پنل</div>
+              }
+            </td>
             <td data-label="فاکتور خرید">
               @if (o.PurchaseInvoiceCount > 0)
               {

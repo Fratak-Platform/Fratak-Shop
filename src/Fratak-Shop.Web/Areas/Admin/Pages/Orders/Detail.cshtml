@@ -22,6 +22,11 @@
       {
         <span class="a-badge a-badge-red">@Icons.Svg("Receipt", null, 12) فاکتور خرید ثبت نشده</span>
       }
+      <partial name="_SlaBadge" model="Model.Sla" />
+      @if (o.CreatedByStaffName is { } creator)
+      {
+        <span class="a-badge a-badge-purple" title="سفارش را کارمند در پنل ثبت کرده است">ثبت در پنل: @creator</span>
+      }
     </div>
     <p class="a-muted text-sm mt-1">ثبت: @Format.DateTime(o.CreatedAt) @(o.PaidAt is { } paid ? $" · پرداخت: {Format.DateTime(paid)}" : "") @(o.DeliveredAt is { } del ? $" · تحویل: {Format.DateTime(del)}" : "")</p>
   </div>
@@ -219,6 +224,96 @@
       </div>
     }
 
+    @* ── Messages with the customer ────────────────────────── *@
+    <div class="a-card" id="messages">
+      <div class="a-card-head">
+        <span class="a-card-title">@Icons.Svg("ChatDots", null, 18) پیام‌ها با مشتری</span>
+        @if (Model.Messages.Any(m => m.IsOpenQuestion))
+        {
+          <span class="a-badge a-badge-yellow">منتظر پاسخ مشتری</span>
+        }
+      </div>
+      <div class="a-card-body">
+        @if (Model.Messages.Count == 0)
+        {
+          <p class="a-muted text-sm">هنوز پیامی رد و بدل نشده است. پیام‌ها برای مشتری پیامک/اعلان می‌شوند و در صفحهٔ سفارش او نمایش داده می‌شوند.</p>
+        }
+        else
+        {
+          <div class="a-thread">
+            @foreach (var m in Model.Messages)
+            {
+              <div class="a-msg @(m.FromStaff ? "is-staff" : "is-customer")">
+                <div class="text-sm">@m.Body</div>
+                <div class="a-msg-meta">
+                  <span>@(m.FromStaff ? m.AuthorName : "مشتری")</span>
+                  <span>@Format.DateTime(m.CreatedAt)</span>
+                  @if (m.FromStaff)
+                  {
+                    <span>@(m.ReadByCustomerAt is null ? "دیده نشده" : "دیده شد")</span>
+                  }
+                  @if (m.Kind == OrderMessageKind.ItemUnavailable)
+                  {
+                    var (badge, decisionText) = m.Decision switch
+                    {
+                      OrderMessageDecision.Pending => ("a-badge-yellow", "منتظر تصمیم مشتری"),
+                      OrderMessageDecision.RemoveItem => ("a-badge-green", "مشتری: حذف کالا و ادامه"),
+                      OrderMessageDecision.CancelOrder => ("a-badge-red", "مشتری: لغو سفارش"),
+                      OrderMessageDecision.Withdrawn => ("a-badge-gray", "پس گرفته شد"),
+                      _ => ("a-badge-gray", ""),
+                    };
+                    <span class="a-badge @badge">@decisionText @(m.DecidedAt is { } at ? "· " + Format.DateTime(at) : "")</span>
+                    if (m.IsOpenQuestion && canManage)
+                    {
+                      <form method="post" asp-page-handler="Withdraw" class="inline" data-confirm="این سؤال پس گرفته شود؟ مشتری دیگر نمی‌تواند پاسخ دهد.">
+                        <input type="hidden" name="messageId" value="@m.Id">
+                        <button type="submit" class="a-btn a-btn-light a-btn-xs">پس گرفتن</button>
+                      </form>
+                    }
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (canManage && Model.CanAskCustomer)
+        {
+          <div class="a-divider"></div>
+          <form method="post" asp-page-handler="Message" class="a-stack">
+            <label class="a-label" for="msg-body">پیام به مشتری</label>
+            <textarea id="msg-body" name="body" class="a-textarea" rows="3" maxlength="2000" required placeholder="مثلاً: سفارش شما فردا تحویل پست می‌شود."></textarea>
+            <div><button type="submit" class="a-btn">@Icons.Svg("PaperPlaneTilt", null, 16) ارسال پیام</button></div>
+          </form>
+          <details class="mt-4">
+            <summary class="a-link cursor-pointer text-sm">کالایی ناموجود است؟ از مشتری بپرسید (حذف کالا یا لغو سفارش)</summary>
+            <form method="post" asp-page-handler="AskItem" class="a-form-grid cols-2 mt-3" data-confirm="سؤال برای مشتری ارسال شود؟ مشتری با پیامک خبردار می‌شود.">
+              <div class="a-field">
+                <label class="a-label" for="ask-item">کالا</label>
+                <select id="ask-item" name="orderItemId" class="a-select" required>
+                  @foreach (var item in d.Items)
+                  {
+                    <option value="@item.Id">@item.ProductName (× @item.Quantity)</option>
+                  }
+                </select>
+              </div>
+              <div class="a-field">
+                <label class="a-label" for="ask-body">توضیح اضافه (اختیاری)</label>
+                <input id="ask-body" name="body" class="a-input" maxlength="1000" placeholder="مثلاً: حدود دو هفته دیگر موجود می‌شود.">
+              </div>
+              <label class="a-check span-2">
+                <input type="checkbox" name="zeroStock" value="true" checked>
+                <span>موجودی این محصول در سایت هم صفر شود (تا دیگران سفارش ندهند)</span>
+              </label>
+              <input type="hidden" name="zeroStock" value="false">
+              <div class="span-2"><button type="submit" class="a-btn a-btn-soft">ارسال سؤال به مشتری</button></div>
+            </form>
+            <p class="a-help mt-2">اگر مشتری «حذف کالا» را انتخاب کند، مبالغ سفارش بازمحاسبه و در صورت پرداخت، مابه‌التفاوت به کیف پولش برمی‌گردد؛ «لغو سفارش» کل مبلغ را برمی‌گرداند.</p>
+          </details>
+        }
+      </div>
+    </div>
+
     @* ── Timeline ──────────────────────────────────────────── *@
     <div class="a-card" id="notes">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Note", null, 18) تاریخچه و یادداشت‌های داخلی</span></div>
@@ -280,6 +375,8 @@
           <dt>تلفن گیرنده</dt><dd class="a-ltr">@o.ShippingPhone</dd>
           <dt>روش ارسال</dt><dd>@(o.ShippingMethod ?? "—")</dd>
           @if (o.DeliveryTimeSlotTitle is not null) { <dt>بازه تحویل</dt><dd>@Format.Date(o.RequestedDeliveryDate) – @o.DeliveryTimeSlotTitle</dd> }
+          @if (Model.Estimate is { } est) { <dt>تحویل تخمینی</dt><dd>@Format.Date(est.From) تا @Format.Date(est.To)</dd> }
+          @if (Model.Sla is { } slaNow) { <dt>مرحلهٔ فعلی</dt><dd>@slaNow.StageTitle · مهلت تا @Format.DateTime(slaNow.Deadline)</dd> }
         </dl>
         @if (o.ShippingLatitude is { } lat && o.ShippingLongitude is { } lng)
         {
@@ -316,6 +413,25 @@
           @if (!string.IsNullOrEmpty(o.TransactionId)) { <dt>مرجع</dt><dd class="a-ltr">@o.TransactionId</dd> }
           @if (o.PaymentDeadline is { } deadline && o.PaymentStatus != PaymentStatus.Paid) { <dt>مهلت پرداخت</dt><dd>@Format.DateTime(deadline)</dd> }
         </dl>
+        @if (o.PaymentToken is { } payToken)
+        {
+          var payUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/pay/{payToken}";
+          <div class="a-divider"></div>
+          <div id="payment-link">
+            <label class="a-label" for="pay-link">لینک پرداخت مشتری</label>
+            <div class="flex gap-2">
+              <input id="pay-link" class="a-input a-ltr a-input-sm" value="@payUrl" readonly>
+              <button type="button" class="a-btn a-btn-light a-btn-sm" data-copy="#pay-link">@Icons.Svg("Copy", null, 14) کپی</button>
+            </div>
+            @if (o.Status == OrderStatus.Pending && o.PaymentStatus != PaymentStatus.Paid && Model.CanAny(AdminPermissions.OrdersCreate, AdminPermissions.OrdersManage))
+            {
+              <form method="post" asp-page-handler="ResendLink" class="mt-2" data-confirm="لینک پرداخت دوباره پیامک و مهلت پرداخت تمدید شود؟">
+                <button type="submit" class="a-btn a-btn-soft a-btn-sm">@Icons.Svg("PaperPlaneTilt", null, 14) ارسال دوباره و تمدید مهلت</button>
+              </form>
+            }
+            <p class="a-help">پرداخت فقط از درگاه انجام و خودکار ثبت می‌شود؛ تا پرداخت نشود سفارش در صف آماده‌سازی قرار نمی‌گیرد.</p>
+          </div>
+        }
         @if (canManage && o.PaymentStatus != PaymentStatus.Paid && o.PaymentMethod is PaymentMethod.CashOnDelivery or PaymentMethod.BankTransfer && o.Status is not (OrderStatus.Cancelled or OrderStatus.Returned))
         {
           <form method="post" asp-page-handler="CashPaid" class="mt-3" data-confirm="دریافت وجه این سفارش ثبت شود؟">

@@ -41,6 +41,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => new { o.PaymentStatus, o.PaymentDeadline });
         builder.HasIndex(o => new { o.DeliveryTimeSlotId, o.RequestedDeliveryDate });
 
+        // لینک پرداخت سفارش‌های ثبت‌شده توسط کارمند: توکن یکتا و جست‌وجوی سریع در صفحهٔ /pay/{token}.
+        builder.HasIndex(o => o.PaymentToken)
+            .IsUnique()
+            .HasFilter("[PaymentToken] IS NOT NULL");
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Orders_Amounts",
             "[SubtotalAmount] >= 0 AND [DiscountAmount] >= 0 AND [ShippingAmount] >= 0 AND [PayableAmount] >= 0 AND [RefundedAmount] >= 0 AND [CouponDiscountAmount] >= 0"));

@@ -1,0 +1,109 @@
+@page "/pay/{token}"
+@model PayModel
+@using Fratak_Shop.Core.Utilities
+@using Fratak_Shop.Data.Entities.Orders
+@*
+  صفحهٔ عمومی لینک پرداخت (سفارش ثبت‌شده در پنل). فقط اقلام، مبالغ، شهر مقصد و مهلت نمایش داده می‌شود؛
+  آدرس کامل و موبایل عمداً نمایش داده نمی‌شود چون لینک ممکن است برای شخص دیگری فرستاده شود.
+*@
+@{
+    Layout = "_Layout";
+    var v = Model.View;
+    const string row = "flex gap-x-1 justify-between items-center text-zinc-600 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <span class="flex items-center justify-center mt-4 mb-8 md:mt-10 md:mb-14 gap-x-5">
+      <div class="w-full h-px bg-zinc-300"></div>
+      <div class="text-xl md:text-4xl font-semibold text-zinc-700 min-w-max text-center">پرداخت سفارش</div>
+      <div class="w-full h-px bg-zinc-300"></div>
+    </span>
+    <div class="bg-white border rounded-xl shadow-lg p-4">
+      @if (v.IsPaid)
+      {
+        <div>@Icons.Svg("CheckCircle", "mx-auto fill-green-500 mt-8", 70)</div>
+        <div class="text-green-600 text-center text-lg font-semibold mt-2">پرداخت این سفارش با موفقیت انجام شده است</div>
+        <div class="text-zinc-500 text-center text-sm mt-2">سفارش شما در حال پردازش است و وضعیت ارسال از طریق پیامک اطلاع داده می‌شود.</div>
+      }
+      else if (v.IsPayable)
+      {
+        <div>@Icons.Svg("Receipt", "mx-auto fill-sky-500 mt-8", 60)</div>
+        <div class="text-zinc-700 text-center text-lg font-semibold mt-2">
+          @(string.IsNullOrEmpty(v.CustomerFirstName) ? "" : v.CustomerFirstName + " عزیز، ")سفارش شما آمادهٔ پرداخت است
+        </div>
+        <div class="text-zinc-500 text-center text-sm mt-2">
+          لطفاً اقلام و مبلغ را بررسی کنید و تا <span class="font-semibold">@Format.DateTime(v.Deadline)</span> پرداخت را انجام دهید.
+        </div>
+      }
+      else
+      {
+        <div>@Icons.Svg("XCircle", "mx-auto fill-red-500 mt-8", 70)</div>
+        <div class="text-red-500 text-center text-lg font-semibold mt-2">
+          @(v.Status == OrderStatus.Cancelled ? "این سفارش لغو شده است" : "مهلت پرداخت این سفارش به پایان رسیده است")
+        </div>
+        <div class="text-zinc-500 text-center text-sm mt-2">برای ثبت دوبارهٔ سفارش با پشتیبانی فروشگاه تماس بگیرید.</div>
+      }
+
+      <div class="px-2 sm:px-6 py-3 rounded-xl shadow-lg border mx-auto my-5 max-w-md">
+        <div class="@row mt-2">
+          <div>شماره سفارش</div>
+          <div class="font-semibold" dir="ltr">@v.OrderNumber</div>
+        </div>
+        <ul class="mt-3 divide-y border rounded-lg">
+          @foreach (var item in v.Items)
+          {
+            <li class="flex justify-between gap-x-2 px-2 py-2 text-sm text-zinc-700">
+              <span>@item.Name <span class="text-zinc-400">× @item.Quantity</span></span>
+              <span class="min-w-max">@Format.Toman(item.Total)</span>
+            </li>
+          }
+        </ul>
+        <div class="@row">
+          <div>قیمت کالاها</div>
+          <div>@Format.Toman(v.Subtotal)</div>
+        </div>
+        @if (v.Discount > 0)
+        {
+          <div class="@row text-red-500">
+            <div>تخفیف</div>
+            <div>@Format.Toman(v.Discount)</div>
+          </div>
+        }
+        <div class="@row">
+          <div>هزینه ارسال @(string.IsNullOrEmpty(v.ShippingMethod) ? "" : $"({v.ShippingMethod})")</div>
+          <div>@(v.Shipping == 0 ? "رایگان" : Format.Toman(v.Shipping))</div>
+        </div>
+        <div class="@row">
+          <div>مقصد</div>
+          <div>@v.City</div>
+        </div>
+        <div class="@row !bg-sky-50 !text-sky-800 font-semibold">
+          <div>مبلغ قابل پرداخت</div>
+          <div>@Format.Toman(v.Payable)</div>
+        </div>
+        <div class="text-xs text-zinc-500 text-left mt-1">@PersianNumberWords.ToWords(v.Payable) تومان</div>
+
+        @if (v.IsPayable && !v.IsPaid)
+        {
+          <form method="post" class="w-full">
+            <button type="submit" class="mx-auto block text-center w-full px-2 py-3 mt-5 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+              پرداخت آنلاین @Format.Toman(v.Payable)
+            </button>
+          </form>
+          <p class="text-xs text-zinc-400 text-center mt-2">پرداخت از طریق درگاه امن زرین‌پال انجام می‌شود.</p>
+        }
+        @if (Model.IsOwner)
+        {
+          <a asp-page="/Profile/OrderDetail" asp-route-orderNumber="@v.OrderNumber" class="mx-auto block text-center w-full px-2 py-3 mt-3 text-sm border border-sky-500 text-sky-600 rounded-lg">
+            جزئیات سفارش و پیام‌ها
+          </a>
+        }
+        else
+        {
+          <a asp-page="/Login" class="mx-auto block text-center w-full px-2 py-3 mt-3 text-sm border border-sky-500 text-sky-600 rounded-lg">
+            ورود برای پیگیری سفارش
+          </a>
+        }
+      </div>
+    </div>
+  </main>

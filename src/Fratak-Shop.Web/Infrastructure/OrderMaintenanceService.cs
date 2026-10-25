@@ -17,6 +17,13 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
     private static readonly TimeSpan LoyaltyInterval = TimeSpan.FromHours(1);
     private DateTimeOffset _lastLoyaltyRun = DateTimeOffset.MinValue;
 
+    /// <summary>هشدار دیرکرد سفارش‌ها هر ۱۵ دقیقه بررسی می‌شود (هر سفارش برای هر مرحله فقط یک بار هشدار می‌گیرد).</summary>
+    private static readonly TimeSpan SlaInterval = TimeSpan.FromMinutes(15);
+    private DateTimeOffset _lastSlaRun = DateTimeOffset.MinValue;
+
+    /// <summary>نام کار در صفحهٔ «کارهای پس‌زمینه»ی پنل.</summary>
+    public const string SlaJobName = "هشدار زمان‌بندی سفارش‌ها";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Let the application finish starting (migrations, seeding) first.
@@ -88,6 +95,23 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogError(exception, "Abandoned cart processing failed");
+        }
+
+        if (now - _lastSlaRun >= SlaInterval)
+        {
+            _lastSlaRun = now;
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var sla = scope.ServiceProvider.GetRequiredService<IOrderSlaService>();
+                var alerted = await Admin.JobMonitor.TrackAsync(SlaJobName, () => sla.AlertOverdueAsync(now, stoppingToken));
+                if (alerted > 0)
+                    logger.LogInformation("Order SLA: {Count} overdue orders reported to staff", alerted);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(exception, "Order SLA alerting failed");
+            }
         }
 
         if (now - _lastLoyaltyRun < LoyaltyInterval)

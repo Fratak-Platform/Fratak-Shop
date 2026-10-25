@@ -150,6 +150,12 @@ public enum NotificationEvent
     ReturnRejected = 22,
     ReturnRefunded = 23,
     OrderFeedbackRequest = 24,
+
+    /// <summary>لینک پرداخت سفارشی که کارمند در پنل برای مشتری ثبت کرده است (مرحلهٔ ۷).</summary>
+    OrderPaymentLink = 25,
+
+    /// <summary>پیام فروشگاه دربارهٔ یک سفارش؛ مثلاً «کالای X ناموجود است، حذف شود؟» (مرحلهٔ ۷).</summary>
+    OrderMessage = 26,
     WalletTopUp = 30,
     WalletAdjusted = 31,
     WithdrawalRequested = 32,

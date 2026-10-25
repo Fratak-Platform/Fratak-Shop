@@ -95,6 +95,21 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.Property(s => s.ErrorLogRetentionDays).HasDefaultValue(60).HasSentinel(60);
         builder.Property(s => s.AuditLogRetentionDays).HasDefaultValue(365).HasSentinel(365);
 
+        // مرحلهٔ هفتم – زمان‌بندی سفارش، لینک پرداخت و محدودیت پرداخت در محل.
+        builder.Property(s => s.IsOrderSlaEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SlaSupplierOrderHours).HasDefaultValue(24).HasSentinel(24);
+        builder.Property(s => s.SlaPreparationHours).HasDefaultValue(48).HasSentinel(48);
+        builder.Property(s => s.SlaTrackingCodeHours).HasDefaultValue(12).HasSentinel(12);
+        builder.Property(s => s.SlaDeliveryMinDays).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.SlaDeliveryMaxDays).HasDefaultValue(4).HasSentinel(4);
+        builder.Property(s => s.SlaWarningPercent).HasDefaultValue(75).HasSentinel(75);
+        builder.Property(s => s.PaymentLinkHours).HasDefaultValue(48).HasSentinel(48);
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round7Orders",
+            "[SlaSupplierOrderHours] >= 1 AND [SlaPreparationHours] >= 1 AND [SlaTrackingCodeHours] >= 1 " +
+            "AND [SlaDeliveryMinDays] >= 0 AND [SlaDeliveryMaxDays] >= [SlaDeliveryMinDays] AND [PaymentLinkHours] >= 1 " +
+            "AND [CodMinDeliveredOrders] >= 0 AND [CodMaxReturnedOrders] >= 0"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));

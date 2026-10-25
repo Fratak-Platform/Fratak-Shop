@@ -49,6 +49,12 @@ public class CreateOrderCommand
     /// <summary>Discount code typed by the customer (validated again when the order is placed).</summary>
     public string? CouponCode { get; set; }
 
+    /// <summary>
+    /// سفارش را کارمند در پنل ثبت می‌کند (<c>StaffOrderService</c>): اعلان معمولی «سفارش ثبت شد» فرستاده نمی‌شود،
+    /// چون به‌جایش اعلان «لینک پرداخت» با لینک و مهلت می‌رود (جلوگیری از دو پیامک پشت‌سرهم).
+    /// </summary>
+    public bool SkipPlacedEvent { get; set; }
+
     public decimal ShippingAmount { get; set; }
 
     public string CustomerName { get; set; } = null!;

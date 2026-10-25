@@ -19,6 +19,8 @@ public static class AdminNav
             new AdminNavItem("میانبرهای من", "/admin/ux", "PushPin")),
         new("فروش",
             new AdminNavItem("سفارش‌ها", "/admin/orders", "Orders", [P.OrdersView], "orders"),
+            new AdminNavItem("کانبان سفارش‌ها", "/admin/orders/board", "Kanban", [P.OrdersView]),
+            new AdminNavItem("ثبت سفارش برای مشتری", "/admin/orders/new", "Plus", [P.OrdersCreate]),
             new AdminNavItem("فاکتورهای خرید", "/admin/orders/purchase-invoices", "Receipt", [P.PurchaseInvoices, P.FinanceView]),
             new AdminNavItem("مرجوعی‌ها", "/admin/returns", "ArrowUUpLeft", [P.ReturnsManage], "returns"),
             new AdminNavItem("مشتریان", "/admin/customers", "Users", [P.CustomersView]),

@@ -158,6 +158,17 @@ public static class StoreSettingMapper
             LowStockThreshold = entity.LowStockThreshold,
             ErrorLogRetentionDays = entity.ErrorLogRetentionDays,
             AuditLogRetentionDays = entity.AuditLogRetentionDays,
+            IsOrderSlaEnabled = entity.IsOrderSlaEnabled,
+            SlaSupplierOrderHours = entity.SlaSupplierOrderHours,
+            SlaPreparationHours = entity.SlaPreparationHours,
+            SlaTrackingCodeHours = entity.SlaTrackingCodeHours,
+            SlaDeliveryMinDays = entity.SlaDeliveryMinDays,
+            SlaDeliveryMaxDays = entity.SlaDeliveryMaxDays,
+            SlaWarningPercent = entity.SlaWarningPercent,
+            PaymentLinkHours = entity.PaymentLinkHours,
+            CodMinDeliveredOrders = entity.CodMinDeliveredOrders,
+            CodMaxReturnedOrders = entity.CodMaxReturnedOrders,
+            CodAllowedProvinces = entity.CodAllowedProvinces,
         };
     }
 
@@ -310,5 +321,16 @@ public static class StoreSettingMapper
         entity.LowStockThreshold = command.LowStockThreshold;
         entity.ErrorLogRetentionDays = command.ErrorLogRetentionDays;
         entity.AuditLogRetentionDays = command.AuditLogRetentionDays;
+        entity.IsOrderSlaEnabled = command.IsOrderSlaEnabled;
+        entity.SlaSupplierOrderHours = command.SlaSupplierOrderHours;
+        entity.SlaPreparationHours = command.SlaPreparationHours;
+        entity.SlaTrackingCodeHours = command.SlaTrackingCodeHours;
+        entity.SlaDeliveryMinDays = command.SlaDeliveryMinDays;
+        entity.SlaDeliveryMaxDays = command.SlaDeliveryMaxDays;
+        entity.SlaWarningPercent = command.SlaWarningPercent;
+        entity.PaymentLinkHours = command.PaymentLinkHours;
+        entity.CodMinDeliveredOrders = command.CodMinDeliveredOrders;
+        entity.CodMaxReturnedOrders = command.CodMaxReturnedOrders;
+        entity.CodAllowedProvinces = string.IsNullOrWhiteSpace(command.CodAllowedProvinces) ? null : command.CodAllowedProvinces.Trim();
     }
 }

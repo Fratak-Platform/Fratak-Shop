@@ -1,5 +1,6 @@
 using Fratak_Shop.Core.DTOs.Admin;
 using Fratak_Shop.Core.Services.Admin;
+using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Web.Infrastructure.Admin;
@@ -12,8 +13,28 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Orders;
 [AdminPermission(AdminPermissions.OrdersView)]
 [RequestFormLimits(MultipartBodyLengthLimit = 11 * 1024 * 1024)]
 [RequestSizeLimit(12 * 1024 * 1024)]
-public class DetailModel(IAdminOrderService orders, IUploadStore uploads, IAdminDataService data) : AdminPageModel
+public class DetailModel(
+    IAdminOrderService orders,
+    IUploadStore uploads,
+    IAdminDataService data,
+    IOrderMessageService messages,
+    IOrderSlaService sla,
+    IStaffOrderService staffOrders) : AdminPageModel
 {
+    /// <summary>گفت‌وگوی سفارش با مشتری (پیام‌ها و سؤال‌های «کالا ناموجود»).</summary>
+    public List<OrderMessageDto> Messages { get; private set; } = [];
+
+    /// <summary>مرحلهٔ فعلی زمان‌بندی (SLA) و بازهٔ تحویل تخمینی؛ سفارش بسته یا SLA خاموش ← null.</summary>
+    public OrderSlaResult? Sla { get; private set; }
+    public OrderDeliveryEstimate? Estimate { get; private set; }
+
+    /// <summary>
+    /// امکان پیام و سؤال حذف کالا: سفارش به حساب کاربری وصل باشد و هنوز ارسال نشده باشد
+    /// (همان قانون سرویس؛ اینجا فقط برای نمایش/پنهان کردن فرم‌ها).
+    /// </summary>
+    public bool CanAskCustomer => Detail.Order.UserId is not null
+        && Detail.Order.Status is OrderStatus.Pending or OrderStatus.Confirmed or OrderStatus.Processing;
+
     public AdminOrderDetail Detail { get; private set; } = null!;
 
     public List<(Guid Id, string Name)> Suppliers { get; private set; } = [];
@@ -30,7 +51,43 @@ public class DetailModel(IAdminOrderService orders, IUploadStore uploads, IAdmin
         var suppliers = await data.Query<Supplier>().Where(s => s.IsActive).OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name)
             .Select(s => new { s.Id, s.Name }).ToListAsync();
         Suppliers = suppliers.Select(s => (s.Id, s.Name)).ToList();
+        Messages = await messages.ListAsync(id);
+        (Sla, Estimate) = await sla.GetForOrderAsync(id, HttpContext.RequestAborted);
+        if (Messages.Any(m => !m.FromStaff && m.ReadByStaffAt is null))
+            await messages.MarkReadByStaffAsync(id);
         return Page();
+    }
+
+    /// <summary>پیام آزاد به مشتری (پیامک/اعلان + نمایش در صفحهٔ سفارش او).</summary>
+    [AdminPermission(AdminPermissions.OrdersManage)]
+    public async Task<IActionResult> OnPostMessageAsync(Guid id, string? body)
+    {
+        ShowResult(await messages.SendFromStaffAsync(id, body, ActorId, ActorName));
+        return Redirect($"/admin/orders/{id}#messages");
+    }
+
+    /// <summary>سؤال «این کالا ناموجود است؛ حذف شود یا سفارش لغو شود؟» – با گزینهٔ صفر کردن موجودی سایت.</summary>
+    [AdminPermission(AdminPermissions.OrdersManage)]
+    public async Task<IActionResult> OnPostAskItemAsync(Guid id, Guid orderItemId, string? body, bool zeroStock)
+    {
+        ShowResult(await messages.AskItemUnavailableAsync(id, orderItemId, body, zeroStock, ActorId, ActorName));
+        return Redirect($"/admin/orders/{id}#messages");
+    }
+
+    /// <summary>پس گرفتن سؤال بی‌پاسخ (مثلاً کالا پیدا شد).</summary>
+    [AdminPermission(AdminPermissions.OrdersManage)]
+    public async Task<IActionResult> OnPostWithdrawAsync(Guid id, Guid messageId)
+    {
+        ShowResult(await messages.WithdrawAsync(id, messageId, ActorId, ActorName));
+        return Redirect($"/admin/orders/{id}#messages");
+    }
+
+    /// <summary>ارسال دوبارهٔ لینک پرداخت و تمدید مهلت (فقط سفارش‌های ثبت‌شده در پنل که هنوز پرداخت نشده‌اند).</summary>
+    [AdminPermission(AdminPermissions.OrdersCreate, AdminPermissions.OrdersManage)]
+    public async Task<IActionResult> OnPostResendLinkAsync(Guid id)
+    {
+        ShowResult(await staffOrders.ResendLinkAsync(id, ActorId, ActorName, $"{Request.Scheme}://{Request.Host}"));
+        return Redirect($"/admin/orders/{id}#payment-link");
     }
 
     [AdminPermission(AdminPermissions.OrdersManage)]

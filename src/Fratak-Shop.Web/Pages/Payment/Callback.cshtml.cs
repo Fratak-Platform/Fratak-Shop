@@ -10,7 +10,7 @@ namespace Fratak_Shop.Web.Pages.Payment;
 /// a payment must be verified even when the customer's session expired meanwhile.
 /// The transaction is found by its authority, never by user input.
 /// </summary>
-public class CallbackModel(IPaymentFlowService paymentFlow) : ShopPageModel
+public class CallbackModel(IPaymentFlowService paymentFlow, Fratak_Shop.Core.Services.Orders.IStaffOrderService staffOrders) : ShopPageModel
 {
     public async Task<IActionResult> OnGetAsync([FromQuery(Name = "Authority")] string? authority, [FromQuery(Name = "Status")] string? status)
     {
@@ -32,6 +32,11 @@ public class CallbackModel(IPaymentFlowService paymentFlow) : ShopPageModel
 
         if (result.IsPending)
             return RedirectToPage("/Profile/OrderDetail", new { orderNumber = result.OrderNumber });
+
+        // سفارش ثبت‌شده در پنل (لینک پرداخت): مشتری شاید وارد حساب نباشد، (پرداخت قطعی یا ناموفق) پس به همان صفحهٔ /pay/{token} برمی‌گردد.
+        var token = await staffOrders.GetTokenByOrderNumberAsync(result.OrderNumber);
+        if (token is not null)
+            return Redirect(Fratak_Shop.Core.Services.Orders.StaffOrderService.LinkPath(token));
 
         return result.Succeeded
             ? RedirectToPage("/CheckoutComplete", new { orderNumber = result.OrderNumber })

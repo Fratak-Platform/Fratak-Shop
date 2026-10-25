@@ -503,6 +503,51 @@ public class StoreSetting : BaseEntity
     /// <summary>Audit / security log entries older than this are removed.</summary>
     public int AuditLogRetentionDays { get; set; } = 365;
 
+    // ── زمان‌بندی سفارش (SLA) ─────────────────────────────────────────
+    // هر مرحلهٔ سفارش یک مهلت دارد؛ اگر از مهلت بگذرد، سفارش در پنل «دیرکرد» نشان داده می‌شود و
+    // یک بار به کارکنان هشدار می‌رود. محاسبه در Core/Services/Orders/OrderSla.cs انجام می‌شود.
+
+    /// <summary>هشدار و نشان‌های زمان‌بندی سفارش فعال باشد.</summary>
+    public bool IsOrderSlaEnabled { get; set; } = true;
+
+    /// <summary>مهلت ثبت خرید در تأمین‌کننده (از پرداخت تا «در حال آماده‌سازی»)، به ساعت. پیش‌فرض ۲۴.</summary>
+    public int SlaSupplierOrderHours { get; set; } = 24;
+
+    /// <summary>مهلت آماده‌سازی و تحویل به پست (از «در حال آماده‌سازی» تا «ارسال‌شده»)، به ساعت. پیش‌فرض ۴۸.</summary>
+    public int SlaPreparationHours { get; set; } = 48;
+
+    /// <summary>مهلت ثبت کد رهگیری بعد از ارسال (وقتی وضعیت «ارسال‌شده» است ولی کد ندارد)، به ساعت. پیش‌فرض ۱۲.</summary>
+    public int SlaTrackingCodeHours { get; set; } = 12;
+
+    /// <summary>کمترین روز تحویل پس از ارسال (اگر روش ارسال مقدار خودش را نداشت). مثال پست: ۳.</summary>
+    public int SlaDeliveryMinDays { get; set; } = 3;
+
+    /// <summary>بیشترین روز تحویل پس از ارسال؛ بعد از آن «تأیید تحویل» دیرکرد حساب می‌شود. مثال پست: ۴.</summary>
+    public int SlaDeliveryMaxDays { get; set; } = 4;
+
+    /// <summary>وقتی این درصد از مهلت گذشت، نشان «نزدیک به پایان مهلت» نمایش داده می‌شود. پیش‌فرض ۷۵.</summary>
+    public int SlaWarningPercent { get; set; } = 75;
+
+    // ── سفارش ثبت‌شده توسط کارمند ───────────────────────────────────
+
+    /// <summary>اعتبار لینک پرداخت سفارشی که کارمند ثبت می‌کند (ساعت). پس از آن سفارش خودکار لغو می‌شود.</summary>
+    public int PaymentLinkHours { get; set; } = 48;
+
+    // ── محدودیت‌های پرداخت در محل ────────────────────────────────────
+
+    /// <summary>حداقل تعداد سفارش تحویل‌شدهٔ قبلی برای استفاده از پرداخت در محل (۰ = بدون شرط).</summary>
+    public int CodMinDeliveredOrders { get; set; }
+
+    /// <summary>
+    /// اگر مشتری این تعداد سفارش پرداخت در محل مرجوع‌شده (تحویل‌نگرفته) داشته باشد، دیگر پرداخت در محل ندارد.
+    /// ۰ = بدون محدودیت. مثال: ۲ یعنی با دومین مرجوعی، پرداخت در محل برایش بسته می‌شود.
+    /// </summary>
+    public int CodMaxReturnedOrders { get; set; }
+
+    /// <summary>استان‌های مجاز پرداخت در محل، جداشده با کاما (خالی = همه). مثال: «تهران، البرز».</summary>
+    [MaxLength(1000)]
+    public string? CodAllowedProvinces { get; set; }
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

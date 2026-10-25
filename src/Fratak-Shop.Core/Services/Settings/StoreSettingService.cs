@@ -197,6 +197,27 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (command.ErrorLogRetentionDays is < 1 or > 3650 || command.AuditLogRetentionDays is < 1 or > 3650)
             return "مدت نگهداری گزارش‌ها باید بین ۱ تا ۳۶۵۰ روز باشد.";
 
+        // زمان‌بندی سفارش: هر مهلت باید منطقی باشد (حداقل ۱ ساعت، حداکثر ۳۰ روز).
+        if (command.SlaSupplierOrderHours is < 1 or > 720 || command.SlaPreparationHours is < 1 or > 720
+            || command.SlaTrackingCodeHours is < 1 or > 720)
+            return "مهلت‌های زمان‌بندی سفارش باید بین ۱ تا ۷۲۰ ساعت باشند.";
+
+        if (command.SlaDeliveryMinDays is < 0 or > 60 || command.SlaDeliveryMaxDays is < 1 or > 60
+            || command.SlaDeliveryMinDays > command.SlaDeliveryMaxDays)
+            return "روزهای تحویل باید بین ۰ تا ۶۰ باشند و حداقل از حداکثر بیشتر نباشد.";
+
+        if (command.SlaWarningPercent is < 10 or > 95)
+            return "درصد هشدار نزدیک شدن به پایان مهلت باید بین ۱۰ تا ۹۵ باشد.";
+
+        if (command.PaymentLinkHours is < 1 or > 720)
+            return "اعتبار لینک پرداخت باید بین ۱ تا ۷۲۰ ساعت باشد.";
+
+        if (command.CodMinDeliveredOrders is < 0 or > 1000 || command.CodMaxReturnedOrders is < 0 or > 1000)
+            return "شرط‌های پرداخت در محل باید بین ۰ تا ۱۰۰۰ باشند.";
+
+        if (command.CodAllowedProvinces is { Length: > 1000 })
+            return "فهرست استان‌های پرداخت در محل حداکثر ۱۰۰۰ نویسه است.";
+
         if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
             return "نام کاربری ایکس (توییتر) معتبر نیست.";

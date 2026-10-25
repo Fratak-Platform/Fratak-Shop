@@ -214,9 +214,11 @@
 
       const hints = [];
       if (cod) {
-        const allowed = (!checked || checked.dataset.cod === "1") && (codMax <= 0 || total <= codMax);
+        // data-blocked: سرور به دلیل قوانین پرداخت در محل (سابقه، استان) این گزینه را بسته؛ دلیلش زیر گزینه نوشته شده.
+        const blocked = cod.dataset.blocked === "1";
+        const allowed = !blocked && (!checked || checked.dataset.cod === "1") && (codMax <= 0 || total <= codMax);
         cod.disabled = !allowed;
-        if (!allowed) hints.push("پرداخت در محل برای این روش ارسال یا این مبلغ امکان‌پذیر نیست.");
+        if (!allowed && !blocked) hints.push("پرداخت در محل برای این روش ارسال یا این مبلغ امکان‌پذیر نیست.");
       }
       if (walletInput) {
         const enough = wallet >= total;

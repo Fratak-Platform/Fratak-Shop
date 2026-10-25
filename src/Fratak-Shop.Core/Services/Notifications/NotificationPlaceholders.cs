@@ -112,6 +112,20 @@ public static class NotificationPlaceholders
         new("Points", "امتیاز جایزهٔ نظرسنجی", "20"),
     ]);
 
+    /// <summary>برچسب‌های لینک پرداخت سفارش ثبت‌شده توسط کارمند.</summary>
+    private static readonly NotificationPlaceholderGroup PaymentLink = new("لینک پرداخت",
+    [
+        new("PaymentLink", "لینک پرداخت", "https://fratak.ir/pay/Ab12Cd34"),
+        new("LinkExpiry", "مهلت پرداخت", "1405/08/05 - 18:00"),
+    ]);
+
+    /// <summary>برچسب‌های پیام سفارش (پیام فروشگاه به مشتری).</summary>
+    private static readonly NotificationPlaceholderGroup OrderMessageGroup = new("پیام سفارش",
+    [
+        new("MessageText", "متن پیام", "کالای «کابل شارژ» ناموجود شد؛ حذف شود و بقیه ارسال شود؟"),
+        new("ItemName", "نام کالای ناموجود", "کابل شارژ تایپ‌سی"),
+    ]);
+
     private static readonly NotificationPlaceholderGroup Ticket = new("تیکت پشتیبانی",
     [
         new("TicketNumber", "شمارهٔ تیکت", "T-1024"),
@@ -136,6 +150,8 @@ public static class NotificationPlaceholders
         NotificationEvent.ReturnRejected => "رد مرجوعی",
         NotificationEvent.ReturnRefunded => "بازپرداخت مرجوعی",
         NotificationEvent.OrderFeedbackRequest => "درخواست نظرسنجی سفارش",
+        NotificationEvent.OrderPaymentLink => "لینک پرداخت سفارش ثبت‌شده توسط فروشگاه",
+        NotificationEvent.OrderMessage => "پیام فروشگاه دربارهٔ سفارش",
         NotificationEvent.WalletTopUp => "شارژ کیف پول",
         NotificationEvent.WalletAdjusted => "تغییر موجودی کیف پول توسط مدیر",
         NotificationEvent.WithdrawalRequested => "ثبت درخواست برداشت",
@@ -163,7 +179,7 @@ public static class NotificationPlaceholders
     /// <summary>گروه‌بندی رویدادها برای صفحهٔ فهرست قالب‌ها.</summary>
     public static string EventGroup(NotificationEvent @event) => (int)@event switch
     {
-        >= 10 and < 20 or 24 => "سفارش",
+        >= 10 and < 20 or 24 or 25 or 26 => "سفارش",
         >= 20 and < 30 => "مرجوعی",
         >= 30 and < 50 => "کیف پول و کارت هدیه",
         >= 50 and < 70 => "باشگاه مشتریان",
@@ -180,7 +196,8 @@ public static class NotificationPlaceholders
     /// <summary>آیا رویداد به یک سفارش مربوط است؟ (برای پر کردن خودکار برچسب‌های سفارش)</summary>
     public static bool IsOrderEvent(NotificationEvent @event) =>
         @event is >= NotificationEvent.OrderPlaced and <= NotificationEvent.PaymentFailed
-            or >= NotificationEvent.ReturnRequested and <= NotificationEvent.OrderFeedbackRequest;
+            or >= NotificationEvent.ReturnRequested and <= NotificationEvent.OrderFeedbackRequest
+            or NotificationEvent.OrderPaymentLink or NotificationEvent.OrderMessage;
 
     /// <summary>
     /// گروه‌های برچسب مجاز برای یک رویداد. همیشه «مشتری» و «فروشگاه» هست و بقیه بسته به رویداد.
@@ -202,6 +219,8 @@ public static class NotificationPlaceholders
             NotificationEvent.BackInStock or NotificationEvent.PriceDrop => Product,
             NotificationEvent.TicketCreated or NotificationEvent.TicketReplied => Ticket,
             NotificationEvent.OrderFeedbackRequest => Feedback,
+            NotificationEvent.OrderPaymentLink => PaymentLink,
+            NotificationEvent.OrderMessage => OrderMessageGroup,
             _ => null,
         };
         if (extra is not null)

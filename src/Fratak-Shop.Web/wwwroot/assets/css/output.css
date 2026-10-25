@@ -2341,6 +2341,11 @@ video {
   border-top-color: rgb(3 105 161 / var(--tw-border-opacity));
 }
 
+.\!bg-sky-50 {
+  --tw-bg-opacity: 1 !important;
+  background-color: rgb(240 249 255 / var(--tw-bg-opacity)) !important;
+}
+
 .bg-\[\#fcfcfc\] {
   --tw-bg-opacity: 1;
   background-color: rgb(252 252 252 / var(--tw-bg-opacity));
@@ -2783,6 +2788,10 @@ video {
 
 .fill-emerald-500 {
   fill: #10b981;
+}
+
+.fill-emerald-600 {
+  fill: #059669;
 }
 
 .fill-gray-400 {
@@ -3379,6 +3388,11 @@ video {
 
 .tracking-widest {
   letter-spacing: 0.1em;
+}
+
+.\!text-sky-800 {
+  --tw-text-opacity: 1 !important;
+  color: rgb(7 89 133 / var(--tw-text-opacity)) !important;
 }
 
 .text-amber-200 {

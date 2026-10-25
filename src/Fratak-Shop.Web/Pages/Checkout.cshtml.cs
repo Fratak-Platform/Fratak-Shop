@@ -40,7 +40,8 @@ public class CheckoutModel(
     IPaymentFlowService paymentFlow,
     ICouponService couponService,
     ISiteContext site,
-    IPageMetaService pageMeta) : ShopPageModel
+    IPageMetaService pageMeta,
+    ICashOnDeliveryPolicy codPolicy) : ShopPageModel
 {
     public CartDto Cart { get; private set; } = null!;
     public List<UserAddressDto> Addresses { get; private set; } = [];
@@ -49,6 +50,9 @@ public class CheckoutModel(
     public List<ShippingOption> ShippingOptions { get; private set; } = [];
     public List<UnavailableShippingMethod> UnavailableShipping { get; private set; } = [];
     public List<PaymentChoice> PaymentChoices { get; private set; } = [];
+
+    /// <summary>دلیل غیرفعال بودن پرداخت در محل برای این مشتری/آدرس (null یعنی مجاز).</summary>
+    public string? CodRestriction { get; private set; }
     public decimal WalletBalance { get; private set; }
 
     /// <summary>The cart's discount code evaluated for this customer (null = none or not valid).</summary>
@@ -253,6 +257,8 @@ public class CheckoutModel(
 
         var user = await userService.GetUserByIdAsync(userId);
         WalletBalance = user?.WalletBalance ?? 0;
+        // قوانین پرداخت در محل (سابقهٔ تحویل/مرجوعی و استان آدرس انتخاب‌شده) – دلیل عدم امکان کنار گزینه نمایش داده می‌شود.
+        CodRestriction = await codPolicy.CheckAsync(site.Settings, userId, SelectedAddress?.ProvinceName, null);
         PaymentChoices = BuildPaymentChoices();
 
         await pageMeta.ApplyAsync(ViewData, SitePage.Checkout, "تکمیل سفارش");
@@ -314,10 +320,11 @@ public class CheckoutModel(
 
         if (settings.IsCashOnDeliveryEnabled)
         {
-            var note = settings.CashOnDeliveryMaxAmount > 0
-                ? $"با کارتخوان هنگام تحویل (تا {Helpers.Format.Toman(settings.CashOnDeliveryMaxAmount)})"
-                : "با کارتخوان هنگام تحویل";
-            choices.Add(new PaymentChoice(PaymentMethod.CashOnDelivery, "پرداخت در محل", "Truck", note, true));
+            var note = CodRestriction
+                       ?? (settings.CashOnDeliveryMaxAmount > 0
+                           ? $"با کارتخوان هنگام تحویل (تا {Helpers.Format.Toman(settings.CashOnDeliveryMaxAmount)})"
+                           : "با کارتخوان هنگام تحویل");
+            choices.Add(new PaymentChoice(PaymentMethod.CashOnDelivery, "پرداخت در محل", "Truck", note, CodRestriction is null));
         }
 
         return choices;

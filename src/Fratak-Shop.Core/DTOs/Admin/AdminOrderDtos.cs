@@ -15,6 +15,16 @@ public sealed class AdminOrderFilter
     public bool? HasPurchaseInvoice { get; set; }
     public Guid? UserId { get; set; }
     public string? Province { get; set; }
+
+    /// <summary>
+    /// فقط این سفارش‌ها (مثلاً نتیجهٔ فیلتر «دیرکرد» از <c>IOrderSlaService.GetIdsAsync</c>).
+    /// null یعنی بدون این شرط؛ فهرست خالی یعنی هیچ سفارشی.
+    /// </summary>
+    public IReadOnlyCollection<Guid>? OnlyIds { get; set; }
+
+    /// <summary>true = فقط سفارش‌های ثبت‌شده توسط کارمند در پنل؛ false = فقط سفارش‌های سایت.</summary>
+    public bool? StaffCreated { get; set; }
+
     public string Sort { get; set; } = "newest";
     public int Page { get; set; } = 1;
     public int Take { get; set; } = 25;
@@ -41,6 +51,9 @@ public sealed class AdminOrderRow
     public string? TrackingCode { get; set; }
     public int PurchaseInvoiceCount { get; set; }
     public decimal PurchaseCost { get; set; }
+
+    /// <summary>نام کارمندی که سفارش را در پنل ثبت کرده (برای سفارش‌های سایت null).</summary>
+    public string? CreatedByStaffName { get; set; }
 }
 
 public sealed class AdminOrderList

@@ -60,6 +60,18 @@ public static class SettingsRegistry
             B("IsGuestOrderTrackingEnabled", "پیگیری سفارش بدون ورود"),
             B("RequirePurchaseInvoiceForProcessing", "الزام آپلود فاکتور خرید هنگام رفتن به «در حال آماده‌سازی»", "توصیه: همیشه فعال بماند."),
             I("LowStockThreshold", "آستانه هشدار کمبود موجودی"),
+            I("PaymentLinkHours", "اعتبار لینک پرداخت سفارش‌های ثبت‌شده در پنل (ساعت)", "بعد از این مدت سفارش پرداخت‌نشده خودکار لغو و موجودی آزاد می‌شود."),
+        ]),
+        // زمان‌بندی سفارش (SLA): مهلت هر مرحله؛ محاسبه در Core/Services/Orders/OrderSla.cs.
+        new("sla", "زمان‌بندی سفارش", "Timer", "مهلت هر مرحلهٔ رسیدگی به سفارش؛ سفارش‌های دیرکرد در پنل نشان‌دار می‌شوند و یک بار به کارکنان هشدار می‌رود.",
+        [
+            B("IsOrderSlaEnabled", "زمان‌بندی و هشدار دیرکرد سفارش‌ها"),
+            new("SlaSupplierOrderHours", "مهلت ثبت خرید در تأمین‌کننده (ساعت)", SKind.Int, "از پرداخت (یا ثبت سفارش پرداخت در محل) تا «در حال آماده‌سازی». پیشنهاد: ۲۴") { ShowWhen = "IsOrderSlaEnabled" },
+            new("SlaPreparationHours", "مهلت آماده‌سازی و تحویل به پست (ساعت)", SKind.Int, "از «در حال آماده‌سازی» تا ثبت کد رهگیری/ارسال. پیشنهاد: ۴۸") { ShowWhen = "IsOrderSlaEnabled" },
+            new("SlaTrackingCodeHours", "مهلت ثبت کد رهگیری بعد از ارسال (ساعت)", SKind.Int, "وقتی وضعیت «ارسال‌شده» است ولی کد رهگیری ثبت نشده. پیشنهاد: ۱۲") { ShowWhen = "IsOrderSlaEnabled" },
+            I("SlaDeliveryMinDays", "کمترین روز تحویل پس از ارسال", "اگر روش ارسال سفارش روزهای تحویل خودش را داشته باشد، همان ملاک است. مثال پست: ۳"),
+            I("SlaDeliveryMaxDays", "بیشترین روز تحویل پس از ارسال", "بعد از این مدت «تأیید تحویل» دیرکرد حساب می‌شود. مثال پست: ۴ (کل فرایند معمولاً ۳ تا ۷ روز)"),
+            new("SlaWarningPercent", "هشدار «نزدیک به پایان مهلت» از چند درصد مهلت", SKind.Int, "مثال: ۷۵ یعنی وقتی سه‌چهارم مهلت گذشت، نشان نارنجی نمایش داده می‌شود.") { ShowWhen = "IsOrderSlaEnabled" },
         ]),
         new("payment", "پرداخت", "CreditCard", "درگاه پرداخت و پرداخت در محل",
         [
@@ -68,6 +80,9 @@ public static class SettingsRegistry
             new("ZarinPalSandbox", "حالت آزمایشی (Sandbox)", SKind.Bool, "در محیط واقعی حتماً خاموش شود.") { ShowWhen = "IsOnlinePaymentEnabled" },
             B("IsCashOnDeliveryEnabled", "پرداخت در محل"),
             new("CashOnDeliveryMaxAmount", "سقف پرداخت در محل (تومان)", SKind.Money, "۰ = بدون سقف") { ShowWhen = "IsCashOnDeliveryEnabled" },
+            new("CodMinDeliveredOrders", "حداقل خرید موفق قبلی برای پرداخت در محل", SKind.Int, "۰ = بدون شرط؛ ۱ یعنی پرداخت در محل بعد از اولین سفارش تحویل‌شده فعال می‌شود.") { ShowWhen = "IsCashOnDeliveryEnabled" },
+            new("CodMaxReturnedOrders", "بستن پرداخت در محل پس از چند سفارش مرجوع‌شده", SKind.Int, "۰ = بدون محدودیت؛ ۲ یعنی با دومین سفارش پرداخت در محلِ تحویل‌نگرفته، این روش برای مشتری بسته می‌شود.") { ShowWhen = "IsCashOnDeliveryEnabled" },
+            new("CodAllowedProvinces", "استان‌های مجاز پرداخت در محل", SKind.Area, "نام استان‌ها با کاما یا در خطوط جدا؛ خالی = همهٔ استان‌ها. مثال: تهران، البرز") { ShowWhen = "IsCashOnDeliveryEnabled", Wide = true },
         ]),
         new("wallet", "کیف پول", "Wallet", "شارژ، پرداخت و برداشت از کیف پول (اعتبار هدیه هرگز قابل برداشت نیست)",
         [

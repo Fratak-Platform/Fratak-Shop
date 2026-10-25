@@ -101,6 +101,13 @@ public class AdminOrderService(
             query = query.Where(o => o.UserId == userId);
         if (!string.IsNullOrWhiteSpace(filter.Province))
             query = query.Where(o => o.ShippingProvince == filter.Province);
+        if (filter.OnlyIds is { } onlyIds)
+        {
+            var ids = onlyIds.ToList();
+            query = query.Where(o => ids.Contains(o.Id));
+        }
+        if (filter.StaffCreated is { } staffCreated)
+            query = staffCreated ? query.Where(o => o.CreatedByStaffId != null) : query.Where(o => o.CreatedByStaffId == null);
         if (filter.HasPurchaseInvoice is { } hasInvoice)
             query = hasInvoice
                 ? query.Where(o => context.PurchaseInvoices.Any(i => i.OrderId == o.Id))
@@ -145,6 +152,7 @@ public class AdminOrderService(
         TrackingCode = o.TrackingCode,
         PurchaseInvoiceCount = context.PurchaseInvoices.Count(i => i.OrderId == o.Id),
         PurchaseCost = context.PurchaseInvoices.Where(i => i.OrderId == o.Id).Sum(i => (decimal?)i.Amount) ?? 0,
+        CreatedByStaffName = o.CreatedByStaffName,
     });
 
     public async Task<Guid?> FindIdByNumberAsync(string orderNumber)

@@ -155,6 +155,17 @@ public class StoreSettingCommand
     public int LowStockThreshold { get; set; } = 3;
     public int ErrorLogRetentionDays { get; set; } = 60;
     public int AuditLogRetentionDays { get; set; } = 365;
+    public bool IsOrderSlaEnabled { get; set; } = true;
+    public int SlaSupplierOrderHours { get; set; } = 24;
+    public int SlaPreparationHours { get; set; } = 48;
+    public int SlaTrackingCodeHours { get; set; } = 12;
+    public int SlaDeliveryMinDays { get; set; } = 3;
+    public int SlaDeliveryMaxDays { get; set; } = 4;
+    public int SlaWarningPercent { get; set; } = 75;
+    public int PaymentLinkHours { get; set; } = 48;
+    public int CodMinDeliveredOrders { get; set; }
+    public int CodMaxReturnedOrders { get; set; }
+    public string? CodAllowedProvinces { get; set; }
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>
@@ -195,6 +206,16 @@ public class StoreSettingDto : StoreSettingCommand
         IsCashOnDeliveryEnabled && (CashOnDeliveryMaxAmount <= 0 || payableAmount <= CashOnDeliveryMaxAmount);
 
     public bool CanPayWithWallet => IsWalletEnabled && IsWalletPaymentEnabled;
+
+    /// <summary>
+    /// فهرست استان‌های مجاز پرداخت در محل (خالی یعنی همه مجازند).
+    /// مثال: مقدار «تهران، البرز» → ["تهران","البرز"]. هم کامای فارسی و هم انگلیسی و خط جدید پذیرفته می‌شود.
+    /// </summary>
+    public IReadOnlyList<string> CodProvinces =>
+        (CodAllowedProvinces ?? string.Empty)
+            .Split(new[] { ',', '،', '\n', '\r', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct()
+            .ToList();
 
     public bool CanTopUpWallet => IsWalletEnabled && IsWalletTopUpEnabled && HasZarinPal;
 

@@ -211,6 +211,15 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     /// <summary>پیش‌نویس خودکار فرم‌های ویرایش پنل (مرحلهٔ هفتم – فاز ۳).</summary>
     public DbSet<EditDraft> EditDrafts { get; set; } = null!;
 
+    /// <summary>پیام‌های کارکنان و مشتری دربارهٔ هر سفارش (مرحلهٔ ۷).</summary>
+    public DbSet<OrderMessage> OrderMessages { get; set; } = null!;
+
+    /// <summary>برچسب‌های دستی کارکنان روی مشتری‌ها.</summary>
+    public DbSet<Fratak_Shop.Data.Entities.Users.CustomerTag> CustomerTags { get; set; } = null!;
+
+    /// <summary>یادداشت‌های داخلی کارکنان دربارهٔ مشتری‌ها.</summary>
+    public DbSet<Fratak_Shop.Data.Entities.Users.CustomerNote> CustomerNotes { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

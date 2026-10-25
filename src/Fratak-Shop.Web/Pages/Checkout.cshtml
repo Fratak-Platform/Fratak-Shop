@@ -156,7 +156,7 @@
             {
               <li>
                 <input type="radio" id="pay-@payment.Method" name="Input.PaymentMethod" value="@payment.Method" class="hidden peer"
-                       data-payment="@payment.Method" disabled="@(payment.IsAvailable ? null : "disabled")"
+                       data-payment="@payment.Method" disabled="@(payment.IsAvailable ? null : "disabled")" data-blocked="@(payment.IsAvailable ? null : "1")"
                        checked="@(payment.Method == Model.Input.PaymentMethod ? "checked" : null)">
                 <label for="pay-@payment.Method" class="@optionLabel h-full items-center gap-x-3">
                   @Icons.Svg(payment.Icon, "shrink-0 fill-sky-700", 28)
