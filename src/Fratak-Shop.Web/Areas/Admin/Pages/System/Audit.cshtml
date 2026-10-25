@@ -27,6 +27,7 @@
         <option value="create" selected="@(Model.ActionName == "create")">ایجاد</option>
         <option value="update" selected="@(Model.ActionName == "update")">ویرایش</option>
         <option value="delete" selected="@(Model.ActionName == "delete")">حذف</option>
+        <option value="restore" selected="@(Model.ActionName == "restore")">بازیابی از سطل</option>
       </select></div>
     <div class="a-field"><label class="a-label" for="a-from">از</label><input id="a-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/01/01"></div>
     <div class="a-field"><label class="a-label" for="a-to">تا</label><input id="a-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/12/29"></div>
@@ -62,7 +63,7 @@
                   <table class="a-table a-table-compact mt-2 text-xs">
                     @foreach (var c in changes)
                     {
-                      <tr><td class="a-mono">@c.Field</td><td class="a-down break-all" dir="auto">@(c.Before ?? "∅")</td><td class="a-up break-all" dir="auto">@(c.After ?? "∅")</td></tr>
+                      <tr><td class="a-mono">@c.Field</td><td class="a-down break-all" dir="auto">@AuditModel.Short(c.Before)</td><td class="a-up break-all" dir="auto">@AuditModel.Short(c.After)</td></tr>
                     }
                   </table>
                 </details>

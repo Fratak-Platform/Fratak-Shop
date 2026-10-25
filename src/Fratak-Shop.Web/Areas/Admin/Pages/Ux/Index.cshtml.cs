@@ -16,10 +16,14 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Ux;
 /// <item><c>POST ?handler=Pin</c> (url, title, icon) → سنجاق/برداشتن سنجاق</item>
 /// <item><c>POST ?handler=Filter</c> (path, name, query) → ذخیرهٔ فیلتر</item>
 /// <item><c>POST ?handler=DeleteFilter</c> (path, name) → حذف فیلتر</item>
+/// <item><c>GET  ?handler=Draft&amp;key=…</c> → پیش‌نویس خودکار یک فرم (admin-edit.js)</item>
+/// <item><c>POST ?handler=Draft</c> (key, stamp, title, url, data) → ذخیرهٔ پیش‌نویس</item>
+/// <item><c>POST ?handler=DeleteDraft</c> (key) → دور انداختن پیش‌نویس</item>
 /// </list>
 /// </summary>
-public class IndexModel(IAdminShortcutService shortcuts, IAdminSearchService search) : AdminPageModel
+public class IndexModel(IAdminShortcutService shortcuts, IAdminSearchService search, IEditDraftService drafts) : AdminPageModel
 {
+    public IReadOnlyList<EditDraftSummary> Drafts { get; private set; } = [];
     public List<PinItem> Pins { get; private set; } = [];
     public List<RecentItem> Recents { get; private set; } = [];
     public Dictionary<string, List<SavedFilter>> Filters { get; private set; } = [];
@@ -32,6 +36,7 @@ public class IndexModel(IAdminShortcutService shortcuts, IAdminSearchService sea
         Pins = await shortcuts.GetPinsAsync(ActorId);
         Recents = await shortcuts.GetRecentsAsync(ActorId);
         Filters = await shortcuts.GetAllFiltersAsync(ActorId);
+        Drafts = await drafts.ListAsync(ActorId);
     }
 
     /// <summary>
@@ -69,6 +74,36 @@ public class IndexModel(IAdminShortcutService shortcuts, IAdminSearchService sea
     {
         await shortcuts.DeleteFilterAsync(ActorId, path ?? "", name ?? "");
         return Reply(true, "فیلتر حذف شد.");
+    }
+
+    /// <summary>
+    /// پیش‌نویس ذخیره‌شدهٔ کارمند برای یک فرم. پاسخ: <c>{ok:true, data:{stamp, title, savedAt, data}}</c> یا <c>{ok:false}</c>.
+    /// </summary>
+    public async Task<IActionResult> OnGetDraftAsync(string? key, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        var draft = await drafts.GetAsync(ActorId, key ?? "", cancellationToken);
+        if (draft is null)
+            return new JsonResult(new { ok = false });
+        return new JsonResult(new
+        {
+            ok = true,
+            data = new { stamp = draft.BaseStamp.ToString(System.Globalization.CultureInfo.InvariantCulture), title = draft.Title, savedAt = draft.SavedAt, data = draft.Data },
+        });
+    }
+
+    /// <summary>ذخیرهٔ خودکار فرم (هر چند ثانیه هنگام تایپ). stamp به‌صورت متن می‌آید چون عدد ۱۸ رقمی در JavaScript دقیق نمی‌ماند.</summary>
+    public async Task<IActionResult> OnPostDraftAsync(string? key, string? stamp, string? title, string? url, string? data, CancellationToken cancellationToken)
+    {
+        _ = long.TryParse(stamp, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var baseStamp);
+        var error = await drafts.SaveAsync(ActorId, key ?? "", baseStamp, title, url, data ?? "", cancellationToken);
+        return error is null ? Reply(true, "پیش‌نویس ذخیره شد.") : Reply(false, error);
+    }
+
+    public async Task<IActionResult> OnPostDeleteDraftAsync(string? key, CancellationToken cancellationToken)
+    {
+        await drafts.DeleteAsync(ActorId, key ?? "", cancellationToken);
+        return Reply(true, "پیش‌نویس حذف شد.");
     }
 
     /// <summary>پاسخ مشترک: JSON برای fetch، یا پیام موقت و بازگشت برای فرم‌های همین صفحه.</summary>

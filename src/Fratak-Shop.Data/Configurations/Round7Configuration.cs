@@ -52,3 +52,13 @@ public class MediaFileConfiguration : IEntityTypeConfiguration<Fratak_Shop.Data.
         builder.HasIndex(m => m.FileName).IsUnique();
     }
 }
+
+/// <summary>هر کارمند برای هر فرم فقط یک پیش‌نویس دارد.</summary>
+public class EditDraftConfiguration : IEntityTypeConfiguration<EditDraft>
+{
+    public void Configure(EntityTypeBuilder<EditDraft> builder)
+    {
+        builder.HasIndex(d => new { d.UserId, d.FormKey }).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(d => d.UpdatedAt);
+    }
+}

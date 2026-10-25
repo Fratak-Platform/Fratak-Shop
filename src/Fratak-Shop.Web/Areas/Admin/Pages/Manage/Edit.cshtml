@@ -8,6 +8,8 @@
     var backUrl = $"/admin/manage/{def.Key}" + (Model.Parent is { } pid ? $"?parent={pid}" : "");
     var selfId = Model.IsNew ? (Guid?)null : ManageEngine.IdOf(e);
     var slugField = def.Field("Slug");
+    var labelField = def.Field("Name") ?? def.Field("Title");
+    var draftTitle = def.Singular + (labelField is not null && !Model.IsNew ? ": " + ManageEngine.InputValue(e, labelField) : " جدید");
     var previewUrl = $"{HttpContext.Request.Host}{(def.PublicUrl is not null && slugField is not null ? def.PublicUrl.Replace("{Slug}", ManageEngine.InputValue(e, slugField)) : "/")}";
 }
 <div class="a-page-head">
@@ -26,7 +28,10 @@
   }
 </div>
 
-<form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack">
+<form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
+      data-edit-key="@(Model.IsNew ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
+      data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@draftTitle">
+  <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
   @if (Model.Parent is not null) { <input type="hidden" name="parent" value="@Model.Parent"> }
   <div class="a-card">
     <div class="a-card-body a-form-grid cols-2">
@@ -138,3 +143,8 @@
     <button type="submit" name="after" value="list" class="a-btn">@Icons.Svg("Check", null, 18) ذخیره</button>
   </div>
 </form>
+
+@if (Model.History is not null)
+{
+  <div class="mt-4"><partial name="_EditHistory" model="Model.History" /></div>
+}

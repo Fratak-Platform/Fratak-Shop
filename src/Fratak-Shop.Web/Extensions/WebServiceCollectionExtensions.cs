@@ -74,6 +74,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<Infrastructure.Admin.AdminPageFilter>();
         services.AddScoped<Infrastructure.Admin.AdminBadgeService>();
         services.AddScoped<Infrastructure.Admin.Manage.ManageEngine>();
+        services.AddSingleton<Infrastructure.Admin.EditPresenceNotifier>();
         services.AddSingleton<Infrastructure.Admin.ActivityTracker>();
         services.AddSingleton<Infrastructure.Admin.SecurityEventRecorder>();
         services.AddSingleton<Infrastructure.Admin.ErrorLogQueue>();

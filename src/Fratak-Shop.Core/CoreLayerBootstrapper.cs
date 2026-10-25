@@ -109,6 +109,9 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Admin.IAdminShortcutService, Services.Admin.AdminShortcutService>();
         services.AddScoped<Services.Admin.IAdminHelpService, Services.Admin.AdminHelpService>();
         services.AddScoped<Services.Admin.IMediaLibraryService, Services.Admin.MediaLibraryService>();
+        // مرحلهٔ هفتم – فاز ۳: پیش‌نویس خودکار فرم‌ها و تاریخچه/بازگردانی تغییرات.
+        services.AddScoped<Services.Admin.IEditDraftService, Services.Admin.EditDraftService>();
+        services.AddScoped<Services.Admin.IAuditHistoryService, Services.Admin.AuditHistoryService>();
         services.AddScoped<Services.Admin.IAdminSearchService, Services.Admin.AdminSearchService>();
 
         return services;

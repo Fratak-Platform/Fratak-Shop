@@ -39,8 +39,15 @@ public sealed class MonitoringMaintenanceService(IServiceScopeFactory scopeFacto
                 {
                     using var scope = scopeFactory.CreateScope();
                     var settings = await scope.ServiceProvider.GetRequiredService<IStoreSettingService>().GetAsync(stoppingToken);
-                    var removed = await JobMonitor.TrackAsync(JobName, () => scope.ServiceProvider.GetRequiredService<IMonitoringService>()
-                        .PurgeAsync(settings.ErrorLogRetentionDays, settings.AuditLogRetentionDays, stoppingToken));
+                    var removed = await JobMonitor.TrackAsync(JobName, async () =>
+                    {
+                        var logs = await scope.ServiceProvider.GetRequiredService<IMonitoringService>()
+                            .PurgeAsync(settings.ErrorLogRetentionDays, settings.AuditLogRetentionDays, stoppingToken);
+                        // پیش‌نویس‌های خودکار فرم‌ها که ۳۰ روز دست نخورده‌اند (EditDraftService).
+                        var drafts = await scope.ServiceProvider.GetRequiredService<IEditDraftService>()
+                            .PurgeAsync(TimeSpan.FromDays(30), stoppingToken);
+                        return logs + drafts;
+                    });
                     if (removed > 0)
                         logger.LogInformation("Removed {Count} old log rows", removed);
                 }

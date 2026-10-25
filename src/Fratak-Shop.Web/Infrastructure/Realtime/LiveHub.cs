@@ -148,7 +148,8 @@ public sealed partial class LiveHub(IAdminAccessService accessService, ILogger<L
 
     private bool IsStaff() => Context.Items.TryGetValue("staff", out var value) && value is true;
 
-    private static string EditGroup(string key) => "edit:" + key;
+    /// <summary>گروه SignalR کسانی که یک رکورد را باز کرده‌اند؛ EditPresenceNotifier هم بعد از ذخیره به این گروه پیام می‌دهد.</summary>
+    public static string EditGroup(string key) => "edit:" + key;
 
     private static bool IsValidKey(string? key) => !string.IsNullOrEmpty(key) && KeyRegex().IsMatch(key);
 

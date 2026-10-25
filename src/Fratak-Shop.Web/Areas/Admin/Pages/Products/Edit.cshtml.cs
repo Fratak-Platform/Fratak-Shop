@@ -65,9 +65,28 @@ public sealed class ProductInput
 [AdminPermission(AdminPermissions.ProductsView, AdminPermissions.SeoManage)]
 [RequestFormLimits(MultipartBodyLengthLimit = 41 * 1024 * 1024, ValueCountLimit = 4000)]
 [RequestSizeLimit(42 * 1024 * 1024)]
-public class EditModel(IProductService products, IAdminDataService data, IUploadStore uploads) : AdminPageModel
+public class EditModel(IProductService products, IAdminDataService data, IUploadStore uploads,
+    IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence) : AdminPageModel
 {
     private const int MaxImages = 12;
+
+    /// <summary>برچسب فارسی فیلدهای محصول برای پنل «تاریخچهٔ تغییرات».</summary>
+    public static readonly IReadOnlyDictionary<string, string> FieldLabels = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["Name"] = "نام", ["EnglishName"] = "نام انگلیسی", ["Slug"] = "نامک", ["SKU"] = "کد کالا", ["CategoryId"] = "دسته‌بندی", ["BrandId"] = "برند",
+        ["ShortDescription"] = "توضیح کوتاه", ["Description"] = "توضیحات", ["Price"] = "قیمت", ["DiscountPrice"] = "قیمت با تخفیف",
+        ["DiscountStartAt"] = "شروع تخفیف", ["DiscountEndAt"] = "پایان تخفیف", ["PurchasePrice"] = "قیمت خرید", ["StockQuantity"] = "موجودی",
+        ["WarrantyTitle"] = "گارانتی", ["WarrantyMonths"] = "ماه‌های گارانتی", ["IsActive"] = "فعال", ["PublishedAt"] = "تاریخ انتشار",
+        ["Gtin"] = "GTIN", ["Mpn"] = "MPN", ["SupplierId"] = "تأمین‌کننده", ["SupplierUrl"] = "لینک منبع", ["SupplierSku"] = "کد نزد تأمین‌کننده",
+        ["SupplierNote"] = "یادداشت تأمین", ["MainImage"] = "تصویر اصلی",
+    };
+
+    // ── ابزارهای ویرایش هم‌زمان (مرحلهٔ هفتم – فاز ۳) ──
+    /// <summary>کلید حضور زنده و پیش‌نویس خودکار: <c>product:{id}</c> یا <c>product:new</c>.</summary>
+    public string EditKey => ProductId is { } id ? $"product:{id}" : "product:new";
+    public string Stamp { get; private set; } = "0";
+    public string? ConflictMessage { get; private set; }
+    public EditHistoryModel? History { get; private set; }
 
     [BindProperty] public ProductInput Input { get; set; } = new();
 
@@ -101,6 +120,8 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
                 return NotFound();
             Input = ToInput(product);
             SetInfo(product);
+            Stamp = EditStamp.Format(await history.StampAsync(nameof(Product), product.Id));
+            await LoadHistoryAsync();
         }
 
         await LoadListsAsync();
@@ -117,6 +138,13 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             if (existing is null)
                 return NotFound();
             SetInfo(existing);
+
+            // کارمند دیگری در این فاصله همین محصول را ذخیره کرده؟ (تغییر موجودی با خرید مشتری حساب نمی‌شود)
+            if (EditStamp.IsStale(Request.Form, await history.StampAsync(nameof(Product), existing.Id)))
+            {
+                ConflictMessage = await EditStamp.ConflictMessageAsync(history, nameof(Product), existing.Id);
+                return await FailAsync("ذخیره نشد: این محصول هم‌زمان توسط شخص دیگری تغییر کرده است.");
+            }
         }
 
         // Without the supplier permission the private fields are kept as they are.
@@ -242,6 +270,11 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
                 uploads.Delete(UploadArea.Products, removed);
         }
 
+        // پیش‌نویس خودکار دیگر لازم نیست؛ بقیهٔ کسانی که این محصول را باز کرده‌اند باخبر شوند.
+        await drafts.DeleteAsync(ActorId, EditKey);
+        if (existing is not null)
+            await presence.SavedAsync(EditKey, ActorName, ActorId);
+
         SuccessMessage = result.Message;
         var savedId = existing?.Id ?? await data.Query<Product>().Where(p => p.Slug == slug).Select(p => p.Id).FirstOrDefaultAsync();
         return Redirect(savedId == Guid.Empty ? "/admin/products" : $"/admin/products/edit/{savedId}");
@@ -266,6 +299,17 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         return Redirect($"/admin/products/edit/{id}#seo");
     }
 
+    /// <summary>بازگردانی یک ویرایش محصول از تاریخچه (AuditHistoryService).</summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostRevertAsync(Guid id, Guid auditId)
+    {
+        var result = await history.RevertAsync(auditId, nameof(Product), id);
+        if (Succeeded(result))
+            await presence.SavedAsync($"product:{id}", ActorName, ActorId);
+        ShowResult(result);
+        return Redirect($"/admin/products/edit/{id}#history");
+    }
+
     [AdminPermission(AdminPermissions.ProductsDelete)]
     public async Task<IActionResult> OnPostDeleteAsync(Guid id)
     {
@@ -277,6 +321,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     private async Task<IActionResult> FailAsync(string message)
     {
         ErrorMessage = message;
+        // فرم دوباره با همان نسخه‌ای نمایش داده می‌شود که کارمند بر اساسش نوشته است.
+        Stamp = Request.Form[EditStamp.FieldName].FirstOrDefault() ?? "0";
+        await LoadHistoryAsync();
         if (ProductId is { } id)
         {
             // Keep the typed values; images come back from the database (new uploads must be chosen again).
@@ -303,6 +350,14 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         SalesCount = product.SalesCount;
         ViewCount = product.ViewCount;
         CreatedAt = product.CreatedAt;
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (ProductId is not { } id)
+            return;
+        var items = await history.ListAsync(nameof(Product), id);
+        History = new EditHistoryModel(nameof(Product), id, items, $"/admin/products/edit/{id}?handler=Revert", FieldLabels, CanEditProduct);
     }
 
     private async Task LoadListsAsync()

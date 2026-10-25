@@ -28,6 +28,9 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "UserAddress", "Favorite", "User", "Message", "SupportTicket", "SupportTicketMessage", "SupportTicketAttachment",
         "ReturnRequest", "ReturnRequestItem", "ReturnRequestImage", "OrderFeedback", "GiftCard", "GiftCardRedemption",
         "Order", "OrderItem", "OrderStatusHistory", "Invoice", "CouponUsage",
+        // داده‌های فقط پنل مدیریت: پیش‌نویس خودکار هر چند ثانیه ذخیره می‌شود و نباید کش صفحات عمومی را خالی کند.
+        "EditDraft", "AuditLog", "ErrorLog", "SecurityLog", "StaffNotification", "AdminUserPreference", "AdminHelpArticle",
+        "AdminRole", "AdminRolePermission", "UserAdminRole",
     };
 
     /// <summary>True while rendering a response that may be stored in the page cache.</summary>

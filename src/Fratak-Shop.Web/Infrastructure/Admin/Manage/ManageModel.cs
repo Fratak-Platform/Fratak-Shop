@@ -53,6 +53,15 @@ public sealed record MField(string Name, string Label, MKind Kind = MKind.Text)
     /// تشخیص از روی نام: «…Amount»، «…Price»، «Cost»، «FreeShippingThreshold»، «AmountStep».
     /// فیلدهایی مثل «Value» کوپن که می‌تواند درصد هم باشد مبلغ حساب نمی‌شوند.
     /// </summary>
+    /// <summary>
+    /// قابل ویرایش درجا در خود جدول؟ (کلیک روی خانه ← ورودی کوچک ← Enter). فقط نوع‌های ساده؛
+    /// متن بلند، HTML، تصویر، تاریخ و ارجاع از فرم کامل ویرایش می‌شوند. با <see cref="NoInline"/> می‌شود برای یک فیلد خاموشش کرد.
+    /// </summary>
+    public bool CanInline => !NoInline && Kind is MKind.Text or MKind.Int or MKind.Decimal or MKind.Bool or MKind.Enum or MKind.Slug or MKind.Url or MKind.Color;
+
+    /// <summary>ویرایش درجا برای این فیلد خاموش باشد (مثلاً کدی که تغییرش باید با دقت و از فرم انجام شود).</summary>
+    public bool NoInline { get; init; }
+
     public bool IsMoney => Kind == MKind.Decimal
         && (Name.EndsWith("Amount", StringComparison.Ordinal) || Name.EndsWith("Price", StringComparison.Ordinal)
             || Name is "Cost" or "FreeShippingThreshold" or "AmountStep");
@@ -93,3 +102,26 @@ public sealed record ManageList(IReadOnlyList<object> Rows, int Total, int Page,
 {
     public int PageCount => Total == 0 ? 1 : (int)Math.Ceiling(Total / (double)Take);
 }
+
+/// <summary>
+/// گزینه‌های فهرست یک جدول مدیریت داده (از آدرس صفحه): جست‌وجو، والد، صفحه، مرتب‌سازی، اندازهٔ صفحه و نمای سطل بازیافت.
+/// </summary>
+/// <example><c>/admin/manage/coupons?sort=Value&amp;dir=desc&amp;take=50</c></example>
+public sealed record ManageQuery
+{
+    /// <summary>اندازه‌های مجاز صفحه (انتخاب در پایین جدول).</summary>
+    public static readonly int[] AllowedPageSizes = [15, 30, 50, 100];
+
+    public string? Search { get; init; }
+    public Guid? Parent { get; init; }
+    public int Page { get; init; } = 1;
+    public string? Sort { get; init; }
+    public bool Descending { get; init; }
+    public int Take { get; init; } = ManageEngine.PageSize;
+
+    /// <summary>نمایش ردیف‌های حذف‌شده (سطل بازیافت) به جای ردیف‌های فعال.</summary>
+    public bool Deleted { get; init; }
+}
+
+/// <summary>یک ردیف سطل بازیافت: شناسه، برچسب قابل نمایش و زمان حذف.</summary>
+public sealed record TrashRow(Guid Id, string Label, DateTimeOffset? DeletedAt);

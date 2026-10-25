@@ -77,4 +77,27 @@
       }
     </div>
   </section>
+
+  <section class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("FloppyDisk", null, 18) پیش‌نویس‌های ذخیره‌نشده</h3></div>
+    <div class="a-card-body">
+      @if (Model.Drafts.Count == 0)
+      {
+        <p class="a-muted text-sm">فرم‌های ویرایش (محصول، مقاله، جدول‌ها) هنگام تایپ خودکار پیش‌نویس می‌سازند؛ بعد از ذخیرهٔ فرم پیش‌نویس حذف می‌شود.</p>
+      }
+      <ul class="a-stack">
+        @foreach (var d in Model.Drafts)
+        {
+          <li class="flex items-center gap-2">
+            @if (d.Url is not null) { <a class="a-link flex-1 truncate" href="@d.Url">@(d.Title ?? d.FormKey)</a> } else { <span class="flex-1 truncate">@(d.Title ?? d.FormKey)</span> }
+            <span class="a-muted text-xs nowrap">@Format.Relative(d.SavedAt)</span>
+            <form method="post" asp-page-handler="DeleteDraft" class="m-0" data-confirm="این پیش‌نویس دور انداخته شود؟ متن ذخیره‌نشده از بین می‌رود." data-confirm-danger>
+              <input type="hidden" name="key" value="@d.FormKey">
+              <button class="a-btn a-btn-xs a-btn-light" type="submit" aria-label="دور انداختن پیش‌نویس">@Icons.Svg("Trash", null, 14)</button>
+            </form>
+          </li>
+        }
+      </ul>
+    </div>
+  </section>
 </div>

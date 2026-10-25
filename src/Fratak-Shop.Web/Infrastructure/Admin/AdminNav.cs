@@ -57,6 +57,8 @@ public static class AdminNav
             new AdminNavItem("ارسال و تحویل", "/admin/manage/shipping-methods", "Truck", [P.ShippingManage]),
             new AdminNavItem("کارکنان و نقش‌ها", "/admin/staff", "UserGear", [P.StaffManage]),
             new AdminNavItem("همه جدول‌ها", "/admin/manage", "Sliders"),
+            new AdminNavItem("سطل بازیافت", "/admin/trash", "Trash", [P.ProductsDelete, P.BlogPublish, P.CatalogManage, P.ContentManage, P.LoyaltyManage,
+                P.MarketingManage, P.ProductsManage, P.ReturnsManage, P.SeoManage, P.ShippingManage, P.SuppliersManage, P.TicketsManage]),
             new AdminNavItem("راهنمای صفحه‌ها", "/admin/help", "Question", [P.SettingsManage])),
         new("فنی",
             new AdminNavItem("سلامت سامانه", "/admin/system", "Pulse", [P.MonitoringView]),

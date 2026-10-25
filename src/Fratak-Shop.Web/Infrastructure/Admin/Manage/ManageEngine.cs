@@ -35,7 +35,34 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
             .MakeGenericMethod(entity).Invoke(this, args)!;
 
     public Task<ManageList> ListAsync(MDef def, string? search, Guid? parent, int page) =>
-        Call<ManageList>(nameof(ListCore), def.Entity, def, search, parent, page);
+        ListAsync(def, new ManageQuery { Search = search, Parent = parent, Page = page });
+
+    /// <summary>
+    /// فهرست یک جدول با جست‌وجو، فیلتر والد، مرتب‌سازی دلخواه، اندازهٔ صفحه و نمای «سطل بازیافت».
+    /// مقدارهای نامعتبر (ستون مرتب‌سازی ناشناخته، اندازهٔ صفحهٔ عجیب) بی‌صدا به پیش‌فرض برمی‌گردند.
+    /// </summary>
+    public Task<ManageList> ListAsync(MDef def, ManageQuery options) =>
+        Call<ManageList>(nameof(ListCore), def.Entity, def, options);
+
+    /// <summary>تعداد ردیف‌های حذف‌شدهٔ یک جدول (برای دکمهٔ «سطل بازیافت»).</summary>
+    public Task<int> CountDeletedAsync(Type entity) => Call<int>(nameof(CountDeletedCore), entity);
+
+    /// <summary>ردیف‌های حذف‌شده با برچسب و زمان حذف، جدیدترین اول (صفحهٔ /admin/trash).</summary>
+    public Task<List<TrashRow>> TrashAsync(Type entity, string labelProperty, int page, int take) =>
+        Call<List<TrashRow>>(nameof(TrashCore), entity, labelProperty, page, take);
+
+    /// <summary>بازگرداندن یک ردیف از سطل بازیافت.</summary>
+    public Task<OperationResult> RestoreAsync(Type entity, Guid id) => Call<OperationResult>(nameof(RestoreCore), entity, id);
+
+    /// <summary>
+    /// ترتیب دستی ردیف‌ها با کشیدن و رها کردن. <paramref name="ids"/> ردیف‌های همین صفحه به ترتیب جدید است.
+    /// همان عددهای «ترتیب نمایش» فعلی این ردیف‌ها بین خودشان جابه‌جا می‌شود، پس جای ردیف‌های صفحه‌های دیگر به هم نمی‌خورد.
+    /// </summary>
+    public Task<OperationResult> ReorderAsync(MDef def, IReadOnlyList<Guid> ids) => Call<OperationResult>(nameof(ReorderCore), def.Entity, ids);
+
+    /// <summary>آیا ترتیب دستی (کشیدن و رها کردن) برای این جدول ممکن است؟ (مرتب‌سازی پیش‌فرض با DisplayOrder عددی)</summary>
+    public static bool CanReorder(MDef def) =>
+        def.Sort == "DisplayOrder" && !def.SortDescending && def.Entity.GetProperty("DisplayOrder")?.PropertyType == typeof(int);
 
     public Task<object?> FindAsync(MDef def, Guid id) => Call<object?>(nameof(FindCore), def.Entity, id);
 
@@ -63,9 +90,13 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
 
     private async Task<int> CountCore<T>() where T : BaseEntity => await data.Query<T>().CountAsync();
 
-    private async Task<ManageList> ListCore<T>(MDef def, string? search, Guid? parent, int page) where T : BaseEntity
+    private async Task<ManageList> ListCore<T>(MDef def, ManageQuery options) where T : BaseEntity
     {
-        var query = data.Query<T>();
+        var search = options.Search;
+        var parent = options.Parent;
+        var page = options.Page;
+        var take = ManageQuery.AllowedPageSizes.Contains(options.Take) ? options.Take : PageSize;
+        var query = options.Deleted ? data.QueryDeleted<T>() : data.Query<T>();
         var x = Expression.Parameter(typeof(T), "x");
 
         if (!string.IsNullOrWhiteSpace(search) && def.Search.Length > 0)
@@ -91,19 +122,102 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
         }
 
         var total = await query.CountAsync();
-        var sortProperty = typeof(T).GetProperty(def.Sort) is not null ? def.Sort : nameof(BaseEntity.CreatedAt);
-        var sorted = OrderBy(query, sortProperty, def.SortDescending || sortProperty == nameof(BaseEntity.CreatedAt));
-        if (sortProperty != nameof(BaseEntity.CreatedAt))
-            sorted = sorted.ThenByDescending(e => e.CreatedAt);
 
-        page = Math.Max(1, page);
-        var rows = await sorted.Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
+        // مرتب‌سازی: سطل بازیافت ← تازه‌حذف‌شده‌ها اول؛ ستون انتخابی کاربر (فقط ستون‌های مجاز تعریف)؛ یا پیش‌فرض تعریف جدول.
+        IOrderedQueryable<T> sorted;
+        if (options.Deleted)
+        {
+            sorted = query.OrderByDescending(e => e.DeletedAt);
+        }
+        else if (SortableField(def, options.Sort) is { } custom)
+        {
+            sorted = OrderBy(query, custom, options.Descending);
+            sorted = sorted.ThenByDescending(e => e.CreatedAt);
+        }
+        else
+        {
+            var sortProperty = typeof(T).GetProperty(def.Sort) is not null ? def.Sort : nameof(BaseEntity.CreatedAt);
+            sorted = OrderBy(query, sortProperty, def.SortDescending || sortProperty == nameof(BaseEntity.CreatedAt));
+            if (sortProperty != nameof(BaseEntity.CreatedAt))
+                sorted = sorted.ThenByDescending(e => e.CreatedAt);
+        }
+
+        // صفحهٔ بیش از آخرین صفحه (مثلاً بعد از حذف) به آخرین صفحه می‌رود.
+        var pageCount = Math.Max(1, (int)Math.Ceiling(total / (double)take));
+        page = Math.Clamp(page, 1, pageCount);
+        var rows = await sorted.Skip((page - 1) * take).Take(take).ToListAsync();
 
         var refLabels = new Dictionary<string, Dictionary<Guid, string>>();
         foreach (var field in def.Fields.Where(f => f.InList && f.Kind == MKind.Ref && f.RefType is not null))
             refLabels[field.Name] = await OptionsAsync(field.RefType!, field.RefLabel);
 
-        return new ManageList(rows.Cast<object>().ToList(), total, page, PageSize, refLabels);
+        return new ManageList(rows.Cast<object>().ToList(), total, page, take, refLabels);
+    }
+
+    /// <summary>
+    /// ستون مرتب‌سازی درخواستی اگر مجاز باشد: یکی از فیلدهای تعریف (غیر از متن HTML و تصویر) یا زمان ثبت/ویرایش؛ در غیر این صورت null.
+    /// (نام ستون از آدرس می‌آید؛ هرگز مستقیم به Expression داده نمی‌شود مگر اینکه در فهرست مجاز باشد.)
+    /// </summary>
+    public static string? SortableField(MDef def, string? sort)
+    {
+        if (string.IsNullOrEmpty(sort))
+            return null;
+        if (sort is nameof(BaseEntity.CreatedAt) or nameof(BaseEntity.UpdatedAt))
+            return sort;
+        var field = def.Field(sort);
+        if (field is null || field.Kind is MKind.Html or MKind.Image || def.Entity.GetProperty(field.Name) is null)
+            return null;
+        return field.Name;
+    }
+
+    private async Task<int> CountDeletedCore<T>() where T : BaseEntity => await data.QueryDeleted<T>().CountAsync();
+
+    private async Task<List<TrashRow>> TrashCore<T>(string labelProperty, int page, int take) where T : BaseEntity
+    {
+        var query = data.QueryDeleted<T>()
+            .OrderByDescending(e => e.DeletedAt)
+            .Skip((Math.Max(1, page) - 1) * take)
+            .Take(take);
+        // جدولی که فیلد متنی مناسب ندارد فقط با شناسه نشان داده می‌شود.
+        var rows = labelProperty.Length == 0
+            ? await query.Select(e => new { e.Id, Label = (string?)null, e.DeletedAt }).ToListAsync()
+            : await query.Select(e => new { e.Id, Label = (string?)EF.Property<string>(e, labelProperty), e.DeletedAt }).ToListAsync();
+        return rows.Select(r => new TrashRow(r.Id, string.IsNullOrWhiteSpace(r.Label) ? r.Id.ToString()[..8] : r.Label, r.DeletedAt)).ToList();
+    }
+
+    private async Task<OperationResult> RestoreCore<T>(Guid id) where T : BaseEntity => await data.RestoreAsync<T>(id);
+
+    private async Task<OperationResult> ReorderCore<T>(IReadOnlyList<Guid> ids) where T : BaseEntity
+    {
+        var distinct = ids.Distinct().ToList();
+        if (distinct.Count is 0 or > 200)
+            return OperationResult.Error("ترتیب ارسالی نامعتبر است.");
+
+        var property = typeof(T).GetProperty("DisplayOrder");
+        if (property?.PropertyType != typeof(int))
+            return OperationResult.Error("این جدول ترتیب دستی ندارد.");
+
+        var entities = new List<T>();
+        foreach (var id in distinct)
+        {
+            var entity = await data.FindAsync<T>(id);
+            if (entity is null)
+                return OperationResult.NotFound("یکی از ردیف‌ها پیدا نشد؛ صفحه را تازه کنید.");
+            entities.Add(entity);
+        }
+
+        // همان عددهای فعلی (مرتب‌شده) به ترتیب جدید داده می‌شود؛ اگر تکراری باشند (مثلاً همه صفر) از کمترین عدد پشت سر هم شماره می‌خورند.
+        var current = entities.Select(e => (int)property.GetValue(e)!).OrderBy(v => v).ToList();
+        if (current.Distinct().Count() != current.Count)
+        {
+            var start = current[0];
+            current = Enumerable.Range(0, current.Count).Select(i => start + i).ToList();
+        }
+        for (var i = 0; i < entities.Count; i++)
+            property.SetValue(entities[i], current[i]);
+
+        var result = await data.UpdateAsync(entities[0]);
+        return result.IsSuccess() ? OperationResult.Success("ترتیب جدید ذخیره شد.") : OperationResult.Error(result.Message ?? "ذخیره نشد.");
     }
 
     private static IOrderedQueryable<T> OrderBy<T>(IQueryable<T> query, string property, bool descending)
@@ -243,12 +357,39 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
     {
         foreach (var field in def.Fields)
         {
+            var fieldError = await BindFieldAsync(def, field, entity, form, savedFiles, cancellationToken);
+            if (fieldError is not null)
+                return fieldError;
+        }
+
+        return BindSeo(def, entity, form);
+    }
+
+    /// <summary>
+    /// ویرایش درجای یک خانهٔ جدول: فقط همان فیلد با همان قواعد فرم کامل (اعتبارسنجی، پاک‌سازی HTML، تبدیل تاریخ) مقدار می‌گیرد.
+    /// فقط فیلدهایی که <see cref="MField.CanInline"/> دارند مجازند. خطا یا null برمی‌گرداند.
+    /// </summary>
+    /// <example>فیلد «ترتیب نمایش» با مقدار «۱۲» ← DisplayOrder = 12.</example>
+    public async Task<string?> BindInlineAsync(MDef def, MField field, object entity, string? value, CancellationToken cancellationToken)
+    {
+        if (!field.CanInline)
+            return "این فیلد در جدول قابل ویرایش نیست؛ از فرم ویرایش استفاده کنید.";
+        var values = new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>(StringComparer.Ordinal)
+        {
+            [field.Name] = field.Kind == MKind.Bool ? (value == "true" ? "true" : "false") : (value ?? ""),
+        };
+        return await BindFieldAsync(def, field, entity, new FormCollection(values), [], cancellationToken);
+    }
+
+    private async Task<string?> BindFieldAsync(MDef def, MField field, object entity, IFormCollection form, List<(UploadArea Area, string Name)> savedFiles, CancellationToken cancellationToken)
+    {
+        {
             if (field.Kind == MKind.ReadOnly)
-                continue;
+                return null;
 
             var property = def.Entity.GetProperty(field.Name);
             if (property is null || !property.CanWrite)
-                continue;
+                return null;
 
             var type = property.PropertyType;
             var underlying = Nullable.GetUnderlyingType(type) ?? type;
@@ -391,6 +532,11 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
             }
         }
 
+        return null;
+    }
+
+    private static string? BindSeo(MDef def, object entity, IFormCollection form)
+    {
         if (def.HasSeo && def.Entity.GetProperty("Seo") is { } seoProperty)
         {
             var seo = new SeoInput

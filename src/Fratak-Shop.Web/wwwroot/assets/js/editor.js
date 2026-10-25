@@ -255,6 +255,18 @@
 
     // اگر فرم بلافاصله بعد از تایپ ارسال شود، مقدار آخر حتماً در textarea باشد.
     if (area.form) area.form.addEventListener("submit", () => { area.value = editor.value; }, true);
+
+    // admin-edit.js (پیش‌نویس خودکار و ادغام) به نمونهٔ ویرایشگر دسترسی دارد تا متن بازیابی‌شده را داخلش بگذارد.
+    area.__fratakEditor = editor;
+    // هر تغییر کاربر در textarea هم نوشته و رویداد input فرستاده می‌شود تا ذخیرهٔ خودکار و «تغییرات ذخیره‌نشده» باخبر شوند.
+    // با کمی تأخیر وصل می‌شود تا یکدست‌سازی HTML هنگام ساخت ویرایشگر «تغییر کاربر» حساب نشود.
+    setTimeout(() => {
+      editor.events.on("change", () => {
+        if (area.value === editor.value) return;
+        area.value = editor.value;
+        area.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }, 400);
     return editor;
   }
 

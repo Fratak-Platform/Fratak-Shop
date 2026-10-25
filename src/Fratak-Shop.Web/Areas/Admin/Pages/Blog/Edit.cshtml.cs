@@ -33,8 +33,24 @@ public sealed class PostInput
 [AdminPermission(AdminPermissions.BlogWrite, AdminPermissions.BlogPublish, AdminPermissions.SeoManage)]
 [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
 [RequestSizeLimit(7 * 1024 * 1024)]
-public class EditModel(IAdminDataService data, IUploadStore uploads, INotificationService notifications, IMonitoringService monitoring) : AdminPageModel
+public class EditModel(IAdminDataService data, IUploadStore uploads, INotificationService notifications, IMonitoringService monitoring,
+    IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence) : AdminPageModel
 {
+    /// <summary>برچسب فارسی فیلدهای مقاله برای پنل «تاریخچهٔ تغییرات».</summary>
+    public static readonly IReadOnlyDictionary<string, string> FieldLabels = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["Title"] = "عنوان", ["Slug"] = "نامک", ["BlogCategoryId"] = "دسته", ["Excerpt"] = "خلاصه", ["Content"] = "متن مقاله",
+        ["ImageName"] = "تصویر", ["ImageAlt"] = "متن جایگزین تصویر", ["IsPublished"] = "منتشرشده", ["PublishedAt"] = "تاریخ انتشار",
+        ["SubmittedForReviewAt"] = "ارسال برای بررسی", ["ReviewNote"] = "یادداشت سردبیر", ["AuthorId"] = "نویسنده",
+    };
+
+    // ── ابزارهای ویرایش هم‌زمان و پیش‌نویس خودکار (مرحلهٔ هفتم – فاز ۳) ──
+    /// <summary>کلید حضور زنده و پیش‌نویس: <c>blog:{id}</c> یا <c>blog:new</c>.</summary>
+    public string EditKey => Post is { } p ? $"blog:{p.Id}" : "blog:new";
+    public string Stamp { get; private set; } = "0";
+    public string? ConflictMessage { get; private set; }
+    public EditHistoryModel? History { get; private set; }
+
     [BindProperty] public PostInput Input { get; set; } = new();
 
     public BlogPost? Post { get; private set; }
@@ -60,6 +76,8 @@ public class EditModel(IAdminDataService data, IUploadStore uploads, INotificati
             if (!CanView())
                 return Redirect("/admin/denied?need=" + AdminPermissions.BlogPublish);
             Input = ToInput(Post!);
+            Stamp = EditStamp.Format(await history.StampAsync(nameof(BlogPost), postId));
+            await LoadHistoryAsync();
         }
         await LoadListsAsync();
         return Page();
@@ -80,6 +98,14 @@ public class EditModel(IAdminDataService data, IUploadStore uploads, INotificati
             return Redirect("/admin/denied?need=" + AdminPermissions.BlogPublish);
         if (intent is "publish" or "unpublish" && !IsEditor)
             return Redirect("/admin/denied?need=" + AdminPermissions.BlogPublish);
+
+        // کارمند دیگری (مثلاً سردبیر) در این فاصله همین مقاله را ذخیره کرده؟ ذخیره نمی‌شود تا کار او پاک نشود؛
+        // متن کارمند در فرم و پیش‌نویس خودکار می‌ماند و می‌تواند ادغام کند.
+        if (post is not null && EditStamp.IsStale(Request.Form, await history.StampAsync(nameof(BlogPost), post.Id)))
+        {
+            ConflictMessage = await EditStamp.ConflictMessageAsync(history, nameof(BlogPost), post.Id);
+            return await FailAsync("ذخیره نشد: این مقاله هم‌زمان توسط شخص دیگری تغییر کرده است.");
+        }
 
         var title = Input.Title?.Trim();
         var content = Input.Content.SanitizeOrNull();
@@ -159,6 +185,11 @@ public class EditModel(IAdminDataService data, IUploadStore uploads, INotificati
             return await FailAsync(result.Message);
         }
 
+        // پیش‌نویس خودکار (blog:new یا blog:{id}) دیگر لازم نیست؛ بقیهٔ ویرایشگرها باخبر شوند.
+        await drafts.DeleteAsync(ActorId, isNew ? "blog:new" : $"blog:{post.Id}");
+        if (!isNew)
+            await presence.SavedAsync($"blog:{post.Id}", ActorName, ActorId);
+
         if (oldImage is not null && oldImage != post.ImageName && !oldImage.StartsWith('/') && !oldImage.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             uploads.Delete(UploadArea.Blogs, [oldImage]);
 
@@ -222,6 +253,20 @@ public class EditModel(IAdminDataService data, IUploadStore uploads, INotificati
         return Redirect($"/admin/blog/edit/{id}#seo");
     }
 
+    /// <summary>بازگردانی یک ویرایش مقاله از تاریخچه؛ فقط کسی که اجازهٔ ویرایش متن را دارد.</summary>
+    public async Task<IActionResult> OnPostRevertAsync(Guid id, Guid auditId)
+    {
+        if (!await LoadPostAsync(id))
+            return NotFound();
+        if (!CanEditContent)
+            return Redirect("/admin/denied?need=" + AdminPermissions.BlogPublish);
+        var result = await history.RevertAsync(auditId, nameof(BlogPost), id);
+        if (Succeeded(result))
+            await presence.SavedAsync($"blog:{id}", ActorName, ActorId);
+        ShowResult(result);
+        return Redirect($"/admin/blog/edit/{id}#history");
+    }
+
     public async Task<IActionResult> OnPostDeleteAsync(Guid id)
     {
         if (!await LoadPostAsync(id))
@@ -262,8 +307,19 @@ public class EditModel(IAdminDataService data, IUploadStore uploads, INotificati
     private async Task<IActionResult> FailAsync(string message)
     {
         ErrorMessage = message;
+        // فرم با همان نسخه‌ای که کارمند بر اساسش نوشته دوباره نمایش داده می‌شود.
+        Stamp = Request.Form[EditStamp.FieldName].FirstOrDefault() ?? "0";
+        await LoadHistoryAsync();
         await LoadListsAsync();
         return Page();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (Post is null)
+            return;
+        var items = await history.ListAsync(nameof(BlogPost), Post.Id);
+        History = new EditHistoryModel(nameof(BlogPost), Post.Id, items, $"/admin/blog/edit/{Post.Id}?handler=Revert", FieldLabels, CanEditContent);
     }
 
     private async Task LoadListsAsync() =>

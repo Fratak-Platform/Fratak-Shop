@@ -38,7 +38,10 @@
 
 @if (Model.CanEditContent)
 {
-  <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack">
+  <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
+        data-edit-key="@(post is null ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
+        data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(post is null ? "مقالهٔ جدید" : "مقاله: " + post.Title)">
+    <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
     <div class="a-grid xl:grid-cols-3">
       <div class="xl:col-span-2 a-stack">
         <div class="a-card">
@@ -115,13 +118,17 @@
           </div>
         </form>
       }
-      <form method="post" asp-page-handler="Delete" asp-route-id="@post.Id" class="a-card" data-confirm="این مقاله حذف شود؟" data-confirm-danger>
+      <form method="post" asp-page-handler="Delete" asp-route-id="@post.Id" class="a-card" data-confirm="این مقاله به سطل بازیافت منتقل شود؟" data-confirm-danger>
         <div class="a-card-body flex items-center justify-between gap-3">
-          <span class="text-sm a-muted">حذف مقاله (قابل بازگشت از پایگاه داده).</span>
+          <span class="text-sm a-muted">حذف مقاله (از «سطل بازیافت» قابل برگرداندن است).</span>
           <button class="a-btn a-btn-danger-soft" type="submit">@Icons.Svg("Trash", null, 18) حذف</button>
         </div>
       </form>
     </div>
+  }
+  @if (Model.History is not null)
+  {
+    <div class="mt-4"><partial name="_EditHistory" model="Model.History" /></div>
   }
 }
 else if (post is not null && Model.CanSeo)

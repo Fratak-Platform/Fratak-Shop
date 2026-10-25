@@ -208,6 +208,9 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     /// <summary>مرحلهٔ هفتم: کتابخانهٔ رسانه (تصویرهای متن محصول، مقاله و صفحات).</summary>
     public DbSet<Fratak_Shop.Data.Entities.Media.MediaFile> MediaFiles { get; set; } = null!;
 
+    /// <summary>پیش‌نویس خودکار فرم‌های ویرایش پنل (مرحلهٔ هفتم – فاز ۳).</summary>
+    public DbSet<EditDraft> EditDrafts { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

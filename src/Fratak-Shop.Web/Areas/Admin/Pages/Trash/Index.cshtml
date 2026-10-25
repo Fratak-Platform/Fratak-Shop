@@ -1,0 +1,78 @@
+@page
+@using Fratak_Shop.Web.Infrastructure.Admin.Manage
+@model Fratak_Shop.Web.Areas.Admin.Pages.Trash.IndexModel
+@{
+    ViewData["Title"] = "سطل بازیافت";
+    var sel = Model.Selected;
+}
+<div class="a-page-head">
+  <div>
+    <h2>سطل بازیافت</h2>
+    <p class="a-muted text-sm mt-1">موارد حذف‌شده واقعاً پاک نمی‌شوند؛ از اینجا با یک کلیک برمی‌گردند. فقط بخش‌هایی را می‌بینید که اجازهٔ مدیریتشان را دارید.</p>
+  </div>
+</div>
+
+<div class="a-grid lg:grid-cols-4">
+  <nav class="a-card a-trash-types" aria-label="نوع داده">
+    <div class="a-card-body a-stack">
+      @foreach (var (source, count) in Model.Sources)
+      {
+        <a href="?type=@source.Key" class="a-trash-type @(sel?.Key == source.Key ? "is-active" : "") @(count == 0 ? "is-empty" : "")">
+          @Icons.Svg(source.Icon, null, 18)
+          <span class="flex-1 truncate">@source.Title</span>
+          <span class="a-badge @(count > 0 ? "a-badge-red" : "a-badge-gray")">@Format.Number(count)</span>
+        </a>
+      }
+    </div>
+  </nav>
+
+  <section class="a-card lg:col-span-3" data-bulk>
+    @if (sel is null)
+    {
+      <div class="a-empty">@Icons.Svg("Trash", null, 32)<p class="mt-2">سطل بازیافت خالی است.</p></div>
+    }
+    else
+    {
+      <div class="a-card-head">
+        <h3 class="a-card-title">@Icons.Svg(sel.Icon, null, 18) @sel.Title حذف‌شده <span class="a-muted text-sm font-normal">(@Format.Number(Model.SelectedCount))</span></h3>
+      </div>
+      <form method="post" asp-page-handler="Restore" id="trash-bulk" class="a-bulkbar" data-bulk-bar>
+        <input type="hidden" name="type" value="@sel.Key">
+        <span><b data-bulk-count>0</b> مورد انتخاب شد</span>
+        <button type="submit" class="a-btn a-btn-xs">@Icons.Svg("ArrowCounterClockwise", null, 14) بازگرداندن انتخاب‌شده‌ها</button>
+      </form>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead>
+            <tr>
+              <th class="w-8"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th>
+              <th>مورد</th><th>زمان حذف</th><th>حذف توسط</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var row in Model.Rows)
+            {
+              <tr>
+                <td data-label=""><input type="checkbox" name="ids" value="@row.Id" form="trash-bulk" data-row-check aria-label="انتخاب @row.Label"></td>
+                <td data-label="مورد" dir="auto">@row.Label</td>
+                <td data-label="زمان حذف" class="nowrap"><span title="@(row.DeletedAt is { } d ? Format.DateTime(d) : "")">@(row.DeletedAt is { } at ? Format.Relative(at) : "—")</span></td>
+                <td data-label="حذف توسط">@(Model.DeletedBy.GetValueOrDefault(row.Id) ?? "—")</td>
+                <td class="actions" data-label="">
+                  <form method="post" asp-page-handler="Restore" class="inline">
+                    <input type="hidden" name="type" value="@sel.Key"><input type="hidden" name="ids" value="@row.Id">
+                    <button type="submit" class="a-btn a-btn-xs a-btn-light">@Icons.Svg("ArrowCounterClockwise", null, 14) بازگرداندن</button>
+                  </form>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (Model.Rows.Count == 0)
+        {
+          <div class="a-empty">در این بخش موردی حذف نشده است.</div>
+        }
+      </div>
+      <partial name="_AdminPager" model="new PagerModel(Model.CurrentPage, Math.Max(1, (int)Math.Ceiling(Model.SelectedCount / (double)Fratak_Shop.Web.Areas.Admin.Pages.Trash.IndexModel.Take)), Model.SelectedCount)" />
+    }
+  </section>
+</div>

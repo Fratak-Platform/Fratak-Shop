@@ -29,6 +29,19 @@ public interface IAdminDataService
 
     /// <summary>Validation against the model (required / max length) – null when valid.</summary>
     string? Validate<T>(T entity) where T : class;
+
+    /// <summary>
+    /// ردیف‌های حذف‌شده (سطل بازیافت) – فقط خواندنی.
+    /// حذف در این پروژه نرم است (IsDeleted)، پس ردیف حذف‌شده هنوز در دیتابیس هست و می‌شود برش گرداند.
+    /// استفاده: صفحهٔ «سطل بازیافت» و نمای «حذف‌شده‌ها» در جدول‌های مدیریت داده.
+    /// </summary>
+    IQueryable<T> QueryDeleted<T>() where T : BaseEntity;
+
+    /// <summary>
+    /// بازگرداندن یک ردیف از سطل بازیافت (IsDeleted=false). اگر در این فاصله ردیف دیگری با همان نامک/کد ساخته شده باشد
+    /// پیام خطای قابل فهم برمی‌گردد. در گزارش فعالیت با عملیات «بازیابی» ثبت می‌شود.
+    /// </summary>
+    Task<OperationResult> RestoreAsync<T>(Guid id) where T : BaseEntity;
 }
 
 public class AdminDataService(FratakShopDbContext context) : IAdminDataService
@@ -71,6 +84,29 @@ public class AdminDataService(FratakShopDbContext context) : IAdminDataService
         {
             await context.SaveChangesAsync();
             return OperationResult.Success("مورد حذف شد.");
+        }
+        catch (DbUpdateException exception)
+        {
+            context.ChangeTracker.Clear();
+            return OperationResult.Error(Describe(exception));
+        }
+    }
+
+    public IQueryable<T> QueryDeleted<T>() where T : BaseEntity =>
+        context.Set<T>().IgnoreQueryFilters().AsNoTracking().Where(e => e.IsDeleted);
+
+    public async Task<OperationResult> RestoreAsync<T>(Guid id) where T : BaseEntity
+    {
+        var entity = await context.Set<T>().IgnoreQueryFilters().AsTracking().FirstOrDefaultAsync(e => e.Id == id && e.IsDeleted);
+        if (entity is null)
+            return OperationResult.NotFound("این مورد در سطل بازیافت نیست (شاید قبلاً بازیابی شده است).");
+
+        entity.IsDeleted = false;
+        entity.DeletedAt = null;
+        try
+        {
+            await context.SaveChangesAsync();
+            return OperationResult.Success("مورد از سطل بازیافت برگردانده شد.");
         }
         catch (DbUpdateException exception)
         {

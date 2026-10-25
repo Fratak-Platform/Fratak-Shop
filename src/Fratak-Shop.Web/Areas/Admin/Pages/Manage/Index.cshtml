@@ -8,18 +8,29 @@
     <h2>همه جدول‌ها و تنظیمات پایه</h2>
     <p class="a-muted text-sm mt-1">داده‌های پایه فروشگاه که از اینجا قابل مدیریت‌اند (بر اساس دسترسی شما).</p>
   </div>
+  <a href="/admin/trash" class="a-btn a-btn-light">@Icons.Svg("Trash", null, 18) سطل بازیافت</a>
 </div>
+@if (Model.Items.Count > 6)
+{
+  <div class="a-card a-list-toolbar mb-4">
+    <span class="a-list-search-box flex-1">
+      @Icons.Svg("MagnifyingGlass", null, 18)
+      <input type="search" class="a-input" placeholder="پیدا کردن جدول… (مثلاً کوپن، منو، ارسال)" aria-label="پیدا کردن جدول" data-card-filter="[data-card-item]">
+    </span>
+  </div>
+}
 @if (Model.Items.Count == 0)
 {
   <div class="a-card"><div class="a-empty">جدولی برای مدیریت در دسترس شما نیست.</div></div>
 }
 @foreach (var group in Model.Items.GroupBy(i => i.Def.Group))
 {
+  <section data-card-group>
   <h3 class="a-section-title">@group.Key</h3>
   <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-6">
     @foreach (var (def, count) in group)
     {
-      <a href="/admin/manage/@def.Key" class="a-card a-card-body flex items-start gap-3 hover:shadow-md transition">
+      <a href="/admin/manage/@def.Key" class="a-card a-card-body flex items-start gap-3 hover:shadow-md transition" data-card-item data-search="@def.Title @def.Singular @def.Key @def.Description">
         <span class="a-stat-icon">@Icons.Svg(def.Icon, null, 22)</span>
         <span class="min-w-0">
           <span class="block font-semibold text-gray-800">@def.Title</span>
@@ -29,4 +40,6 @@
       </a>
     }
   </div>
+  </section>
 }
+<div class="a-card" data-card-empty hidden><div class="a-empty">جدولی با این نام پیدا نشد.</div></div>

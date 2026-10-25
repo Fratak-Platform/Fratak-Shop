@@ -17,13 +17,15 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     public static readonly AuditSaveChangesInterceptor Instance = new();
 
     private const int MaxEntriesPerSave = 100;
-    private const int MaxValueLength = 300;
+    // مقدار کامل متن‌ها (تا این طول) نگه داشته می‌شود تا «بازگردانی تغییر» برای توضیحات و متن مقاله هم ممکن باشد.
+    // مقدار طولانی‌تر بریده می‌شود و با «…» تمام می‌شود؛ این فیلدها قابل بازگردانی خودکار نیستند (AuditHistoryService).
+    public const int MaxValueLength = 60_000;
 
     private static readonly HashSet<string> IgnoredTypes = new(StringComparer.Ordinal)
     {
         nameof(AuditLog), nameof(ErrorLog), nameof(SecurityLog),
         "ProductPriceHistory", "SearchQueryLog", "SeoNotFoundLog", "UserRefreshToken", "UserKnownDevice",
-        "NotificationRead", "WebPushSubscription", "CartItem", "Cart", "StaffNotification", "AdminUserPreference",
+        "NotificationRead", "WebPushSubscription", "CartItem", "Cart", "StaffNotification", "AdminUserPreference", "EditDraft",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)
@@ -97,7 +99,14 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                           && entry.Property("IsDeleted").CurrentValue is true
                           && entry.Property("IsDeleted").OriginalValue is false);
 
-        var action = entry.State == EntityState.Added ? "create" : deleted ? "delete" : "update";
+        // بازیابی از سطل بازیافت: IsDeleted از true به false.
+        var restored = entry.State == EntityState.Modified
+                       && entry.Metadata.FindProperty("IsDeleted") is not null
+                       && entry.Property("IsDeleted").IsModified
+                       && entry.Property("IsDeleted").CurrentValue is false
+                       && entry.Property("IsDeleted").OriginalValue is true;
+
+        var action = entry.State == EntityState.Added ? "create" : deleted ? "delete" : restored ? "restore" : "update";
         var changes = new Dictionary<string, object?[]>(StringComparer.Ordinal);
         var prefix = entry.Metadata.IsOwned() ? entry.Metadata.ClrType.Name.Replace("MetaData", "") + "." : "";
 
@@ -159,10 +168,24 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         return Truncate(string.Join(",", values), 64);
     }
 
+    /// <summary>
+    /// متن یک مقدار همان‌طور که در ستون Changes ذخیره می‌شود. AuditHistoryService برای مقایسهٔ «مقدار فعلی»
+    /// با «مقدار بعد از تغییر» از همین تابع استفاده می‌کند تا قالب‌ها یکی باشند.
+    /// </summary>
+    public static string? FormatValue(object? value) => Format(value);
+
+    /// <summary>
+    /// فیلدهایی که هرگز ثبت نمی‌شوند (رمز، توکن، کلید و فیلدهای سیستمی Id/CreatedAt/…).
+    /// بازگردانی تغییر هم روی این فیلدها انجام نمی‌شود.
+    /// </summary>
+    public static bool IsProtectedProperty(string name) =>
+        IgnoredProperties.Contains(name) || name == "Auth" || Array.Exists(SecretFragments, f => name.Contains(f, StringComparison.Ordinal));
+
     private static string? Format(object? value) => value switch
     {
         null => null,
-        DateTimeOffset date => date.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+        // همیشه به وقت جهانی (UTC) تا بازگردانی (AuditHistoryService.TryParse) همان لحظه را بسازد، هر offsetی که مقدار داشته باشد.
+        DateTimeOffset date => date.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
         decimal number => number.ToString("0.##", CultureInfo.InvariantCulture),
         IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
         _ => Truncate(value.ToString(), MaxValueLength),

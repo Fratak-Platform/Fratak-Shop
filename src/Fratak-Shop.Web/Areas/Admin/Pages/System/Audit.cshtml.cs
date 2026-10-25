@@ -70,14 +70,23 @@ public class AuditModel(IMonitoringService monitoring) : AdminPageModel
         "create" => "ایجاد",
         "update" => "ویرایش",
         "delete" => "حذف",
+        "restore" => "بازیابی",
         _ => action,
     };
+
+    /// <summary>
+    /// کوتاه‌شدهٔ مقدار برای جدول گزارش (حداکثر ۳۰۰ نویسه). از مرحلهٔ هفتم مقدارهای طولانی (مثل متن کامل مقاله تا ۶۰ هزار نویسه)
+    /// برای «بازگردانی» کامل ذخیره می‌شوند؛ نمایش کاملشان صفحه را سنگین می‌کند. متن کامل در تاریخچهٔ صفحهٔ ویرایش همان مورد قابل بازگردانی است.
+    /// </summary>
+    public static string Short(string? value) =>
+        value is null ? "∅" : value.Length <= 300 ? value : value[..299] + "…";
 
     public static string ActionBadge(string action) => action switch
     {
         "create" => "a-badge-green",
         "update" => "a-badge-blue",
         "delete" => "a-badge-red",
+        "restore" => "a-badge-sky",
         _ => "a-badge-purple",
     };
 }

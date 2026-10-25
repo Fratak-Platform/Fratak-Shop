@@ -35,7 +35,11 @@
 
 @if (Model.CanEditProduct)
 {
-  <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack">
+  <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
+        data-edit-key="@(Model.IsNew ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
+        data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(Model.IsNew ? "محصول جدید" : "محصول: " + i.Name)"
+        data-autosave-ignore="Input.Images,Input.PrimaryImage">
+    <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
     <div class="a-grid xl:grid-cols-3">
       <div class="xl:col-span-2 a-stack">
         <div class="a-card">
@@ -232,7 +236,11 @@
   </form>
   @if (!Model.IsNew && Model.Can(AdminPermissions.ProductsDelete))
   {
-    <form method="post" asp-page-handler="Delete" id="delete-form" data-confirm="این محصول حذف شود؟ سفارش‌های قبلی آن حفظ می‌شوند." data-confirm-danger></form>
+    <form method="post" asp-page-handler="Delete" id="delete-form" data-confirm="این محصول به سطل بازیافت منتقل شود؟ سفارش‌های قبلی آن حفظ می‌شوند و از «سطل بازیافت» قابل برگرداندن است." data-confirm-danger></form>
+  }
+  @if (Model.History is not null)
+  {
+    <div class="mt-4"><partial name="_EditHistory" model="Model.History" /></div>
   }
 }
 else
