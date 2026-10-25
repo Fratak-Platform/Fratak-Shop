@@ -129,8 +129,19 @@ public abstract class AdminPageModel : ShopPageModel
 
     protected string ActorName => Access.DisplayName;
 
-    /// <summary>Redirect back to the current page (keeps the query string: filters and paging).</summary>
-    protected IActionResult BackToList() => Redirect(Request.Path + Request.QueryString);
+    /// <summary>
+    /// Redirect back to the page the form was posted from (keeps its filters and paging), or to the
+    /// current page without the handler.
+    /// </summary>
+    protected IActionResult BackToList()
+    {
+        if (Uri.TryCreate(Request.Headers.Referer.ToString(), UriKind.Absolute, out var referer)
+            && string.Equals(referer.Authority, Request.Host.Value, StringComparison.OrdinalIgnoreCase)
+            && referer.AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase))
+            return LocalRedirect(referer.PathAndQuery);
+
+        return LocalRedirect(Request.Path.HasValue ? Request.Path.Value! : "/admin");
+    }
 
     protected static int ClampPage(int page) => Math.Max(1, page);
 }

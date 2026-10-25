@@ -1,0 +1,29 @@
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.DetailModel
+<div class="a-form-grid cols-2">
+  <div class="a-field span-all">
+    <label class="a-label">فایل فاکتور (PDF یا تصویر، حداکثر ۱۰ مگابایت)<span class="req">*</span></label>
+    <input type="file" name="invoiceFile" accept="application/pdf,image/jpeg,image/png,image/webp" class="a-input" data-required-when-shown>
+  </div>
+  <div class="a-field">
+    <label class="a-label">مبلغ خرید (تومان)<span class="req">*</span></label>
+    <input type="number" name="invoiceAmount" min="1" step="1" class="a-input a-ltr" data-required-when-shown>
+  </div>
+  <div class="a-field">
+    <label class="a-label">شماره فاکتور / سفارش در سایت تأمین‌کننده</label>
+    <input name="invoiceNumber" class="a-input a-ltr" maxlength="100">
+  </div>
+  <div class="a-field">
+    <label class="a-label">تأمین‌کننده</label>
+    <select name="supplierId" class="a-select">
+      <option value="">— انتخاب —</option>
+      @foreach (var s in Model.Suppliers)
+      {
+        <option value="@s.Id">@s.Name</option>
+      }
+    </select>
+  </div>
+  <div class="a-field">
+    <label class="a-label">یا نام تأمین‌کننده (اگر در فهرست نیست)</label>
+    <input name="supplierName" class="a-input" maxlength="150">
+  </div>
+</div>

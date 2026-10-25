@@ -12,7 +12,7 @@ namespace Fratak_Shop.Web.Pages.Profile;
 /// invoice. The PDF is generated in the browser (html2pdf, vendored) – nothing is stored.
 /// <c>?print=1</c> is used by the "quick print" button of the order page (hidden iframe).
 /// </summary>
-public class InvoiceModel(IOrderService orderService, IInvoiceService invoiceService) : ShopPageModel
+public class InvoiceModel(IOrderService orderService, IInvoiceService invoiceService, Fratak_Shop.Core.Services.Admin.IAdminAccessService adminAccess) : ShopPageModel
 {
     public OrderDto Order { get; private set; } = null!;
 
@@ -28,7 +28,13 @@ public class InvoiceModel(IOrderService orderService, IInvoiceService invoiceSer
     public async Task<IActionResult> OnGetAsync(string orderNumber)
     {
         var order = await orderService.GetOrderByNumberAsync(orderNumber);
-        if (order is null || order.UserId != CurrentUserId)
+        if (order is null)
+            return NotFound();
+
+        // The owner of the order – or a staff member who can see orders (printing from the admin panel).
+        if (order.UserId != CurrentUserId
+            && (CurrentUserId is not { } viewerId
+                || !(await adminAccess.GetAccessAsync(viewerId)).Has(Fratak_Shop.Core.Services.Admin.AdminPermissions.OrdersView)))
             return NotFound();
 
         if (order.InvoiceNumber is null && IInvoiceService.IsEligible(order.PaymentStatus, order.Status))
