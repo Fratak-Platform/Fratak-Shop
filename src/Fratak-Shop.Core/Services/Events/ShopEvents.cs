@@ -3,6 +3,7 @@ using Fratak_Shop.Core.DTOs.Notifications;
 using Fratak_Shop.Core.Services.Loyalty;
 using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Admin;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Notifications;
@@ -57,6 +58,7 @@ public class ShopEvents(
     private Orders.IInvoiceService Invoices => services.GetRequiredService<Orders.IInvoiceService>();
     private Shopping.IAbandonedCartService AbandonedCarts => services.GetRequiredService<Shopping.IAbandonedCartService>();
     private Orders.IOrderFeedbackService Feedback => services.GetRequiredService<Orders.IOrderFeedbackService>();
+    private Admin.IStaffNotificationService Staff => services.GetRequiredService<Admin.IStaffNotificationService>();
 
     public Task OrderPlacedAsync(Guid orderId) => RunAsync(nameof(OrderPlacedAsync), async () =>
     {
@@ -66,6 +68,12 @@ public class ShopEvents(
 
         await NotifyOrderAsync(order, NotificationEvent.OrderPlaced);
         await AbandonedCarts.MarkRecoveredAsync(order.UserId.Value, order.Id, order.PayableAmount);
+
+        // اعلان کارکنان: سفارش‌های پرداخت در محل / کارت به کارت همین حالا قابل پیگیری‌اند.
+        // سفارش‌های آنلاین و کیف پول بعد از پرداخت (OrderPaidAsync) اعلام می‌شوند تا اعلان تکراری نرود.
+        var method = await context.Orders.Where(o => o.Id == orderId).Select(o => o.PaymentMethod).FirstOrDefaultAsync();
+        if (method is PaymentMethod.CashOnDelivery or PaymentMethod.BankTransfer)
+            await NotifyStaffOfOrderAsync(order, "سفارش جدید", StaffNotificationKind.NewOrder);
     });
 
     public Task OrderPaidAsync(Guid orderId) => RunAsync(nameof(OrderPaidAsync), async () =>
@@ -76,7 +84,20 @@ public class ShopEvents(
 
         await NotifyOrderAsync(order, NotificationEvent.OrderPaid);
         await Invoices.EnsureIssuedAsync(orderId);
+        await NotifyStaffOfOrderAsync(order, "سفارش جدید پرداخت شد", StaffNotificationKind.OrderPaid);
     });
+
+    /// <summary>
+    /// اعلان «سفارش جدید» به کارکنانی که مجوز مشاهدهٔ سفارش دارند (زنگوله پنل + صدا + پوش).
+    /// مثال متن: «سفارش جدید پرداخت شد FR-1024» / «علی رضایی – 1,250,000 تومان».
+    /// </summary>
+    private Task NotifyStaffOfOrderAsync(OrderSnapshot order, string title, StaffNotificationKind kind) =>
+        Staff.NotifyAsync(new Admin.StaffAlert(
+            kind,
+            $"{title} {order.OrderNumber}",
+            $"{order.CustomerName} – {order.PayableAmount:N0} تومان",
+            $"/admin/orders/{order.Id}",
+            [Admin.AdminPermissions.OrdersView]));
 
     public Task OrderStatusChangedAsync(Guid orderId, OrderStatus status) => RunAsync(nameof(OrderStatusChangedAsync), async () =>
     {

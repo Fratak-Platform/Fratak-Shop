@@ -16,6 +16,43 @@ public static class DataChangeNotifier
 
     private static long _globalVersion;
 
+    /// <summary>
+    /// رویداد «ردیف‌های تازه ثبت شدند»: بعد از ذخیرهٔ موفق، فهرست موجودیت‌هایی که اضافه شده‌اند را می‌دهد.
+    /// <para>
+    /// کاربرد: اعلان زندهٔ کارکنان بدون این‌که سرویس‌های سفارش/تیکت/دیدگاه تغییر کنند.
+    /// مثلاً وقتی یک <c>Order</c> تازه ذخیره شد، شنوندهٔ لایهٔ Web برای کارکنان اعلان «سفارش جدید» می‌سازد.
+    /// شنونده باید سریع باشد و هرگز خطا پرتاب نکند (کار سنگین را در صف پس‌زمینه انجام دهد).
+    /// </para>
+    /// اگر هیچ شنونده‌ای ثبت نشده باشد، فهرست ساخته نمی‌شود و هزینه‌ای ندارد.
+    /// </summary>
+    public static event Action<IReadOnlyList<object>>? EntitiesAdded;
+
+    /// <summary>آیا کسی به <see cref="EntitiesAdded"/> گوش می‌دهد؟ (برای جلوگیری از کار اضافه)</summary>
+    public static bool HasAddedListeners => EntitiesAdded is not null;
+
+    /// <summary>اعلام ردیف‌های تازه به شنونده‌ها؛ خطای شنونده عملیات اصلی را خراب نمی‌کند.</summary>
+    public static void PublishAdded(IReadOnlyList<object> entities)
+    {
+        if (entities.Count == 0)
+            return;
+
+        var handlers = EntitiesAdded;
+        if (handlers is null)
+            return;
+
+        foreach (var handler in handlers.GetInvocationList().Cast<Action<IReadOnlyList<object>>>())
+        {
+            try
+            {
+                handler(entities);
+            }
+            catch
+            {
+                // عملیات اصلی قبلاً ثبت شده است؛ خطای شنونده نباید آن را خراب کند.
+            }
+        }
+    }
+
     public static long GlobalVersion => Interlocked.Read(ref _globalVersion);
 
     public static long VersionOf(Type type) => Versions.TryGetValue(type, out var version) ? version : 0;

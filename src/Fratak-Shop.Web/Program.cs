@@ -201,6 +201,8 @@ app.UseReferralCapture();
 app.UseOutputCache();
 
 app.MapRazorPages();
+// اتصال زندهٔ سایت و پنل (اعلان لحظه‌ای، هشدار ویرایش هم‌زمان) – فایل سمت مرورگر: assets/js/live.js
+app.MapHub<Fratak_Shop.Web.Infrastructure.Realtime.LiveHub>(Fratak_Shop.Web.Infrastructure.Realtime.LiveHub.Path);
 app.MapAuthApi();
 app.MapSeoEndpoints();
 app.MapPwaEndpoints();

@@ -109,5 +109,25 @@ public static class Format
     /// <summary>Unix milliseconds, for the JavaScript countdown timers.</summary>
     public static long UnixMilliseconds(DateTimeOffset date) => date.ToUnixTimeMilliseconds();
 
+    /// <summary>
+    /// زمان نسبی کوتاه برای فهرست اعلان‌ها و فعالیت‌ها.
+    /// مثال: «همین حالا»، «۵ دقیقه پیش»، «۳ ساعت پیش»، «دیروز»؛ قدیمی‌تر از یک هفته → تاریخ شمسی.
+    /// </summary>
+    public static string Relative(DateTimeOffset date)
+    {
+        var elapsed = DateTimeOffset.UtcNow - date;
+        if (elapsed < TimeSpan.FromMinutes(1))
+            return "همین حالا";
+        if (elapsed < TimeSpan.FromHours(1))
+            return $"{(int)elapsed.TotalMinutes} دقیقه پیش";
+        if (elapsed < TimeSpan.FromDays(1))
+            return $"{(int)elapsed.TotalHours} ساعت پیش";
+        if (elapsed < TimeSpan.FromDays(2))
+            return "دیروز";
+        if (elapsed < TimeSpan.FromDays(7))
+            return $"{(int)elapsed.TotalDays} روز پیش";
+        return Date(date);
+    }
+
     private static System.DateTime ToIranTime(DateTimeOffset date) => TimeZoneInfo.ConvertTime(date, IranTimeZone).DateTime;
 }

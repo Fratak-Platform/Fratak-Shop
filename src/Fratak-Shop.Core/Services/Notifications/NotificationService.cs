@@ -31,6 +31,12 @@ public interface INotificationService
 
     /// <summary>Admin: sends a message to a customer group (stored once).</summary>
     Task<OperationResult> CreateBroadcastAsync(CreateBroadcastCommand command);
+
+    /// <summary>پیش‌نمایش قالب با دادهٔ واقعی کارمند (ویرایشگر قالب پیام در پنل).</summary>
+    Task<NotificationPreview> PreviewAsync(NotificationEvent @event, Guid userId, string? title, string? body, string? sms);
+
+    /// <summary>جایگزینی برچسب‌های متن آزاد (پاسخ آماده، اعلان تکی) با اطلاعات یک کاربر.</summary>
+    Task<string> RenderForUserAsync(Guid? userId, string text, IReadOnlyDictionary<string, string?>? extra = null);
 }
 
 public partial class NotificationService(
@@ -39,6 +45,7 @@ public partial class NotificationService(
     IMemoryCache cache,
     ISmsSender smsSender,
     IPushSender pushSender,
+    IRealtimeNotifier realtime,
     ILogger<NotificationService> logger) : INotificationService
 {
     private static readonly TimeSpan UnreadCacheLifetime = TimeSpan.FromSeconds(60);
@@ -70,16 +77,12 @@ public partial class NotificationService(
             var settings = await settingService.GetAsync();
             request.Values.TryAdd("SiteName", settings.SiteName);
 
-            if (!request.Values.ContainsKey("Name"))
-            {
-                var name = await context.Users.Where(u => u.Id == request.UserId)
-                    .Select(u => u.FirstName ?? "کاربر").FirstOrDefaultAsync();
-                request.Values["Name"] = name ?? "کاربر";
-            }
+            // پر کردن خودکار برچسب‌های استفاده‌شده (نام، موبایل، اطلاعات سفارش و ...).
+            await EnrichAsync(request.UserId, request.Values, [title, body, smsText, "{Name}"]);
 
             if (inSite && !string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(body))
             {
-                context.Notifications.Add(new Notification
+                var notification = new Notification
                 {
                     UserId = request.UserId,
                     Audience = NotificationAudience.User,
@@ -89,10 +92,21 @@ public partial class NotificationService(
                     Body = Limit(Render(body, request.Values), 2000),
                     LinkUrl = IsSafeLink(request.LinkUrl) ? request.LinkUrl : null,
                     LinkText = linkText is null ? null : Limit(linkText, 100),
-                });
+                };
+                context.Notifications.Add(notification);
 
                 await context.SaveChangesAsync();
                 cache.Remove(UnreadKey(request.UserId));
+
+                // ارسال زنده به پنجره‌های باز سایت (نمایش toast + صدا + به‌روزرسانی شمارندهٔ زنگوله).
+                await realtime.SendToUserAsync(request.UserId, RealtimeMethods.Notification, new
+                {
+                    id = notification.Id,
+                    title = notification.Title,
+                    body = Limit(notification.Body, 300),
+                    url = IsSafeLink(request.LinkUrl) ? request.LinkUrl : "/profile/notifications",
+                    unread = await GetUnreadCountAsync(request.UserId),
+                });
             }
 
             if (push && settings.CanUseWebPush && !string.IsNullOrWhiteSpace(title))
@@ -258,6 +272,18 @@ public partial class NotificationService(
         });
 
         await context.SaveChangesAsync();
+
+        // اعلان همگانی که همین حالا منتشر شده: به همهٔ کاربران آنلاین خبر داده می‌شود.
+        // برای گروه‌های خاص (سطح باشگاه و ...) فقط «شمارنده را تازه کن» فرستاده می‌شود تا هر مرورگر
+        // خودش تعداد درست را بگیرد و پیام به کسی که مخاطب نیست نشان داده نشود.
+        if (command.PublishAt is null || command.PublishAt <= DateTimeOffset.UtcNow)
+        {
+            if (command.Audience == NotificationAudience.AllCustomers)
+                await realtime.SendToAllUsersAsync(RealtimeMethods.Notification, new { title, body = Limit(body, 300), url = "/profile/notifications", unread = (int?)null });
+            else
+                await realtime.SendToAllUsersAsync(RealtimeMethods.Refresh, new { scope = "notifications" });
+        }
+
         return OperationResult.Success("پیام برای مخاطبان منتشر شد.");
     }
 

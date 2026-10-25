@@ -1,7 +1,11 @@
 @inject AdminBadgeService BadgeService
+@inject IStaffNotificationService StaffNotifications
 @{
     var access = ViewContext.HttpContext.Items[AdminPageFilter.AccessItemKey] as AdminAccess;
     var badges = access is null ? new Dictionary<string, int>() : await BadgeService.GetAsync();
+    // منوی زنگوله: ۸ اعلان آخر + تعداد خوانده‌نشده‌ها (live.js آن را زنده به‌روز می‌کند).
+    List<StaffNotificationDto> bellItems = access is null ? [] : await StaffNotifications.GetLatestAsync(access.UserId, 8);
+    var bellUnread = access is null ? 0 : await StaffNotifications.GetUnreadCountAsync(access.UserId);
     var path = (ViewContext.HttpContext.Request.Path.Value ?? "/admin").TrimEnd('/').ToLowerInvariant();
     if (path.Length == 0) { path = "/admin"; }
     var title = ViewData["Title"] as string ?? "پنل مدیریت";
@@ -25,7 +29,7 @@
   <link rel="stylesheet" href="~/assets/css/admin.css" asp-append-version="true">
   @await RenderSectionAsync("Head", required: false)
 </head>
-<body class="a-body">
+<body class="a-body" data-realtime="@(access is null ? "0" : "1")">
   <div class="a-shell">
     <aside class="a-sidebar" id="admin-sidebar" data-sidebar>
       <div class="a-sidebar-head">
@@ -75,6 +79,35 @@
             <input type="search" name="q" placeholder="شماره سفارش، نام یا موبایل مشتری…" aria-label="جست‌وجوی سفارش" maxlength="100">
           </form>
         }
+        <div class="a-bell" data-dropdown>
+          <button type="button" class="a-icon-btn relative" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="اعلان‌های من">
+            @Icons.Svg("Bell", null, 22)
+            <span class="a-bell-count" data-live-count="staff" data-value="@bellUnread" hidden="@(bellUnread <= 0)">@(bellUnread > 99 ? "99+" : bellUnread.ToString())</span>
+          </button>
+          <div class="a-dropdown a-bell-menu" data-dropdown-menu hidden>
+            <div class="a-bell-head">
+              <strong>اعلان‌ها</strong>
+              <a href="/admin/inbox" class="text-xs text-sky-600 hover:underline">مشاهدهٔ همه</a>
+            </div>
+            <div class="a-bell-list" data-staff-list>
+              @if (bellItems.Count == 0)
+              {
+                <p class="a-bell-empty" data-staff-empty>اعلان تازه‌ای ندارید.</p>
+              }
+              @foreach (var n in bellItems)
+              {
+                <a class="a-bell-item @(n.IsRead ? "" : "is-unread")" href="/admin/inbox?open=@n.Id">
+                  <span class="a-bell-title">@n.Title</span>
+                  <span class="a-bell-meta">@(string.IsNullOrEmpty(n.Body) ? "" : n.Body + " · ")@Format.Relative(n.CreatedAt)</span>
+                </a>
+              }
+            </div>
+            <div class="a-bell-foot">
+              <button type="button" class="a-dropdown-item" data-sound-toggle aria-pressed="true">@Icons.Svg("SpeakerHigh", null, 18) <span data-sound-label>صدای اعلان</span></button>
+              <button type="button" class="a-dropdown-item" data-push-enable>@Icons.Svg("BellRinging", null, 18) <span data-push-label>اعلان مرورگر</span></button>
+            </div>
+          </div>
+        </div>
         <div class="a-user" data-dropdown>
           <button type="button" class="a-user-btn" data-dropdown-toggle aria-haspopup="true" aria-expanded="false">
             @Icons.Svg("UserCircle", null, 24)
@@ -111,6 +144,8 @@
 
   <script src="~/assets/js/modal.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin.js" asp-append-version="true"></script>
+  <script src="~/assets/js/dependencies/signalr/signalr.min.js" asp-append-version="true"></script>
+  <script src="~/assets/js/live.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

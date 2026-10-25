@@ -43,6 +43,9 @@ public static class EngagementDefaultsSeeder
 
         // Round 5
         await Round5DefaultsSeeder.SeedAsync(context, cancellationToken);
+
+        // Round 7 (پیام‌های آماده و ...)
+        await Round7DefaultsSeeder.SeedAsync(context, cancellationToken);
     }
 
     /// <summary>Texts of the round-4 settings (club description, install suggestion) – once, when still empty.</summary>

@@ -29,6 +29,9 @@ public interface IWebPushService
 
     Task RecordDeliveryAsync(Guid subscriptionId, bool succeeded, bool gone);
 
+    /// <summary>آمار اشتراک‌ها برای عیب‌یابی در پنل (همه یا یک کاربر).</summary>
+    Task<PushStats> GetStatsAsync(Guid? userId);
+
     /// <summary>Allowed push service hosts (public for the tests).</summary>
     static bool IsAllowedEndpoint(string? endpoint)
     {
@@ -44,6 +47,9 @@ public interface IWebPushService
                || host.EndsWith(".push.services.mozilla.com", StringComparison.Ordinal);
     }
 }
+
+/// <summary>آمار پوش: کل دستگاه‌ها، سالم‌ها، کنار گذاشته‌شده‌ها (۵ خطای پیاپی) و آخرین ارسال موفق.</summary>
+public sealed record PushStats(int Total, int Healthy, int Failing, DateTimeOffset? LastSuccessAt);
 
 public sealed record VapidKeys(string PublicKey, string PrivateKey, string Subject);
 
@@ -167,11 +173,29 @@ public class WebPushService(FratakShopDbContext context, IStoreSettingService se
         await context.WebPushSubscriptions.Where(s => s.EndpointHash == hash).ExecuteDeleteAsync();
     }
 
-    public async Task<List<PushTarget>> GetTargetsAsync(Guid userId) =>
-        await context.WebPushSubscriptions
-            .Where(s => s.UserId == userId && s.FailureCount < 5)
+    public async Task<List<PushTarget>> GetTargetsAsync(Guid userId)
+    {
+        // اشتراکی که ۵ بار پشت سر هم خطا داده موقتاً کنار گذاشته می‌شود، ولی ۶ ساعت بعد دوباره امتحان می‌شود
+        // (قبلاً برای همیشه کنار می‌رفت و اگر سرویس پوش مدتی در دسترس نبود، پوش آن دستگاه دیگر هرگز کار نمی‌کرد).
+        var retryAfter = DateTimeOffset.UtcNow.AddHours(-6);
+        return await context.WebPushSubscriptions
+            .Where(s => s.UserId == userId && (s.FailureCount < 5 || s.UpdatedAt < retryAfter))
             .Select(s => new PushTarget(s.Id, s.Endpoint, s.P256dh, s.Auth))
             .ToListAsync();
+    }
+
+    public async Task<PushStats> GetStatsAsync(Guid? userId)
+    {
+        var query = context.WebPushSubscriptions.AsQueryable();
+        if (userId is { } id)
+            query = query.Where(s => s.UserId == id);
+
+        return new PushStats(
+            await query.CountAsync(),
+            await query.CountAsync(s => s.FailureCount == 0),
+            await query.CountAsync(s => s.FailureCount >= 5),
+            await query.MaxAsync(s => s.LastSuccessAt));
+    }
 
     public async Task RecordDeliveryAsync(Guid subscriptionId, bool succeeded, bool gone)
     {
@@ -187,7 +211,7 @@ public class WebPushService(FratakShopDbContext context, IStoreSettingService se
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSuccessAt, now).SetProperty(x => x.FailureCount, 0));
         else
             await context.WebPushSubscriptions.Where(s => s.Id == subscriptionId)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.FailureCount, x => x.FailureCount + 1));
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.FailureCount, x => x.FailureCount + 1).SetProperty(x => x.UpdatedAt, now));
     }
 
     private static string Hash(string endpoint) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(endpoint.Trim())));

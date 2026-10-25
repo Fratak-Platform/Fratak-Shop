@@ -329,3 +329,35 @@ details.a-details > summary::-webkit-details-marker { display: none; }
   .a-settings-layout > nav { position: sticky; top: 80px; }
   .a-settings-nav { flex-direction: column; }
 }
+
+/* ── مرحلهٔ هفتم: زنگولهٔ اعلان کارکنان (منوی بالای پنل) ─────────────── */
+.a-bell { position: relative; }
+.a-bell-count {
+  position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: #ef4444; color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-weight: 700;
+}
+.a-bell-count[hidden] { display: none; }
+.a-bell-menu { width: min(360px, calc(100vw - 24px)); padding: 0; left: 0; right: auto; }
+.a-bell-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--a-border); }
+.a-bell-list { max-height: 360px; overflow-y: auto; }
+.a-bell-empty { padding: 24px 14px; text-align: center; color: var(--a-muted); font-size: 13px; }
+.a-bell-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-bottom: 1px solid var(--a-border); text-decoration: none; }
+.a-bell-item:hover { background: var(--a-primary-soft); }
+.a-bell-item.is-unread { background: #f8faff; border-inline-start: 3px solid var(--a-primary); }
+.a-bell-title { font-weight: 600; font-size: 13px; color: var(--a-text); }
+.a-bell-meta { font-size: 12px; color: var(--a-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.a-bell-foot { display: flex; flex-direction: column; padding: 4px; border-top: 1px solid var(--a-border); }
+.a-bell-foot .a-dropdown-item[aria-pressed="false"] { color: var(--a-muted); }
+
+/* ── برچسب‌های قابل کلیک قالب پیام (ویرایشگر قالب، پیام‌های آماده) ─────── */
+.a-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.a-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; border: 1px dashed #a5b4fc;
+  background: var(--a-primary-soft); color: var(--a-primary-dark); font-size: 12px; cursor: pointer; user-select: none;
+}
+.a-chip:hover { background: #e0e7ff; border-style: solid; }
+.a-chip code { font-size: 11px; color: var(--a-muted); direction: ltr; }
+.a-preview {
+  border: 1px solid var(--a-border); border-radius: 12px; background: #fafbff; padding: 12px 14px; white-space: pre-wrap; line-height: 1.9;
+}
+.a-preview-phone { max-width: 320px; border-radius: 18px; background: #f1f5f9; padding: 14px; font-size: 13px; white-space: pre-wrap; }

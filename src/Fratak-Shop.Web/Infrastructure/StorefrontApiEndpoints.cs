@@ -66,6 +66,17 @@ public static class StorefrontApiEndpoints
             return Results.Ok(new { ok = true });
         });
 
+        // ── اعلان‌ها ─────────────────────────────────────────────────
+        // تعداد اعلان‌های خوانده‌نشده؛ live.js بعد از «refresh» یا وصل دوباره صدا می‌زند.
+        api.MapGet("/notifications/unread", async (HttpContext http, INotificationService notifications) =>
+        {
+            NoStore(http);
+            var userId = http.User.GetUserId();
+            if (userId is null)
+                return Results.Ok(new { unread = 0 });
+            return Results.Ok(new { unread = await notifications.GetUnreadCountAsync(userId.Value) });
+        });
+
         // ── Products ────────────────────────────────────────────────
         // View beacon: counts a visit at most once per visitor and product every 30 minutes and
         // remembers the product in "recently viewed" (works on cached product pages too).

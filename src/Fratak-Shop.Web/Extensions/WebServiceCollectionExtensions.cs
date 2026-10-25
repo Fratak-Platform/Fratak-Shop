@@ -57,6 +57,18 @@ public static class WebServiceCollectionExtensions
         services.AddHostedService<Infrastructure.Engagement.WebPushDispatcher>();
         services.AddHostedService<Infrastructure.Engagement.EngagementMaintenanceService>();
 
+        // مرحلهٔ هفتم: اتصال زنده (SignalR) برای اعلان لحظه‌ای سایت و پنل + هشدار ویرایش هم‌زمان.
+        services.AddSignalR(options =>
+        {
+            // پیام‌های مرورگر → سرور فقط کلید ویرایش است؛ سقف کوچک جلوی سوءاستفاده را می‌گیرد.
+            options.MaximumReceiveMessageSize = 4 * 1024;
+            options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+            options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+        });
+        services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, Infrastructure.Realtime.ShopUserIdProvider>();
+        services.Replace(ServiceDescriptor.Singleton<Core.Services.Notifications.IRealtimeNotifier, Infrastructure.Realtime.SignalRRealtimeNotifier>());
+        services.AddHostedService<Infrastructure.Realtime.StaffAlertDispatcher>();
+
         // Round 6: admin panel – permission filter, live activity, error logging to the database,
         // health checks, background-job monitor and log retention.
         services.AddScoped<Infrastructure.Admin.AdminPageFilter>();

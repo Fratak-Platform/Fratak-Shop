@@ -1,0 +1,20 @@
+@model IReadOnlyList<Fratak_Shop.Core.Services.Notifications.NotificationPlaceholderGroup>
+@*
+  دکمه‌های برچسب (placeholder) برای ویرایشگرهای پیام.
+  کاربرد: داخل یک کانتینر data-placeholder-editor؛ کلیک روی هر دکمه، برچسب را در فیلدی که آخرین بار
+  انتخاب شده (یا اولین فیلد data-chip-field) درج می‌کند. منطق در admin.js (بخش «برچسب‌ها») است.
+*@
+<div class="space-y-3">
+  @foreach (var group in Model)
+  {
+    <div>
+      <div class="a-muted text-xs mb-1">@group.Title</div>
+      <div class="a-chips">
+        @foreach (var item in group.Items)
+        {
+          <button type="button" class="a-chip" data-insert="{@item.Key}" title="نمونه: @item.Sample">@item.Title <code>{@item.Key}</code></button>
+        }
+      </div>
+    </div>
+  }
+</div>

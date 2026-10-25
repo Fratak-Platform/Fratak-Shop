@@ -1,6 +1,7 @@
 using Fratak_Shop.Core.DTOs.Admin;
 using Fratak_Shop.Core.DTOs.Engagement;
 using Fratak_Shop.Core.Services.Admin;
+using Fratak_Shop.Core.Services.Notifications;
 using Fratak_Shop.Core.Services.Support;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Support;
@@ -17,7 +18,7 @@ public sealed record AdminTicketMessage(Guid Id, bool IsStaff, string AuthorName
 [AdminPermission(AdminPermissions.TicketsManage)]
 [RequestFormLimits(MultipartBodyLengthLimit = 16 * 1024 * 1024)]
 [RequestSizeLimit(16 * 1024 * 1024)]
-public class DetailModel(IAdminDataService data, ITicketService tickets, IUploadStore uploads, ISiteContext site, IAdminAccessService access) : AdminPageModel
+public class DetailModel(IAdminDataService data, ITicketService tickets, IUploadStore uploads, ISiteContext site, IAdminAccessService access, INotificationService notifications) : AdminPageModel
 {
     public SupportTicket Ticket { get; private set; } = null!;
     public string DepartmentTitle { get; private set; } = "";
@@ -73,6 +74,20 @@ public class DetailModel(IAdminDataService data, ITicketService tickets, IUpload
         {
             ErrorMessage = error;
             return Redirect($"/admin/tickets/{id}#reply");
+        }
+
+        // برچسب‌های پیام آماده (مثلاً «سلام {FirstName}») با اطلاعات صاحب تیکت پر می‌شوند.
+        if (content?.Contains('{') == true)
+        {
+            var owner = await data.Query<SupportTicket>().Where(t => t.Id == id).Select(t => new { t.UserId, t.TicketNumber, t.Subject }).FirstOrDefaultAsync();
+            if (owner is not null)
+            {
+                content = await notifications.RenderForUserAsync(owner.UserId, content, new Dictionary<string, string?>
+                {
+                    ["TicketNumber"] = owner.TicketNumber,
+                    ["Subject"] = owner.Subject,
+                });
+            }
         }
 
         var result = await tickets.StaffReplyAsync(ActorId, id, content ?? "", files.Select(f => new TicketAttachmentInput(f.FileName, f.ContentType, f.SizeBytes)).ToList());

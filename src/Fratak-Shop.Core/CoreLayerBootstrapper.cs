@@ -32,6 +32,8 @@ public static class CoreLayerBootstrapper
         // cached in memory; the services invalidate the cache when the data changes.
         services.AddMemoryCache();
         services.TryAddSingleton<Services.Notifications.IPushSender, Services.Notifications.NullPushSender>();
+        // ارسال زنده: پیش‌فرض خالی است؛ لایهٔ Web پیاده‌سازی SignalR را جایگزین می‌کند.
+        services.TryAddSingleton<Services.Notifications.IRealtimeNotifier, Services.Notifications.NullRealtimeNotifier>();
 
         services.AddScoped<IStoreSettingService, StoreSettingService>();
         services.AddScoped<Services.Seo.ISitemapService, Services.Seo.SitemapService>();
@@ -98,6 +100,11 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Admin.IAdminOrderService, Services.Admin.AdminOrderService>();
         services.AddScoped<Services.Admin.IAdminReportService, Services.Admin.AdminReportService>();
         services.AddScoped<Services.Admin.IAdminCustomerService, Services.Admin.AdminCustomerService>();
+
+        // مرحلهٔ هفتم: اعلان کارکنان، پیام‌های آماده و تنظیمات شخصی پنل.
+        services.AddScoped<Services.Admin.IStaffNotificationService, Services.Admin.StaffNotificationService>();
+        services.AddScoped<Services.Admin.IReadyMessageService, Services.Admin.ReadyMessageService>();
+        services.AddScoped<Services.Admin.IAdminPreferenceService, Services.Admin.AdminPreferenceService>();
 
         return services;
     }

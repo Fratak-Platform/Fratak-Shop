@@ -38,8 +38,12 @@ public sealed class AdminCommentRow
 public sealed record AdminCommentReply(Guid Id, string AuthorName, string Content, CommentStatus Status, DateTimeOffset CreatedAt);
 
 [AdminPermission(AdminPermissions.CommentsModerate)]
-public class IndexModel(IAdminDataService data, ICommentService comments, ISiteContext site) : AdminPageModel
+public partial class IndexModel(IAdminDataService data, ICommentService comments, ISiteContext site) : AdminPageModel
 {
+    /// <summary>برچسب‌هایی مثل {FirstName} در پاسخ آماده (فقط برچسب‌های بی‌خطر برای نمایش عمومی جایگزین می‌شوند).</summary>
+    [global::System.Text.RegularExpressions.GeneratedRegex(@"\{([A-Za-z]+)\}")]
+    private static partial global::System.Text.RegularExpressions.Regex PublicPlaceholderRegex();
+
     private const int PageSize = 25;
 
     [BindProperty(SupportsGet = true, Name = "status")] public string? StatusFilter { get; set; }
@@ -165,6 +169,18 @@ public class IndexModel(IAdminDataService data, ICommentService comments, ISiteC
         {
             ErrorMessage = "به پاسخ‌ها نمی‌توان پاسخ داد؛ به دیدگاه اصلی پاسخ دهید.";
             return BackToList();
+        }
+
+        // پاسخ دیدگاه عمومی است؛ پس فقط نام نویسنده و نام فروشگاه جایگزین می‌شود (نه موبایل یا موجودی کیف پول).
+        if (content.Contains('{'))
+        {
+            var name = string.IsNullOrWhiteSpace(parent.AuthorName) ? "کاربر" : parent.AuthorName.Trim();
+            content = PublicPlaceholderRegex().Replace(content, m => m.Groups[1].Value.ToLowerInvariant() switch
+            {
+                "firstname" or "name" or "fullname" => name,
+                "sitename" => site.Settings.SiteName,
+                _ => m.Value,
+            });
         }
 
         // Answering implies the question/review is fine to publish.

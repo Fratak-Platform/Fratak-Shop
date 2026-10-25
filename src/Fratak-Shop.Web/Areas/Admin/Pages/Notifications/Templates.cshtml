@@ -1,0 +1,53 @@
+@page "/admin/notifications/templates"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Notifications.TemplatesModel
+@{
+    ViewData["Title"] = "قالب‌های پیام رویدادها";
+}
+<div class="a-page-head">
+  <div>
+    <h2>قالب‌های پیام رویدادها</h2>
+    <p class="a-muted text-sm mt-1">متن پیام‌های خودکار سیستم (اعلان سایت، اعلان مرورگر و پیامک). برای هر رویداد روی «ویرایش» بزنید؛ برچسب‌هایی مثل نام مشتری یا شماره سفارش با یک کلیک درج می‌شوند و پیش‌نمایش با اطلاعات واقعی نمایش داده می‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/ready-messages">@Icons.Svg("ChatCenteredText", null, 18) پیام‌های آماده</a>
+    <a class="a-btn a-btn-light" href="/admin/notifications">@Icons.Svg("Megaphone", null, 18) ارسال اعلان</a>
+  </div>
+</div>
+
+@foreach (var group in Model.Rows.GroupBy(r => r.Group))
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@group.Key</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>رویداد</th><th>عنوان پیام</th><th>اعلان سایت</th><th>اعلان مرورگر</th><th>پیامک</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var row in group)
+          {
+            var t = row.Template;
+            <tr>
+              <td data-label="رویداد" class="font-semibold">@row.Title</td>
+              <td data-label="عنوان پیام" class="text-sm">@(t?.Title ?? "— هنوز قالبی ساخته نشده —")</td>
+              @foreach (var (channel, on) in new[] { ("site", t?.IsActive == true), ("push", t?.IsActive == true && t.SendPush), ("sms", t?.SendSms == true) })
+              {
+                <td data-label="@(channel == "site" ? "اعلان سایت" : channel == "push" ? "اعلان مرورگر" : "پیامک")">
+                  @if (t is null)
+                  {
+                    <span class="a-muted">—</span>
+                  }
+                  else
+                  {
+                    <form method="post" asp-page-handler="Channel" asp-route-event="@row.Event" asp-route-channel="@channel" class="m-0">
+                      <button type="submit" class="a-badge @(on ? "a-badge-green" : "a-badge-gray")" title="برای تغییر کلیک کنید">@(on ? "روشن" : "خاموش")</button>
+                    </form>
+                  }
+                </td>
+              }
+              <td class="text-left"><a class="a-btn a-btn-light a-btn-xs" href="/admin/notifications/templates/@row.Event">@Icons.Svg("PencilSimple", null, 14) ویرایش</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

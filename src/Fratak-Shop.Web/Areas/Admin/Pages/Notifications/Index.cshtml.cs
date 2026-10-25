@@ -56,9 +56,13 @@ public sealed class DirectInput
 }
 
 [AdminPermission(AdminPermissions.NotificationsSend)]
-public class IndexModel(IAdminDataService data, INotificationService notifications, IPushSender pushSender, IStoreSettingService settings, IMonitoringService monitoring) : AdminPageModel
+public partial class IndexModel(IAdminDataService data, INotificationService notifications, IPushSender pushSender, IStoreSettingService settings, IMonitoringService monitoring, IWebPushService webPush) : AdminPageModel
 {
     private const int MaxPushRecipients = 20000;
+
+    /// <summary>برچسب باقی‌مانده پس از جایگزینی {SiteName}، مثلاً {FirstName}.</summary>
+    [global::System.Text.RegularExpressions.GeneratedRegex(@"\{[A-Za-z]+\}")]
+    private static partial global::System.Text.RegularExpressions.Regex PersonalPlaceholder();
 
     [BindProperty] public BroadcastInput Broadcast { get; set; } = new();
     [BindProperty] public DirectInput Direct { get; set; } = new();
@@ -71,6 +75,10 @@ public class IndexModel(IAdminDataService data, INotificationService notificatio
     public int PushDevices { get; private set; }
     public int Customers { get; private set; }
     public bool PushEnabled { get; private set; }
+    /// <summary>سلامت اشتراک‌های پوش همهٔ دستگاه‌ها (سالم / دارای خطا / آخرین تحویل موفق).</summary>
+    public PushStats PushHealth { get; private set; } = new(0, 0, 0, null);
+    /// <summary>نتیجهٔ آخرین تلاش ارسال پوش در این نمونهٔ برنامه (برای عیب‌یابی، مثلاً در دسترس نبودن FCM).</summary>
+    public Fratak_Shop.Web.Infrastructure.Engagement.PushDeliveryResult? LastPush => Fratak_Shop.Web.Infrastructure.Engagement.WebPushSender.LastResult;
 
     public async Task OnGetAsync()
     {
@@ -83,13 +91,23 @@ public class IndexModel(IAdminDataService data, INotificationService notificatio
     {
         var publish = PersianDateInput.Parse(Broadcast.PublishDate);
         var expire = PersianDateInput.Parse(Broadcast.ExpireDate);
+        // پیام همگانی یک بار ذخیره و برای همه نمایش داده می‌شود؛ پس برچسب‌های شخصی ({FirstName} و ...) معنا ندارند.
+        var broadcastTitle = await notifications.RenderForUserAsync(null, Broadcast.Title ?? "");
+        var broadcastBody = await notifications.RenderForUserAsync(null, Broadcast.Body ?? "");
+        if (PersonalPlaceholder().IsMatch(broadcastTitle) || PersonalPlaceholder().IsMatch(broadcastBody))
+        {
+            ErrorMessage = "در پیام همگانی فقط برچسب {SiteName} قابل استفاده است؛ برچسب‌های شخصی مثل {FirstName} را حذف کنید یا از «پیام اختصاصی» استفاده کنید.";
+            await LoadAsync();
+            return Page();
+        }
+
         var command = new CreateBroadcastCommand
         {
             Audience = Broadcast.Audience,
             LoyaltyTierId = Broadcast.LoyaltyTierId,
             Category = Broadcast.Category,
-            Title = Broadcast.Title ?? "",
-            Body = Broadcast.Body ?? "",
+            Title = broadcastTitle,
+            Body = broadcastBody,
             LinkUrl = Broadcast.LinkUrl,
             LinkText = Broadcast.LinkText,
             IsPinned = Broadcast.IsPinned,
@@ -200,6 +218,7 @@ public class IndexModel(IAdminDataService data, INotificationService notificatio
         Tiers = await data.Query<LoyaltyTier>().Where(t => t.IsActive).OrderBy(t => t.MinLifetimePoints).ToListAsync();
         PushEnabled = (await settings.GetAsync()).CanUseWebPush;
         PushDevices = await data.Query<WebPushSubscription>().CountAsync();
+        PushHealth = await webPush.GetStatsAsync(null);
         PushSubscribers = await data.Query<WebPushSubscription>().Where(s => s.UserId != null).Select(s => s.UserId).Distinct().CountAsync();
         Customers = await data.Query<User>().CountAsync();
 

@@ -500,9 +500,15 @@ for path in /admin /admin/orders "/admin/orders?invoice=missing" "/admin/orders?
             /admin/finance "/admin/finance?period=all" "/admin/finance?period=month" /admin/finance/payments /admin/finance/withdrawals "/admin/finance/withdrawals?status=" /admin/finance/wallet \
             /admin/gift-cards /admin/notifications /admin/abandoned-carts "/admin/abandoned-carts?period=all" \
             /admin/blog "/admin/blog?status=review" /admin/blog/edit /admin/content /admin/seo "/admin/seo?tab=404" "/admin/seo?tab=search" \
-            /admin/staff /admin/manage /admin/system /admin/system/live /admin/system/errors /admin/system/audit /admin/system/security; do
+            /admin/staff /admin/manage /admin/system /admin/system/live /admin/system/errors /admin/system/audit /admin/system/security \
+            /admin/inbox "/admin/inbox?unread=true" /admin/notifications/templates /admin/notifications/templates/OrderShipped /admin/ready-messages /profile/notifications; do
   expect 200 "$path"
 done
+echo "== Realtime (SignalR hub + unread counter)"
+expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
+contains_i "connectionToken"
+expect 200 /api/notifications/unread
+contains_i "unread"
 for tab in general contact footer orders payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
   expect 200 "/admin/settings?tab=$tab"
 done

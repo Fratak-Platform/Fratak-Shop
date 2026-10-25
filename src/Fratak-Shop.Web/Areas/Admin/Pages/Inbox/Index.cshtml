@@ -1,0 +1,102 @@
+@page "/admin/inbox"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Inbox.IndexModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Inbox
+@{
+    ViewData["Title"] = "اعلان‌های من";
+}
+<div class="a-page-head">
+  <div>
+    <h2>اعلان‌های من</h2>
+    <p class="a-muted text-sm mt-1">سفارش جدید، تیکت، پیام، دیدگاه و هر چیزی که به شما ارجاع شود اینجا جمع می‌شود. وقتی پنل باز است همان لحظه با صدا نمایش داده می‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="ReadAll" class="m-0"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("Check", null, 18) همه خوانده شد</button></form>
+    <form method="post" asp-page-handler="Test" class="m-0"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("BellRinging", null, 18) اعلان آزمایشی</button></form>
+  </div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <div class="a-pills mb-4">
+      <a class="a-pill @(!Model.UnreadOnly ? "is-active" : "")" href="/admin/inbox">همه</a>
+      <a class="a-pill @(Model.UnreadOnly ? "is-active" : "")" href="/admin/inbox?unread=true">خوانده‌نشده</a>
+    </div>
+    <div class="a-card">
+      <ul class="divide-y divide-gray-100">
+        @foreach (var n in Model.Items.Items)
+        {
+          <li class="flex items-start gap-3 p-4 @(n.IsRead ? "" : "bg-indigo-50/40")">
+            <span class="a-badge @IndexModel.KindBadge(n.Kind) shrink-0">@IndexModel.KindTitle(n.Kind)</span>
+            <div class="min-w-0 flex-1">
+              @if (n.Url is not null)
+              {
+                <a class="a-link font-semibold" href="/admin/inbox?open=@n.Id">@n.Title</a>
+              }
+              else
+              {
+                <span class="font-semibold">@n.Title</span>
+              }
+              @if (!string.IsNullOrEmpty(n.Body))
+              {
+                <p class="a-muted text-sm mt-1">@n.Body</p>
+              }
+              <p class="a-muted text-xs mt-1" title="@Format.DateTime(n.CreatedAt)">@Format.Relative(n.CreatedAt)</p>
+            </div>
+            @if (!n.IsRead)
+            {
+              <form method="post" asp-page-handler="Read" asp-route-id="@n.Id" asp-route-page="@Model.PageNumber" asp-route-unread="@Model.UnreadOnly" class="m-0">
+                <button class="a-btn a-btn-light a-btn-xs" type="submit" title="خوانده شد">@Icons.Svg("Check", null, 14)</button>
+              </form>
+            }
+          </li>
+        }
+      </ul>
+      @if (Model.Items.Items.Count == 0) { <div class="a-empty">اعلانی وجود ندارد.</div> }
+      <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="a-card">
+      <div class="a-card-head"><h3>این دستگاه</h3></div>
+      <div class="a-card-body space-y-3 text-sm">
+        <p class="a-muted">برای دریافت اعلان وقتی پنل بسته است، «اعلان مرورگر» را روی هر دستگاه (رایانه یا موبایل) یک بار فعال کنید.</p>
+        <button type="button" class="a-btn w-full" data-push-enable>@Icons.Svg("BellRinging", null, 18) <span data-push-label>فعال‌سازی اعلان مرورگر</span></button>
+        <button type="button" class="a-btn a-btn-light w-full" data-sound-toggle aria-pressed="true">@Icons.Svg("SpeakerHigh", null, 18) <span data-sound-label>صدای اعلان</span></button>
+        <dl class="grid grid-cols-2 gap-2 text-xs">
+          <dt class="a-muted">پوش در تنظیمات فروشگاه</dt><dd>@(Model.PushEnabled ? "فعال" : "خاموش")</dd>
+          <dt class="a-muted">دستگاه‌های ثبت‌شدهٔ شما</dt><dd>@Format.Number(Model.MyPush.Total) (سالم: @Format.Number(Model.MyPush.Healthy))</dd>
+          <dt class="a-muted">آخرین تحویل موفق</dt><dd>@(Model.MyPush.LastSuccessAt is { } at ? Format.Relative(at) : "—")</dd>
+          @if (Model.LastPush is { } last)
+          {
+            <dt class="a-muted">آخرین تلاش سرور</dt>
+            <dd class="a-ltr text-right">@last.Host · @(last.StatusCode?.ToString() ?? "بدون پاسخ") · @Format.Relative(last.At)</dd>
+          }
+        </dl>
+        @if (Model.LastPush is { StatusCode: null } failed)
+        {
+          <div class="a-alert a-alert-warn text-xs">
+            سرور نتوانست به سرویس پوش مرورگر (<span class="a-ltr">@failed.Host</span>) وصل شود. پوش کروم از سرورهای گوگل (FCM) عبور می‌کند و
+            اگر سرور به آن دسترسی نداشته باشد، اعلانِ «وقتی صفحه بسته است» نمی‌رسد؛ اعلان زنده داخل پنل و سایت همچنان کار می‌کند.
+            <div class="a-ltr text-left mt-1">@failed.Error</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <form method="post" asp-page-handler="Mute" class="a-card">
+      <div class="a-card-head"><h3>چه اعلان‌هایی دریافت شود؟</h3></div>
+      <div class="a-card-body space-y-2">
+        <p class="a-muted text-xs">فقط اعلان‌هایی که مجوز دیدنشان را دارید ارسال می‌شوند. تیک هر مورد را بردارید تا دیگر برایتان ارسال نشود.</p>
+        @foreach (var (kind, title) in IndexModel.MutableKinds)
+        {
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="receive" value="@kind" checked="@(!Model.Muted.Contains(kind))" class="a-check">
+            <span>@title</span>
+          </label>
+        }
+        <button class="a-btn mt-2" type="submit">ذخیره</button>
+      </div>
+    </form>
+  </div>
+</div>

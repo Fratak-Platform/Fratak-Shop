@@ -8,7 +8,7 @@
 /// </summary>
 public class CanonicalUrlMiddleware(RequestDelegate next)
 {
-    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/api", "/_", "/.well-known", "/admin", "/health"];
+    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/api", "/_", "/.well-known", "/admin", "/health", "/hubs"];
 
     /// <summary>Old hard-coded pages → content page slugs.</summary>
     private static readonly Dictionary<string, string> LegacyPaths = new(StringComparer.OrdinalIgnoreCase)

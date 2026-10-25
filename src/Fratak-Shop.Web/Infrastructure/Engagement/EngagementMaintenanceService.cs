@@ -70,6 +70,8 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         }, token);
         await RunAsync("Gift card maintenance", sp => sp.GetRequiredService<IGiftCardService>().MaintainAsync(token), token);
         await RunAsync("404 log prune", sp => sp.GetRequiredService<ISeoTrafficService>().PruneAsync(token), token);
+        // اعلان‌های پنل کارکنان بیش از ۹۰ روز نگه داشته نمی‌شوند.
+        await RunAsync("Staff notification prune", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Admin.IStaffNotificationService>().PurgeAsync(TimeSpan.FromDays(90)), token);
     }
 
     private async Task RunAsync(string name, Func<IServiceProvider, Task<int>> job, CancellationToken token)

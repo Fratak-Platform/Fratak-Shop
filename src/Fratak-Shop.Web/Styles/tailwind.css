@@ -12,3 +12,6 @@
   .prose-content a { @apply text-sky-600 hover:text-sky-700; }
   .prose-content img { @apply rounded-xl my-4 mx-auto; }
 }
+
+/* عنصرهایی که با ویژگی hidden پنهان می‌شوند (مثل شمارندهٔ زنده‌ی زنگوله) نباید با کلاس flex/inline-flex دوباره نمایش داده شوند. */
+[hidden]:not([hidden="until-found"]) { display: none !important; }

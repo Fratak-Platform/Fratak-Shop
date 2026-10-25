@@ -14,6 +14,9 @@
  *  - [data-live]                 : refresh a fragment periodically (live monitoring)
  *  - [data-file-preview]         : preview chosen images
  *  - GET filter forms            : empty fields are not sent (clean URLs)
+ *  - [data-placeholder-editor]   : برچسب‌های قابل کلیک + پیش‌نمایش زندهٔ پیام
+ *  - [data-sms-counter]          : شمارندهٔ نویسه و تعداد پیامک
+ *  - select[data-ready-pick]     : درج «پیام آماده» در فرم
  */
 (function () {
   "use strict";
@@ -315,6 +318,115 @@
     if (!text) return;
     picker.addEventListener("input", () => { text.value = picker.value; text.dispatchEvent(new Event("input", { bubbles: true })); });
     text.addEventListener("input", () => { if (/^#[0-9a-f]{6}$/i.test(text.value)) picker.value = text.value; });
+  });
+
+  // ── برچسب‌ها و پیش‌نمایش زندهٔ پیام (قالب‌های پیام، پیام‌های آماده) ─────────
+  // ساختار: کانتینر [data-placeholder-editor data-preview-url] شامل یک فرم با فیلدهای [data-chip-field]،
+  // دکمه‌های .a-chip[data-insert] و جاهای پیش‌نمایش [data-preview="title|body|sms|source|unknown"].
+  // کلیک روی برچسب → درج در محل نشانگر آخرین فیلد انتخاب‌شده (اگر هنوز فیلدی انتخاب نشده، انتهای متن اصلی).
+  const insertAtCursor = (field, text) => {
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? field.value.length;
+    const before = field.value.slice(0, start);
+    // اگر قبل از برچسب حرف چسبیده باشد، یک فاصله اضافه می‌شود: «سلام{FirstName}» → «سلام {FirstName}»
+    const pad = before && !/\s$/.test(before) ? " " : "";
+    field.value = before + pad + text + field.value.slice(end);
+    const caret = start + pad.length + text.length;
+    field.focus();
+    field.setSelectionRange(caret, caret);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  $$("[data-placeholder-editor]").forEach((editor) => {
+    const fields = $$("[data-chip-field]", editor);
+    const form = $("form", editor);
+    if (!fields.length || !form) return;
+    let lastField = fields.find((f) => f.tagName === "TEXTAREA") || fields[0];
+    let lastHadFocus = false;
+    fields.forEach((f) => f.addEventListener("focus", () => { lastField = f; lastHadFocus = true; }));
+
+    $$(".a-chip[data-insert]", editor).forEach((chip) => {
+      // mousedown پیش‌فرض باعث از دست رفتن محل نشانگر می‌شود؛ جلویش را می‌گیریم.
+      chip.addEventListener("mousedown", (e) => e.preventDefault());
+      chip.addEventListener("click", () => {
+        if (!lastHadFocus) lastField.setSelectionRange(lastField.value.length, lastField.value.length);
+        insertAtCursor(lastField, chip.dataset.insert);
+        lastHadFocus = true;
+      });
+    });
+
+    const url = editor.dataset.previewUrl;
+    const set = (name, value) => { const el = $(`[data-preview="${name}"]`, editor); if (el) el.textContent = value || ""; return el; };
+    let timer = null;
+    let seq = 0;
+    const refresh = async () => {
+      const mine = ++seq;
+      try {
+        const response = await fetch(url, { method: "POST", body: new FormData(form), credentials: "same-origin", headers: { "X-Requested-With": "fetch" } });
+        if (!response.ok || mine !== seq) return;
+        const data = await response.json();
+        set("title", data.title);
+        set("body", data.body);
+        set("source", data.source ? "داده‌های پیش‌نمایش: " + data.source : "");
+        const smsWrap = $("[data-preview-sms-wrap]", editor);
+        set("sms", data.sms);
+        if (smsWrap) smsWrap.hidden = !data.sms;
+        const unknown = $('[data-preview="unknown"]', editor);
+        if (unknown) {
+          const keys = data.unknown || [];
+          unknown.hidden = keys.length === 0;
+          unknown.textContent = keys.length ? "این برچسب‌ها شناخته نشدند و در پیام خالی می‌مانند: " + keys.map((k) => "{" + k + "}").join("، ") : "";
+        }
+      } catch (_) { /* بدون اتصال – بعداً دوباره */ }
+    };
+    if (url) {
+      form.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(refresh, 450); });
+      refresh();
+    }
+  });
+
+  // ── شمارندهٔ پیامک: تعداد نویسه و تعداد پیامک (فارسی: ۷۰ نویسه، چندبخشی: ۶۷) ──
+  $$("[data-sms-counter]").forEach((area) => {
+    const out = area.parentElement && $("[data-sms-count]", area.parentElement);
+    if (!out) return;
+    const update = () => {
+      const n = area.value.length;
+      const parts = n === 0 ? 0 : n <= 70 ? 1 : Math.ceil(n / 67);
+      out.textContent = n ? `${n.toLocaleString("fa-IR")} نویسه · حدود ${parts.toLocaleString("fa-IR")} پیامک (پیش از جایگزینی برچسب‌ها)` : "";
+    };
+    area.addEventListener("input", update);
+    update();
+  });
+
+  // ── پیام آماده: درج متن انتخاب‌شده در فرم (ViewComponent «ReadyMessagePicker») ──
+  $$("select[data-ready-pick]").forEach((select) => {
+    select.addEventListener("change", () => {
+      const option = select.selectedOptions[0];
+      if (!option || !option.value) return;
+      const body = select.dataset.bodyTarget && $(select.dataset.bodyTarget);
+      if (body) {
+        const text = option.dataset.body || "";
+        body.value = body.value.trim() ? body.value.replace(/\s+$/, "") + "\n" + text : text;
+        body.dispatchEvent(new Event("input", { bubbles: true }));
+        body.focus();
+      }
+      // عنوان و لینک فقط اگر خالی باشند پر می‌شوند تا نوشتهٔ کارمند پاک نشود.
+      [["titleTarget", "title"], ["linkTarget", "link"]].forEach(([target, key]) => {
+        const field = select.dataset[target] && $(select.dataset[target]);
+        if (field && !field.value.trim() && option.dataset[key]) {
+          field.value = option.dataset[key];
+          field.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      });
+      // شمارش استفاده (برای مرتب‌سازی پرکاربردها) – خطا مهم نیست.
+      const token = $('input[name="__RequestVerificationToken"]');
+      if (token) {
+        const data = new FormData();
+        data.append("__RequestVerificationToken", token.value);
+        fetch(`/admin/ready-messages?handler=Used&id=${encodeURIComponent(option.value)}`, { method: "POST", body: data, credentials: "same-origin" }).catch(() => {});
+      }
+      select.value = "";
+    });
   });
 
   // ── Leave-page warning for edited long forms ─────────────────────────

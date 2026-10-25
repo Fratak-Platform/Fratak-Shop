@@ -193,6 +193,15 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public DbSet<Supplier> Suppliers { get; set; } = null!;
 
+    /// <summary>مرحلهٔ هفتم: اعلان‌های داخلی پنل برای کارکنان.</summary>
+    public DbSet<StaffNotification> StaffNotifications { get; set; } = null!;
+
+    /// <summary>مرحلهٔ هفتم: تنظیمات شخصی هر کارمند در پنل (سنجاق‌ها، فیلترها، ستون‌ها و ...).</summary>
+    public DbSet<AdminUserPreference> AdminUserPreferences { get; set; } = null!;
+
+    /// <summary>مرحلهٔ هفتم: پیام‌ها و پاسخ‌های آماده.</summary>
+    public DbSet<ReadyMessage> ReadyMessages { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 
@@ -221,18 +230,31 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         var changed = BeforeSave();
+        var added = CollectAdded();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         DataChangeNotifier.Publish(changed);
+        DataChangeNotifier.PublishAdded(added);
         return result;
     }
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         var changed = BeforeSave();
+        var added = CollectAdded();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         DataChangeNotifier.Publish(changed);
+        DataChangeNotifier.PublishAdded(added);
         return result;
     }
+
+    /// <summary>
+    /// موجودیت‌هایی که در این ذخیره «اضافه» می‌شوند (فقط اگر کسی به <see cref="DataChangeNotifier.EntitiesAdded"/> گوش دهد).
+    /// باید قبل از ذخیره جمع شوند چون بعد از ذخیره وضعیتشان Unchanged می‌شود.
+    /// </summary>
+    private IReadOnlyList<object> CollectAdded() =>
+        DataChangeNotifier.HasAddedListeners
+            ? ChangeTracker.Entries().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList()
+            : [];
 
     /// <summary>Audit dates, price history; returns the changed entity types (for cache invalidation).</summary>
     private HashSet<Type> BeforeSave()

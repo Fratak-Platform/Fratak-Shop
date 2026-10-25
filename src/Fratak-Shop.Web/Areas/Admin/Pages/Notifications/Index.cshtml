@@ -13,7 +13,7 @@
   <div class="a-btn-group">
     @if (Model.Can(AdminPermissions.SettingsManage) || Model.Can(AdminPermissions.NotificationsSend))
     {
-      <a class="a-btn a-btn-light" href="/admin/manage/notification-templates">@Icons.Svg("Gear", null, 18) قالب‌های اعلان رویدادها</a>
+      <a class="a-btn a-btn-light" href="/admin/notifications/templates">@Icons.Svg("Gear", null, 18) قالب‌های پیام رویدادها</a>
     }
   </div>
 </div>
@@ -22,7 +22,17 @@
   <div class="a-stat"><div class="a-stat-label">کاربران</div><div class="a-stat-value">@Format.Number(Model.Customers)</div></div>
   <div class="a-stat"><div class="a-stat-label">مشترکان اعلان مرورگر</div><div class="a-stat-value">@Format.Number(Model.PushSubscribers)</div><div class="a-stat-sub">@Format.Number(Model.PushDevices) دستگاه</div></div>
   <div class="a-stat"><div class="a-stat-label">اعلان مرورگر</div><div class="a-stat-value">@(Model.PushEnabled ? "فعال" : "غیرفعال")</div>@if (!Model.PushEnabled) { <div class="a-stat-sub">از تنظیمات (PWA و کلید VAPID) فعال کنید.</div> }</div>
+  <div class="a-stat"><div class="a-stat-label">سلامت دستگاه‌ها</div><div class="a-stat-value">@Format.Number(Model.PushHealth.Healthy) <span class="text-sm a-muted">سالم</span></div>
+    <div class="a-stat-sub">@Format.Number(Model.PushHealth.Failing) دارای خطا · آخرین تحویل موفق: @(Model.PushHealth.LastSuccessAt is { } ok ? Format.Relative(ok) : "—")</div></div>
 </div>
+@if (Model.LastPush is { } last && (last.StatusCode is null || last.StatusCode >= 400))
+{
+  <div class="a-alert a-alert-warn mb-4">
+    آخرین ارسال پوش به <span class="a-ltr">@last.Host</span> ناموفق بود (@(last.StatusCode?.ToString() ?? "بدون پاسخ") · @Format.Relative(last.At)).
+    اگر سرور در ایران است، سرویس پوش گوگل (FCM) ممکن است از سمت سرور در دسترس نباشد؛ در این حالت اعلان داخل سایت و پیامک همچنان کار می‌کنند.
+    برای آزمایش روی دستگاه خودتان از <a class="a-link" href="/admin/inbox">اعلان‌های من ← اعلان آزمایشی</a> استفاده کنید.
+  </div>
+}
 
 <div class="a-grid xl:grid-cols-3 mb-4">
   <div class="a-card xl:col-span-2">
@@ -43,8 +53,10 @@
             @foreach (var c in new[] { NotificationCategory.Promotion, NotificationCategory.System, NotificationCategory.Order, NotificationCategory.Loyalty, NotificationCategory.Wallet, NotificationCategory.Security, NotificationCategory.Support }) { <option value="@c" selected="@(Model.Broadcast.Category == c)">@IndexModel.CategoryTitle(c)</option> }
           </select></div>
       </div>
+      @await Component.InvokeAsync("ReadyMessagePicker", new { scope = ReadyMessageScope.Broadcast, bodyTarget = "#b-body", titleTarget = "#b-title", linkTarget = "#b-link" })
       <div class="a-field"><label class="a-label" for="b-title">عنوان</label><input id="b-title" asp-for="Broadcast.Title" class="a-input" maxlength="200" required></div>
-      <div class="a-field"><label class="a-label" for="b-body">متن</label><textarea id="b-body" asp-for="Broadcast.Body" class="a-textarea" rows="4" maxlength="2000" required></textarea></div>
+      <div class="a-field"><label class="a-label" for="b-body">متن</label><textarea id="b-body" asp-for="Broadcast.Body" class="a-textarea" rows="4" maxlength="2000" required></textarea>
+        <div class="a-help">پیام همگانی برای همه یکسان است؛ فقط برچسب <code>{SiteName}</code> (نام فروشگاه) پشتیبانی می‌شود.</div></div>
       <div class="grid gap-3 md:grid-cols-2">
         <div class="a-field"><label class="a-label" for="b-link">لینک (اختیاری)</label><input id="b-link" asp-for="Broadcast.LinkUrl" class="a-input a-ltr" placeholder="/products?discount=true"></div>
         <div class="a-field"><label class="a-label" for="b-linktext">متن دکمه</label><input id="b-linktext" asp-for="Broadcast.LinkText" class="a-input" maxlength="100" placeholder="مشاهده"></div>
@@ -63,8 +75,10 @@
     <div class="a-card-head"><span class="a-card-title">پیام اختصاصی به یک مشتری</span></div>
     <form method="post" asp-page-handler="Direct" class="a-card-body a-form-grid">
       <div class="a-field"><label class="a-label" for="d-phone">موبایل مشتری</label><input id="d-phone" asp-for="Direct.Phone" class="a-input a-ltr" placeholder="09121234567" inputmode="numeric" required></div>
+      @await Component.InvokeAsync("ReadyMessagePicker", new { scope = ReadyMessageScope.Direct, bodyTarget = "#d-body", titleTarget = "#d-title", linkTarget = "#d-link" })
       <div class="a-field"><label class="a-label" for="d-title">عنوان</label><input id="d-title" asp-for="Direct.Title" class="a-input" maxlength="200" required></div>
-      <div class="a-field"><label class="a-label" for="d-body">متن</label><textarea id="d-body" asp-for="Direct.Body" class="a-textarea" rows="4" maxlength="2000" required></textarea></div>
+      <div class="a-field"><label class="a-label" for="d-body">متن</label><textarea id="d-body" asp-for="Direct.Body" class="a-textarea" rows="4" maxlength="2000" required></textarea>
+        <div class="a-help">برچسب‌هایی مثل <code>{FirstName}</code> یا <code>{WalletBalance}</code> با اطلاعات همین مشتری پر می‌شوند (<a class="a-link" href="/admin/ready-messages">فهرست برچسب‌ها</a>).</div></div>
       <div class="a-field"><label class="a-label" for="d-link">لینک (اختیاری)</label><input id="d-link" asp-for="Direct.LinkUrl" class="a-input a-ltr" placeholder="/profile/orders"></div>
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendPush" value="true" checked="@Model.Direct.SendPush"><input type="hidden" name="Direct.SendPush" value="false"> اعلان مرورگر</label>
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendSms" value="true" checked="@Model.Direct.SendSms"><input type="hidden" name="Direct.SendSms" value="false"> پیامک هم ارسال شود</label>

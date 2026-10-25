@@ -48,6 +48,17 @@
             }
           </div>
         </div>
+        @* تنظیمات دریافت اعلان روی همین دستگاه – منطق در live.js ([data-push-enable] و [data-sound-toggle]). *@
+        <div class="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 p-3 text-sm">
+          <span class="text-zinc-600">روی این دستگاه:</span>
+          <button type="button" data-push-enable class="flex items-center gap-x-1 rounded-lg bg-sky-500 px-3 py-1.5 text-white hover:bg-sky-600 disabled:opacity-60">
+            @Icons.Svg("Bell", "fill-white", 16) <span data-push-label>فعال‌سازی اعلان مرورگر</span>
+          </button>
+          <button type="button" data-sound-toggle class="flex items-center gap-x-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-zinc-600 hover:bg-zinc-50">
+            @Icons.Svg("SpeakerHigh", "fill-zinc-600", 16) <span data-sound-label>صدای اعلان</span>
+          </button>
+          <span class="text-xs text-zinc-400 basis-full md:basis-auto">اعلان مرورگر حتی وقتی سایت بسته است، وضعیت سفارش و پاسخ تیکت را نشان می‌دهد.</span>
+        </div>
 
         @if (Site.Settings.CanUseWebPush)
         {

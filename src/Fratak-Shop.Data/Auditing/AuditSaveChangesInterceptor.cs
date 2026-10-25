@@ -23,7 +23,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     {
         nameof(AuditLog), nameof(ErrorLog), nameof(SecurityLog),
         "ProductPriceHistory", "SearchQueryLog", "SeoNotFoundLog", "UserRefreshToken", "UserKnownDevice",
-        "NotificationRead", "WebPushSubscription", "CartItem", "Cart",
+        "NotificationRead", "WebPushSubscription", "CartItem", "Cart", "StaffNotification", "AdminUserPreference",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)

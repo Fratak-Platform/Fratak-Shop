@@ -297,12 +297,11 @@
         <a asp-page="/Profile/Notifications" class="relative flex items-center rounded-lg p-2 text-zinc-600 hover:bg-sky-100 hover:text-sky-600"
            aria-label="@(Model.UnreadNotifications > 0 ? $"اعلان‌ها ({Model.UnreadNotifications} خوانده‌نشده)" : "اعلان‌ها")">
           @Icons.Svg("Bell", null, 28)
-          @if (Model.UnreadNotifications > 0)
-          {
-            <span class="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-semibold text-white">
-              @(Model.UnreadNotifications > 99 ? "99+" : Model.UnreadNotifications.ToString())
-            </span>
-          }
+          @* شمارنده همیشه رندر می‌شود (اگر صفر باشد پنهان) تا live.js بتواند آن را زنده به‌روز کند. *@
+          <span class="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-semibold text-white"
+                data-live-count="notifications" data-value="@Model.UnreadNotifications" hidden="@(Model.UnreadNotifications <= 0)">
+            @(Model.UnreadNotifications > 99 ? "99+" : Model.UnreadNotifications.ToString())
+          </span>
         </a>
         <div class="flex items-center py-2 px-2 rounded-lg border border-sky-300 hover:bg-sky-100 group relative">
           <button class="text-sky-500 flex gap-x-2 items-center" type="button" aria-label="حساب کاربری">

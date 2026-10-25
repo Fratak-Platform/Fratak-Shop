@@ -15,7 +15,7 @@ public static class AdminNav
 {
     public static readonly AdminNavGroup[] Groups =
     [
-        new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour")),
+        new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour"), new AdminNavItem("اعلان‌های من", "/admin/inbox", "Tray")),
         new("فروش",
             new AdminNavItem("سفارش‌ها", "/admin/orders", "Orders", [P.OrdersView], "orders"),
             new AdminNavItem("فاکتورهای خرید", "/admin/orders/purchase-invoices", "Receipt", [P.PurchaseInvoices, P.FinanceView]),
@@ -43,6 +43,8 @@ public static class AdminNav
             new AdminNavItem("باشگاه مشتریان", "/admin/manage/loyalty-rewards", "Crown", [P.LoyaltyManage]),
             new AdminNavItem("بنرها", "/admin/manage/banners", "Image", [P.MarketingManage, P.ContentManage]),
             new AdminNavItem("ارسال اعلان", "/admin/notifications", "Megaphone", [P.NotificationsSend]),
+            new AdminNavItem("قالب‌های پیام رویدادها", "/admin/notifications/templates", "Bell", [P.NotificationsSend, P.SettingsManage]),
+            new AdminNavItem("پیام‌های آماده", "/admin/ready-messages", "ChatCenteredText", [P.NotificationsSend, P.TicketsManage, P.CommentsModerate, P.MessagesManage, P.OrdersManage]),
             new AdminNavItem("سبدهای رهاشده", "/admin/abandoned-carts", "CartFull", [P.MarketingManage])),
         new("محتوا و سئو",
             new AdminNavItem("مقاله‌ها", "/admin/blog", "Article", [P.BlogWrite, P.BlogPublish], "drafts"),

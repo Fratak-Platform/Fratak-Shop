@@ -211,7 +211,9 @@ public sealed class ActivityTrackingMiddleware(RequestDelegate next, ActivityTra
         {
             var path = http.Request.Path;
             var isAsset = path.StartsWithSegments("/assets") || path.StartsWithSegments("/media") || path.StartsWithSegments("/uploads")
-                          || path.StartsWithSegments("/lib") || path.StartsWithSegments("/favicon.ico") || path.StartsWithSegments("/health");
+                          || path.StartsWithSegments("/lib") || path.StartsWithSegments("/favicon.ico") || path.StartsWithSegments("/health")
+                          // اتصال زندهٔ SignalR ساعت‌ها باز می‌ماند؛ نباید «درخواست کند» شمرده شود.
+                          || path.StartsWithSegments("/hubs");
             if (!isAsset)
             {
                 tracker.RecordRequest(http, Stopwatch.GetElapsedTime(started).TotalMilliseconds);

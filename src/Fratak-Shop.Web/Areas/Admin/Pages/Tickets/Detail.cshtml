@@ -57,7 +57,8 @@
     <form method="post" asp-page-handler="Reply" asp-route-id="@t.Id" enctype="multipart/form-data" class="a-card" id="reply">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Reply", null, 18) پاسخ به مشتری</span></div>
       <div class="a-card-body a-form-grid">
-        <textarea name="content" class="a-textarea" rows="6" maxlength="4000" required placeholder="پاسخ شما با پیامک / اعلان به مشتری اطلاع داده می‌شود"></textarea>
+        @await Component.InvokeAsync("ReadyMessagePicker", new { scope = Fratak_Shop.Data.Entities.Notifications.ReadyMessageScope.Ticket, bodyTarget = "#reply-content" })
+        <textarea id="reply-content" name="content" class="a-textarea" rows="6" maxlength="4000" required placeholder="پاسخ شما با پیامک / اعلان به مشتری اطلاع داده می‌شود. برچسب‌هایی مثل {FirstName} با اطلاعات مشتری پر می‌شوند."></textarea>
         <div class="a-field"><label class="a-label" for="r-files">پیوست (تصویر یا PDF)</label><input id="r-files" type="file" name="attachments" multiple accept="image/*,application/pdf" class="a-input"></div>
         <div class="flex flex-wrap items-center justify-between gap-3">
           <label class="a-check"><input type="checkbox" name="close" value="true"> پس از پاسخ، تیکت بسته شود</label>

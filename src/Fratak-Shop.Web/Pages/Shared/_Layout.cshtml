@@ -30,7 +30,8 @@
   }
   @await RenderSectionAsync("Head", required: false)
 </head>
-<body class="mx-auto bg-[#fcfcfc]">
+@{ var liveEnabled = ViewContext.HttpContext.User.IsSignedIn(); }
+<body class="mx-auto bg-[#fcfcfc]" data-realtime="@(liveEnabled ? "1" : "0")">
   @await Component.InvokeAsync("Header")
   @if (Site.ShowAnnouncement)
   {
@@ -49,6 +50,12 @@
   <script src="~/assets/js/main.js" asp-append-version="true"></script>
   <script src="~/assets/js/shop.js" asp-append-version="true"></script>
   <script src="~/assets/js/engagement.js" asp-append-version="true"></script>
+  @if (liveEnabled)
+  {
+    @* اعلان زنده فقط برای کاربر واردشده (صفحه‌های کاربر واردشده هرگز کش نمی‌شوند). *@
+    <script src="~/assets/js/dependencies/signalr/signalr.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/live.js" asp-append-version="true"></script>
+  }
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

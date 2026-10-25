@@ -773,6 +773,10 @@ video {
   bottom: 5rem;
 }
 
+.bottom-4 {
+  bottom: 1rem;
+}
+
 .bottom-full {
   bottom: 100%;
 }
@@ -799,6 +803,10 @@ video {
 
 .left-3 {
   left: 0.75rem;
+}
+
+.left-4 {
+  left: 1rem;
 }
 
 .left-5 {
@@ -875,6 +883,10 @@ video {
 
 .z-50 {
   z-index: 50;
+}
+
+.z-\[1000\] {
+  z-index: 1000;
 }
 
 .z-\[100\] {
@@ -1538,6 +1550,10 @@ video {
   width: 96px;
 }
 
+.w-\[min\(22rem\2c calc\(100vw-2rem\)\)\] {
+  width: min(22rem,calc(100vw - 2rem));
+}
+
 .w-fit {
   width: -moz-fit-content;
   width: fit-content;
@@ -1655,6 +1671,10 @@ video {
 
 .grow {
   flex-grow: 1;
+}
+
+.basis-full {
+  flex-basis: 100%;
 }
 
 .-translate-x-1\/2 {
@@ -2440,6 +2460,10 @@ video {
   background-color: rgb(22 163 74 / var(--tw-bg-opacity));
 }
 
+.bg-indigo-50\/40 {
+  background-color: rgb(238 242 255 / 0.4);
+}
+
 .bg-red-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(254 226 226 / var(--tw-bg-opacity));
@@ -2878,6 +2902,10 @@ video {
 
 .p-0 {
   padding: 0px;
+}
+
+.p-0\.5 {
+  padding: 0.125rem;
 }
 
 .p-1 {
@@ -3812,6 +3840,12 @@ video {
 }
 
 /* Rich-text content (product description, blog article) rendered from the admin panel. */
+
+/* عنصرهایی که با ویژگی hidden پنهان می‌شوند (مثل شمارندهٔ زنده‌ی زنگوله) نباید با کلاس flex/inline-flex دوباره نمایش داده شوند. */
+
+[hidden]:not([hidden="until-found"]) {
+  display: none !important;
+}
 
 .placeholder\:text-right::-moz-placeholder {
   text-align: right;
@@ -4944,6 +4978,10 @@ video {
     max-width: 9rem;
   }
 
+  .md\:basis-auto {
+    flex-basis: auto;
+  }
+
   .md\:grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
@@ -5112,6 +5150,14 @@ video {
 @media (min-width: 1024px) {
   .lg\:absolute {
     position: absolute;
+  }
+
+  .lg\:order-1 {
+    order: 1;
+  }
+
+  .lg\:order-2 {
+    order: 2;
   }
 
   .lg\:col-span-1 {

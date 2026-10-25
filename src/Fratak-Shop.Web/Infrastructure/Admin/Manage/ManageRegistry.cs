@@ -72,18 +72,6 @@ public static class ManageRegistry
         ["Notifications"] = "اعلان‌ها", ["UserTickets"] = "تیکت‌ها", ["UserReturns"] = "مرجوعی‌ها", ["GiftCards"] = "کارت هدیه", ["Invite"] = "دعوت دوستان",
         ["UserAlerts"] = "اطلاع‌رسانی‌های من", ["NotFound"] = "صفحه ۴۰۴",
     };
-    private static readonly Dictionary<string, string> NotificationEvents = new()
-    {
-        ["Welcome"] = "خوش‌آمد", ["OrderPlaced"] = "ثبت سفارش", ["OrderPaid"] = "پرداخت سفارش", ["OrderConfirmed"] = "تأیید سفارش",
-        ["OrderProcessing"] = "آماده‌سازی سفارش", ["OrderShipped"] = "ارسال سفارش", ["OrderDelivered"] = "تحویل سفارش", ["OrderCancelled"] = "لغو سفارش",
-        ["OrderReturned"] = "مرجوعی سفارش", ["PaymentFailed"] = "پرداخت ناموفق", ["ReturnRequested"] = "درخواست مرجوعی", ["ReturnApproved"] = "تأیید مرجوعی",
-        ["ReturnRejected"] = "رد مرجوعی", ["ReturnRefunded"] = "بازپرداخت مرجوعی", ["OrderFeedbackRequest"] = "درخواست نظرسنجی", ["WalletTopUp"] = "شارژ کیف پول",
-        ["WalletAdjusted"] = "اصلاح کیف پول", ["WithdrawalRequested"] = "درخواست برداشت", ["WithdrawalApproved"] = "تأیید برداشت", ["WithdrawalPaid"] = "پرداخت برداشت",
-        ["WithdrawalRejected"] = "رد برداشت", ["GiftCardPurchased"] = "خرید کارت هدیه", ["GiftCardRedeemed"] = "استفاده از کارت هدیه", ["PointsEarned"] = "کسب امتیاز",
-        ["TierUpgraded"] = "ارتقای سطح", ["RewardRedeemed"] = "دریافت جایزه", ["ReferralJoined"] = "عضویت دوست دعوت‌شده", ["PasswordChanged"] = "تغییر رمز",
-        ["TwoFactorEnabled"] = "فعال‌سازی ورود دومرحله‌ای", ["TwoFactorDisabled"] = "غیرفعال‌سازی ورود دومرحله‌ای", ["NewDeviceLogin"] = "ورود از دستگاه جدید",
-        ["AbandonedCartReminder"] = "یادآوری سبد رهاشده", ["BackInStock"] = "موجود شدن کالا", ["PriceDrop"] = "کاهش قیمت", ["TicketCreated"] = "ثبت تیکت", ["TicketReplied"] = "پاسخ تیکت",
-    };
 
     public static readonly MDef[] All =
     [
@@ -290,23 +278,6 @@ public static class ManageRegistry
                 new("CouponMaxDiscountAmount", "سقف تخفیف کوپن", MKind.Decimal),
                 new("CouponMinOrderAmount", "حداقل سفارش کوپن", MKind.Decimal),
                 new("CouponValidDays", "اعتبار کوپن (روز)", MKind.Int),
-                Active(),
-            ],
-        },
-        new()
-        {
-            Key = "notification-templates", Title = "قالب‌های اعلان و پیامک", Singular = "قالب اعلان", Group = "بازاریابی", Icon = "Bell", Entity = typeof(NotificationTemplate),
-            Permissions = [P.NotificationsSend, P.SettingsManage], Sort = "Event", Search = ["Title", "Body"], CanCreate = false, CanDelete = false,
-            Description = "متن اعلان‌های خودکار هر رویداد. متغیرها مانند {OrderNumber} و {Name} را حذف نکنید.",
-            Fields =
-            [
-                new("Event", "رویداد", MKind.ReadOnly) { InList = true, Labels = NotificationEvents },
-                new("Title", "عنوان", MKind.Text) { Required = true, InList = true },
-                new("Body", "متن اعلان", MKind.TextArea) { Required = true, Wide = true, Rows = 4 },
-                new("LinkText", "متن لینک", MKind.Text),
-                new("SmsText", "متن پیامک", MKind.TextArea) { Wide = true },
-                new("SendSms", "ارسال پیامک", MKind.Bool) { InList = true },
-                new("SendPush", "ارسال اعلان مرورگر (Push)", MKind.Bool) { InList = true },
                 Active(),
             ],
         },

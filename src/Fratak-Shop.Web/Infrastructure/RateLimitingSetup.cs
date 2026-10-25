@@ -62,6 +62,11 @@ public static class RateLimitingSetup
         if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
             return Window("api:" + key, 60, TimeSpan.FromMinutes(1));
 
+        // اتصال زندهٔ SignalR (negotiate و در نبود WebSocket، درخواست‌های long-polling): بودجهٔ جدا و بزرگ‌تر
+        // تا چند تب باز یا قطع و وصل شبکه باعث خطای ۴۲۹ نشود.
+        if (path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
+            return Window("hubs:" + key, 600, TimeSpan.FromMinutes(1));
+
         // Resized images: cheap when cached on disk, CPU-heavy on the first request of a size.
         if (path.StartsWithSegments("/media", StringComparison.OrdinalIgnoreCase))
             return Window("media:" + key, 600, TimeSpan.FromMinutes(1));

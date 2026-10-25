@@ -40,6 +40,12 @@ public sealed class WebPushDispatcher(
 
     private const string JobName = "ارسال اعلان وب (Push)";
 
+    /// <summary>
+    /// نتیجهٔ آخرین تلاش ارسال (برای عیب‌یابی در صفحهٔ «اعلان‌ها» و «سیستم»).
+    /// مثال: اگر سرور به fcm.googleapis.com دسترسی نداشته باشد، اینجا خطای اتصال دیده می‌شود.
+    /// </summary>
+    public static PushDeliveryResult? LastResult { get; private set; }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Queue driven: runs only when there is something to send, so it is never reported as "stale".
@@ -117,6 +123,7 @@ public sealed class WebPushDispatcher(
             request.Content.Headers.ContentEncoding.Add("aes128gcm");
 
             using var response = await client.SendAsync(request, cancellationToken);
+            LastResult = new PushDeliveryResult(DateTimeOffset.UtcNow, request.RequestUri?.Host ?? "", (int)response.StatusCode, response.IsSuccessStatusCode ? null : response.ReasonPhrase);
             if (response.IsSuccessStatusCode)
                 return (true, false);
 
@@ -129,6 +136,7 @@ public sealed class WebPushDispatcher(
         {
             if (cancellationToken.IsCancellationRequested)
                 throw;
+            LastResult = new PushDeliveryResult(DateTimeOffset.UtcNow, Uri.TryCreate(target.Endpoint, UriKind.Absolute, out var uri) ? uri.Host : "", null, exception.Message);
             logger.LogInformation(exception, "Push to subscription {Id} failed", target.Id);
             return (false, false);
         }
@@ -136,3 +144,6 @@ public sealed class WebPushDispatcher(
 
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..(max - 1)] + "…";
 }
+
+/// <summary>نتیجهٔ یک ارسال پوش: زمان، سرویس مقصد، کد پاسخ HTTP (یا null اگر اصلاً وصل نشد) و متن خطا.</summary>
+public sealed record PushDeliveryResult(DateTimeOffset At, string Host, int? StatusCode, string? Error);
