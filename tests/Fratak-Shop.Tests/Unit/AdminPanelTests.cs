@@ -45,8 +45,8 @@ public class AdminPermissionTests
             foreach (var attribute in attributes)
                 Assert.All(attribute.AnyOf, p => Assert.True(AdminPermissions.IsKnown(p), $"{page.FullName}: {p}"));
 
-            // Only the dashboard and the access-denied page are open to every staff member.
-            if (page.Name is "DeniedModel" || page.FullName == "Fratak_Shop.Web.Areas.Admin.Pages.IndexModel")
+            // Only the dashboard, the access-denied page and the personal inbox are open to every staff member.
+            if (page.Name is "DeniedModel" || page.FullName is "Fratak_Shop.Web.Areas.Admin.Pages.IndexModel" or "Fratak_Shop.Web.Areas.Admin.Pages.Inbox.IndexModel")
                 continue;
             var protectedByManage = page.Namespace?.EndsWith(".Manage") == true; // checked per table (MDef.Permissions)
             Assert.True(attributes.Count > 0 || protectedByManage || page.GetCustomAttribute<AdminOwnerOnlyAttribute>() is not null,
