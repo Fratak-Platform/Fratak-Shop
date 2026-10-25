@@ -57,7 +57,11 @@
               }
             </ol>
           }
-          @if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+          @if (Model.Shipment is not null)
+          {
+            <div class="mt-6"><partial name="_ShipmentTracking" model="Model.Shipment" /></div>
+          }
+          else if (!string.IsNullOrWhiteSpace(order.TrackingCode))
           {
             <div class="mt-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
               کد رهگیری مرسوله: <span class="font-semibold" dir="ltr">@order.TrackingCode</span>

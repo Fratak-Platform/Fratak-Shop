@@ -122,6 +122,15 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
             "[SupplierSyncRunsPerDay] BETWEEN 1 AND 24 AND [SupplierStockMarginPercent] BETWEEN 0 AND 90 " +
             "AND [SupplierStockMaxQuantity] >= 1 AND [SupplierRequestDelayMs] >= 200"));
 
+        // مرحلهٔ هفتم – فاز ۶: رهگیری خودکار مرسوله‌های پستی.
+        builder.Property(s => s.IsPostTrackingEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PostTrackingRunsPerDay).HasDefaultValue(4).HasSentinel(4);
+        builder.Property(s => s.PostTrackingAutoDeliver).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PostTrackingMaxDays).HasDefaultValue(30).HasSentinel(30);
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_PostTracking",
+            "[PostTrackingRunsPerDay] BETWEEN 1 AND 12 AND [PostTrackingMaxDays] BETWEEN 3 AND 120"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));

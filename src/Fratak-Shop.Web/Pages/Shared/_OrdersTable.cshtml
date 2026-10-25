@@ -72,6 +72,11 @@ else
             <a asp-page="/Profile/OrderDetail" asp-route-orderNumber="@order.OrderNumber" class="text-sky-600 hover:text-sky-500 whitespace-nowrap">
               جزئیات
             </a>
+            @if (order.Status == Fratak_Shop.Data.Entities.Orders.OrderStatus.Shipped && !string.IsNullOrWhiteSpace(order.TrackingCode))
+            {
+              @* مرحلهٔ ۷ – فاز ۶: دکمهٔ پیگیری مرسوله (خط زمانی رویدادهای پست در صفحهٔ سفارش). *@
+              <a href="/profile/orders/@(order.OrderNumber.ToLowerInvariant())#shipment" class="mt-1 block w-fit whitespace-nowrap rounded-md bg-sky-50 px-2 py-0.5 text-xs text-sky-700 hover:bg-sky-100">پیگیری مرسوله</a>
+            }
           </td>
         </tr>
       }

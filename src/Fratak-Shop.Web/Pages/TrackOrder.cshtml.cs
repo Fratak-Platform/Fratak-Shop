@@ -13,8 +13,11 @@ namespace Fratak_Shop.Web.Pages;
 /// Only the status, items and amounts are shown – no address details. POST only, so
 /// the mobile number never ends up in URLs or logs; rate limited like the login.
 /// </summary>
-public class TrackOrderModel(IOrderService orderService, ISiteContext site) : ShopPageModel
+public class TrackOrderModel(IOrderService orderService, ISiteContext site, IShipmentTrackingService shipmentService) : ShopPageModel
 {
+    /// <summary>رهگیری مرسوله (مرحلهٔ ۷ – فاز ۶): خط زمانی رویدادهای پست، بدون مشخصات گیرنده.</summary>
+    public ShipmentTimelineDto? Shipment { get; private set; }
+
     [BindProperty]
     public TrackInput Input { get; set; } = new();
 
@@ -50,6 +53,10 @@ public class TrackOrderModel(IOrderService orderService, ISiteContext site) : Sh
         if (Order is not null && Order.UserId.HasValue && Order.UserId == CurrentUserId)
             return Redirect($"/profile/orders/{Order.OrderNumber.ToLowerInvariant()}");
 
+        // تایم‌لاین مرسوله فقط بعد از ارسال.
+        if (Order is not null && Order.Status is Fratak_Shop.Data.Entities.Orders.OrderStatus.Shipped
+                or Fratak_Shop.Data.Entities.Orders.OrderStatus.Delivered or Fratak_Shop.Data.Entities.Orders.OrderStatus.Returned)
+            Shipment = await shipmentService.GetTimelineAsync(Order.Id, HttpContext.RequestAborted);
         return Page();
     }
 

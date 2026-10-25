@@ -228,6 +228,12 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (command.SupplierRequestDelayMs is < 200 or > 30000)
             return "فاصلهٔ درخواست‌ها به تأمین‌کننده باید بین ۲۰۰ تا ۳۰٬۰۰۰ میلی‌ثانیه باشد.";
 
+        // رهگیری پست: بیش از ۱۲ بار در روز فایده‌ای ندارد (سامانهٔ پست هم چند ساعت یک بار به‌روز می‌شود).
+        if (command.PostTrackingRunsPerDay is < 1 or > 12)
+            return "تعداد بررسی رهگیری پست در روز باید بین ۱ تا ۱۲ باشد.";
+        if (command.PostTrackingMaxDays is < 3 or > 120)
+            return "حداکثر روزهای رهگیری مرسوله باید بین ۳ تا ۱۲۰ باشد.";
+
         if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
             return "نام کاربری ایکس (توییتر) معتبر نیست.";

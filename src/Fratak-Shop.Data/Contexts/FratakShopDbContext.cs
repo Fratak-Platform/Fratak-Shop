@@ -238,6 +238,12 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     /// <summary>مقدار قبلی/جدید هر محصول در دسته‌های تغییر قیمت.</summary>
     public DbSet<PriceChangeItem> PriceChangeItems { get; set; } = null!;
 
+    /// <summary>رهگیری خودکار مرسوله‌ها (مرحلهٔ ۷ – فاز ۶).</summary>
+    public DbSet<ShipmentTracking> ShipmentTrackings { get; set; } = null!;
+
+    /// <summary>رویدادهای خوانده‌شده از سامانهٔ رهگیری پست.</summary>
+    public DbSet<ShipmentEvent> ShipmentEvents { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

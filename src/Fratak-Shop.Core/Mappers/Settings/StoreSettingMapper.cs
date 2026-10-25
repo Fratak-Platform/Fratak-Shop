@@ -175,6 +175,10 @@ public static class StoreSettingMapper
             SupplierStockMarginPercent = entity.SupplierStockMarginPercent,
             SupplierStockMaxQuantity = entity.SupplierStockMaxQuantity,
             SupplierRequestDelayMs = entity.SupplierRequestDelayMs,
+            IsPostTrackingEnabled = entity.IsPostTrackingEnabled,
+            PostTrackingRunsPerDay = entity.PostTrackingRunsPerDay,
+            PostTrackingAutoDeliver = entity.PostTrackingAutoDeliver,
+            PostTrackingMaxDays = entity.PostTrackingMaxDays,
         };
     }
 
@@ -344,5 +348,9 @@ public static class StoreSettingMapper
         entity.SupplierStockMarginPercent = command.SupplierStockMarginPercent;
         entity.SupplierStockMaxQuantity = command.SupplierStockMaxQuantity;
         entity.SupplierRequestDelayMs = command.SupplierRequestDelayMs;
+        entity.IsPostTrackingEnabled = command.IsPostTrackingEnabled;
+        entity.PostTrackingRunsPerDay = command.PostTrackingRunsPerDay;
+        entity.PostTrackingAutoDeliver = command.PostTrackingAutoDeliver;
+        entity.PostTrackingMaxDays = command.PostTrackingMaxDays;
     }
 }

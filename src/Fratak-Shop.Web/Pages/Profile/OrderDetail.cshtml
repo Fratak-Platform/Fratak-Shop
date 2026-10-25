@@ -18,7 +18,13 @@
             <h1 class="text-zinc-800 text-lg font-semibold">
               جزئیات سفارش <span dir="ltr">#@order.OrderNumber</span>
             </h1>
-            <span class="rounded-full px-3 py-1 text-sm @Display.OrderStatusBadge(order.Status)">@Display.OrderStatus(order.Status)</span>
+            <div class="flex flex-wrap items-center gap-2">
+              @if (Model.Shipment is not null && order.Status == OrderStatus.Shipped)
+              {
+                <a href="#shipment" class="rounded-full bg-sky-500 px-3 py-1 text-sm text-white hover:bg-sky-600">پیگیری مرسوله</a>
+              }
+              <span class="rounded-full px-3 py-1 text-sm @Display.OrderStatusBadge(order.Status)">@Display.OrderStatus(order.Status)</span>
+            </div>
           </div>
           @if (!cancelled)
           {
@@ -40,7 +46,11 @@
               <span>زمان تقریبی تحویل: <b>@Format.Day(Fratak_Shop.Core.Utilities.IranClock.Today(estimate.From))</b> تا <b>@Format.Day(Fratak_Shop.Core.Utilities.IranClock.Today(estimate.To))</b></span>
             </div>
           }
-          @if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+          @if (Model.Shipment is not null)
+          {
+            <partial name="_ShipmentTracking" model="Model.Shipment" />
+          }
+          else if (!string.IsNullOrWhiteSpace(order.TrackingCode))
           {
             <div class="mb-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
               کد رهگیری مرسوله: <span class="font-semibold" dir="ltr">@order.TrackingCode</span>

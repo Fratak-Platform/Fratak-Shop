@@ -1,6 +1,7 @@
 using Fratak_Shop.Core.DTOs.Admin;
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Orders;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Web.Infrastructure.Admin;
@@ -19,8 +20,12 @@ public class DetailModel(
     IAdminDataService data,
     IOrderMessageService messages,
     IOrderSlaService sla,
-    IStaffOrderService staffOrders) : AdminPageModel
+    IStaffOrderService staffOrders,
+    IShipmentTrackingService shipments) : AdminPageModel
 {
+    /// <summary>رهگیری مرسوله (شرکت حمل، وضعیت و رویدادهای سامانهٔ پست)؛ اگر هنوز ثبت نشده null.</summary>
+    public ShipmentTimelineDto? Shipment { get; private set; }
+
     /// <summary>گفت‌وگوی سفارش با مشتری (پیام‌ها و سؤال‌های «کالا ناموجود»).</summary>
     public List<OrderMessageDto> Messages { get; private set; } = [];
 
@@ -53,6 +58,7 @@ public class DetailModel(
         Suppliers = suppliers.Select(s => (s.Id, s.Name)).ToList();
         Messages = await messages.ListAsync(id);
         (Sla, Estimate) = await sla.GetForOrderAsync(id, HttpContext.RequestAborted);
+        Shipment = await shipments.GetTimelineAsync(id, HttpContext.RequestAborted);
         if (Messages.Any(m => !m.FromStaff && m.ReadByStaffAt is null))
             await messages.MarkReadByStaffAsync(id);
         return Page();
@@ -165,11 +171,58 @@ public class DetailModel(
         return Redirect($"/admin/orders/{id}#notes");
     }
 
+    /// <summary>
+    /// ثبت کد رهگیری + شرکت حمل. اول کد تمیز و بررسی می‌شود، بعد در سفارش ذخیره (سفارش آماده‌سازی‌شده «ارسال‌شده» می‌شود)
+    /// و در آخر رهگیری خودکار (برای پست) ثبت می‌شود.
+    /// </summary>
     [AdminPermission(AdminPermissions.OrdersManage)]
-    public async Task<IActionResult> OnPostTrackingAsync(Guid id, string? trackingCode)
+    public async Task<IActionResult> OnPostTrackingAsync(Guid id, string? trackingCode, ShippingCarrier carrier = ShippingCarrier.IranPost)
     {
-        ShowResult(await orders.SetTrackingCodeAsync(id, trackingCode, ActorId, ActorName));
-        return Redirect($"/admin/orders/{id}");
+        if (!ShippingCarriers.TryNormalizeCode(carrier, trackingCode, out var code, out var error))
+        {
+            ErrorMessage = error;
+            return Redirect($"/admin/orders/{id}#shipment");
+        }
+
+        // کد رهگیری فقط برای سفارشی معنا دارد که خریده شده یا در راه است (اصلاح کد سفارش تحویل‌شده هم مجاز است).
+        var status = await data.Query<Order>().Where(o => o.Id == id).Select(o => (OrderStatus?)o.Status).FirstOrDefaultAsync();
+        if (status is null)
+            return NotFound();
+        if (status is not (OrderStatus.Confirmed or OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Delivered))
+        {
+            ErrorMessage = "کد رهگیری فقط برای سفارش تأییدشده، در حال آماده‌سازی، ارسال‌شده یا تحویل‌شده ثبت می‌شود.";
+            return Redirect($"/admin/orders/{id}#shipment");
+        }
+
+        var saved = await orders.SetTrackingCodeAsync(id, code, ActorId, ActorName);
+        if (!saved.IsSuccess())
+        {
+            ShowResult(saved);
+            return Redirect($"/admin/orders/{id}#shipment");
+        }
+
+        var registered = await shipments.RegisterAsync(id, carrier, code);
+        if (registered.IsSuccess())
+            SuccessMessage = $"{saved.Message} {registered.Message}";
+        else
+            ShowResult(registered);
+        return Redirect($"/admin/orders/{id}#shipment");
+    }
+
+    /// <summary>خواندن فوری وضعیت مرسوله از سامانهٔ پست (حداکثر هر ۲ دقیقه).</summary>
+    [AdminPermission(AdminPermissions.OrdersManage)]
+    public async Task<IActionResult> OnPostTrackNowAsync(Guid id)
+    {
+        ShowResult(await shipments.CheckNowAsync(id, HttpContext.RequestAborted));
+        return Redirect($"/admin/orders/{id}#shipment");
+    }
+
+    /// <summary>توقف یا ادامهٔ رهگیری خودکار این مرسوله.</summary>
+    [AdminPermission(AdminPermissions.OrdersManage)]
+    public async Task<IActionResult> OnPostTrackPauseAsync(Guid id, bool paused)
+    {
+        ShowResult(await shipments.SetPausedAsync(id, paused));
+        return Redirect($"/admin/orders/{id}#shipment");
     }
 
     [AdminPermission(AdminPermissions.OrdersManage)]

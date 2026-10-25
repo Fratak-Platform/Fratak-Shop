@@ -573,6 +573,21 @@ public class StoreSetting : BaseEntity
     /// <summary>فاصلهٔ بین دو درخواست به یک سایت تأمین‌کننده (میلی‌ثانیه) تا فشار نیاورد و مسدود نشویم.</summary>
     public int SupplierRequestDelayMs { get; set; } = 1500;
 
+    // ── رهگیری خودکار مرسوله‌های پستی (مرحلهٔ هفتم – فاز ۶) ─────────────
+    // موتور: Core/Services/Orders/ShipmentTrackingService.cs؛ زمان‌بندی: Web/Infrastructure/Shipping.
+
+    /// <summary>وضعیت مرسوله‌های پستی چند بار در روز از سامانهٔ رهگیری پست خوانده شود.</summary>
+    public bool IsPostTrackingEnabled { get; set; } = true;
+
+    /// <summary>تعداد بررسی هر مرسوله در شبانه‌روز (۱ تا ۱۲)، با فاصلهٔ مساوی از نیمه‌شب. مثال: ۴ → ساعت ۰، ۶، ۱۲ و ۱۸.</summary>
+    public int PostTrackingRunsPerDay { get; set; } = 4;
+
+    /// <summary>با دیدن «تحویل به گیرنده» در سامانهٔ پست، سفارش خودکار «تحویل‌شده» شود.</summary>
+    public bool PostTrackingAutoDeliver { get; set; } = true;
+
+    /// <summary>بعد از این تعداد روز از ثبت کد، اگر هنوز تحویل نشده بود بررسی متوقف و به کارکنان هشدار داده می‌شود. مثال: ۳۰.</summary>
+    public int PostTrackingMaxDays { get; set; } = 30;
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

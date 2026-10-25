@@ -1,5 +1,6 @@
 @page "/admin/orders/{id:guid}"
 @model Fratak_Shop.Web.Areas.Admin.Pages.Orders.DetailModel
+@using Fratak_Shop.Core.Services.Orders
 @{
     var d = Model.Detail;
     var o = d.Order;
@@ -386,23 +387,114 @@
              href="@($"https://www.openstreetmap.org/?mlat={la}&mlon={ln}#map=17/{la}/{ln}")">@Icons.Svg("MapPin", null, 16) موقعیت روی نقشه</a>
         }
         <div class="a-divider"></div>
-        @if (canManage && o.Status is OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Confirmed)
+        @if (canManage && o.Status is OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Confirmed or OrderStatus.Delivered)
         {
-          <form method="post" asp-page-handler="Tracking">
-            <label class="a-label" for="tracking">کد رهگیری مرسوله</label>
-            <div class="flex gap-2">
-              <input id="tracking" name="trackingCode" value="@o.TrackingCode" class="a-input a-ltr" maxlength="100">
-              <button type="submit" class="a-btn a-btn-soft">ذخیره</button>
+          var currentCarrier = Model.Shipment?.Carrier ?? ShippingCarrier.IranPost;
+          <form method="post" asp-page-handler="Tracking" id="shipment">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label class="a-label" for="carrier">شرکت حمل</label>
+                <select id="carrier" name="carrier" class="a-select">
+                  @foreach (var carrierOption in ShippingCarriers.All)
+                  {
+                    <option value="@((int)carrierOption)" selected="@(carrierOption == currentCarrier)">@ShippingCarriers.Title(carrierOption)@(ShippingCarriers.SupportsAutoTracking(carrierOption) ? " (رهگیری خودکار)" : "")</option>
+                  }
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="a-label" for="tracking">کد رهگیری مرسوله</label>
+                <div class="flex gap-2">
+                  <input id="tracking" name="trackingCode" value="@o.TrackingCode" class="a-input a-ltr" maxlength="100" required inputmode="text" autocomplete="off">
+                  <button type="submit" class="a-btn a-btn-soft">ذخیره</button>
+                </div>
+              </div>
             </div>
-            <p class="a-help">با ثبت کد، سفارش آماده‌سازی‌شده خودکار «ارسال‌شده» می‌شود.</p>
+            <p class="a-help">با ثبت کد، سفارش آماده‌سازی‌شده خودکار «ارسال‌شده» می‌شود. برای «پست» وضعیت مرسوله چند بار در روز از سامانهٔ رهگیری پست خوانده می‌شود و با «تحویل به گیرنده» سفارش خودکار «تحویل‌شده» می‌شود.</p>
           </form>
         }
         else if (!string.IsNullOrEmpty(o.TrackingCode))
         {
-          <p class="text-sm">کد رهگیری: <span class="a-ltr font-semibold">@o.TrackingCode</span></p>
+          <p class="text-sm" id="shipment">کد رهگیری: <span class="a-ltr font-semibold">@o.TrackingCode</span>@(Model.Shipment is { } shownShipment ? $" ({shownShipment.CarrierTitle})" : "")</p>
         }
       </div>
     </div>
+
+    @if (Model.Shipment is { } ship)
+    {
+      <div class="a-card">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("Truck", null, 18) رهگیری مرسوله · @ship.CarrierTitle</span>
+          <span class="a-badge @AdminUi.ShipmentStateBadge(ship.State)">@ship.StateTitle</span>
+        </div>
+        <div class="a-card-body">
+          <dl class="a-kv">
+            <dt>کد رهگیری</dt><dd class="a-ltr">@ship.Code</dd>
+            @if (ship.LastStatus is not null) { <dt>آخرین وضعیت</dt><dd>@ship.LastStatus@(ship.LastLocation is null ? "" : $" · {ship.LastLocation}")</dd> }
+            @if (ship.DeliveredAt is { } deliveredAt) { <dt>تحویل</dt><dd>@Format.DateTime(deliveredAt)@(ship.AutoDelivered ? " · تأیید خودکار" : "")</dd> }
+            @if (ship.AutoTracking) { <dt>آخرین بررسی</dt><dd>@(ship.LastCheckedAt is { } checkedAt ? Format.Relative(checkedAt) : "هنوز بررسی نشده")</dd> }
+          </dl>
+          @if (ship.LastError is not null)
+          {
+            <div class="a-alert a-alert-warn mt-3 text-sm">@ship.LastError@(ship.FailureCount > 1 ? $" ({ship.FailureCount} بار پشت سر هم)" : "")</div>
+          }
+          @if (ship.Info.Count > 0)
+          {
+            <details class="mt-3">
+              <summary class="a-muted text-sm cursor-pointer">مشخصات مرسوله در سامانهٔ پست</summary>
+              <dl class="a-kv mt-2">
+                @foreach (var pair in ship.Info)
+                {
+                  <dt>@pair.Key</dt><dd>@pair.Value</dd>
+                }
+              </dl>
+            </details>
+          }
+          @if (ship.Events.Count > 0)
+          {
+            <div class="a-timeline mt-4">
+              @foreach (var ev in ship.Events)
+              {
+                var evCss = ev.Kind switch { PostEventKind.Delivered => "is-status", PostEventKind.Returned or PostEventKind.DeliveryFailed => "is-danger", PostEventKind.OutForDelivery => "is-invoice", _ => "is-system" };
+                <div class="a-timeline-item @evCss">
+                  <div class="text-sm">@ev.Status</div>
+                  <div class="a-muted text-xs mt-1">@(ev.Location ?? "")@(ev.Location is not null ? " · " : "")@(ev.OccurredAt is { } evAt ? Format.DateTime(evAt) : ev.RawTime)</div>
+                </div>
+              }
+            </div>
+          }
+          else if (ship.AutoTracking)
+          {
+            <p class="a-muted text-sm mt-3">هنوز رویدادی از سامانهٔ پست خوانده نشده است.</p>
+          }
+          <div class="a-btn-group mt-4">
+            @if (ship.PublicUrl is { } publicUrl)
+            {
+              <a class="a-btn a-btn-light a-btn-sm" href="@publicUrl" target="_blank" rel="noopener noreferrer">@Icons.Svg("ArrowSquareOut", null, 16) سایت پست</a>
+            }
+            @if (canManage && ship.AutoTracking)
+            {
+              <form method="post" asp-page-handler="TrackNow" class="inline">
+                <button type="submit" class="a-btn a-btn-soft a-btn-sm">@Icons.Svg("ArrowsClockwise", null, 16) بررسی همین حالا</button>
+              </form>
+              @if (ship.IsActive)
+              {
+                <form method="post" asp-page-handler="TrackPause" class="inline">
+                  <input type="hidden" name="paused" value="true">
+                  <button type="submit" class="a-btn a-btn-light a-btn-sm" data-confirm="رهگیری خودکار این مرسوله متوقف شود؟ (تحویل باید دستی ثبت شود)">توقف رهگیری</button>
+                </form>
+              }
+              else if (ship.State == ShipmentTrackingState.Stopped && o.Status == OrderStatus.Shipped)
+              {
+                <form method="post" asp-page-handler="TrackPause" class="inline">
+                  <input type="hidden" name="paused" value="false">
+                  <button type="submit" class="a-btn a-btn-light a-btn-sm">ادامهٔ رهگیری</button>
+                </form>
+              }
+            }
+          </div>
+        </div>
+      </div>
+    }
 
     <div class="a-card">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("CreditCard", null, 18) پرداخت</span></div>

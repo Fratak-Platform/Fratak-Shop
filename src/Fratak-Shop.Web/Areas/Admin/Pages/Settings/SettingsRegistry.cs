@@ -83,6 +83,14 @@ public static class SettingsRegistry
             new("SupplierStockMaxQuantity", "سقف موجودی پیشنهادی هر کالا", SKind.Int, "حتی اگر منبع موجودی زیادی داشته باشد، بیشتر از این پیشنهاد نمی‌شود.") { ShowWhen = "IsSupplierSyncEnabled" },
             new("SupplierRequestDelayMs", "فاصلهٔ درخواست‌ها به سایت منبع (میلی‌ثانیه)", SKind.Int, "برای اینکه سایت تأمین‌کننده ما را ربات مزاحم تشخیص ندهد. پیشنهاد: ۱۵۰۰") { ShowWhen = "IsSupplierSyncEnabled" },
         ]),
+        // رهگیری خودکار مرسوله‌های پستی؛ موتور در Core/Services/Orders/ShipmentTrackingService.cs.
+        new("tracking", "رهگیری مرسوله", "Truck", "خواندن خودکار وضعیت مرسوله‌های پستی از سامانهٔ رهگیری پست و تأیید خودکار تحویل.",
+        [
+            B("IsPostTrackingEnabled", "رهگیری خودکار مرسوله‌های پستی", "سامانهٔ رهگیری پست فقط از IP ایران پاسخ می‌دهد؛ سرور باید در ایران باشد."),
+            new("PostTrackingRunsPerDay", "تعداد بررسی هر مرسوله در شبانه‌روز", SKind.Int, "۱ تا ۱۲؛ با فاصلهٔ مساوی از نیمه‌شب به وقت ایران. پیشنهاد: ۴ (ساعت ۰، ۶، ۱۲ و ۱۸).") { ShowWhen = "IsPostTrackingEnabled" },
+            new("PostTrackingAutoDeliver", "تأیید خودکار تحویل", SKind.Bool, "با دیدن «تحویل به گیرنده» در سامانهٔ پست، سفارش خودکار «تحویل‌شده» می‌شود و پیام تحویل برای مشتری می‌رود.") { ShowWhen = "IsPostTrackingEnabled" },
+            new("PostTrackingMaxDays", "حداکثر روزهای رهگیری", SKind.Int, "اگر تا این مدت بعد از ثبت کد تحویل نشد، بررسی متوقف و به کارکنان هشدار داده می‌شود. پیشنهاد: ۳۰") { ShowWhen = "IsPostTrackingEnabled" },
+        ]),
         new("payment", "پرداخت", "CreditCard", "درگاه پرداخت و پرداخت در محل",
         [
             B("IsOnlinePaymentEnabled", "پرداخت آنلاین (زرین‌پال)"),

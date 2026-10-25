@@ -15,8 +15,12 @@ public class OrderDetailModel(
     IOrderFeedbackService feedbackService,
     ISiteContext site,
     IOrderMessageService messageService,
-    IOrderSlaService slaService) : ShopPageModel
+    IOrderSlaService slaService,
+    IShipmentTrackingService shipmentService) : ShopPageModel
 {
+    /// <summary>رهگیری مرسوله (شرکت حمل و رویدادهای سامانهٔ پست) برای کارت «پیگیری مرسوله»؛ ثبت‌نشده ← null.</summary>
+    public ShipmentTimelineDto? Shipment { get; private set; }
+
     /// <summary>پیام‌های فروشگاه دربارهٔ این سفارش و پاسخ‌های مشتری (بخش «پیام‌ها»، لنگر #messages).</summary>
     public List<OrderMessageDto> Messages { get; private set; } = [];
 
@@ -70,6 +74,9 @@ public class OrderDetailModel(
 
         Order = order;
         await LoadEngagementAsync();
+        // تایم‌لاین مرسوله فقط بعد از ارسال (کدی که پیش از ارسال ثبت شده هنوز برای مشتری معنایی ندارد).
+        if (order.Status is OrderStatus.Shipped or OrderStatus.Delivered or OrderStatus.Returned)
+            Shipment = await shipmentService.GetTimelineAsync(order.Id, HttpContext.RequestAborted);
         ViewData[PageMetaKeys.Title] = $"سفارش {order.OrderNumber}";
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
         return Page();

@@ -42,6 +42,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         (StaffNotificationKind.NewWithdrawal, "درخواست برداشت از کیف پول"),
         (StaffNotificationKind.BlogReview, "مقالهٔ آمادهٔ بازبینی"),
         (StaffNotificationKind.SupplierReport, "گزارش بررسی تأمین‌کننده"),
+        (StaffNotificationKind.ShipmentIssue, "مشکل مرسوله (برگشت / رهگیری طولانی)"),
         (StaffNotificationKind.Alert, "هشدارهای سیستم"),
     ];
 
@@ -112,6 +113,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         StaffNotificationKind.Task => "کار",
         StaffNotificationKind.OrderMessageAnswered => "پاسخ مشتری",
         StaffNotificationKind.Approval => "تأیید",
+        StaffNotificationKind.ShipmentIssue => "مرسوله",
         _ => "سیستم",
     };
 
@@ -121,7 +123,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         StaffNotificationKind.Alert => "a-badge-red",
         StaffNotificationKind.NewTicket or StaffNotificationKind.TicketReply or StaffNotificationKind.NewMessage => "a-badge-blue",
         StaffNotificationKind.Mention or StaffNotificationKind.Assignment or StaffNotificationKind.Approval => "a-badge-purple",
-        StaffNotificationKind.NewReturn or StaffNotificationKind.NewWithdrawal => "a-badge-yellow",
+        StaffNotificationKind.NewReturn or StaffNotificationKind.NewWithdrawal or StaffNotificationKind.ShipmentIssue => "a-badge-yellow",
         _ => "a-badge-gray",
     };
 }

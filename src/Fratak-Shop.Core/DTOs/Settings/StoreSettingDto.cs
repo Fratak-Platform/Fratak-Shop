@@ -172,6 +172,10 @@ public class StoreSettingCommand
     public int SupplierStockMarginPercent { get; set; } = 20;
     public int SupplierStockMaxQuantity { get; set; } = 10;
     public int SupplierRequestDelayMs { get; set; } = 1500;
+    public bool IsPostTrackingEnabled { get; set; } = true;
+    public int PostTrackingRunsPerDay { get; set; } = 4;
+    public bool PostTrackingAutoDeliver { get; set; } = true;
+    public int PostTrackingMaxDays { get; set; } = 30;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

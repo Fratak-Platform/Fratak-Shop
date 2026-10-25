@@ -50,6 +50,13 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Suppliers.SupplierSyncQueue>();
         services.AddHostedService<Infrastructure.Suppliers.SupplierSyncWorker>();
 
+        // مرحلهٔ هفتم – فاز ۶: رهگیری خودکار مرسوله‌های پستی (سامانهٔ عمومی پست + صف اجرای فوری + زمان‌بند).
+        services.AddHttpClient(Infrastructure.Shipping.PostTrackingClient.ClientName, Infrastructure.Shipping.PostTrackingClient.Configure)
+            .ConfigurePrimaryHttpMessageHandler(Infrastructure.Shipping.PostTrackingClient.CreateHandler);
+        services.AddSingleton<Core.Services.Orders.IPostTrackingClient, Infrastructure.Shipping.PostTrackingClient>();
+        services.AddSingleton<Infrastructure.Shipping.PostTrackingQueue>();
+        services.AddHostedService<Infrastructure.Shipping.PostTrackingWorker>();
+
         // Round 5: captcha, secrets, uploads, web push, background jobs.
         services.AddSingleton<Infrastructure.Security.ICaptchaService, Infrastructure.Security.CaptchaService>();
         services.AddSingleton<Core.Services.Security.ISecretProtector, Infrastructure.Engagement.DataProtectionSecretProtector>();

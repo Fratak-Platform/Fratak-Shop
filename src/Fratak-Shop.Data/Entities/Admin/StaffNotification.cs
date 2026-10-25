@@ -60,6 +60,9 @@ public enum StaffNotificationKind
     Task = 14,
     OrderMessageAnswered = 15,
     Approval = 16,
+
+    /// <summary>مشکل مرسوله (برگشت به فرستنده، طولانی شدن رهگیری) – مرحلهٔ ۷ فاز ۶.</summary>
+    ShipmentIssue = 17,
 }
 
 /// <summary>

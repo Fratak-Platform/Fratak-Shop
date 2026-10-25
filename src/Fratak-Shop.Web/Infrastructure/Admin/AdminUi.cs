@@ -21,6 +21,18 @@ public static class AdminUi
         _ => "a-badge-red",
     };
 
+    /// <summary>رنگ نشان وضعیت رهگیری مرسوله (مرحلهٔ ۷ – فاز ۶).</summary>
+    public static string ShipmentStateBadge(ShipmentTrackingState state) => state switch
+    {
+        ShipmentTrackingState.Delivered => "a-badge-green",
+        ShipmentTrackingState.OutForDelivery => "a-badge-purple",
+        ShipmentTrackingState.InTransit => "a-badge-sky",
+        ShipmentTrackingState.Returned => "a-badge-red",
+        ShipmentTrackingState.NotFound => "a-badge-yellow",
+        ShipmentTrackingState.Pending => "a-badge-blue",
+        _ => "a-badge-gray",
+    };
+
     public static string PaymentStatusBadge(PaymentStatus status) => status switch
     {
         PaymentStatus.Paid => "a-badge-green",

@@ -562,12 +562,31 @@ expect 200 "/admin/products/import?handler=Template&format=csv"
 contains_i "کد کالا"
 expect 200 /admin/products
 contains_i "کامل بودن"
+echo "== Shipment tracking (P6): carrier + code, shipments page"
+for tab in active problems delivered all not-a-tab; do
+  expect 200 "/admin/orders/shipments?tab=$tab"
+done
+expect 200 "/admin/orders/shipments?tab=all&carrier=IranPost&q=12"
+order_link=$(first_link "/admin/orders?status=Delivered" "/admin/orders/[0-9a-f-]\{36\}")
+if [ -n "$order_link" ]; then
+  expect 200 "$order_link"
+  TOKEN=$(token)
+  # کد نامعتبر پست (حروف) باید رد شود و کد ۲۴ رقمی ثبت شود؛ هر دو به صفحهٔ سفارش برمی‌گردند.
+  expect 302 "$order_link?handler=Tracking" --data-urlencode "__RequestVerificationToken=$TOKEN" --data-urlencode "carrier=1" --data-urlencode "trackingCode=ABC"
+  expect 302 "$order_link?handler=Tracking" --data-urlencode "__RequestVerificationToken=$TOKEN" --data-urlencode "carrier=1" --data-urlencode "trackingCode=۱۲۳۴۵۶۷۸۹۰۱۲۳۴۵۶۷۸۹۰۱۲۳۴"
+  expect 200 "$order_link"
+  contains_i "123456789012345678901234"
+  expect 200 "/admin/orders/shipments?tab=all"
+  contains_i "123456789012345678901234"
+else
+  echo "SKIP  no order for tracking test"
+fi
 echo "== Realtime (SignalR hub + unread counter)"
 expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
 contains_i "connectionToken"
 expect 200 /api/notifications/unread
 contains_i "unread"
-for tab in general contact footer orders sla supplier payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
+for tab in general contact footer orders sla supplier tracking payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
   expect 200 "/admin/settings?tab=$tab"
 done
 for key in $(curl -s -b "$JAR" "$BASE/admin/manage" | grep -o 'href="/admin/manage/[a-z-]*"' | sed 's/.*manage\///; s/"$//' | sort -u); do
@@ -606,6 +625,7 @@ expect 302 /admin/orders/new
 expect 302 /admin/products/supplier-sync
 expect 302 /admin/products/bulk-price
 expect 302 /admin/products/import
+expect 302 /admin/orders/shipments
 
 echo
 echo "Smoke test finished with $FAILS failure(s)."

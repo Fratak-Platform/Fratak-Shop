@@ -252,6 +252,7 @@ a { color: inherit; }
 .a-timeline-item.is-system::before { background: #94a3b8; }
 .a-timeline-item.is-status::before { background: #059669; }
 .a-timeline-item.is-invoice::before { background: #d97706; }
+.a-timeline-item.is-danger::before { background: #dc2626; }
 
 /* status / health */
 .a-health { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 12px; border: 1px solid var(--a-border); background: #fff; }

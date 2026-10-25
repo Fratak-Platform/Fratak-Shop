@@ -103,6 +103,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Admin.ICustomerCrmService, Services.Admin.CustomerCrmService>();
         // بررسی خودکار لینک تأمین‌کننده (مرحلهٔ هفتم – فاز ۵). ISupplierHttp در لایهٔ Web ثبت می‌شود.
         services.AddScoped<Services.Suppliers.ISupplierSyncService, Services.Suppliers.SupplierSyncService>();
+        // رهگیری مرسوله (مرحلهٔ هفتم – فاز ۶). IPostTrackingClient در لایهٔ Web ثبت می‌شود.
+        services.AddScoped<Services.Orders.IShipmentTrackingService, Services.Orders.ShipmentTrackingService>();
 
         // ابزارهای کاتالوگ (فاز ۵): تغییر گروهی قیمت، انبار و پیش‌بینی، ورود از اکسل، کپی محصول.
         services.AddScoped<Services.Products.IBulkPriceService, Services.Products.BulkPriceService>();
