@@ -33,3 +33,22 @@ public class ReadyMessageConfiguration : IEntityTypeConfiguration<ReadyMessage>
         builder.HasIndex(m => new { m.IsActive, m.SortOrder });
     }
 }
+
+/// <summary>هر آدرس صفحه فقط یک راهنما دارد.</summary>
+public class AdminHelpArticleConfiguration : IEntityTypeConfiguration<AdminHelpArticle>
+{
+    public void Configure(EntityTypeBuilder<AdminHelpArticle> builder)
+    {
+        builder.HasIndex(h => h.Path).IsUnique().HasFilter("[IsDeleted] = 0");
+    }
+}
+
+/// <summary>فهرست کتابخانهٔ رسانه همیشه بر اساس تاریخ (جدیدترین اول) مرتب می‌شود.</summary>
+public class MediaFileConfiguration : IEntityTypeConfiguration<Fratak_Shop.Data.Entities.Media.MediaFile>
+{
+    public void Configure(EntityTypeBuilder<Fratak_Shop.Data.Entities.Media.MediaFile> builder)
+    {
+        builder.HasIndex(m => m.CreatedAt);
+        builder.HasIndex(m => m.FileName).IsUnique();
+    }
+}

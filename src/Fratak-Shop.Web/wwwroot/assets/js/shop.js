@@ -277,6 +277,8 @@
       const input = document.querySelector(btn.dataset.amountTarget);
       if (input) {
         input.value = btn.dataset.amountPreset;
+        // fa-inputs.js (مبلغ با جداکننده و حروف) با این رویداد قالب‌بندی را به‌روز می‌کند.
+        input.dispatchEvent(new Event("input", { bubbles: true }));
         input.focus();
       }
     });

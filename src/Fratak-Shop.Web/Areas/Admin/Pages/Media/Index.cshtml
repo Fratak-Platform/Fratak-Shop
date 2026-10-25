@@ -1,0 +1,61 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Media.IndexModel
+@{
+    ViewData["Title"] = "کتابخانهٔ رسانه";
+}
+<div class="a-page-head">
+  <div>
+    <h2>کتابخانهٔ رسانه</h2>
+    <p class="a-muted text-sm mt-1">@Format.Number(Model.TotalCount) تصویر · @((Model.TotalBytes / 1024d / 1024d).ToString("0.0")) مگابایت. تصویرها خودکار بهینه و متادیتایشان حذف می‌شود.</p>
+  </div>
+</div>
+
+<form method="post" asp-page-handler="Upload" enctype="multipart/form-data" class="a-card a-dropzone mb-4" data-media-upload>
+  <label class="a-dropzone-inner">
+    @Icons.Svg("UploadSimple", "text-indigo-500", 32)
+    <strong>تصویرها را اینجا بکشید و رها کنید</strong>
+    <span class="a-muted text-xs">یا برای انتخاب کلیک کنید · JPG، PNG، WebP · حداکثر @IndexModel.MaxFiles فایل، هر کدام @(IndexModel.MaxSizeKb / 1024) مگابایت</span>
+    <input type="file" name="files" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-media-input>
+  </label>
+  <noscript><button class="a-btn mt-2" type="submit">بارگذاری</button></noscript>
+  <p class="a-muted text-xs text-center pb-3" data-media-status hidden></p>
+</form>
+
+<form method="get" class="a-filters mb-4">
+  <input type="search" name="q" value="@Model.Query" class="a-input" placeholder="جست‌وجو در نام یا متن جایگزین…" maxlength="100">
+  <button class="a-btn a-btn-light" type="submit">@Icons.Svg("MagnifyingGlass", null, 18) جست‌وجو</button>
+</form>
+
+@if (Model.Items.Items.Count == 0)
+{
+  <div class="a-card a-empty">@(string.IsNullOrEmpty(Model.Query) ? "هنوز تصویری بارگذاری نشده است." : "تصویری با این مشخصات پیدا نشد.")</div>
+}
+else
+{
+  <div class="a-media-grid">
+    @foreach (var m in Model.Items.Items)
+    {
+      <figure class="a-media-item">
+        <a href="@m.Url" target="_blank" rel="noopener" class="a-media-thumb"><img src="@m.Url" alt="@m.AltText" loading="lazy" decoding="async"></a>
+        <figcaption>
+          <form method="post" asp-page-handler="Alt" class="m-0 flex gap-1">
+            <input type="hidden" name="id" value="@m.Id">
+            <input type="text" name="alt" value="@m.AltText" class="a-input a-input-sm flex-1" maxlength="200" placeholder="متن جایگزین (alt)" aria-label="متن جایگزین">
+            <button class="a-btn a-btn-xs a-btn-light" type="submit" aria-label="ذخیرهٔ متن جایگزین">@Icons.Svg("FloppyDisk", null, 14)</button>
+          </form>
+          <div class="flex items-center justify-between gap-1 mt-1">
+            <span class="a-muted text-xs">@(m.Width)×@(m.Height) · @((m.SizeBytes / 1024).ToString("N0")) KB</span>
+            <span class="flex gap-1">
+              <button type="button" class="a-btn a-btn-xs a-btn-light" data-copy="@m.Url" aria-label="کپی آدرس">@Icons.Svg("Copy", null, 14)</button>
+              <form method="post" asp-page-handler="Delete" class="m-0" data-confirm="این تصویر حذف شود؟ اگر جایی استفاده شده باشد، آنجا نمایش داده نمی‌شود.">
+                <input type="hidden" name="id" value="@m.Id">
+                <button class="a-btn a-btn-xs a-btn-danger-soft" type="submit" aria-label="حذف">@Icons.Svg("Trash", null, 14)</button>
+              </form>
+            </span>
+          </div>
+        </figcaption>
+      </figure>
+    }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+}

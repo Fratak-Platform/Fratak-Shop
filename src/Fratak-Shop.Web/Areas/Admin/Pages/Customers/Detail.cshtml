@@ -67,7 +67,7 @@
           <form method="post" asp-page-handler="Wallet" class="a-card-body a-filters border-b border-gray-100" data-confirm="موجودی کیف پول مشتری تغییر کند؟">
             <div class="a-field"><label class="a-label" for="w-dir">نوع</label>
               <select id="w-dir" name="direction" class="a-select"><option value="credit">افزایش</option><option value="debit">کاهش</option></select></div>
-            <div class="a-field"><label class="a-label" for="w-amount">مبلغ (تومان)</label><input id="w-amount" type="number" name="amount" min="1" class="a-input a-ltr" required></div>
+            <div class="a-field"><label class="a-label" for="w-amount">مبلغ (تومان)</label><input id="w-amount" type="number" name="amount" min="1" class="a-input a-ltr" required data-money></div>
             <div class="a-field" style="flex-basis:220px"><label class="a-label" for="w-desc">علت</label><input id="w-desc" name="description" class="a-input" maxlength="300" required placeholder="مثلاً جبران تأخیر ارسال"></div>
             <label class="a-check self-end mb-2"><input type="checkbox" name="promotional" value="true" checked> اعتبار هدیه (غیرقابل برداشت)</label>
             <input type="hidden" name="promotional" value="false">

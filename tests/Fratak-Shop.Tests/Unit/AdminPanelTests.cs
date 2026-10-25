@@ -46,7 +46,9 @@ public class AdminPermissionTests
                 Assert.All(attribute.AnyOf, p => Assert.True(AdminPermissions.IsKnown(p), $"{page.FullName}: {p}"));
 
             // Only the dashboard, the access-denied page and the personal inbox are open to every staff member.
-            if (page.Name is "DeniedModel" || page.FullName is "Fratak_Shop.Web.Areas.Admin.Pages.IndexModel" or "Fratak_Shop.Web.Areas.Admin.Pages.Inbox.IndexModel")
+            if (page.Name is "DeniedModel" || page.FullName is "Fratak_Shop.Web.Areas.Admin.Pages.IndexModel" or "Fratak_Shop.Web.Areas.Admin.Pages.Inbox.IndexModel"
+                    // «میانبرهای من» فقط تنظیمات شخصی خود کارمند را تغییر می‌دهد؛ جست‌وجویش بر اساس مجوز محدود می‌شود.
+                    or "Fratak_Shop.Web.Areas.Admin.Pages.Ux.IndexModel")
                 continue;
             var protectedByManage = page.Namespace?.EndsWith(".Manage") == true; // checked per table (MDef.Permissions)
             Assert.True(attributes.Count > 0 || protectedByManage || page.GetCustomAttribute<AdminOwnerOnlyAttribute>() is not null,

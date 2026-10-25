@@ -1,5 +1,8 @@
 @inject AdminBadgeService BadgeService
 @inject IStaffNotificationService StaffNotifications
+@inject IAdminShortcutService Shortcuts
+@inject IAdminHelpService HelpArticles
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     var access = ViewContext.HttpContext.Items[AdminPageFilter.AccessItemKey] as AdminAccess;
     var badges = access is null ? new Dictionary<string, int>() : await BadgeService.GetAsync();
@@ -13,23 +16,54 @@
     var activeUrl = AdminNav.Groups.SelectMany(g => g.Items)
         .Where(i => path == i.Url || (i.Url != "/admin" && path.StartsWith(i.Url + "/")))
         .OrderByDescending(i => i.Url.Length).Select(i => i.Url).FirstOrDefault() ?? "/admin";
+
+    // ── ابزارهای رابط کاربری (مرحلهٔ هفتم – P2) ──
+    // سنجاق‌ها، صفحه‌های اخیر و فیلترهای ذخیره‌شدهٔ همین صفحه از تنظیمات شخصی کارمند خوانده می‌شوند (کش ۱۰ دقیقه‌ای).
+    var http = ViewContext.HttpContext;
+    var currentUrl = (http.Request.Path.Value ?? "/admin") + http.Request.QueryString.Value;
+    List<PinItem> pins = access is null ? [] : await Shortcuts.GetPinsAsync(access.UserId);
+    List<RecentItem> recents = access is null ? [] : await Shortcuts.GetRecentsAsync(access.UserId);
+    List<SavedFilter> savedFilters = access is null ? [] : await Shortcuts.GetFiltersAsync(access.UserId, path);
+    var isPinned = pins.Any(p => string.Equals(p.Url, currentUrl, StringComparison.OrdinalIgnoreCase));
+    var activeIcon = AdminNav.Groups.SelectMany(g => g.Items).FirstOrDefault(i => i.Url == activeUrl)?.Icon ?? "PushPin";
+    var help = access is null ? null : await HelpArticles.GetForPathAsync(path);
+    var canEditHelp = access?.Has(AdminPermissions.SettingsManage) == true;
+    // تم تیره/روشن از کوکی خوانده می‌شود تا بدون اسکریپت درون‌خطی (CSP) و بدون چشمک زدن اعمال شود.
+    var theme = http.Request.Cookies["fratak_admin_theme"] == "dark" ? "dark" : "light";
+    // توکن ضد جعل برای درخواست‌های fetch (admin-ux.js و editor.js آن را در هدر RequestVerificationToken می‌فرستند).
+    var csrfToken = access is null ? "" : Antiforgery.GetAndStoreTokens(http).RequestToken;
+    // ثبت صفحهٔ اخیر: فقط درخواست‌های GET موفق؛ خود صفحهٔ میانبرها ثبت نمی‌شود.
+    if (access is not null && Microsoft.AspNetCore.Http.HttpMethods.IsGet(http.Request.Method) && http.Response.StatusCode == 200 && path != "/admin/ux")
+    {
+        await Shortcuts.TrackRecentAsync(access.UserId, http.Request.Path.Value ?? "/admin", title);
+    }
+    var jsonOptions = new global::System.Text.Json.JsonSerializerOptions(global::System.Text.Json.JsonSerializerDefaults.Web);
+    var paletteJson = global::System.Text.Json.JsonSerializer.Serialize(new
+    {
+        pins = pins.Select(p => new { url = p.Url, title = p.Title }),
+        recents = recents.Select(r => new { url = r.Url, title = r.Title }),
+    }, jsonOptions);
+    var filtersJson = global::System.Text.Json.JsonSerializer.Serialize(savedFilters.Select(f => new { name = f.Name, query = f.Query }), jsonOptions);
 }
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-theme="@theme">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="same-origin">
+  <meta name="csrf-token" content="@csrfToken">
+  <meta name="color-scheme" content="@(theme == "dark" ? "dark" : "light")">
   <title>@title | مدیریت @Site.Settings.SiteName</title>
   <link rel="icon" href="@Site.FaviconUrl">
   <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/admin.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/fa-inputs.css" asp-append-version="true">
   @await RenderSectionAsync("Head", required: false)
 </head>
-<body class="a-body" data-realtime="@(access is null ? "0" : "1")">
+<body class="a-body" data-realtime="@(access is null ? "0" : "1")" data-palette="@paletteJson">
   <div class="a-shell">
     <aside class="a-sidebar" id="admin-sidebar" data-sidebar>
       <div class="a-sidebar-head">
@@ -40,6 +74,17 @@
         <button type="button" class="a-icon-btn lg:hidden" data-sidebar-close aria-label="بستن منو">@Icons.Svg("Close", null, 20)</button>
       </div>
       <nav class="a-nav" aria-label="منوی مدیریت">
+        @if (pins.Count > 0)
+        {
+          <div class="a-nav-group">سنجاق‌شده‌ها</div>
+          foreach (var pin in pins)
+          {
+            <a href="@pin.Url" class="a-nav-link @(string.Equals(pin.Url, currentUrl, StringComparison.OrdinalIgnoreCase) ? "is-active" : "")">
+              @Icons.Svg(pin.Icon, "shrink-0", 20)
+              <span class="flex-1 truncate">@pin.Title</span>
+            </a>
+          }
+        }
         @foreach (var group in AdminNav.Groups)
         {
           var items = access is null ? Array.Empty<AdminNavItem>() : group.Items.Where(i => i.IsVisible(access)).ToArray();
@@ -72,12 +117,23 @@
       <header class="a-topbar">
         <button type="button" class="a-icon-btn lg:hidden" data-sidebar-open aria-controls="admin-sidebar" aria-label="باز کردن منو">@Icons.Svg("List", null, 22)</button>
         <h1 class="a-topbar-title">@title</h1>
-        @if (access?.Has(AdminPermissions.OrdersView) == true)
+        @if (access is not null)
         {
-          <form method="get" action="/admin/orders" class="a-quick-search hidden md:flex" role="search">
+          <button type="button" class="a-icon-btn a-pin-btn @(isPinned ? "is-pinned" : "")" data-pin data-pin-url="@currentUrl" data-pin-title="@title" data-pin-icon="@activeIcon"
+                  aria-pressed="@(isPinned ? "true" : "false")" aria-label="سنجاق کردن این صفحه" title="سنجاق کردن این صفحه">@Icons.Svg("Star", null, 20)</button>
+          <button type="button" class="a-quick-search hidden md:flex" data-palette-open aria-label="جست‌وجوی سریع">
             @Icons.Svg("MagnifyingGlass", "text-gray-400", 18)
-            <input type="search" name="q" placeholder="شماره سفارش، نام یا موبایل مشتری…" aria-label="جست‌وجوی سفارش" maxlength="100">
-          </form>
+            <span class="flex-1 text-start a-muted">جست‌وجو در سفارش، مشتری، محصول، صفحه…</span>
+            <kbd class="a-kbd">Ctrl K</kbd>
+          </button>
+          <button type="button" class="a-icon-btn md:hidden" data-palette-open aria-label="جست‌وجوی سریع">@Icons.Svg("MagnifyingGlass", null, 22)</button>
+          @if (help is not null || canEditHelp)
+          {
+            <button type="button" class="a-icon-btn" data-help-open aria-controls="admin-help" aria-label="راهنمای این صفحه" title="راهنمای این صفحه">@Icons.Svg("Question", null, 22)</button>
+          }
+          <button type="button" class="a-icon-btn hidden sm:inline-flex" data-theme-toggle aria-label="تغییر حالت تیره و روشن" title="حالت تیره / روشن">
+            <span class="a-theme-dark">@Icons.Svg("Moon", null, 20)</span><span class="a-theme-light">@Icons.Svg("Sun", null, 20)</span>
+          </button>
         }
         <div class="a-bell" data-dropdown>
           <button type="button" class="a-icon-btn relative" data-dropdown-toggle aria-haspopup="true" aria-expanded="false" aria-label="اعلان‌های من">
@@ -126,6 +182,8 @@
               }
             </div>
             <a href="/profile" class="a-dropdown-item">@Icons.Svg("User", null, 18) حساب کاربری من</a>
+            <a href="/admin/ux" class="a-dropdown-item">@Icons.Svg("PushPin", null, 18) میانبرهای من</a>
+            <button type="button" class="a-dropdown-item w-full sm:hidden" data-theme-toggle>@Icons.Svg("Moon", null, 18) حالت تیره / روشن</button>
             <a href="/" class="a-dropdown-item">@Icons.Svg("Storefront", null, 18) فروشگاه</a>
             <form method="post" action="/logout" class="m-0" asp-antiforgery="true">
               <button type="submit" class="a-dropdown-item w-full text-red-600">@Icons.Svg("SignOut", null, 18) خروج</button>
@@ -136,16 +194,61 @@
 
       <partial name="_AdminStatus" />
 
-      <main class="a-content" id="main">
+      <main class="a-content" id="main" data-amount-words data-saved-filters="@filtersJson" data-filter-path="@path">
         @RenderBody()
       </main>
     </div>
   </div>
 
+  @if (access is not null)
+  {
+    @* نوار پایین موبایل: دسترسی سریع با شست به پرکاربردترین بخش‌ها. *@
+    <nav class="a-bottom-nav lg:hidden" aria-label="دسترسی سریع">
+      <a href="/admin" class="@(activeUrl == "/admin" ? "is-active" : "")">@Icons.Svg("SquaresFour", null, 22)<span>داشبورد</span></a>
+      @if (access.Has(AdminPermissions.OrdersView))
+      {
+        <a href="/admin/orders" class="@(activeUrl == "/admin/orders" ? "is-active" : "")">@Icons.Svg("Orders", null, 22)<span>سفارش‌ها</span></a>
+      }
+      <button type="button" data-palette-open>@Icons.Svg("MagnifyingGlass", null, 22)<span>جست‌وجو</span></button>
+      <a href="/admin/inbox" class="@(activeUrl == "/admin/inbox" ? "is-active" : "")">@Icons.Svg("Tray", null, 22)<span>اعلان‌ها</span></a>
+      <button type="button" data-sidebar-open aria-controls="admin-sidebar">@Icons.Svg("List", null, 22)<span>منو</span></button>
+    </nav>
+
+    @* کشوی راهنمای صفحه (admin-ux.js باز و بسته‌اش می‌کند؛ کلید Esc یا کلیک بیرون می‌بندد). *@
+    <div class="a-drawer" id="admin-help" data-help-drawer hidden>
+      <div class="a-drawer-backdrop" data-help-close></div>
+      <aside class="a-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="admin-help-title">
+        <div class="a-drawer-head">
+          <h2 id="admin-help-title">@Icons.Svg("Question", null, 20) @(help?.Title ?? "راهنما")</h2>
+          <button type="button" class="a-icon-btn" data-help-close aria-label="بستن راهنما">@Icons.Svg("Close", null, 20)</button>
+        </div>
+        <div class="a-drawer-body a-prose">
+          @if (help is not null)
+          {
+            @Html.Raw(help.Body)
+          }
+          else
+          {
+            <p class="a-muted">برای این صفحه هنوز راهنمایی نوشته نشده است.</p>
+          }
+        </div>
+        @if (canEditHelp)
+        {
+          <div class="a-drawer-foot">
+            <a class="a-btn a-btn-light a-btn-sm" href="@(help is null ? "/admin/help?new=true&path=" + Uri.EscapeDataString(path) : "/admin/help?id=" + help.Id)">@Icons.Svg("PencilSimple", null, 16) @(help is null ? "نوشتن راهنما" : "ویرایش این راهنما")</a>
+          </div>
+        }
+      </aside>
+    </div>
+  }
+
   <script src="~/assets/js/modal.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin.js" asp-append-version="true"></script>
   <script src="~/assets/js/dependencies/signalr/signalr.min.js" asp-append-version="true"></script>
   <script src="~/assets/js/live.js" asp-append-version="true"></script>
+  <script src="~/assets/js/fa-inputs.js" asp-append-version="true"></script>
+  <script src="~/assets/js/admin-ux.js" asp-append-version="true"></script>
+  <script src="~/assets/js/editor.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

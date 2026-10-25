@@ -164,11 +164,11 @@
           <div class="a-card-body a-form-grid">
             <div class="a-field">
               <label class="a-label req" for="p-price">قیمت فروش (تومان)</label>
-              <input id="p-price" type="number" name="Input.Price" value="@(i.Price?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" required>
+              <input id="p-price" type="number" name="Input.Price" value="@(i.Price?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" required data-money>
             </div>
             <div class="a-field">
               <label class="a-label" for="p-dprice">قیمت با تخفیف</label>
-              <input id="p-dprice" type="number" name="Input.DiscountPrice" value="@(i.DiscountPrice?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr">
+              <input id="p-dprice" type="number" name="Input.DiscountPrice" value="@(i.DiscountPrice?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" data-money>
             </div>
             <div class="a-form-grid cols-2">
               <div class="a-field"><label class="a-label" for="p-ds">شروع تخفیف</label><input id="p-ds" name="Input.DiscountStart" value="@i.DiscountStart" class="a-input a-ltr" placeholder="1404/08/01"></div>
@@ -206,7 +206,7 @@
               </div>
               <div class="a-form-grid cols-2">
                 <div class="a-field"><label class="a-label" for="p-ssku">کد کالا نزد تأمین‌کننده</label><input id="p-ssku" name="Input.SupplierSku" value="@i.SupplierSku" class="a-input a-ltr" maxlength="100"></div>
-                <div class="a-field"><label class="a-label" for="p-cost">قیمت خرید (تومان)</label><input id="p-cost" type="number" name="Input.PurchasePrice" value="@(i.PurchasePrice?.ToString("0", inv))" min="0" class="a-input a-ltr"></div>
+                <div class="a-field"><label class="a-label" for="p-cost">قیمت خرید (تومان)</label><input id="p-cost" type="number" name="Input.PurchasePrice" value="@(i.PurchasePrice?.ToString("0", inv))" min="0" class="a-input a-ltr" data-money></div>
               </div>
               <div class="a-field"><label class="a-label" for="p-snote">یادداشت خرید</label><input id="p-snote" name="Input.SupplierNote" value="@i.SupplierNote" class="a-input" maxlength="500" placeholder="مثلاً رنگ مشکی را انتخاب کنید"></div>
               <div class="a-field"><label class="a-label" for="p-mpn">MPN (کد سازنده)</label><input id="p-mpn" name="Input.Mpn" value="@i.Mpn" class="a-input a-ltr" maxlength="50"></div>

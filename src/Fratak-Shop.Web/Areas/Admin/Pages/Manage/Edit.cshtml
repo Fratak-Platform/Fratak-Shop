@@ -91,7 +91,7 @@
                   <input id="@fid" type="number" step="1" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required">
                   break;
                 case MKind.Decimal:
-                  <input id="@fid" type="text" inputmode="decimal" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required">
+                  <input id="@fid" type="text" inputmode="@(f.IsMoney ? "numeric" : "decimal")" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required" data-money="@(f.IsMoney ? "تومان" : null)">
                   break;
                 case MKind.Date:
                   <input id="@fid" name="@f.Name" value="@value" class="a-input a-ltr" placeholder="1404/08/01 14:30" required="@f.Required">

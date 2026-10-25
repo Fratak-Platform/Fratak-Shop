@@ -61,7 +61,7 @@
         <div class="a-card-head"><span class="a-card-title">بررسی درخواست</span></div>
         <div class="a-card-body grid gap-4 md:grid-cols-2">
           <form method="post" asp-page-handler="Approve" asp-route-id="@r.Id" class="a-form-grid">
-            <div class="a-field"><label class="a-label" for="a-amount">مبلغ قابل بازپرداخت (تومان)</label><input id="a-amount" type="number" name="amount" value="@r.RequestedAmount.ToString("0")" min="0" max="@r.RequestedAmount.ToString("0")" class="a-input a-ltr"><p class="a-help">حداکثر @Format.Toman(r.RequestedAmount). برای کسر هزینه‌ها کمتر وارد کنید.</p></div>
+            <div class="a-field"><label class="a-label" for="a-amount">مبلغ قابل بازپرداخت (تومان)</label><input id="a-amount" type="number" name="amount" value="@r.RequestedAmount.ToString("0")" min="0" max="@r.RequestedAmount.ToString("0")" class="a-input a-ltr" data-money><p class="a-help">حداکثر @Format.Toman(r.RequestedAmount). برای کسر هزینه‌ها کمتر وارد کنید.</p></div>
             <div class="a-field"><label class="a-label" for="a-note">پیام به مشتری (اختیاری)</label><textarea id="a-note" name="note" class="a-textarea" rows="2" maxlength="1000" placeholder="مثلاً آدرس ارسال کالا"></textarea></div>
             <button class="a-btn a-btn-success" type="submit">@Icons.Svg("Check", null, 18) تأیید درخواست</button>
           </form>

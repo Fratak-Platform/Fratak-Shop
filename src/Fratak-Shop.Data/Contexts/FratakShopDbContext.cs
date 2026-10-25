@@ -202,6 +202,12 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     /// <summary>مرحلهٔ هفتم: پیام‌ها و پاسخ‌های آماده.</summary>
     public DbSet<ReadyMessage> ReadyMessages { get; set; } = null!;
 
+    /// <summary>مرحلهٔ هفتم: متن راهنمای صفحه‌های پنل.</summary>
+    public DbSet<AdminHelpArticle> AdminHelpArticles { get; set; } = null!;
+
+    /// <summary>مرحلهٔ هفتم: کتابخانهٔ رسانه (تصویرهای متن محصول، مقاله و صفحات).</summary>
+    public DbSet<Fratak_Shop.Data.Entities.Media.MediaFile> MediaFiles { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

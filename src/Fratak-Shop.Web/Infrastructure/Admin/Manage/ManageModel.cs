@@ -47,6 +47,15 @@ public sealed record MField(string Name, string Label, MKind Kind = MKind.Text)
     /// <summary>Takes the full row of the form grid.</summary>
     public bool Wide { get; init; }
     public int Rows { get; init; } = 3;
+
+    /// <summary>
+    /// فیلد اعشاری که مبلغ (تومان) است؟ در فرم با جداکنندهٔ سه‌رقمی و «مبلغ به حروف» نمایش داده می‌شود (fa-inputs.js).
+    /// تشخیص از روی نام: «…Amount»، «…Price»، «Cost»، «FreeShippingThreshold»، «AmountStep».
+    /// فیلدهایی مثل «Value» کوپن که می‌تواند درصد هم باشد مبلغ حساب نمی‌شوند.
+    /// </summary>
+    public bool IsMoney => Kind == MKind.Decimal
+        && (Name.EndsWith("Amount", StringComparison.Ordinal) || Name.EndsWith("Price", StringComparison.Ordinal)
+            || Name is "Cost" or "FreeShippingThreshold" or "AmountStep");
 }
 
 /// <summary>Definition of a table managed by the generic admin engine (<c>/admin/manage/{key}</c>).</summary>

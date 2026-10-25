@@ -68,7 +68,7 @@
                 }
               </div>
               <label for="Purchase_Amount" class="block text-xs text-zinc-600">مبلغ (تومان)</label>
-              <input id="Purchase_Amount" name="Purchase.Amount" value="@Model.Purchase.Amount.ToString("0")" type="number" inputmode="numeric" dir="ltr" required
+              <input id="Purchase_Amount" name="Purchase.Amount" data-money value="@Model.Purchase.Amount.ToString("0")" type="number" inputmode="numeric" dir="ltr" required
                      min="@settings.GiftCardMinAmount.ToString("0")" max="@settings.GiftCardMaxAmount.ToString("0")" step="1000" class="@inputClass">
               <p class="text-[11px] text-zinc-500">از @Format.Toman(settings.GiftCardMinAmount) تا @Format.Toman(settings.GiftCardMaxAmount)، مضرب ۱٬۰۰۰ تومان</p>
               <label for="Purchase_RecipientName" class="block text-xs text-zinc-600">نام گیرنده (اختیاری)</label>

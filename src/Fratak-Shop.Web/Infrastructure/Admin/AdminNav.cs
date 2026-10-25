@@ -15,7 +15,8 @@ public static class AdminNav
 {
     public static readonly AdminNavGroup[] Groups =
     [
-        new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour"), new AdminNavItem("اعلان‌های من", "/admin/inbox", "Tray")),
+        new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour"), new AdminNavItem("اعلان‌های من", "/admin/inbox", "Tray"),
+            new AdminNavItem("میانبرهای من", "/admin/ux", "PushPin")),
         new("فروش",
             new AdminNavItem("سفارش‌ها", "/admin/orders", "Orders", [P.OrdersView], "orders"),
             new AdminNavItem("فاکتورهای خرید", "/admin/orders/purchase-invoices", "Receipt", [P.PurchaseInvoices, P.FinanceView]),
@@ -49,12 +50,14 @@ public static class AdminNav
         new("محتوا و سئو",
             new AdminNavItem("مقاله‌ها", "/admin/blog", "Article", [P.BlogWrite, P.BlogPublish], "drafts"),
             new AdminNavItem("صفحات و محتوا", "/admin/content", "Notebook", [P.ContentManage]),
+            new AdminNavItem("کتابخانهٔ رسانه", "/admin/media", "Images", [P.ContentManage, P.BlogWrite, P.ProductsManage, P.MarketingManage]),
             new AdminNavItem("سئو", "/admin/seo", "Globe", [P.SeoManage], "seo")),
         new("تنظیمات",
             new AdminNavItem("تنظیمات فروشگاه", "/admin/settings", "Gear", [P.SettingsManage]),
             new AdminNavItem("ارسال و تحویل", "/admin/manage/shipping-methods", "Truck", [P.ShippingManage]),
             new AdminNavItem("کارکنان و نقش‌ها", "/admin/staff", "UserGear", [P.StaffManage]),
-            new AdminNavItem("همه جدول‌ها", "/admin/manage", "Sliders")),
+            new AdminNavItem("همه جدول‌ها", "/admin/manage", "Sliders"),
+            new AdminNavItem("راهنمای صفحه‌ها", "/admin/help", "Question", [P.SettingsManage])),
         new("فنی",
             new AdminNavItem("سلامت سامانه", "/admin/system", "Pulse", [P.MonitoringView]),
             new AdminNavItem("کاربران آنلاین", "/admin/system/live", "Monitor", [P.MonitoringView]),

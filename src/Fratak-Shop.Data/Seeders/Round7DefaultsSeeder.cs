@@ -17,6 +17,42 @@ public static class Round7DefaultsSeeder
     {
         ArgumentNullException.ThrowIfNull(context);
         await SeedReadyMessagesAsync(context, cancellationToken);
+        await SeedHelpArticlesAsync(context, cancellationToken);
+    }
+
+    /// <summary>
+    /// راهنمای صفحه‌های پنل (<see cref="AdminHelpDefaults"/>).
+    /// <para>
+    /// برخلاف بقیه، این بخش در هر اجرا بررسی می‌شود: راهنمای صفحه‌های تازه ساخته می‌شود و متن پیش‌فرض‌هایی
+    /// که مدیر ویرایش نکرده (<c>IsCustomized = false</c>) به آخرین نسخه به‌روز می‌شود.
+    /// متنی که مدیر ویرایش یا حذف کرده دست نمی‌خورد.
+    /// </para>
+    /// </summary>
+    private static async Task SeedHelpArticlesAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        // اگر برای یک آدرس هم ردیف حذف‌شده و هم ردیف فعال باشد، ردیف فعال ملاک است.
+        var existing = (await context.AdminHelpArticles.IgnoreQueryFilters().AsTracking().ToListAsync(cancellationToken))
+            .GroupBy(h => h.Path)
+            .ToDictionary(g => g.Key, g => g.OrderBy(h => h.IsDeleted).First());
+
+        var changed = false;
+        foreach (var item in AdminHelpDefaults.All)
+        {
+            if (!existing.TryGetValue(item.Path, out var row))
+            {
+                context.AdminHelpArticles.Add(new Entities.Admin.AdminHelpArticle { Path = item.Path, Title = item.Title, Body = item.Body });
+                changed = true;
+            }
+            else if (!row.IsCustomized && !row.IsDeleted && (row.Title != item.Title || row.Body != item.Body))
+            {
+                row.Title = item.Title;
+                row.Body = item.Body;
+                changed = true;
+            }
+        }
+
+        if (changed)
+            await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>

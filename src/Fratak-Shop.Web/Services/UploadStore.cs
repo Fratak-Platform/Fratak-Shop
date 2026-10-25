@@ -3,7 +3,8 @@ using Fratak_Shop.Core.Utilities;
 
 namespace Fratak_Shop.Web.Services;
 
-public sealed record StoredFile(string FileName, string ContentType, int SizeBytes);
+/// <summary>فایل ذخیره‌شده؛ برای تصویرها ابعاد هم پر می‌شود (کتابخانهٔ رسانه).</summary>
+public sealed record StoredFile(string FileName, string ContentType, int SizeBytes, int? Width = null, int? Height = null);
 
 /// <summary>Where an upload area lives: public (wwwroot/uploads/…) or private (App_Data/…, served by an authorized handler).</summary>
 public sealed record UploadArea(string Name, bool IsPublic, bool AllowPdf)
@@ -24,6 +25,9 @@ public sealed record UploadArea(string Name, bool IsPublic, bool AllowPdf)
     public static readonly UploadArea Blogs = new("blogs", IsPublic: true, AllowPdf: false);
     public static readonly UploadArea Banners = new("banners", IsPublic: true, AllowPdf: false);
     public static readonly UploadArea Content = new("content", IsPublic: true, AllowPdf: false);
+
+    /// <summary>کتابخانهٔ رسانهٔ پنل (/uploads/media): تصویرهای داخل متن محصول، مقاله و صفحات.</summary>
+    public static readonly UploadArea Media = new("media", IsPublic: true, AllowPdf: false);
 }
 
 /// <summary>
@@ -65,7 +69,7 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
         if (selected.Any(f => f.Length > maxBytes))
             return ([], $"حجم هر فایل حداکثر {maxBytes / 1024:N0} کیلوبایت است.");
 
-        var prepared = new List<(byte[] Data, string Extension, string ContentType)>(selected.Count);
+        var prepared = new List<(byte[] Data, string Extension, string ContentType, int? Width, int? Height)>(selected.Count);
         foreach (var file in selected)
         {
             await using var stream = file.OpenReadStream();
@@ -75,7 +79,7 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
 
             if (area.AllowPdf && bytes.AsSpan().StartsWith(PdfSignature))
             {
-                prepared.Add((bytes, ".pdf", "application/pdf"));
+                prepared.Add((bytes, ".pdf", "application/pdf", null, null));
                 continue;
             }
 
@@ -83,7 +87,7 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
             if (image is null)
                 return ([], area.AllowPdf ? "فقط تصویر (JPG، PNG، WebP) یا فایل PDF قابل ارسال است." : error ?? "فایل تصویر معتبر نیست.");
 
-            prepared.Add((image.Data, image.Extension, image.ContentType));
+            prepared.Add((image.Data, image.Extension, image.ContentType, image.Width, image.Height));
         }
 
         var folder = Folder(area);
@@ -91,11 +95,11 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
         var saved = new List<StoredFile>(prepared.Count);
         try
         {
-            foreach (var (data, extension, contentType) in prepared)
+            foreach (var (data, extension, contentType, width, height) in prepared)
             {
                 var name = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant() + extension;
                 await File.WriteAllBytesAsync(Path.Combine(folder, name), data, cancellationToken);
-                saved.Add(new StoredFile(name, contentType, data.Length));
+                saved.Add(new StoredFile(name, contentType, data.Length, width, height));
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

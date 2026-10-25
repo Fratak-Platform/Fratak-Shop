@@ -501,9 +501,18 @@ for path in /admin /admin/orders "/admin/orders?invoice=missing" "/admin/orders?
             /admin/gift-cards /admin/notifications /admin/abandoned-carts "/admin/abandoned-carts?period=all" \
             /admin/blog "/admin/blog?status=review" /admin/blog/edit /admin/content /admin/seo "/admin/seo?tab=404" "/admin/seo?tab=search" \
             /admin/staff /admin/manage /admin/system /admin/system/live /admin/system/errors /admin/system/audit /admin/system/security \
-            /admin/inbox "/admin/inbox?unread=true" /admin/notifications/templates /admin/notifications/templates/OrderShipped /admin/ready-messages /profile/notifications; do
+            /admin/inbox "/admin/inbox?unread=true" /admin/notifications/templates /admin/notifications/templates/OrderShipped /admin/ready-messages /profile/notifications \
+            /admin/ux /admin/media /admin/help "/admin/help?new=true&path=/admin/orders"; do
   expect 200 "$path"
 done
+echo "== Admin UX (P2): help drawer, quick search, theme, media list"
+expect 200 /admin/orders
+contains_i "data-help-drawer"
+contains_i "data-palette-open"
+expect 200 "/admin/ux?handler=Search&q=0912"
+contains_i "["
+expect 200 "/admin/media?handler=List"
+contains_i "pageCount"
 echo "== Realtime (SignalR hub + unread counter)"
 expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
 contains_i "connectionToken"

@@ -66,7 +66,7 @@
                   }
                 </div>
                 <label for="TopUp_Amount" class="block text-xs text-zinc-600">مبلغ (تومان)</label>
-                <input id="TopUp_Amount" name="TopUp.Amount" type="number" inputmode="numeric" dir="ltr" required
+                <input id="TopUp_Amount" name="TopUp.Amount" data-money type="number" inputmode="numeric" dir="ltr" required
                        min="@settings.WalletMinTopUpAmount.ToString("0")" max="@settings.WalletMaxTopUpAmount.ToString("0")" step="1000" class="@inputClass">
                 <p class="text-[11px] text-zinc-500">حداقل @Format.Toman(settings.WalletMinTopUpAmount) و حداکثر @Format.Toman(settings.WalletMaxTopUpAmount) — پرداخت از طریق درگاه امن زرین‌پال</p>
                 <button type="submit" class="w-full rounded-lg bg-sky-500 px-2 py-2.5 text-sm text-white hover:bg-sky-400 transition">پرداخت و شارژ کیف پول</button>
@@ -103,7 +103,7 @@
                   }
                   <div>
                     <label for="Withdrawal_Amount" class="block mb-1 text-xs text-zinc-600">مبلغ (تومان) <span class="text-red-500">*</span></label>
-                    <input id="Withdrawal_Amount" name="Withdrawal.Amount" type="number" inputmode="numeric" dir="ltr" required value="@Model.Withdrawal.Amount?.ToString("0")"
+                    <input id="Withdrawal_Amount" name="Withdrawal.Amount" data-money type="number" inputmode="numeric" dir="ltr" required value="@Model.Withdrawal.Amount?.ToString("0")"
                            min="@Math.Max(1000, settings.WalletMinWithdrawalAmount).ToString("0")" max="@maxWithdrawal.ToString("0")" step="1000" class="@inputClass">
                     <p class="mt-1 text-[11px] text-zinc-400">حداکثر قابل برداشت: @Format.Toman(maxWithdrawal)</p>
                   </div>

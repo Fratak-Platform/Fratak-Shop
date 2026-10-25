@@ -105,6 +105,11 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Admin.IStaffNotificationService, Services.Admin.StaffNotificationService>();
         services.AddScoped<Services.Admin.IReadyMessageService, Services.Admin.ReadyMessageService>();
         services.AddScoped<Services.Admin.IAdminPreferenceService, Services.Admin.AdminPreferenceService>();
+        // مرحلهٔ هفتم (P2): میانبرها، راهنمای صفحه‌ها، کتابخانهٔ رسانه و جست‌وجوی سریع پنل.
+        services.AddScoped<Services.Admin.IAdminShortcutService, Services.Admin.AdminShortcutService>();
+        services.AddScoped<Services.Admin.IAdminHelpService, Services.Admin.AdminHelpService>();
+        services.AddScoped<Services.Admin.IMediaLibraryService, Services.Admin.MediaLibraryService>();
+        services.AddScoped<Services.Admin.IAdminSearchService, Services.Admin.AdminSearchService>();
 
         return services;
     }
