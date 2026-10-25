@@ -38,15 +38,19 @@ public sealed class WebPushDispatcher(
     public const string HttpClientName = "webpush";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    private const string JobName = "ارسال اعلان وب (Push)";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Queue driven: runs only when there is something to send, so it is never reported as "stale".
+        Admin.JobMonitor.Register(JobName, TimeSpan.FromDays(3650));
         try
         {
             await foreach (var message in queue.Reader.ReadAllAsync(stoppingToken))
             {
                 try
                 {
-                    await DeliverAsync(message, stoppingToken);
+                    await Admin.JobMonitor.TrackAsync(JobName, () => DeliverAsync(message, stoppingToken));
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {

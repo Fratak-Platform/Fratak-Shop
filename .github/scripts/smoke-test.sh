@@ -525,7 +525,8 @@ done
 
 echo "== Admin panel: exports"
 for path in "/admin/orders?handler=export&format=csv" "/admin/finance/payments?handler=export&format=csv" "/admin/finance/wallet?handler=export&format=xlsx" \
-            "/admin/customers?handler=export&format=csv" "/admin/messages?handler=export&format=csv&state=all" "/admin/gift-cards?handler=export&format=csv"; do
+            "/admin/customers?handler=export&format=csv" "/admin/messages?handler=export&format=csv&state=all" "/admin/gift-cards?handler=export&format=csv" \
+            "/admin/returns?handler=export&format=xlsx&status=all" "/admin/orders/purchase-invoices?handler=export&format=csv" "/admin/finance?handler=export&format=xlsx"; do
   expect 200 "$path"
 done
 

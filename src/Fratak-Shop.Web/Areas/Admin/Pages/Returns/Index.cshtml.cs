@@ -44,6 +44,26 @@ public class IndexModel(IAdminDataService data) : AdminPageModel
         if (Status is null && !Request.Query.ContainsKey("status"))
             Status = ReturnStatus.Pending;
 
+        var query = Filtered();
+        var total = await query.CountAsync();
+        var pageNumber = ClampPage(PageNumber, total, 30);
+        var rows = await Project(query.OrderByDescending(r => r.CreatedAt).Skip((pageNumber - 1) * 30).Take(30)).ToListAsync();
+        Items = new PagedList<AdminReturnRow>(rows, total, pageNumber, 30);
+    }
+
+    public async Task<IActionResult> OnGetExportAsync(string format = "xlsx")
+    {
+        var rows = await Project(Filtered().OrderByDescending(r => r.CreatedAt).Take(20_000)).ToListAsync();
+        var table = new ExportTable("مرجوعی‌ها", "شماره درخواست", "تاریخ", "سفارش", "مشتری", "موبایل", "دلیل", "وضعیت",
+            "تعداد کالا", "مبلغ درخواستی", "مبلغ تأییدشده", "مبلغ بازپرداخت", "کد رهگیری مرجوعی");
+        foreach (var r in rows)
+            table.Add(r.RequestNumber, r.CreatedAt, r.OrderNumber, r.CustomerName, r.Phone, r.ReasonTitle, StatusTitle(r.Status),
+                r.ItemCount, r.RequestedAmount, r.ApprovedAmount, r.RefundedAmount, r.TrackingCode);
+        return Exporter.File(table, format, "returns");
+    }
+
+    private IQueryable<ReturnRequest> Filtered()
+    {
         var query = data.Query<ReturnRequest>();
         if (Status is { } s) query = query.Where(r => r.Status == s);
         if (!string.IsNullOrWhiteSpace(Search))
@@ -51,21 +71,18 @@ public class IndexModel(IAdminDataService data) : AdminPageModel
             var term = SearchText.NormalizeDigits(Search.Trim());
             query = query.Where(r => r.RequestNumber.Contains(term) || r.Order.OrderNumber.Contains(term) || r.User.PhoneNumber.Contains(term));
         }
+        return query;
+    }
 
-        var total = await query.CountAsync();
-        var pageNumber = ClampPage(PageNumber, total, 30);
-        var rows = await query.OrderByDescending(r => r.CreatedAt).Skip((pageNumber - 1) * 30).Take(30)
-            .Select(r => new AdminReturnRow
+    private static IQueryable<AdminReturnRow> Project(IQueryable<ReturnRequest> query) =>
+        query.Select(r => new AdminReturnRow
             {
                 Id = r.Id, RequestNumber = r.RequestNumber, OrderId = r.OrderId, OrderNumber = r.Order.OrderNumber, UserId = r.UserId,
                 CustomerName = ((r.User.FirstName ?? "") + " " + (r.User.LastName ?? "")).Trim(), Phone = r.User.PhoneNumber,
                 ReasonTitle = r.ReasonTitle, Status = r.Status, RequestedAmount = r.RequestedAmount, ApprovedAmount = r.ApprovedAmount,
                 RefundedAmount = r.RefundedAmount, ItemCount = r.Items.Sum(i => i.Quantity), ImageCount = r.Images.Count,
                 TrackingCode = r.ReturnTrackingCode, CreatedAt = r.CreatedAt,
-            })
-            .ToListAsync();
-        Items = new PagedList<AdminReturnRow>(rows, total, pageNumber, 30);
-    }
+            });
 
     public static string StatusTitle(ReturnStatus status) => status switch
     {

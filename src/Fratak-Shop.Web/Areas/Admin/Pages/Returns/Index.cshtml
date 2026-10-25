@@ -10,7 +10,11 @@
     <h2>درخواست‌های مرجوعی</h2>
     <p class="a-muted text-sm mt-1">روند: بررسی و تأیید ← ارسال کالا توسط مشتری ← ثبت دریافت (برگشت به انبار) ← بازپرداخت به کیف پول.</p>
   </div>
-  <a class="a-btn a-btn-light" href="/admin/manage/return-reasons">@Icons.Svg("Gear", null, 18) دلایل مرجوعی</a>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="@AdminUi.With(HttpContext.Request, ("handler", "export"), ("format", "xlsx"))">@Icons.Svg("Download", null, 18) اکسل</a>
+    <a class="a-btn a-btn-light" href="@AdminUi.With(HttpContext.Request, ("handler", "export"), ("format", "csv"))">CSV</a>
+    <a class="a-btn a-btn-light" href="/admin/manage/return-reasons">@Icons.Svg("Gear", null, 18) دلایل مرجوعی</a>
+  </div>
 </div>
 
 <div class="a-pills mb-4">
