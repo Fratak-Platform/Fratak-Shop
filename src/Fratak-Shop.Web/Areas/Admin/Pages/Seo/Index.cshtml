@@ -1,0 +1,126 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.IndexModel
+@using Fratak_Shop.Data.Entities.SeoRedirects
+@{
+    ViewData["Title"] = "سئو";
+    var tab = Model.Tab ?? "audit";
+}
+<div class="a-page-head">
+  <div>
+    <h2>سئو</h2>
+    <p class="a-muted text-sm mt-1">بررسی متادیتای محتوا، رفع خطاهای ۴۰۴ با ریدایرکت، جست‌وجوهای بی‌نتیجه و ابزارهای سئو.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/manage/seo-redirects">@Icons.Svg("ArrowsLeftRight", null, 18) ریدایرکت‌ها (@Format.Number(Model.RedirectCount))</a>
+    <a class="a-btn a-btn-light" href="/admin/manage/page-seo">سئو صفحات ثابت</a>
+    <a class="a-btn a-btn-light" href="/sitemap.xml" target="_blank" rel="noopener">sitemap.xml</a>
+    <a class="a-btn a-btn-light" href="/robots.txt" target="_blank" rel="noopener">robots.txt</a>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-compact">
+      <thead><tr><th>نوع</th><th>فعال/منتشر</th><th>بدون توضیحات متا</th><th>بدون عنوان سئو</th><th>noindex</th><th>پوشش</th></tr></thead>
+      <tbody>
+        @foreach (var c in Model.Counts)
+        {
+          var coverage = c.Total == 0 ? 100 : (int)Math.Round(100.0 * (c.Total - c.MissingDescription) / c.Total);
+          <tr>
+            <td>@c.Kind</td>
+            <td class="num">@Format.Number(c.Total)</td>
+            <td class="num @(c.MissingDescription > 0 ? "a-down" : "")">@Format.Number(c.MissingDescription)</td>
+            <td class="num">@Format.Number(c.MissingTitle) <span class="a-muted text-xs">(نام صفحه استفاده می‌شود)</span></td>
+            <td class="num">@Format.Number(c.NoIndex)</td>
+            <td style="min-width:120px"><div class="a-progress"><div style="width:@(coverage)%"></div></div><span class="text-xs">@coverage٪</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="a-tabs mb-4">
+  <a class="a-tab @(tab == "audit" ? "is-active" : "")" href="/admin/seo?tab=audit">نیاز به بهبود</a>
+  <a class="a-tab @(tab == "404" ? "is-active" : "")" href="/admin/seo?tab=404">خطاهای ۴۰۴ <span class="a-badge a-badge-red">@Format.Number(Model.Unresolved404)</span></a>
+  <a class="a-tab @(tab == "search" ? "is-active" : "")" href="/admin/seo?tab=search">جست‌وجوهای بی‌نتیجه</a>
+</div>
+
+@if (tab == "404")
+{
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">آدرس‌هایی که ۴۰۴ شدند</span><span class="a-muted text-xs">برای هر مورد یک ریدایرکت ۳۰۱ به صفحه جایگزین بسازید یا «بررسی شد» بزنید.</span></div>
+    <form method="post" asp-page-handler="Resolve" id="resolve-form"></form>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th></th><th>مسیر</th><th>تعداد</th><th>آخرین بار</th><th>ریدایرکت به</th></tr></thead>
+        <tbody>
+          @foreach (var l in Model.NotFoundLogs)
+          {
+            <tr>
+              <td><input type="checkbox" name="ids" value="@l.Id" form="resolve-form" aria-label="انتخاب"></td>
+              <td data-label="مسیر"><span class="a-ltr break-all text-sm">@l.Path</span>@if (!string.IsNullOrEmpty(l.LastReferrer)) { <div class="a-muted text-xs a-ltr break-all">از: @l.LastReferrer</div> }</td>
+              <td data-label="تعداد" class="num">@Format.Number(l.HitCount)</td>
+              <td data-label="آخرین بار" class="text-xs nowrap">@AdminUi.Ago(l.LastHitAt)</td>
+              <td data-label="ریدایرکت">
+                <form method="post" asp-page-handler="Redirect" asp-route-id="@l.Id" class="flex flex-wrap gap-2">
+                  <input name="toUrl" class="a-input a-input-sm a-ltr" placeholder="/product/new-slug" required style="min-width:180px;flex:1">
+                  <select name="type" class="a-select a-input-sm" style="width:auto"><option value="@RedirectType.MovedPermanently">301</option><option value="@RedirectType.Found">302</option></select>
+                  <button class="a-btn a-btn-sm" type="submit">ثبت</button>
+                </form>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.NotFoundLogs.Count == 0) { <div class="a-empty">خطای ۴۰۴ بررسی‌نشده‌ای وجود ندارد. 🎉</div> }
+    </div>
+    @if (Model.NotFoundLogs.Count > 0)
+    {
+      <div class="a-card-body"><button class="a-btn a-btn-light a-btn-sm" type="submit" form="resolve-form">علامت «بررسی شد» برای موارد انتخاب‌شده</button></div>
+    }
+  </div>
+}
+else if (tab == "search")
+{
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">عبارت‌هایی که نتیجه‌ای نداشتند</span>
+      <a class="a-link text-sm" href="/admin/manage/search-synonyms">افزودن مترادف</a></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>عبارت</th><th>تعداد جست‌وجو</th><th>آخرین بار</th></tr></thead>
+        <tbody>
+          @foreach (var q in Model.EmptySearches)
+          {
+            <tr><td>@q.Query</td><td class="num">@Format.Number(q.SearchCount)</td><td class="text-xs">@AdminUi.Ago(q.LastSearchedAt)</td></tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.EmptySearches.Count == 0) { <div class="a-empty">موردی نیست.</div> }
+    </div>
+    <div class="a-card-body"><p class="a-help">این عبارت‌ها نشان می‌دهند مشتریان دنبال چه چیزی بودند: یا با مترادف به محصول موجود وصل کنید (مثلاً «هندزفری» = «هدفون») یا محصول جدید اضافه کنید.</p></div>
+  </div>
+}
+else
+{
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">صفحاتی که نیاز به بهبود سئو دارند</span><span class="a-muted text-xs">به ترتیب بازدید؛ حداکثر ۴۰ مورد از هر نوع</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>نوع</th><th>عنوان</th><th>مشکل</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var a in Model.Audit)
+          {
+            <tr>
+              <td data-label="نوع"><span class="a-badge a-badge-gray">@a.Kind</span></td>
+              <td data-label="عنوان"><a class="a-link" href="@a.EditUrl">@a.Title</a></td>
+              <td data-label="مشکل" class="text-sm a-down">@a.Problem</td>
+              <td class="nowrap"><a class="a-btn a-btn-xs a-btn-light" href="@a.EditUrl">ویرایش</a> <a class="a-btn a-btn-xs a-btn-light" href="@a.PublicUrl" target="_blank" rel="noopener">مشاهده</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Audit.Count == 0) { <div class="a-empty">همه صفحات فعال توضیحات متا دارند. 👌</div> }
+    </div>
+  </div>
+}

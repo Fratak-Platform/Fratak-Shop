@@ -1,0 +1,31 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Content.IndexModel
+@{
+    ViewData["Title"] = "صفحات و محتوا";
+}
+<div class="a-page-head">
+  <div>
+    <h2>صفحات و محتوای سایت</h2>
+    <p class="a-muted text-sm mt-1">همه محتوای قابل‌تغییر فروشگاه از پایگاه داده خوانده می‌شود و تغییرات بلافاصله (با پاک شدن خودکار کش) در سایت اعمال می‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.BlogWrite) || Model.Can(AdminPermissions.BlogPublish)) { <a class="a-btn a-btn-light" href="/admin/blog">@Icons.Svg("Article", null, 18) مقاله‌ها</a> }
+    @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light" href="/admin/settings">@Icons.Svg("Gear", null, 18) تنظیمات عمومی سایت</a> }
+  </div>
+</div>
+@if (Model.Items.Count == 0)
+{
+  <div class="a-card"><div class="a-empty">بخشی برای مدیریت در دسترس شما نیست.</div></div>
+}
+<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+  @foreach (var (def, count, hint) in Model.Items)
+  {
+    <a href="/admin/manage/@def.Key" class="a-card a-card-body flex items-start gap-3 hover:shadow-md transition">
+      <span class="a-stat-icon">@Icons.Svg(def.Icon, null, 22)</span>
+      <span class="min-w-0">
+        <span class="block font-semibold text-gray-800">@def.Title <span class="a-muted text-xs font-normal">(@Format.Number(count))</span></span>
+        <span class="block a-muted text-xs mt-1">@hint</span>
+      </span>
+    </a>
+  }
+</div>
