@@ -246,8 +246,8 @@ public class CatalogToolsTests
     }
 
     [Theory]
-    [InlineData("۴۱۵٬۰۰۰ تومان", true, 415000)]
-    [InlineData("1,250,000", true, 1250000)]
+    [InlineData("۴۱۵٬۰۰۰ تومان", true, 415000d)]
+    [InlineData("1,250,000", true, 1250000d)]
     [InlineData("  ", true, null)]
     [InlineData("12a", false, null)]
     [InlineData("۱۲٫۵", true, 12.5)]
