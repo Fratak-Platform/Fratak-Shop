@@ -532,6 +532,136 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("UserAdminRoles");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Analytics.AnalyticsCounter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Metric")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Metric", "Day");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Metric", "Day"), new[] { "Key", "Count" });
+
+                    b.HasIndex("Day", "Metric", "Key")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("AnalyticsCounters");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Analytics.VisitorDay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Campaign")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Device")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<byte>("FirstHour")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LandingPath")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Medium")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("PageViews")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("Stages")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VisitorKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VisitorKey");
+
+                    b.HasIndex("Day", "VisitorKey")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("Day", "Source", "Medium");
+
+                    b.ToTable("VisitorDays", t =>
+                        {
+                            t.HasCheckConstraint("CK_VisitorDays_FirstHour", "[FirstHour] BETWEEN 0 AND 23");
+                        });
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2678,6 +2808,18 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("TrafficCampaign")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TrafficMedium")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TrafficSource")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
                     b.Property<string>("TransactionId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -2687,6 +2829,10 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VisitorKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<decimal>("WalletBonusAmount")
                         .HasPrecision(18)
@@ -2712,9 +2858,14 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("VisitorKey")
+                        .HasFilter("[VisitorKey] IS NOT NULL");
+
                     b.HasIndex("DeliveryTimeSlotId", "RequestedDeliveryDate");
 
                     b.HasIndex("PaymentStatus", "PaymentDeadline");
+
+                    b.HasIndex("TrafficSource", "CreatedAt");
 
                     b.ToTable("Orders", t =>
                         {
@@ -4682,6 +4833,11 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<bool>("AllowCustomerCancellation")
                         .HasColumnType("bit");
 
+                    b.Property<int>("AnalyticsRetentionDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(400);
+
                     b.Property<string>("AnnouncementColor")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -4843,6 +4999,11 @@ namespace Fratak_Shop.Data.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<bool>("IsAddressMapEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsAnalyticsEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
@@ -5433,6 +5594,8 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.ToTable("StoreSettings", t =>
                         {
+                            t.HasCheckConstraint("CK_StoreSettings_Analytics", "[AnalyticsRetentionDays] BETWEEN 30 AND 1500");
+
                             t.HasCheckConstraint("CK_StoreSettings_PostTracking", "[PostTrackingRunsPerDay] BETWEEN 1 AND 12 AND [PostTrackingMaxDays] BETWEEN 3 AND 120");
 
                             t.HasCheckConstraint("CK_StoreSettings_Round4", "[WalletMaxWithdrawalAmount] >= 0 AND [WalletMaxPendingWithdrawals] > 0 AND [AbandonedCartAfterMinutes] > 0 AND [AbandonedCartMinAmount] >= 0 AND [AbandonedCartExpireDays] > 0 AND [ReviewMaxImages] >= 0 AND [ReviewMaxImages] <= 10 AND [ReviewMaxImageSizeKb] > 0 AND [PwaInstallPromptAfterPages] >= 0 AND [PwaInstallPromptSnoozeDays] >= 0");
