@@ -243,6 +243,20 @@ a { color: inherit; }
 .a-hbar .val { font-size: 12.5px; color: var(--a-muted); white-space: nowrap; direction: ltr; }
 .a-progress { height: 8px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
 .a-progress > div { height: 100%; background: var(--a-primary); }
+/* گزارش‌های تحلیلی (مرحلهٔ هفتم – فاز ۷): قیف فروش و نقشهٔ حرارتی روز × ساعت */
+.a-funnel-row { display: grid; grid-template-columns: minmax(110px, 28%) 1fr minmax(120px, auto); gap: 10px; align-items: center; margin-bottom: 10px; }
+.a-funnel-title { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-funnel-track { height: 22px; background: #f1f5f9; border-radius: 6px; overflow: hidden; }
+.a-funnel-fill { height: 100%; background: linear-gradient(90deg, var(--a-primary), #818cf8); border-radius: 6px; }
+.a-funnel-val { font-size: 13px; white-space: nowrap; }
+@media (max-width: 640px) { .a-funnel-row { grid-template-columns: 1fr auto; } .a-funnel-track { grid-column: 1 / -1; order: 3; } }
+.a-heat-wrap { overflow-x: auto; }
+.a-heat { border-collapse: separate; border-spacing: 2px; font-size: 10.5px; min-width: 640px; width: 100%; }
+.a-heat th { font-weight: 500; color: var(--a-muted); padding: 2px 4px; white-space: nowrap; text-align: center; }
+.a-heat tbody th { text-align: right; }
+.a-heat td { height: 26px; text-align: center; border-radius: 4px; background: #f1f5f9; color: #1e1b4b; }
+.a-heat td.lv1 { background: #e0e7ff; } .a-heat td.lv2 { background: #c7d2fe; } .a-heat td.lv3 { background: #a5b4fc; }
+.a-heat td.lv4 { background: #818cf8; color: #fff; } .a-heat td.lv5 { background: #4f46e5; color: #fff; }
 
 /* timeline (order notes) */
 .a-timeline { position: relative; padding-inline-start: 18px; }
@@ -488,6 +502,9 @@ html[data-theme="dark"] .a-badge-purple { background: rgba(167,139,250,.16); col
 html[data-theme="dark"] .a-badge-gray { background: #1f2a40; color: #cbd5e1; }
 html[data-theme="dark"] .a-btn-danger-soft { background: rgba(239,68,68,.14); color: #fca5a5; }
 html[data-theme="dark"] .a-hbar-track, html[data-theme="dark"] .a-progress { background: #1f2a40; }
+html[data-theme="dark"] .a-funnel-track, html[data-theme="dark"] .a-heat td.lv0 { background: #1f2a40; }
+html[data-theme="dark"] .a-heat td { color: #e0e7ff; }
+html[data-theme="dark"] .a-heat td.lv1 { background: #272a5c; } html[data-theme="dark"] .a-heat td.lv2 { background: #312e81; } html[data-theme="dark"] .a-heat td.lv3 { background: #3730a3; }
 html[data-theme="dark"] .a-bell-item.is-unread { background: rgba(129,140,248,.08); }
 html[data-theme="dark"] .a-preview, html[data-theme="dark"] .a-preview-phone { background: #0f1729; color: var(--a-text); border-color: var(--a-border); }
 html[data-theme="dark"] .a-dropzone { border-color: #3b4a6b; }

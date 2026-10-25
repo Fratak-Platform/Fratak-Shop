@@ -38,6 +38,9 @@ public static class AdminPermissions
     public const string FinanceExport = "finance.export";
     public const string WithdrawalsManage = "finance.withdrawals";
 
+    /// <summary>گزارش‌های تحلیلی فاز ۷: قیف فروش، منبع ورودی/کمپین، نقشهٔ حرارتی، عملکرد محصول و تقاضا (بدون سود/قیمت خرید).</summary>
+    public const string ReportsView = "reports.view";
+
     public const string MarketingManage = "marketing.manage";
     public const string GiftCardsManage = "marketing.giftcards";
     public const string LoyaltyManage = "marketing.loyalty";
@@ -89,6 +92,8 @@ public static class AdminPermissions
         new(FinanceExport, "مالی", "خروجی اکسل و CSV"),
         new(WithdrawalsManage, "مالی", "تسویه درخواست‌های برداشت"),
 
+        new(ReportsView, "گزارش‌ها", "گزارش‌های تحلیلی", "قیف فروش، منبع ورودی و کمپین‌ها، ساعت‌های پربازدید، عملکرد محصولات و تقاضای مشتریان"),
+
         new(MarketingManage, "بازاریابی", "کوپن، بنر، اعلان صفحات و سبدهای رهاشده"),
         new(GiftCardsManage, "بازاریابی", "کارت‌های هدیه"),
         new(LoyaltyManage, "بازاریابی", "باشگاه مشتریان و دعوت از دوستان"),
@@ -121,15 +126,15 @@ public static class AdminPermissions
     [
         ("مدیر فروشگاه", "دسترسی کامل به همه بخش‌ها", "#7c3aed", All.Select(p => p.Key).ToArray()),
         ("مدیر فروش و سفارش‌ها", "پردازش سفارش‌ها، فاکتور خرید، مرجوعی و مشتریان", "#2563eb",
-            [Dashboard, OrdersView, OrdersManage, OrdersCancel, OrdersCreate, PurchaseInvoices, ProductsView, ProductsSupplier, CustomersView, ReturnsManage, TicketsManage, CommentsModerate]),
+            [Dashboard, OrdersView, OrdersManage, OrdersCancel, OrdersCreate, PurchaseInvoices, ProductsView, ProductsSupplier, CustomersView, ReturnsManage, TicketsManage, CommentsModerate, ReportsView]),
         ("انبار و محصولات", "مدیریت کاتالوگ، موجودی، قیمت و تأمین‌کنندگان", "#0891b2",
             [Dashboard, ProductsView, ProductsManage, ProductsSupplier, CatalogManage, SuppliersManage, OrdersView, PurchaseInvoices]),
         ("پشتیبانی", "تیکت، پیام‌ها، نظرات و پیگیری سفارش", "#16a34a",
             [Dashboard, OrdersView, CustomersView, TicketsManage, MessagesManage, ReturnsManage, CommentsModerate]),
         ("حسابداری و مالی", "گزارش‌های مالی، خروجی‌ها و تسویه برداشت‌ها", "#ca8a04",
-            [Dashboard, FinanceView, FinanceExport, WithdrawalsManage, OrdersView, PurchaseInvoices, CustomersView, CustomersWallet, GiftCardsManage]),
+            [Dashboard, FinanceView, FinanceExport, WithdrawalsManage, OrdersView, PurchaseInvoices, CustomersView, CustomersWallet, GiftCardsManage, ReportsView]),
         ("بازاریابی", "کوپن، کارت هدیه، باشگاه، بنر و اعلان", "#db2777",
-            [Dashboard, MarketingManage, GiftCardsManage, LoyaltyManage, NotificationsSend, ProductsView, CustomersView]),
+            [Dashboard, MarketingManage, GiftCardsManage, LoyaltyManage, NotificationsSend, ProductsView, CustomersView, ReportsView]),
         ("کارشناس سئو", "سئوی صفحات و محتوا، ریدایرکت‌ها و آمار جست‌وجو", "#059669",
             [Dashboard, SeoManage, ContentManage, BlogPublish, BlogWrite, ProductsView, CatalogManage]),
         ("نویسنده محتوا", "نوشتن مقاله و ارسال برای بررسی", "#9333ea", [BlogWrite]),

@@ -45,6 +45,12 @@ public static class AdminNav
             new AdminNavItem("تراکنش‌های درگاه", "/admin/finance/payments", "CreditCard", [P.FinanceView]),
             new AdminNavItem("درخواست‌های برداشت", "/admin/finance/withdrawals", "Bank", [P.WithdrawalsManage, P.FinanceView], "withdrawals"),
             new AdminNavItem("تراکنش‌های کیف پول", "/admin/finance/wallet", "Wallet", [P.FinanceView, P.CustomersWallet])),
+        // مرحلهٔ هفتم – فاز ۷: گزارش‌های تحلیلی (آمار بازدید داخلی).
+        new("گزارش‌ها",
+            new AdminNavItem("قیف فروش و بازدید", "/admin/reports", "Funnel", [P.ReportsView, P.FinanceView, P.MarketingManage]),
+            new AdminNavItem("عملکرد محصولات", "/admin/reports/products", "TrendUp", [P.ReportsView, P.FinanceView, P.MarketingManage]),
+            new AdminNavItem("تقاضای مشتریان", "/admin/reports/demand", "MagnifyingGlass", [P.ReportsView, P.FinanceView, P.MarketingManage, P.ProductsManage]),
+            new AdminNavItem("منبع ورودی و کمپین‌ها", "/admin/reports/campaigns", "Target", [P.ReportsView, P.FinanceView, P.MarketingManage])),
         new("بازاریابی",
             new AdminNavItem("کوپن‌ها", "/admin/manage/coupons", "Percent", [P.MarketingManage]),
             new AdminNavItem("کارت‌های هدیه", "/admin/gift-cards", "Gift", [P.GiftCardsManage]),

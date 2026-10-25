@@ -91,6 +91,12 @@ public static class SettingsRegistry
             new("PostTrackingAutoDeliver", "تأیید خودکار تحویل", SKind.Bool, "با دیدن «تحویل به گیرنده» در سامانهٔ پست، سفارش خودکار «تحویل‌شده» می‌شود و پیام تحویل برای مشتری می‌رود.") { ShowWhen = "IsPostTrackingEnabled" },
             new("PostTrackingMaxDays", "حداکثر روزهای رهگیری", SKind.Int, "اگر تا این مدت بعد از ثبت کد تحویل نشد، بررسی متوقف و به کارکنان هشدار داده می‌شود. پیشنهاد: ۳۰") { ShowWhen = "IsPostTrackingEnabled" },
         ]),
+        // آمار بازدید و قیف فروش؛ جمع‌آوری در Web/Infrastructure/Analytics و گزارش در /admin/reports.
+        new("analytics", "آمار بازدید", "ChartLine", "ثبت بازدید، قیف خرید و منبع ورودی بازدیدکنندگان برای گزارش‌های «قیف فروش»، «کمپین‌ها» و «عملکرد محصولات».",
+        [
+            B("IsAnalyticsEnabled", "ثبت آمار بازدید", "بدون سرویس خارجی و بدون ذخیرهٔ IP؛ هر مرورگر با یک شناسهٔ تصادفی شمرده می‌شود و ربات‌ها شمرده نمی‌شوند."),
+            new("AnalyticsRetentionDays", "مدت نگهداری جزئیات بازدید (روز)", SKind.Int, "۳۰ تا ۱۵۰۰؛ بعد از آن ردیف‌های هر بازدیدکننده پاک می‌شوند ولی آمار بازدید محصولات می‌ماند. پیشنهاد: ۴۰۰") { ShowWhen = "IsAnalyticsEnabled" },
+        ]),
         new("payment", "پرداخت", "CreditCard", "درگاه پرداخت و پرداخت در محل",
         [
             B("IsOnlinePaymentEnabled", "پرداخت آنلاین (زرین‌پال)"),

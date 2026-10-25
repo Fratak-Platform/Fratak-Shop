@@ -588,6 +588,15 @@ public class StoreSetting : BaseEntity
     /// <summary>بعد از این تعداد روز از ثبت کد، اگر هنوز تحویل نشده بود بررسی متوقف و به کارکنان هشدار داده می‌شود. مثال: ۳۰.</summary>
     public int PostTrackingMaxDays { get; set; } = 30;
 
+    // ── آمار بازدید، قیف فروش و منبع ورودی (مرحلهٔ هفتم – فاز ۷) ─────────
+    // جمع‌آوری: Web/Infrastructure/Analytics؛ گزارش‌ها: Core/Services/Reports/AnalyticsReportService.cs.
+
+    /// <summary>ثبت بازدید، مراحل قیف خرید و منبع ورودی (UTM/ارجاع‌دهنده) بازدیدکنندگان. بدون ذخیرهٔ IP.</summary>
+    public bool IsAnalyticsEnabled { get; set; } = true;
+
+    /// <summary>ردیف‌های روزانهٔ هر بازدیدکننده بعد از این تعداد روز پاک می‌شوند (شمارنده‌های جمعی می‌مانند). مثال: ۴۰۰.</summary>
+    public int AnalyticsRetentionDays { get; set; } = 400;
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

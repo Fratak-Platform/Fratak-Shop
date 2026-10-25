@@ -581,6 +581,29 @@ if [ -n "$order_link" ]; then
 else
   echo "SKIP  no order for tracking test"
 fi
+echo "== Analytics (P7a): beacon, funnel, products, demand, campaigns"
+UA_BROWSER="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+expect 204 /api/a/hit -X POST -A "$UA_BROWSER" -H "Content-Type: application/json" --data '{"p":"/","q":"?utm_source=smoke&utm_medium=test&utm_campaign=ci","r":""}'
+expect 204 /api/a/hit -X POST -A "$UA_BROWSER" -H "Content-Type: application/json" --data '{"p":"/admin","q":"","r":""}'
+expect 204 /api/a/hit -X POST -H "Content-Type: application/json" --data '{"p":"//evil","q":"","r":"javascript:alert(1)"}'
+for period in today 7d 30d month all; do
+  expect 200 "/admin/reports?period=$period"
+done
+contains_i "قیف فروش"
+expect 200 "/admin/reports?heat=orders&from=1404/01/01&to=1405/12/29"
+for sort in revenue units views carts conversion profit returns bogus; do
+  expect 200 "/admin/reports/products?sort=$sort&filter=all"
+done
+for filter in sold nosales out bogus; do
+  expect 200 "/admin/reports/products?filter=$filter&q=a"
+done
+expect 200 /admin/reports/demand
+contains_i "جست‌وجوهای بی‌نتیجه"
+expect 200 "/admin/reports/campaigns?by=campaign&period=all"
+expect 200 "/admin/reports/campaigns?url=/product/x&src=Instagram&med=story&cmp=Yalda%201405"
+contains_i "utm_campaign=yalda-1405"
+expect 200 "/admin/reports/campaigns?url=javascript:alert(1)&src=x"
+expect 200 "/admin/settings?tab=analytics"
 echo "== Realtime (SignalR hub + unread counter)"
 expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
 contains_i "connectionToken"

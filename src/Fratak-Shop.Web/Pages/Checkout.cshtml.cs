@@ -41,7 +41,8 @@ public class CheckoutModel(
     ICouponService couponService,
     ISiteContext site,
     IPageMetaService pageMeta,
-    ICashOnDeliveryPolicy codPolicy) : ShopPageModel
+    ICashOnDeliveryPolicy codPolicy,
+    Infrastructure.Analytics.AnalyticsTracker analytics) : ShopPageModel
 {
     public CartDto Cart { get; private set; } = null!;
     public List<UserAddressDto> Addresses { get; private set; } = [];
@@ -82,6 +83,9 @@ public class CheckoutModel(
         Input.AddressId = addressId;
         if (!await LoadAsync())
             return RedirectToPage("/Cart");
+
+        // آمار (فاز ۷): مرحلهٔ «ورود به تسویه حساب» قیف فروش.
+        await analytics.StageAsync(HttpContext, global::Fratak_Shop.Data.Entities.Analytics.FunnelStage.Checkout);
 
         var firstOption = ShippingOptions.FirstOrDefault();
         Input.ShippingMethodId = firstOption?.Method.Id;
@@ -198,6 +202,9 @@ public class CheckoutModel(
 
         await cartService.ClearCartAsync(Cart.Id);
         var order = result.Data;
+
+        // آمار (فاز ۷): منبع ورودی (کوکی fr_src) و شناسهٔ بازدیدکننده روی سفارش، برای قیف و گزارش کمپین‌ها.
+        await analytics.AttributeOrderAsync(HttpContext, order.Id);
 
         if (order.PaymentMethod == PaymentMethod.OnlineGateway)
         {

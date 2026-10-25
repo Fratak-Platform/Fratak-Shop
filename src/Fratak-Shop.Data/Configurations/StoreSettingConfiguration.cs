@@ -131,6 +131,11 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
             "CK_StoreSettings_PostTracking",
             "[PostTrackingRunsPerDay] BETWEEN 1 AND 12 AND [PostTrackingMaxDays] BETWEEN 3 AND 120"));
 
+        // مرحلهٔ هفتم – فاز ۷: آمار بازدید و قیف فروش.
+        builder.Property(s => s.IsAnalyticsEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.AnalyticsRetentionDays).HasDefaultValue(400).HasSentinel(400);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Analytics", "[AnalyticsRetentionDays] BETWEEN 30 AND 1500"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));

@@ -1,0 +1,93 @@
+@page "/admin/reports/campaigns"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.CampaignsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Reports
+@* منبع ورودی و کمپین‌ها + سازندهٔ لینک UTM (مرحلهٔ هفتم – فاز ۷). *@
+@{
+    ViewData["Title"] = "منبع ورودی و کمپین‌ها";
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var request = HttpContext.Request;
+    var totalVisitors = Model.Rows.Sum(r => r.Visitors);
+    var totalRevenue = Model.Rows.Sum(r => r.Revenue);
+}
+<div class="a-page-head">
+  <div>
+    <h2>منبع ورودی و کمپین‌ها</h2>
+    <p class="a-muted text-sm mt-1">سفارش به آخرین منبع غیرمستقیم ۳۰ روز اخیر خریدار نسبت داده می‌شود · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+</div>
+
+<partial name="_ReportPeriod" model="Model" />
+
+<div class="a-card mb-4">
+  <div class="a-card-head">
+    <span class="a-card-title">عملکرد منبع‌ها</span>
+    <div class="a-tabs">
+      <a class="a-tab @(Model.ByCampaign ? "" : "is-active")" href="@AdminUi.With(request, ("by", ""))">به تفکیک منبع</a>
+      <a class="a-tab @(Model.ByCampaign ? "is-active" : "")" href="@AdminUi.With(request, ("by", "campaign"))">به تفکیک کمپین</a>
+    </div>
+  </div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>منبع</th><th>نوع</th>@if (Model.ByCampaign) { <th>کمپین</th> }<th>بازدیدکننده</th><th>سهم بازدید</th><th>سفارش قطعی</th><th>مبلغ</th><th>سهم فروش</th><th>نرخ تبدیل</th></tr></thead>
+      <tbody>
+        @foreach (var row in Model.Rows)
+        {
+          <tr>
+            <td data-label="منبع"><b>@row.SourceTitle</b>@if (row.SourceTitle != row.Source) { <div class="a-muted text-xs a-ltr">@row.Source</div> }</td>
+            <td data-label="نوع">@row.MediumTitle</td>
+            @if (Model.ByCampaign)
+            {
+              <td data-label="کمپین">@(row.Campaign ?? "—")</td>
+            }
+            <td data-label="بازدیدکننده">@Format.Number(row.Visitors)</td>
+            <td data-label="سهم بازدید">@(totalVisitors == 0 ? "—" : (row.Visitors * 100d / totalVisitors).ToString("0.#", inv) + "٪")</td>
+            <td data-label="سفارش قطعی">@Format.Number(row.Orders)</td>
+            <td data-label="مبلغ">@Format.Toman(row.Revenue)</td>
+            <td data-label="سهم فروش">@(totalRevenue == 0 ? "—" : (row.Revenue * 100m / totalRevenue).ToString("0.#", inv) + "٪")</td>
+            <td data-label="نرخ تبدیل">@(row.Conversion is { } c ? c.ToString("0.##", inv) + "٪" : "—")</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Rows.Count == 0)
+    {
+      <div class="a-empty">در این بازه داده‌ای ثبت نشده است.</div>
+    }
+  </div>
+</div>
+
+<div class="a-card" id="builder">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Link", null, 18) سازندهٔ لینک کمپین</span></div>
+  <div class="a-card-body">
+    <p class="a-muted text-sm mb-3">برای هر استوری، پیامک، بنر یا همکار فروش یک لینک جدا بسازید تا در جدول بالا ببینید کدام واقعاً فروش آورده است.</p>
+    <form method="get" action="/admin/reports/campaigns#builder" class="a-filters">
+      <input type="hidden" name="period" value="@Model.Preset">
+      <div class="a-field span-2"><label class="a-label" for="lb-url">آدرس صفحه</label><input id="lb-url" name="url" value="@Model.LinkUrl" class="a-input a-ltr" placeholder="/product/... یا https://..."></div>
+      <div class="a-field"><label class="a-label" for="lb-src">منبع *</label><input id="lb-src" name="src" value="@Model.LinkSource" class="a-input a-ltr" list="lb-src-list" placeholder="instagram"></div>
+      <div class="a-field"><label class="a-label" for="lb-med">نوع</label><input id="lb-med" name="med" value="@Model.LinkMedium" class="a-input a-ltr" list="lb-med-list" placeholder="story"></div>
+      <div class="a-field"><label class="a-label" for="lb-cmp">نام کمپین</label><input id="lb-cmp" name="cmp" value="@Model.LinkCampaign" class="a-input a-ltr" placeholder="yalda-1405"></div>
+      <div class="a-field"><label class="a-label" for="lb-cnt">محتوا (اختیاری)</label><input id="lb-cnt" name="cnt" value="@Model.LinkContent" class="a-input a-ltr" placeholder="banner-top"></div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">ساخت لینک</button></div>
+      <datalist id="lb-src-list">@foreach (var s in CampaignsModel.SuggestedSources) { <option value="@s">@TrafficRulesTitle(s)</option> }</datalist>
+      <datalist id="lb-med-list">@foreach (var m in CampaignsModel.SuggestedMediums) { <option value="@m">@Fratak_Shop.Core.Services.Reports.TrafficRules.MediumTitle(m)</option> }</datalist>
+    </form>
+    @if (Model.LinkError is not null)
+    {
+      <div class="a-alert a-alert-danger mt-3">@Model.LinkError</div>
+    }
+    @if (Model.BuiltLink is not null)
+    {
+      <div class="mt-3">
+        <label class="a-label" for="lb-result">لینک آماده</label>
+        <div class="flex gap-2">
+          <input id="lb-result" class="a-input a-ltr flex-1" value="@Model.BuiltLink" readonly>
+          <button type="button" class="a-btn a-btn-soft" data-copy="#lb-result">@Icons.Svg("Copy", null, 18) کپی</button>
+        </div>
+        <p class="a-muted text-xs mt-2">نام‌ها خودکار تمیز می‌شوند (حروف کوچک، فاصله ← خط تیره). لینک را تا جای ممکن کوتاه نکنید؛ کوتاه‌کننده‌ها گاهی پارامترها را حذف می‌کنند.</p>
+      </div>
+    }
+  </div>
+</div>
+@functions {
+    private static string TrafficRulesTitle(string source) => Fratak_Shop.Core.Services.Reports.TrafficRules.SourceTitle(source);
+}

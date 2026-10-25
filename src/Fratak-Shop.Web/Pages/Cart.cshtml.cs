@@ -23,7 +23,8 @@ public class CartModel(
     IRecommendationService recommendations,
     ISaveForLaterService saveForLater,
     ISiteContext site,
-    IPageMetaService pageMeta) : ShopPageModel
+    IPageMetaService pageMeta,
+    Infrastructure.Analytics.AnalyticsTracker analytics) : ShopPageModel
 {
     public CartDto? Cart { get; private set; }
 
@@ -128,6 +129,10 @@ public class CartModel(
             ProductId = productId,
             Quantity = Math.Max(1, quantity),
         });
+
+        // آمار (فاز ۷): مرحلهٔ «افزودن به سبد» قیف + شمارندهٔ سبد محصول؛ فقط وقتی واقعاً اضافه شد.
+        if (Succeeded(result))
+            await analytics.StageAsync(HttpContext, global::Fratak_Shop.Data.Entities.Analytics.FunnelStage.AddToCart, productId);
 
         ShowResult(result);
         return RedirectToLocal(returnUrl, "/Cart");

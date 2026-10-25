@@ -176,6 +176,8 @@ public class StoreSettingCommand
     public int PostTrackingRunsPerDay { get; set; } = 4;
     public bool PostTrackingAutoDeliver { get; set; } = true;
     public int PostTrackingMaxDays { get; set; } = 30;
+    public bool IsAnalyticsEnabled { get; set; } = true;
+    public int AnalyticsRetentionDays { get; set; } = 400;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

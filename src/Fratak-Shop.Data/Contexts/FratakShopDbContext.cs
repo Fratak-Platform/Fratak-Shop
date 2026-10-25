@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using Fratak_Shop.Data.Entities.Admin;
+using Fratak_Shop.Data.Entities.Analytics;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
@@ -243,6 +244,12 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     /// <summary>رویدادهای خوانده‌شده از سامانهٔ رهگیری پست.</summary>
     public DbSet<ShipmentEvent> ShipmentEvents { get; set; } = null!;
+
+    /// <summary>خلاصهٔ روزانهٔ هر بازدیدکننده: مراحل قیف و منبع ورودی (مرحلهٔ ۷ – فاز ۷).</summary>
+    public DbSet<VisitorDay> VisitorDays { get; set; } = null!;
+
+    /// <summary>شمارنده‌های روزانهٔ جمعی (بازدید و افزودن به سبد هر محصول).</summary>
+    public DbSet<AnalyticsCounter> AnalyticsCounters { get; set; } = null!;
 
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";

@@ -59,6 +59,11 @@ public static class RateLimitingSetup
         if (path.StartsWithSegments("/api/search", StringComparison.OrdinalIgnoreCase))
             return Window("search:" + key, 120, TimeSpan.FromMinutes(1));
 
+        // آمار بازدید (فاز ۷): یک درخواست برای هر صفحه؛ بودجهٔ جدا تا سهم API های دیگر (و کاربرانی که پشت یک IP مشترک
+        // اپراتور موبایل هستند) مصرف نشود. سرور خودش هم هر بازدیدکننده را به ۶۰ ثبت در دقیقه محدود می‌کند.
+        if (path.StartsWithSegments("/api/a", StringComparison.OrdinalIgnoreCase))
+            return Window("beacon:" + key, 600, TimeSpan.FromMinutes(1));
+
         if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
             return Window("api:" + key, 60, TimeSpan.FromMinutes(1));
 

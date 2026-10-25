@@ -1,0 +1,89 @@
+@page "/admin/reports/products"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.ProductsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Reports
+@* عملکرد محصولات (مرحلهٔ هفتم – فاز ۷): بازدید ← سبد ← فروش ← مرجوعی برای هر محصول. *@
+@{
+    ViewData["Title"] = "عملکرد محصولات";
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var profit = Model.CanSeeProfit;
+    var canEdit = Model.CanAny(AdminPermissions.ProductsView, AdminPermissions.ProductsManage);
+}
+<div class="a-page-head">
+  <div>
+    <h2>عملکرد محصولات</h2>
+    <p class="a-muted text-sm mt-1">بازدید و سبد از آمار داخلی سایت؛ فروش از سفارش‌های قطعی (پرداخت‌شده یا تحویل‌شده) · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+</div>
+
+<partial name="_ReportPeriod" model="Model" />
+
+<form method="get" class="a-filters mb-4">
+  <input type="hidden" name="period" value="@Model.Preset">
+  <input type="hidden" name="from" value="@Model.From">
+  <input type="hidden" name="to" value="@Model.To">
+  <div class="a-field"><label class="a-label" for="rp-q">جست‌وجو</label><input id="rp-q" name="q" value="@Model.Search" class="a-input" placeholder="نام یا کد کالا"></div>
+  <div class="a-field"><label class="a-label" for="rp-filter">نمایش</label>
+    <select id="rp-filter" name="filter" class="a-select" data-autosubmit>
+      @foreach (var (key, title) in ProductsModel.Filters)
+      {
+        <option value="@key" selected="@(Model.Filter == key)">@title</option>
+      }
+    </select></div>
+  <div class="a-field"><label class="a-label" for="rp-sort">مرتب‌سازی</label>
+    <select id="rp-sort" name="sort" class="a-select" data-autosubmit>
+      @foreach (var (key, title) in ProductsModel.Sorts.Where(s => s.Key != "profit" || profit))
+      {
+        <option value="@key" selected="@(Model.Sort == key)">@title</option>
+      }
+    </select></div>
+  <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+</form>
+
+@if (Model.Filter == "nosales")
+{
+  <div class="a-alert a-alert-info mb-4">این محصولات دیده شده‌اند ولی در این بازه فروخته نشده‌اند. قیمت را با رقبا مقایسه کنید، عکس و توضیح را کامل کنید و موجودی را بررسی کنید.</div>
+}
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">محصولات <span class="a-muted text-sm">(@Format.Number(Model.Rows.Total))</span></span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead>
+        <tr>
+          <th>محصول</th><th>بازدید</th><th>افزودن به سبد</th><th>سفارش</th><th>تعداد فروش</th><th>مبلغ فروش</th><th>نرخ تبدیل</th><th>مرجوعی</th>
+          @if (profit) { <th>سود ناخالص</th> }
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var r in Model.Rows.Items)
+        {
+          <tr>
+            <td data-label="محصول">
+              @if (canEdit) { <a class="a-link" href="/admin/products/edit/@r.ProductId">@r.Name</a> } else { <span>@r.Name</span> }
+              <div class="a-muted text-xs"><span class="a-ltr">@r.Sku</span> · موجودی @Format.Number(r.Stock)
+                @if (!r.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> }
+                @if (r.Stock <= 0) { <span class="a-badge a-badge-red">ناموجود</span> }
+              </div>
+            </td>
+            <td data-label="بازدید">@Format.Number(r.Views)</td>
+            <td data-label="افزودن به سبد">@Format.Number(r.AddToCarts) @if (r.ViewToCart is { } vc) { <span class="a-muted text-xs">(@vc.ToString("0.#", inv)٪)</span> }</td>
+            <td data-label="سفارش">@Format.Number(r.Orders)</td>
+            <td data-label="تعداد فروش">@Format.Number(r.Units)</td>
+            <td data-label="مبلغ فروش">@Format.Toman(r.Revenue)</td>
+            <td data-label="نرخ تبدیل">@(r.Conversion is { } cv ? cv.ToString("0.##", inv) + "٪" : "—")</td>
+            <td data-label="مرجوعی">@if (r.ReturnedUnits > 0) { <span class="@(r.ReturnRate > 10 ? "a-down" : "")">@Format.Number(r.ReturnedUnits) (@((r.ReturnRate ?? 0).ToString("0.#", inv))٪)</span> } else { <span class="a-muted">—</span> }</td>
+            @if (profit)
+            {
+              <td data-label="سود ناخالص">@(r.Profit is { } p ? Format.Toman(p) : (r.Units > 0 ? "قیمت خرید ثبت نشده" : "—"))</td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Rows.Items.Count == 0)
+    {
+      <div class="a-empty">در این بازه محصولی با این شرایط پیدا نشد.</div>
+    }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Rows.Page, Model.Rows.PageCount, Model.Rows.Total)" />
+</div>

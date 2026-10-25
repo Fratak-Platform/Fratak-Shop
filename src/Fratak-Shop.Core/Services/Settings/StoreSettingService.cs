@@ -234,6 +234,10 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (command.PostTrackingMaxDays is < 3 or > 120)
             return "حداکثر روزهای رهگیری مرسوله باید بین ۳ تا ۱۲۰ باشد.";
 
+        // آمار بازدید: کمتر از ۳۰ روز گزارش ماهانه را خراب می‌کند و بیش از ~۴ سال فقط جا می‌گیرد.
+        if (command.AnalyticsRetentionDays is < 30 or > 1500)
+            return "مدت نگهداری آمار بازدید باید بین ۳۰ تا ۱۵۰۰ روز باشد.";
+
         if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
             return "نام کاربری ایکس (توییتر) معتبر نیست.";

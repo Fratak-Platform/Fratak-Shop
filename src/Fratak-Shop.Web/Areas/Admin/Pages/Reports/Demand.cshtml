@@ -1,0 +1,144 @@
+@page "/admin/reports/demand"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.DemandModel
+@* تقاضای مشتریان (مرحلهٔ هفتم – فاز ۷). *@
+@{
+    ViewData["Title"] = "تقاضای مشتریان";
+    var r = Model.Report;
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var canEdit = Model.CanAny(AdminPermissions.ProductsView, AdminPermissions.ProductsManage);
+    var canSeo = Model.Can(AdminPermissions.SeoManage);
+}
+<div class="a-page-head">
+  <div>
+    <h2>تقاضای مشتریان</h2>
+    <p class="a-muted text-sm mt-1">چه می‌خواهند که نداریم؟ برای تصمیم خرید و افزودن کالا · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+</div>
+
+<partial name="_ReportPeriod" model="Model" />
+
+<div class="a-grid xl:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">جست‌وجوهای بی‌نتیجه</span>@if (canSeo) { <a class="a-link text-sm" href="/admin/seo?tab=search">مترادف‌ها</a> }</div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">مشتری این‌ها را جست‌وجو کرده و هیچ کالایی پیدا نکرده است: یا کالا را نداریم یا نامش را طور دیگری نوشته‌ایم (مترادف تعریف کنید).</p>
+      @if (r.ZeroResults.Count == 0)
+      {
+        <div class="a-empty">جست‌وجوی بی‌نتیجه‌ای ثبت نشده است.</div>
+      }
+      else
+      {
+        <table class="a-table">
+          <thead><tr><th>عبارت</th><th>تعداد</th><th>آخرین بار</th></tr></thead>
+          <tbody>
+            @foreach (var z in r.ZeroResults)
+            {
+              <tr><td><b>@z.Query</b></td><td>@Format.Number(z.Searches)</td><td class="a-muted text-xs">@AdminUi.Ago(z.LastSearchedAt)</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">درخواست «موجود شد خبرم کن»</span></div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">مشتری‌هایی که منتظر موجود شدن کالا هستند؛ با تأمین موجودی، اعلان خودکار برایشان می‌رود.</p>
+      @if (r.BackInStockRequests.Count == 0)
+      {
+        <div class="a-empty">درخواست فعالی وجود ندارد.</div>
+      }
+      else
+      {
+        <table class="a-table">
+          <thead><tr><th>محصول</th><th>منتظر</th><th>موجودی</th></tr></thead>
+          <tbody>
+            @foreach (var w in r.BackInStockRequests)
+            {
+              <tr>
+                <td>@if (canEdit) { <a class="a-link" href="/admin/products/edit/@w.ProductId">@w.Name</a> } else { <span>@w.Name</span> } @if (!w.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> }</td>
+                <td><b>@Format.Number(w.Requests)</b> نفر</td>
+                <td>@(w.Stock > 0 ? Format.Number(w.Stock) : "ناموجود")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">ناموجودهای پربازدید</span></div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">فروش ازدست‌رفته <b>تخمینی</b> است: بازدید × نرخ تبدیل سایت (@((r.SiteConversion * 100).ToString("0.##", inv))٪) × قیمت فعلی.</p>
+      @if (r.OutOfStockViewed.Count == 0)
+      {
+        <div class="a-empty">محصول ناموجودی در این بازه دیده نشده است.</div>
+      }
+      else
+      {
+        <table class="a-table">
+          <thead><tr><th>محصول</th><th>بازدید</th><th>فروش ازدست‌رفته (تخمینی)</th></tr></thead>
+          <tbody>
+            @foreach (var l in r.OutOfStockViewed)
+            {
+              <tr>
+                <td>@if (canEdit) { <a class="a-link" href="/admin/products/edit/@l.ProductId">@l.Name</a> } else { <span>@l.Name</span> }</td>
+                <td>@Format.Number(l.Views)</td>
+                <td>@(l.LostRevenue > 0 ? "≈ " + Format.Toman(l.LostRevenue) : "—")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">پربازدید ولی بدون فروش</span><a class="a-link text-sm" href="/admin/reports/products?filter=nosales&period=@Model.Period.Preset">همه</a></div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">موجود هستند و دست‌کم ۲۰ بار دیده شده‌اند ولی فروش نداشته‌اند؛ قیمت، عکس و توضیح را بررسی کنید.</p>
+      @if (r.ViewedNotBought.Count == 0)
+      {
+        <div class="a-empty">موردی نیست.</div>
+      }
+      else
+      {
+        <table class="a-table">
+          <thead><tr><th>محصول</th><th>بازدید</th><th>افزودن به سبد</th><th>قیمت</th></tr></thead>
+          <tbody>
+            @foreach (var p in r.ViewedNotBought)
+            {
+              <tr>
+                <td>@if (canEdit) { <a class="a-link" href="/admin/products/edit/@p.ProductId">@p.Name</a> } else { <span>@p.Name</span> }</td>
+                <td>@Format.Number(p.Views)</td>
+                <td>@Format.Number(p.AddToCarts)</td>
+                <td>@Format.Toman(p.Price)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">پرتکرارترین جست‌وجوها</span></div>
+  <div class="a-card-body">
+    @if (r.TopSearches.Count == 0)
+    {
+      <div class="a-empty">جست‌وجویی ثبت نشده است.</div>
+    }
+    else
+    {
+      <div class="a-chips">
+        @foreach (var t in r.TopSearches)
+        {
+          <span class="a-badge @(t.LastResultCount == 0 ? "a-badge-red" : "a-badge-blue")" title="آخرین تعداد نتیجه: @t.LastResultCount">@t.Query · @Format.Number(t.Searches)</span>
+        }
+      </div>
+    }
+  </div>
+</div>

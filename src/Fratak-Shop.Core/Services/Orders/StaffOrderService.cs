@@ -238,7 +238,10 @@ public class StaffOrderService(
                 .SetProperty(o => o.PaymentToken, token)
                 .SetProperty(o => o.PaymentDeadline, (DateTimeOffset?)expires)
                 .SetProperty(o => o.CreatedByStaffId, (Guid?)staffId)
-                .SetProperty(o => o.CreatedByStaffName, staffName));
+                .SetProperty(o => o.CreatedByStaffName, staffName)
+                // منبع سفارش در گزارش کمپین‌ها: «ثبت توسط کارکنان» (نه بازدید سایت).
+                .SetProperty(o => o.TrafficSource, Services.Reports.TrafficRules.StaffSource)
+                .SetProperty(o => o.TrafficMedium, Services.Reports.TrafficRules.StaffSource));
 
         context.OrderNotes.Add(new OrderNote
         {

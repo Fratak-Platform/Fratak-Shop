@@ -29,6 +29,25 @@ public class Order : BaseEntity
     [MaxLength(100)]
     public string? TrackingCode { get; set; }
 
+    // ── منبع ورودی سفارش (مرحلهٔ هفتم – فاز ۷) ──────────────────────────
+    // موقع ثبت سفارش از کوکی آخرین منبع غیرمستقیم (UTM یا ارجاع‌دهنده) پر می‌شود؛ گزارش: /admin/reports/campaigns.
+
+    /// <summary>منبع ورودی خریدار. مثال: «instagram»، «google»، «direct».</summary>
+    [MaxLength(60)]
+    public string? TrafficSource { get; set; }
+
+    /// <summary>نوع منبع. مثال: «social»، «organic»، «cpc».</summary>
+    [MaxLength(30)]
+    public string? TrafficMedium { get; set; }
+
+    /// <summary>نام کمپین (utm_campaign). مثال: «yalda-1405».</summary>
+    [MaxLength(100)]
+    public string? TrafficCampaign { get; set; }
+
+    /// <summary>شناسهٔ تصادفی مرورگر خریدار برای وصل کردن سفارش به قیف بازدید (همان VisitorDay.VisitorKey).</summary>
+    [MaxLength(32)]
+    public string? VisitorKey { get; set; }
+
     public decimal SubtotalAmount { get; set; }
 
     /// <summary>Order level discount (coupon + manual discount).</summary>

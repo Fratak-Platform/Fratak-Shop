@@ -56,6 +56,10 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Core.Services.Orders.IPostTrackingClient, Infrastructure.Shipping.PostTrackingClient>();
         services.AddSingleton<Infrastructure.Shipping.PostTrackingQueue>();
         services.AddHostedService<Infrastructure.Shipping.PostTrackingWorker>();
+        // مرحلهٔ هفتم – فاز ۷: آمار بازدید داخلی (بافر حافظه + ذخیرهٔ دقیقه‌ای + ابزار صفحه‌ها).
+        services.AddSingleton<Infrastructure.Analytics.AnalyticsBuffer>();
+        services.AddScoped<Infrastructure.Analytics.AnalyticsTracker>();
+        services.AddHostedService<Infrastructure.Analytics.AnalyticsFlushWorker>();
 
         // Round 5: captcha, secrets, uploads, web push, background jobs.
         services.AddSingleton<Infrastructure.Security.ICaptchaService, Infrastructure.Security.CaptchaService>();

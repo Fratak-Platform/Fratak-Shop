@@ -179,6 +179,8 @@ public static class StoreSettingMapper
             PostTrackingRunsPerDay = entity.PostTrackingRunsPerDay,
             PostTrackingAutoDeliver = entity.PostTrackingAutoDeliver,
             PostTrackingMaxDays = entity.PostTrackingMaxDays,
+            IsAnalyticsEnabled = entity.IsAnalyticsEnabled,
+            AnalyticsRetentionDays = entity.AnalyticsRetentionDays,
         };
     }
 
@@ -352,5 +354,7 @@ public static class StoreSettingMapper
         entity.PostTrackingRunsPerDay = command.PostTrackingRunsPerDay;
         entity.PostTrackingAutoDeliver = command.PostTrackingAutoDeliver;
         entity.PostTrackingMaxDays = command.PostTrackingMaxDays;
+        entity.IsAnalyticsEnabled = command.IsAnalyticsEnabled;
+        entity.AnalyticsRetentionDays = command.AnalyticsRetentionDays;
     }
 }

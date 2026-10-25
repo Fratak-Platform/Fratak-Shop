@@ -207,6 +207,7 @@ app.MapAuthApi();
 app.MapSeoEndpoints();
 app.MapPwaEndpoints();
 app.MapStorefrontApi();
+Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoints(app);
 app.MapMediaEndpoints();
 
 // Uptime monitors: database reachability only (details are in the admin panel).

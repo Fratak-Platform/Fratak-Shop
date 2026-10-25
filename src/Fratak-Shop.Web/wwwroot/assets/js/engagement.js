@@ -130,6 +130,24 @@
 
   // ── Product view beacon ──────────────────────────────────────────────
   const viewed = document.querySelector("[data-product-view]");
+
+  // ── آمار بازدید داخلی (مرحلهٔ هفتم – فاز ۷) ──────────────────────────
+  // یک درخواست کوچک برای هر صفحه: مسیر، پارامترهای UTM و ارجاع‌دهنده (برای تشخیص منبع ورودی) و شناسهٔ محصول
+  // (برای قیف «دیدن محصول»). سرور ربات‌ها و پنل مدیریت را نمی‌شمارد و IP ذخیره نمی‌کند.
+  if (window.fetch && document.visibilityState !== "prerender" && !navigator.webdriver) {
+    fetch("/api/a/hit", {
+      method: "POST",
+      credentials: "same-origin",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p: location.pathname,
+        q: location.search,
+        r: document.referrer || "",
+        pid: viewed ? viewed.dataset.productView : null,
+      }),
+    }).catch(() => { /* آمار بهترین تلاش است */ });
+  }
   if (viewed && window.fetch) {
     fetch("/api/products/" + encodeURIComponent(viewed.dataset.productView) + "/view", {
       method: "POST",
