@@ -3446,6 +3446,129 @@ namespace Fratak_Shop.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.PriceChangeBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AffectedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RevertNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("RevertedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RevertedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("PriceChangeBatches");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.PriceChangeItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("NewDiscountEndAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal?>("NewDiscountPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset?>("NewDiscountStartAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("NewPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal?>("NewPurchasePrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset?>("OldDiscountEndAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal?>("OldDiscountPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset?>("OldDiscountStartAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("OldPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal?>("OldPurchasePrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("PriceChangeItems");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3889,6 +4012,65 @@ namespace Fratak_Shop.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_ProductVideos_Provider", "[Provider] BETWEEN 1 AND 3");
                         });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("BalanceAfter")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ProductId", "CreatedAt");
+
+                    b.HasIndex("Reason", "CreatedAt");
+
+                    b.ToTable("StockMovements");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.Supplier", b =>
@@ -8222,6 +8404,25 @@ namespace Fratak_Shop.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.PriceChangeItem", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Products.PriceChangeBatch", "Batch")
+                        .WithMany("Items")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Fratak_Shop.Data.Entities.Products.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.Product", b =>
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Brands.Brand", "Brand")
@@ -8541,6 +8742,17 @@ namespace Fratak_Shop.Data.Migrations
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Products.Product", "Product")
                         .WithMany("Videos")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.StockMovement", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Products.Product", "Product")
+                        .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -8911,6 +9123,11 @@ namespace Fratak_Shop.Data.Migrations
                 {
                     b.Navigation("Images");
 
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.PriceChangeBatch", b =>
+                {
                     b.Navigation("Items");
                 });
 
