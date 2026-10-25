@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -65,6 +65,10 @@ public static class RateLimitingSetup
         // Resized images: cheap when cached on disk, CPU-heavy on the first request of a size.
         if (path.StartsWithSegments("/media", StringComparison.OrdinalIgnoreCase))
             return Window("media:" + key, 600, TimeSpan.FromMinutes(1));
+
+        // Admin panel: staff work fast (bulk edits, status changes); only signed-in staff get past the page filter.
+        if (path.StartsWithSegments("/admin", StringComparison.OrdinalIgnoreCase))
+            return HttpMethods.IsPost(request.Method) ? Window("admin:" + key, 240, TimeSpan.FromMinutes(1)) : RateLimitPartition.GetNoLimiter("none");
 
         if (HttpMethods.IsPost(request.Method))
         {

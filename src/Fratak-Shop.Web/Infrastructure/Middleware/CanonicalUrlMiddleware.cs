@@ -1,4 +1,4 @@
-namespace Fratak_Shop.Web.Infrastructure.Middleware;
+﻿namespace Fratak_Shop.Web.Infrastructure.Middleware;
 
 /// <summary>
 /// One URL per page (duplicate-content protection): page URLs are served lowercase and
@@ -8,7 +8,7 @@ namespace Fratak_Shop.Web.Infrastructure.Middleware;
 /// </summary>
 public class CanonicalUrlMiddleware(RequestDelegate next)
 {
-    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/api", "/_", "/.well-known"];
+    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/api", "/_", "/.well-known", "/admin", "/health"];
 
     /// <summary>Old hard-coded pages → content page slugs.</summary>
     private static readonly Dictionary<string, string> LegacyPaths = new(StringComparer.OrdinalIgnoreCase)

@@ -7,6 +7,8 @@ module.exports = {
     "./Helpers/**/*.cs",
     "./ViewComponents/**/*.cs",
     "./wwwroot/assets/js/*.js",
+    "./Areas/**/*.cshtml",
+    "./Infrastructure/Admin/**/*.cs",
   ],
   // Classes used by the original template that are not referenced literally anymore.
   safelist: [

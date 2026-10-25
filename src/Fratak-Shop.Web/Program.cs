@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Net;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
@@ -36,6 +36,11 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/Payment/Callback");
     options.Conventions.AuthorizePage("/Verify");
     options.Conventions.AuthorizePage("/Welcome");
+
+    // Admin panel: signed-in users only; AdminPageFilter then checks staff membership and permissions.
+    options.Conventions.AuthorizeAreaFolder("Admin", "/");
+    options.Conventions.AddAreaFolderApplicationModelConvention("Admin", "/",
+        model => model.Filters.Add(new Microsoft.AspNetCore.Mvc.ServiceFilterAttribute(typeof(Fratak_Shop.Web.Infrastructure.Admin.AdminPageFilter))));
 
     // Friendly aliases for the product listing.
     options.Conventions.AddPageRoute("/Search", "products");
@@ -182,6 +187,7 @@ app.UseStaticFiles(new StaticFileOptions
     },
 });
 
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Admin.ActivityTrackingMiddleware>();
 app.UseMiddleware<CanonicalUrlMiddleware>();
 app.UseRouting();
 app.UseRateLimiter();
@@ -200,6 +206,15 @@ app.MapSeoEndpoints();
 app.MapPwaEndpoints();
 app.MapStorefrontApi();
 app.MapMediaEndpoints();
+
+// Uptime monitors: database reachability only (details are in the admin panel).
+app.MapGet("/health", async (HttpContext http, Fratak_Shop.Web.Infrastructure.Admin.HealthService health, CancellationToken cancellationToken) =>
+{
+    var (ok, milliseconds) = await health.PingDatabaseAsync(cancellationToken);
+    http.Response.Headers.CacheControl = "no-store";
+    http.Response.Headers["X-Robots-Tag"] = "noindex";
+    return Results.Json(new { status = ok ? "ok" : "down", db = Math.Round(milliseconds) }, statusCode: ok ? 200 : 503);
+});
 
 // Cities of a province, used by the address forms (province → city select).
 app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid provinceId, ILocationService locations, HttpContext http) =>
@@ -278,6 +293,20 @@ PageCachePolicy.WireEviction(app.Services.GetRequiredService<IOutputCacheStore>(
 // ── Database: migrations, reference data and optional demo catalog ────
 await app.Services.InitializeFratakShopDataAsync();
 
+// Admin panel: default roles (once), legacy staff moved onto roles, owner from Shop:OwnerPhoneNumber.
+using (var adminScope = app.Services.CreateScope())
+{
+    try
+    {
+        await adminScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Admin.IAdminAccessService>()
+            .EnsureDefaultsAsync(app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.OwnerPhoneNumber);
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogError(exception, "Preparing the admin roles failed");
+    }
+}
+
 // Web push needs a VAPID key pair: generated once and stored in the settings row.
 using (var pushScope = app.Services.CreateScope())
 {
@@ -297,6 +326,10 @@ if (app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.SeedDemoData)
     await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
     await Fratak_Shop.Web.Infrastructure.Seeders.Round5DemoSeeder.SeedAsync(
         scope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>(),
+        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.DemoData"));
+    await Round6DemoSeeder.SeedAsync(
+        scope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>(),
+        app.Environment,
         scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.DemoData"));
 }
 

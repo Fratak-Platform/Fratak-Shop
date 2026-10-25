@@ -1,0 +1,116 @@
+@inject AdminBadgeService BadgeService
+@{
+    var access = ViewContext.HttpContext.Items[AdminPageFilter.AccessItemKey] as AdminAccess;
+    var badges = access is null ? new Dictionary<string, int>() : await BadgeService.GetAsync();
+    var path = (ViewContext.HttpContext.Request.Path.Value ?? "/admin").TrimEnd('/').ToLowerInvariant();
+    if (path.Length == 0) { path = "/admin"; }
+    var title = ViewData["Title"] as string ?? "پنل مدیریت";
+    // The most specific menu item that matches the current address is highlighted.
+    var activeUrl = AdminNav.Groups.SelectMany(g => g.Items)
+        .Where(i => path == i.Url || (i.Url != "/admin" && path.StartsWith(i.Url + "/")))
+        .OrderByDescending(i => i.Url.Length).Select(i => i.Url).FirstOrDefault() ?? "/admin";
+}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="same-origin">
+  <title>@title | مدیریت @Site.Settings.SiteName</title>
+  <link rel="icon" href="@Site.FaviconUrl">
+  <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/admin.css" asp-append-version="true">
+  @await RenderSectionAsync("Head", required: false)
+</head>
+<body class="a-body">
+  <div class="a-shell">
+    <aside class="a-sidebar" id="admin-sidebar" data-sidebar>
+      <div class="a-sidebar-head">
+        <a href="/admin" class="a-brand">
+          @Icons.Svg("Storefront", "shrink-0", 24)
+          <span>@Site.Settings.SiteName</span>
+        </a>
+        <button type="button" class="a-icon-btn lg:hidden" data-sidebar-close aria-label="بستن منو">@Icons.Svg("Close", null, 20)</button>
+      </div>
+      <nav class="a-nav" aria-label="منوی مدیریت">
+        @foreach (var group in AdminNav.Groups)
+        {
+          var items = access is null ? Array.Empty<AdminNavItem>() : group.Items.Where(i => i.IsVisible(access)).ToArray();
+          if (items.Length == 0) { continue; }
+          if (!string.IsNullOrEmpty(group.Title))
+          {
+            <div class="a-nav-group">@group.Title</div>
+          }
+          foreach (var item in items)
+          {
+            var count = item.BadgeKey is not null && badges.TryGetValue(item.BadgeKey, out var c) ? c : 0;
+            <a href="@item.Url" class="a-nav-link @(item.Url == activeUrl ? "is-active" : "")" @(item.Url == activeUrl ? "aria-current=page" : "")>
+              @Icons.Svg(item.Icon, "shrink-0", 20)
+              <span class="flex-1">@item.Title</span>
+              @if (count > 0)
+              {
+                <span class="a-nav-badge">@(count > 99 ? "99+" : count.ToString())</span>
+              }
+            </a>
+          }
+        }
+      </nav>
+      <div class="a-sidebar-foot">
+        <a href="/" class="a-nav-link" target="_blank" rel="noopener">@Icons.Svg("ArrowSquareOut", "shrink-0", 20)<span>مشاهده فروشگاه</span></a>
+      </div>
+    </aside>
+    <div class="a-backdrop" data-sidebar-close></div>
+
+    <div class="a-main">
+      <header class="a-topbar">
+        <button type="button" class="a-icon-btn lg:hidden" data-sidebar-open aria-controls="admin-sidebar" aria-label="باز کردن منو">@Icons.Svg("List", null, 22)</button>
+        <h1 class="a-topbar-title">@title</h1>
+        @if (access?.Has(AdminPermissions.OrdersView) == true)
+        {
+          <form method="get" action="/admin/orders" class="a-quick-search hidden md:flex" role="search">
+            @Icons.Svg("MagnifyingGlass", "text-gray-400", 18)
+            <input type="search" name="q" placeholder="شماره سفارش، نام یا موبایل مشتری…" aria-label="جست‌وجوی سفارش" maxlength="100">
+          </form>
+        }
+        <div class="a-user" data-dropdown>
+          <button type="button" class="a-user-btn" data-dropdown-toggle aria-haspopup="true" aria-expanded="false">
+            @Icons.Svg("UserCircle", null, 24)
+            <span class="hidden sm:inline max-w-36 truncate">@(access?.DisplayName ?? "")</span>
+            @Icons.Svg("CaretDown", null, 14)
+          </button>
+          <div class="a-dropdown" data-dropdown-menu hidden>
+            <div class="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+              @if (access?.IsOwner == true)
+              {
+                <span class="a-badge a-badge-purple">مالک فروشگاه</span>
+              }
+              else
+              {
+                @string.Join("، ", access?.RoleNames ?? [])
+              }
+            </div>
+            <a href="/profile" class="a-dropdown-item">@Icons.Svg("User", null, 18) حساب کاربری من</a>
+            <a href="/" class="a-dropdown-item">@Icons.Svg("Storefront", null, 18) فروشگاه</a>
+            <form method="post" action="/logout" class="m-0" asp-antiforgery="true">
+              <button type="submit" class="a-dropdown-item w-full text-red-600">@Icons.Svg("SignOut", null, 18) خروج</button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <partial name="_AdminStatus" />
+
+      <main class="a-content" id="main">
+        @RenderBody()
+      </main>
+    </div>
+  </div>
+
+  <script src="~/assets/js/modal.js" asp-append-version="true"></script>
+  <script src="~/assets/js/admin.js" asp-append-version="true"></script>
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

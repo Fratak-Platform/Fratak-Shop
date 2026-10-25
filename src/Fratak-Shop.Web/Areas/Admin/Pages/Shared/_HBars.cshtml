@@ -1,0 +1,21 @@
+@model HBarsModel
+@{
+    var max = Model.Rows.Count == 0 ? 0 : Model.Rows.Max(r => Model.ByCount ? r.Count : r.Amount);
+}
+@if (Model.Rows.Count == 0)
+{
+  <div class="a-empty">داده‌ای ثبت نشده است.</div>
+}
+else
+{
+  foreach (var row in Model.Rows)
+  {
+    var value = Model.ByCount ? row.Count : row.Amount;
+    var width = max == 0 ? 0 : Math.Round(value * 100 / max, 1);
+    <div class="a-hbar">
+      <span class="name" title="@row.Name">@row.Name</span>
+      <div class="a-hbar-track"><div class="a-hbar-fill" style="width:@(width.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
+      <span class="val">@(Model.ByCount ? Format.Number(row.Count) : Format.Price(row.Amount))@(Model.ByCount || !Model.ShowCount ? "" : $" ({Format.Number(row.Count)})")</span>
+    </div>
+  }
+}

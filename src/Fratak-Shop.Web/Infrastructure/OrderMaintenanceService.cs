@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.Services.Auth;
+﻿using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Loyalty;
 using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Core.Services.Shopping;
@@ -56,7 +56,7 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
         {
             using var scope = scopeFactory.CreateScope();
             var orders = scope.ServiceProvider.GetRequiredService<IOrderService>();
-            var expired = await orders.ExpireUnpaidOrdersAsync(now, stoppingToken);
+            var expired = await Admin.JobMonitor.TrackAsync("لغو سفارش‌های پرداخت‌نشده", () => orders.ExpireUnpaidOrdersAsync(now, stoppingToken));
             if (expired > 0)
                 logger.LogInformation("Cancelled {Count} unpaid orders after their payment deadline", expired);
         }
@@ -69,7 +69,7 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
         {
             using var scope = scopeFactory.CreateScope();
             var tokens = scope.ServiceProvider.GetRequiredService<IRefreshTokenService>();
-            await tokens.CleanupAsync(now, stoppingToken);
+            await Admin.JobMonitor.TrackAsync("پاک‌سازی نشست‌های منقضی", () => tokens.CleanupAsync(now, stoppingToken));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -80,7 +80,7 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
         {
             using var scope = scopeFactory.CreateScope();
             var abandoned = scope.ServiceProvider.GetRequiredService<IAbandonedCartService>();
-            var result = await abandoned.ProcessAsync(now, stoppingToken);
+            var result = await Admin.JobMonitor.TrackAsync("سبدهای رهاشده", () => abandoned.ProcessAsync(now, stoppingToken));
             if (result.Detected + result.RemindersSent + result.Closed > 0)
                 logger.LogInformation("Abandoned carts: {Detected} detected, {Sent} reminders sent, {Closed} closed",
                     result.Detected, result.RemindersSent, result.Closed);
@@ -100,8 +100,8 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
             var loyalty = scope.ServiceProvider.GetRequiredService<ILoyaltyService>();
 
             // Both are idempotent (birthday gifts use a per-year reference), so reruns are harmless.
-            var birthdays = await loyalty.AwardBirthdaysAsync(now, stoppingToken);
-            var expired = await loyalty.ExpirePointsAsync(now, stoppingToken);
+            var birthdays = await Admin.JobMonitor.TrackAsync("هدیه تولد باشگاه", () => loyalty.AwardBirthdaysAsync(now, stoppingToken));
+            var expired = await Admin.JobMonitor.TrackAsync("انقضای امتیازها", () => loyalty.ExpirePointsAsync(now, stoppingToken));
             if (birthdays > 0 || expired > 0)
                 logger.LogInformation("Loyalty: {Birthdays} birthday gifts, points expired for {Expired} customers", birthdays, expired);
         }

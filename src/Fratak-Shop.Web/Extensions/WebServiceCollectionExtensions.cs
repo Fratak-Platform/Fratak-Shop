@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.Services.Notifications;
+﻿using Fratak_Shop.Core.Services.Notifications;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Infrastructure.Seeders;
@@ -56,6 +56,17 @@ public static class WebServiceCollectionExtensions
         });
         services.AddHostedService<Infrastructure.Engagement.WebPushDispatcher>();
         services.AddHostedService<Infrastructure.Engagement.EngagementMaintenanceService>();
+
+        // Round 6: admin panel – permission filter, live activity, error logging to the database,
+        // health checks, background-job monitor and log retention.
+        services.AddScoped<Infrastructure.Admin.AdminPageFilter>();
+        services.AddScoped<Infrastructure.Admin.AdminBadgeService>();
+        services.AddSingleton<Infrastructure.Admin.ActivityTracker>();
+        services.AddSingleton<Infrastructure.Admin.ErrorLogQueue>();
+        services.AddSingleton<ILoggerProvider, Infrastructure.Admin.DbErrorLoggerProvider>();
+        services.AddSingleton<Infrastructure.Admin.HealthService>();
+        services.AddHostedService<Infrastructure.Admin.ErrorLogWriter>();
+        services.AddHostedService<Infrastructure.Admin.MonitoringMaintenanceService>();
 
         return services;
     }

@@ -1,4 +1,4 @@
-using System.Text.Encodings.Web;
+﻿using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
 using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
@@ -40,7 +40,7 @@ public static class PrivatePaths
     public static readonly string[] Prefixes =
     [
         "/profile", "/checkout", "/cart", "/payment", "/api/", "/login", "/register",
-        "/verify", "/welcome", "/logout", "/compare", "/track-order", "/uploads/returns/",
+        "/verify", "/welcome", "/logout", "/compare", "/track-order", "/uploads/returns/", "/admin",
     ];
 
     public static bool IsPrivate(Microsoft.AspNetCore.Http.PathString path) =>

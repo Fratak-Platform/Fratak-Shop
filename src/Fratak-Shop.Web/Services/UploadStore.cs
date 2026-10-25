@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using Fratak_Shop.Core.Utilities;
 
 namespace Fratak_Shop.Web.Services;
@@ -13,6 +13,17 @@ public sealed record UploadArea(string Name, bool IsPublic, bool AllowPdf)
 
     /// <summary>Ticket attachments: private, only the ticket owner (and staff later) can download them.</summary>
     public static readonly UploadArea Tickets = new("tickets", IsPublic: false, AllowPdf: true);
+
+    /// <summary>Supplier purchase invoices of orders: private (App_Data), staff with the permission only – never customers.</summary>
+    public static readonly UploadArea PurchaseInvoices = new("purchase-invoices", IsPublic: false, AllowPdf: true);
+
+    // Admin panel images (public, re-encoded without metadata, random names).
+    public static readonly UploadArea Products = new("products", IsPublic: true, AllowPdf: false);
+    public static readonly UploadArea Categories = new("categories", IsPublic: true, AllowPdf: false);
+    public static readonly UploadArea Brands = new("brands", IsPublic: true, AllowPdf: false);
+    public static readonly UploadArea Blogs = new("blogs", IsPublic: true, AllowPdf: false);
+    public static readonly UploadArea Banners = new("banners", IsPublic: true, AllowPdf: false);
+    public static readonly UploadArea Content = new("content", IsPublic: true, AllowPdf: false);
 }
 
 /// <summary>

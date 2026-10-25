@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.Services.Seo;
+﻿using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.SeoRedirects;
 using Fratak_Shop.Data.Entities.SeoRedirects;
 using Fratak_Shop.Data.Utilities;
@@ -15,7 +15,7 @@ namespace Fratak_Shop.Web.Infrastructure.Middleware;
 public class SeoRedirectMiddleware(RequestDelegate next, IMemoryCache cache, ILogger<SeoRedirectMiddleware> logger)
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
-    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/css", "/js", "/_", "/api", "/media", "/payment", "/.well-known"];
+    private static readonly string[] IgnoredPrefixes = ["/assets", "/uploads", "/lib", "/css", "/js", "/_", "/api", "/media", "/payment", "/.well-known", "/admin", "/health"];
 
     public async Task InvokeAsync(HttpContext context, ISeoRedirectService redirectService)
     {

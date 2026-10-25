@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.Services.Marketing;
+﻿using Fratak_Shop.Core.Services.Marketing;
 using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Core.Services.Seo;
 using Fratak_Shop.Core.Services.Settings;
@@ -77,7 +77,7 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         try
         {
             using var scope = scopeFactory.CreateScope();
-            var count = await job(scope.ServiceProvider);
+            var count = await Admin.JobMonitor.TrackAsync(name, () => job(scope.ServiceProvider));
             if (count > 0)
                 logger.LogInformation("{Job}: {Count} item(s)", name, count);
         }
