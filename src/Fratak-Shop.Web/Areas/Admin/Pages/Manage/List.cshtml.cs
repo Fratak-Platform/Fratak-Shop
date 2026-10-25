@@ -129,7 +129,7 @@ public class ListModel(ManageEngine engine, IAdminPreferenceService preferences)
 
         var html = ManageEngine.Cell(def, meta, entity, await RefLabelsAsync(def, meta));
         using var writer = new StringWriter();
-        html.WriteTo(writer, System.Text.Encodings.Web.HtmlEncoder.Default);
+        html.WriteTo(writer, global::System.Text.Encodings.Web.HtmlEncoder.Default);
         return new JsonResult(new { ok = true, message = "ذخیره شد.", html = writer.ToString(), value = ManageEngine.InputValue(entity, meta) });
     }
 

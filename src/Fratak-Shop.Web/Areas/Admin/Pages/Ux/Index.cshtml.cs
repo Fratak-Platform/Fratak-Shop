@@ -88,14 +88,14 @@ public class IndexModel(IAdminShortcutService shortcuts, IAdminSearchService sea
         return new JsonResult(new
         {
             ok = true,
-            data = new { stamp = draft.BaseStamp.ToString(System.Globalization.CultureInfo.InvariantCulture), title = draft.Title, savedAt = draft.SavedAt, data = draft.Data },
+            data = new { stamp = draft.BaseStamp.ToString(global::System.Globalization.CultureInfo.InvariantCulture), title = draft.Title, savedAt = draft.SavedAt, data = draft.Data },
         });
     }
 
     /// <summary>ذخیرهٔ خودکار فرم (هر چند ثانیه هنگام تایپ). stamp به‌صورت متن می‌آید چون عدد ۱۸ رقمی در JavaScript دقیق نمی‌ماند.</summary>
     public async Task<IActionResult> OnPostDraftAsync(string? key, string? stamp, string? title, string? url, string? data, CancellationToken cancellationToken)
     {
-        _ = long.TryParse(stamp, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var baseStamp);
+        _ = long.TryParse(stamp, global::System.Globalization.NumberStyles.None, global::System.Globalization.CultureInfo.InvariantCulture, out var baseStamp);
         var error = await drafts.SaveAsync(ActorId, key ?? "", baseStamp, title, url, data ?? "", cancellationToken);
         return error is null ? Reply(true, "پیش‌نویس ذخیره شد.") : Reply(false, error);
     }
