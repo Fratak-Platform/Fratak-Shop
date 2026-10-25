@@ -617,3 +617,9 @@ html[data-theme="dark"] .a-diff-new { color: #6ee7b7; }
 .a-board-card.is-placeholder { opacity: .35; }
 .a-board-card a { color: inherit; }
 
+/* CRM: برچسب مشتری (لینک فیلتر + دکمهٔ حذف کوچک) – صفحهٔ جزئیات مشتری */
+.a-crm-tag { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; background: var(--a-primary-soft); color: var(--a-primary-dark); font-size: 12px; padding: 2px 4px 2px 10px; }
+.a-crm-tag a { display: inline-flex; align-items: center; gap: 4px; }
+.a-crm-tag button { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 999px; color: inherit; opacity: .7; }
+.a-crm-tag button:hover { opacity: 1; background: rgba(79,70,229,.15); }
+html[data-theme="dark"] .a-crm-tag { background: rgba(129,140,248,.15); color: #c7d2fe; }

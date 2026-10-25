@@ -28,6 +28,23 @@
     <div class="a-field" style="flex-basis:240px"><label class="a-label" for="f-q">جست‌وجو</label><input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام، موبایل یا ایمیل"></div>
     <div class="a-field"><label class="a-label" for="f-from">عضویت از</label><input id="f-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/01/01"></div>
     <div class="a-field"><label class="a-label" for="f-to">تا</label><input id="f-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/12/29"></div>
+    @if (Model.PopularTags.Count > 0 || !string.IsNullOrWhiteSpace(Model.Tag))
+    {
+      <div class="a-field">
+        <label class="a-label" for="f-tag">برچسب</label>
+        <select id="f-tag" name="tag" class="a-select">
+          <option value="">همه</option>
+          @if (!string.IsNullOrWhiteSpace(Model.Tag) && !Model.PopularTags.Any(t => t.Tag == Model.Tag))
+          {
+            <option value="@Model.Tag" selected>@Model.Tag</option>
+          }
+          @foreach (var t in Model.PopularTags)
+          {
+            <option value="@t.Tag" selected="@(t.Tag == Model.Tag)">@t.Tag (@Format.Number(t.Count))</option>
+          }
+        </select>
+      </div>
+    }
     <div class="a-field">
       <label class="a-label" for="f-sort">مرتب‌سازی</label>
       <select id="f-sort" name="sort" class="a-select">

@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.DTOs.Settings;
+using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Web.Areas.Admin.Pages.Orders;
@@ -255,4 +256,63 @@ public class OrdersRound7Tests
         Assert.False(Make(OrderMessageKind.ItemUnavailable, OrderMessageDecision.Withdrawn).IsOpenQuestion);
         Assert.False(Make(OrderMessageKind.Message, OrderMessageDecision.None).IsOpenQuestion);
     }
+    // ── CRM: بخش‌بندی RFM و برچسب ───────────────────────────────────────
+
+    [Fact]
+    public void Rfm_NoPurchase()
+    {
+        var rfm = CustomerRfmCalculator.Calculate(new CustomerRfmInput(null, 0, 0, 1_000_000m), T0);
+        Assert.Equal(CustomerSegment.NoPurchase, rfm.Segment);
+        Assert.Null(rfm.DaysSinceLastOrder);
+        Assert.False(string.IsNullOrWhiteSpace(rfm.Advice));
+    }
+
+    [Fact]
+    public void Rfm_Scores_FollowThresholds()
+    {
+        // ۱۰ روز پیش، ۶ خرید، ۳ برابر میانگین → ۵۴۵ = طلایی
+        var champion = CustomerRfmCalculator.Calculate(new CustomerRfmInput(T0.AddDays(-10), 6, 3_000_000m, 1_000_000m), T0);
+        Assert.Equal((5, 4, 5), (champion.Recency, champion.Frequency, champion.Monetary));
+        Assert.Equal("545", champion.Code);
+        Assert.Equal(CustomerSegment.Champion, champion.Segment);
+        Assert.Equal(10, champion.DaysSinceLastOrder);
+
+        // یک خرید ۵ روز پیش → تازه‌وارد
+        Assert.Equal(CustomerSegment.New, CustomerRfmCalculator.Calculate(new CustomerRfmInput(T0.AddDays(-5), 1, 500_000m, 1_000_000m), T0).Segment);
+
+        // میانگین فروشگاه صفر است → نمرهٔ مبلغ متوسط (۳)
+        Assert.Equal(3, CustomerRfmCalculator.Calculate(new CustomerRfmInput(T0, 1, 10m, 0m), T0).Monetary);
+    }
+
+    [Theory]
+    [InlineData(5, 5, CustomerSegment.Champion)]
+    [InlineData(3, 3, CustomerSegment.Loyal)]
+    [InlineData(5, 1, CustomerSegment.New)]
+    [InlineData(3, 1, CustomerSegment.Promising)]
+    [InlineData(4, 2, CustomerSegment.Promising)]
+    [InlineData(2, 4, CustomerSegment.AtRisk)]
+    [InlineData(2, 1, CustomerSegment.NeedsAttention)]
+    [InlineData(1, 5, CustomerSegment.CantLose)]
+    [InlineData(1, 1, CustomerSegment.Lost)]
+    public void Rfm_SegmentMap(int recency, int frequency, CustomerSegment expected) =>
+        Assert.Equal(expected, CustomerRfmCalculator.Segment(recency, frequency));
+
+    [Fact]
+    public void Rfm_EverySegment_HasTitleAndAdvice()
+    {
+        foreach (var segment in Enum.GetValues<CustomerSegment>())
+        {
+            Assert.False(string.IsNullOrWhiteSpace(CustomerRfmCalculator.Title(segment)));
+            Assert.False(string.IsNullOrWhiteSpace(CustomerRfmCalculator.Advice(segment)));
+        }
+    }
+
+    [Theory]
+    [InlineData("  #مشتری   عمده ", "مشتری عمده")]
+    [InlineData("VIP", "VIP")]
+    [InlineData("مشتري كليدي", "مشتری کلیدی")]
+    [InlineData("#", "")]
+    [InlineData(null, "")]
+    public void CrmTag_IsNormalized(string? input, string expected) =>
+        Assert.Equal(expected, CustomerCrmService.NormalizeTag(input));
 }

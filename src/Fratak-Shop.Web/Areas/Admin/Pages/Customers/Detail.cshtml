@@ -27,6 +27,11 @@
   <div class="a-alert a-alert-danger mb-4">@Icons.Svg("Prohibit", "shrink-0", 20)<div>این حساب از @Format.DateTime(u.BlockedAt) مسدود است. دلیل: @u.BlockReason</div></div>
 }
 
+@foreach (var pin in Model.Notes.Where(n => n.IsPinned))
+{
+  <div class="a-alert a-alert-warn mb-3">@Icons.Svg("PushPin", "shrink-0", 20)<div><span class="whitespace-pre-line">@pin.Content</span> <span class="a-muted text-xs">— @(pin.AuthorName ?? "کارمند") · @Format.Date(pin.CreatedAt)</span></div></div>
+}
+
 <div class="a-stats mb-4">
   <div class="a-stat"><div class="a-stat-label">سفارش‌ها</div><div class="a-stat-value">@Format.Number(Model.OrderCount)</div></div>
   <div class="a-stat"><div class="a-stat-label">مجموع خرید</div><div class="a-stat-value">@AdminUi.Money(Model.TotalSpent)</div></div>
@@ -56,6 +61,59 @@
         </table>
         @if (Model.Orders.Count == 0) { <div class="a-empty">سفارشی ندارد.</div> }
       </div>
+    </div>
+
+    <div class="a-card" id="notes">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Note", null, 18) یادداشت‌های داخلی</span><span class="a-muted text-xs">مشتری این یادداشت‌ها را نمی‌بیند</span></div>
+      @if (canManage)
+      {
+        <form method="post" asp-page-handler="Note" class="a-card-body border-b border-gray-100 a-form-grid">
+          <label class="sr-only" for="n-content">متن یادداشت</label>
+          <textarea id="n-content" name="content" class="a-textarea" rows="2" maxlength="2000" required placeholder="مثلاً: تماس گرفت، ارسال به آدرس محل کار را ترجیح می‌دهد."></textarea>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="a-check"><input type="checkbox" name="pinned" value="true"> سنجاق بالای صفحه (هشدار مهم)</label>
+            <input type="hidden" name="pinned" value="false">
+            <button class="a-btn a-btn-soft a-btn-sm" type="submit">@Icons.Svg("Plus", null, 16) ثبت یادداشت</button>
+          </div>
+        </form>
+      }
+      @if (Model.Notes.Count == 0)
+      {
+        <div class="a-empty">یادداشتی ثبت نشده.</div>
+      }
+      else
+      {
+        <ul class="divide-y divide-gray-100 text-sm">
+          @foreach (var note in Model.Notes)
+          {
+            <li class="px-4 py-3">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  @if (note.IsPinned) { <span class="a-badge a-badge-yellow">سنجاق</span> }
+                  <span class="whitespace-pre-line leading-7">@note.Content</span>
+                  <div class="a-muted text-xs mt-1">@(note.AuthorName ?? "کارمند") · @Format.DateTime(note.CreatedAt)</div>
+                </div>
+                @if (canManage)
+                {
+                  <div class="flex gap-1 shrink-0">
+                    <form method="post" asp-page-handler="Pin">
+                      <input type="hidden" name="noteId" value="@note.Id">
+                      <button class="a-btn a-btn-light a-btn-xs" type="submit" title="@(note.IsPinned ? "برداشتن سنجاق" : "سنجاق")" aria-label="@(note.IsPinned ? "برداشتن سنجاق" : "سنجاق")">@Icons.Svg("PushPin", null, 14)</button>
+                    </form>
+                    @if (Model.Access.IsOwner || note.AuthorUserId == Model.Access.UserId)
+                    {
+                      <form method="post" asp-page-handler="DeleteNote" data-confirm="این یادداشت حذف شود؟" data-confirm-danger>
+                        <input type="hidden" name="noteId" value="@note.Id">
+                        <button class="a-btn a-btn-danger-soft a-btn-xs" type="submit" aria-label="حذف یادداشت">@Icons.Svg("Trash", null, 14)</button>
+                      </form>
+                    }
+                  </div>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
     </div>
 
     @if (Model.WalletTransactions.Count > 0 || canWallet)
@@ -133,6 +191,68 @@
   </div>
 
   <div class="a-stack">
+    <div class="a-card" id="crm">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartPie", null, 18) بخش مشتری و برچسب‌ها</span></div>
+      <div class="a-card-body space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="a-badge @Fratak_Shop.Web.Areas.Admin.Pages.Customers.DetailModel.SegmentBadge(Model.Rfm.Segment)">@Model.Rfm.Title</span>
+          @if (Model.Rfm.Segment != CustomerSegment.NoPurchase)
+          {
+            <span class="a-muted text-xs">کد RFM <span class="a-ltr">@Model.Rfm.Code</span> · آخرین خرید @Format.Number(Model.Rfm.DaysSinceLastOrder ?? 0) روز پیش</span>
+          }
+        </div>
+        @if (Model.Rfm.Segment != CustomerSegment.NoPurchase)
+        {
+          var scores = new (string Label, int Score)[] { ("تازگی خرید", Model.Rfm.Recency), ("دفعات خرید", Model.Rfm.Frequency), ("مبلغ خرید", Model.Rfm.Monetary) };
+          <div class="space-y-1.5 text-xs">
+            @foreach (var (label, score) in scores)
+            {
+              <div class="flex items-center gap-2">
+                <span class="w-20 shrink-0 a-muted">@label</span>
+                <div class="a-progress flex-1"><div style="width:@(score * 20)%"></div></div>
+                <span class="w-8 text-left">@Format.Number(score)/۵</span>
+              </div>
+            }
+          </div>
+        }
+        <p class="text-xs leading-6 a-muted">@Icons.Svg("Target", "inline", 14) @Model.Rfm.Advice</p>
+
+        <div class="border-t border-gray-100 pt-3">
+          <div class="a-label mb-2">برچسب‌ها</div>
+          <div class="flex flex-wrap gap-1.5">
+            @foreach (var tag in Model.Tags)
+            {
+              <span class="a-crm-tag" title="@(tag.CreatedByName is null ? "" : "توسط " + tag.CreatedByName)">
+                <a href="/admin/customers?tag=@Uri.EscapeDataString(tag.Tag)">@Icons.Svg("Tag", null, 12) @tag.Tag</a>
+                @if (canManage)
+                {
+                  <form method="post" asp-page-handler="Untag" class="inline">
+                    <input type="hidden" name="tagId" value="@tag.Id">
+                    <button type="submit" aria-label="برداشتن برچسب @tag.Tag">@Icons.Svg("Close", null, 12)</button>
+                  </form>
+                }
+              </span>
+            }
+            @if (Model.Tags.Count == 0) { <span class="a-muted text-xs">برچسبی ندارد.</span> }
+          </div>
+          @if (canManage)
+          {
+            <form method="post" asp-page-handler="Tag" class="flex gap-2 mt-2">
+              <label class="sr-only" for="t-new">برچسب جدید</label>
+              <input id="t-new" name="tag" class="a-input" maxlength="40" required list="t-suggest" placeholder="مثلاً عمده‌فروش" autocomplete="off">
+              <datalist id="t-suggest">
+                @foreach (var s in Model.TagSuggestions.Where(t => !Model.Tags.Any(x => x.Tag == t.Tag)))
+                {
+                  <option value="@s.Tag"></option>
+                }
+              </datalist>
+              <button class="a-btn a-btn-soft shrink-0" type="submit">افزودن</button>
+            </form>
+          }
+        </div>
+      </div>
+    </div>
+
     <div class="a-card">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("User", null, 18) اطلاعات</span></div>
       @if (canManage)

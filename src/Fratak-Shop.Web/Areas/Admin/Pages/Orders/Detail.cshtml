@@ -415,7 +415,7 @@
         </dl>
         @if (o.PaymentToken is { } payToken)
         {
-          var payUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/pay/{payToken}";
+          var payUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/pay/{payToken}";
           <div class="a-divider"></div>
           <div id="payment-link">
             <label class="a-label" for="pay-link">لینک پرداخت مشتری</label>

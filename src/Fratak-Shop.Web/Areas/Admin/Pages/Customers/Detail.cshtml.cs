@@ -14,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Customers;
 
 [AdminPermission(AdminPermissions.CustomersView)]
-public class DetailModel(IAdminDataService data, IAdminCustomerService customers, IWalletService wallet, IAdminAccessService access) : AdminPageModel
+public class DetailModel(IAdminDataService data, IAdminCustomerService customers, IWalletService wallet, IAdminAccessService access, ICustomerCrmService crm) : AdminPageModel
 {
     public User Customer { get; private set; } = null!;
     public List<Order> Orders { get; private set; } = [];
@@ -30,6 +30,31 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
     public int CommentCount { get; private set; }
     public int ReferralCount { get; private set; }
     public string? ReferredBy { get; private set; }
+
+    // ── CRM (مرحلهٔ هفتم – فاز ۴) ──
+    /// <summary>برچسب‌های دستی کارکنان روی این مشتری.</summary>
+    public List<CustomerTagDto> Tags { get; private set; } = [];
+
+    /// <summary>برچسب‌های پرکاربرد فروشگاه برای پیشنهاد هنگام تایپ (datalist).</summary>
+    public List<CustomerTagCount> TagSuggestions { get; private set; } = [];
+
+    /// <summary>یادداشت‌های داخلی؛ سنجاق‌شده‌ها اول.</summary>
+    public List<CustomerNoteDto> Notes { get; private set; } = [];
+
+    /// <summary>بخش‌بندی RFM مشتری (تازگی، دفعات، مبلغ خرید).</summary>
+    public CustomerRfm Rfm { get; private set; } = null!;
+
+    /// <summary>کلاس رنگ نشان هر بخش RFM؛ سبز = خوب، زرد = نیاز به اقدام، قرمز = فوری، خاکستری = غیرفعال.</summary>
+    public static string SegmentBadge(CustomerSegment segment) => segment switch
+    {
+        CustomerSegment.Champion => "a-badge-green",
+        CustomerSegment.Loyal => "a-badge-blue",
+        CustomerSegment.New => "a-badge-sky",
+        CustomerSegment.Promising => "a-badge-purple",
+        CustomerSegment.AtRisk or CustomerSegment.NeedsAttention => "a-badge-yellow",
+        CustomerSegment.CantLose => "a-badge-red",
+        _ => "a-badge-gray",
+    };
 
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
@@ -59,6 +84,11 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
         ReferralCount = await data.Query<User>().CountAsync(u => u.ReferredByUserId == id);
         if (user.ReferredByUserId is { } referrerId)
             ReferredBy = await data.Query<User>().Where(u => u.Id == referrerId).Select(u => u.PhoneNumber).FirstOrDefaultAsync();
+        Tags = await crm.GetTagsAsync(id);
+        Notes = await crm.GetNotesAsync(id);
+        Rfm = await crm.GetRfmAsync(id);
+        if (Can(AdminPermissions.CustomersManage))
+            TagSuggestions = await crm.PopularTagsAsync(50);
         return Page();
     }
 
@@ -67,6 +97,46 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
     {
         ShowResult(await customers.UpdateProfileAsync(id, firstName, lastName, email, adminNote));
         return Redirect($"/admin/customers/{id}");
+    }
+
+    /// <summary>افزودن برچسب CRM (مثلاً «عمده‌فروش»).</summary>
+    [AdminPermission(AdminPermissions.CustomersManage)]
+    public async Task<IActionResult> OnPostTagAsync(Guid id, string? tag)
+    {
+        ShowResult(await crm.AddTagAsync(id, tag, ActorName));
+        return Redirect($"/admin/customers/{id}#crm");
+    }
+
+    /// <summary>برداشتن یک برچسب.</summary>
+    [AdminPermission(AdminPermissions.CustomersManage)]
+    public async Task<IActionResult> OnPostUntagAsync(Guid id, Guid tagId)
+    {
+        ShowResult(await crm.RemoveTagAsync(id, tagId));
+        return Redirect($"/admin/customers/{id}#crm");
+    }
+
+    /// <summary>ثبت یادداشت داخلی (اختیاری: سنجاق بالای صفحه).</summary>
+    [AdminPermission(AdminPermissions.CustomersManage)]
+    public async Task<IActionResult> OnPostNoteAsync(Guid id, string? content, bool pinned = false)
+    {
+        ShowResult(await crm.AddNoteAsync(id, content, pinned, ActorId, ActorName));
+        return Redirect($"/admin/customers/{id}#notes");
+    }
+
+    /// <summary>سنجاق کردن / برداشتن سنجاق یادداشت.</summary>
+    [AdminPermission(AdminPermissions.CustomersManage)]
+    public async Task<IActionResult> OnPostPinAsync(Guid id, Guid noteId)
+    {
+        ShowResult(await crm.TogglePinAsync(id, noteId));
+        return Redirect($"/admin/customers/{id}#notes");
+    }
+
+    /// <summary>حذف یادداشت: فقط نویسنده یا مالک فروشگاه.</summary>
+    [AdminPermission(AdminPermissions.CustomersManage)]
+    public async Task<IActionResult> OnPostDeleteNoteAsync(Guid id, Guid noteId)
+    {
+        ShowResult(await crm.DeleteNoteAsync(id, noteId, ActorId, Access.IsOwner));
+        return Redirect($"/admin/customers/{id}#notes");
     }
 
     [AdminPermission(AdminPermissions.CustomersManage)]

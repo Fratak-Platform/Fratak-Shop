@@ -100,6 +100,7 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Admin.IAdminOrderService, Services.Admin.AdminOrderService>();
         services.AddScoped<Services.Admin.IAdminReportService, Services.Admin.AdminReportService>();
         services.AddScoped<Services.Admin.IAdminCustomerService, Services.Admin.AdminCustomerService>();
+        services.AddScoped<Services.Admin.ICustomerCrmService, Services.Admin.CustomerCrmService>();
 
         // مرحلهٔ هفتم: اعلان کارکنان، پیام‌های آماده و تنظیمات شخصی پنل.
         services.AddScoped<Services.Admin.IStaffNotificationService, Services.Admin.StaffNotificationService>();

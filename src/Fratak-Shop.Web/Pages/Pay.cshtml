@@ -81,7 +81,7 @@
           <div>مبلغ قابل پرداخت</div>
           <div>@Format.Toman(v.Payable)</div>
         </div>
-        <div class="text-xs text-zinc-500 text-left mt-1">@PersianNumberWords.ToWords(v.Payable) تومان</div>
+        <div class="text-xs text-zinc-500 text-left mt-1">@Fratak_Shop.Core.Utilities.PersianNumberWords.ToWords(v.Payable) تومان</div>
 
         @if (v.IsPayable && !v.IsPaid)
         {

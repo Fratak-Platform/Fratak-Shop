@@ -29,13 +29,19 @@ public sealed class AdminCustomerRow
 }
 
 [AdminPermission(AdminPermissions.CustomersView)]
-public class IndexModel(IAdminDataService data) : AdminPageModel
+public class IndexModel(IAdminDataService data, ICustomerCrmService crm) : AdminPageModel
 {
     [BindProperty(SupportsGet = true, Name = "q")] public string? Search { get; set; }
     [BindProperty(SupportsGet = true)] public string? State { get; set; }
     [BindProperty(SupportsGet = true)] public string? From { get; set; }
     [BindProperty(SupportsGet = true)] public string? To { get; set; }
     [BindProperty(SupportsGet = true)] public string Sort { get; set; } = "newest";
+
+    /// <summary>فیلتر برچسب CRM؛ مثلاً ?tag=عمده‌فروش فقط مشتری‌هایی با این برچسب را نشان می‌دهد.</summary>
+    [BindProperty(SupportsGet = true)] public string? Tag { get; set; }
+
+    /// <summary>برچسب‌های پرکاربرد برای فهرست کشویی فیلتر.</summary>
+    public List<CustomerTagCount> PopularTags { get; private set; } = [];
 
     public PagedList<AdminCustomerRow> Customers { get; private set; } = new([], 0, 1, 30);
 
@@ -52,6 +58,7 @@ public class IndexModel(IAdminDataService data) : AdminPageModel
             }
         }
 
+        PopularTags = await crm.PopularTagsAsync(50);
         var query = Project(Filter());
         var page = ClampPage(pageNumber);
         var total = await query.CountAsync();
@@ -87,6 +94,12 @@ public class IndexModel(IAdminDataService data) : AdminPageModel
             query = query.Where(u => u.CreatedAt >= from);
         if (period.To is { } to)
             query = query.Where(u => u.CreatedAt < to);
+        var tag = CustomerCrmService.NormalizeTag(Tag);
+        if (tag.Length > 0)
+        {
+            var tags = data.Query<CustomerTag>();
+            query = query.Where(u => tags.Any(t => t.UserId == u.Id && t.Tag == tag));
+        }
         var staffRoles = data.Query<Data.Entities.Admin.UserAdminRole>();
         var inactiveSince = DateTimeOffset.UtcNow.AddDays(-90);
         query = State switch
