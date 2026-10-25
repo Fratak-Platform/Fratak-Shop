@@ -1,0 +1,75 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Blog.IndexModel
+@{
+    ViewData["Title"] = "مقاله‌ها";
+    var status = Model.Status ?? "all";
+    var tabs = new (string Key, string Title)[] { ("all", "همه"), ("review", "در انتظار بررسی"), ("draft", "پیش‌نویس"), ("published", "منتشرشده"), ("scheduled", "زمان‌بندی‌شده") };
+    var now = DateTimeOffset.UtcNow;
+}
+<div class="a-page-head">
+  <div>
+    <h2>مقاله‌های وبلاگ</h2>
+    <p class="a-muted text-sm mt-1">@(Model.SeesAll ? "همه مقاله‌ها؛ مقاله‌های ارسال‌شده برای بررسی را تأیید و منتشر کنید." : "مقاله‌های شما؛ پس از نوشتن، «ارسال برای بررسی» را بزنید تا سردبیر منتشر کند.")</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.IsEditor) { <a class="a-btn a-btn-light" href="/admin/manage/blog-categories">@Icons.Svg("Folder", null, 18) دسته‌ها</a> }
+    @if (Model.Can(AdminPermissions.BlogWrite) || Model.IsEditor) { <a class="a-btn" href="/admin/blog/edit">@Icons.Svg("Plus", null, 18) مقاله جدید</a> }
+  </div>
+</div>
+
+<div class="a-pills mb-4">
+  @foreach (var t in tabs)
+  {
+    <a class="a-pill @(status == t.Key ? "is-active" : "")" href="/admin/blog?status=@t.Key">@t.Title <b>@Format.Number(Model.Counts.GetValueOrDefault(t.Key))</b></a>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <input type="hidden" name="status" value="@status">
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="b-q">جست‌وجو</label><input id="b-q" name="q" value="@Model.Search" class="a-input" placeholder="عنوان یا نامک"></div>
+    <div class="a-field"><label class="a-label" for="b-cat">دسته</label>
+      <select id="b-cat" name="category" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var c in Model.Categories) { <option value="@c.Id" selected="@(Model.CategoryId == c.Id)">@c.Name</option> }
+      </select></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>مقاله</th><th>نویسنده</th><th>وضعیت</th><th>بازدید</th><th>به‌روزرسانی</th></tr></thead>
+      <tbody>
+        @foreach (var p in Model.Items.Items)
+        {
+          <tr>
+            <td data-label="مقاله">
+              <div class="flex items-center gap-3">
+                <img src="@ImageHelper.Blog(p.ImageName)" alt="" class="h-12 w-16 rounded-lg object-cover border" loading="lazy" width="64" height="48">
+                <div class="min-w-0">
+                  <a class="a-link font-semibold" href="/admin/blog/edit/@p.Id">@p.Title</a>
+                  <div class="a-muted text-xs">@p.Category · <span class="a-ltr">/blog/@p.Slug</span></div>
+                  @if (!p.HasSeo) { <span class="a-badge a-badge-yellow">بدون توضیحات متا</span> }
+                </div>
+              </div>
+            </td>
+            <td data-label="نویسنده" class="text-sm">@(string.IsNullOrEmpty(p.AuthorName) ? "—" : p.AuthorName)</td>
+            <td data-label="وضعیت">
+              @if (p.IsPublished && p.PublishedAt > now) { <span class="a-badge a-badge-sky">زمان‌بندی: @Format.Date(p.PublishedAt.Value)</span> }
+              else if (p.IsPublished) { <span class="a-badge a-badge-green">منتشرشده</span> }
+              else if (p.SubmittedForReviewAt is not null) { <span class="a-badge a-badge-yellow">در انتظار بررسی</span> }
+              else { <span class="a-badge a-badge-gray">پیش‌نویس</span> }
+              @if (!p.IsPublished && !string.IsNullOrEmpty(p.ReviewNote)) { <div class="text-xs text-red-600 mt-1">یادداشت سردبیر: @p.ReviewNote</div> }
+            </td>
+            <td data-label="بازدید" class="num">@Format.Number(p.ViewCount)<div class="a-muted text-xs">@p.CommentCount نظر</div></td>
+            <td data-label="به‌روزرسانی" class="text-xs nowrap">@AdminUi.Ago(p.UpdatedAt)</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Items.Count == 0) { <div class="a-empty">مقاله‌ای یافت نشد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>
