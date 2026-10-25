@@ -55,6 +55,29 @@ public static class AdminUi
         _ => "نامشخص",
     };
 
+    public static string SecurityEvent(Data.Entities.Admin.SecurityEventType type) => type switch
+    {
+        Data.Entities.Admin.SecurityEventType.LoginSucceeded => "ورود موفق",
+        Data.Entities.Admin.SecurityEventType.LoginFailed => "ورود ناموفق",
+        Data.Entities.Admin.SecurityEventType.LockedOut => "قفل شدن حساب",
+        Data.Entities.Admin.SecurityEventType.OtpFailed => "کد یکبارمصرف نادرست",
+        Data.Entities.Admin.SecurityEventType.BlockedUserLogin => "تلاش ورود حساب مسدود",
+        Data.Entities.Admin.SecurityEventType.AdminAccessDenied => "دسترسی غیرمجاز به پنل",
+        Data.Entities.Admin.SecurityEventType.UserBlocked => "مسدودسازی کاربر",
+        Data.Entities.Admin.SecurityEventType.UserUnblocked => "رفع مسدودی",
+        Data.Entities.Admin.SecurityEventType.RolesChanged => "تغییر نقش‌ها",
+        Data.Entities.Admin.SecurityEventType.SessionsRevoked => "خروج اجباری از دستگاه‌ها",
+        _ => type.ToString(),
+    };
+
+    public static string SecurityEventBadge(Data.Entities.Admin.SecurityEventType type) => type switch
+    {
+        Data.Entities.Admin.SecurityEventType.LoginSucceeded or Data.Entities.Admin.SecurityEventType.UserUnblocked => "a-badge-green",
+        Data.Entities.Admin.SecurityEventType.LoginFailed or Data.Entities.Admin.SecurityEventType.OtpFailed => "a-badge-yellow",
+        Data.Entities.Admin.SecurityEventType.RolesChanged or Data.Entities.Admin.SecurityEventType.SessionsRevoked => "a-badge-blue",
+        _ => "a-badge-red",
+    };
+
     public static string Bool(bool value) => value ? "a-badge-green" : "a-badge-gray";
 
     public static string FileSize(long bytes) => bytes switch

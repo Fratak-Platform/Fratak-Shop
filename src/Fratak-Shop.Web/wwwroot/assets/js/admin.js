@@ -112,7 +112,7 @@
     const bar = $("[data-bulk-bar]", root);
     const count = $("[data-bulk-count]", root);
     const all = $("[data-check-all]", root);
-    const boxes = () => $$("input[data-row-check]", root);
+    const boxes = () => $$("input[data-row-check]:not(:disabled)", root);
     const refresh = () => {
       const selected = boxes().filter((b) => b.checked).length;
       if (bar) bar.classList.toggle("is-visible", selected > 0);

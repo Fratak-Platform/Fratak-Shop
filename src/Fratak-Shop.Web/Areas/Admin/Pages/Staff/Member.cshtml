@@ -1,0 +1,74 @@
+@page "/admin/staff/member/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Staff.MemberModel
+@{
+    var u = Model.Member;
+    var name = $"{u.FirstName} {u.LastName}".Trim();
+    if (name.Length == 0) { name = u.PhoneNumber; }
+    ViewData["Title"] = $"دسترسی‌های {name}";
+    var self = u.Id == Model.Access.UserId;
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/staff" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>@name</h2>
+      <p class="a-muted text-sm mt-1 a-ltr text-right">@u.PhoneNumber</p>
+    </div>
+  </div>
+  @if (Model.Can(AdminPermissions.CustomersView)) { <a href="/admin/customers/@u.Id" class="a-btn a-btn-light">@Icons.Svg("User", null, 18) پرونده کاربر</a> }
+</div>
+
+@if (u.IsBlocked) { <div class="a-alert a-alert-danger mb-4">این حساب مسدود است و نمی‌تواند وارد پنل شود.</div> }
+@if (!u.TwoFactorEnabled && (Model.MemberIsOwner || Model.Assigned.Count > 0)) { <div class="a-alert a-alert-warning mb-4">ورود دومرحله‌ای این همکار غیرفعال است. برای امنیت پنل، فعال‌سازی آن توصیه می‌شود.</div> }
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+    <form method="post" class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Key", null, 18) نقش‌ها</span></div>
+      <div class="a-card-body grid gap-3 sm:grid-cols-2">
+        @foreach (var r in Model.Roles)
+        {
+          var mine = r.Permissions.All(Model.Can);
+          <label class="flex items-start gap-3 border border-gray-100 rounded-xl p-3 cursor-pointer @(mine ? "" : "opacity-60")">
+            <input type="checkbox" name="roles" value="@r.Id" checked="@Model.Assigned.Contains(r.Id)" disabled="@(!mine || self)" class="mt-1">
+            <span class="min-w-0">
+              <span class="font-semibold">@r.Name</span> <span class="a-muted text-xs">@r.Permissions.Count دسترسی</span>
+              @if (r.Description is not null) { <span class="block a-muted text-xs mt-1">@r.Description</span> }
+            </span>
+          </label>
+          if (!mine && Model.Assigned.Contains(r.Id))
+          {
+            <input type="hidden" name="roles" value="@r.Id">
+          }
+        }
+      </div>
+      <div class="a-card-body pt-0 flex flex-wrap items-center justify-between gap-3">
+        <p class="a-help">@(self ? "نقش‌های خودتان را نمی‌توانید تغییر دهید." : "برای حذف کامل دسترسی پنل، همه نقش‌ها را بردارید.")</p>
+        @if (!self) { <button class="a-btn" type="submit">ذخیره نقش‌ها</button> }
+      </div>
+    </form>
+  </div>
+
+  <div class="a-stack">
+    @if (Model.Access.IsOwner && !self)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Crown", null, 18) مالک فروشگاه</span></div>
+        <form method="post" asp-page-handler="Owner" class="a-card-body" data-confirm="@(Model.MemberIsOwner ? "دسترسی مالکیت برداشته شود؟" : "این کاربر مالک فروشگاه شود؟ مالک به همه بخش‌ها از جمله کارکنان و تنظیمات دسترسی کامل دارد.")" data-confirm-danger>
+          <p class="text-sm text-gray-600 mb-3">مالک همه دسترسی‌ها را دارد و محدودیت نقش برایش اعمال نمی‌شود.</p>
+          <input type="hidden" name="owner" value="@(Model.MemberIsOwner ? "false" : "true")">
+          <button class="a-btn @(Model.MemberIsOwner ? "a-btn-danger-soft" : "a-btn-soft") w-full" type="submit">@(Model.MemberIsOwner ? "برداشتن مالکیت" : "تبدیل به مالک")</button>
+        </form>
+      </div>
+    }
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ListChecks", null, 18) دسترسی‌های فعلی</span></div>
+      <div class="a-card-body">
+        @if (Model.EffectivePermissions.Count == 0) { <p class="a-muted text-sm">به پنل مدیریت دسترسی ندارد.</p> }
+        <div class="flex flex-wrap gap-1.5">
+          @foreach (var p in Model.EffectivePermissions) { <span class="a-badge a-badge-gray">@p</span> }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,221 @@
+@page "/admin/customers/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Customers.DetailModel
+@{
+    var u = Model.Customer;
+    var name = string.IsNullOrWhiteSpace($"{u.FirstName} {u.LastName}") ? "بدون نام" : $"{u.FirstName} {u.LastName}".Trim();
+    ViewData["Title"] = name;
+    var canManage = Model.Can(AdminPermissions.CustomersManage);
+    var canWallet = Model.Can(AdminPermissions.CustomersWallet);
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/customers" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>@name @if (u.IsBlocked) { <span class="a-badge a-badge-red">مسدود</span> } @foreach (var role in Model.RoleNames) { <span class="a-badge a-badge-purple">@role</span> }</h2>
+      <p class="a-muted text-sm mt-1"><span class="a-ltr">@u.PhoneNumber</span> · عضویت @Format.Date(u.CreatedAt) · آخرین ورود @(u.LastLoginAt is { } l ? AdminUi.Ago(l) : "—")</p>
+    </div>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.OrdersView)) { <a href="/admin/orders?customer=@u.Id" class="a-btn a-btn-light">@Icons.Svg("Orders", null, 18) سفارش‌ها</a> }
+    @if (Model.Can(AdminPermissions.StaffManage)) { <a href="/admin/staff/member/@u.Id" class="a-btn a-btn-light">@Icons.Svg("UserGear", null, 18) نقش‌ها و دسترسی</a> }
+  </div>
+</div>
+
+@if (u.IsBlocked)
+{
+  <div class="a-alert a-alert-danger mb-4">@Icons.Svg("Prohibit", "shrink-0", 20)<div>این حساب از @Format.DateTime(u.BlockedAt) مسدود است. دلیل: @u.BlockReason</div></div>
+}
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">سفارش‌ها</div><div class="a-stat-value">@Format.Number(Model.OrderCount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">مجموع خرید</div><div class="a-stat-value">@AdminUi.Money(Model.TotalSpent)</div></div>
+  <div class="a-stat"><div class="a-stat-label">کیف پول</div><div class="a-stat-value">@AdminUi.Money(u.WalletBalance)</div><div class="a-stat-sub">اعتبار هدیه: @Format.Toman(u.WalletBonusBalance)</div></div>
+  <div class="a-stat"><div class="a-stat-label">امتیاز باشگاه</div><div class="a-stat-value">@Format.Number(u.LoyaltyPoints)</div><div class="a-stat-sub">کل: @Format.Number(u.LoyaltyLifetimePoints)</div></div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Orders", null, 18) آخرین سفارش‌ها</span></div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards a-table-compact">
+          <thead><tr><th>شماره</th><th>تاریخ</th><th>مبلغ</th><th>پرداخت</th><th>وضعیت</th></tr></thead>
+          <tbody>
+            @foreach (var o in Model.Orders)
+            {
+              <tr>
+                <td data-label="شماره">@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@o.Id">@o.OrderNumber</a> } else { <span class="a-ltr">@o.OrderNumber</span> }</td>
+                <td data-label="تاریخ" class="nowrap">@Format.Date(o.CreatedAt)</td>
+                <td data-label="مبلغ" class="num">@Format.Price(o.PayableAmount)</td>
+                <td data-label="پرداخت"><span class="a-badge @AdminUi.PaymentStatusBadge(o.PaymentStatus)">@Display.PaymentStatus(o.PaymentStatus)</span></td>
+                <td data-label="وضعیت"><span class="a-badge @AdminUi.OrderStatusBadge(o.Status)">@AdminUi.OrderStatus(o.Status)</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (Model.Orders.Count == 0) { <div class="a-empty">سفارشی ندارد.</div> }
+      </div>
+    </div>
+
+    @if (Model.WalletTransactions.Count > 0 || canWallet)
+    {
+      <div class="a-card" id="wallet">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Wallet", null, 18) کیف پول</span></div>
+        @if (canWallet)
+        {
+          <form method="post" asp-page-handler="Wallet" class="a-card-body a-filters border-b border-gray-100" data-confirm="موجودی کیف پول مشتری تغییر کند؟">
+            <div class="a-field"><label class="a-label" for="w-dir">نوع</label>
+              <select id="w-dir" name="direction" class="a-select"><option value="credit">افزایش</option><option value="debit">کاهش</option></select></div>
+            <div class="a-field"><label class="a-label" for="w-amount">مبلغ (تومان)</label><input id="w-amount" type="number" name="amount" min="1" class="a-input a-ltr" required></div>
+            <div class="a-field" style="flex-basis:220px"><label class="a-label" for="w-desc">علت</label><input id="w-desc" name="description" class="a-input" maxlength="300" required placeholder="مثلاً جبران تأخیر ارسال"></div>
+            <label class="a-check self-end mb-2"><input type="checkbox" name="promotional" value="true" checked> اعتبار هدیه (غیرقابل برداشت)</label>
+            <input type="hidden" name="promotional" value="false">
+            <div class="a-filters-actions"><button class="a-btn" type="submit">ثبت</button></div>
+          </form>
+        }
+        <div class="a-table-wrap">
+          <table class="a-table a-table-cards a-table-compact">
+            <thead><tr><th>تاریخ</th><th>نوع</th><th>مبلغ</th><th>اعتبار هدیه</th><th>مانده</th><th>شرح</th></tr></thead>
+            <tbody>
+              @foreach (var t in Model.WalletTransactions)
+              {
+                <tr>
+                  <td data-label="تاریخ" class="nowrap">@Format.DateTime(t.CreatedAt)</td>
+                  <td data-label="نوع">@Display.WalletTransactionType(t.Type)</td>
+                  <td data-label="مبلغ" class="num @(t.Amount < 0 ? "a-down" : "a-up")">@Format.Price(t.Amount)</td>
+                  <td data-label="اعتبار هدیه" class="num">@Format.Price(t.BonusAmount)</td>
+                  <td data-label="مانده" class="num">@Format.Price(t.BalanceAfter + t.BonusBalanceAfter)</td>
+                  <td data-label="شرح" class="text-xs">@t.Description</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <div class="a-card" id="points">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Crown", null, 18) امتیازهای باشگاه</span></div>
+      @if (Model.CanAny(AdminPermissions.LoyaltyManage, AdminPermissions.CustomersManage))
+      {
+        <form method="post" asp-page-handler="Points" class="a-card-body a-filters border-b border-gray-100">
+          <div class="a-field"><label class="a-label" for="p-dir">نوع</label><select id="p-dir" name="direction" class="a-select"><option value="add">افزودن</option><option value="remove">کسر</option></select></div>
+          <div class="a-field"><label class="a-label" for="p-points">امتیاز</label><input id="p-points" type="number" name="points" min="1" class="a-input a-ltr" required></div>
+          <div class="a-field" style="flex-basis:220px"><label class="a-label" for="p-reason">علت</label><input id="p-reason" name="reason" class="a-input" maxlength="300" required></div>
+          <div class="a-filters-actions"><button class="a-btn" type="submit">ثبت</button></div>
+        </form>
+      }
+      <ul class="divide-y divide-gray-100 text-sm">
+        @foreach (var p in Model.PointTransactions)
+        {
+          <li class="px-4 py-2.5 flex justify-between gap-3"><span>@(p.Description ?? p.Type.ToString()) <span class="a-muted text-xs">@Format.Date(p.CreatedAt)</span></span><span class="num @(p.Points < 0 ? "a-down" : "a-up")">@p.Points</span></li>
+        }
+        @if (Model.PointTransactions.Count == 0) { <li class="a-empty">تراکنشی ندارد.</li> }
+      </ul>
+    </div>
+
+    @if (Model.SecurityEvents.Count > 0)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) رویدادهای امنیتی اخیر</span><a class="a-link text-xs" href="/admin/system/security?user=@u.Id">همه</a></div>
+        <ul class="divide-y divide-gray-100 text-sm">
+          @foreach (var s in Model.SecurityEvents)
+          {
+            <li class="px-4 py-2.5 flex flex-wrap justify-between gap-2">
+              <span>@AdminUi.SecurityEvent(s.Type) <span class="a-muted text-xs">@Display.Device(s.UserAgent)</span></span>
+              <span class="a-muted text-xs"><span class="a-ltr">@s.IpAddress</span> · @Format.DateTime(s.CreatedAt)</span>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+
+  <div class="a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("User", null, 18) اطلاعات</span></div>
+      @if (canManage)
+      {
+        <form method="post" asp-page-handler="Profile" class="a-card-body a-form-grid">
+          <div class="a-form-grid cols-2">
+            <div class="a-field"><label class="a-label" for="c-fn">نام</label><input id="c-fn" name="firstName" value="@u.FirstName" class="a-input" maxlength="100"></div>
+            <div class="a-field"><label class="a-label" for="c-ln">نام خانوادگی</label><input id="c-ln" name="lastName" value="@u.LastName" class="a-input" maxlength="100"></div>
+          </div>
+          <div class="a-field"><label class="a-label" for="c-email">ایمیل</label><input id="c-email" type="email" name="email" value="@u.Email" class="a-input a-ltr" maxlength="150"></div>
+          <div class="a-field"><label class="a-label" for="c-note">یادداشت داخلی (مشتری نمی‌بیند)</label><textarea id="c-note" name="adminNote" class="a-textarea" rows="3" maxlength="1000">@u.AdminNote</textarea></div>
+          <div class="flex justify-end"><button class="a-btn a-btn-soft" type="submit">ذخیره</button></div>
+        </form>
+      }
+      else
+      {
+        <div class="a-card-body"><dl class="a-kv"><dt>ایمیل</dt><dd class="a-ltr">@(u.Email ?? "—")</dd><dt>یادداشت</dt><dd>@(u.AdminNote ?? "—")</dd></dl></div>
+      }
+      <div class="a-card-body border-t border-gray-100">
+        <dl class="a-kv">
+          <dt>تاریخ تولد</dt><dd>@(u.BirthDate is { } b ? PersianDateInput.Format(b) : "—")</dd>
+          <dt>ورود دومرحله‌ای</dt><dd>@(u.TwoFactorEnabled ? "فعال" : "غیرفعال")</dd>
+          <dt>کد معرف</dt><dd class="a-ltr">@(u.ReferralCode ?? "—")</dd>
+          <dt>دعوت‌شده توسط</dt><dd class="a-ltr">@(Model.ReferredBy ?? "—")</dd>
+          <dt>دوستان دعوت‌شده</dt><dd>@Format.Number(Model.ReferralCount)</dd>
+          <dt>نظرها و پرسش‌ها</dt><dd>@Format.Number(Model.CommentCount)</dd>
+        </dl>
+      </div>
+    </div>
+
+    @if (canManage)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("LockKey", null, 18) امنیت حساب</span></div>
+        <div class="a-card-body space-y-4">
+          @if (u.IsBlocked)
+          {
+            <form method="post" asp-page-handler="Block" data-confirm="مسدودی حساب برداشته شود؟">
+              <input type="hidden" name="blocked" value="false">
+              <button class="a-btn a-btn-success w-full" type="submit">رفع مسدودی</button>
+            </form>
+          }
+          else
+          {
+            <form method="post" asp-page-handler="Block" data-confirm="حساب مسدود شود؟ کاربر از همه دستگاه‌ها خارج می‌شود و دیگر نمی‌تواند وارد شود." data-confirm-danger>
+              <input type="hidden" name="blocked" value="true">
+              <label class="a-label" for="b-reason">دلیل مسدودسازی</label>
+              <input id="b-reason" name="reason" class="a-input mb-2" maxlength="500" required>
+              <button class="a-btn a-btn-danger w-full" type="submit">@Icons.Svg("Prohibit", null, 18) مسدود کردن حساب</button>
+            </form>
+          }
+          <form method="post" asp-page-handler="Sessions" data-confirm="کاربر از همه دستگاه‌ها خارج شود؟">
+            <button class="a-btn a-btn-light w-full" type="submit">@Icons.Svg("SignOut", null, 18) خروج از همه دستگاه‌ها</button>
+          </form>
+        </div>
+      </div>
+    }
+
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MapPin", null, 18) آدرس‌ها</span></div>
+      <ul class="divide-y divide-gray-100 text-sm">
+        @foreach (var a in Model.Addresses)
+        {
+          <li class="px-4 py-3 leading-7">
+            <b>@a.Title</b> @if (a.IsDefault) { <span class="a-badge a-badge-blue">پیش‌فرض</span> }
+            <div>@Model.LocationNames.GetValueOrDefault(a.ProvinceId)، @Model.LocationNames.GetValueOrDefault(a.CityId)، @a.AddressLine</div>
+            <div class="a-muted text-xs">کد پستی <span class="a-ltr">@a.PostalCode</span> · <span class="a-ltr">@a.PhoneNumber</span></div>
+          </li>
+        }
+        @if (Model.Addresses.Count == 0) { <li class="a-empty">آدرسی ثبت نشده.</li> }
+      </ul>
+    </div>
+
+    @if (Model.Tickets.Count > 0)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Lifebuoy", null, 18) تیکت‌ها</span></div>
+        <ul class="divide-y divide-gray-100 text-sm">
+          @foreach (var t in Model.Tickets)
+          {
+            <li class="px-4 py-2.5"><a class="a-link" href="/admin/tickets/@t.Id">@t.Subject</a> <span class="a-muted text-xs">#@t.TicketNumber · @Format.Date(t.LastActivityAt)</span></li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,70 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Staff.IndexModel
+@{
+    ViewData["Title"] = "کارکنان و نقش‌ها";
+}
+<div class="a-page-head">
+  <div>
+    <h2>کارکنان و نقش‌ها</h2>
+    <p class="a-muted text-sm mt-1">نقش‌ها را با دسترسی‌های دلخواه بسازید و به کاربران بدهید. هر کاربر می‌تواند چند نقش داشته باشد.</p>
+  </div>
+  <a href="/admin/staff/role" class="a-btn">@Icons.Svg("Plus", null, 18) نقش جدید</a>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("UsersThree", null, 18) کارکنان (@Model.Staff.Count)</span></div>
+      <form method="post" asp-page-handler="Find" class="a-card-body a-filters border-b border-gray-100">
+        <div class="a-field" style="flex-basis:220px"><label class="a-label" for="s-phone">افزودن همکار با شماره موبایل</label><input id="s-phone" name="phone" class="a-input a-ltr" placeholder="09121234567" maxlength="11" inputmode="numeric" required></div>
+        <div class="a-filters-actions"><button class="a-btn a-btn-soft" type="submit">جست‌وجو و تعیین نقش</button></div>
+      </form>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>نام</th><th>نقش‌ها</th><th>ورود دومرحله‌ای</th><th>آخرین ورود</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var s in Model.Staff)
+            {
+              <tr>
+                <td data-label="نام">
+                  <span class="font-semibold">@s.FullName</span>
+                  @if (s.IsBlocked) { <span class="a-badge a-badge-red">مسدود</span> }
+                  <div class="a-muted text-xs a-ltr text-right">@s.PhoneNumber</div>
+                </td>
+                <td data-label="نقش‌ها">
+                  @if (s.IsOwner) { <span class="a-badge a-badge-purple">@Icons.Svg("Crown", null, 12) مالک (همه دسترسی‌ها)</span> }
+                  @foreach (var r in s.Roles)
+                  {
+                    <span class="a-badge" style="@(r.Color is null ? "" : $"background:{r.Color}22;color:{r.Color}")">@r.Name</span>
+                  }
+                </td>
+                <td data-label="ورود دومرحله‌ای">@if (s.TwoFactorEnabled) { <span class="a-badge a-badge-green">فعال</span> } else { <span class="a-badge a-badge-yellow">غیرفعال</span> }</td>
+                <td data-label="آخرین ورود" class="nowrap">@(s.LastLoginAt is { } l ? AdminUi.Ago(l) : "—")</td>
+                <td class="actions" data-label=""><a class="a-btn a-btn-light a-btn-xs" href="/admin/staff/member/@s.UserId">ویرایش دسترسی</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="a-card-body"><p class="a-help">برای امنیت بیشتر، از همه کارکنان بخواهید ورود دومرحله‌ای را از پروفایل خود فعال کنند.</p></div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Key", null, 18) نقش‌ها</span></div>
+    <ul class="divide-y divide-gray-100">
+      @foreach (var r in Model.Roles)
+      {
+        <li class="px-4 py-3 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <a class="a-link font-semibold" href="/admin/staff/role/@r.Id">@r.Name</a>
+            @if (r.IsSystem) { <span class="a-badge a-badge-gray">پیش‌فرض</span> }
+            <div class="a-muted text-xs mt-1">@r.Permissions.Count دسترسی · @r.UserCount کاربر</div>
+            @if (r.Description is not null) { <div class="a-muted text-xs mt-1 line-clamp-2">@r.Description</div> }
+          </div>
+          @if (r.Color is not null) { <span class="w-3 h-3 rounded-full shrink-0 mt-2" style="background:@r.Color"></span> }
+        </li>
+      }
+    </ul>
+  </div>
+</div>
