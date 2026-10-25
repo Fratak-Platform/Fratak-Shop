@@ -1,4 +1,4 @@
-@page "/admin/customers/{id:guid}"
+﻿@page "/admin/customers/{id:guid}"
 @model Fratak_Shop.Web.Areas.Admin.Pages.Customers.DetailModel
 @{
     var u = Model.Customer;
@@ -17,6 +17,7 @@
   </div>
   <div class="a-btn-group">
     @if (Model.Can(AdminPermissions.OrdersView)) { <a href="/admin/orders?customer=@u.Id" class="a-btn a-btn-light">@Icons.Svg("Orders", null, 18) سفارش‌ها</a> }
+    @if (Model.Can(AdminPermissions.NotificationsSend)) { <a href="/admin/notifications?user=@u.Id" class="a-btn a-btn-light">@Icons.Svg("Bell", null, 18) ارسال پیام</a> }
     @if (Model.Can(AdminPermissions.StaffManage)) { <a href="/admin/staff/member/@u.Id" class="a-btn a-btn-light">@Icons.Svg("UserGear", null, 18) نقش‌ها و دسترسی</a> }
   </div>
 </div>

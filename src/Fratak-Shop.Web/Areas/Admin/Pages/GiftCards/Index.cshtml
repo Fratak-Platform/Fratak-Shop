@@ -13,7 +13,7 @@
     <p class="a-muted text-sm mt-1">کد کامل کارت فقط برای خریدار قابل مشاهده است؛ اینجا شناسه و ۴ رقم آخر نمایش داده می‌شود. مبلغ و مدت اعتبار از تنظیمات قابل تغییر است.</p>
   </div>
   <div class="a-btn-group">
-    @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light" href="/admin/settings#gift-cards">@Icons.Svg("Gear", null, 18) تنظیمات</a> }
+    @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light" href="/admin/settings?tab=gift-cards">@Icons.Svg("Gear", null, 18) تنظیمات</a> }
     <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
   </div>
 </div>
