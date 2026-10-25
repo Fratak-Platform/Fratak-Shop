@@ -1,0 +1,150 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Comments.IndexModel
+@using Fratak_Shop.Data.Entities.Comments
+@{
+    ViewData["Title"] = "دیدگاه‌ها و پرسش‌ها";
+    var request = HttpContext.Request;
+    int Count(CommentStatus s) => Model.Counts.GetValueOrDefault(s);
+    string TypeTitle(CommentType t) => t switch { CommentType.Review => "نقد و امتیاز", CommentType.Question => "پرسش", CommentType.BlogComment => "دیدگاه مقاله", _ => "—" };
+}
+<div class="a-page-head">
+  <div>
+    <h2>دیدگاه‌ها و پرسش‌ها</h2>
+    <p class="a-muted text-sm mt-1">دیدگاه‌ها پس از تأیید در سایت نمایش داده می‌شوند. پاسخ شما با برچسب «پاسخ فروشگاه» منتشر می‌شود.</p>
+  </div>
+</div>
+
+<div class="a-pills mb-4">
+  <a class="a-pill @(Model.StatusFilter == "pending" && !Model.Unanswered ? "is-active" : "")" href="@AdminUi.With(request, ("status", "pending"), ("unanswered", null), ("page", null))">در انتظار تأیید <b>@Format.Number(Count(CommentStatus.Pending))</b></a>
+  <a class="a-pill @(Model.Unanswered ? "is-active" : "")" href="@AdminUi.With(request, ("unanswered", "true"), ("status", null), ("page", null))">پرسش‌های بی‌پاسخ <b>@Format.Number(Model.UnansweredQuestions)</b></a>
+  <a class="a-pill @(Model.StatusFilter == "approved" && !Model.Unanswered ? "is-active" : "")" href="@AdminUi.With(request, ("status", "approved"), ("unanswered", null), ("page", null))">تأییدشده <b>@Format.Number(Count(CommentStatus.Approved))</b></a>
+  <a class="a-pill @(Model.StatusFilter == "rejected" && !Model.Unanswered ? "is-active" : "")" href="@AdminUi.With(request, ("status", "rejected"), ("unanswered", null), ("page", null))">ردشده <b>@Format.Number(Count(CommentStatus.Rejected))</b></a>
+  <a class="a-pill @(Model.StatusFilter == "all" && !Model.Unanswered ? "is-active" : "")" href="@AdminUi.With(request, ("status", "all"), ("unanswered", null), ("page", null))">همه</a>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <input type="hidden" name="status" value="@Model.StatusFilter">
+    @if (Model.Unanswered) { <input type="hidden" name="unanswered" value="true"> }
+    @if (Model.ProductId is not null) { <input type="hidden" name="product" value="@Model.ProductId"> }
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="f-q">جست‌وجو</label><input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="متن، نام، موبایل یا محصول"></div>
+    <div class="a-field"><label class="a-label" for="f-type">نوع</label>
+      <select id="f-type" name="type" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        <option value="@CommentType.Review" selected="@(Model.TypeFilter == CommentType.Review)">نقد و امتیاز</option>
+        <option value="@CommentType.Question" selected="@(Model.TypeFilter == CommentType.Question)">پرسش</option>
+        <option value="@CommentType.BlogComment" selected="@(Model.TypeFilter == CommentType.BlogComment)">دیدگاه مقاله</option>
+      </select></div>
+    <div class="a-field"><label class="a-label" for="f-rating">امتیاز</label>
+      <select id="f-rating" name="rating" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @for (byte i = 5; i >= 1; i--) { <option value="@i" selected="@(Model.Rating == i)">@i ستاره</option> }
+      </select></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/comments">پاک کردن</a></div>
+  </form>
+</div>
+
+<div data-bulk>
+  <form method="post" asp-page-handler="Bulk" id="bulk-form" class="a-bulkbar" data-bulk-bar data-confirm="عملیات روی دیدگاه‌های انتخاب‌شده انجام شود؟">
+    <span><b data-bulk-count>0</b> مورد انتخاب شده</span>
+    <select name="action" class="a-select a-input-sm" style="width:auto">
+      <option value="approve">تأیید</option>
+      <option value="reject">رد</option>
+      <option value="delete">حذف</option>
+    </select>
+    <button type="submit" class="a-btn a-btn-sm">اعمال</button>
+  </form>
+
+  @if (Model.Items.Items.Count > 0)
+  {
+    <label class="a-check text-sm mb-2"><input type="checkbox" data-check-all> انتخاب همه موارد این صفحه</label>
+  }
+
+  <div class="a-stack">
+    @foreach (var c in Model.Items.Items)
+    {
+      <article class="a-card">
+        <div class="a-card-body">
+          <div class="flex flex-wrap items-start gap-3">
+            <input type="checkbox" name="ids" value="@c.Id" form="bulk-form" data-row-check class="mt-1.5" aria-label="انتخاب">
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 text-sm">
+                <b>@c.AuthorName</b>
+                @if (c.UserId is not null && Model.Can(AdminPermissions.CustomersView)) { <a class="a-link a-ltr text-xs" href="/admin/customers/@c.UserId">@c.AuthorPhone</a> } else { <span class="a-muted a-ltr text-xs">@c.AuthorPhone</span> }
+                <span class="a-badge a-badge-gray">@TypeTitle(c.Type)</span>
+                @if (c.ParentId is not null) { <span class="a-badge a-badge-blue">پاسخ کاربر</span> }
+                @if (c.IsVerifiedPurchase) { <span class="a-badge a-badge-green">خریدار</span> }
+                @switch (c.Status)
+                {
+                  case CommentStatus.Pending: <span class="a-badge a-badge-yellow">در انتظار</span> break;
+                  case CommentStatus.Approved: <span class="a-badge a-badge-green">تأییدشده</span> break;
+                  case CommentStatus.Rejected: <span class="a-badge a-badge-red">ردشده</span> break;
+                }
+                <span class="a-muted text-xs">@AdminUi.Ago(c.CreatedAt)</span>
+              </div>
+              @if (c.TargetTitle is not null)
+              {
+                <div class="text-xs mt-1">روی <a class="a-link" href="@c.TargetUrl" target="_blank" rel="noopener">@c.TargetTitle</a></div>
+              }
+              @if (c.ParentContent is not null)
+              {
+                <blockquote class="mt-2 border-r-2 border-gray-200 pr-3 text-xs text-gray-500 line-clamp-2">@c.ParentContent</blockquote>
+              }
+              @if (c.Rating is { } stars)
+              {
+                <div class="mt-2 text-amber-500 text-sm" aria-label="@stars ستاره">@(new string('★', stars))<span class="text-gray-300">@(new string('★', 5 - stars))</span>
+                  @if (c.IsRecommended == true) { <span class="a-badge a-badge-green">پیشنهاد می‌کند</span> } else if (c.IsRecommended == false) { <span class="a-badge a-badge-red">پیشنهاد نمی‌کند</span> }
+                </div>
+              }
+              @if (!string.IsNullOrWhiteSpace(c.Title)) { <div class="font-semibold mt-2">@c.Title</div> }
+              <p class="mt-1 text-sm leading-7 whitespace-pre-line">@c.Content</p>
+              @if (c.Images.Count > 0)
+              {
+                <div class="mt-2 flex flex-wrap gap-2">
+                  @foreach (var img in c.Images)
+                  {
+                    var src = IReviewImageStore.WebPath + img;
+                    <a href="@src" target="_blank" rel="noopener" class="block h-16 w-16 overflow-hidden rounded-lg border"><img src="@src" alt="" loading="lazy" class="h-full w-full object-cover" width="64" height="64"></a>
+                  }
+                </div>
+              }
+              @if (c.Helpful + c.NotHelpful > 0) { <div class="a-muted text-xs mt-2">مفید: @c.Helpful · غیرمفید: @c.NotHelpful</div> }
+
+              @foreach (var r in c.Replies)
+              {
+                <div class="mt-3 mr-4 rounded-lg bg-gray-50 p-3 text-sm">
+                  <div class="text-xs a-muted mb-1">@r.AuthorName · @AdminUi.Ago(r.CreatedAt) @if (r.Status != CommentStatus.Approved) { <span class="a-badge a-badge-yellow">منتظر تأیید</span> }</div>
+                  <div class="whitespace-pre-line">@r.Content</div>
+                </div>
+              }
+
+              @if (c.ParentId is null)
+              {
+                <details class="mt-3">
+                  <summary class="a-link text-sm cursor-pointer">@Icons.Svg("Reply", null, 16) پاسخ فروشگاه</summary>
+                  <form method="post" asp-page-handler="Reply" asp-route-id="@c.Id" class="mt-2">
+                    <textarea name="content" class="a-textarea" rows="3" maxlength="3000" required placeholder="پاسخ شما با نام فروشگاه منتشر می‌شود"></textarea>
+                    <div class="mt-2 flex justify-end"><button class="a-btn a-btn-sm" type="submit">انتشار پاسخ</button></div>
+                  </form>
+                </details>
+              }
+            </div>
+            <div class="flex gap-1.5 w-full sm:w-auto justify-end">
+              @if (c.Status != CommentStatus.Approved)
+              {
+                <form method="post" asp-page-handler="Moderate" asp-route-id="@c.Id"><input type="hidden" name="action" value="approve"><button class="a-btn a-btn-success a-btn-sm" type="submit">تأیید</button></form>
+              }
+              @if (c.Status != CommentStatus.Rejected)
+              {
+                <form method="post" asp-page-handler="Moderate" asp-route-id="@c.Id"><input type="hidden" name="action" value="reject"><button class="a-btn a-btn-light a-btn-sm" type="submit">رد</button></form>
+              }
+              <form method="post" asp-page-handler="Moderate" asp-route-id="@c.Id" data-confirm="دیدگاه برای همیشه حذف شود؟" data-confirm-danger><input type="hidden" name="action" value="delete"><button class="a-btn a-btn-danger-soft a-btn-sm" type="submit" aria-label="حذف">@Icons.Svg("Trash", null, 16)</button></form>
+            </div>
+          </div>
+        </div>
+      </article>
+    }
+  </div>
+  @if (Model.Items.Items.Count == 0) { <div class="a-card"><div class="a-empty">موردی برای نمایش نیست. 🎉</div></div> }
+</div>
+<partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />

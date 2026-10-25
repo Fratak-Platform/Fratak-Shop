@@ -273,7 +273,7 @@ public class CommentService(
         var authorIds = result.SelectMany(c => c.Replies).Where(r => r.UserId.HasValue).Select(r => r.UserId!.Value).Distinct().ToList();
         var staff = authorIds.Count == 0
             ? new List<Guid>()
-            : await context.Users.Where(u => authorIds.Contains(u.Id) && u.Role != Data.Entities.Users.UserRole.Customer).Select(u => u.Id).ToListAsync();
+            : await context.Users.Where(u => authorIds.Contains(u.Id) && (u.Role != Data.Entities.Users.UserRole.Customer || context.UserAdminRoles.Any(m => m.UserId == u.Id))).Select(u => u.Id).ToListAsync();
 
         foreach (var comment in result)
         {
