@@ -1,0 +1,62 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.GiftCards.IndexModel
+@using Fratak_Shop.Data.Entities.Marketing
+@using Fratak_Shop.Web.Areas.Admin.Pages.GiftCards
+@{
+    ViewData["Title"] = "کارت‌های هدیه";
+    var request = HttpContext.Request;
+    var t = Model.Totals;
+}
+<div class="a-page-head">
+  <div>
+    <h2>کارت‌های هدیه <span class="a-muted text-sm font-normal">(@Format.Number(Model.Items.Total))</span></h2>
+    <p class="a-muted text-sm mt-1">کد کامل کارت فقط برای خریدار قابل مشاهده است؛ اینجا شناسه و ۴ رقم آخر نمایش داده می‌شود. مبلغ و مدت اعتبار از تنظیمات قابل تغییر است.</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light" href="/admin/settings#gift-cards">@Icons.Svg("Gear", null, 18) تنظیمات</a> }
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">فروخته‌شده</div><div class="a-stat-value">@Format.Number(t.SoldCount)</div><div class="a-stat-sub">@Format.Toman(t.SoldAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">فعال (بدهی به مشتری)</div><div class="a-stat-value">@Format.Number(t.ActiveCount)</div><div class="a-stat-sub">@Format.Toman(t.ActiveAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">استفاده‌شده</div><div class="a-stat-value">@Format.Number(t.RedeemedCount)</div><div class="a-stat-sub">@Format.Toman(t.RedeemedAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">منقضی</div><div class="a-stat-value">@Format.Number(t.ExpiredCount)</div><div class="a-stat-sub">@Format.Toman(t.ExpiredAmount)</div></div>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="g-q">جست‌وجو</label><input id="g-q" name="q" value="@Model.Search" class="a-input" placeholder="شناسه، ۴ رقم آخر، موبایل، گیرنده"></div>
+    <div class="a-field"><label class="a-label" for="g-status">وضعیت</label>
+      <select id="g-status" name="status" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var st in new[] { GiftCardStatus.Active, GiftCardStatus.Redeemed, GiftCardStatus.Expired, GiftCardStatus.PendingPayment, GiftCardStatus.Cancelled }) { <option value="@st" selected="@(Model.Status == st)">@IndexModel.StatusTitle(st)</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="g-from">از</label><input id="g-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/01/01"></div>
+    <div class="a-field"><label class="a-label" for="g-to">تا</label><input id="g-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/12/29"></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/gift-cards">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>کارت</th><th>مبلغ</th><th>خریدار</th><th>استفاده</th><th>وضعیت</th></tr></thead>
+      <tbody>
+        @foreach (var g in Model.Items.Items)
+        {
+          <tr>
+            <td data-label="کارت"><span class="a-ltr font-semibold">@g.Reference</span><div class="a-muted text-xs">کد: <span class="a-ltr">••••@g.CodeLast4</span> · @Format.Date(g.CreatedAt)</div></td>
+            <td data-label="مبلغ" class="num">@Format.Price(g.Amount)<div class="a-muted text-xs">@(g.PaymentMethod == GiftCardPaymentMethod.Wallet ? "از کیف پول" : "درگاه")</div></td>
+            <td data-label="خریدار">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@g.PurchaserId">@(string.IsNullOrEmpty(g.PurchaserName) ? g.PurchaserPhone : g.PurchaserName)</a> } else { @g.PurchaserPhone }@if (g.RecipientName is not null) { <div class="a-muted text-xs">برای: @g.RecipientName</div> }</td>
+            <td data-label="استفاده" class="text-xs">@if (g.RedeemedAt is { } ra) { <span>@Format.DateTime(ra)</span> <div class="a-ltr">@g.RedeemedByPhone</div> <div class="a-muted">@(g.RedeemedAsWithdrawable ? "اعتبار قابل برداشت" : "اعتبار هدیه")</div> } else if (g.ExpiresAt is { } e) { <span>اعتبار تا @Format.Date(e)</span> } else { <span>—</span> }</td>
+            <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(g.Status)">@IndexModel.StatusTitle(g.Status)</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Items.Count == 0) { <div class="a-empty">کارتی یافت نشد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>
