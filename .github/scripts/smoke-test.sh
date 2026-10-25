@@ -522,12 +522,24 @@ contains_i "data-inline-url"
 expect 200 "/admin/manage/faq-items?sort=NotAColumn&take=7"
 expect 200 "/admin/ux?handler=Draft&key=blog:new"
 contains_i "ok"
+echo "== Orders (P4): SLA filters, kanban, staff order, payment link, CRM"
+expect 200 "/admin/orders?sla=overdue"
+expect 200 "/admin/orders?sla=soon&source=staff"
+expect 200 /admin/orders/board
+contains_i "data-board-column"
+expect 200 /admin/orders/new
+contains_i "data-staff-order"
+expect 200 "/admin/orders/new?handler=Products&q=%D8%A7"
+contains_i "["
+expect 404 /pay/not-a-valid-token
+expect 404 /pay/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+expect 200 "/admin/customers?tag=%D8%B9%D9%85%D8%AF%D9%87"
 echo "== Realtime (SignalR hub + unread counter)"
 expect 200 "/hubs/live/negotiate?negotiateVersion=1" -X POST
 contains_i "connectionToken"
 expect 200 /api/notifications/unread
 contains_i "unread"
-for tab in general contact footer orders payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
+for tab in general contact footer orders sla payment wallet security invoice seo loyalty gift-cards marketing support catalog map pwa performance; do
   expect 200 "/admin/settings?tab=$tab"
 done
 for key in $(curl -s -b "$JAR" "$BASE/admin/manage" | grep -o 'href="/admin/manage/[a-z-]*"' | sed 's/.*manage\///; s/"$//' | sort -u); do
@@ -561,6 +573,8 @@ expect 200 /admin/blog/edit
 expect 302 /admin/finance
 expect 302 /admin/settings
 expect 302 /admin/staff
+expect 302 /admin/orders/board
+expect 302 /admin/orders/new
 
 echo
 echo "Smoke test finished with $FAILS failure(s)."
