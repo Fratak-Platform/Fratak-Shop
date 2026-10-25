@@ -317,3 +317,15 @@ details.a-details > summary::-webkit-details-marker { display: none; }
   .a-content { padding: 0; max-width: none; }
   .a-card { box-shadow: none; }
 }
+
+/* Settings */
+.a-settings-layout { display: grid; gap: 16px; align-items: start; }
+.a-settings-nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.a-settings-nav::-webkit-scrollbar { display: none; }
+.a-settings-nav .a-dropdown-item { border-radius: 8px; white-space: nowrap; }
+.a-dropdown-item.is-active { background: var(--a-primary-soft); color: var(--a-primary); }
+@media (min-width: 1024px) {
+  .a-settings-layout { grid-template-columns: 230px minmax(0, 1fr); }
+  .a-settings-layout > nav { position: sticky; top: 80px; }
+  .a-settings-nav { flex-direction: column; }
+}

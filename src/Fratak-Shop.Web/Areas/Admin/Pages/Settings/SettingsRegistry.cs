@@ -1,0 +1,153 @@
+namespace Fratak_Shop.Web.Areas.Admin.Pages.Settings;
+
+public enum SKind { Text, Area, Bool, Int, Money, Decimal, Url, Color, Select, Ltr }
+
+public sealed record SField(string Name, string Label, SKind Kind = SKind.Text, string? Help = null)
+{
+    public (string Value, string Title)[] Options { get; init; } = [];
+    public string? ShowWhen { get; init; }
+    public bool Wide { get; init; }
+}
+
+public sealed record SGroup(string Key, string Title, string Icon, string? Description, SField[] Fields);
+
+/// <summary>
+/// The store settings editable in the admin panel, grouped into tabs. Every field maps to a property of
+/// <c>StoreSetting</c> / <c>StoreSettingCommand</c>; the service validates all values before saving.
+/// </summary>
+public static class SettingsRegistry
+{
+    private static SField B(string name, string label, string? help = null) => new(name, label, SKind.Bool, help);
+    private static SField I(string name, string label, string? help = null) => new(name, label, SKind.Int, help);
+    private static SField M(string name, string label, string? help = null) => new(name, label, SKind.Money, help);
+    private static SField T(string name, string label, string? help = null) => new(name, label, SKind.Text, help);
+    private static SField A(string name, string label, string? help = null) => new(name, label, SKind.Area, help) { Wide = true };
+    private static SField U(string name, string label, string? help = null) => new(name, label, SKind.Url, help);
+
+    public static readonly SGroup[] Groups =
+    [
+        new("general", "عمومی", "Storefront", "نام، معرفی و ظاهر فروشگاه",
+        [
+            T("SiteName", "نام فروشگاه"), T("Tagline", "شعار"), A("SiteDescription", "معرفی کوتاه فروشگاه", "در فوتر و توضیحات پیش‌فرض متا استفاده می‌شود."),
+            U("LogoUrl", "آدرس لوگو", "خالی = لوگوی پیش‌فرض"), U("FaviconUrl", "آدرس فاوآیکن"),
+            new("ThemeColor", "رنگ اصلی (PWA و نوار مرورگر)", SKind.Color),
+            B("IsDarkModeEnabled", "حالت تاریک برای مشتریان"),
+            new("DefaultTheme", "پوسته پیش‌فرض", SKind.Select) { Options = [("0", "روشن"), ("1", "تاریک"), ("2", "مطابق دستگاه")] },
+        ]),
+        new("contact", "تماس و شبکه‌ها", "Phone", "اطلاعات تماس نمایش‌داده‌شده در سایت",
+        [
+            new("SupportPhone", "تلفن پشتیبانی", SKind.Ltr), new("SupportEmail", "ایمیل پشتیبانی", SKind.Ltr), A("Address", "نشانی"),
+            new("PostalCode", "کد پستی", SKind.Ltr), T("WorkingHours", "ساعات کاری"), U("MapEmbedUrl", "لینک نقشه (embed)", "فقط https"),
+            U("InstagramUrl", "اینستاگرام"), U("TelegramUrl", "تلگرام"), U("WhatsAppUrl", "واتساپ"), U("LinkedinUrl", "لینکدین"),
+            U("TwitterUrl", "ایکس (توییتر)"), U("AparatUrl", "آپارات"), U("YoutubeUrl", "یوتیوب"),
+        ]),
+        new("footer", "فوتر و اطلاعیه", "Megaphone", "متن‌های فوتر و نوار اطلاعیه بالای سایت",
+        [
+            B("IsAnnouncementEnabled", "نوار اطلاعیه بالای سایت"),
+            new("AnnouncementText", "متن اطلاعیه", SKind.Text) { ShowWhen = "IsAnnouncementEnabled" },
+            new("AnnouncementUrl", "لینک اطلاعیه", SKind.Url) { ShowWhen = "IsAnnouncementEnabled" },
+            new("AnnouncementColor", "رنگ نوار", SKind.Color) { ShowWhen = "IsAnnouncementEnabled" },
+            T("FooterTitle", "عنوان فوتر"), T("FooterSubtitle", "زیرعنوان فوتر"), A("FooterText", "متن فوتر"), T("CopyrightText", "متن کپی‌رایت"),
+            T("FooterButtonText", "متن دکمه فوتر"), U("FooterButtonUrl", "لینک دکمه فوتر"),
+        ]),
+        new("orders", "سفارش و ارسال", "Package", "قوانین ثبت، پرداخت و آماده‌سازی سفارش",
+        [
+            M("MinimumOrderAmount", "حداقل مبلغ سفارش (تومان)", "۰ = بدون محدودیت"), M("FreeShippingThreshold", "ارسال رایگان از مبلغ (تومان)", "۰ = غیرفعال"),
+            I("UnpaidOrderTimeoutMinutes", "مهلت پرداخت سفارش (دقیقه)", "پس از این مدت سفارش پرداخت‌نشده لغو و موجودی آزاد می‌شود."),
+            I("DeliveryDaysAhead", "تعداد روزهای قابل انتخاب برای تحویل"), new("DeliveryOffDays", "روزهای بدون ارسال", SKind.Ltr, "شماره روزها با کاما: ۰=یکشنبه … ۵=جمعه، ۶=شنبه"),
+            I("SameDayLeadMinutes", "حداقل فاصله تا بازه تحویل همان روز (دقیقه)"),
+            B("AllowCustomerCancellation", "لغو سفارش توسط مشتری (قبل از آماده‌سازی)", "مبلغ پرداخت‌شده به کیف پول برمی‌گردد."),
+            B("IsGuestOrderTrackingEnabled", "پیگیری سفارش بدون ورود"),
+            B("RequirePurchaseInvoiceForProcessing", "الزام آپلود فاکتور خرید هنگام رفتن به «در حال آماده‌سازی»", "توصیه: همیشه فعال بماند."),
+            I("LowStockThreshold", "آستانه هشدار کمبود موجودی"),
+        ]),
+        new("payment", "پرداخت", "CreditCard", "درگاه پرداخت و پرداخت در محل",
+        [
+            B("IsOnlinePaymentEnabled", "پرداخت آنلاین (زرین‌پال)"),
+            new("ZarinPalMerchantId", "مرچنت کد زرین‌پال", SKind.Ltr, "شناسه ۳۶ کاراکتری؛ در حالت آزمایشی خالی بماند.") { ShowWhen = "IsOnlinePaymentEnabled" },
+            new("ZarinPalSandbox", "حالت آزمایشی (Sandbox)", SKind.Bool, "در محیط واقعی حتماً خاموش شود.") { ShowWhen = "IsOnlinePaymentEnabled" },
+            B("IsCashOnDeliveryEnabled", "پرداخت در محل"),
+            new("CashOnDeliveryMaxAmount", "سقف پرداخت در محل (تومان)", SKind.Money, "۰ = بدون سقف") { ShowWhen = "IsCashOnDeliveryEnabled" },
+        ]),
+        new("wallet", "کیف پول", "Wallet", "شارژ، پرداخت و برداشت از کیف پول (اعتبار هدیه هرگز قابل برداشت نیست)",
+        [
+            B("IsWalletEnabled", "کیف پول"), B("IsWalletPaymentEnabled", "پرداخت سفارش با کیف پول"), B("IsWalletTopUpEnabled", "شارژ آنلاین"),
+            B("IsWithdrawalEnabled", "درخواست برداشت وجه"),
+            M("WalletMinTopUpAmount", "حداقل شارژ (تومان)"), M("WalletMaxTopUpAmount", "حداکثر شارژ (تومان)"),
+            M("WalletMinWithdrawalAmount", "حداقل برداشت (تومان)"), M("WalletMaxWithdrawalAmount", "حداکثر برداشت (تومان)", "۰ = بدون سقف"),
+            I("WalletMaxPendingWithdrawals", "حداکثر درخواست برداشت باز هر کاربر"),
+        ]),
+        new("security", "ورود و امنیت", "ShieldCheck", "روش‌های ورود و محافظت از حساب‌ها",
+        [
+            B("IsPasswordLoginEnabled", "ورود با رمز عبور"), B("IsOtpLoginEnabled", "ورود با کد پیامکی"), B("IsOtpRegistrationEnabled", "ثبت‌نام با کد پیامکی"),
+            B("IsTwoFactorAvailable", "امکان فعال‌سازی ورود دومرحله‌ای"), B("IsCaptchaEnabled", "کپچای هوشمند پس از تلاش‌های ناموفق"),
+            new("CaptchaAfterFailedAttempts", "نمایش کپچا پس از چند تلاش ناموفق", SKind.Int) { ShowWhen = "IsCaptchaEnabled" },
+            B("IsNewDeviceAlertEnabled", "هشدار ورود از دستگاه جدید"),
+        ]),
+        new("invoice", "فاکتور", "Receipt", "اطلاعات فروشنده روی فاکتور مشتری",
+        [
+            T("OrganizationLegalName", "نام حقوقی فروشگاه"), new("SellerEconomicCode", "کد اقتصادی", SKind.Ltr), new("SellerNationalId", "شناسه ملی", SKind.Ltr),
+            new("SellerRegistrationNumber", "شماره ثبت", SKind.Ltr), new("InvoiceNumberPrefix", "پیشوند شماره فاکتور", SKind.Ltr, "فقط حروف لاتین، مثلاً FR"),
+            A("InvoiceNote", "یادداشت پایین فاکتور"),
+        ]),
+        new("seo", "سئو", "Globe", "تنظیمات پیش‌فرض سئو کل سایت",
+        [
+            T("TitleSeparator", "جداکننده عنوان صفحه", "مثلاً | یا –"), A("DefaultMetaKeywords", "کلمات کلیدی پیش‌فرض"), U("DefaultOgImageUrl", "تصویر پیش‌فرض اشتراک‌گذاری (OG)"),
+            new("GoogleSiteVerification", "کد تأیید Google Search Console", SKind.Ltr), new("BingSiteVerification", "کد تأیید Bing", SKind.Ltr),
+            new("XSiteHandle", "شناسه ایکس (@handle)", SKind.Ltr), new("RobotsTxtExtra", "خطوط اضافه robots.txt", SKind.Area) { Wide = true },
+        ]),
+        new("loyalty", "باشگاه و معرفی", "Crown", "باشگاه مشتریان، امتیاز، کوپن و معرفی دوستان",
+        [
+            B("IsLoyaltyEnabled", "باشگاه مشتریان"), T("LoyaltyProgramName", "نام باشگاه"), I("LoyaltyPointsExpireDays", "اعتبار امتیازها (روز)", "خالی = نامحدود"),
+            A("LoyaltyProgramDescription", "معرفی باشگاه"), B("IsReferralEnabled", "معرفی دوستان"), A("LoyaltyReferralDescription", "توضیح معرفی دوستان"),
+            A("ReferralShareText", "متن اشتراک‌گذاری لینک معرفی"), I("ReferralCookieDays", "اعتبار لینک معرفی (روز)"), B("IsCouponEnabled", "کد تخفیف در سبد خرید"),
+        ]),
+        new("gift-cards", "کارت هدیه", "Gift", "فروش و استفاده از کارت هدیه",
+        [
+            B("IsGiftCardEnabled", "فروش کارت هدیه"), M("GiftCardMinAmount", "حداقل مبلغ (تومان)"), M("GiftCardMaxAmount", "حداکثر مبلغ (تومان)"),
+            new("GiftCardPresetAmounts", "مبالغ پیشنهادی", SKind.Ltr, "با کاما، مثلاً 200000,500000"), I("GiftCardValidDays", "مدت اعتبار (روز)"),
+            B("IsGiftCardCreditWithdrawable", "اعتبار کارت هدیه قابل برداشت باشد", "پیشنهاد: خاموش (اعتبار فقط برای خرید)."), A("GiftCardTerms", "قوانین کارت هدیه"),
+        ]),
+        new("marketing", "بازاریابی", "Percent", "سبد رهاشده، خبرم کن و پیشنهادها",
+        [
+            B("IsAbandonedCartEnabled", "پیگیری سبدهای رهاشده"), I("AbandonedCartAfterMinutes", "رهاشده پس از (دقیقه)"), M("AbandonedCartMinAmount", "حداقل مبلغ سبد (تومان)"),
+            I("AbandonedCartExpireDays", "مدت پیگیری (روز)"), B("IsProductAlertEnabled", "خبرم کن (موجود شدن / کاهش قیمت)"), I("ProductAlertMaxPerUser", "حداکثر خبرم کن هر کاربر"),
+            B("IsRecommendationEnabled", "پیشنهاد محصول به مشتری"),
+        ]),
+        new("support", "نظرات، پشتیبانی و مرجوعی", "Headset", "دیدگاه‌ها، تیکت، مرجوعی و نظرسنجی",
+        [
+            B("IsReviewOnlyForBuyers", "دیدگاه فقط برای خریداران"), B("IsReviewImageEnabled", "ارسال تصویر در دیدگاه"), I("ReviewMaxImages", "حداکثر تصاویر دیدگاه"),
+            I("ReviewMaxImageSizeKb", "حداکثر حجم هر تصویر (کیلوبایت)"), B("IsCustomerAnswerEnabled", "پاسخ مشتریان به پرسش‌ها"), B("IsCommentVotingEnabled", "رأی مفید/نامفید"),
+            B("IsTicketEnabled", "تیکت پشتیبانی"), I("TicketMaxOpenPerUser", "حداکثر تیکت باز هر کاربر"), I("TicketMaxAttachments", "حداکثر پیوست هر پیام"),
+            I("TicketMaxAttachmentSizeKb", "حداکثر حجم پیوست (کیلوبایت)"), B("IsReturnEnabled", "درخواست مرجوعی"), I("ReturnWindowDays", "مهلت مرجوعی پس از تحویل (روز)"),
+            I("ReturnMaxImages", "حداکثر تصاویر مرجوعی"), A("ReturnPolicyText", "متن قوانین مرجوعی"), B("IsOrderFeedbackEnabled", "نظرسنجی پس از تحویل"),
+            I("OrderFeedbackWindowDays", "مهلت ثبت نظرسنجی (روز)"),
+        ]),
+        new("catalog", "جست‌وجو و فروشگاه", "MagnifyingGlass", "جست‌وجو، مقایسه و امکانات صفحه محصول",
+        [
+            B("IsInstantSearchEnabled", "جست‌وجوی لحظه‌ای"), B("IsSearchSynonymsEnabled", "مترادف‌های جست‌وجو"), B("IsDidYouMeanEnabled", "«منظورتان این بود؟»"),
+            B("IsPopularSearchesEnabled", "جست‌وجوهای پرطرفدار"), I("PopularSearchesCount", "تعداد جست‌وجوهای پرطرفدار"), I("PopularSearchMinCount", "حداقل تکرار برای پرطرفدار شدن"),
+            B("IsSmartCompareEnabled", "مقایسه هوشمند"), B("IsProductVideoEnabled", "ویدیوی محصول"), B("IsSaveForLaterEnabled", "ذخیره برای بعد"),
+            B("IsPriceHistoryEnabled", "نمودار تاریخچه قیمت"), I("PriceHistoryDays", "بازه نمودار قیمت (روز)"),
+        ]),
+        new("map", "نقشه", "MapPin", "انتخاب موقعیت آدرس روی نقشه",
+        [
+            B("IsAddressMapEnabled", "انتخاب موقعیت روی نقشه"), new("MapTileUrl", "آدرس تایل نقشه", SKind.Ltr, "مثلاً https://tile.openstreetmap.org/{z}/{x}/{y}.png"),
+            T("MapAttribution", "متن منبع نقشه"), new("MapDefaultLatitude", "عرض جغرافیایی پیش‌فرض", SKind.Decimal), new("MapDefaultLongitude", "طول جغرافیایی پیش‌فرض", SKind.Decimal),
+            I("MapDefaultZoom", "بزرگ‌نمایی پیش‌فرض"),
+        ]),
+        new("pwa", "اپلیکیشن و اعلان", "DeviceMobile", "نصب وب‌اپ (PWA) و اعلان مرورگر",
+        [
+            B("IsPwaEnabled", "وب‌اپلیکیشن (PWA)"), T("PwaShortName", "نام کوتاه اپلیکیشن"), B("IsPwaInstallPromptEnabled", "پیشنهاد نصب"),
+            I("PwaInstallPromptAfterPages", "پیشنهاد پس از چند صفحه"), I("PwaInstallPromptSnoozeDays", "فاصله تکرار پیشنهاد (روز)"),
+            T("PwaInstallPromptTitle", "عنوان پیشنهاد نصب"), A("PwaInstallPromptText", "متن پیشنهاد نصب"),
+            B("IsWebPushEnabled", "اعلان مرورگر (Web Push)", "کلیدهای VAPID به‌صورت خودکار ساخته می‌شوند."), new("VapidSubject", "ایمیل/آدرس فرستنده اعلان (VAPID subject)", SKind.Ltr),
+        ]),
+        new("performance", "عملکرد و نگهداری", "Lightning", "کش، بهینه‌سازی تصاویر و نگهداری لاگ‌ها",
+        [
+            B("IsPageCacheEnabled", "کش صفحات عمومی", "با هر تغییر داده، کش مرتبط خودکار پاک می‌شود."), I("PageCacheSeconds", "مدت کش صفحه (ثانیه)"),
+            B("IsImageOptimizationEnabled", "بهینه‌سازی و تغییر اندازه تصاویر"), I("ImageQuality", "کیفیت تصاویر (۱ تا ۱۰۰)"),
+            I("ErrorLogRetentionDays", "نگهداری لاگ خطا (روز)"), I("AuditLogRetentionDays", "نگهداری گزارش فعالیت (روز)"),
+        ]),
+    ];
+}
