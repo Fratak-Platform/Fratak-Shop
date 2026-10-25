@@ -144,4 +144,8 @@ public abstract class AdminPageModel : ShopPageModel
     }
 
     protected static int ClampPage(int page) => Math.Max(1, page);
+
+    /// <summary>Page number clamped to [1, last page] so an out-of-range link still shows the last page.</summary>
+    protected static int ClampPage(int page, int total, int take) =>
+        Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)Math.Max(1, take))));
 }
