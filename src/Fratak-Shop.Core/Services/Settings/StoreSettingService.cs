@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Settings;
+﻿using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Core.Mappers.Settings;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
@@ -190,6 +190,12 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
 
         if (command.PageCacheSeconds is < 10 or > 86400)
             return "مدت کش صفحات باید بین ۱۰ ثانیه تا ۱ روز باشد.";
+
+        if (command.LowStockThreshold is < 0 or > 1000)
+            return "آستانه موجودی کم باید بین ۰ تا ۱۰۰۰ باشد.";
+
+        if (command.ErrorLogRetentionDays is < 1 or > 3650 || command.AuditLogRetentionDays is < 1 or > 3650)
+            return "مدت نگهداری گزارش‌ها باید بین ۱ تا ۳۶۵۰ روز باشد.";
 
         if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))

@@ -1,4 +1,4 @@
-using Fratak_Shop.Data.Entities.Settings;
+﻿using Fratak_Shop.Data.Entities.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -90,6 +90,14 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.Property(s => s.ImageQuality).HasDefaultValue(80).HasSentinel(80);
         builder.Property(s => s.IsPageCacheEnabled).HasDefaultValue(true).HasSentinel(true);
         builder.Property(s => s.PageCacheSeconds).HasDefaultValue(300).HasSentinel(300);
+        builder.Property(s => s.RequirePurchaseInvoiceForProcessing).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.LowStockThreshold).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.ErrorLogRetentionDays).HasDefaultValue(60).HasSentinel(60);
+        builder.Property(s => s.AuditLogRetentionDays).HasDefaultValue(365).HasSentinel(365);
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round6",
+            "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));
 
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round5",

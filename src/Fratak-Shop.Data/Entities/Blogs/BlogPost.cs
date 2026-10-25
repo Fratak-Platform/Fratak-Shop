@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Users;
@@ -41,6 +41,13 @@ public class BlogPost : BaseEntity
     public bool IsPublished { get; set; }
 
     public DateTimeOffset? PublishedAt { get; set; }
+
+    /// <summary>A writer sent the draft to the editors (admin panel review queue).</summary>
+    public DateTimeOffset? SubmittedForReviewAt { get; set; }
+
+    /// <summary>Editor's feedback to the writer.</summary>
+    [MaxLength(1000)]
+    public string? ReviewNote { get; set; }
 
     public SeoMetaData? Seo { get; set; }
 

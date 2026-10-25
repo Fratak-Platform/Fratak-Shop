@@ -1,4 +1,4 @@
-namespace Fratak_Shop.Core.DTOs.Settings;
+﻿namespace Fratak_Shop.Core.DTOs.Settings;
 
 /// <summary>
 /// Editable store settings (admin panel form). See <c>StoreSetting</c> for the meaning of each field.
@@ -151,6 +151,10 @@ public class StoreSettingCommand
     public int ImageQuality { get; set; } = 80;
     public bool IsPageCacheEnabled { get; set; } = true;
     public int PageCacheSeconds { get; set; } = 300;
+    public bool RequirePurchaseInvoiceForProcessing { get; set; } = true;
+    public int LowStockThreshold { get; set; } = 3;
+    public int ErrorLogRetentionDays { get; set; } = 60;
+    public int AuditLogRetentionDays { get; set; } = 365;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

@@ -1,4 +1,5 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
+using Fratak_Shop.Data.Entities.Admin;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
@@ -172,6 +173,25 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<WebPushSubscription> WebPushSubscriptions { get; set; } = null!;
 
     public DbSet<SeoNotFoundLog> SeoNotFoundLogs { get; set; } = null!;
+
+    // ── Admin panel ──
+    public DbSet<AdminRole> AdminRoles { get; set; } = null!;
+
+    public DbSet<AdminRolePermission> AdminRolePermissions { get; set; } = null!;
+
+    public DbSet<UserAdminRole> UserAdminRoles { get; set; } = null!;
+
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+
+    public DbSet<ErrorLog> ErrorLogs { get; set; } = null!;
+
+    public DbSet<SecurityLog> SecurityLogs { get; set; } = null!;
+
+    public DbSet<OrderNote> OrderNotes { get; set; } = null!;
+
+    public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; } = null!;
+
+    public DbSet<Supplier> Suppliers { get; set; } = null!;
 
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";

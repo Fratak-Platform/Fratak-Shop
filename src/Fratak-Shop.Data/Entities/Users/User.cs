@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Favorites;
@@ -79,6 +79,18 @@ public class User : BaseEntity
 
     /// <summary>The customer who invited this user.</summary>
     public Guid? ReferredByUserId { get; set; }
+
+    /// <summary>Blocked by the shop: cannot sign in, existing sessions are revoked.</summary>
+    public bool IsBlocked { get; set; }
+
+    public DateTimeOffset? BlockedAt { get; set; }
+
+    [MaxLength(500)]
+    public string? BlockReason { get; set; }
+
+    /// <summary>Internal note of the staff about this customer.</summary>
+    [MaxLength(2000)]
+    public string? AdminNote { get; set; }
 
     public List<UserAddress> Addresses { get; set; } = [];
 

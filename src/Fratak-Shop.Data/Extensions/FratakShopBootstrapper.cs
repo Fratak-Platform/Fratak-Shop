@@ -1,4 +1,4 @@
-using Fratak_Shop.Data.Contexts;
+﻿using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Seeders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +17,11 @@ public static class FratakShopBootstrapper
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
-        services.AddDbContext<FratakShopDbContext>(options => options.UseSqlServer(connectionString));
+        // The audit interceptor is a stateless singleton: it only records changes while an
+        // AuditContext actor is set (admin panel requests).
+        services.AddDbContext<FratakShopDbContext>(options => options
+            .UseSqlServer(connectionString)
+            .AddInterceptors(Auditing.AuditSaveChangesInterceptor.Instance));
 
         return services;
     }

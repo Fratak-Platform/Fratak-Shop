@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Users;
@@ -42,6 +42,9 @@ public class SupportTicket : BaseEntity
     public TicketStatus Status { get; set; } = TicketStatus.Open;
 
     public TicketPriority Priority { get; set; } = TicketPriority.Normal;
+
+    /// <summary>Staff member responsible for the ticket (admin panel).</summary>
+    public Guid? AssignedToUserId { get; set; }
 
     public DateTimeOffset LastActivityAt { get; set; }
 

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
@@ -74,6 +74,23 @@ public class Product : BaseEntity
     /// <summary>Manufacturer part number – product rich results.</summary>
     [MaxLength(50)]
     public string? Mpn { get; set; }
+
+    // ── Supplier (internal: admin panel only, never rendered on the storefront) ──
+
+    /// <summary>Where the shop buys this product.</summary>
+    public Guid? SupplierId { get; set; }
+
+    /// <summary>Exact product page at the supplier (required in the admin form).</summary>
+    [MaxLength(1000)]
+    public string? SupplierUrl { get; set; }
+
+    [MaxLength(100)]
+    public string? SupplierSku { get; set; }
+
+    [MaxLength(500)]
+    public string? SupplierNote { get; set; }
+
+    public Supplier? Supplier { get; set; }
 
     public bool IsActive { get; set; } = true;
 

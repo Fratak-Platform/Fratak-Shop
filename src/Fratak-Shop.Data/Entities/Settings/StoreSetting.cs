@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Data.Utilities;
 
 namespace Fratak_Shop.Data.Entities.Settings;
@@ -488,6 +488,20 @@ public class StoreSetting : BaseEntity
     public bool IsPageCacheEnabled { get; set; } = true;
 
     public int PageCacheSeconds { get; set; } = 300;
+
+    // ── Admin panel / operations ─────────────────────────────────────
+
+    /// <summary>An order can only move to "processing" after its supplier purchase invoice is uploaded.</summary>
+    public bool RequirePurchaseInvoiceForProcessing { get; set; } = true;
+
+    /// <summary>Products with this stock or less are reported as "low stock" in the panel.</summary>
+    public int LowStockThreshold { get; set; } = 3;
+
+    /// <summary>Error log entries older than this are removed.</summary>
+    public int ErrorLogRetentionDays { get; set; } = 60;
+
+    /// <summary>Audit / security log entries older than this are removed.</summary>
+    public int AuditLogRetentionDays { get; set; } = 365;
 
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]

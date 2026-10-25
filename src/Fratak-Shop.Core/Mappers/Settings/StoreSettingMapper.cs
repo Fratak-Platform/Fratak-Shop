@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Settings;
+﻿using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Data.Entities.Settings;
 
 namespace Fratak_Shop.Core.Mappers.Settings;
@@ -154,6 +154,10 @@ public static class StoreSettingMapper
             ImageQuality = entity.ImageQuality,
             IsPageCacheEnabled = entity.IsPageCacheEnabled,
             PageCacheSeconds = entity.PageCacheSeconds,
+            RequirePurchaseInvoiceForProcessing = entity.RequirePurchaseInvoiceForProcessing,
+            LowStockThreshold = entity.LowStockThreshold,
+            ErrorLogRetentionDays = entity.ErrorLogRetentionDays,
+            AuditLogRetentionDays = entity.AuditLogRetentionDays,
         };
     }
 
@@ -302,5 +306,9 @@ public static class StoreSettingMapper
         entity.ImageQuality = command.ImageQuality;
         entity.IsPageCacheEnabled = command.IsPageCacheEnabled;
         entity.PageCacheSeconds = command.PageCacheSeconds;
+        entity.RequirePurchaseInvoiceForProcessing = command.RequirePurchaseInvoiceForProcessing;
+        entity.LowStockThreshold = command.LowStockThreshold;
+        entity.ErrorLogRetentionDays = command.ErrorLogRetentionDays;
+        entity.AuditLogRetentionDays = command.AuditLogRetentionDays;
     }
 }
