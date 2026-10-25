@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Fratak_Shop.Core.DTOs.Auth;
 using Fratak_Shop.Data.Contexts;
@@ -80,7 +80,7 @@ public class RefreshTokenService(FratakShopDbContext context) : IRefreshTokenSer
             return new RefreshRotationResult { Failure = RefreshFailure.Invalid };
 
         // The user must still exist (soft-deleted users are filtered out).
-        if (!await context.Users.AnyAsync(u => u.Id == current.UserId))
+        if (!await context.Users.AnyAsync(u => u.Id == current.UserId && !u.IsBlocked))
         {
             await RevokeFamilyAsync(current.FamilyId, "user-removed", now);
             return new RefreshRotationResult { Failure = RefreshFailure.Invalid };

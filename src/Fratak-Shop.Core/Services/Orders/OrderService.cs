@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Orders.Command;
+﻿using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Orders.Query;
 using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Core.DTOs.Shipping;
@@ -374,7 +374,7 @@ public class OrderService(
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
-        var error = ValidateTransition(order.Status, status);
+        var error = ValidateTransition(order.Status, status) ?? await PurchaseInvoiceErrorAsync(order, status);
         if (error is not null)
             return OperationResult.Error(error);
 
@@ -614,10 +614,12 @@ public class OrderService(
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
-        order.TrackingCode = trackingCode.Trim();
-
         // ثبت کد رهگیری یعنی سفارش تحویل پست/پیک شده است.
         var shipped = order.Status is OrderStatus.Confirmed or OrderStatus.Processing;
+        if (shipped && await PurchaseInvoiceErrorAsync(order, OrderStatus.Shipped) is { } invoiceError)
+            return OperationResult.Error(invoiceError);
+
+        order.TrackingCode = trackingCode.Trim();
         if (shipped)
             order.Status = OrderStatus.Shipped;
 
@@ -769,6 +771,26 @@ public class OrderService(
     }
 
     /// <summary>اعتبارسنجی مسیر تغییر وضعیت سفارش.</summary>
+    /// <summary>
+    /// The shop buys every order from a supplier: before an order is prepared (or shipped straight from
+    /// "confirmed") the purchase invoice must be uploaded in the admin panel (store setting, on by default).
+    /// </summary>
+    private async Task<string?> PurchaseInvoiceErrorAsync(Order order, OrderStatus newStatus)
+    {
+        var entersPreparation = newStatus == OrderStatus.Processing
+                                || (newStatus == OrderStatus.Shipped && order.Status is OrderStatus.Pending or OrderStatus.Confirmed);
+        if (!entersPreparation || order.Status == newStatus)
+            return null;
+
+        var settings = await settingService.GetAsync();
+        if (!settings.RequirePurchaseInvoiceForProcessing)
+            return null;
+
+        return await context.PurchaseInvoices.AnyAsync(i => i.OrderId == order.Id)
+            ? null
+            : "پیش از «در حال آماده‌سازی»، فاکتور خرید این سفارش از تأمین‌کننده را بارگذاری کنید.";
+    }
+
     private static string? ValidateTransition(OrderStatus current, OrderStatus newStatus)
     {
         if (newStatus == OrderStatus.None)

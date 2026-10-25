@@ -1,4 +1,4 @@
-using Fratak_Shop.Data.Entities.Products;
+﻿using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Data.Utilities.SeoManagement;
 
 namespace Fratak_Shop.Core.DTOs.Products.Command;
@@ -51,6 +51,16 @@ public class CreateProductCommand
     public bool IsActive { get; set; } = true;
     public DateTimeOffset? PublishedAt { get; set; }
     public SeoMetaData? Seo { get; set; }
+    public string? Gtin { get; set; }
+    public string? Mpn { get; set; }
+
+    /// <summary>Internal: where the shop buys the product (admin panel only).</summary>
+    public Guid? SupplierId { get; set; }
+
+    /// <summary>Internal: product page at the supplier – required.</summary>
+    public string? SupplierUrl { get; set; }
+    public string? SupplierSku { get; set; }
+    public string? SupplierNote { get; set; }
 
     public List<ProductImageCommand> Images { get; set; } = [];
     public List<ProductFeatureCommand> Features { get; set; } = [];
@@ -83,6 +93,16 @@ public class EditProductCommand
     public bool IsActive { get; set; } = true;
     public DateTimeOffset? PublishedAt { get; set; }
     public SeoMetaData? Seo { get; set; }
+    public string? Gtin { get; set; }
+    public string? Mpn { get; set; }
+
+    /// <summary>Internal: where the shop buys the product (admin panel only).</summary>
+    public Guid? SupplierId { get; set; }
+
+    /// <summary>Internal: product page at the supplier – required.</summary>
+    public string? SupplierUrl { get; set; }
+    public string? SupplierSku { get; set; }
+    public string? SupplierNote { get; set; }
 
     public List<ProductImageCommand> Images { get; set; } = [];
     public List<ProductFeatureCommand> Features { get; set; } = [];

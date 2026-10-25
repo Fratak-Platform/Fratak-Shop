@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Products.Command;
+﻿using Fratak_Shop.Core.DTOs.Products.Command;
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.Mappers.Products;
 using Fratak_Shop.Core.Utilities;
@@ -44,6 +44,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (childError is not null)
             return OperationResult.Error(childError);
 
+        var supplierError = await ValidateSupplierAsync(command.SupplierId, command.SupplierUrl, command.SupplierSku, command.SupplierNote, command.Gtin, command.Mpn);
+        if (supplierError is not null)
+            return OperationResult.Error(supplierError);
+
         var product = new Product
         {
             CategoryId = command.CategoryId,
@@ -65,6 +69,12 @@ public class ProductService(FratakShopDbContext context) : IProductService
             IsActive = command.IsActive,
             PublishedAt = command.PublishedAt ?? (command.IsActive ? DateTimeOffset.UtcNow : null),
             Seo = command.Seo,
+            Gtin = Clean(command.Gtin),
+            Mpn = Clean(command.Mpn),
+            SupplierId = command.SupplierId,
+            SupplierUrl = Clean(command.SupplierUrl),
+            SupplierSku = Clean(command.SupplierSku),
+            SupplierNote = Clean(command.SupplierNote),
             Images = BuildImages(command.Images),
             Features = BuildFeatures(command.Features),
         };
@@ -119,6 +129,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (childError is not null)
             return OperationResult.Error(childError);
 
+        var supplierError = await ValidateSupplierAsync(command.SupplierId, command.SupplierUrl, command.SupplierSku, command.SupplierNote, command.Gtin, command.Mpn);
+        if (supplierError is not null)
+            return OperationResult.Error(supplierError);
+
         product.CategoryId = command.CategoryId;
         product.BrandId = command.BrandId;
         product.Name = command.Name.Trim();
@@ -140,6 +154,12 @@ public class ProductService(FratakShopDbContext context) : IProductService
                              ?? product.PublishedAt
                              ?? (command.IsActive ? DateTimeOffset.UtcNow : null);
         product.Seo = command.Seo;
+        product.Gtin = Clean(command.Gtin);
+        product.Mpn = Clean(command.Mpn);
+        product.SupplierId = command.SupplierId;
+        product.SupplierUrl = Clean(command.SupplierUrl);
+        product.SupplierSku = Clean(command.SupplierSku);
+        product.SupplierNote = Clean(command.SupplierNote);
 
         ReplaceImages(product, command.Images);
         SyncFeatures(product, command.Features);
@@ -692,6 +712,37 @@ public class ProductService(FratakShopDbContext context) : IProductService
             feature.DisplayOrder = command.DisplayOrder;
         }
     }
+
+    /// <summary>
+    /// The shop buys every product from a supplier: the exact source page is required (internal data,
+    /// never shown on the storefront) so whoever handles an order knows where to buy each item.
+    /// </summary>
+    private async Task<string?> ValidateSupplierAsync(Guid? supplierId, string? supplierUrl, string? supplierSku, string? supplierNote, string? gtin, string? mpn)
+    {
+        if (string.IsNullOrWhiteSpace(supplierUrl))
+            return "لینک منبع خرید (صفحه محصول در سایت تأمین‌کننده) الزامی است.";
+
+        if (supplierUrl.Trim().Length > 1000
+            || !Uri.TryCreate(supplierUrl.Trim(), UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            return "لینک منبع خرید باید یک آدرس کامل http یا https باشد.";
+
+        if (supplierSku?.Trim().Length > 100 || supplierNote?.Trim().Length > 500)
+            return "کد کالا یا یادداشت تأمین‌کننده بیش از حد طولانی است.";
+
+        if (gtin?.Trim().Length > 14 || (gtin is { Length: > 0 } && !gtin.Trim().All(char.IsAsciiDigit)))
+            return "شناسه GTIN/بارکد باید فقط عدد و حداکثر ۱۴ رقم باشد.";
+
+        if (mpn?.Trim().Length > 50)
+            return "شناسه MPN حداکثر ۵۰ نویسه است.";
+
+        if (supplierId is { } id && !await context.Suppliers.AnyAsync(x => x.Id == id))
+            return "تأمین‌کننده انتخاب‌شده یافت نشد.";
+
+        return null;
+    }
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string? Validate(string? name, string? slug, string? sku, decimal price, decimal? discountPrice,
         DateTimeOffset? discountStartAt, DateTimeOffset? discountEndAt, int stockQuantity, int? warrantyMonths)

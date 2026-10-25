@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Orders.Command;
+﻿using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
@@ -427,6 +427,22 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
             {
                 var orderId = orderResult.Data.Id;
                 await orderService.ChangePaymentStatusAsync(orderId, PaymentStatus.Paid, "DEMO-0001");
+
+                // The shop buys every order from a supplier: "processing" needs the purchase invoice.
+                context.PurchaseInvoices.Add(new PurchaseInvoice
+                {
+                    OrderId = orderId,
+                    SupplierName = "تأمین‌کننده نمونه",
+                    InvoiceNumber = "DEMO-INV-0001",
+                    Amount = Math.Round(orderResult.Data.PayableAmount * 0.8m, 0),
+                    PurchasedAt = now,
+                    FileName = Round6DemoSeeder.DemoInvoiceFileName,
+                    ContentType = "application/pdf",
+                    SizeBytes = Round6DemoSeeder.DemoInvoicePdf.Length,
+                    Notes = "فاکتور خرید نمونه (داده آزمایشی)",
+                    UploadedByName = "سیستم",
+                });
+                await context.SaveChangesAsync(cancellationToken);
 
                 // Walk through the allowed workflow so the demo order ends up delivered.
                 foreach (var status in new[] { OrderStatus.Confirmed, OrderStatus.Processing, OrderStatus.Shipped, OrderStatus.Delivered })

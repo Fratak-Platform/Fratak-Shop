@@ -368,3 +368,10 @@ src/Fratak-Shop.Web/wwwroot/uploads/videos/
 
 # Private runtime data: data-protection keys, ticket attachments, optimized image cache
 App_Data/
+# Admin panel uploads (catalog / blog / banner images)
+src/Fratak-Shop.Web/wwwroot/uploads/products/
+src/Fratak-Shop.Web/wwwroot/uploads/categories/
+src/Fratak-Shop.Web/wwwroot/uploads/brands/
+src/Fratak-Shop.Web/wwwroot/uploads/blogs/
+src/Fratak-Shop.Web/wwwroot/uploads/banners/
+src/Fratak-Shop.Web/wwwroot/uploads/content/

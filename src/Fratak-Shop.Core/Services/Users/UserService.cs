@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Users.Command;
+﻿using Fratak_Shop.Core.DTOs.Users.Command;
 using Fratak_Shop.Core.DTOs.Users.Query;
 using Fratak_Shop.Core.Mappers.Users;
 using Fratak_Shop.Core.Utilities;
@@ -213,6 +213,8 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
             : "ورود دو مرحله‌ای غیرفعال شد.");
     }
 
+    public const string BlockedMessage = "حساب کاربری شما مسدود شده است؛ برای پیگیری با پشتیبانی تماس بگیرید.";
+
     public async Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber, bool allowRegistration = true)
     {
         var phone = phoneNumber?.Trim() ?? string.Empty;
@@ -255,6 +257,9 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
                 created = false;
             }
         }
+
+        if (!created && user.IsBlocked)
+            return OperationResult<PhoneSignInResult>.Error(BlockedMessage);
 
         if (!created)
         {
@@ -304,6 +309,10 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
             await context.SaveChangesAsync();
             return OperationResult<UserDto>.Error(invalidMessage);
         }
+
+        // Checked after the password, so a wrong guess never reveals that an account is blocked.
+        if (user.IsBlocked)
+            return OperationResult<UserDto>.Error(BlockedMessage);
 
         user.FailedLoginCount = 0;
         user.LockoutEndAt = null;

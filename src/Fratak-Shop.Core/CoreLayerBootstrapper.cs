@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.Services.Auth;
+﻿using Fratak_Shop.Core.Services.Auth;
 using Fratak_Shop.Core.Services.Blogs;
 using Fratak_Shop.Core.Services.Brands;
 using Fratak_Shop.Core.Services.Categories;
@@ -90,6 +90,14 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Support.ITicketService, Services.Support.TicketService>();
         services.AddScoped<Services.Notifications.IWebPushService, Services.Notifications.WebPushService>();
         services.AddScoped<Services.Seo.ISeoTrafficService, Services.Seo.SeoTrafficService>();
+
+        // Round 6: admin panel (roles & permissions, monitoring, orders, reports, customers, generic data editor).
+        services.AddScoped<Services.Admin.IAdminAccessService, Services.Admin.AdminAccessService>();
+        services.AddScoped<Services.Admin.IMonitoringService, Services.Admin.MonitoringService>();
+        services.AddScoped<Services.Admin.IAdminDataService, Services.Admin.AdminDataService>();
+        services.AddScoped<Services.Admin.IAdminOrderService, Services.Admin.AdminOrderService>();
+        services.AddScoped<Services.Admin.IAdminReportService, Services.Admin.AdminReportService>();
+        services.AddScoped<Services.Admin.IAdminCustomerService, Services.Admin.AdminCustomerService>();
 
         return services;
     }
