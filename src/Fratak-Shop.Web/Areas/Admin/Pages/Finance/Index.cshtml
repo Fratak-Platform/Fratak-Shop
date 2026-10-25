@@ -164,7 +164,7 @@
         <div class="text-3xl font-bold @(Model.Payments.SuccessRate < 60 && Model.Payments.Total > 10 ? "text-red-600" : "text-emerald-600")">@Model.Payments.SuccessRate٪</div>
         <div class="text-sm a-muted">نرخ موفقیت · @Model.Payments.Succeeded موفق از @Model.Payments.Total · ناموفق @Model.Payments.Failed · انصراف @Model.Payments.Cancelled · معلق @Model.Payments.PendingOrStuck</div>
       </div>
-      <div class="a-progress mb-3"><div style="width:@(Model.Payments.SuccessRate.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
+      <div class="a-progress mb-3"><div style="width:@(Model.Payments.SuccessRate.ToString(global::System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
       <dl class="a-kv text-sm">
         @foreach (var (purpose, count, amount) in Model.Payments.ByPurpose) { <dt>@AdminUi.PaymentPurpose(purpose)</dt><dd>@AdminUi.Money(amount) <span class="a-muted text-xs">(@count)</span></dd> }
       </dl>

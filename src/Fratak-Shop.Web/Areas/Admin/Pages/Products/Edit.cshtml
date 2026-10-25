@@ -1,7 +1,7 @@
 @page "{id:guid?}"
 @model Fratak_Shop.Web.Areas.Admin.Pages.Products.EditModel
 @{
-    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
     var i = Model.Input;
     ViewData["Title"] = Model.IsNew ? "محصول جدید" : $"ویرایش {i.Name}";
     var previewUrl = $"{HttpContext.Request.Host}/product/{(Model.CurrentSlug ?? i.Slug ?? "...")}";

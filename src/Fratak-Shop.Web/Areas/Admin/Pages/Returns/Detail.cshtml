@@ -1,0 +1,131 @@
+@page "/admin/returns/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Returns.DetailModel
+@using Fratak_Shop.Data.Entities.Orders
+@using Fratak_Shop.Web.Areas.Admin.Pages.Returns
+@{
+    var r = Model.Return;
+    ViewData["Title"] = $"مرجوعی {r.RequestNumber}";
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/returns" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>مرجوعی <span class="a-ltr">@r.RequestNumber</span></h2>
+      <p class="a-muted text-sm mt-1"><span class="a-badge @IndexModel.StatusBadge(r.Status)">@IndexModel.StatusTitle(r.Status)</span> · ثبت @Format.DateTime(r.CreatedAt)</p>
+    </div>
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">کالاهای مرجوعی</span></div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards a-table-compact">
+          <thead><tr><th>محصول</th><th>تعداد مرجوعی</th><th>مبلغ واحد</th><th>جمع</th></tr></thead>
+          <tbody>
+            @foreach (var i in Model.Items)
+            {
+              <tr>
+                <td data-label="محصول">@if (i.ProductId is not null && Model.Can(AdminPermissions.ProductsView)) { <a class="a-link" href="/admin/products/edit/@i.ProductId">@i.ProductName</a> } else { @i.ProductName } <div class="a-muted text-xs a-ltr text-right">@i.Sku</div></td>
+                <td data-label="تعداد" class="num">@i.Quantity <span class="a-muted text-xs">از @i.OrderedQuantity</span></td>
+                <td data-label="مبلغ واحد" class="num">@Format.Price(i.UnitRefundAmount)</td>
+                <td data-label="جمع" class="num">@Format.Price(i.UnitRefundAmount * i.Quantity)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">توضیح مشتری</span></div>
+      <div class="a-card-body">
+        <p class="font-semibold mb-2">دلیل: @r.ReasonTitle</p>
+        <p class="text-sm leading-7 whitespace-pre-line">@(r.Description ?? "توضیحی ثبت نشده است.")</p>
+        @if (Model.Images.Count > 0)
+        {
+          <div class="mt-3 flex flex-wrap gap-2">
+            @foreach (var img in Model.Images)
+            {
+              var src = "/uploads/returns/" + Uri.EscapeDataString(img);
+              <a href="@src" target="_blank" rel="noopener" class="block h-24 w-24 overflow-hidden rounded-lg border"><img src="@src" alt="تصویر ارسالی مشتری" loading="lazy" class="h-full w-full object-cover" width="96" height="96"></a>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (r.Status == ReturnStatus.Pending)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">بررسی درخواست</span></div>
+        <div class="a-card-body grid gap-4 md:grid-cols-2">
+          <form method="post" asp-page-handler="Approve" asp-route-id="@r.Id" class="a-form-grid">
+            <div class="a-field"><label class="a-label" for="a-amount">مبلغ قابل بازپرداخت (تومان)</label><input id="a-amount" type="number" name="amount" value="@r.RequestedAmount.ToString("0")" min="0" max="@r.RequestedAmount.ToString("0")" class="a-input a-ltr"><p class="a-help">حداکثر @Format.Toman(r.RequestedAmount). برای کسر هزینه‌ها کمتر وارد کنید.</p></div>
+            <div class="a-field"><label class="a-label" for="a-note">پیام به مشتری (اختیاری)</label><textarea id="a-note" name="note" class="a-textarea" rows="2" maxlength="1000" placeholder="مثلاً آدرس ارسال کالا"></textarea></div>
+            <button class="a-btn a-btn-success" type="submit">@Icons.Svg("Check", null, 18) تأیید درخواست</button>
+          </form>
+          <form method="post" asp-page-handler="Reject" asp-route-id="@r.Id" class="a-form-grid" data-confirm="درخواست مرجوعی رد شود؟" data-confirm-danger>
+            <div class="a-field"><label class="a-label" for="j-note">علت رد</label><textarea id="j-note" name="note" class="a-textarea" rows="4" maxlength="1000" required></textarea></div>
+            <button class="a-btn a-btn-danger-soft" type="submit">رد درخواست</button>
+          </form>
+        </div>
+      </div>
+    }
+    @if (r.Status == ReturnStatus.Approved)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">دریافت کالا</span></div>
+        <div class="a-card-body flex flex-wrap gap-3 items-end">
+          <form method="post" asp-page-handler="Received" asp-route-id="@r.Id" class="flex flex-wrap gap-3 items-center" data-confirm="دریافت کالا ثبت شود؟">
+            <label class="a-check"><input type="checkbox" name="restock" value="true" checked> برگشت به موجودی انبار</label>
+            <button class="a-btn" type="submit">کالا دریافت شد</button>
+          </form>
+          <form method="post" asp-page-handler="Reject" asp-route-id="@r.Id" class="a-filters" data-confirm="درخواست رد شود؟" data-confirm-danger>
+            <div class="a-field"><label class="a-label" for="j2">علت رد</label><input id="j2" name="note" class="a-input" required maxlength="1000"></div>
+            <div class="a-filters-actions"><button class="a-btn a-btn-danger-soft" type="submit">رد</button></div>
+          </form>
+        </div>
+      </div>
+    }
+    @if (r.Status is ReturnStatus.Approved or ReturnStatus.Received)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">بازپرداخت</span></div>
+        <form method="post" asp-page-handler="Refund" asp-route-id="@r.Id" class="a-card-body flex flex-wrap items-center justify-between gap-3" data-confirm="مبلغ @Format.Toman(r.ApprovedAmount ?? r.RequestedAmount) به کیف پول مشتری واریز شود؟">
+          <p class="text-sm">مبلغ @Format.Toman(r.ApprovedAmount ?? r.RequestedAmount) به کیف پول مشتری واریز می‌شود (سهم اعتبار هدیه، به‌صورت هدیه برمی‌گردد).</p>
+          <button class="a-btn a-btn-success" type="submit">@Icons.Svg("Wallet", null, 18) بازپرداخت به کیف پول</button>
+        </form>
+      </div>
+    }
+  </div>
+
+  <div class="a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">خلاصه</span></div>
+      <div class="a-card-body">
+        <dl class="a-kv text-sm">
+          <dt>سفارش</dt><dd>@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@r.OrderId">@Model.OrderNumber</a> } else { <span class="a-ltr">@Model.OrderNumber</span> } <span class="a-muted text-xs">@Format.Date(Model.OrderDate)</span></dd>
+          <dt>مشتری</dt><dd>@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@(string.IsNullOrEmpty(Model.CustomerName) ? Model.CustomerPhone : Model.CustomerName)</a> } else { @Model.CustomerName } <div class="a-ltr a-muted text-xs text-right">@Model.CustomerPhone</div></dd>
+          <dt>مبلغ درخواستی</dt><dd>@AdminUi.Money(r.RequestedAmount)</dd>
+          @if (r.ApprovedAmount is { } approved) { <dt>مبلغ تأییدشده</dt><dd>@AdminUi.Money(approved)</dd> }
+          @if (r.RefundedAmount > 0) { <dt>بازپرداخت‌شده</dt><dd class="a-up">@AdminUi.Money(r.RefundedAmount) @if (r.RefundedBonusAmount > 0) { <span class="a-muted text-xs">(هدیه: @Format.Toman(r.RefundedBonusAmount))</span> }</dd> }
+          <dt>کد رهگیری ارسال</dt><dd class="a-ltr">@(r.ReturnTrackingCode ?? "—")</dd>
+          @if (r.AdminNote is not null) { <dt>یادداشت</dt><dd>@r.AdminNote</dd> }
+        </dl>
+      </div>
+    </div>
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">تاریخچه</span></div>
+      <div class="a-card-body">
+        <ul class="a-timeline text-sm">
+          <li class="a-timeline-item">ثبت درخواست · @Format.DateTime(r.CreatedAt)</li>
+          @if (r.ApprovedAt is { } a) { <li class="a-timeline-item">تأیید · @Format.DateTime(a)</li> }
+          @if (r.ReceivedAt is { } rc) { <li class="a-timeline-item">دریافت کالا · @Format.DateTime(rc)</li> }
+          @if (r.RefundedAt is { } rf) { <li class="a-timeline-item">بازپرداخت · @Format.DateTime(rf)</li> }
+          @if (r.ClosedAt is { } cl) { <li class="a-timeline-item">بسته شد · @Format.DateTime(cl)</li> }
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

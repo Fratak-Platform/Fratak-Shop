@@ -14,7 +14,7 @@ else
     var width = max == 0 ? 0 : Math.Round(value * 100 / max, 1);
     <div class="a-hbar">
       <span class="name" title="@row.Name">@row.Name</span>
-      <div class="a-hbar-track"><div class="a-hbar-fill" style="width:@(width.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
+      <div class="a-hbar-track"><div class="a-hbar-fill" style="width:@(width.ToString(global::System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
       <span class="val">@(Model.ByCount ? Format.Number(row.Count) : Format.Price(row.Amount))@(Model.ByCount || !Model.ShowCount ? "" : $" ({Format.Number(row.Count)})")</span>
     </div>
   }

@@ -1,0 +1,53 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Returns.IndexModel
+@using Fratak_Shop.Data.Entities.Orders
+@using Fratak_Shop.Web.Areas.Admin.Pages.Returns
+@{
+    ViewData["Title"] = "مرجوعی‌ها";
+}
+<div class="a-page-head">
+  <div>
+    <h2>درخواست‌های مرجوعی</h2>
+    <p class="a-muted text-sm mt-1">روند: بررسی و تأیید ← ارسال کالا توسط مشتری ← ثبت دریافت (برگشت به انبار) ← بازپرداخت به کیف پول.</p>
+  </div>
+  <a class="a-btn a-btn-light" href="/admin/manage/return-reasons">@Icons.Svg("Gear", null, 18) دلایل مرجوعی</a>
+</div>
+
+<div class="a-pills mb-4">
+  @foreach (var st in new[] { ReturnStatus.Pending, ReturnStatus.Approved, ReturnStatus.Received, ReturnStatus.Refunded, ReturnStatus.Rejected, ReturnStatus.Cancelled })
+  {
+    <a class="a-pill @(Model.Status == st ? "is-active" : "")" href="/admin/returns?status=@st">@IndexModel.StatusTitle(st) <b>@Format.Number(Model.Counts.GetValueOrDefault(st))</b></a>
+  }
+  <a class="a-pill @(Model.Status is null ? "is-active" : "")" href="/admin/returns?status=all">همه</a>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <input type="hidden" name="status" value="@(Model.Status?.ToString() ?? "all")">
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="r-q">جست‌وجو</label><input id="r-q" name="q" value="@Model.Search" class="a-input" placeholder="شماره درخواست، سفارش یا موبایل"></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">جست‌وجو</button></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>درخواست</th><th>مشتری</th><th>دلیل</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
+      <tbody>
+        @foreach (var r in Model.Items.Items)
+        {
+          <tr>
+            <td data-label="درخواست"><a class="a-link font-semibold a-ltr" href="/admin/returns/@r.Id">@r.RequestNumber</a><div class="a-muted text-xs">سفارش <span class="a-ltr">@r.OrderNumber</span> · @r.ItemCount کالا @if (r.ImageCount > 0) { <span>· @r.ImageCount عکس</span> }</div></td>
+            <td data-label="مشتری">@(string.IsNullOrEmpty(r.CustomerName) ? r.Phone : r.CustomerName)<div class="a-muted text-xs a-ltr text-right">@r.Phone</div></td>
+            <td data-label="دلیل" class="text-sm">@r.ReasonTitle</td>
+            <td data-label="مبلغ" class="num">@Format.Price(r.ApprovedAmount ?? r.RequestedAmount)@if (r.RefundedAmount > 0) { <div class="a-up text-xs">بازپرداخت: @Format.Price(r.RefundedAmount)</div> }</td>
+            <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(r.Status)">@IndexModel.StatusTitle(r.Status)</span>@if (r.TrackingCode is not null) { <div class="a-muted text-xs a-ltr">@r.TrackingCode</div> }</td>
+            <td data-label="تاریخ" class="nowrap text-xs">@AdminUi.Ago(r.CreatedAt)</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Items.Count == 0) { <div class="a-empty">درخواستی وجود ندارد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>

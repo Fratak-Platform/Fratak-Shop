@@ -283,8 +283,8 @@
         </dl>
         @if (o.ShippingLatitude is { } lat && o.ShippingLongitude is { } lng)
         {
-          var la = lat.ToString(System.Globalization.CultureInfo.InvariantCulture);
-          var ln = lng.ToString(System.Globalization.CultureInfo.InvariantCulture);
+          var la = lat.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
+          var ln = lng.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
           <a class="a-btn a-btn-light a-btn-sm mt-3" target="_blank" rel="noopener noreferrer"
              href="@($"https://www.openstreetmap.org/?mlat={la}&mlon={ln}#map=17/{la}/{ln}")">@Icons.Svg("MapPin", null, 16) موقعیت روی نقشه</a>
         }

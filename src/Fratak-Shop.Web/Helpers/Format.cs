@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace Fratak_Shop.Web.Helpers;
 
@@ -25,6 +25,7 @@ public static class Format
     public static string Toman(decimal amount) => $"{Price(amount)} تومان";
 
     public static string Number(int value) => value.ToString("#,0", CultureInfo.InvariantCulture);
+    public static string Number(long value) => value.ToString("#,0", CultureInfo.InvariantCulture);
 
     /// <summary>Solar Hijri date, e.g. "1405/08/01".</summary>
     public static string Date(DateTimeOffset date)
