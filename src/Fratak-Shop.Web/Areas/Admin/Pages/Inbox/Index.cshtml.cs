@@ -27,7 +27,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
     public HashSet<StaffNotificationKind> Muted { get; private set; } = [];
     public PushStats MyPush { get; private set; } = new(0, 0, 0, null);
     public bool PushEnabled { get; private set; }
-    public PushDeliveryResult? LastPush => WebPushSender.LastResult;
+    public PushDeliveryResult? LastPush => WebPushDispatcher.LastResult;
 
     /// <summary>نوع‌هایی که کارمند می‌تواند بی‌صدا کند، با عنوان فارسی.</summary>
     public static readonly (StaffNotificationKind Kind, string Title)[] MutableKinds =

@@ -78,7 +78,7 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
     /// <summary>سلامت اشتراک‌های پوش همهٔ دستگاه‌ها (سالم / دارای خطا / آخرین تحویل موفق).</summary>
     public PushStats PushHealth { get; private set; } = new(0, 0, 0, null);
     /// <summary>نتیجهٔ آخرین تلاش ارسال پوش در این نمونهٔ برنامه (برای عیب‌یابی، مثلاً در دسترس نبودن FCM).</summary>
-    public Fratak_Shop.Web.Infrastructure.Engagement.PushDeliveryResult? LastPush => Fratak_Shop.Web.Infrastructure.Engagement.WebPushSender.LastResult;
+    public Fratak_Shop.Web.Infrastructure.Engagement.PushDeliveryResult? LastPush => Fratak_Shop.Web.Infrastructure.Engagement.WebPushDispatcher.LastResult;
 
     public async Task OnGetAsync()
     {
