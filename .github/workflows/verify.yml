@@ -183,7 +183,7 @@ jobs:
           FRATAK_TEST_SQL: "Server=localhost,1433;User Id=sa;Password=Tests_Passw0rd!;TrustServerCertificate=True;MultipleActiveResultSets=true"
         run: |
           set +e
-          dotnet test tests/Fratak-Shop.Tests/Fratak-Shop.Tests.csproj -c Release --logger "trx;LogFileName=results.trx" --results-directory TestResults > test.log 2>&1
+          dotnet test tests/Fratak-Shop.Tests/Fratak-Shop.Tests.csproj -c Release --logger "trx;LogFileName=results.trx" --results-directory TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Fratak-Shop.*]*" DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile="**/Migrations/*.cs" > test.log 2>&1
           code=$?
           tail -n 40 test.log
           echo "code=$code" >> "$GITHUB_OUTPUT"
@@ -200,6 +200,60 @@ jobs:
               if c is not None:
                   print(f"::notice title=Tests::{c.get('passed')} of {c.get('total')} passed, {c.get('failed')} failed, {c.get('notExecuted')} skipped")
           PY
+
+      - name: Tests per section and code coverage
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, collections, xml.etree.ElementTree as ET
+          ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+          sections = collections.Counter(); failed = collections.Counter()
+          for path in glob.glob("TestResults/*.trx"):
+              root = ET.parse(path).getroot()
+              outcome = {r.get("testId"): r.get("outcome") for r in root.iter("{%s}UnitTestResult" % ns["t"])}
+              for test in root.iter("{%s}UnitTest" % ns["t"]):
+                  method = test.find("t:TestMethod", ns)
+                  parts = (method.get("className") if method is not None else "").split(".")
+                  # Fratak_Shop.Tests.<Unit|Integration|E2E>[.<Area>].<Class>
+                  key = (parts[2] + ("." + parts[3] if len(parts) > 4 else "")) if len(parts) > 3 else "?"
+                  sections[key] += 1
+                  if outcome.get(test.get("id")) == "Failed":
+                      failed[key] += 1
+          lines = ["| Section | Tests | Failed |", "|---|---:|---:|"] + [f"| {k} | {v} | {failed[k]} |" for k, v in sorted(sections.items())]
+          rates = []
+          for path in glob.glob("TestResults/**/coverage.cobertura.xml", recursive=True):
+              root = ET.parse(path).getroot()
+              rates.append(f"Line coverage {float(root.get('line-rate', 0)) * 100:.1f}% · branch coverage {float(root.get('branch-rate', 0)) * 100:.1f}%")
+              for package in root.iter("package"):
+                  rates.append(f"- {package.get('name')}: {float(package.get('line-rate', 0)) * 100:.1f}% lines")
+          with open("summary.md", "w") as f:
+              f.write("## Tests per section\n\n" + "\n".join(lines) + "\n\n## Coverage\n\n" + ("\n".join(rates) or "no coverage file") + "\n")
+          print(open("summary.md").read())
+          PY
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Vulnerable NuGet packages
+        if: always()
+        run: |
+          dotnet list Fratak-Shop.slnx package --vulnerable --include-transitive > vulnerable.txt 2>&1 || true
+          cat vulnerable.txt
+          if grep -qE "^\s+>\s" vulnerable.txt; then
+            echo "::warning title=Vulnerable packages::$(grep -E '^\s+>\s' vulnerable.txt | tr -s ' ' | head -c 900)"
+            { echo "## Vulnerable packages"; echo '```'; cat vulnerable.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::notice title=Vulnerable packages::none found"
+          fi
+
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            TestResults/
+            summary.md
+            vulnerable.txt
+          retention-days: 14
 
       - name: Report test results
         if: steps.test.outputs.code != '0'

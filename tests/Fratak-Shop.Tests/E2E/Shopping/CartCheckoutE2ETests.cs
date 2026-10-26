@@ -421,8 +421,8 @@ public class CartCheckoutE2ETests(ShopApp app)
 
         using var placed = await client.PlaceOrderAsync(PaymentMethod.CashOnDelivery, ("Input.AddressId", victim.AddressId.ToString()));
 
-        // صفحه با خطا یا برگشت به سبد؛ مهم این است که هیچ سفارشی با آدرس دیگری ثبت نشود.
-        Assert.DoesNotContain("/checkout/success", placed.Headers.Location?.OriginalString ?? "", StringComparison.Ordinal);
+        // نه سفارشی به آدرس قربانی و نه جایگزینی بی‌صدا با آدرس پیش‌فرض: صفحه با خطا برمی‌گردد.
+        Assert.Equal(HttpStatusCode.OK, placed.StatusCode);
         Assert.False(await app.WithDbAsync(db => db.Orders.AnyAsync(o => o.UserId == customer.Id)));
     }
 

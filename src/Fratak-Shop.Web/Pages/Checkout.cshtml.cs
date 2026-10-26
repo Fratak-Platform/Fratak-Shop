@@ -114,8 +114,18 @@ public class CheckoutModel(
 
     public async Task<IActionResult> OnPostPlaceOrderAsync()
     {
+        // LoadAsync شناسهٔ آدرس ناشناخته را بی‌صدا با آدرس پیش‌فرض عوض می‌کند (برای نمایش صفحه)؛ در ثبت سفارش نباید
+        // سفارش به آدرسی برود که کاربر انتخاب نکرده است. مثال: آدرس در تب دیگری حذف شده یا شناسهٔ آدرس کاربر دیگری
+        // در فرم گذاشته شده ← خطا و انتخاب دوباره، نه ارسال به آدرس پیش‌فرض.
+        var postedAddressId = Input.AddressId;
         if (!await LoadAsync())
             return RedirectToPage("/Cart");
+
+        if (postedAddressId is { } chosen && Addresses.All(a => a.Id != chosen))
+        {
+            ErrorMessage = "آدرس انتخاب‌شده معتبر نیست؛ آدرس تحویل را دوباره انتخاب کنید.";
+            return Page();
+        }
 
         ModelState.Clear();
         if (!TryValidateModel(Input, nameof(Input)))

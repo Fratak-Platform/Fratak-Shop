@@ -219,13 +219,15 @@ public sealed class ShopApp : IAsyncLifetime
             builder.UseSetting("Security:DataProtectionKeysPath", app._keysPath);
             // پورت HTTPS (مثل سرور واقعی پشت 443) تا UseHttpsRedirection درخواست http را واقعاً به https ببرد.
             builder.UseSetting("https_port", "443");
-            builder.ConfigureLogging(logging => logging.AddProvider(app.Logs));
 
             builder.ConfigureTestServices(services =>
             {
                 // کارهای پس‌زمینهٔ فروشگاه (نه میزبان وب خود ASP.NET Core) – بدون اینترنت و بدون کار هم‌زمان ناخواسته.
                 foreach (var descriptor in services.Where(d => d.ServiceType == typeof(IHostedService) && IsShopService(d)).ToList())
                     services.Remove(descriptor);
+
+                // ضبط هشدار/خطاهای سرور: LoggerFactory همهٔ ILoggerProviderهای DI را می‌گیرد (مطمئن‌تر از ConfigureLogging).
+                services.AddSingleton<ILoggerProvider>(app.Logs);
 
                 services.RemoveAll<ISmsSender>();
                 services.AddSingleton<ISmsSender>(app.Sms);
@@ -289,8 +291,11 @@ public sealed class ServerErrorDiagnostics(CapturedLogs logs) : DelegatingHandle
         if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
         {
             var errors = logs.ErrorsSince(started);
+            var body = response.Content is null ? "" : await response.Content.ReadAsStringAsync(cancellationToken);
+            if (errors.Count == 0)
+                errors.Add("(no error was logged) body: " + ShopClient.Excerpt(body));
             throw new HttpRequestException($"Server error 500 for {request.Method} {request.RequestUri}{Environment.NewLine}"
-                + (errors.Count == 0 ? "(no error was logged)" : string.Join(Environment.NewLine, errors.Select(e => e.Length > 3000 ? e[..3000] : e))),
+                + string.Join(Environment.NewLine, errors.Select(e => e.Length > 3000 ? e[..3000] : e)),
                 null, System.Net.HttpStatusCode.InternalServerError);
         }
         return response;
