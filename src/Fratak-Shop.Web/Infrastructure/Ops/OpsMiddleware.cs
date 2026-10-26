@@ -110,6 +110,8 @@ public static class MaintenanceRules
         path.StartsWithSegments("/admin")
         || path.StartsWithSegments("/login") || path.StartsWithSegments("/logout")
         || path.StartsWithSegments("/api/auth")
+        // فرم ورود توکن ضدجعل و کپچا را از این دو آدرس می‌گیرد؛ بدون آن‌ها کارکنان در حالت تعمیرات نمی‌توانستند وارد شوند.
+        || path.StartsWithSegments("/api/antiforgery") || path.StartsWithSegments("/api/captcha")
         || path.StartsWithSegments("/health") || path.StartsWithSegments("/healthz")
         || path.StartsWithSegments("/hubs")
         || path.Equals("/robots.txt") || path.Equals("/sw.js") || path.Equals("/manifest.webmanifest") || path.Equals("/offline.html");

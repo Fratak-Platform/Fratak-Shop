@@ -145,6 +145,9 @@ public class BrandAssetsTests
         {
             if (!extensions.Contains(Path.GetExtension(file)) || skip.Any(file.Contains) || file.Contains($"{Path.DirectorySeparatorChar}dependencies{Path.DirectorySeparatorChar}"))
                 continue;
+            // BrandIdentity.LegacyIcons عمداً آدرس‌های قدیمی را نام می‌برد تا به فایل برند جدید هدایت شوند (رفع آیکون کهنهٔ PWA).
+            if (Path.GetFileName(file) == "BrandIdentity.cs")
+                continue;
             var text = File.ReadAllText(file);
             foreach (var needle in forbidden)
                 Assert.False(text.Contains(needle, StringComparison.OrdinalIgnoreCase), $"{Path.GetRelativePath(RepoRoot, file)} still references {needle}");

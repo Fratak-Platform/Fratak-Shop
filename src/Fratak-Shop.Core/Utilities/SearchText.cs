@@ -24,7 +24,8 @@ public static class SearchText
         });
 
         var text = string.Join(' ', new string(chars.ToArray()).Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        return text.Length > MaxLength ? text[..MaxLength] : text;
+        // بریدن در حد مجاز ممکن است به فاصله ختم شود؛ TrimEnd خروجی را پایدار می‌کند (Normalize(Normalize(x)) == Normalize(x)).
+        return text.Length > MaxLength ? text[..MaxLength].TrimEnd() : text;
     }
 
     /// <summary>Persian / Arabic digits → ASCII digits, trimmed (admin search boxes: order numbers, phones).</summary>

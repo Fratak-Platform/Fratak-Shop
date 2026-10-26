@@ -129,12 +129,11 @@ public sealed class ShopApp : IAsyncLifetime
         var number = Interlocked.Increment(ref _ipCounter);
         ip ??= $"10.{80 + number / 65025 % 100}.{number / 255 % 255}.{number % 255 + 1}";
 
-        var http = _factory!.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            BaseAddress = new Uri(BaseUrl),
-            AllowAutoRedirect = false,
-            HandleCookies = true,
-        });
+        // مثل CreateClient(AllowAutoRedirect=false, HandleCookies=true) به‌علاوهٔ ServerErrorDiagnostics: هر پاسخ ۵۰۰ با
+        // متن کامل استثنای سمت سرور شکست می‌خورد تا گزارش CI علت را مستقیم نشان دهد.
+        var http = _factory!.CreateDefaultClient(new Uri(BaseUrl),
+            new ServerErrorDiagnostics(Logs),
+            new Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler());
         http.DefaultRequestHeaders.Add(TestClientIp.Header, ip);
         http.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent
             ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36");
@@ -277,6 +276,27 @@ public sealed class TestClientIp : IStartupFilter
 }
 
 /// <summary>خطاهای ثبت‌شده در لاگ برنامه (هر استثنای مدیریت‌نشده با سطح Error ثبت می‌شود).</summary>
+/// <summary>
+/// اگر سرور ۵۰۰ برگرداند، به‌جای یک «InternalServerError» خشک، استثنا با خطاهای ثبت‌شدهٔ همان درخواست پرتاب می‌شود.
+/// هیچ آزمونی انتظار ۵۰۰ ندارد؛ پس این فقط پیام شکست را گویا می‌کند.
+/// </summary>
+public sealed class ServerErrorDiagnostics(CapturedLogs logs) : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var started = DateTimeOffset.UtcNow;
+        var response = await base.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+        {
+            var errors = logs.ErrorsSince(started);
+            throw new HttpRequestException($"Server error 500 for {request.Method} {request.RequestUri}{Environment.NewLine}"
+                + (errors.Count == 0 ? "(no error was logged)" : string.Join(Environment.NewLine, errors.Select(e => e.Length > 3000 ? e[..3000] : e))),
+                null, System.Net.HttpStatusCode.InternalServerError);
+        }
+        return response;
+    }
+}
+
 public sealed class CapturedLogs : ILoggerProvider
 {
     private readonly List<(DateTimeOffset At, string Category, LogLevel Level, string Message)> _entries = [];
