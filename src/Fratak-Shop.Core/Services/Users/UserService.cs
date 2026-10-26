@@ -19,6 +19,9 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
     private const int MaxFailedLogins = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
+    /// <summary>هش یک رمز تصادفی (یک بار در طول عمر برنامه ساخته می‌شود) فقط برای یکسان کردن زمان پاسخ ورود ناموفق.</summary>
+    private static readonly Lazy<string> TimingEqualizerHash = new(() => PasswordHasher.Hash(Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))));
+
     public async Task<OperationResult> CreateUserAsync(CreateUserCommand command)
     {
         var error = Validate(command.PhoneNumber, command.Email, command.Role);
@@ -289,7 +292,13 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
 
         // Accounts without a password (OTP sign-up) can't log in with a password.
         if (user is null || string.IsNullOrWhiteSpace(user.PasswordHash))
+        {
+            // بررسی امنیتی دور ۸ (جلوگیری از شناسایی شماره‌های عضو با زمان پاسخ): هش Argon2 حدود چند صد میلی‌ثانیه
+            // طول می‌کشد؛ اگر برای شمارهٔ ناموجود فوراً جواب بدهیم، مهاجم از روی زمان پاسخ می‌فهمد کدام شماره‌ها
+            // عضو فروشگاه‌اند. پس همان کار را روی یک هش ساختگی انجام می‌دهیم تا زمان پاسخ یکسان شود.
+            PasswordHasher.Verify(command.Password, TimingEqualizerHash.Value);
             return OperationResult<UserDto>.Error(invalidMessage);
+        }
 
         if (user.LockoutEndAt > now)
         {

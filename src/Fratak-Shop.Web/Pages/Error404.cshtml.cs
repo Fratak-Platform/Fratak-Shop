@@ -1,4 +1,4 @@
-using Fratak_Shop.Data.Entities.Pages;
+﻿using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Web.Infrastructure;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Diagnostics;
@@ -29,7 +29,12 @@ public class Error404Model(IPageMetaService pageMeta) : ShopPageModel
     public async Task OnGetAsync(int? code)
     {
         var reExecute = HttpContext.Features.Get<IStatusCodeReExecuteFeature>();
-        StatusCode = reExecute is not null && code is >= 400 and < 600 ? code.Value : StatusCodes.Status404NotFound;
+        // خطای پیش‌بینی‌نشده (UseExceptionHandler("/404") در محیط واقعی): باید 500 بماند، نه 404؛ وگرنه موتورهای
+        // جست‌وجو صفحه‌ای را که لحظه‌ای خطا داده «حذف‌شده» می‌دانند و مانیتورینگ هم خطا را نمی‌بیند.
+        var exception = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
+        StatusCode = exception is not null
+            ? StatusCodes.Status500InternalServerError
+            : reExecute is not null && code is >= 400 and < 600 ? code.Value : StatusCodes.Status404NotFound;
         Response.StatusCode = StatusCode;
 
         await pageMeta.ApplyAsync(ViewData, SitePage.NotFound, IsNotFound ? "صفحه پیدا نشد" : "خطا");

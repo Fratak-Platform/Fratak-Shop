@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Shopping.Command;
+﻿using Fratak_Shop.Core.DTOs.Shopping.Command;
 using Fratak_Shop.Core.DTOs.Shopping.Query;
 using Fratak_Shop.Core.Mappers.Carts;
 using Fratak_Shop.Core.Utilities;
@@ -75,10 +75,14 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.NotFound("محصول مورد نظر یافت نشد یا غیرفعال است.");
 
         var item = cart.Items.FirstOrDefault(x => x.ProductId == command.ProductId);
-        var newQuantity = (item?.Quantity ?? 0) + command.Quantity;
+        // جمع با long (بررسی امنیتی دور ۸): quantity=2147483647 روی کالایی که در سبد است، با int سرریز می‌کرد و
+        // تعداد منفی از بررسی موجودی رد می‌شد و در سبد می‌نشست. بعد از بررسی موجودی، مقدار حتماً در بازهٔ int است.
+        var requestedQuantity = (long)(item?.Quantity ?? 0) + command.Quantity;
 
-        if (product.StockQuantity < newQuantity)
+        if (product.StockQuantity < requestedQuantity)
             return OperationResult.Error($"موجودی محصول «{product.Name}» کافی نیست.");
+
+        var newQuantity = (int)requestedQuantity;
 
         if (item is null)
         {
@@ -268,11 +272,11 @@ public class CartService(FratakShopDbContext context) : ICartService
 
             var existingItem = userCart.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
 
-            var quantity = (existingItem?.Quantity ?? 0) + item.Quantity;
+            // long تا جمع دو تعداد بزرگ سرریز نکند (همان مورد AddItemAsync).
+            var merged = (long)(existingItem?.Quantity ?? 0) + item.Quantity;
 
             // بیشتر از موجودی انبار کالا به سبد کاربر اضافه نمی‌شود.
-            if (quantity > product.StockQuantity)
-                quantity = product.StockQuantity;
+            var quantity = (int)Math.Min(merged, product.StockQuantity);
 
             if (quantity <= 0)
                 continue;

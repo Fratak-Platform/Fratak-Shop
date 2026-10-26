@@ -1,4 +1,4 @@
-namespace Fratak_Shop.Web.Infrastructure;
+﻿namespace Fratak_Shop.Web.Infrastructure;
 
 /// <summary>
 /// هویت بصری فراتک شاپ – تنها منبع مسیر فایل‌ها و رنگ‌های برند در کد سرور.
@@ -93,6 +93,31 @@ public static class BrandIdentity
 
     /// <summary>تصویر پیش‌فرض اشتراک‌گذاری (Open Graph، ۱۲۰۰×۶۳۰) وقتی صفحه تصویر خودش را ندارد.</summary>
     public const string OgImage = "/assets/brand/og-default.png";
+
+    /// <summary>
+    /// آدرس مانیفست PWA با شمارهٔ نسخه. با هر تغییر آیکون‌ها/نام اپ این عدد را بالا ببرید تا مرورگرها و CDN ها
+    /// مانیفست قدیمی (و آیکون قدیمی) را از کش نخوانند. شناسهٔ اپ («id» داخل مانیفست) ثابت است، پس اپ نصب‌شده
+    /// همان اپ می‌ماند و فقط آیکونش به‌روز می‌شود.
+    /// محل استفاده: _Layout (تگ link rel=manifest).
+    /// </summary>
+    public const string ManifestUrl = "/manifest.webmanifest?v=brand2";
+
+    /// <summary>
+    /// آدرس‌های آیکون/لوگوی قالب قدیمی که مرورگرها، اپ‌های نصب‌شده، کش CDN یا مانیفست‌های کهنه ممکن است هنوز
+    /// درخواست کنند. به جای 404 همان فایل برند جدید برگردانده می‌شود (PwaEndpoints) تا آیکون قدیمی هیچ‌جا نماند.
+    /// مثال: مانیفست کهنه‌ای که در کش گوشی مانده «/assets/image/pwa/icon-192.png» را می‌خواهد ← app-icon-192.png.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> LegacyIcons { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["/assets/image/pwa/icon-192.png"] = AppIcon192,
+        ["/assets/image/pwa/icon-512.png"] = AppIcon512,
+        ["/assets/image/pwa/maskable-512.png"] = AppIconMaskable512,
+        ["/assets/image/pwa/apple-touch-icon.png"] = AppleTouchIcon,
+        ["/assets/image/logo.png"] = LogoPng,
+        // سافاری iOS وقتی تگ apple-touch-icon را پیدا نکند (یا صفحه هنوز بار نشده) این دو آدرس ریشه را امتحان می‌کند.
+        ["/apple-touch-icon.png"] = AppleTouchIcon,
+        ["/apple-touch-icon-precomposed.png"] = AppleTouchIcon,
+    };
 
     /// <summary>همهٔ فایل‌های بالا (برای تست وجود فایل‌ها).</summary>
     public static IReadOnlyList<string> AllAssets { get; } =

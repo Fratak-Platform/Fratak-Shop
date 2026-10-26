@@ -920,7 +920,13 @@ public class OrderService(
         if (command.Items.Any(item => item.Quantity <= 0))
             return "تعداد هر محصول باید بزرگ‌تر از صفر باشد.";
 
-        if (command.PaymentMethod == PaymentMethod.None)
+        // جمع تعدادها در int جا شود (وگرنه Sum در ادغام ردیف‌های تکراری خطای سرریز و پاسخ 500 می‌داد).
+        if (command.Items.Sum(item => (long)item.Quantity) > int.MaxValue)
+            return "تعداد کالاهای سفارش معتبر نیست.";
+
+        // عدد دلخواه در فرم (مثلاً PaymentMethod=99) نباید سفارشی با روش پرداخت ناشناخته بسازد که از قوانین
+        // پرداخت در محل/کیف پول/درگاه رد شود (آزمون حمله: CheckoutAttackTests).
+        if (command.PaymentMethod == PaymentMethod.None || !Enum.IsDefined(command.PaymentMethod))
             return "روش پرداخت را انتخاب کنید.";
 
         if (command.DiscountAmount < 0)
@@ -938,7 +944,7 @@ public class OrderService(
 
     private static string? Validate(EditOrderCommand command)
     {
-        if (command.PaymentMethod == PaymentMethod.None)
+        if (command.PaymentMethod == PaymentMethod.None || !Enum.IsDefined(command.PaymentMethod))
             return "روش پرداخت را انتخاب کنید.";
 
         return ValidateDelivery(command.CustomerName, command.CustomerPhone, command.ShippingProvince,

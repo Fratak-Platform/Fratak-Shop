@@ -362,3 +362,6 @@ if (app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.SeedDemoData)
 }
 
 app.Run();
+
+/// <summary>نقطهٔ ورود برنامه؛ partial و public تا آزمون‌های سرتاسری بتوانند آن را با WebApplicationFactory بالا بیاورند.</summary>
+public partial class Program;

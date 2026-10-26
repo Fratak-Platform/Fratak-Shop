@@ -7,7 +7,7 @@
  *  - web push: shows the notification sent by the shop and opens its (same-origin) link.
  * Bump VERSION to drop the old caches after changing this file.
  */
-const VERSION = "v3"; // v3: هویت بصری جدید (فونت Vazirmatn، لوگو و آیکون‌های برند)
+const VERSION = "v4"; // v4: مانیفست بدون کش و آیکون‌های نسخه‌دار. v3: هویت بصری جدید (فونت Vazirmatn، لوگو و آیکون‌های برند)
 const CACHE = `fratak-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [

@@ -143,6 +143,14 @@ expect 200 /manifest.webmanifest
 contains '/assets/brand/app-icon-maskable-512.png'
 contains '"theme_color":"#0B1927"'
 lacks '/assets/image/pwa/'
+contains '.png?v='
+# Installed PWA icon (round 8): the manifest is revalidated on every use, and the old template icon URLs
+# (stale manifests / earlier installs) now return the brand icon instead of the template sparkle or a 404.
+if curl -s -D - -o /dev/null "$BASE/manifest.webmanifest" | grep -qi '^cache-control: no-cache'; then pass "manifest is no-cache"; else fail "manifest should be Cache-Control: no-cache"; fi
+for legacy in /assets/image/pwa/icon-192.png /assets/image/pwa/icon-512.png /assets/image/pwa/maskable-512.png /assets/image/pwa/apple-touch-icon.png /assets/image/logo.png /apple-touch-icon.png; do
+  expect 200 "$legacy"
+done
+if cmp -s <(curl -s "$BASE/assets/image/pwa/icon-192.png") <(curl -s "$BASE/assets/brand/app-icon-192.png"); then pass "legacy icon = brand icon"; else fail "legacy icon URL should serve the brand icon"; fi
 expect 200 /
 contains '/assets/brand/logo.svg'
 contains '/assets/brand/logo-on-dark.svg'
