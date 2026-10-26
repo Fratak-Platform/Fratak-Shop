@@ -66,6 +66,11 @@ public class BackupsModel(IBackupService backups, IMonitoringService monitoring,
         if ((record.Kind == BackupKind.Database && extension != ".bak") || (record.Kind == BackupKind.Uploads && (extension != ".zip" || !archiver.IsInsideBackups(path))))
             return NotFound();
         await monitoring.LogActionAsync("BackupDownload", "System", id, "دانلود نسخهٔ پشتیبان " + global::System.IO.Path.GetFileName(path));
-        return PhysicalFile(path, "application/octet-stream", global::System.IO.Path.GetFileName(path), enableRangeProcessing: true);
+        return new PhysicalFileResult(path, "application/octet-stream")
+        {
+            FileDownloadName = global::System.IO.Path.GetFileName(path),
+            // فایل‌های بزرگ: دانلود قطع‌شده از همان نقطه ادامه پیدا می‌کند.
+            EnableRangeProcessing = true,
+        };
     }
 }
