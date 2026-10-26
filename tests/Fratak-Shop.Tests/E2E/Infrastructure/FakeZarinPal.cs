@@ -48,7 +48,7 @@ public sealed class FakeZarinPal
             if (RequestErrorCode is { } error)
                 return (200, Error(error, "request rejected"));
 
-            var authority = "A" + Guid.NewGuid().ToString("N").ToUpperInvariant()[..35];
+            var authority = ("A" + Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N")).ToUpperInvariant()[..36]; // مثل زرین‌پال: ۳۶ نویسه
             var payment = new Payment(authority, body.GetProperty("amount").GetInt64(), body.GetProperty("callback_url").GetString() ?? "",
                 body.GetProperty("merchant_id").GetString() ?? "");
             _payments[authority] = payment;

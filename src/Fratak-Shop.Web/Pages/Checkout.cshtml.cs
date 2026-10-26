@@ -127,6 +127,14 @@ public class CheckoutModel(
             return Page();
         }
 
+        // مقدار تعریف‌نشده (مثلاً PaymentMethod=99 یا Free) در bind رد می‌شود و ویژگی روی مقدار پیش‌فرض (درگاه) می‌ماند؛
+        // نباید بی‌صدا با روشی که کاربر انتخاب نکرده سفارش ثبت شود.
+        if (ModelState.TryGetValue($"{nameof(Input)}.{nameof(CheckoutInput.PaymentMethod)}", out var paymentEntry) && paymentEntry.Errors.Count > 0)
+        {
+            ErrorMessage = "روش پرداخت انتخاب‌شده معتبر نیست.";
+            return Page();
+        }
+
         ModelState.Clear();
         if (!TryValidateModel(Input, nameof(Input)))
         {
