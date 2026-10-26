@@ -8,11 +8,22 @@ public static partial class XssSecurity
 {
     // Sanitizing is read-only after construction, so a single configured instance is
     // shared (building an HtmlSanitizer per call is expensive).
-    private static readonly HtmlSanitizer Sanitizer = new()
+    private static readonly HtmlSanitizer Sanitizer = CreateSanitizer();
+
+    // محتوای متنی (بلاگ، توضیح محصول، صفحه‌ها) هیچ‌وقت به فرم نیاز ندارد؛ فرمِ جاسازی‌شده فقط راه فیشینگ است
+    // (مثلاً فرم «ورود» جعلی وسط یک نوشته). برای همین عناصر فرم از فهرست مجاز پیش‌فرض حذف می‌شوند.
+    private static HtmlSanitizer CreateSanitizer()
     {
-        KeepChildNodes = true,
-        AllowDataAttributes = true,
-    };
+        var sanitizer = new HtmlSanitizer
+        {
+            KeepChildNodes = true,
+            AllowDataAttributes = true,
+        };
+        foreach (var tag in new[] { "form", "input", "button", "select", "option", "optgroup", "textarea", "datalist", "keygen", "output", "fieldset", "legend" })
+            sanitizer.AllowedTags.Remove(tag);
+        sanitizer.AllowedAttributes.Remove("formaction");
+        return sanitizer;
+    }
 
     /// <summary>Removes dangerous markup (scripts, event handlers, javascript: urls) and keeps safe HTML.</summary>
     public static string SanitizeText(this string text)

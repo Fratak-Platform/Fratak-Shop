@@ -74,7 +74,9 @@ public class ZarinPalGateway(HttpClient httpClient, ILogger<ZarinPalGateway> log
             logger.LogWarning("ZarinPal request failed: {Code} {Message}", code, message);
             return new GatewayRequestResult(false, null, null, code, ErrorMessage(code, message));
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        // هر خطای دیگری (مثلاً authority عددی به‌جای رشته ← InvalidOperationException) هم نباید به صفحهٔ خطا برسد؛
+        // فقط لغو واقعیِ خودِ درخواست کاربر بالا می‌رود.
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.LogError(exception, "ZarinPal payment request could not be sent.");
             return new GatewayRequestResult(false, null, null, null, "ارتباط با درگاه پرداخت برقرار نشد؛ لطفاً چند لحظه بعد دوباره تلاش کنید.");
@@ -117,7 +119,9 @@ public class ZarinPalGateway(HttpClient httpClient, ILogger<ZarinPalGateway> log
             logger.LogWarning("ZarinPal verify failed for {Authority}: {Code} {Message}", authority, code, message);
             return new GatewayVerifyResult(false, null, null, code, ErrorMessage(code, message));
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        // هر خطای دیگری (مثلاً authority عددی به‌جای رشته ← InvalidOperationException) هم نباید به صفحهٔ خطا برسد؛
+        // فقط لغو واقعیِ خودِ درخواست کاربر بالا می‌رود.
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.LogError(exception, "ZarinPal verify call failed for {Authority}.", authority);
             return new GatewayVerifyResult(false, null, null, null, "ارتباط با درگاه برای تایید پرداخت برقرار نشد.", IsTransient: true);
