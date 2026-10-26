@@ -218,6 +218,8 @@ public sealed class ShopApp : IAsyncLifetime
             builder.UseSetting("Shop:SeedDemoData", "true");
             builder.UseSetting("Jwt:SigningKey", SigningKey);
             builder.UseSetting("Security:DataProtectionKeysPath", app._keysPath);
+            // پورت HTTPS (مثل سرور واقعی پشت 443) تا UseHttpsRedirection درخواست http را واقعاً به https ببرد.
+            builder.UseSetting("https_port", "443");
             builder.ConfigureLogging(logging => logging.AddProvider(app.Logs));
 
             builder.ConfigureTestServices(services =>
