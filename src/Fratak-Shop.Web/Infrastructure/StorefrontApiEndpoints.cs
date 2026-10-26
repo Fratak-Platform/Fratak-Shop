@@ -45,7 +45,13 @@ public static class StorefrontApiEndpoints
             await site.LoadAsync(http.RequestAborted);
             var keys = site.Settings.CanUseWebPush ? await push.GetVapidKeysAsync() : null;
             NoStore(http);
-            return Results.Ok(new { enabled = keys is not null, publicKey = keys?.PublicKey, signedIn = http.User.IsSignedIn() });
+            // account: برچسب کوتاه و غیرقابل‌برگشت حساب فعلی (۱۲ نویسهٔ اول SHA-256 شناسه). live.js اگر ببیند حساب عوض شده،
+            // اشتراک پوش همین مرورگر را فوراً برای حساب تازه ثبت می‌کند (قبلاً تا ۲۴ ساعت به حساب قبلی می‌رفت).
+            var signedIn = http.User.IsSignedIn();
+            var account = signedIn && http.User.GetUserId() is { } userId
+                ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(userId.ToByteArray()))[..12]
+                : null;
+            return Results.Ok(new { enabled = keys is not null, publicKey = keys?.PublicKey, signedIn, account });
         });
 
         api.MapPost("/push/subscribe", async (HttpContext http, IAntiforgery antiforgery, IWebPushService push, PushSubscriptionInput input) =>

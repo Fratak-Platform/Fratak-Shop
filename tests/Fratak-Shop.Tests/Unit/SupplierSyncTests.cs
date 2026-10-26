@@ -115,33 +115,120 @@ public class SupplierSyncTests
     }
 
     [Fact]
-    public async Task Woo_Adapter_UsesSlugFirstTimeAndIncludeWhenIdKnown()
+    public async Task Woo_Adapter_UsesSlugSearchAndIncludeWhenIdKnown()
     {
         var known = Guid.NewGuid();
-        var fresh = Guid.NewGuid();
+        var latin = Guid.NewGuid();
+        var persian = Guid.NewGuid();
         var gone = Guid.NewGuid();
         var http = new FakeHttp(url =>
         {
             if (url.Contains("include=4521"))
                 return new(200, WooInStock);
-            if (url.Contains("slug=" + Uri.EscapeDataString("کرم")))
-                return new(200, """[{"id":77,"prices":{"price":"99000","currency_code":"IRT","currency_minor_unit":0},"is_in_stock":false}]""");
+            if (url.Contains("slug=abc-123"))
+                return new(200, """[{"id":12,"prices":{"price":"5000","currency_code":"IRT","currency_minor_unit":0},"is_in_stock":true}]""");
+            // ووکامرس واقعی برای نامک فارسی با ?slug= همیشه [] می‌دهد؛ جست‌وجو چند نتیجه دارد و فقط permalink یکی دقیقاً همان است.
+            if (url.Contains("search=" + Uri.EscapeDataString("کرم مو")))
+                return new(200, """
+                    [{"id":76,"permalink":"https://pakhshabdi.com/product/%DA%A9%D8%B1%D9%85-%D9%85%D9%88-%D8%A8%D8%B2%D8%B1%DA%AF/","prices":{"price":"1"},"is_in_stock":true},
+                     {"id":77,"permalink":"https://pakhshabdi.com/product/%DA%A9%D8%B1%D9%85-%D9%85%D9%88/","prices":{"price":"99000","currency_code":"IRT","currency_minor_unit":0},"is_in_stock":false}]
+                    """);
             return new(200, "[]");
         });
         var adapter = new WooCommerceStoreAdapter();
         var result = await adapter.FetchAsync(
         [
             new SupplierProductRef(known, "https://pakhshabdi.com/product/x/", "4521"),
-            new SupplierProductRef(fresh, "https://pakhshabdi.com/product/کرم/", null),
+            new SupplierProductRef(latin, "https://pakhshabdi.com/product/abc-123/", null),
+            new SupplierProductRef(persian, "https://pakhshabdi.com/product/کرم-مو/", null),
             new SupplierProductRef(gone, "https://pakhshabdi.com/product/old/", null),
         ], new SupplierFetchContext(http, TimeSpan.Zero, CancellationToken.None));
 
         Assert.Equal(SupplierItemStatus.InStock, result[known].Status);
-        Assert.Equal(SupplierItemStatus.OutOfStock, result[fresh].Status);
-        Assert.Equal("77", result[fresh].ExternalId);
+        Assert.Equal("12", result[latin].ExternalId);
+        Assert.Equal(SupplierItemStatus.OutOfStock, result[persian].Status);
+        Assert.Equal("77", result[persian].ExternalId);
+        Assert.Equal(99000m, result[persian].Price);
         Assert.Equal(SupplierItemStatus.NotFound, result[gone].Status);
-        Assert.Equal(3, http.Urls.Count);
-        Assert.All(http.Urls, u => Assert.StartsWith("https://pakhshabdi.com/wp-json/wc/store/v1/products?", u));
+        Assert.DoesNotContain(http.Urls, u => u.Contains("slug=" + Uri.EscapeDataString("کرم-مو")));
+    }
+
+    [Fact]
+    public async Task Woo_Adapter_FallsBackToProductPageId()
+    {
+        var id = Guid.NewGuid();
+        const string page = """
+            <html><head><link rel='shortlink' href='https://pakhshabdi.com/?p=103686' /></head>
+            <body class="product-template-default single single-product postid-103686 woocommerce">
+            <a href="?add-to-cart=99539" data-product_id="99539">مرتبط</a></body></html>
+            """;
+        var http = new FakeHttp(url =>
+        {
+            if (url.Contains("include=103686"))
+                return new(200, """[{"id":103686,"prices":{"price":"204000","currency_code":"IRT","currency_minor_unit":0},"is_in_stock":true,"stock_availability":{"text":"276 عدد در انبار"}}]""");
+            if (url.Contains("/wp-json/"))
+                return new(200, "[]");
+            return new(200, page);
+        });
+        var result = await new WooCommerceStoreAdapter().FetchAsync([new SupplierProductRef(id, "https://pakhshabdi.com/product/کاغذ-سرخ-کن/", null)],
+            new SupplierFetchContext(http, TimeSpan.Zero, CancellationToken.None));
+        Assert.Equal(SupplierItemStatus.InStock, result[id].Status);
+        Assert.Equal("103686", result[id].ExternalId);
+        Assert.Equal(204000m, result[id].Price);
+        Assert.Equal(276, result[id].Stock);
+    }
+
+    [Fact]
+    public async Task Woo_Adapter_DeletedPage_IsNotFound()
+    {
+        var id = Guid.NewGuid();
+        var http = new FakeHttp(url => url.Contains("/wp-json/") ? new(200, "[]") : new(404, "<html>404</html>"));
+        var result = await new WooCommerceStoreAdapter().FetchAsync([new SupplierProductRef(id, "https://pakhshabdi.com/product/حذف-شده/", null)],
+            new SupplierFetchContext(http, TimeSpan.Zero, CancellationToken.None));
+        Assert.Equal(SupplierItemStatus.NotFound, result[id].Status);
+    }
+
+    [Theory]
+    [InlineData("<body class=\"single postid-55 x\">", "55")]
+    [InlineData("<link rel=\"shortlink\" href=\"https://s.ir/?p=66\">", "66")]
+    [InlineData("<button type=\"submit\" name=\"add-to-cart\" value=\"77\" class=\"single_add_to_cart_button\">", "77")]
+    [InlineData("<link rel=\"alternate\" href=\"https://s.ir/wp-json/wp/v2/product/88\">", "88")]
+    [InlineData("<a data-product_id=\"99\" href=\"?add-to-cart=99\">", null)]
+    public void Woo_ProductIdFromHtml(string html, string? expected) => Assert.Equal(expected, WooCommerceStoreAdapter.ProductIdFromHtml(html));
+
+    [Fact]
+    public void Woo_NormalizePath_EncodedEqualsDecoded()
+    {
+        Assert.Equal(
+            WooCommerceStoreAdapter.NormalizePath("https://pakhshabdi.com/product/%DA%A9%D8%B1%D9%85/"),
+            WooCommerceStoreAdapter.NormalizePath("https://pakhshabdi.com/product/کرم"));
+        Assert.Equal("کرم مو گرد", WooCommerceStoreAdapter.SearchWords("کرم-مو--گرد"));
+    }
+
+    [Fact]
+    public void Page_WooHtmlFallback_InStockWithSalePrice()
+    {
+        const string html = """
+            <p class="price"><del><span class="woocommerce-Price-amount amount"><bdi>250,000&nbsp;<span class="woocommerce-Price-currencySymbol">تومان</span></bdi></span></del>
+            <ins><span class="woocommerce-Price-amount amount"><bdi>204,000&nbsp;<span class="woocommerce-Price-currencySymbol">تومان</span></bdi></span></ins></p>
+            <p class="stock in-stock">276 عدد در انبار</p>
+            """;
+        var snapshot = StructuredDataAdapter.ParseHtml(html);
+        Assert.Equal(SupplierItemStatus.InStock, snapshot.Status);
+        Assert.Equal(204000m, snapshot.Price);
+        Assert.Equal(276, snapshot.Stock);
+    }
+
+    [Fact]
+    public void Page_WooHtmlFallback_OutOfStock()
+    {
+        const string html = """
+            <p class="price"><span class="woocommerce-Price-amount amount"><bdi>۱۸۵٬۰۰۰&nbsp;<span class="woocommerce-Price-currencySymbol">تومان</span></bdi></span></p>
+            <p class="stock out-of-stock">ناموجود</p>
+            """;
+        var snapshot = StructuredDataAdapter.ParseHtml(html);
+        Assert.Equal(SupplierItemStatus.OutOfStock, snapshot.Status);
+        Assert.Equal(185000m, snapshot.Price);
     }
 
     [Fact]

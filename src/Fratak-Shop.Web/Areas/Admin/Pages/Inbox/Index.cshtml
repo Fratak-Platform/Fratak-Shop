@@ -73,6 +73,19 @@
             <dd class="a-ltr text-right">@last.Host · @(last.StatusCode?.ToString() ?? "بدون پاسخ") · @Format.Relative(last.At)</dd>
           }
         </dl>
+        @if (Model.PushTestLines.Length > 0)
+        {
+          @* نتیجهٔ دستگاه‌به‌دستگاه آخرین «اعلان آزمایشی» (OnPostTestAsync). *@
+          <div class="a-alert a-alert-info text-xs">
+            <b>نتیجهٔ آخرین اعلان آزمایشی:</b>
+            <ul class="list-disc ps-4 mt-1 space-y-1">
+              @foreach (var line in Model.PushTestLines)
+              {
+                <li>@line</li>
+              }
+            </ul>
+          </div>
+        }
         @if (Model.LastPush is { StatusCode: null } failed)
         {
           <div class="a-alert a-alert-warn text-xs">

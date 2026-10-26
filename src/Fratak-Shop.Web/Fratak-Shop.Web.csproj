@@ -10,6 +10,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="MailKit" Version="4.18.1" />
+    <!-- مرحلهٔ هفتم: اجرای آفلاین مدل کوچک خواندن کد امنیتی رهگیری پست (Resources/Captcha/digits.onnx)؛ رایگان و بدون سرویس بیرونی. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.12">
@@ -21,6 +23,11 @@
   <!-- Front-end build files (Tailwind) are development-only and are not published. -->
   <ItemGroup>
     <Content Remove="package.json;package-lock.json;tailwind.config.js" />
+  </ItemGroup>
+
+  <!-- مدل ONNX کپچا کنار برنامه کپی می‌شود (build و publish)؛ مسیر خواندن: AppContext.BaseDirectory/Resources/Captcha/digits.onnx -->
+  <ItemGroup>
+    <None Update="Resources\Captcha\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

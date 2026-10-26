@@ -534,4 +534,58 @@ public class SeoEngineTests
         Assert.Equal("کلمهٔ کلیدی", SeoEngineUi.FieldTitle(SeoFields.FocusKeyword));
         Assert.Equal($"/admin/seo/analyze?kind=Product&id={Guid.Empty}", SeoEngineUi.AnalyzeUrl(SeoEntityKind.Product, Guid.Empty));
     }
+
+    // ── اصلاحیه: گزارش اجرا و کیفیت تحلیل رقبا ──────────────────────────
+
+    [Fact]
+    public void RunStats_report_counts_competitor_quality_honestly()
+    {
+        var stats = new SeoRunStats { Scored = 420, AverageScore = 77.6, Perfect = 120, Queued = 3 };
+        stats.Observe(new CompetitorInsight { PagesAnalyzed = 4, Hosts = ["digikala.com", "torob.com"] });
+        stats.Observe(new CompetitorInsight { PagesAnalyzed = 3, Hosts = ["digikala.com"] });
+        stats.Observe(new CompetitorInsight { Suggestions = ["شامپو کراتینه"] });
+        stats.Observe(new CompetitorInsight());
+        stats.Observe(null); // تحقیق انجام نشده حساب نمی‌شود
+        stats.Gains.AddRange([10, 16]);
+        stats.ResearchErrors.Add("نتایج جست‌وجو");
+
+        Assert.Equal(4, stats.Researched);
+        Assert.Equal(2, stats.WithCompetitors);
+        Assert.Equal(1, stats.SuggestionsOnly);
+        Assert.Equal(1, stats.InternalOnly);
+        Assert.Equal(13, stats.AverageGain);
+        Assert.Equal("digikala.com", stats.TopHosts[0]);
+
+        var report = stats.Report();
+        Assert.Contains("۴۲۰ صفحه نمره‌دهی شد", report);
+        Assert.Contains("میانگین ۷۸", report);
+        Assert.Contains("۲ از ۴ عبارت با صفحهٔ رقیب", report);
+        Assert.Contains("میانگین ۳٫۵ صفحه", report);
+        Assert.Contains("فقط دادهٔ داخلی", report);
+        Assert.Contains("در دسترس نبود: نتایج جست‌وجو", report);
+        Assert.True(report.Length <= 1000);
+    }
+
+    [Fact]
+    public void RunStats_report_explains_empty_queue()
+    {
+        var report = new SeoRunStats { Scored = 10, AverageScore = 100, Perfect = 10, Queued = 0 }.Report();
+        Assert.Contains("صفحه‌ای برای بازنویسی در صف نبود", report);
+        Assert.DoesNotContain("تحلیل رقبا", report);
+        Assert.Equal("۶٫۴", SeoRunStats.Decimal1(6.43));
+        Assert.Equal("۵", SeoRunStats.Decimal1(5.0));
+    }
+
+    [Fact]
+    public void Competitor_relevance_filters_unrelated_pages()
+    {
+        var related = new CompetitorPage { Url = "https://shop.example/product/x", Title = "خرید شامپو کراتینه + قیمت" };
+        var byUrl = new CompetitorPage { Url = "https://shop.example/product/%D8%B4%D8%A7%D9%85%D9%BE%D9%88-%DA%A9%D8%B1%D8%A7%D8%AA%DB%8C%D9%86%D9%87", Title = "فروشگاه" };
+        var unrelated = new CompetitorPage { Url = "https://shop.example/", Title = "صفحهٔ اصلی فروشگاه بزرگ" };
+
+        Assert.True(SeoParsers.Relevance("شامپو کراتینه", related) >= 0.99);
+        Assert.True(SeoParsers.Relevance("شامپو کراتینه", byUrl) >= 0.99);  // کلمه‌ها در آدرس صفحه
+        Assert.Equal(0d, SeoParsers.Relevance("شامپو کراتینه", unrelated));
+        Assert.Equal(1d, SeoParsers.Relevance("", unrelated));                // عبارت خالی فیلتر نمی‌کند
+    }
 }

@@ -127,15 +127,30 @@ public class ReviewModel(ISeoEngineService engine, IAdminDataService data, IStor
     /// <summary>تأیید گروهی: همهٔ بخش‌های پیشنهادهای انتخاب‌شده.</summary>
     public async Task<IActionResult> OnPostBulkApproveAsync(List<Guid> ids)
     {
+        // هر پیشنهاد جدا اعمال می‌شود؛ خطای یکی (متن بلند، نامک تکراری، صفحهٔ ویرایش‌شده) بقیه را متوقف نمی‌کند
+        // و صفحه هرگز با خطای ۵۰۰ از کار نمی‌افتد. اولین علت خطا به کارشناس نشان داده می‌شود.
         int ok = 0, failed = 0;
+        string? firstError = null;
         foreach (var id in ids.Distinct().Take(50))
         {
-            var result = await engine.ApproveAsync(id, SeoFields.All, ActorId, ActorName, HttpContext.RequestAborted);
-            if (Succeeded(result)) ok++; else failed++;
+            try
+            {
+                var result = await engine.ApproveAsync(id, SeoFields.All, ActorId, ActorName, HttpContext.RequestAborted);
+                if (Succeeded(result)) ok++;
+                else { failed++; firstError ??= result.Message; }
+            }
+            catch (global::System.Exception ex) when (ex is not global::System.OperationCanceledException)
+            {
+                failed++;
+                firstError ??= "خطای پیش‌بینی‌نشده هنگام اعمال؛ جزئیات در گزارش خطاها ثبت شد.";
+                HttpContext.RequestServices.GetRequiredService<ILogger<ReviewModel>>().LogError(ex, "Bulk SEO approve failed for {Id}", id);
+            }
         }
         badges.Invalidate();
         if (ok > 0)
-            SuccessMessage = $"{ok} پیشنهاد اعمال شد." + (failed > 0 ? $" {failed} مورد اعمال نشد (احتمالاً صفحه در این فاصله ویرایش شده بود)." : "");
+            SuccessMessage = $"{ok} پیشنهاد اعمال شد." + (failed > 0 ? $" {failed} مورد اعمال نشد؛ نمونهٔ علت: {firstError}" : "");
+        else if (failed > 0)
+            ErrorMessage = $"هیچ پیشنهادی اعمال نشد. علت: {firstError}";
         else
             ErrorMessage = "هیچ پیشنهادی اعمال نشد. ابتدا پیشنهادها را انتخاب کنید.";
         return BackToList();

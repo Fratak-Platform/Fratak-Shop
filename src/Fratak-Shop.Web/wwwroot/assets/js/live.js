@@ -221,11 +221,35 @@
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))));
   }
 
-  /** ثبت اشتراک این مرورگر برای حساب فعلی (اجازهٔ اعلان باید از قبل داده شده باشد). */
+  /** آیا کلید عمومی اشتراک فعلی همان کلید VAPID فعلی سرور است؟ (اگر کلید سرور عوض شده باشد، پوش‌ها با 403 رد می‌شوند.) */
+  function sameServerKey(subscription, publicKey) {
+    const current = subscription && subscription.options && subscription.options.applicationServerKey;
+    if (!current) return true; // مرورگرهای قدیمی این را نمی‌دهند؛ فرض می‌کنیم درست است.
+    const a = new Uint8Array(current);
+    const b = base64UrlToBytes(publicKey);
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  /**
+   * ثبت اشتراک این مرورگر برای حساب فعلی (اجازهٔ اعلان باید از قبل داده شده باشد).
+   * مرحلهٔ هفتم – اصلاحیه («وقتی سایت بسته است اعلان نمی‌آید»):
+   *  • اثر انگشت «endpoint|کلید سرور|حساب» ذخیره می‌شود؛ اگر هر کدام عوض شود (ورود با حساب دیگر، تعویض کلید VAPID،
+   *    اشتراک تازهٔ مرورگر) همان لحظه دوباره ثبت می‌شود – قبلاً تا ۲۴ ساعت صبر می‌کرد.
+   *  • اگر کلید سرور با کلید اشتراک فرق کند، اشتراک قدیمی لغو و اشتراک تازه ساخته می‌شود (وگرنه سرویس پوش همیشه 403 می‌داد).
+   *  • بدون تغییر هم هر ۶ تا ۱۲ ساعت یک بار تازه می‌شود تا اشتراکی که سرور کنار گذاشته (خطاهای پیاپی) زنده شود.
+   */
   function syncPush(force) {
     if (!pushSupported || Notification.permission !== "granted") return Promise.resolve(false);
-    const last = parseInt(localStorage.getItem(PUSH_SYNC_KEY) || "0", 10) || 0;
-    if (!force && Date.now() - last < 24 * 3600 * 1000) return Promise.resolve(true);
+    const stored = (localStorage.getItem(PUSH_SYNC_KEY) || "").split("~");
+    const last = parseInt(stored[0] || "0", 10) || 0;
+    const fingerprint = stored[1] || "";
+    const period = (6 + Math.random() * 6) * 3600 * 1000;
+    // کارایی: در یک زبانهٔ باز حداکثر هر ۱۰ دقیقه یک بار بررسی می‌شود (نه با هر بار باز شدن صفحه).
+    const checkedAt = parseInt(sessionStorage.getItem(PUSH_SYNC_KEY) || "0", 10) || 0;
+    if (!force && Date.now() - checkedAt < 10 * 60 * 1000) return Promise.resolve(true);
+    try { sessionStorage.setItem(PUSH_SYNC_KEY, String(Date.now())); } catch (e) { /* حالت خصوصی */ }
 
     return getJson("/api/push/config").then((config) => {
       if (!config.enabled || !config.publicKey) return false;
@@ -233,19 +257,26 @@
         .then((existing) => existing || navigator.serviceWorker.register("/sw.js", { scope: "/" }))
         .then(() => navigator.serviceWorker.ready)
         .then((registration) => registration.pushManager.getSubscription()
+          .then((subscription) => {
+            if (subscription && !sameServerKey(subscription, config.publicKey)) {
+              return subscription.unsubscribe().catch(() => false).then(() => null);
+            }
+            return subscription;
+          })
           .then((subscription) => subscription || registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(config.publicKey) })))
-        .then((subscription) => getJson("/api/antiforgery").then((token) => {
+        .then((subscription) => {
           const json = subscription.toJSON();
-          return fetch("/api/push/subscribe", {
+          const current = [json.endpoint, config.publicKey, config.account || ""].join("|");
+          if (!force && current === fingerprint && Date.now() - last < period) return true;
+          return getJson("/api/antiforgery").then((token) => fetch("/api/push/subscribe", {
             method: "POST",
             credentials: "same-origin",
             headers: { "Content-Type": "application/json", Accept: "application/json", RequestVerificationToken: token.token },
             body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+          })).then((response) => {
+            if (response.ok) localStorage.setItem(PUSH_SYNC_KEY, Date.now() + "~" + current);
+            return response.ok;
           });
-        }))
-        .then((response) => {
-          if (response.ok) localStorage.setItem(PUSH_SYNC_KEY, String(Date.now()));
-          return response.ok;
         });
     }).catch(() => false);
   }

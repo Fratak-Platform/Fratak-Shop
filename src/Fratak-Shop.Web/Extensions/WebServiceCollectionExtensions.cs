@@ -53,6 +53,8 @@ public static class WebServiceCollectionExtensions
         // مرحلهٔ هفتم – فاز ۶: رهگیری خودکار مرسوله‌های پستی (سامانهٔ عمومی پست + صف اجرای فوری + زمان‌بند).
         services.AddHttpClient(Infrastructure.Shipping.PostTrackingClient.ClientName, Infrastructure.Shipping.PostTrackingClient.Configure)
             .ConfigurePrimaryHttpMessageHandler(Infrastructure.Shipping.PostTrackingClient.CreateHandler);
+        // مرحلهٔ هفتم – اصلاحیه: سایت پست کد امنیتی (کپچا) می‌خواهد؛ خواندن آن با مدل آفلاین ONNX (رایگان، بدون سرویس بیرونی).
+        services.AddSingleton<Core.Services.Orders.IPostCaptchaSolver, Infrastructure.Shipping.OnnxCaptchaSolver>();
         services.AddSingleton<Core.Services.Orders.IPostTrackingClient, Infrastructure.Shipping.PostTrackingClient>();
         services.AddSingleton<Infrastructure.Shipping.PostTrackingQueue>();
         services.AddHostedService<Infrastructure.Shipping.PostTrackingWorker>();
@@ -87,8 +89,22 @@ public static class WebServiceCollectionExtensions
         {
             client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Fratak-Shop/1.0");
+        }).ConfigurePrimaryHttpMessageHandler(() =>
+        {
+            // مرحلهٔ هفتم – اصلاحیه: سرورهای داخل ایران معمولاً به fcm.googleapis.com (پوش کروم/اندروید) دسترسی ندارند.
+            // با «WebPush:Proxy» در appsettings یا متغیر محیطی WebPush__Proxy (مثلاً http://127.0.0.1:8118) فقط ترافیک پوش
+            // از پراکسی خروجی می‌رود؛ خالی = اتصال مستقیم (پیش‌فرض).
+            var handler = new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10), ConnectTimeout = TimeSpan.FromSeconds(8) };
+            if (Uri.TryCreate(configuration["WebPush:Proxy"], UriKind.Absolute, out var proxy) && proxy.Scheme is "http" or "https" or "socks5")
+            {
+                handler.Proxy = new System.Net.WebProxy(proxy);
+                handler.UseProxy = true;
+            }
+            return handler;
         });
-        services.AddHostedService<Infrastructure.Engagement.WebPushDispatcher>();
+        // Singleton + HostedService از همان نمونه: صفحهٔ /admin/inbox برای «اعلان آزمایشی» SendNowAsync را مستقیم صدا می‌زند.
+        services.AddSingleton<Infrastructure.Engagement.WebPushDispatcher>();
+        services.AddHostedService(sp => sp.GetRequiredService<Infrastructure.Engagement.WebPushDispatcher>());
         services.AddHostedService<Infrastructure.Engagement.EngagementMaintenanceService>();
         // مرحلهٔ هفتم: پاک کردن کش صفحه‌ها در لحظهٔ شروع/پایان حراج زمان‌دار.
         services.AddHostedService<Infrastructure.PageCache.DiscountBoundaryWatcher>();

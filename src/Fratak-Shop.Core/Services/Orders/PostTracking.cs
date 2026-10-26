@@ -244,6 +244,22 @@ public sealed record PostTrackingResponse(
     public static PostTrackingResponse Fail(string error) => new(PostTrackingOutcome.Failed, [], [], error);
 }
 
+/// <summary>نتیجهٔ دسته‌بندی پاسخ فرم کپچادار؛ <see cref="PostTrackingParser.Classify"/>.</summary>
+public enum PostCaptchaVerdict
+{
+    /// <summary>نتیجهٔ واقعی آمد.</summary>
+    Result = 0,
+
+    /// <summary>کد امنیتی رد شد؛ با تصویر تازه دوباره امتحان شود.</summary>
+    CaptchaRejected = 1,
+
+    /// <summary>سایت صریحاً گفت اطلاعاتی نیست.</summary>
+    NoData = 2,
+
+    /// <summary>معلوم نیست؛ دوباره امتحان شود.</summary>
+    Ambiguous = 3,
+}
+
 /// <summary>
 /// خواندن وضعیت یک کد از سامانهٔ رهگیری پست.
 /// <para>پیاده‌سازی واقعی: Web/Infrastructure/Shipping/PostTrackingClient (دو درخواست به tracking.post.ir).</para>
@@ -301,7 +317,9 @@ public static class PostTrackingParser
 
         var events = new List<(string Status, string? Location, string? Raw, DateTimeOffset? At)>();
         string? currentDate = null;
-        foreach (var row in panel.QuerySelectorAll("div.row"))
+        // سرتیترهای تاریخ ممکن است داخل div.row باشند (نسخهٔ قدیم) یا مستقیم «div.newtdheader col-lg-6» (نسخهٔ ۲)؛
+        // QuerySelectorAll هر دو را به ترتیب ظاهر شدن در صفحه برمی‌گرداند.
+        foreach (var row in panel.QuerySelectorAll("div.row, .newtdheader"))
         {
             var header = row.ClassList.Contains("newtdheader") ? row : row.QuerySelector(".newtdheader");
             if (header is not null)
@@ -309,6 +327,10 @@ public static class PostTrackingParser
                 currentDate = Clean(header.TextContent);
                 continue;
             }
+
+            // ردیف بیرونی که خودش ردیف‌های دیگر را در بر دارد رویداد نیست (وگرنه خانه‌های همهٔ ردیف‌ها قاطی می‌شد).
+            if (row.QuerySelector("div.row") is not null || row.Closest("#pnlVote") is not null)
+                continue;
 
             // لینک‌های داخل ردیف (مثلاً «نظرسنجی») جزو متن رویداد نیستند.
             foreach (var link in row.QuerySelectorAll("a").ToList())
@@ -341,6 +363,72 @@ public static class PostTrackingParser
         }
 
         return new PostTrackingResponse(PostTrackingOutcome.Found, list, info);
+    }
+
+    // ── نسخهٔ ۲ سایت پست (با کد امنیتی) ─────────────────────────────────
+
+    /// <summary>
+    /// آیا صفحهٔ جست‌وجو کد امنیتی (کپچا) می‌خواهد؟ نشانه‌ها: فیلد <c>txtCaptcha</c> یا آدرس تصویر <c>?captcha=1</c>.
+    /// اگر نخواهد، <c>PostTrackingClient</c> همان روش قدیمی (بدون کپچا) را اجرا می‌کند؛ پس اگر پست روزی کپچا را بردارد هم کار می‌کند.
+    /// </summary>
+    public static bool HasCaptcha(string? html) =>
+        !string.IsNullOrEmpty(html)
+        && (html.Contains("txtCaptcha", StringComparison.OrdinalIgnoreCase) || html.Contains("captcha=1", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// متن پیام خطا/هشدار صفحه (کادرهای <c>alert-danger</c> و <c>alert-warning</c>). کادر عنوان «رهگیری مرسوله به شماره …» خطا نیست و رد می‌شود.
+    /// مثال: «کد امنیتی را صحیح وارد نمایید» یا «مرسوله‌ای با این شماره یافت نشد».
+    /// </summary>
+    public static string? AlertText(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return null;
+        var document = new HtmlParser().ParseDocument(html);
+        foreach (var alert in document.QuerySelectorAll(".alert-danger, .alert-warning"))
+        {
+            var text = Clean(alert.TextContent);
+            if (text.Length > 0 && !text.Contains("رهگیری مرسوله به شماره", StringComparison.Ordinal))
+                return Cut(text, 300);
+        }
+        return null;
+    }
+
+    /// <summary>آیا پیام خطا دربارهٔ اشتباه بودن کد امنیتی است؟ («امنیتی»، «کد تصویر»، «captcha»).</summary>
+    public static bool IsCaptchaMessage(string? text) =>
+        !string.IsNullOrEmpty(text)
+        && (text.Contains("امنیتی", StringComparison.Ordinal) || text.Contains("کد تصویر", StringComparison.Ordinal)
+            || text.Contains("captcha", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// دسته‌بندی پاسخ فرم جست‌وجو در نسخهٔ کپچادار. خروجی:
+    /// <list type="bullet">
+    /// <item><see cref="PostCaptchaVerdict.Result"/>: رویداد یا اطلاعات مرسوله آمد (کپچا قطعاً پذیرفته شده) → همان پاسخ.</item>
+    /// <item><see cref="PostCaptchaVerdict.CaptchaRejected"/>: پیام «کد امنیتی اشتباه» یا فرم دوباره بدون نتیجه → تلاش دوباره با تصویر تازه.</item>
+    /// <item><see cref="PostCaptchaVerdict.NoData"/>: پیام صریح سایت (مثل «یافت نشد») → «پیدا نشد» با همان پیام.</item>
+    /// <item><see cref="PostCaptchaVerdict.Ambiguous"/>: پنل نتیجه خالی بدون پیام؛ معلوم نیست کپچا رد شده یا داده نیست → تلاش دوباره.</item>
+    /// </list>
+    /// منطق خالص است و در PostTrackingTests با HTML نمونه تست می‌شود.
+    /// </summary>
+    public static (PostCaptchaVerdict Verdict, PostTrackingResponse Response) Classify(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return (PostCaptchaVerdict.Ambiguous, PostTrackingResponse.Fail("پاسخ سامانهٔ پست خالی بود."));
+
+        var parsed = ParseResult(html);
+        if (parsed.Outcome == PostTrackingOutcome.Found && (parsed.Events.Count > 0 || parsed.Info.Count > 0))
+            return (PostCaptchaVerdict.Result, parsed);
+
+        var alert = AlertText(html);
+        if (IsCaptchaMessage(alert))
+            return (PostCaptchaVerdict.CaptchaRejected, PostTrackingResponse.Fail("سامانهٔ پست کد امنیتی را نپذیرفت: " + alert));
+        if (alert is not null)
+            return (PostCaptchaVerdict.NoData, new PostTrackingResponse(PostTrackingOutcome.NotFound, [], [], alert));
+
+        // فرم دوباره نشان داده شده و هیچ پنل نتیجه‌ای نیست = کپچا رد شده (سایت گاهی پیام هم نمی‌دهد).
+        if (parsed.Outcome == PostTrackingOutcome.NotFound && HasCaptcha(html))
+            return (PostCaptchaVerdict.CaptchaRejected, PostTrackingResponse.Fail("سامانهٔ پست کد امنیتی را نپذیرفت (فرم دوباره نمایش داده شد)."));
+
+        return (PostCaptchaVerdict.Ambiguous, PostTrackingResponse.Fail("سامانهٔ پست نتیجه‌ای نشان نداد (کد امنیتی رد شد یا هنوز اطلاعاتی ثبت نشده است)."));
     }
 
     /// <summary>

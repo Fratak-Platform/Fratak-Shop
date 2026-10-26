@@ -240,6 +240,13 @@ public sealed class SeoEngineService(
         var suggested = 0;
         var failed = 0;
         var researchErrors = new HashSet<string>(StringComparer.Ordinal);
+        var stats = new SeoRunStats
+        {
+            Scored = subjects.Count,
+            AverageScore = reports.Count == 0 ? 0 : reports.Values.Average(r => r.Score),
+            Perfect = reports.Values.Count(r => r.Score >= 100),
+            Queued = queue.Count,
+        };
         if (queue.Count > 0)
         {
             var models = await BuildModelsAsync(subjects, cancellationToken);
@@ -253,8 +260,10 @@ public sealed class SeoEngineService(
                         variant: 0, previous: null, rejectedFields: SeoFields.None, style: WriterStyle.None, avoid: AvoidSet.Empty, cancellationToken);
                     if (built.Insight is { Errors.Count: > 0 } insight)
                         researchErrors.UnionWith(insight.Errors);
+                    stats.Observe(built.Insight);
                     if (built.Suggestion is not null)
                     {
+                        stats.Gains.Add(built.Suggestion.ScoreAfter - built.Suggestion.ScoreBefore);
                         context.SeoSuggestions.Add(built.Suggestion);
                         await context.SaveChangesAsync(cancellationToken);
                         suggested++;
@@ -273,17 +282,19 @@ public sealed class SeoEngineService(
             }
         }
 
-        if (suggested > 0)
+        stats.Failed = failed;
+        stats.ResearchErrors.UnionWith(researchErrors);
+        var message = stats.Report();
+
+        // گزارش کوتاه بعد از هر اجرا (مرحلهٔ هفتم – اصلاحیه): اجرای دستی همیشه، اجرای زمان‌بندی‌شده وقتی پیشنهاد تازه یا خطا هست.
+        if (suggested > 0 || failed > 0 || run.Trigger == SeoRunTrigger.Manual)
         {
             await notifications.NotifyAsync(new StaffAlert(StaffNotificationKind.SeoSuggestions,
-                $"{PersianText.Digits(suggested)} پیشنهاد سئوی تازه آمادهٔ بررسی است",
-                "موتور سئو صفحه‌های کم‌نمره را بازنویسی کرده؛ با تأیید شما روی سایت اعمال می‌شود.",
-                "/admin/seo/review", [AdminPermissions.SeoManage]));
+                suggested > 0 ? $"{PersianText.Digits(suggested)} پیشنهاد سئوی تازه آمادهٔ بررسی است" : "گزارش اجرای موتور سئو",
+                Cut(message, 480),
+                suggested > 0 ? "/admin/seo/review" : "/admin/seo/engine", [AdminPermissions.SeoManage]));
         }
 
-        var message = $"{PersianText.Digits(subjects.Count)} صفحه نمره‌دهی شد؛ {PersianText.Digits(suggested)} پیشنهاد تازه.";
-        if (researchErrors.Count > 0)
-            message += $" منبع‌های در دسترس نبود: {string.Join("، ", researchErrors)} (پیشنهادها با داده‌های داخلی ساخته شد).";
         return new SeoRunResult(true, subjects.Count, suggested, failed, message);
     }
 
@@ -360,7 +371,8 @@ public sealed class SeoEngineService(
             proposal.Title = title;
         if (weak.HasFlag(SeoFields.MetaDescription) && ContentWriter.BestMeta(ctx) is { } meta && Differs(meta, subject.EffectiveDescription))
             proposal.MetaDescription = meta;
-        if (weak.HasFlag(SeoFields.Description) && ContentWriter.Body(ctx) is { } body && !avoid.BodyHashes.Contains(PersianText.Hash(body)))
+        if (weak.HasFlag(SeoFields.Description) && ContentWriter.Body(ctx) is { } body && !avoid.BodyHashes.Contains(PersianText.Hash(body))
+            && FitsColumn(subject.Kind, body))
             proposal.DescriptionHtml = body;
         if (weak.HasFlag(SeoFields.Faq) && subject.Faq.Count < 2)
         {
@@ -618,14 +630,37 @@ public sealed class SeoEngineService(
         var now = DateTimeOffset.UtcNow;
         var error = await ApplyAsync(suggestion.Kind, suggestion.EntityId, proposal, fields, subject, userId, now, cancellationToken);
         if (error is not null)
+        {
+            context.ChangeTracker.Clear(); // تغییرهای نیمه‌کاره در تأیید گروهی با مورد بعدی ذخیره نشوند
             return OperationResult.Error(error);
+        }
 
         suggestion.Status = SeoSuggestionStatus.Applied;
         suggestion.AppliedFields = fields;
         suggestion.ReviewedAt = now;
         suggestion.ReviewedByUserId = userId;
         suggestion.ReviewedByName = Cut(userName, 150);
-        await context.SaveChangesAsync(cancellationToken);
+
+        // محافظ طول ستون‌ها: قبل از ذخیره، هر متن تغییرکرده با سقف ستونش در پایگاه داده مقایسه می‌شود.
+        // قبلاً متن بلند (مثلاً توضیح برند بیش از ۱۰۰۰ نویسه) خطای SQL «String or binary data would be truncated»
+        // می‌داد و کل صفحه از کار می‌افتاد؛ حالا پیام فارسی برمی‌گردد و هیچ چیز نیمه‌کاره ذخیره نمی‌شود.
+        if (DbLengthGuard.FindOverflow(context) is { } overflow)
+        {
+            context.ChangeTracker.Clear();
+            return OperationResult.Error(overflow + "؛ پیشنهاد اعمال نشد. «ساخت دوباره» را بزنید یا متن را در صفحهٔ ویرایش کوتاه کنید.");
+        }
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            // هر خطای دیگر پایگاه داده (تکراری بودن نامک، قطع اتصال و ...) هم صفحه را خراب نمی‌کند.
+            // ChangeTracker پاک می‌شود تا تأیید گروهی بعدی‌ها با همین DbContext سالم ادامه پیدا کند.
+            context.ChangeTracker.Clear();
+            _logger.LogError(ex, "SEO suggestion {Id} could not be applied", suggestionId);
+            return OperationResult.Error("ذخیرهٔ پیشنهاد در پایگاه داده ناموفق بود (جزئیات در گزارش خطاهای سرور ثبت شد). صفحه تغییری نکرد.");
+        }
 
         // نمره و نمای سایت را همان لحظه تازه کن.
         var after = (await LoadSubjectsAsync(suggestion.Kind, suggestion.EntityId, cancellationToken)).FirstOrDefault();
@@ -637,6 +672,23 @@ public sealed class SeoEngineService(
             await SaveScoreAsync(after, SeoAnalyzer.Analyze(after, site, store), cancellationToken);
         }
         return OperationResult.Success("پیشنهاد روی صفحه اعمال شد.");
+    }
+
+    /// <summary>
+    /// آیا متن توضیح ساخته‌شده در ستون «Description» این نوع صفحه جا می‌شود؟ (از روی مدل EF، نه عدد ثابت)
+    /// اگر ستون سقف داشته باشد و متن بلندتر باشد، اصلاً پیشنهاد نمی‌شود تا کارشناس پیشنهادی نبیند که قابل اعمال نیست.
+    /// </summary>
+    private bool FitsColumn(SeoEntityKind kind, string html)
+    {
+        var clr = kind switch
+        {
+            SeoEntityKind.Product => typeof(Fratak_Shop.Data.Entities.Products.Product),
+            SeoEntityKind.Category => typeof(Fratak_Shop.Data.Entities.Categories.Category),
+            SeoEntityKind.Brand => typeof(Fratak_Shop.Data.Entities.Brands.Brand),
+            _ => null,
+        };
+        var max = clr is null ? null : context.Model.FindEntityType(clr)?.FindProperty("Description")?.GetMaxLength();
+        return max is not > 0 || html.SanitizeText().Length <= max;
     }
 
     /// <summary>نوشتن بخش‌های تأییدشده روی خود صفحه. خطا = متن پیام (هیچ چیز ذخیره نمی‌شود).</summary>

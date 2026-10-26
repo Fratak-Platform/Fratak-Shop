@@ -36,4 +36,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- تصویرهای نمونه (مثلاً کپچاهای با جواب معلوم) کنار خروجی تست کپی می‌شوند. -->
+  <ItemGroup>
+    <None Update="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -22,6 +22,7 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
     public static readonly (string Key, string Title)[] Tabs =
     [
         ("pending", "منتظر تأیید"),
+        ("status", "وضعیت همهٔ محصولات"),
         ("problems", "مشکل‌ها"),
         ("auto", "تغییرهای خودکار"),
         ("history", "رسیدگی‌شده"),
@@ -32,6 +33,19 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
     [BindProperty(SupportsGet = true)] public SupplierChangeKind? Kind { get; set; }
     [BindProperty(SupportsGet = true, Name = "q")] public string? Search { get; set; }
 
+    /// <summary>فیلتر زبانهٔ «وضعیت همهٔ محصولات»: all, instock, out, notfound, error, unchecked, excluded.</summary>
+    [BindProperty(SupportsGet = true, Name = "state")] public string StateFilter { get; set; } = "all";
+
+    /// <summary>فیلترهای زبانهٔ وضعیت با عنوان فارسی.</summary>
+    public static readonly (string Key, string Title)[] StateFilters =
+    [
+        ("all", "همه"), ("instock", "موجود در منبع"), ("out", "ناموجود در منبع"), ("notfound", "پیدا نشد"),
+        ("error", "خطای خواندن"), ("unchecked", "هنوز بررسی نشده"), ("excluded", "خارج از بررسی"),
+    ];
+
+    public PagedList<SupplierStateRow> States { get; private set; } = new([], 0, 1, 50);
+    public IReadOnlyDictionary<string, int> StateCounts { get; private set; } = new Dictionary<string, int>();
+
     public SupplierSyncDashboard Dashboard { get; private set; } = null!;
     public PagedList<SupplierChangeRow> Changes { get; private set; } = new([], 0, 1, 50);
     public bool RunQueued => queue.HasPending;
@@ -41,8 +55,17 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
         if (!Tabs.Any(t => t.Key == Tab))
             Tab = "pending";
         Dashboard = await sync.GetDashboardAsync(HttpContext.RequestAborted);
-        if (Tab != "runs")
+        if (Tab == "status")
+        {
+            if (!StateFilters.Any(f => f.Key == StateFilter))
+                StateFilter = "all";
+            StateCounts = await sync.CountStatesAsync(HttpContext.RequestAborted);
+            States = await sync.ListStatesAsync(new SupplierStateQuery(StateFilter, Search, ClampPage(pageNumber)), HttpContext.RequestAborted);
+        }
+        else if (Tab != "runs")
+        {
             Changes = await sync.ListChangesAsync(new SupplierChangeQuery(Tab, Kind, Search, ClampPage(pageNumber)), HttpContext.RequestAborted);
+        }
     }
 
     /// <summary>«همین الان بررسی کن»: درخواست به صف سرویس پس‌زمینه (حداکثر یک دقیقه بعد شروع می‌شود).</summary>
@@ -110,6 +133,27 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
 
     /// <summary>آدرس همین صفحه با زبانهٔ دیگر (فیلترها پاک می‌شوند).</summary>
     public static string TabUrl(string tab) => tab == "pending" ? "/admin/products/supplier-sync" : $"/admin/products/supplier-sync?tab={tab}";
+
+    /// <summary>آدرس یک فیلتر زبانهٔ وضعیت؛ مثال: /admin/products/supplier-sync?tab=status&amp;state=out</summary>
+    public static string StateUrl(string filter) => filter == "all" ? TabUrl("status") : $"/admin/products/supplier-sync?tab=status&state={filter}";
+
+    /// <summary>نشان رنگی وضعیت منبع یک محصول در زبانهٔ «وضعیت همهٔ محصولات».</summary>
+    public static (string Css, string Title) StateBadge(SupplierStateRow row)
+    {
+        if (row.Excluded)
+            return ("a-badge-gray", "خارج از بررسی");
+        if (row.ConsecutiveErrors > 0)
+            return ("a-badge-red", "خطای خواندن");
+        return row.Status switch
+        {
+            SupplierItemStatus.InStock => ("a-badge-green", "موجود"),
+            SupplierItemStatus.OutOfStock => ("a-badge-yellow", "ناموجود"),
+            SupplierItemStatus.NotFound => ("a-badge-red", "پیدا نشد"),
+            SupplierItemStatus.Error => ("a-badge-red", "خطا"),
+            null => ("a-badge-gray", "هنوز بررسی نشده"),
+            _ => ("a-badge-gray", "نامعلوم"),
+        };
+    }
 
     /// <summary>رنگ نشان هر نوع تغییر.</summary>
     public static string KindCss(SupplierChangeKind kind) => kind switch

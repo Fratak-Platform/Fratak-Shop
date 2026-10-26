@@ -31,7 +31,10 @@ public class Brand : BaseEntity
     [MaxLength(250)]
     public string? LogoName { get; set; }
 
-    [MaxLength(1000)]
+    /// <summary>
+    /// توضیح برند (HTML ویرایشگر). مرحلهٔ هفتم: سقف ۱۰۰۰ نویسه برداشته شد (nvarchar(max)) چون متن معرفی برند
+    /// که موتور سئو یا ویرایشگر WYSIWYG می‌سازد معمولاً بلندتر است و قبلاً هنگام تأیید پیشنهاد سئو خطای SQL می‌داد.
+    /// </summary>
     public string? Description { get; set; }
 
     public int DisplayOrder { get; set; }

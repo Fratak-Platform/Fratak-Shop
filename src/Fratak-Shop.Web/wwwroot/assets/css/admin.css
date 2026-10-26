@@ -720,3 +720,34 @@ html[data-theme="dark"] .a-sg-new { background: rgba(6, 78, 59, .3); }
 html[data-theme="dark"] .a-sg-body { background: rgba(0, 0, 0, .2); }
 html[data-theme="dark"] .a-score::before { background: #111827; }
 html[data-theme="dark"] .a-checks > li { border-color: #374151; }
+
+/* ═══ مرحلهٔ هفتم – اصلاحیه: اولویت کلاس‌های نمایش Tailwind (hidden / lg:hidden / sm:inline-flex …) ═══
+   admin.css بعد از output.css بارگذاری می‌شود؛ پس قانونی مثل «.a-bottom-nav { display:flex }» یا «.a-icon-btn { display:inline-flex }»
+   کلاس‌های واکنش‌گرای Tailwind روی همان عنصر را خنثی می‌کرد. نتیجه: نوار پایین موبایل (سفارش/جست‌وجو/اعلان‌ها/منو) و دکمهٔ منو
+   روی دسکتاپ/ویندوز هم دیده می‌شد و روی محتوا می‌افتاد. این قوانین با ویژگی بیشتر ([class*="a-"].x) ترتیب درست را برمی‌گرداند.
+   ترتیب مهم است: اول hidden، بعد نقطه‌شکست‌ها از کوچک به بزرگ (مثل خود Tailwind). */
+[class*="a-"].hidden { display: none; }
+@media (min-width: 640px) {
+  [class*="a-"].sm\:hidden { display: none; }
+  [class*="a-"].sm\:flex { display: flex; }
+  [class*="a-"].sm\:inline-flex { display: inline-flex; }
+  [class*="a-"].sm\:block { display: block; }
+}
+@media (min-width: 768px) {
+  [class*="a-"].md\:hidden { display: none; }
+  [class*="a-"].md\:flex { display: flex; }
+  [class*="a-"].md\:inline-flex { display: inline-flex; }
+  [class*="a-"].md\:block { display: block; }
+}
+@media (min-width: 1024px) {
+  [class*="a-"].lg\:hidden { display: none; }
+  [class*="a-"].lg\:flex { display: flex; }
+  [class*="a-"].lg\:inline-flex { display: inline-flex; }
+  [class*="a-"].lg\:block { display: block; }
+  /* نوار پایین فقط مخصوص موبایل/تبلت است؛ روی دسکتاپ هرگز نباید فضای محتوا را بگیرد. */
+  .a-bottom-nav { display: none !important; }
+}
+@media (min-width: 1280px) {
+  [class*="a-"].xl\:hidden { display: none; }
+  [class*="a-"].xl\:flex { display: flex; }
+}

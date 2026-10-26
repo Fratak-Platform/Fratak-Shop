@@ -209,34 +209,161 @@ public sealed class WooCommerceStoreAdapter : ISupplierAdapter
             }
         }
 
-        // ۲) بقیه (بار اول، لینک عوض‌شده یا در پاسخ گروهی نبود): با نامک.
+        // ۲) بقیه (بار اول، لینک عوض‌شده یا در پاسخ گروهی نبود): پیدا کردن شناسهٔ محصول در سایت منبع.
         foreach (var p in products.Where(p => !result.ContainsKey(p.ProductId)))
         {
             context.CancellationToken.ThrowIfCancellationRequested();
-            var slug = Slug(p.Url);
-            if (slug is null)
-            {
-                result[p.ProductId] = SupplierSnapshot.NotFound("نامک محصول از لینک قابل تشخیص نیست (لینک باید مثل /product/نام-محصول/ باشد).");
-                continue;
-            }
-
-            var response = await context.GetAsync($"{origin}/wp-json/wc/store/v1/products?slug={Uri.EscapeDataString(slug)}&_fields={Fields}", true);
-            if (!response.IsSuccess)
-            {
-                result[p.ProductId] = response.Status is 404 or 410
-                    ? SupplierSnapshot.NotFound("API فروشگاه پیدا نشد.")
-                    : SupplierSnapshot.Failed(Describe(response));
-                continue;
-            }
-
-            var parsed = ParseList(response.Body!);
-            result[p.ProductId] = parsed is null
-                ? SupplierSnapshot.Failed("پاسخ API قابل خواندن نبود.")
-                : parsed.Values.FirstOrDefault() ?? SupplierSnapshot.NotFound("محصولی با این نامک در سایت منبع نیست (حذف شده یا لینک عوض شده).");
+            result[p.ProductId] = await ResolveAsync(origin, p.Url, context);
         }
 
         return result;
     }
+
+    /// <summary>
+    /// پیدا کردن محصولی که هنوز شناسه‌اش را نداریم. سه راه به ترتیب (اولین موفق برنده است):
+    /// <list type="number">
+    /// <item>نامک انگلیسی (ASCII): <c>?slug=</c> – سبک‌ترین راه.</item>
+    /// <item>جست‌وجوی متنی API با کلمه‌های نامک (<c>?search=کاغذ سرخ کن</c>) و انتخاب نتیجه‌ای که permalink آن دقیقاً
+    ///       همان لینک ماست. <b>علت:</b> فیلتر <c>?slug=</c> ووکامرس برای نامک فارسی (درصدی‌کدشده در پایگاه داده) همیشه
+    ///       آرایهٔ خالی برمی‌گرداند (روی پخش عبدی آزموده شد) و به همین خاطر قبلاً هیچ محصولی پیدا نمی‌شد.</item>
+    /// <item>خواندن خود صفحهٔ محصول و استخراج شناسه از HTML (کلاس <c>postid-123</c>، لینک کوتاه <c>?p=123</c> یا دکمهٔ
+    ///       <c>add-to-cart</c>) و سپس <c>?include=123</c>. اگر شناسه هم نبود، داده‌های ساختاریافتهٔ همان صفحه خوانده می‌شود.</item>
+    /// </list>
+    /// شناسهٔ پیدا شده در <see cref="SupplierSnapshot.ExternalId"/> برمی‌گردد و ذخیره می‌شود؛ اجراهای بعدی گروهی و سریع‌اند.
+    /// </summary>
+    private static async Task<SupplierSnapshot> ResolveAsync(string origin, string url, SupplierFetchContext context)
+    {
+        var slug = Slug(url);
+        var api = $"{origin}/wp-json/wc/store/v1/products";
+        string? lastError = null;
+
+        if (slug is not null)
+        {
+            // راه ۱: نامک لاتین.
+            if (slug.All(char.IsAscii))
+            {
+                var bySlug = await context.GetAsync($"{api}?slug={Uri.EscapeDataString(slug)}&_fields={Fields}", true);
+                if (bySlug.IsSuccess && ParseList(bySlug.Body!) is { Count: > 0 } found)
+                    return found.Values.First();
+                if (!bySlug.IsSuccess && bySlug.Status is not (404 or 400))
+                    lastError = Describe(bySlug);
+            }
+
+            // راه ۲: جست‌وجوی متنی + تطبیق دقیق permalink.
+            var words = SearchWords(slug);
+            if (words.Length >= 2)
+            {
+                var search = await context.GetAsync($"{api}?search={Uri.EscapeDataString(words)}&per_page=20&_fields={Fields}", true);
+                if (search.IsSuccess)
+                {
+                    if (MatchByPermalink(search.Body!, url) is { } matched)
+                        return matched;
+                }
+                else if (search.Status is not (404 or 400))
+                {
+                    lastError = Describe(search);
+                }
+            }
+        }
+
+        // راه ۳: خود صفحهٔ محصول.
+        var page = await context.GetAsync(url, false);
+        if (page.Status is 404 or 410)
+            return SupplierSnapshot.NotFound("صفحهٔ این محصول در سایت منبع وجود ندارد (حذف شده یا لینک عوض شده).");
+        if (!page.IsSuccess)
+            return SupplierSnapshot.Failed(lastError ?? Describe(page));
+
+        if (ProductIdFromHtml(page.Body!) is { } id)
+        {
+            var byId = await context.GetAsync($"{api}?include={id}&per_page=1&_fields={Fields}", true);
+            if (byId.IsSuccess && ParseList(byId.Body!) is { } list && list.TryGetValue(id, out var snapshot))
+                return snapshot;
+        }
+
+        // API چیزی نداد ولی صفحه باز شد: وضعیت از خود صفحه (JSON-LD یا ساختار HTML ووکامرس).
+        var fromPage = StructuredDataAdapter.ParseHtml(page.Body!);
+        return fromPage.Status == SupplierItemStatus.Error
+            ? SupplierSnapshot.NotFound("محصول در API فروشگاه منبع پیدا نشد و صفحه‌اش هم قیمت/موجودی قابل خواندن نداشت؛ لینک را بررسی کنید.")
+            : fromPage;
+    }
+
+    /// <summary>
+    /// کلمه‌های جست‌وجو از نامک: خط تیره → فاصله، اعداد و حروف حفظ می‌شوند. مثال: «کاغذ-سرخ-کن-گرد» → «کاغذ سرخ کن گرد».
+    /// حداکثر ۸ کلمه (جست‌وجوی وردپرس همهٔ کلمه‌ها را با AND می‌خواهد؛ کلمه‌های زیاد فقط کندش می‌کند).
+    /// </summary>
+    public static string SearchWords(string slug)
+    {
+        var words = slug.Replace('_', '-').Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(w => w.Length > 0)
+            .Take(8);
+        return string.Join(' ', words);
+    }
+
+    /// <summary>
+    /// از نتیجهٔ جست‌وجوی Store API محصولی را برمی‌گرداند که permalink آن همان لینک ماست (مقایسهٔ نامک رمزگشایی‌شده و
+    /// بدون حساسیت به حروف/اسلش پایانی). اگر هیچ‌کدام دقیقاً یکی نبود null (حدس نمی‌زنیم تا محصول اشتباه گزارش نشود).
+    /// </summary>
+    public static SupplierSnapshot? MatchByPermalink(string json, string url)
+    {
+        var wanted = NormalizePath(url);
+        if (wanted is null)
+            return null;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                return null;
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+                var permalink = Text(item, "permalink");
+                if (permalink is not null && NormalizePath(permalink) == wanted)
+                    return ParseProduct(item);
+            }
+        }
+        catch (JsonException)
+        {
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// مسیر لینک برای مقایسه: رمزگشایی درصدی، حروف کوچک، بدون اسلش ابتدا/انتها و بدون querystring.
+    /// مثال: «https://site.com/product/%DA%A9%D8%A7%D8%BA%D8%B0/» و «https://site.com/product/کاغذ» → «product/کاغذ».
+    /// </summary>
+    public static string? NormalizePath(string url)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return null;
+        var path = Uri.UnescapeDataString(uri.AbsolutePath).Trim('/');
+        return path.Length == 0 ? null : path.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// شناسهٔ عددی محصول ووکامرس از HTML صفحهٔ محصول. به ترتیب اطمینان:
+    /// کلاس بدنه «postid-123»، لینک کوتاه «?p=123»، دکمهٔ فرم «name="add-to-cart" value="123"»، لینک «wp/v2/product/123».
+    /// (data-product_id عمداً استفاده نمی‌شود چون در «محصولات مرتبط» پایین صفحه هم تکرار می‌شود.)
+    /// </summary>
+    public static string? ProductIdFromHtml(string html)
+    {
+        foreach (var regex in ProductIdPatterns)
+        {
+            var match = regex.Match(html);
+            if (match.Success)
+                return match.Groups[1].Value;
+        }
+        return null;
+    }
+
+    private static readonly Regex[] ProductIdPatterns =
+    [
+        new(@"<body[^>]*\bpostid-(\d+)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"<link[^>]*rel\s*=\s*[""']shortlink[""'][^>]*[?&]p=(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"name\s*=\s*[""']add-to-cart[""'][^>]*value\s*=\s*[""'](\d+)[""']", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"value\s*=\s*[""'](\d+)[""'][^>]*name\s*=\s*[""']add-to-cart[""']", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"/wp-json/wp/v2/product/(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+    ];
 
     /// <summary>آیا این سایت API فروشگاه ووکامرس دارد؟ (برای تشخیص خودکار؛ یک درخواست سبک).</summary>
     public static async Task<bool> DetectAsync(string url, SupplierFetchContext context)
@@ -402,8 +529,68 @@ public sealed partial class StructuredDataAdapter : ISupplierAdapter
             return WithPageStock(snapshot, html);
         }
 
+        // جایگزین دوم: ساختار HTML استاندارد ووکامرس (بیشتر فروشگاه‌های وردپرسی ایران، از جمله پخش عبدی).
+        if (ParseWooHtml(html) is { } woo)
+            return woo;
+
         return SupplierSnapshot.Failed("اطلاعات قیمت و موجودی در صفحه پیدا نشد؛ روش بررسی این تأمین‌کننده را عوض کنید یا آداپتور اختصاصی لازم است.");
     }
+
+    /// <summary>
+    /// خواندن وضعیت از HTML قالب ووکامرس وقتی JSON-LD نیست:
+    /// <list type="bullet">
+    /// <item>موجودی: <c>&lt;p class="stock in-stock"&gt;276 عدد در انبار&lt;/p&gt;</c> یا <c>class="stock out-of-stock"</c>.</item>
+    /// <item>قیمت: اولین <c>&lt;p class="price"&gt;</c>؛ اگر حراج باشد مبلغ داخل <c>&lt;ins&gt;</c> (قیمت فعلی) برداشته می‌شود.</item>
+    /// </list>
+    /// اولین تطبیق‌ها متعلق به محصول اصلی است (محصولات مرتبط پایین صفحه‌اند). چیزی پیدا نشد → null.
+    /// </summary>
+    public static SupplierSnapshot? ParseWooHtml(string html)
+    {
+        decimal? price = null;
+        var priceBlock = WooPriceBlock().Match(html);
+        if (priceBlock.Success)
+        {
+            var block = priceBlock.Groups[1].Value;
+            var ins = Regex.Match(block, @"<ins\b[^>]*>(.*?)</ins>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            var amountHtml = ins.Success ? ins.Groups[1].Value : block;
+            var amounts = WooAmount().Matches(amountHtml);
+            if (amounts.Count > 0)
+            {
+                var text = WebUtility.HtmlDecode(Regex.Replace(amounts[0].Groups[1].Value, "<[^>]+>", " "));
+                var currency = text.Contains("ریال") ? "IRR" : "IRT";
+                // قیمت تومان/ریال اعشار ندارد؛ هر جداکننده‌ای (, . ٬) حذف می‌شود. مثال: «۲۰۴٬۰۰۰ تومان» → 204000.
+                var number = SupplierParsing.ParseNumber(Regex.Replace(SearchText.NormalizeDigits(text), @"[^\d]", ""));
+                if (number is { } value)
+                    price = SupplierParsing.ToToman(value, currency);
+            }
+        }
+
+        var stockMatch = WooStock().Match(html);
+        if (stockMatch.Success)
+        {
+            var css = stockMatch.Groups[1].Value.ToLowerInvariant();
+            if (css is "out-of-stock")
+                return new SupplierSnapshot(SupplierItemStatus.OutOfStock, price, 0);
+            var stock = SupplierParsing.ParseStockText(stockMatch.Groups[2].Value);
+            return css is "available-on-backorder"
+                ? new SupplierSnapshot(SupplierItemStatus.OutOfStock, price, 0)
+                : new SupplierSnapshot(SupplierItemStatus.InStock, price, stock is > 0 ? stock : null);
+        }
+
+        // بدون نوشتهٔ موجودی: اگر قیمت و دکمهٔ «افزودن به سبد» هست یعنی قابل خرید است.
+        if (price is not null && Regex.IsMatch(html, @"name\s*=\s*[""']add-to-cart[""']", RegexOptions.IgnoreCase))
+            return new SupplierSnapshot(SupplierItemStatus.InStock, price);
+        return null;
+    }
+
+    [GeneratedRegex(@"<p[^>]*class\s*=\s*[""'](?:[^""']*\s)?price(?:\s[^""']*)?[""'][^>]*>(.*?)</p>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex WooPriceBlock();
+
+    [GeneratedRegex(@"woocommerce-Price-amount[^>]*>(.*?)</span>\s*(?:</bdi>|</span>)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex WooAmount();
+
+    [GeneratedRegex(@"class\s*=\s*[""'][^""']*\bstock\s+(in-stock|out-of-stock|available-on-backorder)\b[^""']*[""'][^>]*>([^<]{0,80})<", RegexOptions.IgnoreCase)]
+    private static partial Regex WooStock();
 
     private static SupplierSnapshot WithPageStock(SupplierSnapshot snapshot, string html)
     {

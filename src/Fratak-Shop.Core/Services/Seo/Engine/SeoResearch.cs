@@ -112,6 +112,29 @@ public sealed class CompetitorInsight
 public static class SeoParsers
 {
     /// <summary>
+    /// ارتباط یک صفحهٔ رقیب با عبارت جست‌وجو: سهم ریشه‌های معنادار عبارت که در عنوان، H1 یا آدرس صفحه آمده‌اند (۰ تا ۱).
+    /// مثال: عبارت «شامپو کراتینه مو» و عنوان «خرید شامپو کراتینه + قیمت» → ۲ از ۳ = ۰٫۶۷ (مرتبط).
+    /// عنوان «صفحهٔ اصلی فروشگاه X» → ۰ (کنار گذاشته می‌شود). عبارت بدون ریشهٔ معنادار → ۱ (فیلتر نمی‌شود).
+    /// </summary>
+    public static double Relevance(string query, CompetitorPage page)
+    {
+        var wanted = PersianText.ContentStems(query).Distinct(StringComparer.Ordinal).ToList();
+        if (wanted.Count == 0)
+            return 1;
+        string path;
+        try
+        {
+            path = Uri.UnescapeDataString(Uri.TryCreate(page.Url, UriKind.Absolute, out var uri) ? uri.AbsolutePath : "").Replace('-', ' ').Replace('_', ' ');
+        }
+        catch (UriFormatException)
+        {
+            path = "";
+        }
+        var have = PersianText.ContentStems($"{page.Title} {page.H1} {path}").ToHashSet(StringComparer.Ordinal);
+        return wanted.Count(have.Contains) / (double)wanted.Count;
+    }
+
+    /// <summary>
     /// پاسخ autocomplete گوگل (client=firefox) و بینگ (osjson) قالب یکسانی دارد: ["عبارت", ["پیشنهاد۱", "پیشنهاد۲", …]].
     /// </summary>
     public static List<string> ParseSuggestions(string json)
@@ -368,7 +391,9 @@ public sealed class SeoResearchService(FratakShopDbContext context, ISeoWebSourc
             if (pages.Count >= PagesPerQuery)
                 break;
             var page = await PageAsync(item.Url, cancellationToken);
-            if (page is not null && page.Words >= 80)
+            // کیفیت تحلیل (اصلاحیه): صفحهٔ کم‌محتوا یا بی‌ربط (عنوان/H1 با عبارت جست‌وجو هم‌پوشانی ندارد، مثل صفحهٔ اصلی
+            // یک فروشگاه یا مقالهٔ نامرتبط) کنار گذاشته می‌شود تا کلمه‌های پرتکرار رقبا آلوده نشوند.
+            if (page is not null && page.Words >= 80 && SeoParsers.Relevance(query, page) >= 0.5)
                 pages.Add(page);
         }
 
@@ -437,6 +462,8 @@ public sealed class SeoResearchService(FratakShopDbContext context, ISeoWebSourc
     private async Task<T?> CachedAsync<T>(SeoResearchKind kind, string key, TimeSpan lifetime,
         Func<CancellationToken, Task<(bool Ok, T? Value, string? SourceOrError)>> fetch, CancellationToken cancellationToken) where T : class
     {
+        // ستون Key حداکثر ۴۵۰ نویسه است؛ عبارت/آدرس خیلی بلند کوتاه می‌شود تا ذخیرهٔ کش خطای SQL ندهد.
+        key = Truncate(key, 440)!;
         var now = DateTimeOffset.UtcNow;
         var cached = await context.SeoResearchCaches.AsTracking()
             .FirstOrDefaultAsync(c => c.Kind == kind && c.Key == key, cancellationToken);

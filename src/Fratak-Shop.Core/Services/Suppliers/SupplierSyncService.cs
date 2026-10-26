@@ -72,6 +72,38 @@ public sealed record SupplierChangeRow(
 
 /// <summary>فیلترهای فهرست تغییرها.</summary>
 /// <param name="Tab">pending = منتظر تأیید (موجودی و قیمت)، problems = پیدا نشد/خطا، auto = اعمال خودکار، history = رسیدگی‌شده.</param>
+/// <summary>
+/// یک ردیف «وضعیت محصولات»: آخرین چیزی که از سایت منبع برای هر محصول زیر نظر خوانده شد، کنار موجودی/قیمت خودمان.
+/// در زبانهٔ «وضعیت همهٔ محصولات» صفحهٔ /admin/products/supplier-sync?tab=status نمایش داده می‌شود تا بعد از هر اجرا
+/// (حتی وقتی هیچ تغییری پیشنهاد نشده) معلوم باشد هر کالا در منبع چه وضعی دارد.
+/// </summary>
+public sealed record SupplierStateRow(
+    Guid ProductId,
+    string ProductName,
+    string? ProductSku,
+    string? ImageName,
+    string? SupplierUrl,
+    bool Excluded,
+    bool IsActive,
+    int OurStock,
+    decimal? PurchasePrice,
+    SupplierItemStatus? Status,
+    decimal? SourcePrice,
+    int? SourceStock,
+    string? SourceName,
+    DateTimeOffset? CheckedAt,
+    DateTimeOffset? LastSuccessAt,
+    int ConsecutiveErrors,
+    string? LastError,
+    bool AutoOutOfStock)
+{
+    /// <summary>اختلاف قیمت منبع با قیمت خرید ثبت‌شدهٔ ما (مثبت = گران‌تر شده). مثال: ۴۰۰٬۰۰۰ → ۴۱۵٬۰۰۰ = +۱۵٬۰۰۰.</summary>
+    public decimal? PriceDelta => SourcePrice is { } s && PurchasePrice is > 0 ? s - PurchasePrice.Value : null;
+}
+
+/// <summary>فیلتر زبانهٔ وضعیت: all / instock / out / notfound / error / unchecked.</summary>
+public sealed record SupplierStateQuery(string Filter = "all", string? Search = null, int Page = 1, int Take = 50);
+
 public sealed record SupplierChangeQuery(string Tab = "pending", SupplierChangeKind? Kind = null, string? Search = null, int Page = 1, int Take = 50);
 
 /// <summary>داشبورد صفحهٔ بررسی تأمین‌کننده.</summary>
@@ -118,6 +150,12 @@ public interface ISupplierSyncService
     Task<SupplierSyncDashboard> GetDashboardAsync(CancellationToken cancellationToken = default);
 
     Task<PagedList<SupplierChangeRow>> ListChangesAsync(SupplierChangeQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>وضعیت فعلی همهٔ محصولات زیر نظر (آخرین بررسی هر کدام) با فیلتر و صفحه‌بندی.</summary>
+    Task<PagedList<SupplierStateRow>> ListStatesAsync(SupplierStateQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>شمارش وضعیت‌ها برای برچسب فیلترها؛ کلید همان مقدار فیلتر (instock, out, notfound, error, unchecked).</summary>
+    Task<IReadOnlyDictionary<string, int>> CountStatesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>تأیید گروهی. <paramref name="adjustSalePrice"/>: در تغییر قیمت، همان اختلاف به قیمت فروش (و تخفیف) هم اضافه شود.</summary>
     Task<OperationResult> ApproveAsync(IReadOnlyList<SupplierApproval> approvals, bool adjustSalePrice, Guid userId, string userName);
@@ -505,25 +543,55 @@ public class SupplierSyncService(
         }
     }
 
-    /// <summary>اعلان خلاصه به کارمندان مسئول تأمین (فقط وقتی چیزی برای دیدن هست).</summary>
+    /// <summary>
+    /// اعلان خلاصهٔ اجرا به کارمندان مسئول تأمین.
+    /// <list type="bullet">
+    /// <item>اجرای دستی («بررسی همین الان»): <b>همیشه</b> گزارش می‌دهد، حتی اگر هیچ تغییری نبود – کسی که دکمه را زده منتظر نتیجه است.</item>
+    /// <item>اجرای زمان‌بندی‌شده: فقط وقتی چیزی برای دیدن هست (تغییر خودکار، پیشنهاد تازه، خطا یا محصول پیدانشده) تا اعلان‌ها شلوغ نشود.</item>
+    /// </list>
+    /// مثال متن: «۱۲۰ محصول بررسی شد: ۱۰۵ موجود، ۱۲ ناموجود، ۳ پیدا نشد · ۲ تغییر خودکار · ۴ پیشنهاد تازه · مجموع منتظر تأیید: ۶».
+    /// </summary>
     private async Task NotifyAsync(SupplierSyncRun run)
     {
-        if (run.NewProposals == 0 && run.AutoApplied == 0)
+        var attention = run.NewProposals + run.AutoApplied + run.Errors + run.NotFound;
+        if (run.Trigger != SupplierSyncTrigger.Manual && attention == 0)
             return;
-        var parts = new List<string>();
+
+        var parts = new List<string>
+        {
+            run.Checked == 0
+                ? "هیچ محصولی برای بررسی نبود (لینک منبع روی محصولات ثبت نشده یا همه از بررسی خارج شده‌اند)"
+                : $"{run.Checked:N0} محصول بررسی شد: {run.InStock:N0} موجود، {run.OutOfStock:N0} ناموجود" +
+                  (run.NotFound > 0 ? $"، {run.NotFound:N0} پیدا نشد" : "") + (run.Errors > 0 ? $"، {run.Errors:N0} خطای خواندن" : ""),
+        };
         if (run.AutoApplied > 0)
             parts.Add($"{run.AutoApplied:N0} تغییر خودکار (ناموجود/کاهش موجودی)");
         if (run.NewProposals > 0)
-            parts.Add($"{run.NewProposals:N0} پیشنهاد تازه منتظر تأیید");
-        if (run.Errors > 0)
-            parts.Add($"{run.Errors:N0} خطای خواندن");
+            parts.Add($"{run.NewProposals:N0} پیشنهاد تازه");
+        int pendingTotal = 0;
+        try
+        {
+            pendingTotal = await context.SupplierChanges.AsNoTracking().CountAsync(c => c.Status == SupplierChangeStatus.Pending);
+        }
+        catch
+        {
+            // شمارش اختیاری است.
+        }
+        if (pendingTotal > 0)
+            parts.Add($"مجموع منتظر تأیید: {pendingTotal:N0}");
+        if (attention == 0)
+            parts.Add("تغییری نسبت به قبل نبود");
+
+        var url = pendingTotal > 0 ? "/admin/products/supplier-sync"
+            : run.AutoApplied > 0 ? "/admin/products/supplier-sync?tab=auto"
+            : "/admin/products/supplier-sync?tab=status";
         try
         {
             await staff.NotifyAsync(new StaffAlert(
                 StaffNotificationKind.SupplierReport,
-                "گزارش بررسی تأمین‌کننده",
-                string.Join("، ", parts),
-                run.NewProposals > 0 ? "/admin/products/supplier-sync" : "/admin/products/supplier-sync?tab=auto",
+                run.Trigger == SupplierSyncTrigger.Manual ? "نتیجهٔ بررسی دستی تأمین‌کننده" : "گزارش بررسی تأمین‌کننده",
+                string.Join(" · ", parts),
+                url,
                 [AdminPermissions.ProductsSupplier, AdminPermissions.ProductsManage]));
         }
         catch
@@ -627,6 +695,68 @@ public class SupplierSyncService(
                 c.DecidedByName))
             .ToListAsync(cancellationToken);
         return new PagedList<SupplierChangeRow>(items, total, page, take);
+    }
+
+    public async Task<PagedList<SupplierStateRow>> ListStatesAsync(SupplierStateQuery query, CancellationToken cancellationToken = default)
+    {
+        var take = Math.Clamp(query.Take, 10, 200);
+        var page = Math.Max(1, query.Page);
+        var states = context.SupplierProductStates.AsNoTracking();
+        var products = context.Products.AsNoTracking().Where(p => p.SupplierUrl != null && p.SupplierUrl != "");
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = SearchText.NormalizeDigits(query.Search.Trim());
+            products = products.Where(p => p.Name.Contains(term) || (p.SKU != null && p.SKU.Contains(term)) || p.SupplierUrl!.Contains(term));
+        }
+        products = query.Filter switch
+        {
+            "instock" => products.Where(p => states.Any(s => s.ProductId == p.Id && s.Status == SupplierItemStatus.InStock)),
+            "out" => products.Where(p => states.Any(s => s.ProductId == p.Id && s.Status == SupplierItemStatus.OutOfStock)),
+            "notfound" => products.Where(p => states.Any(s => s.ProductId == p.Id && s.Status == SupplierItemStatus.NotFound)),
+            "error" => products.Where(p => states.Any(s => s.ProductId == p.Id && s.ConsecutiveErrors > 0)),
+            "unchecked" => products.Where(p => !p.ExcludeFromSupplierSync && !states.Any(s => s.ProductId == p.Id)),
+            "excluded" => products.Where(p => p.ExcludeFromSupplierSync),
+            _ => products,
+        };
+
+        var total = await products.CountAsync(cancellationToken);
+        // مشکل‌دارها اول (خطا، پیدا نشد، ناموجود)، بعد بقیه به ترتیب نام.
+        var items = await products
+            .OrderByDescending(p => states.Where(s => s.ProductId == p.Id).Select(s => s.ConsecutiveErrors > 0 ? 4 : s.Status == SupplierItemStatus.NotFound ? 3 : s.Status == SupplierItemStatus.OutOfStock ? 2 : 1).FirstOrDefault())
+            .ThenBy(p => p.Name)
+            .Skip((page - 1) * take)
+            .Take(take)
+            .Select(p => new
+            {
+                p.Id, p.Name, p.SKU, p.SupplierUrl, p.ExcludeFromSupplierSync, p.IsActive, p.StockQuantity, p.PurchasePrice,
+                Image = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault(),
+                State = states.FirstOrDefault(s => s.ProductId == p.Id),
+            })
+            .ToListAsync(cancellationToken);
+
+        var rows = items.Select(x => new SupplierStateRow(
+            x.Id, x.Name, x.SKU, x.Image, x.SupplierUrl, x.ExcludeFromSupplierSync, x.IsActive, x.StockQuantity, x.PurchasePrice,
+            x.State?.Status, x.State?.SourcePrice, x.State?.SourceStock, x.State?.SourceName, x.State?.CheckedAt, x.State?.LastSuccessAt,
+            x.State?.ConsecutiveErrors ?? 0, x.State?.LastError, x.State?.AutoOutOfStock ?? false)).ToList();
+        return new PagedList<SupplierStateRow>(rows, total, page, take);
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> CountStatesAsync(CancellationToken cancellationToken = default)
+    {
+        var tracked = context.Products.AsNoTracking().Where(p => p.SupplierUrl != null && p.SupplierUrl != "" && !p.ExcludeFromSupplierSync).Select(p => p.Id);
+        var states = context.SupplierProductStates.AsNoTracking().Where(s => tracked.Contains(s.ProductId));
+        var byStatus = await states.GroupBy(s => s.Status).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken);
+        var errors = await states.CountAsync(s => s.ConsecutiveErrors > 0, cancellationToken);
+        var checkedCount = await states.CountAsync(cancellationToken);
+        var trackedCount = await tracked.CountAsync(cancellationToken);
+        return new Dictionary<string, int>
+        {
+            ["instock"] = byStatus.Where(x => x.Key == SupplierItemStatus.InStock).Sum(x => x.Count),
+            ["out"] = byStatus.Where(x => x.Key == SupplierItemStatus.OutOfStock).Sum(x => x.Count),
+            ["notfound"] = byStatus.Where(x => x.Key == SupplierItemStatus.NotFound).Sum(x => x.Count),
+            ["error"] = errors,
+            ["unchecked"] = Math.Max(0, trackedCount - checkedCount),
+        };
     }
 
     public async Task<SupplierProductStatusDto?> GetProductStatusAsync(Guid productId, CancellationToken cancellationToken = default)

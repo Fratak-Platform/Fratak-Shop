@@ -70,18 +70,27 @@ public sealed class WebPushDispatcher(
         }
     }
 
-    private async Task DeliverAsync(PushMessage message, CancellationToken cancellationToken)
+    /// <summary>
+    /// ارسال فوری (بدون صف) و برگرداندن نتیجهٔ <b>هر دستگاه</b>. فقط برای دکمهٔ «اعلان آزمایشی» صفحهٔ /admin/inbox تا کارمند
+    /// ببیند پوش واقعاً به کدام سرویس رفت و چه جوابی گرفت (مثلاً «۲۰۱ تحویل شد» یا «اتصال به fcm.googleapis.com ممکن نشد»).
+    /// فهرست خالی یعنی کلید VAPID نیست یا این کاربر هیچ دستگاه فعالی ندارد.
+    /// </summary>
+    public Task<List<PushDeliveryResult>> SendNowAsync(PushMessage message, CancellationToken cancellationToken) =>
+        DeliverAsync(message, cancellationToken);
+
+    private async Task<List<PushDeliveryResult>> DeliverAsync(PushMessage message, CancellationToken cancellationToken)
     {
+        var results = new List<PushDeliveryResult>();
         using var scope = scopeFactory.CreateScope();
         var pushService = scope.ServiceProvider.GetRequiredService<IWebPushService>();
 
         var keys = await pushService.GetVapidKeysAsync();
         if (keys is null)
-            return;
+            return results;
 
         var targets = await pushService.GetTargetsAsync(message.UserId);
         if (targets.Count == 0)
-            return;
+            return results;
 
         var payload = JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -100,12 +109,14 @@ public sealed class WebPushDispatcher(
                 continue;
             }
 
-            var (succeeded, gone) = await SendAsync(client, target, keys, payload, message.Tag, cancellationToken);
+            var (succeeded, gone, result) = await SendAsync(client, target, keys, payload, message.Tag, cancellationToken);
             await pushService.RecordDeliveryAsync(target.Id, succeeded, gone);
+            results.Add(result);
         }
+        return results;
     }
 
-    private async Task<(bool Succeeded, bool Gone)> SendAsync(HttpClient client, PushTarget target, VapidKeys keys, byte[] payload, string? tag, CancellationToken cancellationToken)
+    private async Task<(bool Succeeded, bool Gone, PushDeliveryResult Result)> SendAsync(HttpClient client, PushTarget target, VapidKeys keys, byte[] payload, string? tag, CancellationToken cancellationToken)
     {
         try
         {
@@ -123,22 +134,24 @@ public sealed class WebPushDispatcher(
             request.Content.Headers.ContentEncoding.Add("aes128gcm");
 
             using var response = await client.SendAsync(request, cancellationToken);
-            LastResult = new PushDeliveryResult(DateTimeOffset.UtcNow, request.RequestUri?.Host ?? "", (int)response.StatusCode, response.IsSuccessStatusCode ? null : response.ReasonPhrase);
+            var result = new PushDeliveryResult(DateTimeOffset.UtcNow, request.RequestUri?.Host ?? "", (int)response.StatusCode, response.IsSuccessStatusCode ? null : response.ReasonPhrase);
+            LastResult = result;
             if (response.IsSuccessStatusCode)
-                return (true, false);
+                return (true, false, result);
 
             var gone = response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone;
             if (!gone)
                 logger.LogInformation("Push service answered {Status} for subscription {Id}", (int)response.StatusCode, target.Id);
-            return (false, gone);
+            return (false, gone, result);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or FormatException or System.Security.Cryptography.CryptographicException)
         {
             if (cancellationToken.IsCancellationRequested)
                 throw;
-            LastResult = new PushDeliveryResult(DateTimeOffset.UtcNow, Uri.TryCreate(target.Endpoint, UriKind.Absolute, out var uri) ? uri.Host : "", null, exception.Message);
+            var failed = new PushDeliveryResult(DateTimeOffset.UtcNow, Uri.TryCreate(target.Endpoint, UriKind.Absolute, out var uri) ? uri.Host : "", null, exception.Message);
+            LastResult = failed;
             logger.LogInformation(exception, "Push to subscription {Id} failed", target.Id);
-            return (false, false);
+            return (false, false, failed);
         }
     }
 
@@ -146,4 +159,33 @@ public sealed class WebPushDispatcher(
 }
 
 /// <summary>نتیجهٔ یک ارسال پوش: زمان، سرویس مقصد، کد پاسخ HTTP (یا null اگر اصلاً وصل نشد) و متن خطا.</summary>
-public sealed record PushDeliveryResult(DateTimeOffset At, string Host, int? StatusCode, string? Error);
+public sealed record PushDeliveryResult(DateTimeOffset At, string Host, int? StatusCode, string? Error)
+{
+    /// <summary>نام آشنای سرویس پوش. مثال: fcm.googleapis.com → «گوگل (کروم/اج/اندروید)».</summary>
+    public string ServiceTitle => Host switch
+    {
+        "fcm.googleapis.com" or "android.googleapis.com" => "گوگل FCM (کروم، اج، اپرا، اندروید)",
+        _ when Host.EndsWith("mozilla.com", StringComparison.OrdinalIgnoreCase) => "موزیلا (فایرفاکس)",
+        _ when Host.EndsWith("push.apple.com", StringComparison.OrdinalIgnoreCase) => "اپل (سافاری/آیفون)",
+        _ when Host.EndsWith("notify.windows.com", StringComparison.OrdinalIgnoreCase) => "ویندوز (اج قدیمی)",
+        _ => Host,
+    };
+
+    /// <summary>
+    /// توضیح فارسی نتیجه برای کارمند. مثال‌ها: «تحویل سرویس شد (۲۰۱)»، «کلید سرور با اشتراک نمی‌خواند (۴۰۳)…»،
+    /// «سرور به این سرویس وصل نشد – در ایران معمولاً FCM گوگل از سمت سرور مسدود است…».
+    /// </summary>
+    public string Explain() => StatusCode switch
+    {
+        >= 200 and < 300 => $"تحویل سرویس شد ({StatusCode}). اگر روی دستگاه نمایش داده نشد: مرورگر باید باز یا در پس‌زمینه در حال اجرا باشد و اعلان‌های سیستم‌عامل برای مرورگر خاموش نباشد.",
+        404 or 410 => $"اشتراک این دستگاه منقضی شده بود ({StatusCode}) و حذف شد؛ صفحه را روی آن دستگاه باز کنید تا خودکار دوباره ثبت شود.",
+        401 or 403 => $"سرویس پوش امضای سرور را نپذیرفت ({StatusCode}) – معمولاً یعنی کلید VAPID عوض شده؛ با باز کردن سایت روی آن دستگاه اشتراک خودکار تازه می‌شود.",
+        413 => "متن اعلان بیش از حد بلند بود (۴۱۳).",
+        429 => "سرویس پوش موقتاً محدود کرد (۴۲۹)؛ کمی بعد دوباره امتحان کنید.",
+        { } code => $"سرویس پوش خطای {code} داد{(string.IsNullOrEmpty(Error) ? "" : ": " + Error)}.",
+        null => "سرور اصلاً به این سرویس وصل نشد" + (string.IsNullOrEmpty(Error) ? "" : $" ({Error})")
+                + (Host.Contains("googleapis", StringComparison.OrdinalIgnoreCase)
+                    ? " – سرورهای داخل ایران معمولاً به FCM گوگل دسترسی ندارند؛ در تنظیمات برنامه «WebPush:Proxy» را روی یک پراکسی خروجی بگذارید یا از فایرفاکس استفاده کنید."
+                    : "."),
+    };
+}

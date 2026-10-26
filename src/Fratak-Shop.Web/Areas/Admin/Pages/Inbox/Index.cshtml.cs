@@ -18,7 +18,7 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Inbox;
 /// </para>
 /// لینک هر اعلان به <c>?open={id}</c> می‌رود تا اول «خوانده شد» ثبت شود و بعد به صفحهٔ مربوط منتقل شود.
 /// </summary>
-public class IndexModel(IStaffNotificationService staffNotifications, IWebPushService push, IStoreSettingService settings) : AdminPageModel
+public class IndexModel(IStaffNotificationService staffNotifications, IWebPushService push, IStoreSettingService settings, WebPushDispatcher dispatcher) : AdminPageModel
 {
     [FromQuery(Name = "page")] public int PageNumber { get; set; } = 1;
     [FromQuery(Name = "unread")] public bool UnreadOnly { get; set; }
@@ -28,6 +28,9 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
     public PushStats MyPush { get; private set; } = new(0, 0, 0, null);
     public bool PushEnabled { get; private set; }
     public PushDeliveryResult? LastPush => WebPushDispatcher.LastResult;
+
+    /// <summary>نتیجهٔ تک‌تک دستگاه‌ها در آخرین «اعلان آزمایشی» (هر خط یک دستگاه)؛ از TempData خوانده می‌شود.</summary>
+    public string[] PushTestLines => TempData["PushTest"] is string text && text.Length > 0 ? text.Split('\n') : Array.Empty<string>();
 
     /// <summary>نوع‌هایی که کارمند می‌تواند بی‌صدا کند، با عنوان فارسی.</summary>
     public static readonly (StaffNotificationKind Kind, string Title)[] MutableKinds =
@@ -91,11 +94,37 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
     }
 
     /// <summary>ارسال اعلان آزمایشی به خود کارمند: زنگوله + صدا (اگر پنل باز است) + پوش مرورگر (اگر فعال است).</summary>
+    /// <remarks>
+    /// مرحلهٔ هفتم – اصلاحیه: علاوه بر صف معمول، پوش همین لحظه مستقیم فرستاده می‌شود و نتیجهٔ <b>هر دستگاه</b> (سرویس مقصد،
+    /// کد پاسخ و توضیح فارسی) زیر کارت «این دستگاه» نمایش داده می‌شود تا علت «اعلان وقتی سایت بسته است نمی‌آید» روشن شود.
+    /// برچسب (tag) پوش مستقیم و پوش صف یکی است؛ مرورگر دومی را جایگزین اولی می‌کند و دو اعلان دیده نمی‌شود.
+    /// </remarks>
     public async Task<IActionResult> OnPostTestAsync()
     {
         await staffNotifications.NotifyUserAsync(ActorId, StaffNotificationKind.System,
             "اعلان آزمایشی", "اگر این پیام را می‌بینید، اعلان زنده درست کار می‌کند.", "/admin/inbox");
-        TempData["SuccessMessage"] = "اعلان آزمایشی ارسال شد. اگر پوش مرورگر فعال باشد، چند ثانیه بعد روی دستگاه هم نمایش داده می‌شود.";
+
+        if (!(await settings.GetAsync()).CanUseWebPush)
+        {
+            TempData["SuccessMessage"] = "اعلان آزمایشی داخل پنل ارسال شد. پوش مرورگر در تنظیمات فروشگاه خاموش است.";
+            return RedirectToPage();
+        }
+
+        var results = await dispatcher.SendNowAsync(
+            new PushMessage(ActorId, "اعلان آزمایشی", "اگر این پیام را می‌بینید، اعلان زنده درست کار می‌کند.", "/admin/inbox", "staff-system"),
+            HttpContext.RequestAborted);
+        if (results.Count == 0)
+        {
+            TempData["ErrorMessage"] = "اعلان داخل پنل ارسال شد ولی هیچ دستگاه فعالی برای پوش شما ثبت نیست. روی هر دستگاه «فعال‌سازی اعلان مرورگر» را بزنید و اجازه بدهید.";
+            return RedirectToPage();
+        }
+
+        var ok = results.Count(r => r.StatusCode is >= 200 and < 300);
+        TempData["PushTest"] = string.Join('\n', results.Take(5).Select(r => $"{r.ServiceTitle}: {r.Explain()}"));
+        if (ok == results.Count)
+            TempData["SuccessMessage"] = $"پوش به {ok} دستگاه تحویل سرویس شد. جزئیات زیر کارت «این دستگاه».";
+        else
+            TempData["ErrorMessage"] = $"پوش فقط به {ok} از {results.Count} دستگاه رسید. علت هر دستگاه زیر کارت «این دستگاه» آمده است.";
         return RedirectToPage();
     }
 
