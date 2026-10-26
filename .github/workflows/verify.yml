@@ -244,19 +244,21 @@ jobs:
             echo "::notice title=Vulnerable packages::none found"
           fi
 
-      - name: Upload test results and coverage
+      - name: Upload test summary and coverage
         if: always()
+        # سهمیهٔ فضای Artifact ممکن است پر باشد؛ نبودِ آپلود نباید گزارش خطای آزمون‌ها را پنهان کند.
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-summary
           path: |
-            TestResults/
             summary.md
             vulnerable.txt
-          retention-days: 14
+            TestResults/**/coverage.cobertura.xml
+          retention-days: 7
 
       - name: Report test results
-        if: steps.test.outputs.code != '0'
+        if: always() && steps.test.outputs.code != '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
