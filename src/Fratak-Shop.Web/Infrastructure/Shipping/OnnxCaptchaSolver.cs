@@ -127,7 +127,7 @@ public sealed class OnnxCaptchaSolver : IPostCaptchaSolver, IDisposable
         }
         try
         {
-            using var options = new SessionOptions
+            using var options = new Microsoft.ML.OnnxRuntime.SessionOptions
             {
                 // مدل کوچک است؛ یک رشته کافی است و CPU سرور برای کارهای اصلی آزاد می‌ماند.
                 IntraOpNumThreads = 1,
