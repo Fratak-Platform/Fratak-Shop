@@ -597,6 +597,24 @@ public class StoreSetting : BaseEntity
     /// <summary>ردیف‌های روزانهٔ هر بازدیدکننده بعد از این تعداد روز پاک می‌شوند (شمارنده‌های جمعی می‌مانند). مثال: ۴۰۰.</summary>
     public int AnalyticsRetentionDays { get; set; } = 400;
 
+    // ── موتور سئوی هوشمند داخلی (مرحلهٔ هفتم – فاز ۸) ──────────────────
+    // موتور: Core/Services/Seo/Engine؛ زمان‌بندی: Web/Infrastructure/Seo؛ پنل: /admin/seo/engine.
+
+    /// <summary>بررسی خودکار سئوی همهٔ صفحه‌ها و ساخت پیشنهاد برای تأیید کارشناس.</summary>
+    public bool IsSeoEngineEnabled { get; set; } = true;
+
+    /// <summary>تعداد اجرای خودکار در شبانه‌روز (۱ تا ۶)، با فاصلهٔ مساوی از ساعت ۲ بامداد. مثال: ۳ → ساعت ۲، ۱۰ و ۱۸.</summary>
+    public int SeoEngineRunsPerDay { get; set; } = 3;
+
+    /// <summary>حداکثر صفحه‌ای که در هر اجرا پیشنهاد تازه می‌گیرد (۵ تا ۲۰۰). نمره‌دهی همهٔ صفحه‌ها جدا انجام می‌شود.</summary>
+    public int SeoEngineBatchSize { get; set; } = 30;
+
+    /// <summary>تحقیق رایگان از اینترنت: پیشنهادهای جست‌وجو و تحلیل صفحه‌های برتر نتایج (رقبا).</summary>
+    public bool SeoCompetitorResearch { get; set; } = true;
+
+    /// <summary>پیشنهاد تغییر نامک فقط برای صفحه‌های تازه/کم‌بازدید و همیشه با ریدایرکت ۳۰۱ خودکار.</summary>
+    public bool SeoAllowSlugChanges { get; set; } = true;
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

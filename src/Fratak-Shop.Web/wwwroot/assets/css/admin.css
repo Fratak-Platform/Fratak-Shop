@@ -678,3 +678,45 @@ html[data-theme="dark"] .a-goal-bar { background: #1f2a3d; }
 
 /* پیش‌نمایش گزارش خودکار (/admin/reports/scheduled) */
 .a-digest-section { padding: 12px 14px; border: 1px solid var(--a-border); border-radius: 12px; background: var(--a-bg); min-width: 0; }
+
+/* ── موتور هوشمند سئو (مرحلهٔ هفتم – فاز ۸): Seo/Engine، Seo/Review، Seo/Analyze ───────────── */
+/* دایرهٔ نمره: style="--score:72;--score-color:#d97706" */
+.a-score { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 4.5rem; height: 4.5rem; border-radius: 999px;
+  background: conic-gradient(var(--score-color, var(--a-primary)) calc(var(--score, 0) * 1%), #e5e7eb 0); font-size: 20px; font-weight: 800; }
+.a-score::before { content: ""; position: absolute; inset: 7px; border-radius: 999px; background: #fff; }
+.a-score > span { position: relative; }
+/* فهرست بررسی‌ها / کلمه‌ها / تاریخچه */
+.a-checks { margin: 0; padding: 0; list-style: none; }
+.a-checks > li { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--a-border); font-size: 13.5px; line-height: 1.8; }
+.a-checks > li:first-child { border-top: 0; }
+.a-checks > li.flex-col { flex-direction: column; align-items: flex-start; gap: 2px; }
+/* کارت پیشنهاد */
+.a-sg { background: #fff; border: 1px solid var(--a-border); border-radius: var(--a-radius); box-shadow: var(--a-shadow); margin-bottom: 16px; overflow: hidden; scroll-margin-top: 80px; }
+.a-sg.is-focus { border-color: var(--a-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, .15); }
+.a-sg-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 14px; border-bottom: 1px solid var(--a-border); background: #fafbff; }
+.a-sg-pick { width: 18px; height: 18px; accent-color: var(--a-primary); }
+.a-sg-note { padding: 8px 14px; font-size: 12.5px; color: var(--a-muted); border-bottom: 1px solid var(--a-border); }
+.a-sg-field { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 12px 14px; border-bottom: 1px dashed var(--a-border); }
+@media (min-width: 1024px) { .a-sg-field { grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.a-sg-label small { display: block; color: var(--a-muted); font-size: 11.5px; margin-top: 2px; }
+.a-sg-old, .a-sg-new { border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.9; overflow-wrap: anywhere; min-width: 0; }
+.a-sg-old { background: #fef2f2; }
+.a-sg-new { background: #ecfdf5; }
+.a-sg-tag { display: block; font-size: 11px; color: var(--a-muted); margin-bottom: 2px; }
+.a-sg-body { max-height: 26rem; overflow: auto; margin-top: 6px; padding: 8px; background: rgba(255, 255, 255, .7); border-radius: 8px; }
+.a-sg-body h2 { font-weight: 700; font-size: 14.5px; margin: .75em 0 .3em; }
+.a-sg-foot { display: grid; gap: 14px; padding: 12px 14px; }
+@media (min-width: 1024px) { .a-sg-foot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.a-reasons { margin: 0; padding-inline-start: 1.1em; list-style: disc; font-size: 13px; line-height: 1.9; }
+.a-sg-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--a-border); background: #fafafa; }
+.a-sg-reject { flex: 1 1 100%; }
+@media (min-width: 768px) { .a-sg-reject { flex: 0 1 auto; } }
+.a-sg-reject > summary { display: inline-flex; }
+.a-sg-reject-form { margin-top: 10px; padding: 12px; border: 1px solid var(--a-border); border-radius: 10px; background: #fff; max-width: 36rem; }
+html[data-theme="dark"] .a-sg, html[data-theme="dark"] .a-sg-reject-form { background: #111827; border-color: #374151; }
+html[data-theme="dark"] .a-sg-head, html[data-theme="dark"] .a-sg-actions { background: #0f172a; }
+html[data-theme="dark"] .a-sg-old { background: rgba(127, 29, 29, .25); }
+html[data-theme="dark"] .a-sg-new { background: rgba(6, 78, 59, .3); }
+html[data-theme="dark"] .a-sg-body { background: rgba(0, 0, 0, .2); }
+html[data-theme="dark"] .a-score::before { background: #111827; }
+html[data-theme="dark"] .a-checks > li { border-color: #374151; }

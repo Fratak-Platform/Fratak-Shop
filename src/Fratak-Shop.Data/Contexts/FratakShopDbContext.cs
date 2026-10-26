@@ -2,6 +2,7 @@
 using Fratak_Shop.Data.Entities.Admin;
 using Fratak_Shop.Data.Entities.Analytics;
 using Fratak_Shop.Data.Entities.Insights;
+using Fratak_Shop.Data.Entities.SeoEngine;
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
@@ -260,6 +261,15 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<ScheduledReport> ScheduledReports { get; set; } = null!;
 
     public DbSet<ReportDeliveryConfig> ReportDeliveryConfigs { get; set; } = null!;
+
+    // مرحلهٔ هفتم – فاز ۸: موتور سئوی هوشمند داخلی (نمره، صف پیشنهاد، کش تحقیق، تاریخچهٔ اجرا).
+    public DbSet<SeoScore> SeoScores { get; set; } = null!;
+
+    public DbSet<SeoSuggestion> SeoSuggestions { get; set; } = null!;
+
+    public DbSet<SeoResearchCache> SeoResearchCaches { get; set; } = null!;
+
+    public DbSet<SeoEngineRun> SeoEngineRuns { get; set; } = null!;
 
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";

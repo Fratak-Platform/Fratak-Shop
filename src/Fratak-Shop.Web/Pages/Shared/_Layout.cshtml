@@ -42,6 +42,10 @@
   <partial name="_StatusMessage" />
   @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Top })
   @RenderBody()
+  @if (ViewData[PageMetaKeys.Faq] is IReadOnlyList<Fratak_Shop.Core.Services.Seo.Engine.SeoFaqItem> seoFaq && seoFaq.Count > 0)
+  {
+    <partial name="_SeoFaq" model="seoFaq" />
+  }
   @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Bottom })
   <partial name="_Footer" />
   <partial name="_PwaInstallPrompt" />

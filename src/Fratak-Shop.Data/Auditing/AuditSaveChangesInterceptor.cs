@@ -30,6 +30,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         "SupplierProductState", "SupplierSyncRun", "SupplierChange",
         // دفتر موجودی و دسته‌های تغییر قیمت خودشان سابقه‌اند (تغییر خود محصول جداگانه ثبت می‌شود).
         "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "ScheduledReport",
+        // موتور سئو: نمره، کش و تاریخچهٔ اجرا داده‌های داخلی‌اند؛ پیشنهاد هم خودش سابقه دارد (تغییر واقعی روی خود صفحه ثبت می‌شود).
+        "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)

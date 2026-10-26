@@ -116,6 +116,11 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Insights.IStaffPerformanceService, Services.Insights.StaffPerformanceService>();
         services.AddScoped<Services.Insights.IScheduledReportService, Services.Insights.ScheduledReportService>();
 
+        // مرحلهٔ هفتم – فاز ۸: موتور هوشمند سئو (تحلیل، نوشتن، تحقیق رقبا، پیشنهاد و تأیید).
+        // منبع وب پیش‌فرض «آفلاین» است؛ لایهٔ Web پیاده‌سازی HTTP واقعی را جایگزین می‌کند.
+        services.TryAddSingleton<Services.Seo.Engine.ISeoWebSource, Services.Seo.Engine.OfflineSeoWebSource>();
+        services.AddScoped<Services.Seo.Engine.ISeoEngineService, Services.Seo.Engine.SeoEngineService>();
+
         // ابزارهای کاتالوگ (فاز ۵): تغییر گروهی قیمت، انبار و پیش‌بینی، ورود از اکسل، کپی محصول.
         services.AddScoped<Services.Products.IBulkPriceService, Services.Products.BulkPriceService>();
         services.AddScoped<Services.Products.IInventoryService, Services.Products.InventoryService>();

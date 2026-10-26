@@ -74,6 +74,7 @@ public class SeoMetaDataDto
     public string? ArticleTagsJson { get; set; }
     public string? SchemaType { get; set; }
     public string? StructuredDataJsonLd { get; set; }
+    public string? FaqJson { get; set; }
     public bool? IncludeInSitemap { get; set; }
     public DateTimeOffset? SitemapLastModified { get; set; }
     public decimal? SitemapPriority { get; set; }

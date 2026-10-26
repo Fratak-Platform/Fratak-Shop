@@ -288,6 +288,12 @@
           }
         </div>
         <partial name="_Pagination" model="Model.Pager" />
+        @if (Model.ListingDescriptionHtml is not null)
+        {
+          <section class="prose-content bg-white border rounded-xl p-4 md:p-8 mt-8 text-sm" aria-label="معرفی">
+            @Html.Raw(Model.ListingDescriptionHtml)
+          </section>
+        }
       </div>
     </div>
   </main>

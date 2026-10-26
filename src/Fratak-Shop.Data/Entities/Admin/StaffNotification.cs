@@ -69,6 +69,9 @@ public enum StaffNotificationKind
 
     /// <summary>خطای ارسال گزارش زمان‌بندی‌شده (ایمیل/بله/تلگرام) – مرحلهٔ ۷ فاز ۷ب.</summary>
     ReportFailed = 19,
+
+    /// <summary>پیشنهادهای تازهٔ موتور سئو آمادهٔ بررسی‌اند – مرحلهٔ ۷ فاز ۸.</summary>
+    SeoSuggestions = 20,
 }
 
 /// <summary>

@@ -181,6 +181,11 @@ public static class StoreSettingMapper
             PostTrackingMaxDays = entity.PostTrackingMaxDays,
             IsAnalyticsEnabled = entity.IsAnalyticsEnabled,
             AnalyticsRetentionDays = entity.AnalyticsRetentionDays,
+            IsSeoEngineEnabled = entity.IsSeoEngineEnabled,
+            SeoEngineRunsPerDay = entity.SeoEngineRunsPerDay,
+            SeoEngineBatchSize = entity.SeoEngineBatchSize,
+            SeoCompetitorResearch = entity.SeoCompetitorResearch,
+            SeoAllowSlugChanges = entity.SeoAllowSlugChanges,
         };
     }
 
@@ -356,5 +361,10 @@ public static class StoreSettingMapper
         entity.PostTrackingMaxDays = command.PostTrackingMaxDays;
         entity.IsAnalyticsEnabled = command.IsAnalyticsEnabled;
         entity.AnalyticsRetentionDays = command.AnalyticsRetentionDays;
+        entity.IsSeoEngineEnabled = command.IsSeoEngineEnabled;
+        entity.SeoEngineRunsPerDay = command.SeoEngineRunsPerDay;
+        entity.SeoEngineBatchSize = command.SeoEngineBatchSize;
+        entity.SeoCompetitorResearch = command.SeoCompetitorResearch;
+        entity.SeoAllowSlugChanges = command.SeoAllowSlugChanges;
     }
 }

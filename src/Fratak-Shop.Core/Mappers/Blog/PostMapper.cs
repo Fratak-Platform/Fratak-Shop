@@ -141,6 +141,7 @@ public static class PostMapper
 
             SchemaType = metaData.SchemaType,
             StructuredDataJsonLd = metaData.StructuredDataJsonLd,
+            FaqJson = metaData.FaqJson,
 
             IncludeInSitemap = metaData.IncludeInSitemap,
             SitemapLastModified = metaData.SitemapLastModified,

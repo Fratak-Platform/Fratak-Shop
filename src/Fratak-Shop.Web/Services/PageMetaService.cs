@@ -4,6 +4,7 @@ using System.Text.Unicode;
 using Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
 using Fratak_Shop.Core.DTOs.Pages.Query;
 using Fratak_Shop.Core.Services.Pages;
+using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Web.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -63,6 +64,12 @@ public static class PageMetaKeys
 
     /// <summary>Custom JSON-LD from the SEO record (replaces the automatic schema of the page).</summary>
     public const string JsonLd = "JsonLd";
+
+    /// <summary>
+    /// پرسش‌وپاسخ سئوی صفحه (فهرست <c>SeoFaqItem</c>)؛ لایهٔ اصلی با partial «_SeoFaq» نمایشش می‌دهد.
+    /// مقدارش را <see cref="PageMetaService.Apply"/> از <c>Seo.FaqJson</c> می‌گذارد (موتور سئو یا ویرایش دستی).
+    /// </summary>
+    public const string Faq = "SeoFaq";
 
     /// <summary>Automatic JSON-LD blocks (<c>List&lt;string&gt;</c>).</summary>
     public const string JsonLdBlocks = "JsonLdBlocks";
@@ -125,6 +132,38 @@ public class PageMetaService(
         viewData[PageMetaKeys.OgImage] = AbsoluteUrl(imageUrl ?? settings?.DefaultOgImageUrl ?? "/assets/image/logo.png");
         viewData[PageMetaKeys.OgType] = string.IsNullOrWhiteSpace(seo?.OgType) ? ogType : seo!.OgType;
         viewData[PageMetaKeys.JsonLd] = SafeJsonLd(seo?.StructuredDataJsonLd);
+        ApplyFaq(viewData, seo?.FaqJson);
+    }
+
+    /// <summary>
+    /// پرسش‌وپاسخ صفحه: هم برای نمایش (partial «_SeoFaq» در لایه) و هم اسکیمای FAQPage.
+    /// اسکیما فقط وقتی اضافه می‌شود که همان پرسش‌ها روی صفحه دیده شوند (قانون گوگل) و اگر Apply
+    /// دو بار صدا زده شود، بلوک تکراری ساخته نمی‌شود.
+    /// </summary>
+    private void ApplyFaq(ViewDataDictionary viewData, string? faqJson)
+    {
+        var items = SeoFaq.Parse(faqJson);
+        if (items.Count == 0)
+        {
+            viewData.Remove(PageMetaKeys.Faq);
+            return;
+        }
+
+        var alreadyAdded = viewData.ContainsKey(PageMetaKeys.Faq);
+        viewData[PageMetaKeys.Faq] = items;
+        if (alreadyAdded)
+            return;
+        AddJsonLd(viewData, new Dictionary<string, object>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "FAQPage",
+            ["mainEntity"] = items.Select(item => new Dictionary<string, object>
+            {
+                ["@type"] = "Question",
+                ["name"] = item.Question,
+                ["acceptedAnswer"] = new Dictionary<string, object> { ["@type"] = "Answer", ["text"] = item.Answer },
+            }).ToList(),
+        });
     }
 
     public void AddJsonLd(ViewDataDictionary viewData, object schema)

@@ -34,6 +34,8 @@ public sealed class AdminBadgeService(FratakShopDbContext context, IMemoryCache 
             ["errors"] = await context.ErrorLogs.CountAsync(e => !e.IsResolved && e.CreatedAt >= since),
             // پیشنهادهای منتظر تأیید بررسی تأمین‌کننده (مرحلهٔ هفتم – فاز ۵).
             ["supplier"] = await context.SupplierChanges.CountAsync(c => c.Status == SupplierChangeStatus.Pending),
+            // پیشنهادهای موتور سئو منتظر تأیید (مرحلهٔ هفتم – فاز ۸).
+            ["seo-review"] = await context.SeoSuggestions.CountAsync(s => s.Status == Fratak_Shop.Data.Entities.SeoEngine.SeoSuggestionStatus.Pending),
         };
 
         cache.Set("admin:badges", (IReadOnlyDictionary<string, int>)badges, TimeSpan.FromSeconds(30));

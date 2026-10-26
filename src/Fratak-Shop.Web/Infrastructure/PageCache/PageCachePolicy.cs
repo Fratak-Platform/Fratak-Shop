@@ -35,6 +35,7 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         // گزارش بررسی تأمین‌کننده (تغییر واقعی موجودی روی خود Product ثبت می‌شود و کش را خالی می‌کند).
         "SupplierProductState", "SupplierSyncRun", "SupplierChange", "Supplier",
         "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "Expense", "SalesGoal", "ScheduledReport", "ReportDeliveryConfig",
+        "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
     };
 
     /// <summary>True while rendering a response that may be stored in the page cache.</summary>

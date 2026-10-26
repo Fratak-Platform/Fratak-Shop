@@ -178,6 +178,11 @@ public class StoreSettingCommand
     public int PostTrackingMaxDays { get; set; } = 30;
     public bool IsAnalyticsEnabled { get; set; } = true;
     public int AnalyticsRetentionDays { get; set; } = 400;
+    public bool IsSeoEngineEnabled { get; set; } = true;
+    public int SeoEngineRunsPerDay { get; set; } = 3;
+    public int SeoEngineBatchSize { get; set; } = 30;
+    public bool SeoCompetitorResearch { get; set; } = true;
+    public bool SeoAllowSlugChanges { get; set; } = true;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

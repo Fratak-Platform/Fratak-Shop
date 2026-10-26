@@ -123,13 +123,18 @@ public sealed class ProductCloneService(FratakShopDbContext context) : IProductC
         return $"{baseSku}-{RandomSuffix()}";
     }
 
-    /// <summary>کپی کامل اطلاعات سئو به‌جز Canonical (که به محصول مبدأ اشاره می‌کرد).</summary>
+    /// <summary>کپی اطلاعات سئو به‌جز Canonical (که به محصول مبدأ اشاره می‌کرد)، پرسش‌وپاسخ و وضعیت بازبینی.</summary>
     private static SeoMetaData? CopySeo(SeoMetaData? seo)
     {
         if (seo is null)
             return null;
         var copy = JsonSerializer.Deserialize<SeoMetaData>(JsonSerializer.Serialize(seo)) ?? new SeoMetaData();
         copy.CanonicalUrl = null;
+        // پرسش‌وپاسخ دربارهٔ محصول مبدأ نوشته شده (نام و مشخصات آن)؛ برای کپی موتور سئو از نو می‌سازد.
+        copy.FaqJson = null;
+        copy.IsReviewed = false;
+        copy.ReviewedAt = null;
+        copy.ReviewedByUserId = null;
         return copy;
     }
 

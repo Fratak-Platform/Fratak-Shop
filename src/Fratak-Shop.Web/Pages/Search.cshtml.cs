@@ -80,6 +80,12 @@ public class SearchModel(
     public bool IsBrandPage { get; private set; }
 
     /// <summary>
+    /// متن معرفی دسته/برند زیر فهرست کالاها (فقط صفحهٔ اول). متن HTML (مثلاً نوشتهٔ موتور سئو) پاک‌سازی می‌شود
+    /// و متن سادهٔ قدیمی به پاراگراف تبدیل می‌شود. این متن برای سئوی صفحه‌های دسته و برند لازم است.
+    /// </summary>
+    public string? ListingDescriptionHtml { get; private set; }
+
+    /// <summary>
     /// Brand and specification filters are category specific: without a category only the
     /// general filters (and the specs marked "ShowWithoutCategory") are offered.
     /// </summary>
@@ -198,6 +204,17 @@ public class SearchModel(
         return Page();
     }
 
+    /// <summary>توضیح دسته/برند به HTML امن. مثال: «خط اول\nخط دوم» → دو پاراگراف.</summary>
+    private string? DescriptionHtml(string? description)
+    {
+        if (PageNumber > 1 || string.IsNullOrWhiteSpace(description))
+            return null;
+        if (description.Contains('<'))
+            return Fratak_Shop.Core.Utilities.XssSecurity.SanitizeText(description);
+        return string.Concat(description.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line => $"<p>{System.Net.WebUtility.HtmlEncode(line)}</p>"));
+    }
+
     private async Task ApplySeoAsync()
     {
         if (Category is not null)
@@ -209,6 +226,7 @@ public class SearchModel(
             ViewData[PageMetaKeys.AlertCategoryId] = Category.Id;
             pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"), (Category.Name, $"/category/{Category.Slug}"));
             AddItemList();
+            ListingDescriptionHtml = DescriptionHtml(Category.Description);
         }
         else if (SingleBrand is not null)
         {
@@ -220,6 +238,7 @@ public class SearchModel(
             {
                 pageMeta.AddBreadcrumbs(ViewData, ("برندها", null), (SingleBrand.Name, $"/brand/{SingleBrand.Slug}"));
                 AddItemList();
+                ListingDescriptionHtml = DescriptionHtml(SingleBrand.Description);
             }
         }
         else if (!string.IsNullOrWhiteSpace(Query))

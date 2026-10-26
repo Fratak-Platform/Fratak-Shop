@@ -135,6 +135,13 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.Property(s => s.IsAnalyticsEnabled).HasDefaultValue(true).HasSentinel(true);
         builder.Property(s => s.AnalyticsRetentionDays).HasDefaultValue(400).HasSentinel(400);
         builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Analytics", "[AnalyticsRetentionDays] BETWEEN 30 AND 1500"));
+        builder.Property(s => s.IsSeoEngineEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SeoEngineRunsPerDay).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.SeoEngineBatchSize).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.SeoCompetitorResearch).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SeoAllowSlugChanges).HasDefaultValue(true).HasSentinel(true);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_SeoEngine",
+            "[SeoEngineRunsPerDay] BETWEEN 1 AND 6 AND [SeoEngineBatchSize] BETWEEN 5 AND 200"));
 
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",

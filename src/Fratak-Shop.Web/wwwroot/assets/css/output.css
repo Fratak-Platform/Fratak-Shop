@@ -3223,6 +3223,10 @@ video {
   padding-right: 2rem;
 }
 
+.ps-4 {
+  padding-inline-start: 1rem;
+}
+
 .ps-5 {
   padding-inline-start: 1.25rem;
 }

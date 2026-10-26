@@ -57,6 +57,15 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Shipping.PostTrackingQueue>();
         services.AddHostedService<Infrastructure.Shipping.PostTrackingWorker>();
 
+        // مرحلهٔ هفتم – فاز ۸: موتور هوشمند سئو (منابع رایگان اینترنتی با هندلر امن + صف اجرای فوری + زمان‌بند).
+        // ثبت AddSingleton بعد از TryAdd لایهٔ Core، منبع «آفلاین» پیش‌فرض را جایگزین می‌کند.
+        services.AddHttpClient(Infrastructure.SeoEngine.SeoWebSource.ClientName, Infrastructure.SeoEngine.SeoWebSource.Configure)
+            .ConfigurePrimaryHttpMessageHandler(Infrastructure.SeoEngine.SeoWebSource.CreateHandler)
+            .RemoveAllLoggers();
+        services.AddSingleton<Core.Services.Seo.Engine.ISeoWebSource, Infrastructure.SeoEngine.SeoWebSource>();
+        services.AddSingleton<Infrastructure.SeoEngine.SeoEngineQueue>();
+        services.AddHostedService<Infrastructure.SeoEngine.SeoEngineWorker>();
+
         // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.
         // RemoveAllLoggers: آدرس API ربات توکن را در خود دارد؛ لاگ پیش‌فرض HttpClient نباید آن را ثبت کند.
         services.AddHttpClient(Infrastructure.Insights.ReportDelivery.BotClientName, Infrastructure.Insights.ReportDelivery.Configure)

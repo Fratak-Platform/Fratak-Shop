@@ -238,6 +238,12 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (command.AnalyticsRetentionDays is < 30 or > 1500)
             return "مدت نگهداری آمار بازدید باید بین ۳۰ تا ۱۵۰۰ روز باشد.";
 
+        // موتور سئو: بیش از ۶ بار در روز فایده‌ای ندارد و فشار بی‌جا به منابع جست‌وجو می‌آورد.
+        if (command.SeoEngineRunsPerDay is < 1 or > 6)
+            return "تعداد اجرای موتور سئو در روز باید بین ۱ تا ۶ باشد.";
+        if (command.SeoEngineBatchSize is < 5 or > 200)
+            return "تعداد صفحه در هر اجرای موتور سئو باید بین ۵ تا ۲۰۰ باشد.";
+
         if (!string.IsNullOrWhiteSpace(command.XSiteHandle)
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
             return "نام کاربری ایکس (توییتر) معتبر نیست.";
