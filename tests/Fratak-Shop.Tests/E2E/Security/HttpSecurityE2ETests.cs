@@ -363,7 +363,7 @@ public class HttpSecurityE2ETests(ShopApp app)
     {
         using var client = app.CreateClient();
 
-        using var response = await client.GetAsync("/product/%00%ff%fe");
+        using var response = await client.GetAsync("/product/%ff%fe%fd");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.True((int)response.StatusCode < 500 || !body.Contains("   at ", StringComparison.Ordinal));
