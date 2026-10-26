@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Tests.E2E.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

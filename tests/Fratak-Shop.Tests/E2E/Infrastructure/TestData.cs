@@ -38,8 +38,10 @@ public static class TestData
             };
             db.Users.Add(user);
 
+            // استان تهران (پیک فروشگاه و پرداخت در محل فقط برای تهران فعال است).
+            var tehranId = Fratak_Shop.Data.Seeders.StoreDefaultsSeeder.TehranProvinceId;
             var province = await db.Locations.Where(l => l.Type == LocationType.Province && l.IsActive)
-                               .OrderByDescending(l => l.Name.Contains("تهران")).ThenBy(l => l.Name).FirstAsync();
+                               .OrderByDescending(l => l.Id == tehranId).ThenBy(l => l.Name).FirstAsync();
             var city = await db.Locations.Where(l => l.ParentId == province.Id && l.IsActive)
                            .OrderByDescending(l => l.Name.Contains("تهران")).ThenBy(l => l.Name).FirstAsync();
 
@@ -156,9 +158,12 @@ public static class TestData
                       ?? page.One("input[name='Input.AddressId']")?.GetAttribute("value")
                       ?? throw new Xunit.Sdk.XunitException("Checkout page has no address.\n" + ShopClient.Excerpt(page.Html));
 
-        var methods = page.All("input[name='Input.ShippingMethodId']").Select(i => i.GetAttribute("value")!).ToList();
+        // پرداخت در محل فقط با روش‌های ارسالی که data-cod="1" دارند (پست پیشتاز ندارد، پیک دارد).
+        var methods = page.All("input[name='Input.ShippingMethodId']")
+            .Where(i => method != PaymentMethod.CashOnDelivery || i.GetAttribute("data-cod") == "1")
+            .Select(i => i.GetAttribute("value")!).ToList();
         if (methods.Count == 0)
-            throw new Xunit.Sdk.XunitException("Checkout page offers no shipping method.\n" + ShopClient.Excerpt(page.Html));
+            throw new Xunit.Sdk.XunitException($"Checkout page offers no shipping method for {method}.\n" + ShopClient.Excerpt(page.Html));
 
         var withoutSlot = methods.FirstOrDefault(m => page.One($"#slots-{m}") is null);
         var fields = new List<(string, string)> { ("Input.AddressId", address), ("Input.PaymentMethod", method.ToString()), ("Input.Note", "سفارش آزمون") };
