@@ -51,14 +51,16 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         var proposal = SeoProposal.FromJson(suggestion.ProposalJson);
         Assert.Equal(SeoSuggestionStatus.Pending, suggestion.Status);
         Assert.True(suggestion.ScoreAfter > suggestion.ScoreBefore, $"{suggestion.ScoreBefore} → {suggestion.ScoreAfter}");
-        Assert.True(suggestion.Fields.HasFlag(SeoFields.Title));
+        // محصول آزمایشی توضیحات متا و کلمهٔ کلیدی ندارد؛ عنوانش (نام محصول) از نظر طول و کلمه مشکلی ندارد، پس
+        // موتور عنوان را عوض نمی‌کند (بخش‌های بی‌اثر هرس می‌شوند).
         Assert.True(suggestion.Fields.HasFlag(SeoFields.MetaDescription));
-        Assert.False(string.IsNullOrWhiteSpace(proposal.Title));
+        Assert.True(suggestion.Fields.HasFlag(SeoFields.FocusKeyword));
+        Assert.False(string.IsNullOrWhiteSpace(proposal.MetaDescription));
         Assert.NotEmpty(SeoJson.Deserialize<List<string>>(suggestion.ReasonsJson) ?? []);
 
         await using (var scope = db.Scope())
         {
-            var approved = await Engine(scope).ApproveAsync(suggestionId, SeoFields.Title, null, "تست");
+            var approved = await Engine(scope).ApproveAsync(suggestionId, SeoFields.MetaDescription, null, "تست");
             Assert.Equal(EnOperationResultStatus.Success, approved.Status);
         }
 
@@ -66,13 +68,13 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         {
             var context = Ctx(scope);
             var product = await context.Products.AsNoTracking().SingleAsync(p => p.Id == productId);
-            Assert.Equal(proposal.Title, product.Seo?.Title);
-            Assert.Null(product.Seo?.MetaDescription); // تیک نخورده بود
+            Assert.Equal(proposal.MetaDescription, product.Seo?.MetaDescription);
+            Assert.Null(product.Seo?.FocusKeyword); // تیک نخورده بود
             Assert.True(product.Seo?.IsReviewed);
 
             var applied = await context.SeoSuggestions.AsNoTracking().SingleAsync(s => s.Id == suggestionId);
             Assert.Equal(SeoSuggestionStatus.Applied, applied.Status);
-            Assert.Equal(SeoFields.Title, applied.AppliedFields);
+            Assert.Equal(SeoFields.MetaDescription, applied.AppliedFields);
             Assert.Equal("تست", applied.ReviewedByName);
 
             var score = await context.SeoScores.AsNoTracking().SingleAsync(s => s.Kind == SeoEntityKind.Product && s.EntityId == productId);
@@ -94,14 +96,14 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         Guid? nextId;
         await using (var scope = db.Scope())
         {
-            var rejected = await Engine(scope).RejectAsync(firstId, SeoFields.Title, "خیلی طولانی است", null, "تست");
+            var rejected = await Engine(scope).RejectAsync(firstId, SeoFields.MetaDescription, "خیلی طولانی است", null, "تست");
             Assert.Equal(EnOperationResultStatus.Success, rejected.Status);
             nextId = rejected.Data;
         }
 
         var old = await SuggestionAsync(firstId);
         Assert.Equal(SeoSuggestionStatus.Rejected, old.Status);
-        Assert.Equal(SeoFields.Title, old.RejectedFields);
+        Assert.Equal(SeoFields.MetaDescription, old.RejectedFields);
         Assert.Equal("خیلی طولانی است", old.RejectReason);
 
         Assert.NotNull(nextId);
@@ -109,7 +111,8 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         Assert.Equal(SeoSuggestionStatus.Pending, next.Status);
         Assert.Equal(old.Variant + 1, next.Variant);
         var second = SeoProposal.FromJson(next.ProposalJson);
-        Assert.NotEqual(PersianText.Normalize(first.Title), PersianText.Normalize(second.Title));
+        Assert.NotEqual(PersianText.Normalize(first.MetaDescription), PersianText.Normalize(second.MetaDescription));
+        Assert.Equal(first.FocusKeyword, second.FocusKeyword); // بخش ردنشده همان نسخهٔ قبل می‌ماند
     }
 
     [Fact]
