@@ -6213,6 +6213,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsDataMaskingEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -6328,6 +6331,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsReauthEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsRecommendationEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -6371,6 +6377,14 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsStaffTotpEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsStaffTotpRequired")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsSupplierSyncEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -6382,6 +6396,14 @@ namespace Fratak_Shop.Data.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<bool>("IsTwoFactorAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsTwoPersonApprovalEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsTwoPersonRoleChangeEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
@@ -6569,6 +6591,11 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<int>("ReauthMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(15);
+
                     b.Property<int>("ReferralCookieDays")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -6754,6 +6781,18 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal>("TwoPersonWalletThreshold")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)")
+                        .HasDefaultValue(1000000m);
+
+                    b.Property<decimal>("TwoPersonWithdrawalThreshold")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)")
+                        .HasDefaultValue(5000000m);
+
                     b.Property<int>("UnpaidOrderTimeoutMinutes")
                         .HasColumnType("int");
 
@@ -6837,6 +6876,8 @@ namespace Fratak_Shop.Data.Migrations
                             t.HasCheckConstraint("CK_StoreSettings_SeoEngine", "[SeoEngineRunsPerDay] BETWEEN 1 AND 6 AND [SeoEngineBatchSize] BETWEEN 5 AND 200");
 
                             t.HasCheckConstraint("CK_StoreSettings_SupplierSync", "[SupplierSyncRunsPerDay] BETWEEN 1 AND 24 AND [SupplierStockMarginPercent] BETWEEN 0 AND 90 AND [SupplierStockMaxQuantity] >= 1 AND [SupplierRequestDelayMs] >= 200");
+
+                            t.HasCheckConstraint("CK_StoreSettings_Team", "[ReauthMinutes] BETWEEN 5 AND 240 AND [TwoPersonWalletThreshold] >= 0 AND [TwoPersonWithdrawalThreshold] >= 0");
 
                             t.HasCheckConstraint("CK_StoreSettings_Values", "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 AND [WalletMinTopUpAmount] >= 0 AND [WalletMaxTopUpAmount] >= [WalletMinTopUpAmount] AND [WalletMinWithdrawalAmount] >= 0 AND [UnpaidOrderTimeoutMinutes] > 0 AND [DeliveryDaysAhead] > 0");
                         });
@@ -7521,6 +7562,157 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("SupportTicketMessages");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Team.ApprovalRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DecidedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DecidedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("DecisionNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("RequestedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequestedByName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ResultMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("TargetKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TargetUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestedById", "CreatedAt");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("TargetKey", "Status");
+
+                    b.ToTable("ApprovalRequests");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Team.StaffTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AssigneeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DueAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<byte>("Priority")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset?>("ReminderSentAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssigneeId", "IsDone", "DueAt");
+
+                    b.HasIndex("IsDone", "DueAt", "ReminderSentAt");
+
+                    b.ToTable("StaffTasks");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Users.CustomerNote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7691,6 +7883,20 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("TotpEnabledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("TotpLastStep")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TotpRecoveryCodes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("TotpSecretProtected")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
