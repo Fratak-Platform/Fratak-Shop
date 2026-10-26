@@ -247,7 +247,7 @@ public class StoreSetting : BaseEntity
     [MaxLength(500)]
     public string? AnnouncementUrl { get; set; }
 
-    /// <summary>Background colour (hex, e.g. #0284c7).</summary>
+    /// <summary>Background colour (hex, e.g. #0B1927 – brand navy).</summary>
     [MaxLength(20)]
     public string? AnnouncementColor { get; set; }
 

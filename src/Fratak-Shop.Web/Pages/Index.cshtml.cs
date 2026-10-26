@@ -148,7 +148,7 @@ public class IndexModel(
             ["@type"] = "OnlineStore",
             ["name"] = settings.SiteName,
             ["url"] = home,
-            ["logo"] = pageMeta.AbsoluteUrl(site.LogoUrl)!,
+            ["logo"] = pageMeta.AbsoluteUrl(site.LogoRasterUrl)!,
         };
         if (!string.IsNullOrWhiteSpace(settings.OrganizationLegalName))
             organization["legalName"] = settings.OrganizationLegalName;

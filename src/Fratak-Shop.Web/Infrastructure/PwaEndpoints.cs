@@ -18,7 +18,7 @@ public static class PwaEndpoints
             if (!settings.IsPwaEnabled)
                 return Results.NotFound();
 
-            var themeColor = SafeColor(settings.ThemeColor, "#0ea5e9");
+            var themeColor = SafeColor(settings.ThemeColor, BrandIdentity.DefaultThemeColor);
             var manifest = new Dictionary<string, object?>
             {
                 ["id"] = "/",
@@ -34,9 +34,11 @@ public static class PwaEndpoints
                 ["theme_color"] = themeColor,
                 ["icons"] = new object[]
                 {
-                    new { src = "/assets/image/pwa/icon-192.png", sizes = "192x192", type = "image/png", purpose = "any" },
-                    new { src = "/assets/image/pwa/icon-512.png", sizes = "512x512", type = "image/png", purpose = "any" },
-                    new { src = "/assets/image/pwa/maskable-512.png", sizes = "512x512", type = "image/png", purpose = "maskable" },
+                    // آیکون‌های هویت بصری (wwwroot/assets/brand): گرادیان برند با گوشهٔ گرد + نسخهٔ maskable تمام‌صفحه.
+                    new { src = BrandIdentity.AppIcon192, sizes = "192x192", type = "image/png", purpose = "any" },
+                    new { src = BrandIdentity.AppIcon512, sizes = "512x512", type = "image/png", purpose = "any" },
+                    new { src = BrandIdentity.AppIconMaskable192, sizes = "192x192", type = "image/png", purpose = "maskable" },
+                    new { src = BrandIdentity.AppIconMaskable512, sizes = "512x512", type = "image/png", purpose = "maskable" },
                 },
                 ["shortcuts"] = new object[]
                 {

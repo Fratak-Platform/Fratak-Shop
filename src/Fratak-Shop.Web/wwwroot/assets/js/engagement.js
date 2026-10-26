@@ -244,12 +244,12 @@
       chart.appendChild(svg("path", {
         d,
         fill: "none",
-        stroke: point.inStock ? "#0ea5e9" : "#a1a1aa",
+        stroke: point.inStock ? "#0069FD" : "#a1a1aa",
         "stroke-width": "2.5",
         "stroke-linejoin": "round",
         "stroke-dasharray": point.inStock ? "" : "5 4",
       }));
-      chart.appendChild(svg("circle", { cx: x1, cy: y1, r: "3", fill: point.inStock ? "#0ea5e9" : "#a1a1aa" }));
+      chart.appendChild(svg("circle", { cx: x1, cy: y1, r: "3", fill: point.inStock ? "#0069FD" : "#a1a1aa" }));
     });
 
     const label = (text, lx, anchor) => {
@@ -260,7 +260,7 @@
     label(points[0].date, PAD_X, "start");
     label("امروز", W - PAD_X, "end");
 
-    const cursor = svg("line", { y1: PAD_TOP, y2: H - PAD_BOTTOM, stroke: "#0ea5e9", "stroke-opacity": "0.4", visibility: "hidden" });
+    const cursor = svg("line", { y1: PAD_TOP, y2: H - PAD_BOTTOM, stroke: "#0069FD", "stroke-opacity": "0.4", visibility: "hidden" });
     chart.appendChild(cursor);
     const tip = el("div", "pointer-events-none absolute top-0 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-zinc-800 px-2 py-1 text-center text-[11px] text-white shadow");
     tip.setAttribute("dir", "rtl");

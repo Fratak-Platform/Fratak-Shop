@@ -83,15 +83,15 @@ public sealed class ReportDigest
         static string E(string? value) => WebUtility.HtmlEncode(value ?? "");
         var sb = new StringBuilder();
         sb.Append("<!doctype html><html lang=\"fa\" dir=\"rtl\"><head><meta charset=\"utf-8\"><title>").Append(E(Title)).Append("</title></head>");
-        sb.Append("<body style=\"margin:0;background:#f4f5f7;font-family:Tahoma,Vazirmatn,Arial,sans-serif;color:#1f2937\">");
+        sb.Append("<body style=\"margin:0;background:#f4f5f7;font-family:Vazirmatn,Tahoma,Arial,sans-serif;color:#0B1927\">");
         sb.Append("<div style=\"max-width:640px;margin:0 auto;padding:24px 12px\">");
-        sb.Append("<div style=\"background:#111827;color:#fff;border-radius:12px 12px 0 0;padding:18px 20px\">");
+        sb.Append("<div style=\"background:#0B1927;color:#fff;border-radius:12px 12px 0 0;padding:18px 20px;border-bottom:4px solid #0069FD\">");
         sb.Append("<div style=\"font-size:18px;font-weight:bold\">").Append(E(Title)).Append("</div>");
         sb.Append("<div style=\"font-size:13px;opacity:.8;margin-top:4px\">").Append(E(ShopName)).Append(" · ").Append(E(PeriodLabel)).Append("</div></div>");
         sb.Append("<div style=\"background:#fff;border-radius:0 0 12px 12px;padding:8px 20px 20px\">");
         foreach (var section in Sections)
         {
-            sb.Append("<h3 style=\"font-size:15px;margin:20px 0 8px;color:#111827;border-bottom:1px solid #e5e7eb;padding-bottom:6px\">").Append(E(section.Title)).Append("</h3>");
+            sb.Append("<h3 style=\"font-size:15px;margin:20px 0 8px;color:#0B1927;border-bottom:1px solid #e5e7eb;padding-bottom:6px\">").Append(E(section.Title)).Append("</h3>");
             sb.Append("<table role=\"presentation\" style=\"width:100%;border-collapse:collapse;font-size:13px\">");
             foreach (var line in section.Lines)
             {

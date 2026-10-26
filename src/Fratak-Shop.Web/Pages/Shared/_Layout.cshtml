@@ -8,16 +8,18 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <partial name="_MetaTags" />
-  <meta name="theme-color" content="@Site.ThemeColor">
-  <link rel="icon" href="@Site.FaviconUrl">
+  <partial name="_BrandHead" />
   @if (settings.IsPwaEnabled)
   {
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="apple-touch-icon" href="~/assets/image/pwa/apple-touch-icon.png">
+    if (!Site.UsesBrandFavicon)
+    {
+      @* فاوآیکن اختصاصی مدیر: آیکون iOS برای نصب PWA از برند می‌آید (با فاوآیکن برند، _BrandHead آن را گذاشته). *@
+      <link rel="apple-touch-icon" href="@BrandIdentity.AppleTouchIcon">
+    }
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="@(settings.PwaShortName ?? settings.SiteName)">
   }
-  <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
   @* Linked separately (not through main.css @import) so the browser downloads them in parallel. *@
   <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">

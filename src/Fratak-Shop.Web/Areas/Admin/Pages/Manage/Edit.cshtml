@@ -105,7 +105,7 @@
                   <input id="@fid" type="time" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required">
                   break;
                 case MKind.Color:
-                  <div class="flex gap-2"><input type="color" value="@(string.IsNullOrEmpty(value) ? "#4f46e5" : value)" class="h-10 w-12 rounded border" data-color-for="#@fid" aria-label="انتخاب رنگ"><input id="@fid" name="@f.Name" value="@value" class="a-input a-ltr" maxlength="20"></div>
+                  <div class="flex gap-2"><input type="color" value="@(string.IsNullOrEmpty(value) ? "#0069FD" : value)" class="h-10 w-12 rounded border" data-color-for="#@fid" aria-label="انتخاب رنگ"><input id="@fid" name="@f.Name" value="@value" class="a-input a-ltr" maxlength="20"></div>
                   break;
                 case MKind.Url:
                   <input id="@fid" type="text" name="@f.Name" value="@value" class="a-input a-ltr" placeholder="@(f.Placeholder ?? "/path یا https://")" required="@f.Required">

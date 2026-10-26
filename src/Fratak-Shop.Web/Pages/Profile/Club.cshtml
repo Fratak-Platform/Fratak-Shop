@@ -14,7 +14,7 @@
       <partial name="_ProfileSidebar" model="ProfileSection.Club" />
       <div class="md:w-9/12 mt-5 md:mt-0 space-y-6">
         <!-- summary -->
-        <section class="relative overflow-hidden rounded-2xl bg-gradient-to-bl from-sky-500 to-indigo-600 p-5 md:p-6 text-white shadow-lg">
+        <section class="relative overflow-hidden rounded-2xl bg-gradient-to-bl from-sky-500 to-sky-800 p-5 md:p-6 text-white shadow-lg">
           <div class="lg:flex items-start justify-between gap-6">
             <div class="max-w-xl">
               <div class="flex items-center gap-x-2">
@@ -31,7 +31,7 @@
                 <span class="text-sm text-sky-100">امتیاز قابل استفاده</span>
                 @if (summary.Tier is not null)
                 {
-                  <span class="rounded-full bg-white px-3 py-1 text-xs font-bold" style="color:@(summary.Tier.Color ?? "#0284c7")">سطح @summary.Tier.Name</span>
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-bold" style="color:@(summary.Tier.Color ?? "#0069FD")">سطح @summary.Tier.Name</span>
                 }
               </div>
               <div class="mt-2 flex items-end gap-x-2">

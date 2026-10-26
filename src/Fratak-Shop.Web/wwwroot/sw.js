@@ -7,16 +7,16 @@
  *  - web push: shows the notification sent by the shop and opens its (same-origin) link.
  * Bump VERSION to drop the old caches after changing this file.
  */
-const VERSION = "v2";
+const VERSION = "v3"; // v3: هویت بصری جدید (فونت Vazirmatn، لوگو و آیکون‌های برند)
 const CACHE = `fratak-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [
   OFFLINE_URL,
   "/assets/css/output.css",
   "/assets/css/font.css",
-  "/assets/font/YekanBakhFaNum-Regular.woff2",
-  "/assets/image/logo.png",
-  "/assets/image/pwa/icon-192.png",
+  "/assets/font/vazirmatn-fd-arabic-wght.woff2",
+  "/assets/brand/logo.svg",
+  "/assets/brand/app-icon-192.png",
 ];
 const CACHEABLE = /\.(?:css|js|woff2?|ttf)$/i;
 const MAX_ENTRIES = 60;
@@ -57,7 +57,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (!url.pathname.startsWith("/assets/") || !CACHEABLE.test(url.pathname)) return;
+  // Precached brand files (logo / icon of the offline page) are handled too, so they show up offline.
+  if (!url.pathname.startsWith("/assets/") || !(CACHEABLE.test(url.pathname) || PRECACHE.includes(url.pathname))) return;
 
   // Versioned assets (?v=hash) never change → cache first. Others → network first,
   // the cached copy is only used offline (so an edited file is never served stale).
@@ -98,8 +99,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/assets/image/pwa/icon-192.png",
-      badge: "/assets/image/pwa/icon-192.png",
+      icon: "/assets/brand/app-icon-192.png",
+      badge: "/assets/brand/notification-badge-96.png",
       tag: data.tag || undefined,
       renotify: !!data.tag,
       dir: "rtl",

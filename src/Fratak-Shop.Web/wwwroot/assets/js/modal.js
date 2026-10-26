@@ -21,7 +21,7 @@
   };
 
   const TONES = {
-    info: { ring: "bg-sky-100", fill: "#0284c7", ok: "bg-sky-500 hover:bg-sky-600 focus-visible:ring-sky-300" },
+    info: { ring: "bg-sky-100", fill: "#0069FD", ok: "bg-sky-500 hover:bg-sky-600 focus-visible:ring-sky-300" },
     success: { ring: "bg-emerald-100", fill: "#059669", ok: "bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-300" },
     warning: { ring: "bg-amber-100", fill: "#d97706", ok: "bg-sky-500 hover:bg-sky-600 focus-visible:ring-sky-300" },
     danger: { ring: "bg-red-100", fill: "#dc2626", ok: "bg-red-500 hover:bg-red-600 focus-visible:ring-red-300" },

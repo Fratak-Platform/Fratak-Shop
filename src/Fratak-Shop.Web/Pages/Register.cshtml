@@ -12,7 +12,7 @@
       </a>
       <form method="post" class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
         <input type="hidden" asp-for="ReturnUrl" />
-        <a asp-page="/Index"><img class="w-36 mx-auto" src="@Site.LogoUrl" alt="@Site.Settings.SiteName" width="144" height="40"></a>
+        <a asp-page="/Index">@await Html.PartialAsync("_BrandLogo", new BrandLogoModel("w-36 mx-auto", 144))</a>
         <h1 class="mt-5 text-lg font-semibold text-zinc-800">
           ثبت نام در سایت
         </h1>

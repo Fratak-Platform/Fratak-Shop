@@ -4,7 +4,7 @@ namespace Fratak_Shop.Web.Helpers;
 
 /// <summary>
 /// Formatting helpers used by the views. Digits are rendered with the
-/// YekanBakh "FaNum" font, so plain Latin digits show up as Persian digits.
+/// brand font (Vazirmatn, digits mapped to Persian shapes – wwwroot/assets/font/README.md), so plain Latin digits show up as Persian digits.
 /// </summary>
 public static class Format
 {

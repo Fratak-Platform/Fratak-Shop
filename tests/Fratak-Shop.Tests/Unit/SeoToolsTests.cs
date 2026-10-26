@@ -620,7 +620,7 @@ public class SeoToolsTests
     [Fact]
     public void Share_preview_cuts_long_texts_like_messengers()
     {
-        var model = new SharePreviewModel(new string('ا', 80), "توضیح کوتاه", "/assets/image/logo.png", "fratak.ir", "/product/a");
+        var model = new SharePreviewModel(new string('ا', 80), "توضیح کوتاه", "/assets/brand/og-default.png", "fratak.ir", "/product/a");
 
         Assert.True(model.TitleTooLong);
         Assert.False(model.DescriptionTooLong);

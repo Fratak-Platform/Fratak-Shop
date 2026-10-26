@@ -129,7 +129,7 @@ public class PageMetaService(
         viewData[PageMetaKeys.Robots] = BuildRobots(seo);
         viewData[PageMetaKeys.OgTitle] = string.IsNullOrWhiteSpace(seo?.OgTitle) ? (site.IsLoaded ? site.Title(title) : title) : seo!.OgTitle;
         viewData[PageMetaKeys.OgDescription] = string.IsNullOrWhiteSpace(seo?.OgDescription) ? description : seo!.OgDescription;
-        viewData[PageMetaKeys.OgImage] = AbsoluteUrl(imageUrl ?? settings?.DefaultOgImageUrl ?? "/assets/image/logo.png");
+        viewData[PageMetaKeys.OgImage] = AbsoluteUrl(imageUrl ?? settings?.DefaultOgImageUrl ?? Fratak_Shop.Web.Infrastructure.BrandIdentity.OgImage);
         viewData[PageMetaKeys.OgType] = string.IsNullOrWhiteSpace(seo?.OgType) ? ogType : seo!.OgType;
         viewData[PageMetaKeys.JsonLd] = SafeJsonLd(seo?.StructuredDataJsonLd);
         ApplyFaq(viewData, seo?.FaqJson);

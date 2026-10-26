@@ -7,7 +7,7 @@
       @foreach (var tier in Model.Program.Tiers)
       {
         var current = Model.Summary?.Tier?.Id == tier.Id;
-        <div class="rounded-2xl border border-t-4 bg-white p-4 @(current ? "ring-2 ring-sky-400" : "")" style="border-top-color:@(tier.Color ?? "#0ea5e9")">
+        <div class="rounded-2xl border border-t-4 bg-white p-4 @(current ? "ring-2 ring-sky-400" : "")" style="border-top-color:@(tier.Color ?? "#0069FD")">
           <div class="flex flex-wrap items-center justify-between gap-1">
             <h3 class="font-bold text-zinc-800">@tier.Name</h3>
             @if (current)

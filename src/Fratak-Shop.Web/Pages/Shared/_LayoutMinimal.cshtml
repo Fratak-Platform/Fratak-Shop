@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@Site.Title(title)</title>
   <meta name="robots" content="noindex, follow">
-  <link rel="icon" href="@Site.FaviconUrl">
+  <partial name="_BrandHead" />
   @* Linked separately (not through main.css @import) so the browser downloads them in parallel. *@
   <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">

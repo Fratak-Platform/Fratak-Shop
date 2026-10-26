@@ -37,8 +37,8 @@ public static class RateLimitingSetup
                 response.ContentType = "text/html; charset=utf-8";
                 await response.WriteAsync(
                     $"<!doctype html><html lang=\"fa\" dir=\"rtl\"><meta charset=\"utf-8\"><title>429</title>" +
-                    $"<body style=\"font-family:sans-serif;text-align:center;padding:4rem\"><h1>429</h1><p>{message}</p>" +
-                    "<p><a href=\"/\">بازگشت به صفحه اصلی</a></p></body></html>", token);
+                    $"<body style=\"font-family:Vazirmatn,Tahoma,sans-serif;text-align:center;padding:4rem;background:#FDFDFD;color:#0B1927\"><h1>429</h1><p>{message}</p>" +
+                    "<p><a href=\"/\" style=\"color:#0069FD\">بازگشت به صفحه اصلی</a></p></body></html>", token);
             };
         });
 

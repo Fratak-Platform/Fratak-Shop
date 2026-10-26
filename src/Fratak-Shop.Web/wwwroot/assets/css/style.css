@@ -62,20 +62,24 @@ html {
 }
 
 /* ── Rich text from the database (content pages, FAQ answers) ───────────── */
-.prose-content { line-height: 2; color: #3f3f46; overflow-wrap: anywhere; }
+.prose-content { line-height: 2; color: #3A4554; overflow-wrap: anywhere; }
 .prose-content > * + * { margin-top: 1rem; }
-.prose-content h2 { font-size: 1.25rem; font-weight: 700; color: #27272a; margin-top: 2rem; }
-.prose-content h3 { font-size: 1.1rem; font-weight: 600; color: #27272a; margin-top: 1.5rem; }
+.prose-content h2 { font-size: 1.25rem; font-weight: 700; color: #0B1927; margin-top: 2rem; }
+.prose-content h3 { font-size: 1.1rem; font-weight: 600; color: #0B1927; margin-top: 1.5rem; }
 .prose-content ul, .prose-content ol { padding-inline-start: 1.5rem; }
 .prose-content ul { list-style: disc; }
 .prose-content ol { list-style: decimal; }
 .prose-content li + li { margin-top: .35rem; }
-.prose-content a { color: #0284c7; text-decoration: underline; text-underline-offset: 4px; }
-.prose-content strong, .prose-content b { font-weight: 700; color: #18181b; }
+.prose-content a { color: #0069FD; text-decoration: underline; text-underline-offset: 4px; }
+.prose-content strong, .prose-content b { font-weight: 700; color: #0B1927; }
 .prose-content img { max-width: 100%; height: auto; border-radius: .75rem; }
 .prose-content table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-.prose-content th, .prose-content td { border: 1px solid #e4e4e7; padding: .5rem .75rem; }
-.prose-content blockquote { border-inline-start: 4px solid #bae6fd; padding-inline-start: 1rem; color: #52525b; }
+.prose-content th, .prose-content td { border: 1px solid #E4E8EE; padding: .5rem .75rem; }
+.prose-content blockquote { border-inline-start: 4px solid #ADD6FF; padding-inline-start: 1rem; color: #4D5868; }
 
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
+
+/* ── لوگوی برند (Pages/Shared/_BrandLogo.cshtml) ─────────────────────────
+   نسخهٔ سفید لوگو فقط در حالت تیره دیده می‌شود (dark.css جای دو تصویر را عوض می‌کند). */
+.brand-logo-dark { display: none; }

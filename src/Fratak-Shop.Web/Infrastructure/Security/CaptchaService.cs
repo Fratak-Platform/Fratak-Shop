@@ -150,7 +150,7 @@ public static class CaptchaImage
         ['9'] = [[(10, 6), (6, 9), (2, 9), (0, 6), (1, 2), (5, 0), (9, 1), (10, 6), (9, 12), (5, 16), (1, 15)]],
     };
 
-    private static readonly string[] Colors = ["#0369a1", "#0f766e", "#7c3aed", "#b45309", "#be123c", "#334155"];
+    private static readonly string[] Colors = ["#0069FD", "#0f766e", "#7c3aed", "#b45309", "#be123c", "#0B1927"];
 
     public static string Render(string code)
     {

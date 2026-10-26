@@ -20,7 +20,7 @@
         <tbody>
           @foreach (var h in Model.Items)
           {
-            <tr class="@(Model.Editing?.Id == h.Id ? "bg-indigo-50/60" : "")">
+            <tr class="@(Model.Editing?.Id == h.Id ? "bg-sky-50/60" : "")">
               <td><a class="a-link" href="/admin/help?id=@h.Id">@h.Title</a></td>
               <td class="a-ltr text-xs a-muted">@h.Path</td>
               <td>@if (h.IsCustomized) { <span class="a-badge a-badge-purple">ویرایش‌شده</span> }</td>

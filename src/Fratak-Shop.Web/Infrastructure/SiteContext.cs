@@ -31,11 +31,26 @@ public interface ISiteContext
     /// <summary>False for links to features turned off in the settings (club, order tracking, wallet).</summary>
     bool IsLinkEnabled(string? url);
 
-    /// <summary>Safe logo URL (configured one, or the bundled logo).</summary>
+    /// <summary>Safe logo URL (configured one, or the brand logo <see cref="BrandIdentity.Logo"/>).</summary>
     string LogoUrl { get; }
 
-    /// <summary>Safe favicon URL (configured one, else the logo).</summary>
+    /// <summary>
+    /// لوگو برای حالت تیره: اگر مدیر لوگوی خودش را گذاشته همان (نسخهٔ تیره ندارد)، وگرنه لوگوی سفید برند.
+    /// محل استفاده: partial «_BrandLogo» (هدر، ورود، ثبت‌نام).
+    /// </summary>
+    string LogoDarkUrl { get; }
+
+    /// <summary>نسخهٔ PNG لوگو (schema.org، فاکتور PDF): لوگوی مدیر یا <see cref="BrandIdentity.LogoPng"/>.</summary>
+    string LogoRasterUrl { get; }
+
+    /// <summary>True وقتی لوگوی پیش‌فرض برند استفاده می‌شود (مدیر لوگوی دیگری نگذاشته).</summary>
+    bool UsesBrandLogo { get; }
+
+    /// <summary>Safe favicon URL (configured one, else the brand favicon <see cref="BrandIdentity.FaviconSvg"/>).</summary>
     string FaviconUrl { get; }
+
+    /// <summary>True وقتی مدیر فاوآیکن اختصاصی نگذاشته و فاوآیکن‌های برند (svg + ico + apple) لینک می‌شوند.</summary>
+    bool UsesBrandFavicon { get; }
 
     /// <summary>True when the announcement bar is on and has a text.</summary>
     bool ShowAnnouncement { get; }
@@ -67,20 +82,26 @@ public class SiteContext(
     public IReadOnlyList<MenuDto> Menus { get; private set; } = [];
     public bool IsLoaded => _settings is not null;
 
-    public string LogoUrl => Helpers.UrlSafety.Link(Settings.LogoUrl, DefaultLogo);
+    public string LogoUrl => Helpers.UrlSafety.Link(Settings.LogoUrl, BrandIdentity.Logo);
 
-    public string FaviconUrl => Helpers.UrlSafety.Link(Settings.FaviconUrl, LogoUrl);
+    public bool UsesBrandLogo => !Helpers.UrlSafety.IsSafeLink(Settings.LogoUrl);
+
+    public string LogoDarkUrl => UsesBrandLogo ? BrandIdentity.LogoOnDark : LogoUrl;
+
+    public string LogoRasterUrl => UsesBrandLogo ? BrandIdentity.LogoPng : LogoUrl;
+
+    public bool UsesBrandFavicon => !Helpers.UrlSafety.IsSafeLink(Settings.FaviconUrl);
+
+    public string FaviconUrl => Helpers.UrlSafety.Link(Settings.FaviconUrl, BrandIdentity.FaviconSvg);
 
     public bool ShowAnnouncement => Settings.IsAnnouncementEnabled && !string.IsNullOrWhiteSpace(Settings.AnnouncementText);
 
-    public string AnnouncementColor => SafeColor(Settings.AnnouncementColor, "#0369a1");
+    public string AnnouncementColor => SafeColor(Settings.AnnouncementColor, BrandIdentity.DefaultAnnouncementColor);
 
-    public string ThemeColor => SafeColor(Settings.ThemeColor, "#0ea5e9");
+    public string ThemeColor => SafeColor(Settings.ThemeColor, BrandIdentity.DefaultThemeColor);
 
     private static string SafeColor(string? value, string fallback) =>
         value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$") ? value : fallback;
-
-    private const string DefaultLogo = "/assets/image/logo.png";
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {

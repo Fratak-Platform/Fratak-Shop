@@ -127,6 +127,30 @@ expect 200 /manifest.webmanifest
 contains '"short_name"'
 expect 200 /sw.js
 expect 200 /offline.html
+contains '/assets/brand/logo.svg'
+# Visual identity (docs/BRAND.md): brand logo / favicons / icons / fonts are served, the manifest uses the
+# brand icons and navy theme colour, and the old template brand (YekanBakh, /assets/image/pwa) is gone.
+expect 200 /favicon.ico
+expect 200 /assets/brand/logo.svg
+expect 200 /assets/brand/logo-on-dark.svg
+expect 200 /assets/brand/favicon.svg
+expect 200 /assets/brand/app-icon-512.png
+expect 200 /assets/brand/app-icon-maskable-512.png
+expect 200 /assets/brand/og-default.png
+expect 200 /assets/font/vazirmatn-fd-arabic-wght.woff2
+expect 200 /assets/font/vazirmatn-latin-wght.woff2
+expect 200 /manifest.webmanifest
+contains '/assets/brand/app-icon-maskable-512.png'
+contains '"theme_color":"#0B1927"'
+lacks '/assets/image/pwa/'
+expect 200 /
+contains '/assets/brand/logo.svg'
+contains '/assets/brand/logo-on-dark.svg'
+contains '/assets/brand/favicon.svg'
+contains 'content="#0B1927"'
+lacks 'YekanBakh'
+expect 200 /login
+contains '/assets/brand/logo.svg'
 # Specification filters (f-{slug}): water resistance IPX5 -> Haylou only.
 # Without a category only general filters: no brand or specification boxes.
 expect 200 /search

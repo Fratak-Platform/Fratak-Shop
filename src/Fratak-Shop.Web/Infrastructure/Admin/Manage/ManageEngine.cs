@@ -422,7 +422,7 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
                     if (field.Kind == MKind.Url && raw is not null && !IsSafeUrl(raw))
                         return $"«{field.Label}» باید با / شروع شود یا آدرس کامل http(s) باشد.";
                     if (field.Kind == MKind.Color && raw is not null && !System.Text.RegularExpressions.Regex.IsMatch(raw, "^#[0-9a-fA-F]{3,8}$"))
-                        return $"«{field.Label}» باید کد رنگ مانند #4f46e5 باشد.";
+                        return $"«{field.Label}» باید کد رنگ مانند #0069FD باشد.";
                     if (raw is null && field.Required)
                         return required;
                     property.SetValue(entity, raw);

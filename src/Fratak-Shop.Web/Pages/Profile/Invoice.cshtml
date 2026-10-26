@@ -19,8 +19,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>@Site.Title(Model.IsFinal ? $"فاکتور {order.InvoiceNumber}" : $"پیش‌فاکتور {order.OrderNumber}")</title>
-  <link rel="icon" href="@Site.FaviconUrl">
-  <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <partial name="_BrandHead" />
   <link rel="stylesheet" href="~/assets/css/invoice.css" asp-append-version="true">
 </head>
 <body class="inv-body" data-auto-print="@(Model.AutoPrint ? "1" : null)">
@@ -39,7 +38,7 @@
     <article id="invoice" class="inv-sheet" data-invoice-sheet>
       <header class="inv-header">
         <div class="inv-brand">
-          <img src="@Site.LogoUrl" alt="@settings.SiteName" width="144" height="40">
+          <img src="@Site.LogoRasterUrl" alt="@settings.SiteName" width="130" height="40">
           <div class="inv-brand-name">@sellerName</div>
         </div>
         <div class="inv-title">

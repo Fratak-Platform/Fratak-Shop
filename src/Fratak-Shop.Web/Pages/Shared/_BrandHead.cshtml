@@ -1,0 +1,19 @@
+@*
+  تگ‌های مشترک <head> برای هویت بصری: فاوآیکن‌ها، آیکون iOS، رنگ نوار مرورگر و پیش‌بارگذاری فونت اصلی.
+  - فاوآیکن: اگر مدیر «آدرس فاوآیکن» نگذاشته، فاوآیکن‌های برند (ICO برای مرورگرهای قدیمی + SVG) لینک می‌شوند.
+  - رنگ نوار مرورگر: تنظیم ThemeColor یا سرمه‌ای برند (BrandIdentity.DefaultThemeColor).
+  - فونت: فقط فایل حروف فارسی/ارقام Vazirmatn پیش‌بارگذاری می‌شود (همان که در همهٔ صفحه‌ها لازم است).
+  محل استفاده: _Layout، _LayoutMinimal، _AdminLayout و صفحهٔ فاکتور.
+*@
+<meta name="theme-color" content="@Site.ThemeColor">
+@if (Site.UsesBrandFavicon)
+{
+  <link rel="icon" href="@BrandIdentity.FaviconIco" sizes="48x48">
+  <link rel="icon" href="@BrandIdentity.FaviconSvg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="@BrandIdentity.AppleTouchIcon">
+}
+else
+{
+  <link rel="icon" href="@Site.FaviconUrl">
+}
+<link rel="preload" href="/assets/font/vazirmatn-fd-arabic-wght.woff2" as="font" type="font/woff2" crossorigin>

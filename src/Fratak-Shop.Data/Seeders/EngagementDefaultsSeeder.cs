@@ -46,6 +46,44 @@ public static class EngagementDefaultsSeeder
 
         // Round 7 (پیام‌های آماده و ...)
         await Round7DefaultsSeeder.SeedAsync(context, cancellationToken);
+
+        // هویت بصری فراتک شاپ
+        await ApplyBrandColorsAsync(context, cancellationToken);
+    }
+
+    /// <summary>
+    /// سرمه‌ای برند (Visual-Identities/Fratak-Shop/tokens.css → --fr-navy). همان مقدار
+    /// <c>BrandIdentity.Navy</c> در پروژهٔ Web؛ اینجا تکرار شده چون پروژهٔ Data به Web دسترسی ندارد.
+    /// </summary>
+    private const string BrandNavy = "#0B1927";
+
+    /// <summary>
+    /// انتقال نصب‌های قبلی به رنگ‌های هویت بصری: فقط اگر «رنگ اصلی» و «رنگ نوار اطلاعیه» هنوز همان
+    /// مقدارهای پیش‌فرض قدیمی قالب (آبی آسمانی #0ea5e9 و #0369a1) باشند، با سرمه‌ای برند جایگزین می‌شوند.
+    /// رنگی که مدیر خودش انتخاب کرده دست نمی‌خورد؛ اجرای دوباره هم کاری نمی‌کند (چون دیگر مقدار قدیمی نیست).
+    /// محل صدا زدن: انتهای <see cref="SeedAsync"/>.
+    /// </summary>
+    private static async Task ApplyBrandColorsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    {
+        var settings = await context.StoreSettings.AsTracking().OrderBy(s => s.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        if (settings is null)
+            return;
+
+        var changed = false;
+        if (string.Equals(settings.ThemeColor, "#0ea5e9", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.ThemeColor = BrandNavy;
+            changed = true;
+        }
+
+        if (string.Equals(settings.AnnouncementColor, "#0369a1", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.AnnouncementColor = BrandNavy;
+            changed = true;
+        }
+
+        if (changed)
+            await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>Texts of the round-4 settings (club description, install suggestion) – once, when still empty.</summary>
@@ -241,7 +279,7 @@ public static class EngagementDefaultsSeeder
         if (settings is null || settings.ThemeColor is not null || settings.PwaShortName is not null || settings.LoyaltyProgramName is not null)
             return;
 
-        settings.ThemeColor = "#0ea5e9";
+        settings.ThemeColor = BrandNavy;
         settings.PwaShortName = "فراتک شاپ";
         settings.LoyaltyProgramName = "باشگاه مشتریان فراتک";
         settings.LoyaltyPointsExpireDays = 365;
@@ -250,7 +288,7 @@ public static class EngagementDefaultsSeeder
         settings.IsAnnouncementEnabled = true;
         settings.AnnouncementText = "🎁 ۱۰٪ تخفیف اولین خرید با کد WELCOME10 | عضویت رایگان در باشگاه مشتریان";
         settings.AnnouncementUrl = "/club";
-        settings.AnnouncementColor = "#0369a1";
+        settings.AnnouncementColor = BrandNavy;
         settings.InvoiceNote ??= "کالای فروخته‌شده تا ۷ روز با حفظ شرایط اولیه قابل بازگشت است. از خرید شما سپاسگزاریم.";
 
         await context.SaveChangesAsync(cancellationToken);
@@ -459,7 +497,7 @@ public static class EngagementDefaultsSeeder
                 new LoyaltyTier { Name = "برنزی", MinLifetimePoints = 0, PointsMultiplier = 1m, Color = "#b45309", Benefits = "دریافت امتیاز از هر خرید و فعالیت", DisplayOrder = 1 },
                 silver,
                 new LoyaltyTier { Name = "طلایی", MinLifetimePoints = 6000, PointsMultiplier = 1.5m, Color = "#d97706", Benefits = "۵۰٪ امتیاز بیشتر و جوایز ویژه", DisplayOrder = 3 },
-                new LoyaltyTier { Name = "الماسی", MinLifetimePoints = 15000, PointsMultiplier = 2m, Color = "#0284c7", Benefits = "امتیاز دوبرابر در همه خریدها", DisplayOrder = 4 });
+                new LoyaltyTier { Name = "الماسی", MinLifetimePoints = 15000, PointsMultiplier = 2m, Color = "#0069FD", Benefits = "امتیاز دوبرابر در همه خریدها", DisplayOrder = 4 });
         }
 
         if (!await context.LoyaltyRewards.IgnoreQueryFilters().AnyAsync(cancellationToken))

@@ -25,7 +25,7 @@
       <ul class="divide-y divide-gray-100">
         @foreach (var n in Model.Items.Items)
         {
-          <li class="flex items-start gap-3 p-4 @(n.IsRead ? "" : "bg-indigo-50/40")">
+          <li class="flex items-start gap-3 p-4 @(n.IsRead ? "" : "bg-sky-50/40")">
             <span class="a-badge @IndexModel.KindBadge(n.Kind) shrink-0">@IndexModel.KindTitle(n.Kind)</span>
             <div class="min-w-0 flex-1">
               @if (n.Url is not null)

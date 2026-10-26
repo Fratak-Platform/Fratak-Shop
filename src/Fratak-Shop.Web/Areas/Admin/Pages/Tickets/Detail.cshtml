@@ -34,7 +34,7 @@
   <div class="xl:col-span-2 a-stack">
     @foreach (var m in Model.Messages)
     {
-      <div class="a-card @(m.IsStaff ? "border-sky-200" : "")" style="@(m.IsStaff ? "background:#f0f9ff" : "")">
+      <div class="a-card @(m.IsStaff ? "a-card-staff" : "")">
         <div class="a-card-body">
           <div class="flex flex-wrap items-center justify-between gap-2 text-sm mb-2">
             <b>@(m.IsStaff ? $"{m.AuthorName}{(string.IsNullOrEmpty(m.StaffName) ? "" : $" ({m.StaffName})")}" : m.AuthorName)</b>

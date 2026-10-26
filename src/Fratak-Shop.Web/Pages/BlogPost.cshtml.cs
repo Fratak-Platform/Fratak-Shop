@@ -99,7 +99,7 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
             {
                 ["@type"] = "Organization",
                 ["name"] = settings.SiteName,
-                ["logo"] = new Dictionary<string, object?> { ["@type"] = "ImageObject", ["url"] = pageMeta.AbsoluteUrl(site.LogoUrl) },
+                ["logo"] = new Dictionary<string, object?> { ["@type"] = "ImageObject", ["url"] = pageMeta.AbsoluteUrl(site.LogoRasterUrl) },
             },
             ["mainEntityOfPage"] = new Dictionary<string, object?> { ["@type"] = "WebPage", ["@id"] = url },
             ["commentCount"] = Comments.Count,

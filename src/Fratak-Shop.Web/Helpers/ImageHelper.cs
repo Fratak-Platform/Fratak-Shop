@@ -11,7 +11,8 @@ public static class ImageHelper
     public const string CategoryPlaceholder = "/assets/image/category/1.webp";
     public const string BlogPlaceholder = "/assets/image/blog/1.jpg";
     public const string BannerPlaceholder = "/assets/image/heroSlider/1.webp";
-    public const string BrandPlaceholder = "/assets/image/logo.png";
+    /// <summary>Product brands without a logo show the shop's brand mark (visual identity).</summary>
+    public const string BrandPlaceholder = Fratak_Shop.Web.Infrastructure.BrandIdentity.MarkPng;
 
     public static string Product(string? imageName) => Resolve(imageName, "products", ProductPlaceholder);
 

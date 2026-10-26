@@ -187,8 +187,8 @@
       if (!registration) return;
       registration.showNotification(data.title || "اعلان جدید", {
         body: data.body || "",
-        icon: "/assets/image/pwa/icon-192.png",
-        badge: "/assets/image/pwa/icon-192.png",
+        icon: "/assets/brand/app-icon-192.png",
+        badge: "/assets/brand/notification-badge-96.png",
         tag,
         dir: "rtl",
         lang: "fa",

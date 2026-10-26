@@ -29,8 +29,8 @@ public static class SettingsRegistry
         new("general", "عمومی", "Storefront", "نام، معرفی و ظاهر فروشگاه",
         [
             T("SiteName", "نام فروشگاه"), T("Tagline", "شعار"), A("SiteDescription", "معرفی کوتاه فروشگاه", "در فوتر و توضیحات پیش‌فرض متا استفاده می‌شود."),
-            U("LogoUrl", "آدرس لوگو", "خالی = لوگوی پیش‌فرض"), U("FaviconUrl", "آدرس فاوآیکن"),
-            new("ThemeColor", "رنگ اصلی (PWA و نوار مرورگر)", SKind.Color),
+            U("LogoUrl", "آدرس لوگو", "خالی = لوگوی هویت بصری فراتک شاپ (با نسخهٔ سفید برای حالت تیره)"), U("FaviconUrl", "آدرس فاوآیکن", "خالی = فاوآیکن‌های برند (SVG، ICO و آیکون iOS)"),
+            new("ThemeColor", "رنگ اصلی (PWA و نوار مرورگر)", SKind.Color, "خالی = سرمه‌ای برند #0B1927"),
             B("IsDarkModeEnabled", "حالت تاریک برای مشتریان"),
             new("DefaultTheme", "پوسته پیش‌فرض", SKind.Select) { Options = [("0", "روشن"), ("1", "تاریک"), ("2", "مطابق دستگاه")] },
         ]),

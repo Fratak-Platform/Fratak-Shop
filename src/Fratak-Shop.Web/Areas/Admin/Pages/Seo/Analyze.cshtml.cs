@@ -105,6 +105,6 @@ public class AnalyzeModel(ISeoEngineService engine, ISearchConsoleService gsc, I
         var store = await settings.GetAsync(ct);
         var title = string.IsNullOrWhiteSpace(ogTitle) ? SeoEngineUi.FullTitle(subject.EffectiveTitle, siteName) : ogTitle;
         var description = string.IsNullOrWhiteSpace(ogDescription) ? subject.EffectiveDescription : ogDescription;
-        return new SharePreviewModel(title, description, image ?? store.DefaultOgImageUrl ?? "/assets/image/logo.png", Request.Host.Host, subject.Path);
+        return new SharePreviewModel(title, description, image ?? store.DefaultOgImageUrl ?? Fratak_Shop.Web.Infrastructure.BrandIdentity.OgImage, Request.Host.Host, subject.Path);
     }
 }

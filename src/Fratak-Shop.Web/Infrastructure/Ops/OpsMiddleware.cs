@@ -135,12 +135,15 @@ public static class MaintenanceRules
             <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
             <title>در حال به‌روزرسانی – {{name}}</title>
             <link rel="stylesheet" href="/assets/css/output.css">
+            <link rel="stylesheet" href="/assets/css/font.css">
+            <link rel="icon" href="{{BrandIdentity.FaviconSvg}}" type="image/svg+xml">
+            <meta name="theme-color" content="{{BrandIdentity.Navy}}">
             <style>
-            body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#0f172a;padding:24px}
-            .box{max-width:480px;width:100%;background:#fff;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 10px 40px rgba(15,23,42,.08)}
-            .icon{width:72px;height:72px;margin:0 auto 18px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:34px}
+            body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FDFDFD;color:#0B1927;padding:24px}
+            .box{max-width:480px;width:100%;background:#fff;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 10px 40px rgba(11,25,39,.08);border-top:4px solid #0069FD}
+            .icon{width:72px;height:72px;margin:0 auto 18px;border-radius:50%;background:#EBF5FF;display:flex;align-items:center;justify-content:center;font-size:34px}
             h1{font-size:22px;margin:0 0 12px}p{line-height:2;color:#475569;margin:0}.eta{margin-top:18px;font-size:13px;color:#64748b}
-            @media (prefers-color-scheme:dark){body{background:#0b1220;color:#e2e8f0}.box{background:#111827;box-shadow:none}p{color:#cbd5e1}.icon{background:#1e293b} }
+            @media (prefers-color-scheme:dark){body{background:#0B1927;color:#E1E8F1}.box{background:#102132;box-shadow:none}p{color:#C9D4E1}.icon{background:#182E44} }
             </style>
             </head>
             <body>

@@ -219,6 +219,16 @@ npm install
 npm run build:css     # یا npm run watch:css هنگام توسعه
 ```
 
+## هویت بصری
+
+هویت بصری فراتک شاپ (پوشهٔ `Visual-Identities/Fratak-Shop`) در کل پروژه اعمال شده است؛ راهنمای کامل: [`docs/BRAND.md`](docs/BRAND.md).
+
+- رنگ‌ها: آبی برند `#0069FD`، سرمه‌ای `#0B1927`، گرادیان آیکون `#019BFF → #0156FE`. پالت‌های `sky`/`blue` و `zinc` در Tailwind با این
+  رنگ‌ها بازتعریف شده‌اند (کلاس‌های تازه: `brand-*`، `ink`، `font-brand`)؛ پنل مدیریت و حالت تیره هم روی همین رنگ‌ها ساخته شده‌اند.
+- فونت: Vazirmatn (فارسی، ارقام فارسی) و Space Grotesk (لاتین برند)، هر دو متغیر و با مجوز آزاد OFL.
+- لوگو، نشان، فاوآیکن‌ها، آیکون‌های PWA (معمولی و maskable)، badge اعلان و تصویر پیش‌فرض اشتراک‌گذاری در `wwwroot/assets/brand`؛
+  مسیرها و رنگ‌ها در کد فقط از `Infrastructure/BrandIdentity.cs` خوانده می‌شوند.
+
 ## Migration
 
 ```bash

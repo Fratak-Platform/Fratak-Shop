@@ -3,7 +3,6 @@
     var cart = Model.Cart;
     var cartItems = cart?.Items ?? [];
     var siteName = Site.Settings.SiteName;
-    var logo = Site.LogoUrl;
     const string megaLink = "flex items-center gap-x-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-sky-50 hover:text-sky-600 transition";
 }
 <header class="fixed w-full border-b z-40 bg-white">
@@ -32,7 +31,7 @@
         <nav class="bg-white w-9/12 h-full py-5 drop-shadow-2xl max-w-md overflow-y-auto overscroll-contain" aria-label="منوی اصلی">
           <div class="mx-auto mb-5">
             <a asp-page="/Index">
-              <img class="w-44 mx-auto" src="@logo" alt="@siteName" width="176" height="48">
+              @await Html.PartialAsync("_BrandLogo", new BrandLogoModel("w-44 mx-auto", 176))
             </a>
           </div>
           <ul class="flex flex-col gap-y-3 px-2">
@@ -153,7 +152,7 @@
       <!-- logo -->
       <div class="mr-0 md:mr-5">
         <a asp-page="/Index" aria-label="@siteName">
-          <img class="w-32 md:w-44" src="@logo" alt="@siteName" width="176" height="48">
+          @await Html.PartialAsync("_BrandLogo", new BrandLogoModel("w-32 md:w-44", 176))
         </a>
       </div>
       <!-- search input -->

@@ -4,7 +4,7 @@
  */
 .fa-jp {
   position: absolute; z-index: 1200; width: 272px; padding: 10px; direction: rtl;
-  background: #fff; color: #1f2937; border: 1px solid #e5e7eb; border-radius: 14px;
+  background: #fff; color: #0B1927; border: 1px solid #e5e7eb; border-radius: 14px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, .18); font-size: 13px; user-select: none;
 }
 .fa-jp[hidden] { display: none !important; }
@@ -15,30 +15,30 @@
 .fa-jp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
 .fa-jp-week { font-size: 11px; color: #9ca3af; padding: 4px 0; }
 .fa-jp-day { height: 32px; border-radius: 9px; font-size: 13px; color: inherit; }
-.fa-jp-day:hover { background: #eef2ff; }
+.fa-jp-day:hover { background: #EBF5FF; }
 .fa-jp-day.is-friday { color: #dc2626; }
-.fa-jp-day.is-today { box-shadow: inset 0 0 0 1px #6366f1; }
-.fa-jp-day.is-selected { background: #4f46e5; color: #fff; }
+.fa-jp-day.is-today { box-shadow: inset 0 0 0 1px #2E86FF; }
+.fa-jp-day.is-selected { background: #0069FD; color: #fff; }
 .fa-jp-time { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 8px; direction: ltr; }
 .fa-jp-time label { display: flex; align-items: center; gap: 6px; direction: rtl; }
 .fa-jp-time input { width: 44px; text-align: center; padding: 4px; border: 1px solid #e5e7eb; border-radius: 8px; background: transparent; color: inherit; }
 .fa-jp-foot { display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #f3f4f6; padding-top: 8px; }
-.fa-jp-foot button { flex: 1; padding: 6px; border-radius: 9px; font-size: 12px; background: #f3f4f6; color: #374151; }
+.fa-jp-foot button { flex: 1; padding: 6px; border-radius: 9px; font-size: 12px; background: #f3f4f6; color: #1E3750; }
 .fa-jp-foot button:hover { background: #e5e7eb; }
 
-.fa-money-words { margin-top: 4px; font-size: 12px; color: #4f46e5; min-height: 1em; line-height: 1.6; }
+.fa-money-words { margin-top: 4px; font-size: 12px; color: #0069FD; min-height: 1em; line-height: 1.6; }
 .fa-money-words:empty { display: none; }
 
 .fa-amount { cursor: help; border-bottom: 1px dotted currentColor; text-decoration: none; }
 .fa-amount-bubble {
   position: absolute; z-index: 1200; max-width: 260px; padding: 6px 10px; border-radius: 10px;
-  background: #111827; color: #fff; font-size: 12px; line-height: 1.7; box-shadow: 0 8px 20px rgba(0,0,0,.2);
+  background: #0B1927; color: #fff; font-size: 12px; line-height: 1.7; box-shadow: 0 8px 20px rgba(0,0,0,.2);
 }
 .fa-amount-bubble[hidden] { display: none !important; }
 
-html.dark .fa-jp, html[data-theme="dark"] .fa-jp { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+html.dark .fa-jp, html[data-theme="dark"] .fa-jp { background: #13273A; color: #E1E8F1; border-color: #22394F; }
 html.dark .fa-jp-head button:hover, html[data-theme="dark"] .fa-jp-head button:hover,
-html.dark .fa-jp-day:hover, html[data-theme="dark"] .fa-jp-day:hover { background: #374151; }
-html.dark .fa-jp-foot button, html[data-theme="dark"] .fa-jp-foot button { background: #374151; color: #e5e7eb; }
-html.dark .fa-jp-foot, html[data-theme="dark"] .fa-jp-foot { border-color: #374151; }
-html.dark .fa-money-words, html[data-theme="dark"] .fa-money-words { color: #a5b4fc; }
+html.dark .fa-jp-day:hover, html[data-theme="dark"] .fa-jp-day:hover { background: #1E3750; }
+html.dark .fa-jp-foot button, html[data-theme="dark"] .fa-jp-foot button { background: #1E3750; color: #e5e7eb; }
+html.dark .fa-jp-foot, html[data-theme="dark"] .fa-jp-foot { border-color: #1E3750; }
+html.dark .fa-money-words, html[data-theme="dark"] .fa-money-words { color: #70B8FF; }

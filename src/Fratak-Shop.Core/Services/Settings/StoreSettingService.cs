@@ -118,7 +118,7 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
             return round5;
 
         if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor))
-            return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0ea5e9).";
+            return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0069FD).";
 
         if (!IsSiteLink(command.AnnouncementUrl) || !IsSiteLink(command.FooterButtonUrl))
             return "لینک‌ها باید با / شروع شوند یا آدرس کامل http(s) باشند.";

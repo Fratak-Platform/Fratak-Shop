@@ -63,8 +63,7 @@
   <meta name="csrf-token" content="@csrfToken">
   <meta name="color-scheme" content="@(theme == "dark" ? "dark" : "light")">
   <title>@title | مدیریت @Site.Settings.SiteName</title>
-  <link rel="icon" href="@Site.FaviconUrl">
-  <link rel="preload" href="~/assets/font/YekanBakhFaNum-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <partial name="_BrandHead" />
   <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
   <link rel="stylesheet" href="~/assets/css/admin.css" asp-append-version="true">
@@ -76,7 +75,7 @@
     <aside class="a-sidebar" id="admin-sidebar" data-sidebar>
       <div class="a-sidebar-head">
         <a href="/admin" class="a-brand">
-          @Icons.Svg("Storefront", "shrink-0", 24)
+          <img class="a-brand-mark" src="@BrandIdentity.MarkOnDark" alt="" width="34" height="27">
           <span>@Site.Settings.SiteName</span>
         </a>
         <button type="button" class="a-icon-btn lg:hidden" data-sidebar-close aria-label="بستن منو">@Icons.Svg("Close", null, 20)</button>
