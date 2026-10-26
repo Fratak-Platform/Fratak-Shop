@@ -4970,6 +4970,286 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("SearchSynonyms");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoEngineRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Analyzed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SlotKey")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Suggested")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("Trigger")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SlotKey")
+                        .IsUnique()
+                        .HasFilter("[SlotKey] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("StartedAt");
+
+                    b.ToTable("SeoEngineRuns");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoResearchCache", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("FetchedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<bool>("Ok")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Kind", "Key")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("SeoResearchCaches");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoScore", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AnalyzedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ChecksJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FocusKeyword")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int>("Problems")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Views")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Kind", "EntityId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("Score", "Views");
+
+                    b.ToTable("SeoScores", t =>
+                        {
+                            t.HasCheckConstraint("CK_SeoScores_Score", "[Score] BETWEEN 0 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoSuggestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AppliedFields")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CurrentJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Fields")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("ProposalJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReasonsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("RejectedFields")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResearchJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ReviewedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ScoreAfter")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScoreBefore")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Variant")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("Kind", "EntityId", "Status");
+
+                    b.ToTable("SeoSuggestions");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoRedirects.SeoNotFoundLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5447,6 +5727,11 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsSeoEngineEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsSmartCompareEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -5686,6 +5971,26 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<bool>("SeoAllowSlugChanges")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("SeoCompetitorResearch")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("SeoEngineBatchSize")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30);
+
+                    b.Property<int>("SeoEngineRunsPerDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(3);
+
                     b.Property<string>("SiteDescription")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -5871,6 +6176,8 @@ namespace Fratak_Shop.Data.Migrations
                             t.HasCheckConstraint("CK_StoreSettings_Round6", "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1");
 
                             t.HasCheckConstraint("CK_StoreSettings_Round7Orders", "[SlaSupplierOrderHours] >= 1 AND [SlaPreparationHours] >= 1 AND [SlaTrackingCodeHours] >= 1 AND [SlaDeliveryMinDays] >= 0 AND [SlaDeliveryMaxDays] >= [SlaDeliveryMinDays] AND [PaymentLinkHours] >= 1 AND [CodMinDeliveredOrders] >= 0 AND [CodMaxReturnedOrders] >= 0");
+
+                            t.HasCheckConstraint("CK_StoreSettings_SeoEngine", "[SeoEngineRunsPerDay] BETWEEN 1 AND 6 AND [SeoEngineBatchSize] BETWEEN 5 AND 200");
 
                             t.HasCheckConstraint("CK_StoreSettings_SupplierSync", "[SupplierSyncRunsPerDay] BETWEEN 1 AND 24 AND [SupplierStockMarginPercent] BETWEEN 0 AND 90 AND [SupplierStockMaxQuantity] >= 1 AND [SupplierRequestDelayMs] >= 200");
 
@@ -7186,6 +7493,9 @@ namespace Fratak_Shop.Data.Migrations
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
 
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
+
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
                                 .HasColumnType("nvarchar(200)");
@@ -7428,6 +7738,9 @@ namespace Fratak_Shop.Data.Migrations
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
 
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
+
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
                                 .HasColumnType("nvarchar(200)");
@@ -7662,6 +7975,9 @@ namespace Fratak_Shop.Data.Migrations
                             b1.Property<string>("CanonicalUrl")
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
@@ -7898,6 +8214,9 @@ namespace Fratak_Shop.Data.Migrations
                             b1.Property<string>("CanonicalUrl")
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
@@ -8192,6 +8511,9 @@ namespace Fratak_Shop.Data.Migrations
                             b1.Property<string>("CanonicalUrl")
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
@@ -8805,6 +9127,9 @@ namespace Fratak_Shop.Data.Migrations
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
 
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
+
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
                                 .HasColumnType("nvarchar(200)");
@@ -9087,6 +9412,9 @@ namespace Fratak_Shop.Data.Migrations
                             b1.Property<string>("CanonicalUrl")
                                 .HasMaxLength(2048)
                                 .HasColumnType("nvarchar(2048)");
+
+                            b1.Property<string>("FaqJson")
+                                .HasColumnType("nvarchar(max)");
 
                             b1.Property<string>("FocusKeyword")
                                 .HasMaxLength(200)
