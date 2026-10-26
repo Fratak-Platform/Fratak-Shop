@@ -803,8 +803,7 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
