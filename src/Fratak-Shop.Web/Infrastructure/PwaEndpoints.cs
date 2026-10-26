@@ -20,7 +20,7 @@ public static class PwaEndpoints
             // آدرس آیکون‌ها با هش محتوای فایل (?v=...): اگر فایل آیکون عوض شود آدرسش هم عوض می‌شود؛ کروم/اندروید
             // آیکون اپ نصب‌شده را فقط وقتی دوباره می‌سازند که آدرس آیکون در مانیفست تغییر کند (و هیچ کش میانی هم
             // نسخهٔ قدیمی را برنمی‌گرداند). مثال: /assets/brand/app-icon-512.png?v=Ab3x...
-            string Icon(string path) => versions.AddVersionToPath(http.Request.PathBase, path);
+            string Icon(string path) => versions.AddFileVersionToPath(http.Request.PathBase, path);
 
             var settings = await settingService.GetAsync();
             if (!settings.IsPwaEnabled)

@@ -6,6 +6,7 @@ using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Users;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fratak_Shop.Core.Services.Users;
 
@@ -13,8 +14,14 @@ namespace Fratak_Shop.Core.Services.Users;
 /// مدیریت کاربران: ثبت‌نام و ورود (Argon2id)، ویرایش اطلاعات، تغییر رمز عبور و
 /// لیست کاربران. رمز عبور هیچ‌گاه به‌صورت متن ساده ذخیره یا برگردانده نمی‌شود.
 /// </summary>
-public class UserService(FratakShopDbContext context, Events.IShopEvents events) : IUserService
+public class UserService(FratakShopDbContext context, Events.IShopEvents events, IMemoryCache cache) : IUserService
 {
+    /// <summary>
+    /// مهر امنیتی کاربر عوض شد: نسخهٔ کش‌شدهٔ آن (که اعتبارسنجی JWT می‌خواند) فوراً پاک می‌شود تا توکن‌های قدیمی
+    /// همان لحظه رد شوند، نه تا ۲ دقیقهٔ بعد. هر جای این سرویس که SecurityStamp را عوض می‌کند باید این را صدا بزند.
+    /// </summary>
+    private void ForgetStamp(Guid userId) => cache.Remove(CacheKeys.SecurityStamp(userId));
+
     private const int MinimumPasswordLength = 6;
     private const int MaxFailedLogins = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -89,6 +96,7 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
         user.IsEmailVerified = command.IsEmailVerified;
 
         await context.SaveChangesAsync();
+        ForgetStamp(user.Id);
 
         return OperationResult.Success("کاربر با موفقیت ویرایش شد.");
     }
@@ -187,6 +195,7 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
         user.LockoutEndAt = null;
 
         await context.SaveChangesAsync();
+        ForgetStamp(user.Id);
         await events.SecurityEventAsync(user.Id, NotificationEvent.PasswordChanged);
 
         return OperationResult.Success("رمز عبور با موفقیت تغییر کرد.");
@@ -375,6 +384,7 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events)
                 .SetProperty(x => x.SecurityStamp, stamp)
                 .SetProperty(x => x.UpdatedAt, now));
 
+        ForgetStamp(userId);
         return affected == 1 ? stamp : null;
     }
 
