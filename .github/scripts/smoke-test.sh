@@ -635,7 +635,9 @@ expect 200 /admin/account
 contains_i "برنامهٔ احراز هویت"
 expect 200 "/admin/reauth?returnUrl=/admin/orders"
 expect 200 "/admin/reauth?returnUrl=https://evil.example"
-lacks "evil.example"
+# آدرس بیرونی هرگز مقصد بازگشت نمی‌شود؛ فرم‌ها به /admin برمی‌گردند.
+contains 'name="returnUrl" value="/admin"'
+lacks 'value="https://evil.example"'
 expect 200 /admin/approvals
 expect 200 "/admin/approvals?status=all&mine=true"
 expect 200 "/admin/tasks?handler=Staff"
