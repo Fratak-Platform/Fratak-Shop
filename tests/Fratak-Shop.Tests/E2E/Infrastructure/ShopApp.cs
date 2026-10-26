@@ -235,7 +235,7 @@ public sealed class ShopApp : IAsyncLifetime
                 services.AddHttpClient<IPaymentGateway, ZarinPalGateway>()
                     .ConfigurePrimaryHttpMessageHandler(() => new FakeZarinPalHandler(app.ZarinPal));
 
-                services.AddTransient<IStartupFilter, TestClientIp>();
+                services.AddTransient<IStartupFilter>(_ => new TestClientIp(app.Logs));
             });
         }
 
@@ -261,17 +261,27 @@ public sealed class E2ECollection : ICollectionFixture<ShopApp>
 /// IP مشتری برای هر درخواست آزمون: TestServer خودش IP نمی‌گذارد؛ این فیلتر پیش از همهٔ میان‌افزارهای برنامه
 /// مقدار سرآیند <see cref="Header"/> را به‌عنوان IP اتصال می‌نشاند (فقط در آزمون ثبت می‌شود).
 /// </summary>
-public sealed class TestClientIp : IStartupFilter
+public sealed class TestClientIp(CapturedLogs? logs = null) : IStartupFilter
 {
     public const string Header = "X-Test-Client-IP";
 
     public Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> Configure(Action<Microsoft.AspNetCore.Builder.IApplicationBuilder> next) => app =>
     {
-        app.Use((context, nextMiddleware) =>
+        app.Use(async (context, nextMiddleware) =>
         {
             context.Connection.RemoteIpAddress =
                 IPAddress.TryParse(context.Request.Headers[Header].ToString(), out var ip) ? ip : IPAddress.Parse("10.255.255.254");
-            return nextMiddleware(context);
+            await nextMiddleware(context);
+
+            // استثنایی که UseExceptionHandler گرفته و به صفحهٔ خطا برده (مستقل از تنظیمات لاگ) برای پیام شکست آزمون.
+            if (logs is not null && context.Response.StatusCode >= 500)
+            {
+                var handled = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+                var reExecuted = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodeReExecuteFeature>();
+                logs.Record("TestServer", handled is not null
+                    ? $"Unhandled exception on {handled.Path}: {handled.Error}"
+                    : $"Status {context.Response.StatusCode} without exception (original path: {reExecuted?.OriginalPath ?? context.Request.Path.Value})");
+            }
         });
         next(app);
     };
@@ -290,8 +300,9 @@ public sealed class ServerErrorDiagnostics(CapturedLogs logs) : DelegatingHandle
         var response = await base.SendAsync(request, cancellationToken);
         if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
         {
-            var errors = logs.ErrorsSince(started);
             var body = response.Content is null ? "" : await response.Content.ReadAsStringAsync(cancellationToken);
+            await Task.Delay(300, cancellationToken); // میان‌افزار بیرونی پس از پایان پاسخ ثبت می‌کند
+            var errors = logs.ErrorsSince(started);
             if (errors.Count == 0)
                 errors.Add("(no error was logged) body: " + ShopClient.Excerpt(body));
             throw new HttpRequestException($"Server error 500 for {request.Method} {request.RequestUri}{Environment.NewLine}"
@@ -323,6 +334,13 @@ public sealed class CapturedLogs : ILoggerProvider
     }
 
     public ILogger CreateLogger(string categoryName) => new Logger(this, categoryName);
+
+    /// <summary>ثبت مستقیم یک خطا (بدون ILogger)، مثلاً استثنای گرفته‌شده توسط صفحهٔ خطا.</summary>
+    public void Record(string category, string message)
+    {
+        lock (_entries)
+            _entries.Add((DateTimeOffset.UtcNow, category, LogLevel.Error, message));
+    }
 
     public void Dispose()
     {
