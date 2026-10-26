@@ -9,7 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Fratak_Shop.Web.Areas.Admin.Pages.SystemPages;
 
 [AdminPermission(AdminPermissions.MonitoringView)]
-public class IndexModel(HealthService health, IMonitoringService monitoring, ActivityTracker tracker, ErrorLogQueue errorQueue) : AdminPageModel
+public class IndexModel(HealthService health, IMonitoringService monitoring, ActivityTracker tracker, ErrorLogQueue errorQueue, IMemoryCache memory) : AdminPageModel
 {
     public List<HealthCheck> Checks { get; private set; } = [];
     public RuntimeInfo Runtime { get; private set; } = null!;
@@ -23,6 +23,9 @@ public class IndexModel(HealthService health, IMonitoringService monitoring, Act
     public long TotalRequests { get; private set; }
     public long ErrorsCaptured { get; private set; }
     public long ErrorsDropped { get; private set; }
+    /// <summary>آمار کش حافظه (تنظیمات، منوها، دسترسی‌ها…) – فاز ۹. null اگر آمارگیری فعال نباشد.</summary>
+    public MemoryCacheStatistics? MemoryStats { get; private set; }
+
     public HealthLevel Overall => Checks.Count == 0 ? HealthLevel.Healthy : Checks.Max(c => c.Level);
 
     public async Task OnGetAsync()
@@ -40,13 +43,18 @@ public class IndexModel(HealthService health, IMonitoringService monitoring, Act
         TotalRequests = tracker.TotalRequests;
         ErrorsCaptured = errorQueue.Captured;
         ErrorsDropped = errorQueue.Dropped;
+        MemoryStats = memory.GetCurrentStatistics();
     }
+
+    /// <summary>درصد برخورد کش. مثال: (۹۰، ۱۰) → ۹۰٪؛ بدون درخواست → null.</summary>
+    public static double? HitRate(long hits, long misses) => hits + misses == 0 ? null : hits * 100d / (hits + misses);
 
     /// <summary>Empties the public page cache and in-memory caches (settings, menus, permissions are reloaded on next use).</summary>
     [AdminPermission(AdminPermissions.SystemManage)]
     public async Task<IActionResult> OnPostClearCacheAsync([FromServices] IOutputCacheStore pageCache, [FromServices] IMemoryCache memoryCache)
     {
         await pageCache.EvictByTagAsync(PageCachePolicy.Tag, HttpContext.RequestAborted);
+        PageCachePolicy.CountEviction();
         if (memoryCache is MemoryCache concrete)
             concrete.Compact(1.0);
         AdminAccessService.InvalidateAll();

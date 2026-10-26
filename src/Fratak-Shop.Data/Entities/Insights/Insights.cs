@@ -212,4 +212,18 @@ public class ReportDeliveryConfig : BaseEntity
 
     [MaxLength(1000)]
     public string? TelegramTokenProtected { get; set; }
+
+    // ── گیرندگان هشدارهای فنی (مرحلهٔ هفتم – فاز ۹؛ صفحهٔ /admin/system/alerts) ──
+    // همان SMTP و توکن ربات‌های بالا استفاده می‌شود؛ فقط گیرنده‌ها جداست.
+
+    /// <summary>ایمیل‌های گیرندهٔ هشدار با کاما. مثال: «tech@fratak.ir, owner@fratak.ir».</summary>
+    [MaxLength(1000)]
+    public string? AlertEmailTo { get; set; }
+
+    /// <summary>شناسهٔ گفت‌وگوی بله برای هشدارها. مثال: «-1001234567890» یا «@fratak_tech».</summary>
+    [MaxLength(100)]
+    public string? AlertBaleChatId { get; set; }
+
+    [MaxLength(100)]
+    public string? AlertTelegramChatId { get; set; }
 }

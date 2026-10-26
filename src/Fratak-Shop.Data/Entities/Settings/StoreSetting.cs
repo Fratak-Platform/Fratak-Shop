@@ -615,6 +615,67 @@ public class StoreSetting : BaseEntity
     /// <summary>پیشنهاد تغییر نامک فقط برای صفحه‌های تازه/کم‌بازدید و همیشه با ریدایرکت ۳۰۱ خودکار.</summary>
     public bool SeoAllowSlugChanges { get; set; } = true;
 
+    // ── عملیات فنی (مرحلهٔ هفتم – فاز ۹) ──────────────────────────────
+    // پشتیبان: Core/Services/Ops/DatabaseBackupService.cs؛ حالت تعمیر و دیوار آتش: Web/Infrastructure/Ops؛ پنل: /admin/system/*.
+
+    /// <summary>پشتیبان‌گیری خودکار از پایگاه داده.</summary>
+    public bool IsBackupEnabled { get; set; } = true;
+
+    /// <summary>تعداد پشتیبان در شبانه‌روز (۱ تا ۴) با فاصلهٔ مساوی از BackupStartHour. مثال: ۲ و ساعت ۳ → ساعت ۳ و ۱۵.</summary>
+    public int BackupRunsPerDay { get; set; } = 1;
+
+    /// <summary>ساعت اولین پشتیبان به وقت ایران (۰ تا ۲۳). پیشنهاد: ۳ بامداد که سایت خلوت است.</summary>
+    public int BackupStartHour { get; set; } = 3;
+
+    /// <summary>چند نسخهٔ آخر نگه داشته شود (۱ تا ۶۰)؛ قدیمی‌ترها پاک می‌شوند.</summary>
+    public int BackupKeepCount { get; set; } = 7;
+
+    /// <summary>
+    /// پوشهٔ فایل‌های پشتیبان روی سرور SQL Server. خالی = پوشهٔ پیش‌فرض خود SQL Server.
+    /// مثال لینوکس: «/var/opt/mssql/backups»؛ ویندوز: «D:\Backups\Fratak».
+    /// </summary>
+    [MaxLength(400)]
+    public string? BackupFolder { get; set; }
+
+    /// <summary>بعد از هر پشتیبان، صحت فایل با RESTORE VERIFYONLY بررسی شود.</summary>
+    public bool IsBackupVerifyEnabled { get; set; } = true;
+
+    /// <summary>از پوشهٔ آپلودها (تصویرها) هم فایل zip ساخته شود (در App_Data/backups سرور سایت).</summary>
+    public bool IsUploadsBackupEnabled { get; set; }
+
+    /// <summary>حالت تعمیر: بازدیدکنندگان صفحهٔ «در حال به‌روزرسانی» با کد ۵۰۳ می‌بینند؛ کارکنان و پنل مدیریت عادی کار می‌کنند.</summary>
+    public bool IsMaintenanceMode { get; set; }
+
+    /// <summary>متن صفحهٔ تعمیر. مثال: «در حال به‌روزرسانی فروشگاه هستیم؛ تا ساعت ۱۴ برمی‌گردیم.»</summary>
+    [MaxLength(1000)]
+    public string? MaintenanceMessage { get; set; }
+
+    /// <summary>زمان تقریبی بازگشت (دقیقه، ۵ تا ۱۴۴۰) برای سربرگ Retry-After که به گوگل می‌گوید بعداً برگردد.</summary>
+    public int MaintenanceRetryMinutes { get; set; } = 60;
+
+    /// <summary>IPهایی که در حالت تعمیر سایت را عادی می‌بینند (با کاما یا خط جدا). مثال: «5.6.7.8, 10.0.0.0/8».</summary>
+    [MaxLength(1000)]
+    public string? MaintenanceAllowedIps { get; set; }
+
+    /// <summary>مسدودسازی خودکار IPهایی که در یک ساعت بیش از IpAutoBlockThreshold بار ورود ناموفق داشته‌اند.</summary>
+    public bool IsIpAutoBlockEnabled { get; set; }
+
+    /// <summary>آستانهٔ تلاش ناموفق ورود در یک ساعت (۵ تا ۱۰۰۰). مثال: ۲۰.</summary>
+    public int IpAutoBlockThreshold { get; set; } = 20;
+
+    /// <summary>مدت مسدودی خودکار (ساعت، ۱ تا ۷۲۰).</summary>
+    public int IpAutoBlockHours { get; set; } = 24;
+
+    /// <summary>فایل‌های لاگ روزانه (App_Data/logs) چند روز نگه داشته شوند (۱ تا ۱۸۰).</summary>
+    public int LogFileRetentionDays { get; set; } = 14;
+
+    /// <summary>
+    /// کلید پایش بیرونی: با /healthz?token=… همهٔ بررسی‌های سلامت (نه فقط پایگاه داده) به‌صورت JSON برمی‌گردد.
+    /// خالی = فقط وضعیت کلی. حداقل ۱۶ نویسه.
+    /// </summary>
+    [MaxLength(100)]
+    public string? HealthCheckToken { get; set; }
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

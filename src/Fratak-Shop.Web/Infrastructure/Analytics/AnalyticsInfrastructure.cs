@@ -235,7 +235,7 @@ public sealed class AnalyticsFlushWorker(IServiceScopeFactory scopeFactory, Anal
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        JobMonitor.Register(JobName, TimeSpan.FromMinutes(5));
+        JobMonitor.Register(JobName, TimeSpan.FromMinutes(5), pausable: false);
         using var timer = new PeriodicTimer(Interval);
         try
         {

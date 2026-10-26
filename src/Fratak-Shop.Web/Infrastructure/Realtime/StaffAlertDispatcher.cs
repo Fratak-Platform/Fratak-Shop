@@ -111,7 +111,7 @@ public sealed class StaffAlertDispatcher(IServiceScopeFactory scopeFactory, ILog
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // صف‌محور است: فقط وقتی کاری هست اجرا می‌شود، پس هرگز «متوقف‌شده» گزارش نشود.
-        Admin.JobMonitor.Register(JobName, TimeSpan.FromDays(3650));
+        Admin.JobMonitor.Register(JobName, TimeSpan.FromDays(3650), pausable: false);
         try
         {
             await foreach (var alert in _queue.Reader.ReadAllAsync(stoppingToken))

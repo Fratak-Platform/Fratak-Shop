@@ -183,6 +183,22 @@ public class StoreSettingCommand
     public int SeoEngineBatchSize { get; set; } = 30;
     public bool SeoCompetitorResearch { get; set; } = true;
     public bool SeoAllowSlugChanges { get; set; } = true;
+    public bool IsBackupEnabled { get; set; } = true;
+    public int BackupRunsPerDay { get; set; } = 1;
+    public int BackupStartHour { get; set; } = 3;
+    public int BackupKeepCount { get; set; } = 7;
+    public string? BackupFolder { get; set; }
+    public bool IsBackupVerifyEnabled { get; set; } = true;
+    public bool IsUploadsBackupEnabled { get; set; }
+    public bool IsMaintenanceMode { get; set; }
+    public string? MaintenanceMessage { get; set; }
+    public int MaintenanceRetryMinutes { get; set; } = 60;
+    public string? MaintenanceAllowedIps { get; set; }
+    public bool IsIpAutoBlockEnabled { get; set; }
+    public int IpAutoBlockThreshold { get; set; } = 20;
+    public int IpAutoBlockHours { get; set; } = 24;
+    public int LogFileRetentionDays { get; set; } = 14;
+    public string? HealthCheckToken { get; set; }
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

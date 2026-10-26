@@ -511,6 +511,9 @@ html[data-theme="dark"] .a-dropzone { border-color: #3b4a6b; }
 html[data-theme="dark"] .a-dropzone.is-over { background: rgba(129,140,248,.2); }
 html[data-theme="dark"] .bg-white { background-color: var(--a-card) !important; }
 html[data-theme="dark"] .bg-gray-50, html[data-theme="dark"] .bg-gray-100, html[data-theme="dark"] .bg-slate-50 { background-color: #0f1729 !important; }
+/* فاز ۹: ردیف هشدار فعال (صفحهٔ هشدارها) و رنگ کهربایی شمارش هشدارها در حالت تیره. */
+html[data-theme="dark"] .bg-red-50 { background-color: rgba(239,68,68,.12) !important; }
+html[data-theme="dark"] .text-amber-600 { color: #fbbf24 !important; }
 html[data-theme="dark"] [class*="bg-indigo-50"], html[data-theme="dark"] [class*="bg-sky-50"], html[data-theme="dark"] [class*="bg-amber-50"],
 html[data-theme="dark"] [class*="bg-emerald-50"], html[data-theme="dark"] [class*="bg-red-50"] { background-color: rgba(129,140,248,.08) !important; }
 html[data-theme="dark"] .text-gray-900, html[data-theme="dark"] .text-gray-800, html[data-theme="dark"] .text-gray-700, html[data-theme="dark"] .text-zinc-700,

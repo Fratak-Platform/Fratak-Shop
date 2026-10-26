@@ -1,0 +1,71 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.JobsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@{
+    ViewData["Title"] = "کارهای پس‌زمینه";
+    var canManage = Model.Can(AdminPermissions.SystemManage);
+    var paused = Model.Jobs.Count(j => JobMonitor.IsPaused(j.Name));
+    var failing = Model.Jobs.Count(j => !JobMonitor.IsPaused(j.Name) && j.IsFailing);
+}
+<div class="a-page-head">
+  <div>
+    <h2>کارهای پس‌زمینه</h2>
+    <p class="a-muted text-sm mt-1">کارهایی که سایت خودکار و زمان‌بندی‌شده انجام می‌دهد (لغو سفارش‌های پرداخت‌نشده، موتور سئو، رهگیری پست، پشتیبان‌گیری و …). وضعیت از زمان آخرین راه‌اندازی سایت است.</p>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">کل کارها</div><div class="a-stat-value">@Format.Number(Model.Jobs.Count)</div></div>
+  <div class="a-stat"><div class="a-stat-label">ناموفق</div><div class="a-stat-value @(failing > 0 ? "text-red-600" : "")">@Format.Number(failing)</div></div>
+  <div class="a-stat"><div class="a-stat-label">متوقف</div><div class="a-stat-value">@Format.Number(paused)</div><div class="a-stat-sub">تا «ادامه» اجرا نمی‌شوند (حتی بعد از ری‌استارت)</div></div>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>کار</th><th>وضعیت</th><th>آخرین اجرای موفق</th><th>فاصلهٔ مورد انتظار</th><th>اجرا / خطا</th><th>آخرین مدت</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var j in Model.Jobs)
+        {
+          var (statusText, statusCss) = JobsModel.Status(j);
+          var isPaused = JobMonitor.IsPaused(j.Name);
+          Model.Settings.TryGetValue(j.Name, out var setting);
+          var confirmText = isPaused ? "این کار دوباره فعال شود؟" : "این کار تا ادامهٔ دستی اجرا نشود؟";
+          <tr>
+            <td data-label="کار">
+              <b>@j.Name</b>
+              @if (!j.IsPausable) { <span class="a-badge a-badge-gray" title="توقف این کار باعث از دست رفتن داده می‌شود">حیاتی</span> }
+              @if (j.IsFailing && j.LastError is not null) { <div class="text-xs text-red-600 mt-1 a-ltr text-right break-all">@j.LastError</div> }
+              @if (isPaused && setting?.PausedAt is { } pausedAt) { <div class="a-muted text-xs mt-1">متوقف‌شده توسط @(setting.PausedBy ?? "-") · @AdminUi.Ago(pausedAt)</div> }
+            </td>
+            <td data-label="وضعیت"><span class="a-badge @statusCss">@statusText</span>@if (isPaused && j.Skips > 0) { <div class="a-muted text-xs mt-1">@Format.Number(j.Skips) نوبت رد شد</div> }</td>
+            <td data-label="آخرین اجرای موفق" class="text-xs nowrap">@(j.LastSucceededAt is { } s ? AdminUi.Ago(s) : "-")</td>
+            <td data-label="فاصلهٔ مورد انتظار" class="text-xs">@(j.ExpectedInterval.TotalDays > 365 ? "پیوسته (صف)" : AdminUi.Duration(j.ExpectedInterval))</td>
+            <td data-label="اجرا / خطا" class="num">@Format.Number(j.Runs) / <span class="@(j.Failures > 0 ? "text-red-600" : "")">@Format.Number(j.Failures)</span></td>
+            <td data-label="آخرین مدت" class="text-xs a-ltr">@(j.LastDurationMs is { } d ? (d >= 1000 ? (d / 1000).ToString("0.0") + " s" : d.ToString("0") + " ms") : "-")</td>
+            <td data-label="" class="nowrap">
+              @if (canManage)
+              {
+                if (j.RunNow is not null && !isPaused)
+                {
+                  <form method="post" asp-page-handler="Run" class="inline"><input type="hidden" name="name" value="@j.Name"><button class="a-btn a-btn-xs a-btn-soft" type="submit">اجرای فوری</button></form>
+                }
+                if (j.IsPausable)
+                {
+                  <form method="post" asp-page-handler="Pause" class="inline" data-confirm="@confirmText">
+                    <input type="hidden" name="name" value="@j.Name"><input type="hidden" name="paused" value="@(isPaused ? "false" : "true")">
+                    <button class="a-btn a-btn-xs @(isPaused ? "a-btn-success" : "a-btn-light")" type="submit">@(isPaused ? "ادامه" : "توقف")</button>
+                  </form>
+                }
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Jobs.Count == 0) { <div class="a-empty">هنوز کاری ثبت نشده است (چند ثانیه بعد از راه‌اندازی سایت ظاهر می‌شوند).</div> }
+  </div>
+  <div class="a-card-body pt-0">
+    <p class="a-help">«دیر شده» یعنی کار بیش از ۳ برابر فاصلهٔ معمولش اجرا نشده است. کارهای «حیاتی» (ارسال اعلان، ثبت آمار بازدید و فایروال) قابل توقف نیستند. اگر کاری مدام ناموفق است، متن خطا را در «خطاها» یا «گزارش‌های سرور» ببینید.</p>
+  </div>
+</div>

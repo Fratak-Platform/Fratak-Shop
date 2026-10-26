@@ -155,6 +155,12 @@ public interface IScheduledReportService
     Task<ReportDeliveryView> GetDeliveryAsync(CancellationToken cancellationToken = default);
 
     Task<OperationResult> SaveDeliveryAsync(ReportDeliveryInput input, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// ارسال یک هشدار فنی کوتاه به گیرنده‌های داده‌شده با همان SMTP/ربات‌های گزارش خودکار (مرحلهٔ هفتم – فاز ۹).
+    /// خروجی: خلاصهٔ نتیجه برای نمایش. مثال: «ایمیل: ارسال شد · بله: توکن ربات ثبت نشده».
+    /// </summary>
+    Task<string> SendAlertAsync(string title, string body, string? emailTo, string? baleChatId, string? telegramChatId, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -500,6 +506,29 @@ public class ScheduledReportService(
             ? new ReportDeliveryView(null, 587, null, null, null, false, false, false)
             : new ReportDeliveryView(c.SmtpHost, c.SmtpPort, c.SmtpUserName, c.FromAddress, c.FromName,
                 !string.IsNullOrEmpty(c.SmtpPasswordProtected), !string.IsNullOrEmpty(c.BaleTokenProtected), !string.IsNullOrEmpty(c.TelegramTokenProtected));
+    }
+
+    public async Task<string> SendAlertAsync(string title, string body, string? emailTo, string? baleChatId, string? telegramChatId,
+        CancellationToken cancellationToken = default)
+    {
+        var config = await context.ReportDeliveryConfigs.AsNoTracking().OrderBy(c => c.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        var results = new List<string>();
+        var emails = ScheduledReportRules.ParseEmails(emailTo).Valid;
+        if (emails.Count > 0)
+        {
+            var smtp = BuildSmtp(config);
+            var html = $"<div dir=\"rtl\" style=\"font-family:Tahoma,sans-serif\"><h3>{WebUtility.HtmlEncode(title)}</h3><p>{WebUtility.HtmlEncode(body).Replace("\n", "<br>")}</p></div>";
+            var attempt = smtp is null ? new DeliveryAttempt(false, "تنظیمات SMTP کامل نیست") : await delivery.SendEmailAsync(smtp, emails, title, html, body, cancellationToken);
+            results.Add("ایمیل: " + attempt.Message);
+        }
+        var text = title + "\n" + body;
+        if (text.Length > ScheduledReportRules.MaxBotMessageLength)
+            text = text[..(ScheduledReportRules.MaxBotMessageLength - 1)] + "…";
+        if (!string.IsNullOrWhiteSpace(baleChatId))
+            results.Add("بله: " + (await SendBotAsync(ReportChannels.Bale, config?.BaleTokenProtected, baleChatId, text, cancellationToken)).Message);
+        if (!string.IsNullOrWhiteSpace(telegramChatId))
+            results.Add("تلگرام: " + (await SendBotAsync(ReportChannels.Telegram, config?.TelegramTokenProtected, telegramChatId, text, cancellationToken)).Message);
+        return results.Count == 0 ? "گیرندهٔ بیرونی ثبت نشده است." : string.Join(" · ", results);
     }
 
     public async Task<OperationResult> SaveDeliveryAsync(ReportDeliveryInput input, CancellationToken cancellationToken = default)

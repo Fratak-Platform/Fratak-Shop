@@ -1,5 +1,6 @@
 @page
 @model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.IndexModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
 @{
     ViewData["Title"] = "سلامت سامانه";
     string Dot(HealthLevel level) => level switch { HealthLevel.Healthy => "dot-ok", HealthLevel.Warning => "dot-warn", _ => "dot-bad" };
@@ -23,7 +24,7 @@
     </p>
   </div>
   <div class="a-btn-group">
-    <a class="a-btn a-btn-light" href="/health" target="_blank" rel="noopener">@Icons.Svg("Pulse", null, 18) /health</a>
+    <a class="a-btn a-btn-light" href="/healthz" target="_blank" rel="noopener">@Icons.Svg("Pulse", null, 18) /healthz</a>
     @if (Model.Can(AdminPermissions.SystemManage))
     {
       <form method="post" asp-page-handler="ClearCache" data-confirm="کش صفحات و حافظه پاک شود؟ چند ثانیه سایت کمی کندتر می‌شود."><button class="a-btn a-btn-soft" type="submit">@Icons.Svg("ArrowsClockwise", null, 18) پاک‌سازی کش</button></form>
@@ -102,14 +103,14 @@
   </div>
 
   <div class="a-card">
-    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) کارهای زمان‌بندی‌شده</span></div>
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) کارهای زمان‌بندی‌شده</span><a class="a-link text-xs" href="/admin/system/jobs">مدیریت کارها</a></div>
     <ul class="divide-y divide-gray-100 text-sm">
       @foreach (var j in Model.Jobs)
       {
         var late = j.LastSucceededAt is { } ok && DateTimeOffset.UtcNow - ok > j.ExpectedInterval * 3;
         <li class="px-4 py-2.5">
           <div class="flex items-center gap-2">
-            <span class="a-dot @(j.IsFailing ? "dot-bad" : late || j.LastStartedAt is null ? "dot-warn" : "dot-ok")"></span>
+            <span class="a-dot @(JobMonitor.IsPaused(j.Name) ? "dot-warn" : j.IsFailing ? "dot-bad" : late || j.LastStartedAt is null ? "dot-warn" : "dot-ok")"></span>
             <b class="flex-1">@j.Name</b>
             <span class="a-muted text-xs">@(j.LastSucceededAt is { } s ? AdminUi.Ago(s) : "هنوز اجرا نشده")</span>
           </div>
@@ -119,6 +120,35 @@
       }
       @if (Model.Jobs.Count == 0) { <li class="a-empty">کاری ثبت نشده است.</li> }
     </ul>
+  </div>
+</div>
+
+@{
+    var pageHitRate = IndexModel.HitRate(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Hits, Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Misses);
+    var memoryHitRate = Model.MemoryStats is { } ms ? IndexModel.HitRate(ms.TotalHits, ms.TotalMisses) : null;
+}
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Lightning", null, 18) کش</span><span class="a-muted text-xs">از زمان آخرین راه‌اندازی</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>کش صفحات عمومی</dt><dd>@(pageHitRate is { } ph ? ph.ToString("0") + "٪ برخورد" : "هنوز درخواستی نیامده") · @Format.Number(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Hits) از کش / @Format.Number(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Misses) ساخته‌شده</dd>
+        <dt>خالی شدن کش صفحات</dt><dd>@Format.Number(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Evictions) بار @(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.LastEvictedAt is { } ev ? " · آخرین: " + AdminUi.Ago(ev) : "")</dd>
+        <dt>کش حافظه</dt><dd>@if (Model.MemoryStats is { } stats) { <span>@Format.Number(stats.CurrentEntryCount) مورد · @(memoryHitRate is { } mh ? mh.ToString("0") + "٪ برخورد" : "-")</span> } else { <span>آمار در دسترس نیست</span> }</dd>
+      </dl>
+      <p class="a-help mt-2">درصد برخورد بالا یعنی صفحه‌ها سریع و بدون فشار به پایگاه داده نمایش داده می‌شوند. با هر تغییر محصول، مطلب یا تنظیمات، کش صفحات خودکار خالی می‌شود.</p>
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Wrench", null, 18) ابزارهای فنی</span></div>
+    <div class="a-card-body grid sm:grid-cols-2 gap-2">
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/backups">@Icons.Svg("Database", null, 18) پشتیبان‌گیری</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/jobs">@Icons.Svg("ClockCounterClockwise", null, 18) کارهای پس‌زمینه</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/firewall">@Icons.Svg("Prohibit", null, 18) فایروال</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/alerts">@Icons.Svg("BellRinging", null, 18) هشدارها</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/logs">@Icons.Svg("Article", null, 18) گزارش‌های سرور</a>
+      @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light justify-start" href="/admin/settings?tab=ops">@Icons.Svg("Wrench", null, 18) حالت تعمیرات</a> }
+    </div>
   </div>
 </div>
 

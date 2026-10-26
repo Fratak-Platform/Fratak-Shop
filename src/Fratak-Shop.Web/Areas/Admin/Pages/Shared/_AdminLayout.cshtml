@@ -3,6 +3,7 @@
 @inject IAdminShortcutService Shortcuts
 @inject IAdminHelpService HelpArticles
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Fratak_Shop.Core.Services.Settings.IStoreSettingService StoreSettings
 @{
     var access = ViewContext.HttpContext.Items[AdminPageFilter.AccessItemKey] as AdminAccess;
     var badges = access is null ? new Dictionary<string, int>() : await BadgeService.GetAsync();
@@ -193,6 +194,16 @@
       </header>
 
       <partial name="_AdminStatus" />
+
+      @* فاز ۹: یادآوری روشن بودن حالت تعمیرات (بازدیدکنندگان سایت را نمی‌بینند). *@
+      @if (access is not null && (await StoreSettings.GetAsync()).IsMaintenanceMode)
+      {
+        <div class="a-alert a-alert-warn mx-4 mt-3 lg:mx-6">
+          @Icons.Svg("Wrench", "shrink-0", 20)
+          <div class="flex-1"><b>حالت تعمیرات روشن است.</b> بازدیدکنندگان صفحهٔ «در حال به‌روزرسانی» می‌بینند؛ شما و کارکنان واردشده سایت را عادی می‌بینید.</div>
+          @if (access.Has(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-xs a-btn-light" href="/admin/settings?tab=ops">خاموش کردن</a> }
+        </div>
+      }
 
       <main class="a-content" id="main" data-amount-words data-saved-filters="@filtersJson" data-filter-path="@path">
         @RenderBody()

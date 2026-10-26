@@ -49,7 +49,7 @@ public sealed class WebPushDispatcher(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Queue driven: runs only when there is something to send, so it is never reported as "stale".
-        Admin.JobMonitor.Register(JobName, TimeSpan.FromDays(3650));
+        Admin.JobMonitor.Register(JobName, TimeSpan.FromDays(3650), pausable: false);
         try
         {
             await foreach (var message in queue.Reader.ReadAllAsync(stoppingToken))

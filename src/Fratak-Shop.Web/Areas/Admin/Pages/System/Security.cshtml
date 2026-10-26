@@ -27,7 +27,7 @@
     <div>
       <b>آی‌پی‌های مشکوک (۵ ورود ناموفق یا بیشتر در ۲۴ ساعت):</b>
       @foreach (var (ip, count) in Model.SuspiciousIps) { <a class="a-badge a-badge-red a-ltr" href="@AdminUi.With(request, ("q", ip), ("type", null), ("page", null))">@ip × @count</a> }
-      <div class="text-xs mt-1">محدودیت نرخ درخواست به‌صورت خودکار جلوی حملات حدس رمز را می‌گیرد؛ در صورت ادامه، آی‌پی را در فایروال سرور مسدود کنید.</div>
+      <div class="text-xs mt-1">محدودیت نرخ درخواست به‌صورت خودکار جلوی حملات حدس رمز را می‌گیرد؛ در صورت ادامه، آی‌پی را در <a class="a-link" href="/admin/system/firewall">فایروال سایت</a> مسدود کنید (یا مسدودسازی خودکار را روشن کنید).</div>
     </div>
   </div>
 }

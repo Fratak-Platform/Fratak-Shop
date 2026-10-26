@@ -1,0 +1,85 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.LogsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@using Fratak_Shop.Web.Infrastructure.Ops
+@using Microsoft.Extensions.Logging
+@{
+    ViewData["Title"] = "گزارش‌های سرور";
+    var request = HttpContext.Request;
+    int Count(LogLevel l) => Model.LevelCounts.GetValueOrDefault(l);
+}
+<div class="a-page-head">
+  <div>
+    <h2>گزارش‌های سرور</h2>
+    <p class="a-muted text-sm mt-1">آخرین @Format.Number(LogStore.Capacity) پیام برنامه (از زمان آخرین راه‌اندازی). هشدارها و خطاها در فایل روزانه هم ذخیره می‌شوند. جزئیات کامل خطاها با تعداد تکرار در «خطاها» است.</p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/system/errors">@Icons.Svg("Bug", null, 18) خطاها</a></div>
+</div>
+
+<div class="a-stats mb-4">
+  <a class="a-stat" href="@AdminUi.With(request, ("level", null), ("page", null))"><div class="a-stat-label">همهٔ پیام‌ها</div><div class="a-stat-value">@Format.Number(Model.LevelCounts.Values.Sum())</div></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("level", "Information"), ("page", null))"><div class="a-stat-label">اطلاع</div><div class="a-stat-value">@Format.Number(Count(LogLevel.Information))</div></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("level", "Warning"), ("page", null))"><div class="a-stat-label">هشدار</div><div class="a-stat-value @(Count(LogLevel.Warning) > 0 ? "text-amber-600" : "")">@Format.Number(Count(LogLevel.Warning))</div><div class="a-stat-sub">@Format.Number(Model.Warnings) از زمان راه‌اندازی</div></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("level", "Error"), ("page", null))"><div class="a-stat-label">خطا و بحرانی</div><div class="a-stat-value @(Count(LogLevel.Error) + Count(LogLevel.Critical) > 0 ? "text-red-600" : "")">@Format.Number(Count(LogLevel.Error) + Count(LogLevel.Critical))</div><div class="a-stat-sub">@Format.Number(Model.Errors) از زمان راه‌اندازی</div></a>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="l-q">جست‌وجو</label><input id="l-q" name="q" value="@Model.Search" class="a-input" placeholder="متن پیام، مسیر یا شناسهٔ درخواست"></div>
+    <div class="a-field"><label class="a-label" for="l-level">سطح</label>
+      <select id="l-level" name="level" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var l in new[] { LogLevel.Information, LogLevel.Warning, LogLevel.Error }) { <option value="@l" selected="@(Model.Level == l)">@LogLevels.Title(l)@(l == LogLevel.Error ? " و بحرانی" : "")</option> }
+      </select></div>
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="l-cat">بخش</label>
+      <select id="l-cat" name="category" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var (cat, n) in Model.Categories) { <option value="@cat" selected="@(Model.Category == cat)">@cat (@n)</option> }
+      </select></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/system/logs">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>زمان</th><th>سطح</th><th>بخش</th><th>پیام</th></tr></thead>
+      <tbody>
+        @foreach (var e in Model.Entries)
+        {
+          <tr>
+            <td data-label="زمان" class="nowrap text-xs">@Format.DateTime(e.At)<div class="a-muted a-ltr">@Fratak_Shop.Core.Utilities.IranClock.ToLocal(e.At).ToString("HH:mm:ss")</div></td>
+            <td data-label="سطح"><span class="a-badge @LogLevels.Css(e.Level)">@LogLevels.Title(e.Level)</span></td>
+            <td data-label="بخش" class="a-ltr text-xs">@LogsModel.ShortCategory(e.Category)</td>
+            <td data-label="پیام" class="text-xs">
+              <div class="a-ltr text-right break-words" dir="auto">@e.Message</div>
+              @if (e.Path is not null) { <div class="a-muted a-ltr text-right">@e.Path @(e.TraceId is null ? "" : "· " + e.TraceId)</div> }
+              @if (e.Exception is not null)
+              {
+                <details class="mt-1"><summary class="a-link cursor-pointer">جزئیات خطا</summary><pre class="a-pre a-ltr text-left mt-1 whitespace-pre-wrap">@e.Exception</pre></details>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Entries.Count == 0) { <div class="a-empty">پیامی با این شرایط پیدا نشد.</div> }
+  </div>
+  @if (Model.PageCount > 1) { <partial name="_AdminPager" model="new PagerModel(Model.PageNumber, Model.PageCount, Model.Total)" /> }
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Article", null, 18) فایل‌های روزانهٔ هشدار و خطا</span><span class="a-muted text-xs a-ltr">App_Data/logs</span></div>
+  <ul class="divide-y divide-gray-100 text-sm">
+    @foreach (var f in Model.Files)
+    {
+      <li class="px-4 py-2.5 flex items-center gap-3">
+        <span class="a-ltr flex-1">@f.Name</span>
+        <span class="a-muted text-xs">@AdminUi.FileSize(f.Length)</span>
+        @if (Model.Can(AdminPermissions.SystemManage)) { <a class="a-btn a-btn-xs a-btn-light" href="/admin/system/logs?handler=File&name=@f.Name">دانلود</a> }
+      </li>
+    }
+    @if (Model.Files.Count == 0) { <li class="a-empty">هنوز فایلی ساخته نشده است (فقط وقتی هشدار یا خطایی رخ دهد).</li> }
+  </ul>
+  <div class="a-card-body pt-0"><p class="a-help">مدت نگهداری فایل‌ها در «تنظیمات ← عملکرد و نگهداری» تعیین می‌شود.</p></div>
+</div>

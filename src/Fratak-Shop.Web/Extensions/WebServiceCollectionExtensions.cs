@@ -144,6 +144,17 @@ public static class WebServiceCollectionExtensions
         services.AddHostedService<Infrastructure.Admin.ErrorLogWriter>();
         services.AddHostedService<Infrastructure.Admin.MonitoringMaintenanceService>();
 
+        // مرحلهٔ هفتم – فاز ۹ (فنی): نمایشگر گزارش‌ها، پشتیبان آپلودها، شاخص‌های هشدار و سرویس‌های پس‌زمینه.
+        services.AddSingleton<Infrastructure.Ops.LogStore>();
+        services.AddSingleton<ILoggerProvider, Infrastructure.Ops.MemoryLogProvider>();
+        services.AddSingleton<Infrastructure.Ops.UploadsArchiver>();
+        services.Replace(ServiceDescriptor.Singleton<Core.Services.Ops.IUploadsArchiver>(sp => sp.GetRequiredService<Infrastructure.Ops.UploadsArchiver>()));
+        services.AddScoped<Core.Services.Ops.IOpsMetricsSource, Infrastructure.Ops.OpsMetricsSource>();
+        services.AddHostedService<Infrastructure.Ops.OpsWorker>();
+        services.AddHostedService<Infrastructure.Ops.BackupWorker>();
+        // آمار کش حافظه (تعداد، برخورد/عدم برخورد) برای کارت «کش» در /admin/system.
+        services.Configure<Microsoft.Extensions.Caching.Memory.MemoryCacheOptions>(options => options.TrackStatistics = true);
+
         return services;
     }
 }

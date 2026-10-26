@@ -52,6 +52,11 @@
 
   <!-- main javaScript code -->
   <script src="~/assets/js/modal.js" asp-append-version="true"></script>
+  @if (Fratak_Shop.Web.Infrastructure.Ops.MaintenanceMiddleware.IsBypassed(Context))
+  {
+    @* فاز ۹: فقط کارکنان/IPهای مجاز در حالت تعمیرات این نوار را می‌بینند؛ بقیه صفحهٔ ۵۰۳ را می‌بینند. *@
+    <div role="status" style="position:fixed;bottom:16px;left:16px;z-index:60;background:#f59e0b;color:#1f2937;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.18)">🛠️ حالت تعمیرات روشن است – بازدیدکنندگان سایت را نمی‌بینند</div>
+  }
   <script src="~/assets/js/main.js" asp-append-version="true"></script>
   <script src="~/assets/js/shop.js" asp-append-version="true"></script>
   <script src="~/assets/js/fa-inputs.js" asp-append-version="true"></script>

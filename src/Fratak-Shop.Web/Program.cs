@@ -155,6 +155,8 @@ else
 }
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
+// فاز ۹: دیوار آتش IP/ربات (پیش از هر کار دیگری تا درخواست مسدود هزینه‌ای نداشته باشد) – /admin/system/firewall
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.FirewallMiddleware>();
 app.UseStatusCodePagesWithReExecute("/404", "?code={0}");
 app.UseResponseCompression();
 
@@ -196,6 +198,8 @@ app.UseMiddleware<TokenRefreshMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// فاز ۹: حالت تعمیرات (بعد از شناسایی کاربر تا کارکنان سایت را ببینند، و پیش از کش صفحات).
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.MaintenanceMiddleware>();
 app.UseMiddleware<SeoRedirectMiddleware>();
 app.UseReferralCapture();
 app.UseOutputCache();
@@ -218,6 +222,9 @@ app.MapGet("/health", async (HttpContext http, Fratak_Shop.Web.Infrastructure.Ad
     http.Response.Headers["X-Robots-Tag"] = "noindex";
     return Results.Json(new { status = ok ? "ok" : "down", db = Math.Round(milliseconds) }, statusCode: ok ? 200 : 503);
 });
+
+// فاز ۹: /healthz با توکن اختیاری (جزئیات برای سرویس‌های مانیتورینگ).
+Fratak_Shop.Web.Infrastructure.Ops.HealthEndpoint.MapHealthz(app);
 
 // Cities of a province, used by the address forms (province → city select).
 app.MapGet("/api/locations/provinces/{provinceId:guid}/cities", async (Guid provinceId, ILocationService locations, HttpContext http) =>
@@ -320,6 +327,24 @@ using (var pushScope = app.Services.CreateScope())
     catch (Exception exception)
     {
         app.Logger.LogError(exception, "Preparing the web push keys failed; push notifications stay off");
+    }
+}
+
+// فاز ۹: قانون‌های پیش‌فرض ربات‌های مخرب و هشدارها، بارگذاری فایروال و کارهای متوقف پیش از اولین درخواست.
+using (var opsScope = app.Services.CreateScope())
+{
+    try
+    {
+        var firewall = opsScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Ops.IFirewallService>();
+        await firewall.EnsureDefaultsAsync();
+        await firewall.ReloadAsync();
+        await opsScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Ops.IAlertService>().EnsureDefaultsAsync();
+        Fratak_Shop.Web.Infrastructure.Admin.JobMonitor.SetPaused(
+            await opsScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Ops.IBackgroundJobControl>().GetPausedAsync());
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogError(exception, "Preparing the firewall / alerts failed");
     }
 }
 

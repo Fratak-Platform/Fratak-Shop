@@ -1,0 +1,101 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.AlertsModel
+@using Fratak_Shop.Core.Services.Ops
+@{
+    ViewData["Title"] = "هشدارها";
+    var canManage = Model.Can(AdminPermissions.SystemManage);
+    var firing = Model.Rules.Count(r => r.Rule.IsEnabled && r.Rule.IsFiring);
+    var i = 0;
+}
+<div class="a-page-head">
+  <div>
+    <h2>هشدارهای فنی</h2>
+    <p class="a-muted text-sm mt-1">هر ۵ دقیقه شاخص‌های مهم سنجیده می‌شوند؛ اگر از آستانه بگذرند، به کارکنان فنی اعلان پنل و پوش (و در صورت انتخاب، ایمیل/بله/تلگرام) می‌رود و پس از عادی شدن، پیام «برطرف شد».</p>
+  </div>
+</div>
+
+@if (firing > 0)
+{
+  <div class="a-alert a-alert-danger mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div><b>@Format.Number(firing) هشدار فعال است.</b> ردیف‌های قرمز جدول را ببینید.</div></div>
+}
+
+<form method="post" asp-page-handler="Save" class="a-card mb-4" data-dirty-guard>
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("BellRinging", null, 18) قانون‌ها</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>فعال</th><th>شاخص</th><th>مقدار فعلی</th><th>آستانه</th><th>فاصلهٔ تکرار (دقیقه)</th><th>ایمیل/ربات</th><th>آخرین هشدار</th></tr></thead>
+      <tbody>
+        @foreach (var row in Model.Rules)
+        {
+          var r = row.Rule;
+          var info = row.Info;
+          var prefix = $"rules[{i}]";
+          i++;
+          <tr class="@(r.IsEnabled && r.IsFiring ? "bg-red-50" : "")">
+            <td data-label="فعال">
+              <input type="hidden" name="@(prefix).Id" value="@r.Id">
+              <label class="a-check"><input type="checkbox" name="@(prefix).Enabled" value="true" checked="@r.IsEnabled" disabled="@(!canManage)"><input type="hidden" name="@(prefix).Enabled" value="false"></label>
+            </td>
+            <td data-label="شاخص">
+              <b>@info.Title</b>
+              @if (r.IsEnabled && r.IsFiring) { <span class="a-badge a-badge-red">فعال</span> }
+              <div class="a-muted text-xs mt-1">@info.Help</div>
+            </td>
+            <td data-label="مقدار فعلی" class="nowrap">@(r.LastValue is { } v ? AlertRules.Number(v) + " " + info.Unit : "-") @if (r.LastCheckedAt is { } checkedAt) { <div class="a-muted text-xs">@AdminUi.Ago(checkedAt)</div> }</td>
+            <td data-label="آستانه" class="nowrap">
+              <span class="a-muted text-xs">@(info.LowerIsWorse ? "کمتر از" : "بیشتر یا برابر")</span>
+              <input name="@(prefix).Threshold" value="@r.Threshold.ToString(global::System.Globalization.CultureInfo.InvariantCulture)" class="a-input a-input-sm a-ltr" dir="ltr" inputmode="decimal" style="max-width:110px" readonly="@(!canManage)">
+              <span class="a-muted text-xs">@info.Unit</span>
+            </td>
+            <td data-label="فاصلهٔ تکرار"><input name="@(prefix).CooldownMinutes" type="number" min="5" max="10080" value="@r.CooldownMinutes" class="a-input a-input-sm a-ltr" style="max-width:100px" readonly="@(!canManage)"></td>
+            <td data-label="ایمیل/ربات">
+              <label class="a-check"><input type="checkbox" name="@(prefix).SendExternal" value="true" checked="@r.SendExternal" disabled="@(!canManage)"><input type="hidden" name="@(prefix).SendExternal" value="false"></label>
+            </td>
+            <td data-label="آخرین هشدار" class="text-xs">@(r.LastTriggeredAt is { } t ? AdminUi.Ago(t) : "-")</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @if (canManage)
+  {
+    <div class="a-card-body flex flex-wrap items-center gap-3 border-t border-gray-100">
+      <button class="a-btn" type="submit">ذخیرهٔ قانون‌ها</button>
+      <p class="a-help">«فاصلهٔ تکرار»: تا وقتی مشکل ادامه دارد، هر چند دقیقه یک بار یادآوری شود (حداقل ۵ دقیقه).</p>
+    </div>
+  }
+</form>
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card" id="recipients">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("PaperPlaneTilt", null, 18) گیرندگان بیرونی</span></div>
+    <form method="post" asp-page-handler="Recipients" class="a-card-body grid gap-3">
+      <div class="a-field"><label class="a-label" for="r-email">ایمیل‌ها (با کاما)</label><input id="r-email" name="emailTo" value="@Model.Recipients.EmailTo" class="a-input a-ltr" dir="ltr" maxlength="1000" placeholder="tech@example.com" readonly="@(!canManage)"></div>
+      <div class="a-field"><label class="a-label" for="r-bale">شناسهٔ گفت‌وگوی بله</label><input id="r-bale" name="baleChatId" value="@Model.Recipients.BaleChatId" class="a-input a-ltr" dir="ltr" maxlength="100" readonly="@(!canManage)"></div>
+      <div class="a-field"><label class="a-label" for="r-tg">شناسهٔ گفت‌وگوی تلگرام</label><input id="r-tg" name="telegramChatId" value="@Model.Recipients.TelegramChatId" class="a-input a-ltr" dir="ltr" maxlength="100" readonly="@(!canManage)"></div>
+      <p class="a-help">SMTP و توکن ربات‌ها همان تنظیمات «گزارش‌های خودکار» است؛ اینجا فقط مشخص می‌کنید هشدارها به کجا بروند. فقط قانون‌هایی که ستون «ایمیل/ربات» آن‌ها تیک دارد بیرون فرستاده می‌شوند.</p>
+      @if (canManage)
+      {
+        <div class="flex flex-wrap gap-2"><button class="a-btn" type="submit">ذخیره</button></div>
+      }
+    </form>
+    @if (canManage)
+    {
+      <form method="post" asp-page-handler="Test" class="a-card-body pt-0"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("BellRinging", null, 18) ارسال هشدار آزمایشی</button></form>
+    }
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) تاریخچهٔ هشدارها</span><span class="a-muted text-xs">۵۰ مورد آخر · ۹۰ روز</span></div>
+    <ul class="divide-y divide-gray-100 text-sm">
+      @foreach (var e in Model.Events)
+      {
+        <li class="px-4 py-2.5 flex items-start gap-2">
+          <span class="a-dot @(e.IsResolved ? "dot-ok" : "dot-bad") mt-1.5"></span>
+          <div class="flex-1 min-w-0"><div>@e.Message</div><div class="a-muted text-xs">@Format.DateTime(e.CreatedAt)</div></div>
+        </li>
+      }
+      @if (Model.Events.Count == 0) { <li class="a-empty">هنوز هشداری رخ نداده است.</li> }
+    </ul>
+  </div>
+</div>

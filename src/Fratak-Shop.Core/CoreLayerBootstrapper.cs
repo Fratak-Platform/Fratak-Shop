@@ -129,6 +129,14 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Seo.Tools.ISeoBulkEditService, Services.Seo.Tools.SeoBulkEditService>();
         services.AddScoped<Services.Seo.Tools.ISearchConsoleService, Services.Seo.Tools.SearchConsoleService>();
 
+        // فاز ۹ (فنی): فایروال IP/ربات، پشتیبان‌گیری، کنترل کارهای پس‌زمینه و هشدارها.
+        // بایگانی آپلودها پیش‌فرض «غیرفعال» است؛ لایهٔ Web پیاده‌سازی zip واقعی (UploadsArchiver) را جایگزین می‌کند.
+        services.TryAddSingleton<Services.Ops.IUploadsArchiver, Services.Ops.NullUploadsArchiver>();
+        services.AddScoped<Services.Ops.IFirewallService, Services.Ops.FirewallService>();
+        services.AddScoped<Services.Ops.IBackupService, Services.Ops.BackupService>();
+        services.AddScoped<Services.Ops.IBackgroundJobControl, Services.Ops.BackgroundJobControl>();
+        services.AddScoped<Services.Ops.IAlertService, Services.Ops.AlertService>();
+
         // ابزارهای کاتالوگ (فاز ۵): تغییر گروهی قیمت، انبار و پیش‌بینی، ورود از اکسل، کپی محصول.
         services.AddScoped<Services.Products.IBulkPriceService, Services.Products.BulkPriceService>();
         services.AddScoped<Services.Products.IInventoryService, Services.Products.InventoryService>();

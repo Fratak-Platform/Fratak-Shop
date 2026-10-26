@@ -87,8 +87,9 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
         {
             using var scope = scopeFactory.CreateScope();
             var abandoned = scope.ServiceProvider.GetRequiredService<IAbandonedCartService>();
-            var result = await Admin.JobMonitor.TrackAsync("سبدهای رهاشده", () => abandoned.ProcessAsync(now, stoppingToken));
-            if (result.Detected + result.RemindersSent + result.Closed > 0)
+            var result = Admin.JobMonitor.ShouldSkip("سبدهای رهاشده") ? null
+                : await Admin.JobMonitor.TrackAsync("سبدهای رهاشده", () => abandoned.ProcessAsync(now, stoppingToken));
+            if (result is not null && result.Detected + result.RemindersSent + result.Closed > 0)
                 logger.LogInformation("Abandoned carts: {Detected} detected, {Sent} reminders sent, {Closed} closed",
                     result.Detected, result.RemindersSent, result.Closed);
         }

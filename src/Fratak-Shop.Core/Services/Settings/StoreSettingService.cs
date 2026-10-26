@@ -34,6 +34,12 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
 
     public async Task<OperationResult> UpdateAsync(StoreSettingCommand command)
     {
+        // تنظیمات فنی (فاز ۹): فاصله‌های اضافه حذف و مقدار خالی null می‌شود تا «پیش‌فرض» معنا بدهد.
+        command.BackupFolder = Blank(command.BackupFolder);
+        command.MaintenanceMessage = Blank(command.MaintenanceMessage);
+        command.MaintenanceAllowedIps = Blank(command.MaintenanceAllowedIps);
+        command.HealthCheckToken = Blank(command.HealthCheckToken);
+
         var error = Validate(command);
         if (error is not null)
             return OperationResult.Error(error);
@@ -248,8 +254,52 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
             && !System.Text.RegularExpressions.Regex.IsMatch(command.XSiteHandle.Trim(), "^@?[A-Za-z0-9_]{1,15}$"))
             return "نام کاربری ایکس (توییتر) معتبر نیست.";
 
+        return ValidateOps(command);
+    }
+
+    /// <summary>
+    /// اعتبارسنجی تنظیمات فنی (مرحلهٔ هفتم – فاز ۹). بازه‌ها با CK_StoreSettings_Ops در دیتابیس یکی است.
+    /// مثال خطا: BackupRunsPerDay = 6 → «بین ۱ تا ۴»؛ IP مجاز «abc» → IP نامعتبر؛ توکن سلامت کوتاه‌تر از ۱۶ نویسه → خطا.
+    /// </summary>
+    private static string? ValidateOps(StoreSettingCommand command)
+    {
+        if (command.BackupRunsPerDay is < 1 or > 4)
+            return "تعداد پشتیبان‌گیری در روز باید بین ۱ تا ۴ باشد.";
+        if (command.BackupStartHour is < 0 or > 23)
+            return "ساعت شروع پشتیبان‌گیری باید بین ۰ تا ۲۳ باشد.";
+        if (command.BackupKeepCount is < 1 or > 60)
+            return "تعداد پشتیبان‌های نگه‌داشته‌شده باید بین ۱ تا ۶۰ باشد.";
+        if (command.BackupFolder is { } folder && (folder.Length > 400 || !Ops.BackupSchedule.IsValidFolder(folder)))
+            return "مسیر پوشهٔ پشتیبان معتبر نیست؛ یک مسیر کامل روی سرور پایگاه داده بدهید (مثال: D:\\Backups یا /var/opt/mssql/backup).";
+
+        if (command.MaintenanceRetryMinutes is < 5 or > 1440)
+            return "زمان تخمینی پایان تعمیرات باید بین ۵ دقیقه تا ۲۴ ساعت باشد.";
+        if (command.MaintenanceMessage is { Length: > 1000 })
+            return "پیام حالت تعمیرات حداکثر ۱۰۰۰ نویسه است.";
+        if (command.MaintenanceAllowedIps is { } ips)
+        {
+            if (ips.Length > 1000)
+                return "فهرست IPهای مجاز حداکثر ۱۰۰۰ نویسه است.";
+            var parsed = Ops.IpList.Parse(ips);
+            if (parsed.Invalid.Count > 0)
+                return "IP نامعتبر در فهرست مجاز حالت تعمیرات: " + string.Join("، ", parsed.Invalid.Take(3));
+        }
+
+        if (command.IpAutoBlockThreshold is < 5 or > 1000)
+            return "آستانهٔ مسدودسازی خودکار باید بین ۵ تا ۱۰۰۰ ورود ناموفق باشد.";
+        if (command.IpAutoBlockHours is < 1 or > 720)
+            return "مدت مسدودسازی خودکار باید بین ۱ تا ۷۲۰ ساعت باشد.";
+        if (command.LogFileRetentionDays is < 1 or > 180)
+            return "مدت نگهداری فایل‌های گزارش باید بین ۱ تا ۱۸۰ روز باشد.";
+
+        if (command.HealthCheckToken is { } token
+            && (token.Length is < 16 or > 100 || !System.Text.RegularExpressions.Regex.IsMatch(token, "^[A-Za-z0-9_\\-]+$")))
+            return "توکن بررسی سلامت باید ۱۶ تا ۱۰۰ نویسه و فقط حروف انگلیسی، عدد، خط تیره یا زیرخط باشد.";
+
         return null;
     }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static bool IsHexColor(string? value) =>
         string.IsNullOrWhiteSpace(value)

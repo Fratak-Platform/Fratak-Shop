@@ -279,6 +279,7 @@ public sealed class SeoEngineWorker(IServiceScopeFactory scopeFactory, SeoEngine
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         JobMonitor.Register(JobName, TimeSpan.FromHours(13));
+        JobMonitor.SetRunNow(JobName, _ => queue.Request());
         try
         {
             await Task.Delay(TimeSpan.FromMinutes(4), stoppingToken);
@@ -333,6 +334,9 @@ public sealed class SeoEngineWorker(IServiceScopeFactory scopeFactory, SeoEngine
                 return;
 
             var trigger = manual ? SeoRunTrigger.Manual : SeoRunTrigger.Scheduled;
+            // کار در «کارهای پس‌زمینه» متوقف شده؛ نوبت ثبت نمی‌شود تا پس از ادامه اجرا شود.
+            if (JobMonitor.ShouldSkip(JobName))
+                return;
             var result = await JobMonitor.TrackAsync(JobName, () => engine.RunAsync(trigger, slotKey, stoppingToken));
             if (result.Ran)
                 logger.LogInformation("SEO engine ({Trigger}): {Message}", trigger, result.Message);

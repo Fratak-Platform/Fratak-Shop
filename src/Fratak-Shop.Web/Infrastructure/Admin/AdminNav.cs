@@ -87,6 +87,12 @@ public static class AdminNav
             new AdminNavItem("کاربران آنلاین", "/admin/system/live", "Monitor", [P.MonitoringView]),
             new AdminNavItem("خطاها", "/admin/system/errors", "Bug", [P.MonitoringView], "errors"),
             new AdminNavItem("گزارش فعالیت", "/admin/system/audit", "ClockCounterClockwise", [P.AuditView]),
-            new AdminNavItem("رویدادهای امنیتی", "/admin/system/security", "ShieldCheck", [P.AuditView, P.MonitoringView])),
+            new AdminNavItem("رویدادهای امنیتی", "/admin/system/security", "ShieldCheck", [P.AuditView, P.MonitoringView]),
+            // مرحلهٔ هفتم – فاز ۹: ابزارهای فنی.
+            new AdminNavItem("پشتیبان‌گیری", "/admin/system/backups", "Database", [P.MonitoringView, P.SystemManage]),
+            new AdminNavItem("کارهای پس‌زمینه", "/admin/system/jobs", "ArrowsClockwise", [P.MonitoringView, P.SystemManage]),
+            new AdminNavItem("فایروال", "/admin/system/firewall", "Prohibit", [P.MonitoringView, P.SystemManage]),
+            new AdminNavItem("هشدارها", "/admin/system/alerts", "BellRinging", [P.MonitoringView, P.SystemManage]),
+            new AdminNavItem("گزارش‌های سرور", "/admin/system/logs", "Article", [P.MonitoringView])),
     ];
 }

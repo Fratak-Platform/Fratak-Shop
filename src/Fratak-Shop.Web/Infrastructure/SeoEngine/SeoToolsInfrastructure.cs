@@ -286,6 +286,8 @@ public sealed class SeoToolsWorker(IServiceScopeFactory scopeFactory, SeoToolsQu
     {
         JobMonitor.Register(LinkJobName, TimeSpan.FromHours(25));
         JobMonitor.Register(GscJobName, TimeSpan.FromHours(22));
+        JobMonitor.SetRunNow(LinkJobName, _ => queue.Request(SeoToolsJob.LinkAudit));
+        JobMonitor.SetRunNow(GscJobName, _ => queue.Request(SeoToolsJob.SearchConsoleSync));
         try
         {
             await Task.Delay(TimeSpan.FromMinutes(6), stoppingToken);
@@ -355,6 +357,8 @@ public sealed class SeoToolsWorker(IServiceScopeFactory scopeFactory, SeoToolsQu
         try
         {
             using var scope = scopeFactory.CreateScope();
+            if (JobMonitor.ShouldSkip(job == SeoToolsJob.LinkAudit ? LinkJobName : GscJobName))
+                return;
             if (job == SeoToolsJob.LinkAudit)
             {
                 var audit = scope.ServiceProvider.GetRequiredService<ISeoLinkAuditService>();

@@ -37,7 +37,31 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "Expense", "SalesGoal", "ScheduledReport", "ReportDeliveryConfig",
         "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
         "SeoLinkIssue", "SearchConsoleQueryStat", "SearchConsoleDailyStat", "SeoToolsConfig",
+        // فاز ۹ (فنی): پشتیبان، فایروال، کارها و هشدارها هیچ‌وقت در صفحات عمومی نیستند (شمارندهٔ فایروال هر چند دقیقه ذخیره می‌شود).
+        "BackupRecord", "IpRule", "BotRule", "BackgroundJobSetting", "AlertRule", "AlertEvent",
     };
+
+    // ── آمار کش صفحات از زمان روشن شدن سایت (کارت «کش» در /admin/system) ──
+    private static long _hits;
+    private static long _misses;
+    private static long _evictions;
+
+    /// <summary>صفحه از کش داده شد.</summary>
+    public static long Hits => Interlocked.Read(ref _hits);
+
+    /// <summary>صفحهٔ قابل کش که ساخته شد (در کش نبود یا منقضی شده بود).</summary>
+    public static long Misses => Interlocked.Read(ref _misses);
+
+    /// <summary>دفعات خالی شدن کش به‌خاطر تغییر داده.</summary>
+    public static long Evictions => Interlocked.Read(ref _evictions);
+
+    public static DateTimeOffset? LastEvictedAt { get; private set; }
+
+    public static void CountEviction()
+    {
+        Interlocked.Increment(ref _evictions);
+        LastEvictedAt = DateTimeOffset.UtcNow;
+    }
 
     /// <summary>True while rendering a response that may be stored in the page cache.</summary>
     public static bool IsCacheable(HttpContext http) => http.Items.ContainsKey(EligibleKey);
@@ -52,6 +76,7 @@ public sealed class PageCachePolicy : IOutputCachePolicy
             if (!AffectsPages(types))
                 return;
 
+            CountEviction();
             _ = EvictAsync();
 
             async Task EvictAsync()
@@ -117,12 +142,15 @@ public sealed class PageCachePolicy : IOutputCachePolicy
     ValueTask IOutputCachePolicy.ServeFromCacheAsync(OutputCacheContext context, CancellationToken cancellation)
     {
         context.HttpContext.Response.Headers["X-Page-Cache"] = "HIT";
+        Interlocked.Increment(ref _hits);
         return ValueTask.CompletedTask;
     }
 
     ValueTask IOutputCachePolicy.ServeResponseAsync(OutputCacheContext context, CancellationToken cancellation)
     {
         var response = context.HttpContext.Response;
+        if (IsCacheable(context.HttpContext))
+            Interlocked.Increment(ref _misses);
 
         // Never store personal or unsuccessful responses.
         if (response.StatusCode != StatusCodes.Status200OK || response.Headers.ContainsKey("Set-Cookie"))

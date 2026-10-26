@@ -272,6 +272,7 @@ public sealed class PostTrackingWorker(IServiceScopeFactory scopeFactory, PostTr
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         JobMonitor.Register(JobName, TimeSpan.FromMinutes(30));
+        JobMonitor.SetRunNow(JobName, _ => queue.Request());
         try
         {
             await Task.Delay(TimeSpan.FromMinutes(3), stoppingToken);

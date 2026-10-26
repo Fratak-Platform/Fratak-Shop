@@ -18,6 +18,25 @@ public sealed class JobState
     public TimeSpan ExpectedInterval { get; set; } = TimeSpan.FromHours(1);
 
     public bool IsFailing => LastFailedAt is { } failed && (LastSucceededAt is null || failed > LastSucceededAt);
+
+    // ── کنترل کارها (مرحلهٔ هفتم – فاز ۹؛ صفحهٔ /admin/system/jobs) ──
+
+    /// <summary>
+    /// قابل توقف است؟ کارهای حیاتی صف‌محور (ارسال پوش، اعلان کارکنان، ثبت آمار بازدید) false هستند چون توقفشان
+    /// صف حافظه را پر می‌کند و داده از دست می‌رود.
+    /// </summary>
+    public bool IsPausable { get; set; } = true;
+
+    /// <summary>آخرین باری که به خاطر «متوقف بودن» اجرا نشد.</summary>
+    public DateTimeOffset? LastSkippedAt { get; set; }
+
+    public long Skips { get; set; }
+
+    /// <summary>
+    /// اجرای فوری (اختیاری). ورودی: نام کارمند؛ خروجی: آیا درخواست در صف قرار گرفت. فقط کارهایی که صف دستی دارند
+    /// (موتور سئو، ابزارهای سئو، رهگیری پست، بررسی تأمین‌کننده و …) این را با JobMonitor.SetRunNow پر می‌کنند.
+    /// </summary>
+    public Func<string, bool>? RunNow { get; set; }
 }
 
 /// <summary>
@@ -33,9 +52,58 @@ public static class JobMonitor
     public static void Register(string name, TimeSpan expectedInterval) =>
         States.GetOrAdd(name, n => new JobState { Name = n }).ExpectedInterval = expectedInterval;
 
+    /// <summary>ثبت کاری که نباید قابل توقف باشد (صف‌های حیاتی). مثال: WebPushSender.</summary>
+    public static void Register(string name, TimeSpan expectedInterval, bool pausable)
+    {
+        var state = States.GetOrAdd(name, n => new JobState { Name = n });
+        state.ExpectedInterval = expectedInterval;
+        state.IsPausable = pausable;
+    }
+
+    /// <summary>تعریف «اجرای فوری» برای یک کار. مثال: JobMonitor.SetRunNow(JobName, _ => queue.Request()).</summary>
+    public static void SetRunNow(string name, Func<string, bool> runNow) =>
+        States.GetOrAdd(name, n => new JobState { Name = n }).RunNow = runNow;
+
+    /// <summary>کار ناموفق یا گیرکرده (بیش از ۳ برابر فاصلهٔ مورد انتظار اجرا نشده)؛ کارهای متوقف حساب نمی‌شوند. محل استفاده: هشدار FailingJobs.</summary>
+    public static int CountUnhealthy(DateTimeOffset now) => All.Count(job => !IsPaused(job.Name)
+        && (job.IsFailing || (job.LastSucceededAt is { } last && now - last > job.ExpectedInterval * 3)));
+
+    public static JobState? Find(string name) => States.TryGetValue(name, out var state) ? state : null;
+
+    // ── توقف/ادامه ──
+    // فهرست کارهای متوقف در جدول BackgroundJobSettings ذخیره می‌شود (IBackgroundJobControl) و OpsWorker هر دقیقه
+    // (و صفحهٔ کارها بلافاصله پس از تغییر) آن را با SetPaused در این مجموعهٔ حافظه‌ای می‌ریزد.
+
+    private static volatile HashSet<string> _paused = new(StringComparer.Ordinal);
+
+    public static void SetPaused(IEnumerable<string> names) => _paused = new HashSet<string>(names, StringComparer.Ordinal);
+
+    public static bool IsPaused(string name) => _paused.Contains(name) && (Find(name)?.IsPausable ?? true);
+
+    /// <summary>
+    /// قبل از اجرای یک کار صدا زده می‌شود: اگر متوقف است، «رد شد» ثبت می‌کند و true برمی‌گرداند.
+    /// مثال: if (JobMonitor.ShouldSkip(JobName)) return;
+    /// TrackAsync هم خودش همین را بررسی می‌کند؛ این متد برای جاهایی است که خروجی کار شیء است و نباید null شود.
+    /// </summary>
+    public static bool ShouldSkip(string name)
+    {
+        if (!IsPaused(name))
+            return false;
+        var state = States.GetOrAdd(name, n => new JobState { Name = n });
+        lock (state)
+        {
+            state.LastSkippedAt = DateTimeOffset.UtcNow;
+            state.Skips++;
+        }
+        return true;
+    }
+
     /// <summary>Runs one job iteration and records its outcome. Exceptions are recorded and rethrown.</summary>
     public static async Task<T> TrackAsync<T>(string name, Func<Task<T>> run)
     {
+        // کار متوقف‌شده اجرا نمی‌شود و مقدار پیش‌فرض (برای شمارش‌ها صفر) برمی‌گردد.
+        if (ShouldSkip(name))
+            return default!;
         var state = States.GetOrAdd(name, n => new JobState { Name = n });
         var started = DateTimeOffset.UtcNow;
         lock (state)

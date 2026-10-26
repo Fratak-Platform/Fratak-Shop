@@ -196,6 +196,30 @@ public static class SettingsRegistry
             B("IsPageCacheEnabled", "کش صفحات عمومی", "با هر تغییر داده، کش مرتبط خودکار پاک می‌شود."), I("PageCacheSeconds", "مدت کش صفحه (ثانیه)"),
             B("IsImageOptimizationEnabled", "بهینه‌سازی و تغییر اندازه تصاویر"), I("ImageQuality", "کیفیت تصاویر (۱ تا ۱۰۰)"),
             I("ErrorLogRetentionDays", "نگهداری لاگ خطا (روز)"), I("AuditLogRetentionDays", "نگهداری گزارش فعالیت (روز)"),
+            new("LogFileRetentionDays", "نگهداری فایل‌های گزارش روزانه (روز)", SKind.Int, "۱ تا ۱۸۰. هشدارها و خطاها هر روز در App_Data/logs ذخیره و در «گزارش‌های سرور» نمایش داده می‌شوند. پیشنهاد: ۱۴"),
+        ]),
+        // ── مرحلهٔ هفتم – فاز ۹: پشتیبان‌گیری خودکار ──
+        new("backup", "پشتیبان‌گیری", "Database", "پشتیبان خودکار پایگاه داده (و در صورت نیاز فایل‌های آپلود) با زمان‌بندی، بررسی سلامت و پاک کردن نسخه‌های قدیمی. فهرست و اجرای دستی: «فنی ← پشتیبان‌گیری».",
+        [
+            B("IsBackupEnabled", "پشتیبان‌گیری خودکار پایگاه داده", "با دستور BACKUP خود SQL Server (COPY_ONLY تا زنجیرهٔ پشتیبان‌های دیگر شما به هم نخورد)."),
+            new("BackupRunsPerDay", "تعداد پشتیبان در شبانه‌روز", SKind.Select, "با فاصلهٔ مساوی از ساعت شروع.") { ShowWhen = "IsBackupEnabled", Options = [("1", "۱ بار"), ("2", "۲ بار (هر ۱۲ ساعت)"), ("3", "۳ بار (هر ۸ ساعت)"), ("4", "۴ بار (هر ۶ ساعت)")] },
+            new("BackupStartHour", "ساعت شروع (به وقت ایران)", SKind.Int, "۰ تا ۲۳؛ ساعت کم‌بازدید را انتخاب کنید. پیشنهاد: ۳ بامداد") { ShowWhen = "IsBackupEnabled" },
+            new("BackupKeepCount", "تعداد نسخه‌های نگه‌داشته‌شده", SKind.Int, "۱ تا ۶۰؛ نسخه‌های قدیمی‌تر خودکار پاک می‌شوند (پشتیبان‌های دستی هم شمرده می‌شوند). پیشنهاد: ۷") { ShowWhen = "IsBackupEnabled" },
+            new("BackupFolder", "پوشهٔ پشتیبان روی سرور پایگاه داده", SKind.Ltr, "خالی = پوشهٔ پیش‌فرض SQL Server. مسیر کامل، مثال: D:\\Backups یا /var/opt/mssql/backup. حساب سرویس SQL Server باید اجازهٔ نوشتن داشته باشد.") { ShowWhen = "IsBackupEnabled", Wide = true },
+            new("IsBackupVerifyEnabled", "بررسی سلامت فایل پشتیبان", SKind.Bool, "بعد از هر پشتیبان RESTORE VERIFYONLY اجرا می‌شود تا از سالم بودن فایل مطمئن شوید.") { ShowWhen = "IsBackupEnabled" },
+            new("IsUploadsBackupEnabled", "پشتیبان فایل‌های آپلود (تصاویر)", SKind.Bool, "در هر نوبت یک فایل zip از پوشهٔ uploads در App_Data/backups ساخته می‌شود. برای سایت‌های پرتصویر فضای زیادی می‌گیرد.") { ShowWhen = "IsBackupEnabled" },
+        ]),
+        // ── مرحلهٔ هفتم – فاز ۹: تعمیرات، فایروال و سلامت ──
+        new("ops", "تعمیرات و امنیت سرور", "Wrench", "حالت تعمیرات سایت، مسدودسازی خودکار IPهای مهاجم و توکن بررسی سلامت برای سرویس‌های مانیتورینگ. قانون‌های IP و ربات: «فنی ← فایروال».",
+        [
+            B("IsMaintenanceMode", "حالت تعمیرات", "بازدیدکنندگان صفحهٔ «در حال به‌روزرسانی» (کد ۵۰۳) می‌بینند؛ کارکنان واردشده و IPهای مجاز سایت را عادی می‌بینند. پنل مدیریت همیشه باز است."),
+            new("MaintenanceMessage", "پیام صفحهٔ تعمیرات", SKind.Area, "خالی = پیام پیش‌فرض. مثال: در حال افزودن محصولات جدید هستیم؛ تا ساعت ۱۸ برمی‌گردیم.") { ShowWhen = "IsMaintenanceMode", Wide = true },
+            new("MaintenanceRetryMinutes", "زمان تخمینی بازگشت (دقیقه)", SKind.Int, "۵ تا ۱۴۴۰؛ به موتورهای جست‌وجو گفته می‌شود چه زمانی دوباره سر بزنند (Retry-After) تا رتبهٔ سایت آسیب نبیند.") { ShowWhen = "IsMaintenanceMode" },
+            new("MaintenanceAllowedIps", "IPهای مجاز در حالت تعمیرات", SKind.Area, "هر IP یا محدوده (CIDR) در یک خط یا با کاما. مثال: 5.160.10.20 یا 5.160.10.0/24") { ShowWhen = "IsMaintenanceMode", Wide = true },
+            B("IsIpAutoBlockEnabled", "مسدودسازی خودکار IP مهاجم", "IPهایی که در یک ساعت بیش از آستانه ورود ناموفق داشته باشند، موقتاً مسدود می‌شوند. IPهای شبکهٔ داخلی و فهرست «مجاز» هرگز مسدود نمی‌شوند."),
+            new("IpAutoBlockThreshold", "آستانهٔ ورود ناموفق در یک ساعت", SKind.Int, "۵ تا ۱۰۰۰. پیشنهاد: ۲۰ (کاربر عادی هرگز به این عدد نمی‌رسد).") { ShowWhen = "IsIpAutoBlockEnabled" },
+            new("IpAutoBlockHours", "مدت مسدودی (ساعت)", SKind.Int, "۱ تا ۷۲۰. پیشنهاد: ۲۴") { ShowWhen = "IsIpAutoBlockEnabled" },
+            new("HealthCheckToken", "توکن بررسی سلامت (/healthz)", SKind.Ltr, "خالی = /healthz فقط وضعیت کلی (ok/fail) می‌دهد. با توکن (۱۶ تا ۱۰۰ نویسه) جزئیات هم برمی‌گردد: /healthz?token=... مناسب UptimeRobot و مانند آن.") { Wide = true },
         ]),
     ];
 }

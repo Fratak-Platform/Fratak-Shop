@@ -186,6 +186,22 @@ public static class StoreSettingMapper
             SeoEngineBatchSize = entity.SeoEngineBatchSize,
             SeoCompetitorResearch = entity.SeoCompetitorResearch,
             SeoAllowSlugChanges = entity.SeoAllowSlugChanges,
+            IsBackupEnabled = entity.IsBackupEnabled,
+            BackupRunsPerDay = entity.BackupRunsPerDay,
+            BackupStartHour = entity.BackupStartHour,
+            BackupKeepCount = entity.BackupKeepCount,
+            BackupFolder = entity.BackupFolder,
+            IsBackupVerifyEnabled = entity.IsBackupVerifyEnabled,
+            IsUploadsBackupEnabled = entity.IsUploadsBackupEnabled,
+            IsMaintenanceMode = entity.IsMaintenanceMode,
+            MaintenanceMessage = entity.MaintenanceMessage,
+            MaintenanceRetryMinutes = entity.MaintenanceRetryMinutes,
+            MaintenanceAllowedIps = entity.MaintenanceAllowedIps,
+            IsIpAutoBlockEnabled = entity.IsIpAutoBlockEnabled,
+            IpAutoBlockThreshold = entity.IpAutoBlockThreshold,
+            IpAutoBlockHours = entity.IpAutoBlockHours,
+            LogFileRetentionDays = entity.LogFileRetentionDays,
+            HealthCheckToken = entity.HealthCheckToken,
         };
     }
 
@@ -366,5 +382,21 @@ public static class StoreSettingMapper
         entity.SeoEngineBatchSize = command.SeoEngineBatchSize;
         entity.SeoCompetitorResearch = command.SeoCompetitorResearch;
         entity.SeoAllowSlugChanges = command.SeoAllowSlugChanges;
+        entity.IsBackupEnabled = command.IsBackupEnabled;
+        entity.BackupRunsPerDay = command.BackupRunsPerDay;
+        entity.BackupStartHour = command.BackupStartHour;
+        entity.BackupKeepCount = command.BackupKeepCount;
+        entity.BackupFolder = command.BackupFolder;
+        entity.IsBackupVerifyEnabled = command.IsBackupVerifyEnabled;
+        entity.IsUploadsBackupEnabled = command.IsUploadsBackupEnabled;
+        entity.IsMaintenanceMode = command.IsMaintenanceMode;
+        entity.MaintenanceMessage = command.MaintenanceMessage;
+        entity.MaintenanceRetryMinutes = command.MaintenanceRetryMinutes;
+        entity.MaintenanceAllowedIps = command.MaintenanceAllowedIps;
+        entity.IsIpAutoBlockEnabled = command.IsIpAutoBlockEnabled;
+        entity.IpAutoBlockThreshold = command.IpAutoBlockThreshold;
+        entity.IpAutoBlockHours = command.IpAutoBlockHours;
+        entity.LogFileRetentionDays = command.LogFileRetentionDays;
+        entity.HealthCheckToken = command.HealthCheckToken;
     }
 }

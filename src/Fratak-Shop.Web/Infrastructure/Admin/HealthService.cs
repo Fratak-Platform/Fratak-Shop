@@ -106,6 +106,11 @@ public sealed class HealthService(
 
         foreach (var job in JobMonitor.All)
         {
+            if (JobMonitor.IsPaused(job.Name))
+            {
+                checks.Add(new HealthCheck("کار پس‌زمینه: " + job.Name, HealthLevel.Warning, "به دستور کارمند متوقف شده است (کارهای پس‌زمینه)."));
+                continue;
+            }
             if (job.IsFailing)
                 checks.Add(new HealthCheck("کار پس‌زمینه: " + job.Name, HealthLevel.Warning, "آخرین اجرا ناموفق بود: " + job.LastError));
             else if (job.LastSucceededAt is { } last && DateTimeOffset.UtcNow - last > job.ExpectedInterval * 3)

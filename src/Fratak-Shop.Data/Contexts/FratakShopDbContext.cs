@@ -280,6 +280,14 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public DbSet<SeoToolsConfig> SeoToolsConfigs { get; set; } = null!;
 
+    // ── عملیات فنی (مرحلهٔ هفتم – فاز ۹): پشتیبان، دیوار آتش، کنترل کارها، هشدار ──
+    public DbSet<Fratak_Shop.Data.Entities.Ops.BackupRecord> BackupRecords { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Ops.IpRule> IpRules { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Ops.BotRule> BotRules { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Ops.BackgroundJobSetting> BackgroundJobSettings { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Ops.AlertRule> AlertRules { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Ops.AlertEvent> AlertEvents { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

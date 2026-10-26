@@ -207,6 +207,7 @@ public sealed class SupplierSyncWorker(IServiceScopeFactory scopeFactory, Suppli
     {
         // بازه‌ی مورد انتظار برای هشدار «کار گیرکرده»: حداکثر یک روز (حتی با ۱ اجرا در روز).
         JobMonitor.Register(JobName, TimeSpan.FromHours(26));
+        JobMonitor.SetRunNow(JobName, staff => queue.Request(staff));
         try
         {
             await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);

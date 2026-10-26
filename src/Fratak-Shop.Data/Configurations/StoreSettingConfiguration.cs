@@ -143,6 +143,21 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_SeoEngine",
             "[SeoEngineRunsPerDay] BETWEEN 1 AND 6 AND [SeoEngineBatchSize] BETWEEN 5 AND 200"));
 
+        // مرحلهٔ هفتم – فاز ۹: پشتیبان، حالت تعمیر، مسدودسازی خودکار IP، لاگ.
+        builder.Property(s => s.IsBackupEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.BackupRunsPerDay).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.BackupStartHour).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.BackupKeepCount).HasDefaultValue(7).HasSentinel(7);
+        builder.Property(s => s.IsBackupVerifyEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.MaintenanceRetryMinutes).HasDefaultValue(60).HasSentinel(60);
+        builder.Property(s => s.IpAutoBlockThreshold).HasDefaultValue(20).HasSentinel(20);
+        builder.Property(s => s.IpAutoBlockHours).HasDefaultValue(24).HasSentinel(24);
+        builder.Property(s => s.LogFileRetentionDays).HasDefaultValue(14).HasSentinel(14);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Ops",
+            "[BackupRunsPerDay] BETWEEN 1 AND 4 AND [BackupStartHour] BETWEEN 0 AND 23 AND [BackupKeepCount] BETWEEN 1 AND 60 " +
+            "AND [MaintenanceRetryMinutes] BETWEEN 5 AND 1440 AND [IpAutoBlockThreshold] BETWEEN 5 AND 1000 AND [IpAutoBlockHours] BETWEEN 1 AND 720 " +
+            "AND [LogFileRetentionDays] BETWEEN 1 AND 180"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));
