@@ -78,7 +78,15 @@ public sealed class OnnxCaptchaSolver : IPostCaptchaSolver, IDisposable
     /// </summary>
     public static (float[] Pixels, int Width)? Prepare(byte[] image)
     {
-        using var source = SKBitmap.Decode(image);
+        if (image is null || image.Length == 0)
+            return null;
+        // SKBitmap.Decode برای بایت‌های خراب (مثلاً صفحهٔ HTML خطا به جای تصویر) استثنا می‌دهد، نه null؛
+        // پس اول با SKCodec بررسی می‌کنیم که اصلاً تصویر قابل‌خواندن است.
+        using var data = SKData.CreateCopy(image);
+        using var codec = SKCodec.Create(data);
+        if (codec is null)
+            return null;
+        using var source = SKBitmap.Decode(codec);
         if (source is null || source.Width <= 0 || source.Height <= 0)
             return null;
         var width = (int)Math.Round(source.Width * (double)InputHeight / source.Height);
