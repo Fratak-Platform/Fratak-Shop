@@ -619,6 +619,37 @@ for key in $(curl -s -b "$JAR" "$BASE/admin/manage" | grep -o 'href="/admin/mana
   if [ -n "$item" ]; then expect 200 "$item"; fi
 done
 
+echo "== Admin panel: every navigation page and settings tab (P7b-P10)"
+# فهرست از خود منوی پنل خوانده می‌شود تا هر صفحهٔ تازه‌ای که به منو اضافه شود خودکار بررسی شود.
+curl -s -b "$JAR" "$BASE/admin" -o /tmp/smoke-nav
+for path in $(grep -o 'href="/admin[^"]*" class="a-nav-link' /tmp/smoke-nav | sed 's/^href="//; s/" class=.*$//; s/&amp;/\&/g' | sort -u); do
+  expect 200 "$path"
+done
+curl -s -b "$JAR" "$BASE/admin/settings" -o /tmp/smoke-settings
+for tab in $(grep -o 'href="/admin/settings?tab=[a-z0-9-]*"' /tmp/smoke-settings | sed 's/.*tab=//; s/"$//' | sort -u); do
+  expect 200 "/admin/settings?tab=$tab"
+done
+
+echo "== Staff security & teamwork (P10): account, tasks, approvals, reauth"
+expect 200 /admin/account
+contains_i "برنامهٔ احراز هویت"
+expect 200 "/admin/reauth?returnUrl=/admin/orders"
+expect 200 "/admin/reauth?returnUrl=https://evil.example"
+lacks "evil.example"
+expect 200 /admin/approvals
+expect 200 "/admin/approvals?status=all&mine=true"
+expect 200 "/admin/tasks?handler=Staff"
+contains_i "handle"
+expect 200 "/admin/tasks?new=1&url=/admin/orders&title=smoke"
+TOKEN=$(token)
+expect 302 "/admin/tasks?handler=Save" -X POST --data-urlencode "__RequestVerificationToken=$TOKEN" \
+  --data-urlencode "title=کار تست دود" --data-urlencode "priority=3" --data-urlencode "url=/admin/orders"
+expect 200 /admin/tasks
+contains "کار تست دود"
+for view in open done delegated bogus; do
+  expect 200 "/admin/tasks?view=$view"
+done
+
 echo "== Admin panel: detail pages"
 for spec in "/admin/orders|/admin/orders/[0-9a-f-]\{36\}" "/admin/customers|/admin/customers/[0-9a-f-]\{36\}" \
             "/admin/products|/admin/products/edit/[0-9a-f-]\{36\}" "/admin/blog|/admin/blog/edit/[0-9a-f-]\{36\}" \

@@ -320,7 +320,7 @@
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Note", null, 18) تاریخچه و یادداشت‌های داخلی</span></div>
       <div class="a-card-body">
         <form method="post" asp-page-handler="Note" class="flex gap-2 mb-5">
-          <input name="content" class="a-input" placeholder="یادداشت داخلی (مشتری نمی‌بیند)… با @ همکار را خبر کنید" maxlength="2000" required data-mentions autocomplete="off">
+          <input name="content" class="a-input" placeholder="یادداشت داخلی (مشتری نمی‌بیند)… با @@ همکار را خبر کنید" maxlength="2000" required data-mentions autocomplete="off">
           <button type="submit" class="a-btn">ثبت</button>
         </form>
         @if (d.Notes.Count == 0)

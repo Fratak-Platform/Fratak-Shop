@@ -36,7 +36,7 @@
       @Html.AntiForgeryToken()
       @if (e is not null) { <input type="hidden" name="id" value="@e.Id"> }
       <div class="a-field md:col-span-2"><label class="a-label" for="t-title">عنوان *</label><input id="t-title" name="title" value="@formTitle" class="a-input" maxlength="200" required autofocus placeholder="مثلاً: تماس با مشتری دربارهٔ تأخیر سفارش"></div>
-      <div class="a-field md:col-span-2"><label class="a-label" for="t-notes">توضیح</label><textarea id="t-notes" name="notes" class="a-textarea" rows="3" maxlength="2000" data-mentions>@e?.Notes</textarea><p class="a-help">با تایپ «@» همکاران را نام ببرید.</p></div>
+      <div class="a-field md:col-span-2"><label class="a-label" for="t-notes">توضیح</label><textarea id="t-notes" name="notes" class="a-textarea" rows="3" maxlength="2000" data-mentions>@e?.Notes</textarea><p class="a-help">با تایپ «@@» همکاران را نام ببرید.</p></div>
       <div class="a-field"><label class="a-label" for="t-due">موعد</label><input id="t-due" name="due" value="@formDue" class="a-input a-ltr" data-jalali="datetime" placeholder="1405/08/10 10:00"><p class="a-help">بدون ساعت ← ۱۰ صبح.</p></div>
       <div class="a-field"><label class="a-label" for="t-priority">اولویت</label>
         <select id="t-priority" name="priority" class="a-select">
