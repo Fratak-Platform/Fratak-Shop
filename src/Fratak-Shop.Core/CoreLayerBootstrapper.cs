@@ -109,6 +109,13 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Reports.IAnalyticsService, Services.Reports.AnalyticsService>();
         services.AddScoped<Services.Reports.IAnalyticsReportService, Services.Reports.AnalyticsReportService>();
 
+        // مرحلهٔ هفتم – فاز ۷ب: هزینه‌ها، هدف فروش، عملکرد کارکنان و گزارش‌های زمان‌بندی‌شده.
+        // IReportDelivery (ارسال ایمیل/ربات) در لایهٔ Web ثبت می‌شود.
+        services.AddScoped<Services.Insights.IExpenseService, Services.Insights.ExpenseService>();
+        services.AddScoped<Services.Insights.ISalesGoalService, Services.Insights.SalesGoalService>();
+        services.AddScoped<Services.Insights.IStaffPerformanceService, Services.Insights.StaffPerformanceService>();
+        services.AddScoped<Services.Insights.IScheduledReportService, Services.Insights.ScheduledReportService>();
+
         // ابزارهای کاتالوگ (فاز ۵): تغییر گروهی قیمت، انبار و پیش‌بینی، ورود از اکسل، کپی محصول.
         services.AddScoped<Services.Products.IBulkPriceService, Services.Products.BulkPriceService>();
         services.AddScoped<Services.Products.IInventoryService, Services.Products.InventoryService>();

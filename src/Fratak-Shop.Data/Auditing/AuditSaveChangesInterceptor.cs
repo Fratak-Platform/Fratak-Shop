@@ -29,7 +29,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         // بررسی تأمین‌کننده: گزارش خودش تاریخچه دارد؛ فقط تغییر واقعی روی Product (موجودی/قیمت) در تاریخچه ثبت می‌شود.
         "SupplierProductState", "SupplierSyncRun", "SupplierChange",
         // دفتر موجودی و دسته‌های تغییر قیمت خودشان سابقه‌اند (تغییر خود محصول جداگانه ثبت می‌شود).
-        "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter",
+        "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "ScheduledReport",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)

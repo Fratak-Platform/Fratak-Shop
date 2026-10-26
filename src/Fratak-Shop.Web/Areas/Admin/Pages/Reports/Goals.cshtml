@@ -1,0 +1,154 @@
+@page "/admin/reports/goals"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.GoalsModel
+@using Fratak_Shop.Core.Services.Insights
+@using Fratak_Shop.Web.Areas.Admin.Pages.Reports
+@* هدف فروش ماهانه، پیشرفت و پیش‌بینی (مرحلهٔ هفتم – فاز ۷ب). *@
+@{
+    ViewData["Title"] = "هدف فروش ماهانه";
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var p = Model.Progress;
+    var fc = p.Forecast;
+    var prev = JalaliMonth.Add(p.Year, p.Month, -1);
+    var next = JalaliMonth.Add(p.Year, p.Month, 1);
+    var isCurrent = (p.Year, p.Month) == Model.Current;
+    var isFuture = p.Year * 12 + p.Month > Model.Current.Year * 12 + Model.Current.Month;
+    var width = Math.Min(100m, fc.Percent).ToString("0.#", inv);
+    var expectedWidth = p.HasTarget ? Math.Min(100m, Math.Round(fc.ExpectedByNow * 100 / p.TargetAmount!.Value, 1)).ToString("0.#", inv) : "0";
+    var chart = new BarChartModel("فروش روزانه", Model.Daily, true, "سفارش");
+    var years = Enumerable.Range(Model.Current.Year - 1, 3).ToList();
+}
+<div class="a-page-head">
+  <div>
+    <h2>هدف فروش ماهانه</h2>
+    <p class="a-muted text-sm mt-1">فروش = سفارش‌های قطعی (پرداخت‌شده یا تحویل‌شده، بدون لغو و مرجوعی) منهای مبلغ برگشتی · همان قاعدهٔ گزارش مالی</p>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head">
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/reports/goals?y=@prev.Year&m=@prev.Month">@Icons.Svg("CaretRight", null, 16) @JalaliMonth.Title(prev.Year, prev.Month)</a>
+    <span class="a-card-title">@Icons.Svg("Trophy", null, 18) @p.Title @if (isCurrent) { <span class="a-badge a-badge-blue">ماه جاری</span> }</span>
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/reports/goals?y=@next.Year&m=@next.Month">@JalaliMonth.Title(next.Year, next.Month) @Icons.Svg("CaretLeft", null, 16)</a>
+  </div>
+  <div class="a-card-body">
+    @if (p.HasTarget)
+    {
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div><b class="text-lg">@AdminUi.Money(p.Achieved)</b> <span class="a-muted">از @AdminUi.Money(p.TargetAmount!.Value)</span></div>
+        <div class="flex items-center gap-2"><span class="a-badge @GoalsModel.StatusBadge(fc.Status)">@SalesGoalRules.StatusTitle(fc.Status)</span><b>@fc.Percent.ToString("0.#", inv)٪</b></div>
+      </div>
+      <div class="a-goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@width" aria-label="پیشرفت هدف">
+        <div class="a-goal-fill is-@fc.Status" style="width:@width%"></div>
+        @if (isCurrent)
+        {
+          <span class="a-goal-marker" style="inset-inline-start:@expectedWidth%" title="انتظار تا امروز: @Format.Toman(fc.ExpectedByNow)"></span>
+        }
+      </div>
+      @if (isCurrent)
+      {
+        <p class="a-muted text-xs mt-1">خط عمودی = جایی که با پخش یکنواخت هدف باید تا امروز می‌رسیدیم (@Format.Toman(fc.ExpectedByNow)).</p>
+      }
+      @if (!string.IsNullOrEmpty(p.Note))
+      {
+        <p class="text-sm mt-2">@Icons.Svg("Note", null, 16) @p.Note</p>
+      }
+    }
+    else
+    {
+      <div class="a-alert a-alert-info">@Icons.Svg("Info", "shrink-0", 20)<div>برای @p.Title هدفی ثبت نشده است. @(Model.CanSet ? "از فرم پایین هدف را تعیین کنید." : "")</div></div>
+    }
+
+    <div class="a-stats mt-4">
+      <div class="a-stat"><div class="a-stat-label">فروش ماه</div><div class="a-stat-value">@AdminUi.Money(p.Achieved)</div><div class="a-stat-sub">@Format.Number(p.Orders) سفارش قطعی@(p.TargetOrders is { } targetOrders ? " از " + Format.Number(targetOrders) : "")</div></div>
+      <div class="a-stat"><div class="a-stat-label">پیش‌بینی پایان ماه</div><div class="a-stat-value">@if (isFuture) { <span>—</span> } else { @AdminUi.Money(fc.Projected) }</div><div class="a-stat-sub">با سرعت فعلی · @Format.Number(p.DaysPassed) از @Format.Number(p.DaysInMonth) روز</div></div>
+      @if (p.HasTarget)
+      {
+        <div class="a-stat"><div class="a-stat-label">باقی‌مانده تا هدف</div><div class="a-stat-value">@AdminUi.Money(Math.Max(0, p.TargetAmount!.Value - p.Achieved))</div><div class="a-stat-sub">@Format.Number(p.DaysLeft) روز مانده</div></div>
+        <div class="a-stat"><div class="a-stat-label">فروش لازم در هر روز</div><div class="a-stat-value">@if (fc.RequiredPerDay > 0) { @AdminUi.Money(fc.RequiredPerDay) } else { <span class="a-up">✔</span> }</div><div class="a-stat-sub">@(p.DaysPassed > 0 ? "میانگین فعلی روزانه " + Format.Toman(Math.Round(p.Achieved / p.DaysPassed)) : "")</div></div>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartBar", null, 18) فروش روزانهٔ @p.Title</span></div>
+    <div class="a-card-body"><partial name="_BarChart" model="chart" /></div>
+  </div>
+  @if (Model.CanSet)
+  {
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Target", null, 18) تعیین هدف</span></div>
+      <form method="post" asp-page-handler="Save" class="a-card-body">
+        <div class="a-form-grid cols-2">
+          <div class="a-field">
+            <label class="a-label" for="g-year">سال</label>
+            <select id="g-year" name="year" class="a-select">
+              @foreach (var y in years)
+              {
+                <option value="@y" selected="@(y == p.Year)">@y</option>
+              }
+            </select>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="g-month">ماه</label>
+            <select id="g-month" name="month" class="a-select">
+              @for (var i = 1; i <= 12; i++)
+              {
+                <option value="@i" selected="@(i == p.Month)">@JalaliMonth.Names[i - 1]</option>
+              }
+            </select>
+          </div>
+          <div class="a-field span-2"><label class="a-label" for="g-amount">هدف فروش (تومان) *</label><input id="g-amount" name="targetAmount" value="@(p.TargetAmount?.ToString("0", inv))" class="a-input a-ltr" inputmode="numeric" required data-money></div>
+          <div class="a-field span-2"><label class="a-label" for="g-orders">هدف تعداد سفارش (اختیاری)</label><input id="g-orders" name="targetOrders" type="number" min="1" step="1" value="@p.TargetOrders" class="a-input a-ltr"></div>
+          <div class="a-field span-2"><label class="a-label" for="g-note">یادداشت</label><input id="g-note" name="note" value="@p.Note" class="a-input" maxlength="300" placeholder="مثلاً: کمپین یلدا"></div>
+        </div>
+        @if (Model.SuggestedTarget > 0)
+        {
+          <p class="a-muted text-xs mt-2">پیشنهاد: @Format.Toman(Model.SuggestedTarget) (میانگین سه ماه قبل + ۱۰٪).</p>
+        }
+        <div class="mt-3 flex justify-end gap-2">
+          <button type="submit" class="a-btn">@Icons.Svg("FloppyDisk", null, 18) ذخیرهٔ هدف</button>
+        </div>
+      </form>
+      @if (p.HasTarget)
+      {
+        <form method="post" asp-page-handler="Delete" class="a-card-body pt-0 flex justify-end" data-confirm="هدف @p.Title حذف شود؟" data-confirm-danger>
+          <input type="hidden" name="year" value="@p.Year"><input type="hidden" name="month" value="@p.Month">
+          <button type="submit" class="a-btn a-btn-light a-btn-sm">حذف هدف این ماه</button>
+        </form>
+      }
+    </div>
+  }
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("History", null, 18) ۱۲ ماه اخیر: هدف در برابر واقعی</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>ماه</th><th>هدف</th><th>فروش</th><th>تحقق</th><th>سفارش</th><th>وضعیت</th></tr></thead>
+      <tbody>
+        @foreach (var h in Model.History)
+        {
+          <tr>
+            <td data-label="ماه"><a class="a-link" href="/admin/reports/goals?y=@h.Year&m=@h.Month">@h.Title</a></td>
+            <td data-label="هدف">@(h.TargetAmount is { } t ? Format.Toman(t) : "—")</td>
+            <td data-label="فروش">@Format.Toman(h.Achieved)</td>
+            <td data-label="تحقق">
+              @if (h.HasTarget)
+              {
+                <div class="flex items-center gap-2"><div class="a-progress flex-1" style="min-width:4rem"><div style="width:@(Math.Min(100m, h.Forecast.Percent).ToString("0.#", inv))%"></div></div><span class="text-xs">@h.Forecast.Percent.ToString("0.#", inv)٪</span></div>
+              }
+              else
+              {
+                <span class="a-muted">—</span>
+              }
+            </td>
+            <td data-label="سفارش">@Format.Number(h.Orders)@(h.TargetOrders is { } ho ? " / " + Format.Number(ho) : "")</td>
+            <td data-label="وضعیت"><span class="a-badge @GoalsModel.StatusBadge(h.Forecast.Status)">@SalesGoalRules.StatusTitle(h.Forecast.Status)</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

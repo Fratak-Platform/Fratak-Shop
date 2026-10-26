@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Finance;
 
 [AdminPermission(AdminPermissions.FinanceView)]
-public class IndexModel(IAdminReportService adminReports, IReportService reports) : AdminPageModel
+public class IndexModel(IAdminReportService adminReports, IReportService reports, Fratak_Shop.Core.Services.Insights.IExpenseService expenses) : AdminPageModel
 {
     [BindProperty(SupportsGet = true, Name = "period")] public string? Preset { get; set; }
     [BindProperty(SupportsGet = true, Name = "from")] public string? From { get; set; }
@@ -25,6 +25,9 @@ public class IndexModel(IAdminReportService adminReports, IReportService reports
     public PaymentsReportDto Payments { get; private set; } = new();
     public LoyaltyReportDto Loyalty { get; private set; } = new();
 
+    /// <summary>جمع هزینه‌های جاری بازه (صفحهٔ «هزینه‌ها»)؛ سود خالص = سود ناخالص واقعی − این مبلغ (فاز ۷ب).</summary>
+    public decimal Expenses { get; private set; }
+
     public async Task OnGetAsync()
     {
         var ct = HttpContext.RequestAborted;
@@ -40,6 +43,7 @@ public class IndexModel(IAdminReportService adminReports, IReportService reports
         Wallet = await adminReports.GetWalletAsync(p, ct);
         Payments = await adminReports.GetPaymentsReportAsync(p, ct);
         Loyalty = await reports.GetLoyaltyReportAsync(p, ct);
+        Expenses = await expenses.GetTotalAsync(p, ct);
     }
 
     [AdminPermission(AdminPermissions.FinanceExport)]

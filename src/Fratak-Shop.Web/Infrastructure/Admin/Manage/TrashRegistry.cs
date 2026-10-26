@@ -1,5 +1,6 @@
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Data.Entities.Blogs;
+using Fratak_Shop.Data.Entities.Insights;
 using Fratak_Shop.Data.Entities.Products;
 
 namespace Fratak_Shop.Web.Infrastructure.Admin.Manage;
@@ -26,6 +27,8 @@ public static class TrashRegistry
     [
         new("products", "محصولات", typeof(Product), nameof(Product.Name), [AdminPermissions.ProductsDelete], "/admin/products/edit/{id}", "Package"),
         new("blog", "مقاله‌ها", typeof(BlogPost), nameof(BlogPost.Title), [AdminPermissions.BlogPublish], "/admin/blog/edit/{id}", "Article"),
+        // مرحلهٔ ۷ – فاز ۷ب: هزینهٔ حذف‌شده با همان مجوز ثبت هزینه برمی‌گردد.
+        new("expenses", "هزینه‌ها", typeof(Expense), nameof(Expense.Title), [AdminPermissions.ExpensesManage], "/admin/finance/expenses?edit={id}", "Coins"),
     ];
 
     public static readonly IReadOnlyList<TrashSource> All = Extra
@@ -39,6 +42,7 @@ public static class TrashRegistry
         AdminPermissions.ProductsDelete, AdminPermissions.BlogPublish, AdminPermissions.CatalogManage, AdminPermissions.ContentManage,
         AdminPermissions.LoyaltyManage, AdminPermissions.MarketingManage, AdminPermissions.ProductsManage, AdminPermissions.ReturnsManage,
         AdminPermissions.SeoManage, AdminPermissions.ShippingManage, AdminPermissions.SuppliersManage, AdminPermissions.TicketsManage,
+        AdminPermissions.ExpensesManage,
     ];
 
     public static TrashSource? Find(string? key) => All.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));

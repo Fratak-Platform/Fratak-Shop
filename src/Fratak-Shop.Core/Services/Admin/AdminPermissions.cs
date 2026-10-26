@@ -41,6 +41,9 @@ public static class AdminPermissions
     /// <summary>گزارش‌های تحلیلی فاز ۷: قیف فروش، منبع ورودی/کمپین، نقشهٔ حرارتی، عملکرد محصول و تقاضا (بدون سود/قیمت خرید).</summary>
     public const string ReportsView = "reports.view";
 
+    /// <summary>ثبت و ویرایش هزینه‌ها و هدف فروش ماهانه (فاز ۷ب).</summary>
+    public const string ExpensesManage = "finance.expenses";
+
     public const string MarketingManage = "marketing.manage";
     public const string GiftCardsManage = "marketing.giftcards";
     public const string LoyaltyManage = "marketing.loyalty";
@@ -91,6 +94,7 @@ public static class AdminPermissions
         new(FinanceView, "مالی", "گزارش‌های مالی", "فروش، سود، تخفیف‌ها، تعهدات کیف پول و کارت هدیه"),
         new(FinanceExport, "مالی", "خروجی اکسل و CSV"),
         new(WithdrawalsManage, "مالی", "تسویه درخواست‌های برداشت"),
+        new(ExpensesManage, "مالی", "هزینه‌ها و هدف فروش", "ثبت هزینه‌های جاری (هاست، تبلیغات، حقوق …)، یادآوری سررسید و تعیین هدف فروش ماهانه"),
 
         new(ReportsView, "گزارش‌ها", "گزارش‌های تحلیلی", "قیف فروش، منبع ورودی و کمپین‌ها، ساعت‌های پربازدید، عملکرد محصولات و تقاضای مشتریان"),
 
@@ -132,7 +136,7 @@ public static class AdminPermissions
         ("پشتیبانی", "تیکت، پیام‌ها، نظرات و پیگیری سفارش", "#16a34a",
             [Dashboard, OrdersView, CustomersView, TicketsManage, MessagesManage, ReturnsManage, CommentsModerate]),
         ("حسابداری و مالی", "گزارش‌های مالی، خروجی‌ها و تسویه برداشت‌ها", "#ca8a04",
-            [Dashboard, FinanceView, FinanceExport, WithdrawalsManage, OrdersView, PurchaseInvoices, CustomersView, CustomersWallet, GiftCardsManage, ReportsView]),
+            [Dashboard, FinanceView, FinanceExport, WithdrawalsManage, OrdersView, PurchaseInvoices, CustomersView, CustomersWallet, GiftCardsManage, ReportsView, ExpensesManage]),
         ("بازاریابی", "کوپن، کارت هدیه، باشگاه، بنر و اعلان", "#db2777",
             [Dashboard, MarketingManage, GiftCardsManage, LoyaltyManage, NotificationsSend, ProductsView, CustomersView, ReportsView]),
         ("کارشناس سئو", "سئوی صفحات و محتوا، ریدایرکت‌ها و آمار جست‌وجو", "#059669",

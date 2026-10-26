@@ -1,0 +1,226 @@
+@page "/admin/finance/expenses"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Finance.ExpensesModel
+@using Fratak_Shop.Core.Services.Insights
+@using Fratak_Shop.Data.Entities.Insights
+@* هزینه‌های فروشگاه و سود خالص (مرحلهٔ هفتم – فاز ۷ب). منطق: Core/Services/Insights/ExpenseService. *@
+@{
+    ViewData["Title"] = "هزینه‌ها";
+    var request = HttpContext.Request;
+    var s = Model.Summary;
+    var f = Model.Form;
+    var monthlyChart = new BarChartModel("هزینهٔ ماهانه", s.Monthly, true);
+    var today = Fratak_Shop.Core.Utilities.IranClock.Today(DateTimeOffset.UtcNow);
+    var netProfit = Model.GrossProfit is { } gp ? gp - s.Total : (decimal?)null;
+}
+<div class="a-page-head">
+  <div>
+    <h2>هزینه‌ها</h2>
+    <p class="a-muted text-sm mt-1">هزینه‌های جاری فروشگاه (هاست، دامنه، تبلیغات، حقوق، …) · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    @if (Model.Can(AdminPermissions.FinanceExport))
+    {
+      <a class="a-btn a-btn-light" href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))">@Icons.Svg("Download", null, 18) اکسل</a>
+    }
+    @if (Model.CanManage)
+    {
+      <a class="a-btn" href="@AdminUi.With(request, ("new", "1"), ("edit", null))#expense-form">@Icons.Svg("Plus", null, 18) ثبت هزینه</a>
+    }
+  </div>
+</div>
+
+<partial name="_ReportPeriod" model="Model" />
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">جمع هزینه‌های بازه</div><div class="a-stat-value">@AdminUi.Money(s.Total)</div><div class="a-stat-sub">@Format.Number(s.Count) ردیف</div></div>
+  <div class="a-stat"><div class="a-stat-label">هزینهٔ ثابت ماهانه</div><div class="a-stat-value">@AdminUi.Money(s.MonthlyRecurringCost)</div><div class="a-stat-sub">@Format.Number(s.Recurring.Count) هزینهٔ تکراری فعال (سالانه ÷ ۱۲)</div></div>
+  @if (Model.GrossProfit is { } gross)
+  {
+    <div class="a-stat"><div class="a-stat-label">سود ناخالص واقعی</div><div class="a-stat-value">@AdminUi.Money(gross)</div><div class="a-stat-sub">فروش − فاکتورهای خرید</div></div>
+    <div class="a-stat"><div class="a-stat-label">سود خالص</div><div class="a-stat-value @(netProfit < 0 ? "a-down" : "a-up")">@AdminUi.Money(netProfit!.Value)</div><div class="a-stat-sub">سود ناخالص − هزینه‌های بازه</div></div>
+  }
+</div>
+
+@if (Model.CanManage)
+{
+  <details class="a-card a-details mb-4" id="expense-form" open="@Model.FormOpen">
+    <summary class="a-card-head a-link">
+      <span class="a-card-title">@Icons.Svg(f.Id is null ? "Plus" : "PencilSimple", null, 18) @(f.Id is null ? "ثبت هزینهٔ جدید" : "ویرایش هزینه")</span>
+      <span class="a-muted text-xs">برای باز/بسته کردن کلیک کنید</span>
+    </summary>
+    <form method="post" action="@AdminUi.With(request, ("handler", "save"))" asp-antiforgery="true" class="a-card-body">
+      <input type="hidden" name="Form.Id" value="@f.Id">
+      <div class="a-form-grid cols-2">
+        <div class="a-field"><label class="a-label" for="ex-title">عنوان *</label><input id="ex-title" name="Form.Title" value="@f.Title" class="a-input" maxlength="150" required placeholder="مثلاً: تمدید هاست سالانه"></div>
+        <div class="a-field">
+          <label class="a-label" for="ex-cat">دسته *</label>
+          <select id="ex-cat" name="Form.Category" class="a-select">
+            @foreach (var c in ExpenseRules.Categories)
+            {
+              <option value="@c" selected="@(f.Category == c)">@ExpenseRules.CategoryTitle(c)</option>
+            }
+          </select>
+        </div>
+        <div class="a-field"><label class="a-label" for="ex-amount">مبلغ (تومان) *</label><input id="ex-amount" name="Form.Amount" value="@(f.Amount > 0 ? f.Amount.ToString("0", global::System.Globalization.CultureInfo.InvariantCulture) : "")" class="a-input a-ltr" inputmode="numeric" required data-money></div>
+        <div class="a-field"><label class="a-label" for="ex-date">تاریخ پرداخت *</label><input id="ex-date" name="Form.SpentOn" value="@f.SpentOn" class="a-input a-ltr" data-jalali placeholder="1405/08/04" required></div>
+        <div class="a-field"><label class="a-label" for="ex-vendor">طرف حساب</label><input id="ex-vendor" name="Form.Vendor" value="@f.Vendor" class="a-input" maxlength="150" placeholder="مثلاً: پارس‌پک"></div>
+        <div class="a-field">
+          <label class="a-label" for="ex-rec">تکرار</label>
+          <select id="ex-rec" name="Form.Recurrence" class="a-select">
+            @foreach (var r in new[] { ExpenseRecurrence.None, ExpenseRecurrence.Monthly, ExpenseRecurrence.Yearly })
+            {
+              <option value="@r" selected="@(f.Recurrence == r)">@ExpenseRules.RecurrenceTitle(r)</option>
+            }
+          </select>
+          <p class="a-muted text-xs mt-1">ماهانه/سالانه: سه روز مانده به سررسید بعدی اعلان یادآوری می‌آید.</p>
+        </div>
+        <div class="a-field span-2"><label class="a-label" for="ex-note">توضیح</label><textarea id="ex-note" name="Form.Note" class="a-input" rows="2" maxlength="1000">@f.Note</textarea></div>
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        @if (f.Id is not null)
+        {
+          <a class="a-btn a-btn-light" href="@AdminUi.With(request, ("edit", null))">انصراف</a>
+        }
+        <button type="submit" class="a-btn">@Icons.Svg("FloppyDisk", null, 18) ذخیره</button>
+      </div>
+    </form>
+  </details>
+}
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartBar", null, 18) هزینهٔ ۱۲ ماه اخیر</span></div>
+    <div class="a-card-body"><partial name="_BarChart" model="monthlyChart" /></div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartPie", null, 18) به تفکیک دسته (بازه)</span></div>
+    <div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.ByCategory)" /></div>
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head">
+    <div class="a-tabs">
+      <a class="a-tab @(Model.IsRecurringTab ? "" : "is-active")" href="@AdminUi.With(request, ("tab", null))">همهٔ هزینه‌ها</a>
+      <a class="a-tab @(Model.IsRecurringTab ? "is-active" : "")" href="@AdminUi.With(request, ("tab", "recurring"))">تکراری و سررسیدها <span class="a-badge a-badge-gray">@Format.Number(s.Recurring.Count)</span></a>
+    </div>
+  </div>
+
+  @if (!Model.IsRecurringTab)
+  {
+    <form method="get" class="a-card-body a-filters">
+      <input type="hidden" name="period" value="@Model.Preset">
+      <input type="hidden" name="from" value="@Model.From">
+      <input type="hidden" name="to" value="@Model.To">
+      <div class="a-field"><label class="a-label" for="ex-q">جست‌وجو</label><input id="ex-q" name="q" value="@Model.Search" class="a-input" placeholder="عنوان، طرف حساب یا توضیح"></div>
+      <div class="a-field">
+        <label class="a-label" for="ex-fcat">دسته</label>
+        <select id="ex-fcat" name="cat" class="a-select" data-autosubmit>
+          <option value="">همه</option>
+          @foreach (var c in ExpenseRules.Categories)
+          {
+            <option value="@c" selected="@(Model.Category == c)">@ExpenseRules.CategoryTitle(c)</option>
+          }
+        </select>
+      </div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">فیلتر</button></div>
+    </form>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>تاریخ</th><th>عنوان</th><th>دسته</th><th>طرف حساب</th><th>مبلغ</th><th>تکرار</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var e in Model.Items.Items)
+          {
+            <tr>
+              <td data-label="تاریخ">@Format.Day(e.SpentOn)</td>
+              <td data-label="عنوان"><b>@e.Title</b>@if (!string.IsNullOrEmpty(e.Note)) { <div class="a-muted text-xs">@e.Note</div> }</td>
+              <td data-label="دسته"><span class="a-badge a-badge-gray">@e.CategoryTitle</span></td>
+              <td data-label="طرف حساب">@(e.Vendor ?? "—")</td>
+              <td data-label="مبلغ" data-amount-words>@Format.Toman(e.Amount)</td>
+              <td data-label="تکرار">
+                @if (e.IsRecurringActive)
+                {
+                  <span class="a-badge a-badge-purple">@ExpenseRules.RecurrenceTitle(e.Recurrence)</span>
+                  <div class="a-muted text-xs">سررسید @Format.Day(e.NextDueOn!.Value)</div>
+                }
+                else if (e.RecurringParentId is not null)
+                {
+                  <span class="a-muted text-xs">پرداخت دوره‌ای</span>
+                }
+                else
+                {
+                  <span class="a-muted text-xs">@ExpenseRules.RecurrenceTitle(e.Recurrence)</span>
+                }
+              </td>
+              <td data-label="">
+                @if (Model.CanManage)
+                {
+                  <div class="flex gap-1 justify-end">
+                    <a class="a-btn a-btn-light a-btn-xs" href="@AdminUi.With(request, ("edit", e.Id.ToString()), ("new", null))#expense-form">ویرایش</a>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@e.Id" class="m-0" data-confirm="هزینهٔ «@e.Title» حذف شود؟ (از سطل بازیافت قابل بازگردانی است)" data-confirm-danger>
+                      <button type="submit" class="a-btn a-btn-danger a-btn-xs">حذف</button>
+                    </form>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Items.Items.Count == 0)
+      {
+        <div class="a-empty">در این بازه هزینه‌ای ثبت نشده است.@if (Model.CanManage) { <text> <a class="a-link" href="@AdminUi.With(request, ("new", "1"))#expense-form">ثبت اولین هزینه</a></text> }</div>
+      }
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+  }
+  else
+  {
+    <div class="a-card-body">
+      <p class="a-muted text-sm">هزینه‌های تکراری (اشتراک‌ها) به ترتیب سررسید. با «ثبت پرداخت این دوره» یک ردیف هزینه با تاریخ سررسید ساخته و سررسید یک دوره جلو می‌رود. اگر مبلغ تغییر کرده، مبلغ تازه را وارد کنید.</p>
+    </div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>عنوان</th><th>دسته</th><th>مبلغ</th><th>تکرار</th><th>سررسید بعدی</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var e in s.Recurring)
+          {
+            var due = e.NextDueOn!.Value;
+            var days = due.DayNumber - today.DayNumber;
+            <tr>
+              <td data-label="عنوان"><b>@e.Title</b>@if (e.Vendor is not null) { <div class="a-muted text-xs">@e.Vendor</div> }</td>
+              <td data-label="دسته">@e.CategoryTitle</td>
+              <td data-label="مبلغ">@Format.Toman(e.Amount)</td>
+              <td data-label="تکرار"><span class="a-badge a-badge-purple">@ExpenseRules.RecurrenceTitle(e.Recurrence)</span></td>
+              <td data-label="سررسید بعدی">
+                @Format.Day(due)
+                @if (days < 0) { <span class="a-badge a-badge-red">@Format.Number(-days) روز گذشته</span> }
+                else if (days == 0) { <span class="a-badge a-badge-yellow">امروز</span> }
+                else if (days <= 7) { <span class="a-badge a-badge-yellow">@Format.Number(days) روز مانده</span> }
+                else { <span class="a-muted text-xs">@Format.Number(days) روز مانده</span> }
+              </td>
+              <td data-label="">
+                @if (Model.CanManage)
+                {
+                  <div class="flex flex-wrap gap-1 justify-end items-center">
+                    <form method="post" asp-page-handler="Record" asp-route-id="@e.Id" class="m-0 flex gap-1 items-center" data-confirm="پرداخت دورهٔ @Format.Day(due) برای «@e.Title» ثبت شود؟">
+                      <input name="amount" class="a-input a-ltr" style="width:9rem" inputmode="numeric" placeholder="@Format.Price(e.Amount)" aria-label="مبلغ این دوره (خالی = همان مبلغ)" data-money>
+                      <button type="submit" class="a-btn a-btn-success a-btn-xs">@Icons.Svg("Check", null, 14) ثبت پرداخت این دوره</button>
+                    </form>
+                    <form method="post" asp-page-handler="Stop" asp-route-id="@e.Id" class="m-0" data-confirm="تکرار «@e.Title» متوقف شود؟ (تاریخچهٔ پرداخت‌ها می‌ماند)">
+                      <button type="submit" class="a-btn a-btn-light a-btn-xs">توقف تکرار</button>
+                    </form>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (s.Recurring.Count == 0)
+      {
+        <div class="a-empty">هزینهٔ تکراری فعالی ندارید. هنگام ثبت هزینه، «تکرار» را ماهانه یا سالانه بگذارید.</div>
+      }
+    </div>
+  }
+</div>

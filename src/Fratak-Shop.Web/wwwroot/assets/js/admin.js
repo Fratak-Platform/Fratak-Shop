@@ -17,6 +17,10 @@
  *  - [data-placeholder-editor]   : برچسب‌های قابل کلیک + پیش‌نمایش زندهٔ پیام
  *  - [data-sms-counter]          : شمارندهٔ نویسه و تعداد پیامک
  *  - select[data-ready-pick]     : درج «پیام آماده» در فرم
+ *  - [data-sortable]             : مرتب‌سازی ردیف‌ها با کشیدن و رها کردن (موس) یا دکمه‌های [data-sort-move=up|down]
+ *                                  (لمسی/صفحه‌کلید). ترتیب همان ترتیب input‌های داخل ردیف‌ها در فرم است.
+ *                                  مثال: شخصی‌سازی داشبورد (Areas/Admin/Pages/Index.cshtml).
+ *  - [data-open-details="id"]    : کلیک روی لینک، details با آن شناسه را باز می‌کند و به آن می‌رود
  */
 (function () {
   "use strict";
@@ -382,6 +386,72 @@
       select.value = "";
     });
   });
+
+  // ── مرتب‌سازی با کشیدن و رها کردن (فاز ۷ب) ─────────────────────────
+  // هر ردیف [data-sort-item] با draggable="true"؛ روی موبایل که drag بومی ندارد دکمه‌های بالا/پایین کار می‌کنند.
+  // ترتیب نهایی = ترتیب DOM؛ پس inputهای مخفی داخل ردیف‌ها به همان ترتیب ارسال می‌شوند (سمت سرور: List<string>).
+  $$("[data-sortable]").forEach((list) => {
+    let dragged = null;
+    const items = () => $$("[data-sort-item]", list);
+    const markDirty = () => list.dispatchEvent(new Event("input", { bubbles: true }));
+
+    list.addEventListener("dragstart", (e) => {
+      const item = e.target.closest && e.target.closest("[data-sort-item]");
+      if (!item || item.parentElement !== list) return;
+      dragged = item;
+      item.classList.add("is-dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", ""); } catch (_) { /* فایرفاکس بدون داده drag را شروع نمی‌کند */ }
+      }
+    });
+    list.addEventListener("dragover", (e) => {
+      if (!dragged) return;
+      e.preventDefault();
+      const over = e.target.closest && e.target.closest("[data-sort-item]");
+      if (!over || over === dragged || over.parentElement !== list) return;
+      // نیمهٔ بالایی ردیف = قبل از آن، نیمهٔ پایینی = بعد از آن
+      const rect = over.getBoundingClientRect();
+      const after = e.clientY > rect.top + rect.height / 2;
+      list.insertBefore(dragged, after ? over.nextSibling : over);
+    });
+    const finish = () => {
+      if (!dragged) return;
+      dragged.classList.remove("is-dragging");
+      dragged = null;
+      markDirty();
+    };
+    list.addEventListener("drop", (e) => { e.preventDefault(); finish(); });
+    list.addEventListener("dragend", finish);
+
+    list.addEventListener("click", (e) => {
+      const button = e.target.closest && e.target.closest("[data-sort-move]");
+      if (!button) return;
+      const item = button.closest("[data-sort-item]");
+      if (!item || item.parentElement !== list) return;
+      const all = items();
+      const index = all.indexOf(item);
+      if (button.dataset.sortMove === "up" && index > 0) list.insertBefore(item, all[index - 1]);
+      else if (button.dataset.sortMove === "down" && index < all.length - 1) list.insertBefore(all[index + 1], item);
+      else return;
+      button.focus();
+      markDirty();
+    });
+  });
+
+  // ── باز کردن details از روی لینک ────────────────────────────────────
+  const openDetails = (id) => {
+    const target = id && document.getElementById(id);
+    if (target && target.tagName === "DETAILS") {
+      target.open = true;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+  $$("[data-open-details]").forEach((link) => link.addEventListener("click", (e) => {
+    e.preventDefault();
+    openDetails(link.dataset.openDetails);
+  }));
+  if (location.hash.length > 1) openDetails(decodeURIComponent(location.hash.slice(1)));
 
   // ── Leave-page warning for edited long forms ─────────────────────────
   $$("form[data-dirty-guard]").forEach((form) => {

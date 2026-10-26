@@ -18,7 +18,8 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Trash;
 /// </summary>
 [AdminPermission(AdminPermissions.ProductsDelete, AdminPermissions.BlogPublish, AdminPermissions.CatalogManage, AdminPermissions.ContentManage,
     AdminPermissions.LoyaltyManage, AdminPermissions.MarketingManage, AdminPermissions.ProductsManage, AdminPermissions.ReturnsManage,
-    AdminPermissions.SeoManage, AdminPermissions.ShippingManage, AdminPermissions.SuppliersManage, AdminPermissions.TicketsManage)]
+    AdminPermissions.SeoManage, AdminPermissions.ShippingManage, AdminPermissions.SuppliersManage, AdminPermissions.TicketsManage,
+    AdminPermissions.ExpensesManage)]
 public class IndexModel(ManageEngine engine, IAdminDataService data) : AdminPageModel
 {
     public const int Take = 50;

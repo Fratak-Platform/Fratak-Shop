@@ -1,0 +1,235 @@
+@page "/admin/reports/scheduled"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.ScheduledModel
+@using Fratak_Shop.Core.Services.Insights
+@using Fratak_Shop.Data.Entities.Insights
+@using Fratak_Shop.Web.Areas.Admin.Pages.Reports
+@* گزارش‌های خودکار ایمیل/بله/تلگرام (مرحلهٔ هفتم – فاز ۷ب). *@
+@{
+    ViewData["Title"] = "گزارش‌های خودکار";
+    var f = Model.Form;
+    var dv = Model.DeliveryView;
+    var channels = new[] { (ReportChannels.Email, "ایمیل", "Envelope"), (ReportChannels.Bale, "ربات بله", "ChatDots"), (ReportChannels.Telegram, "ربات تلگرام", "Telegram") };
+}
+<div class="a-page-head">
+  <div>
+    <h2>گزارش‌های خودکار</h2>
+    <p class="a-muted text-sm mt-1">خلاصهٔ فروش و کارهای مانده، هر روز/هفته/ماه خودکار به ایمیل یا گروه بله/تلگرام شما ارسال می‌شود (رایگان، با SMTP و ربات خودتان).</p>
+  </div>
+  <a class="a-btn" href="/admin/reports/scheduled?new=1#report-form">@Icons.Svg("Plus", null, 18) گزارش جدید</a>
+</div>
+
+@if (!dv.EmailReady && !dv.HasBaleToken && !dv.HasTelegramToken)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div>هنوز هیچ کانال ارسالی تنظیم نشده است. @(Model.CanConfigure ? "از بخش «کانال‌های ارسال» پایین صفحه، SMTP یا توکن ربات را وارد کنید." : "از مدیر دارای دسترسی تنظیمات بخواهید کانال‌های ارسال را تنظیم کند.")</div></div>
+}
+
+@if (Model.Preview is { } preview)
+{
+  <div class="a-card mb-4" id="preview">
+    <div class="a-card-head">
+      <span class="a-card-title">@Icons.Svg("Eye", null, 18) پیش‌نمایش: @preview.Title</span>
+      <a class="a-link text-xs" href="/admin/reports/scheduled">بستن</a>
+    </div>
+    <div class="a-card-body">
+      <p class="a-muted text-sm mb-3">@preview.ShopName · @preview.PeriodLabel (اگر همین حالا اجرا شود)</p>
+      <div class="a-grid lg:grid-cols-2">
+        @foreach (var part in preview.Sections)
+        {
+          <div class="a-digest-section">
+            <h4 class="font-semibold mb-2">@part.Title</h4>
+            <dl class="a-kv text-sm">
+              @foreach (var line in part.Lines)
+              {
+                <dt>@line.Label</dt><dd><b>@line.Value</b>@if (!string.IsNullOrEmpty(line.Note)) { <span class="a-muted text-xs"> (@line.Note)</span> }</dd>
+              }
+            </dl>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("PaperPlaneTilt", null, 18) گزارش‌ها</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>عنوان</th><th>زمان‌بندی</th><th>کانال‌ها</th><th>ارسال بعدی</th><th>آخرین ارسال</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var r in Model.Reports)
+        {
+          <tr>
+            <td data-label="عنوان"><b>@r.Title</b>@if (!r.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> }</td>
+            <td data-label="زمان‌بندی">@ScheduledModel.ScheduleText(r.Frequency, r.Hour, r.WeekDay)</td>
+            <td data-label="کانال‌ها">@ScheduledModel.ChannelsText(r.Channels)</td>
+            <td data-label="ارسال بعدی">@(r.NextRunAt is { } nr ? Format.DateTime(nr) : "—")</td>
+            <td data-label="آخرین ارسال">
+              @if (r.LastRunAt is { } lr)
+              {
+                <span class="a-badge @(r.LastSucceeded == true ? "a-badge-green" : "a-badge-red")">@(r.LastSucceeded == true ? "موفق" : "ناموفق")</span>
+                <span class="a-muted text-xs">@AdminUi.Ago(lr)</span>
+                @if (!string.IsNullOrEmpty(r.LastStatus)) { <div class="a-muted text-xs">@r.LastStatus</div> }
+              }
+              else
+              {
+                <span class="a-muted">هنوز ارسال نشده</span>
+              }
+            </td>
+            <td data-label="">
+              <div class="flex flex-wrap gap-1 justify-end">
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/reports/scheduled?preview=@r.Id#preview">پیش‌نمایش</a>
+                <form method="post" asp-page-handler="Send" asp-route-id="@r.Id" class="m-0" data-confirm="گزارش «@r.Title» همین حالا به همهٔ کانال‌هایش ارسال شود؟">
+                  <button type="submit" class="a-btn a-btn-soft a-btn-xs">ارسال آزمایشی</button>
+                </form>
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/reports/scheduled?edit=@r.Id#report-form">ویرایش</a>
+                <form method="post" asp-page-handler="Toggle" asp-route-id="@r.Id" asp-route-active="@(!r.IsActive)" class="m-0">
+                  <button type="submit" class="a-btn a-btn-light a-btn-xs">@(r.IsActive ? "غیرفعال کن" : "فعال کن")</button>
+                </form>
+                <form method="post" asp-page-handler="Delete" asp-route-id="@r.Id" class="m-0" data-confirm="گزارش «@r.Title» حذف شود؟" data-confirm-danger>
+                  <button type="submit" class="a-btn a-btn-danger a-btn-xs">حذف</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Reports.Count == 0)
+    {
+      <div class="a-empty">هنوز گزارشی تعریف نشده است. با فرم زیر اولین گزارش را بسازید.</div>
+    }
+  </div>
+</div>
+
+<details class="a-card a-details mb-4" id="report-form" open="@Model.FormOpen">
+  <summary class="a-card-head a-link"><span class="a-card-title">@Icons.Svg(f.Id is null ? "Plus" : "PencilSimple", null, 18) @(f.Id is null ? "گزارش جدید" : "ویرایش گزارش")</span></summary>
+  <form method="post" asp-page-handler="Save" class="a-card-body">
+    <input type="hidden" name="Form.Id" value="@f.Id">
+    <div class="a-form-grid cols-2">
+      <div class="a-field span-2"><label class="a-label" for="sr-title">عنوان *</label><input id="sr-title" name="Form.Title" value="@f.Title" class="a-input" maxlength="100" required></div>
+      <div class="a-field">
+        <label class="a-label" for="sr-freq">دوره</label>
+        <select id="sr-freq" name="Form.Frequency" class="a-select">
+          @foreach (var fr in new[] { ReportFrequency.Daily, ReportFrequency.Weekly, ReportFrequency.Monthly })
+          {
+            <option value="@fr" selected="@(f.Frequency == fr)">@ScheduledReportRules.FrequencyTitle(fr)</option>
+          }
+        </select>
+        <p class="a-muted text-xs mt-1">روزانه: دربارهٔ دیروز · هفتگی: ۷ روز گذشته · ماهانه: ماه شمسی قبل (روز اول هر ماه)</p>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="sr-hour">ساعت ارسال (وقت ایران)</label>
+        <select id="sr-hour" name="Form.Hour" class="a-select">
+          @for (var h = 0; h < 24; h++)
+          {
+            <option value="@h" selected="@(f.Hour == h)">@h.ToString("00"):00</option>
+          }
+        </select>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="sr-wd">روز هفته (فقط هفتگی)</label>
+        <select id="sr-wd" name="Form.WeekDay" class="a-select">
+          @for (var w = 0; w < 7; w++)
+          {
+            <option value="@w" selected="@(f.WeekDay == w)">@ScheduledReportRules.WeekDayNames[w]</option>
+          }
+        </select>
+      </div>
+      <div class="a-field">
+        <span class="a-label">وضعیت</span>
+        <label class="a-check"><input type="checkbox" name="Form.IsActive" value="true" checked="@f.IsActive"> فعال باشد</label>
+        <input type="hidden" name="Form.IsActive" value="false">
+      </div>
+
+      <div class="a-field span-2">
+        <span class="a-label">کانال‌ها *</span>
+        <input type="hidden" name="Form.Channels" value="None">
+        <div class="flex flex-wrap gap-4">
+          @foreach (var (flag, channelTitle, icon) in channels)
+          {
+            <label class="a-check"><input type="checkbox" name="Form.Channels" value="@flag" checked="@(f.ChannelFlags.HasFlag(flag))"> <span>@Icons.Svg(icon, null, 16)</span> @channelTitle</label>
+          }
+        </div>
+      </div>
+      <div class="a-field span-2"><label class="a-label" for="sr-email">ایمیل گیرنده‌ها (برای کانال ایمیل)</label><input id="sr-email" name="Form.EmailTo" value="@f.EmailTo" class="a-input a-ltr" maxlength="500" placeholder="owner@example.com, accounting@example.com"><p class="a-muted text-xs mt-1">حداکثر ۱۰ ایمیل؛ با ویرگول جدا کنید.</p></div>
+      <div class="a-field"><label class="a-label" for="sr-bale">شناسهٔ گفت‌وگوی بله</label><input id="sr-bale" name="Form.BaleChatId" value="@f.BaleChatId" class="a-input a-ltr" maxlength="64" placeholder="-1001234567890 یا @@my_channel"></div>
+      <div class="a-field"><label class="a-label" for="sr-tg">شناسهٔ گفت‌وگوی تلگرام</label><input id="sr-tg" name="Form.TelegramChatId" value="@f.TelegramChatId" class="a-input a-ltr" maxlength="64" placeholder="-1001234567890 یا @@my_channel"></div>
+
+      <div class="a-field span-2">
+        <span class="a-label">بخش‌های گزارش *</span>
+        <input type="hidden" name="Form.Sections" value="None">
+        <div class="a-grid sm:grid-cols-2 gap-2">
+          @foreach (var (part, partTitle) in ScheduledReportRules.SectionTitles)
+          {
+            <label class="a-check"><input type="checkbox" name="Form.Sections" value="@part" checked="@(f.SectionFlags.HasFlag(part))"> @partTitle</label>
+          }
+        </div>
+      </div>
+    </div>
+    <div class="mt-3 flex justify-end gap-2">
+      @if (f.Id is not null)
+      {
+        <a class="a-btn a-btn-light" href="/admin/reports/scheduled">انصراف</a>
+      }
+      <button type="submit" class="a-btn">@Icons.Svg("FloppyDisk", null, 18) ذخیره</button>
+    </div>
+  </form>
+</details>
+
+<div class="a-card" id="delivery">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Gear", null, 18) کانال‌های ارسال</span></div>
+  <div class="a-card-body">
+    <div class="flex flex-wrap gap-2 mb-3">
+      <span class="a-badge @(dv.EmailReady ? "a-badge-green" : "a-badge-gray")">ایمیل: @(dv.EmailReady ? "آماده" : "تنظیم نشده")</span>
+      <span class="a-badge @(dv.HasBaleToken ? "a-badge-green" : "a-badge-gray")">بله: @(dv.HasBaleToken ? "توکن ثبت شده" : "تنظیم نشده")</span>
+      <span class="a-badge @(dv.HasTelegramToken ? "a-badge-green" : "a-badge-gray")">تلگرام: @(dv.HasTelegramToken ? "توکن ثبت شده" : "تنظیم نشده")</span>
+    </div>
+    @if (!Model.CanConfigure)
+    {
+      <p class="a-muted text-sm">تنظیم SMTP و توکن ربات‌ها فقط با دسترسی «تنظیمات فروشگاه» ممکن است.</p>
+    }
+    else
+    {
+      <form method="post" asp-page-handler="Delivery">
+        <h4 class="a-section-title">ایمیل (SMTP)</h4>
+        <div class="a-form-grid cols-2">
+          <div class="a-field"><label class="a-label" for="dl-host">سرور SMTP</label><input id="dl-host" name="Delivery.SmtpHost" value="@dv.SmtpHost" class="a-input a-ltr" maxlength="200" placeholder="mail.example.com"></div>
+          <div class="a-field"><label class="a-label" for="dl-port">درگاه</label><input id="dl-port" name="Delivery.SmtpPort" type="number" min="1" max="65535" value="@dv.SmtpPort" class="a-input a-ltr"><p class="a-muted text-xs mt-1">۴۶۵ = SSL · ۵۸۷ = STARTTLS (پیشنهادی)</p></div>
+          <div class="a-field"><label class="a-label" for="dl-user">نام کاربری</label><input id="dl-user" name="Delivery.SmtpUserName" value="@dv.SmtpUserName" class="a-input a-ltr" maxlength="200" autocomplete="off"></div>
+          <div class="a-field">
+            <label class="a-label" for="dl-pass">رمز @(dv.HasSmtpPassword ? "(ثبت شده؛ خالی = بدون تغییر)" : "")</label>
+            <input id="dl-pass" name="Delivery.SmtpPassword" type="password" class="a-input a-ltr" autocomplete="new-password">
+            @if (dv.HasSmtpPassword) { <label class="a-check text-xs mt-1"><input type="checkbox" name="Delivery.ClearSmtpPassword" value="true"> حذف رمز ثبت‌شده</label> }
+          </div>
+          <div class="a-field"><label class="a-label" for="dl-from">ایمیل فرستنده</label><input id="dl-from" name="Delivery.FromAddress" value="@dv.FromAddress" class="a-input a-ltr" maxlength="200" placeholder="reports@example.com"></div>
+          <div class="a-field"><label class="a-label" for="dl-fromname">نام فرستنده</label><input id="dl-fromname" name="Delivery.FromName" value="@dv.FromName" class="a-input" maxlength="100" placeholder="گزارش فروشگاه"></div>
+        </div>
+
+        <h4 class="a-section-title mt-4">ربات‌ها</h4>
+        <div class="a-form-grid cols-2">
+          <div class="a-field">
+            <label class="a-label" for="dl-bale">توکن ربات بله @(dv.HasBaleToken ? "(ثبت شده)" : "")</label>
+            <input id="dl-bale" name="Delivery.BaleToken" type="password" class="a-input a-ltr" autocomplete="off" placeholder="123456789:AbC...">
+            @if (dv.HasBaleToken) { <label class="a-check text-xs mt-1"><input type="checkbox" name="Delivery.ClearBaleToken" value="true"> حذف توکن</label> }
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="dl-tg">توکن ربات تلگرام @(dv.HasTelegramToken ? "(ثبت شده)" : "")</label>
+            <input id="dl-tg" name="Delivery.TelegramToken" type="password" class="a-input a-ltr" autocomplete="off" placeholder="123456789:AbC...">
+            @if (dv.HasTelegramToken) { <label class="a-check text-xs mt-1"><input type="checkbox" name="Delivery.ClearTelegramToken" value="true"> حذف توکن</label> }
+          </div>
+        </div>
+        <details class="a-details mt-3">
+          <summary class="a-link text-sm">راهنمای ساخت ربات و پیدا کردن شناسهٔ گفت‌وگو</summary>
+          <ol class="text-sm mt-2 list-decimal ps-5 space-y-1">
+            <li>در بله به <b class="a-ltr">@@botfather</b> (در تلگرام <b class="a-ltr">@@BotFather</b>) پیام دهید، دستور <span class="a-ltr">/newbot</span> را بزنید و توکن را این‌جا وارد کنید.</li>
+            <li>ربات را به گروه یا کانال گزارش اضافه کنید (در کانال باید مدیر باشد).</li>
+            <li>شناسهٔ کانال عمومی همان <span class="a-ltr">@@نام_کانال</span> است. برای گروه، یک پیام در گروه بفرستید و شناسهٔ عددی (معمولاً منفی) را از <span class="a-ltr">getUpdates</span> ربات بخوانید.</li>
+            <li>با «ارسال آزمایشی» درستی تنظیمات را بسنجید. توجه: تلگرام معمولاً از سرورهای داخل ایران در دسترس نیست؛ بله از داخل کار می‌کند.</li>
+          </ol>
+        </details>
+        <p class="a-muted text-xs mt-2">رمز و توکن‌ها رمزنگاری‌شده ذخیره می‌شوند و هرگز دوباره نمایش داده نمی‌شوند.</p>
+        <div class="mt-3 flex justify-end"><button type="submit" class="a-btn">@Icons.Svg("FloppyDisk", null, 18) ذخیرهٔ کانال‌ها</button></div>
+      </form>
+    }
+  </div>
+</div>

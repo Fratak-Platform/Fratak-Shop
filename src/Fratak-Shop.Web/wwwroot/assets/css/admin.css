@@ -641,3 +641,40 @@ html[data-theme="dark"] .a-diff-new { color: #6ee7b7; }
 .a-crm-tag button { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 999px; color: inherit; opacity: .7; }
 .a-crm-tag button:hover { opacity: 1; background: rgba(79,70,229,.15); }
 html[data-theme="dark"] .a-crm-tag { background: rgba(129,140,248,.15); color: #c7d2fe; }
+
+/* ── داشبورد شخصی‌سازی‌شده (فاز ۷ب) – Areas/Admin/Pages/Index.cshtml ─────────────
+   موبایل: یک ستون؛ از ۱۰۲۴px سه ستون و هر ویجت بر اساس پهنایش (a-w-1/2/3 از DashboardLayout.SpanClass). */
+.a-dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.a-widget { min-width: 0; }
+@media (min-width: 1024px) {
+  .a-dash { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .a-dash .a-w-2 { grid-column: span 2; }
+  .a-dash .a-w-3 { grid-column: 1 / -1; }
+}
+
+/* فهرست قابل مرتب‌سازی ([data-sortable] در admin.js) */
+.a-sortable { display: flex; flex-direction: column; gap: 6px; }
+.a-sortable-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--a-border);
+  border-radius: 10px; background: var(--a-card); cursor: grab; user-select: none;
+}
+.a-sortable-item.is-dragging { opacity: .5; outline: 2px dashed var(--a-primary); outline-offset: -2px; cursor: grabbing; }
+.a-sortable-handle { display: inline-flex; color: var(--a-muted); }
+.a-sortable-item label { cursor: pointer; }
+
+/* نوار پیشرفت هدف فروش (ویجت داشبورد و /admin/reports/goals). نشانگر = فروش مورد انتظار تا امروز. */
+.a-goal-bar { position: relative; height: 12px; border-radius: 999px; background: #f1f5f9; overflow: visible; }
+.a-goal-fill { height: 100%; border-radius: 999px; background: var(--a-primary); transition: width .4s ease; max-width: 100%; }
+.a-goal-fill.is-done { background: #16a34a; }
+.a-goal-fill.is-ahead { background: #22c55e; }
+.a-goal-fill.is-on-track { background: var(--a-primary); }
+.a-goal-fill.is-behind { background: #f59e0b; }
+.a-goal-fill.is-none { background: #94a3b8; }
+.a-goal-marker {
+  position: absolute; top: -4px; bottom: -4px; width: 3px; margin-inline-start: -1px; border-radius: 2px;
+  background: var(--a-text); opacity: .65;
+}
+html[data-theme="dark"] .a-goal-bar { background: #1f2a3d; }
+
+/* پیش‌نمایش گزارش خودکار (/admin/reports/scheduled) */
+.a-digest-section { padding: 12px 14px; border: 1px solid var(--a-border); border-radius: 12px; background: var(--a-bg); min-width: 0; }

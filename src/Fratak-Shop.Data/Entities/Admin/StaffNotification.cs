@@ -63,6 +63,12 @@ public enum StaffNotificationKind
 
     /// <summary>مشکل مرسوله (برگشت به فرستنده، طولانی شدن رهگیری) – مرحلهٔ ۷ فاز ۶.</summary>
     ShipmentIssue = 17,
+
+    /// <summary>سررسید هزینهٔ تکراری (هاست، دامنه، اشتراک …) – مرحلهٔ ۷ فاز ۷ب.</summary>
+    ExpenseDue = 18,
+
+    /// <summary>خطای ارسال گزارش زمان‌بندی‌شده (ایمیل/بله/تلگرام) – مرحلهٔ ۷ فاز ۷ب.</summary>
+    ReportFailed = 19,
 }
 
 /// <summary>

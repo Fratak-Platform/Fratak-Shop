@@ -43,6 +43,8 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         (StaffNotificationKind.BlogReview, "مقالهٔ آمادهٔ بازبینی"),
         (StaffNotificationKind.SupplierReport, "گزارش بررسی تأمین‌کننده"),
         (StaffNotificationKind.ShipmentIssue, "مشکل مرسوله (برگشت / رهگیری طولانی)"),
+        (StaffNotificationKind.ExpenseDue, "سررسید هزینه‌های تکراری"),
+        (StaffNotificationKind.ReportFailed, "خطای ارسال گزارش خودکار"),
         (StaffNotificationKind.Alert, "هشدارهای سیستم"),
     ];
 
@@ -114,6 +116,8 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         StaffNotificationKind.OrderMessageAnswered => "پاسخ مشتری",
         StaffNotificationKind.Approval => "تأیید",
         StaffNotificationKind.ShipmentIssue => "مرسوله",
+        StaffNotificationKind.ExpenseDue => "هزینه",
+        StaffNotificationKind.ReportFailed => "گزارش",
         _ => "سیستم",
     };
 

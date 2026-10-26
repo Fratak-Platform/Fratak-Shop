@@ -1231,6 +1231,10 @@ video {
   display: contents;
 }
 
+.\!hidden {
+  display: none !important;
+}
+
 .hidden {
   display: none;
 }
@@ -1764,6 +1768,10 @@ video {
 
 .scroll-mt-40 {
   scroll-margin-top: 10rem;
+}
+
+.list-decimal {
+  list-style-type: decimal;
 }
 
 .list-disc {

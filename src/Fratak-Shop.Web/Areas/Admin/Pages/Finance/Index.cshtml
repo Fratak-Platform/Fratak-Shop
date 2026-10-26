@@ -103,6 +103,8 @@
         <dt>جمع فاکتورهای خرید</dt><dd>@AdminUi.Money(Model.Purchases.InvoiceTotal) <span class="a-muted text-xs">(@Model.Purchases.InvoiceCount فاکتور)</span></dd>
         <dt>فروش همان سفارش‌ها</dt><dd>@AdminUi.Money(Model.Purchases.SalesOfOrdersWithInvoice)</dd>
         <dt><b>سود واقعی</b></dt><dd><b class="@(Model.Purchases.ActualGrossProfit >= 0 ? "a-up" : "a-down")">@AdminUi.Money(Model.Purchases.ActualGrossProfit)</b></dd>
+        <dt>− هزینه‌های جاری <a class="a-link text-xs" href="/admin/finance/expenses?period=@Model.Period.Preset&from=@Model.Period.FromText&to=@Model.Period.ToText">(جزئیات)</a></dt><dd class="a-down">@AdminUi.Money(Model.Expenses)</dd>
+        <dt><b>سود خالص</b></dt><dd><b class="@(Model.Purchases.ActualGrossProfit - Model.Expenses >= 0 ? "a-up" : "a-down")">@AdminUi.Money(Model.Purchases.ActualGrossProfit - Model.Expenses)</b></dd>
         <dt>سود تخمینی (قیمت خرید محصول)</dt><dd>@AdminUi.Money(Model.Profit.GrossProfit) <span class="a-muted text-xs">(@Model.Profit.MarginPercent٪)</span></dd>
         @if (Model.Profit.ItemsWithoutCost > 0) { <dt>اقلام بدون قیمت خرید</dt><dd>@Model.Profit.ItemsWithoutCost قلم · @Format.Toman(Model.Profit.RevenueWithoutCost)</dd> }
       </dl>

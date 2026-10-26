@@ -56,6 +56,13 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Core.Services.Orders.IPostTrackingClient, Infrastructure.Shipping.PostTrackingClient>();
         services.AddSingleton<Infrastructure.Shipping.PostTrackingQueue>();
         services.AddHostedService<Infrastructure.Shipping.PostTrackingWorker>();
+
+        // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.
+        // RemoveAllLoggers: آدرس API ربات توکن را در خود دارد؛ لاگ پیش‌فرض HttpClient نباید آن را ثبت کند.
+        services.AddHttpClient(Infrastructure.Insights.ReportDelivery.BotClientName, Infrastructure.Insights.ReportDelivery.Configure)
+            .RemoveAllLoggers();
+        services.AddScoped<Core.Services.Insights.IReportDelivery, Infrastructure.Insights.ReportDelivery>();
+        services.AddHostedService<Infrastructure.Insights.InsightsWorker>();
         // مرحلهٔ هفتم – فاز ۷: آمار بازدید داخلی (بافر حافظه + ذخیرهٔ دقیقه‌ای + ابزار صفحه‌ها).
         services.AddSingleton<Infrastructure.Analytics.AnalyticsBuffer>();
         services.AddScoped<Infrastructure.Analytics.AnalyticsTracker>();
