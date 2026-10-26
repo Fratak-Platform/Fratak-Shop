@@ -247,7 +247,8 @@ public class CartCheckoutE2ETests(ShopApp app)
 
         using var callback = await client.GetAsync($"/payment/callback?Authority={authority}&Status=OK");
 
-        Assert.Equal($"/checkout/success/{order.OrderNumber}", callback.Headers.Location?.OriginalString);
+        // نشانی‌ها با حروف کوچک ساخته می‌شوند (LowercaseUrls)؛ شمارهٔ سفارش در هر حالت همان است.
+        Assert.Equal($"/checkout/success/{order.OrderNumber}", callback.Headers.Location?.OriginalString, ignoreCase: true);
         var paid = (await app.OrderAsync(order.OrderNumber))!;
         Assert.Equal(PaymentStatus.Paid, paid.PaymentStatus);
         Assert.Equal(payment.RefId, paid.TransactionId);
