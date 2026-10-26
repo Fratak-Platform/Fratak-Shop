@@ -47,3 +47,42 @@ public class SeoEngineRunConfiguration : IEntityTypeConfiguration<SeoEngineRun>
         builder.HasIndex(r => r.StartedAt);
     }
 }
+
+// ── ابزارهای سئو (فاز ۸ب) ──
+
+/// <summary>هر (صفحه، آدرس) فقط یک ردیف؛ ایندکس (مشکل، نادیده) برای فیلتر صفحهٔ «لینک‌های شکسته».</summary>
+public class SeoLinkIssueConfiguration : IEntityTypeConfiguration<SeoLinkIssue>
+{
+    public void Configure(EntityTypeBuilder<SeoLinkIssue> builder)
+    {
+        builder.HasIndex(i => new { i.Kind, i.EntityId, i.UrlHash }).IsUnique();
+        builder.HasIndex(i => new { i.Problem, i.IsIgnored });
+    }
+}
+
+/// <summary>ایندکس مسیر برای «عبارت‌های این صفحه» و ایندکس نمایش برای پرنمایش‌ترین‌ها.</summary>
+public class SearchConsoleQueryStatConfiguration : IEntityTypeConfiguration<SearchConsoleQueryStat>
+{
+    public void Configure(EntityTypeBuilder<SearchConsoleQueryStat> builder)
+    {
+        builder.HasIndex(s => s.Path);
+        builder.HasIndex(s => s.Impressions);
+    }
+}
+
+/// <summary>برای هر روز یک ردیف.</summary>
+public class SearchConsoleDailyStatConfiguration : IEntityTypeConfiguration<SearchConsoleDailyStat>
+{
+    public void Configure(EntityTypeBuilder<SearchConsoleDailyStat> builder) =>
+        builder.HasIndex(s => s.Date).IsUnique();
+}
+
+/// <summary>پیش‌فرض‌های روشن برای ستون‌های bool (با Sentinel تا مقدار false هم واقعاً ذخیره شود).</summary>
+public class SeoToolsConfigConfiguration : IEntityTypeConfiguration<SeoToolsConfig>
+{
+    public void Configure(EntityTypeBuilder<SeoToolsConfig> builder)
+    {
+        builder.Property(c => c.IsLinkCheckEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(c => c.CheckExternalLinks).HasDefaultValue(true).HasSentinel(true);
+    }
+}

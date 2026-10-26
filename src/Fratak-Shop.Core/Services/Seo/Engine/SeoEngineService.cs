@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.Services.Admin;
+using Fratak_Shop.Core.Services.Seo.Tools;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
@@ -100,6 +101,12 @@ public interface ISeoEngineService
 
     /// <summary>آیا این نوبت زمان‌بندی‌شده قبلاً اجرا شده؟ (بررسی ارزان سرویس پس‌زمینه)</summary>
     Task<bool> HasRunAsync(string slotKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// نمره‌دهی دوبارهٔ چند صفحهٔ مشخص (بدون ساخت پیشنهاد). محل استفاده: ویرایش گروهی سئو بعد از ذخیره،
+    /// تا جدول نمره‌ها همان لحظه درست باشد. خروجی = تعداد صفحه‌های نمره‌گرفته.
+    /// </summary>
+    Task<int> RefreshScoresAsync(SeoEntityKind kind, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="ISeoEngineService"/>
@@ -332,7 +339,9 @@ public sealed class SeoEngineService(
     }
 
     /// <summary>مدل‌های زبانی آموزش‌دیده روی متن‌های سایت (یک بار در هر اجرا).</summary>
-    private sealed record EngineModels(TrigramLanguageModel Language, TfIdf TfIdf, IReadOnlyDictionary<string, int> InternalSearches);
+    /// <summary>Google = عبارت‌های Search Console هر صفحه (کلید: مسیر یکسان‌شده با SeoPaths.Normalize).</summary>
+    private sealed record EngineModels(TrigramLanguageModel Language, TfIdf TfIdf, IReadOnlyDictionary<string, int> InternalSearches,
+        IReadOnlyDictionary<string, IReadOnlyList<SearchQueryStat>> Google);
 
     private async Task<BuildResult> BuildSuggestionAsync(SeoSubject subject, SeoReport before, StoreFacts store, SeoSiteIndex site,
         EngineModels models, SeoResearchService research, bool allowSlug, int variant, SeoSuggestion? previous,
@@ -346,7 +355,8 @@ public sealed class SeoEngineService(
         // کلمهٔ کلیدی: کلمهٔ انسانی هرگز عوض نمی‌شود؛ فقط وقتی خالی است پیشنهاد می‌شود.
         var proposal = new SeoProposal();
         var keyword = PersianText.Clean(subject.FocusKeyword);
-        var candidates = KeywordPlanner.Candidates(subject, insight, site, models.InternalSearches, models.TfIdf);
+        var candidates = KeywordPlanner.Candidates(subject, insight, site, models.InternalSearches, models.TfIdf,
+            models.Google.GetValueOrDefault(SeoPaths.Normalize(subject.Path)));
         KeywordCandidate? chosen = null;
         if (keyword.Length == 0)
         {
@@ -547,6 +557,7 @@ public sealed class SeoEngineService(
         var research = CreateResearch(current, 0, store.SiteName);
         var insight = await research.ResearchAsync(KeywordPlanner.ResearchQuery(subject), kind is not (SeoEntityKind.BlogPost or SeoEntityKind.ContentPage), cancellationToken);
         var searches = await InternalSearchesAsync(cancellationToken);
+        var google = (await GoogleQueriesAsync(SeoPaths.Normalize(subject.Path), cancellationToken)).GetValueOrDefault(SeoPaths.Normalize(subject.Path));
         var history = await context.SeoSuggestions.AsNoTracking()
             .Where(s => s.Kind == kind && s.EntityId == id)
             .OrderByDescending(s => s.CreatedAt)
@@ -557,7 +568,7 @@ public sealed class SeoEngineService(
         {
             Subject = subject,
             Report = report,
-            Keywords = KeywordPlanner.Candidates(subject, insight, site, searches).Take(8).ToList(),
+            Keywords = KeywordPlanner.Candidates(subject, insight, site, searches, gsc: google).Take(8).ToList(),
             EditUrl = EditUrl(kind, id),
             History = history,
             TitleSuffixLength = store.TitleSuffixLength,
@@ -896,7 +907,7 @@ public sealed class SeoEngineService(
         var worst = await context.SeoScores.AsNoTracking().OrderBy(s => s.Score).ThenByDescending(s => s.Views).Take(10).ToListAsync(cancellationToken);
         var day = DateTimeOffset.UtcNow.AddDays(-2);
         var sources = await context.SeoResearchCaches.AsNoTracking()
-            .Where(c => c.FetchedAt >= day)
+            .Where(c => c.FetchedAt >= day && c.Kind != SeoResearchKind.Link)
             .Select(c => new { c.Kind, c.Ok, c.Source, c.FetchedAt })
             .ToListAsync(cancellationToken);
 
@@ -989,9 +1000,64 @@ public sealed class SeoEngineService(
                 trainedChars += text.Length;
             }
         }
-        var models = new EngineModels(language, tfidf, await InternalSearchesAsync(cancellationToken));
+        var models = new EngineModels(language, tfidf, await InternalSearchesAsync(cancellationToken), await GoogleQueriesAsync(null, cancellationToken));
         cache.Set("seo-engine:models", models, TimeSpan.FromMinutes(30));
         return models;
+    }
+
+    /// <summary>
+    /// عبارت‌های گوگل هر صفحه از آخرین همگام‌سازی Search Console (حداکثر ۳۰ عبارت پرنمایش برای هر مسیر).
+    /// path = فقط یک صفحه (برای تحلیل زنده). اگر Search Console وصل نباشد جدول خالی است و خروجی هم خالی.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<SearchQueryStat>>> GoogleQueriesAsync(string? path, CancellationToken cancellationToken)
+    {
+        var query = context.SearchConsoleQueryStats.AsNoTracking();
+        if (path is not null)
+            query = query.Where(s => s.Path == path);
+        var rows = await query
+            .Where(s => s.Impressions >= 3)
+            .OrderByDescending(s => s.Impressions)
+            .Take(path is null ? 60_000 : 30)
+            .Select(s => new { s.Path, s.Query, s.Clicks, s.Impressions, s.Position })
+            .ToListAsync(cancellationToken);
+        return rows
+            .GroupBy(r => r.Path, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key,
+                g => (IReadOnlyList<SearchQueryStat>)g.Take(30).Select(r => new SearchQueryStat(r.Query, r.Clicks, r.Impressions, r.Position)).ToList(),
+                StringComparer.Ordinal);
+    }
+
+    public async Task<int> RefreshScoresAsync(SeoEntityKind kind, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+            return 0;
+        // عنوان‌ها عوض شده‌اند؛ نمایهٔ سایت (برای «عنوان تکراری» و «کلمهٔ تکراری») باید تازه ساخته شود.
+        cache.Remove(SiteIndexCacheKey);
+        var current = await settings.GetAsync(cancellationToken);
+        var store = StoreFactsFrom(current);
+        var site = await GetSiteIndexAsync(cancellationToken);
+        var set = ids.ToHashSet();
+        var subjects = ids.Count == 1
+            ? await LoadSubjectsAsync(kind, ids.First(), cancellationToken)
+            : (await LoadSubjectsAsync(kind, null, cancellationToken)).Where(s => set.Contains(s.EntityId)).ToList();
+        var idList = set.ToList();
+        var existing = await context.SeoScores.AsTracking()
+            .Where(s => s.Kind == kind && idList.Contains(s.EntityId))
+            .ToDictionaryAsync(s => (s.Kind, s.EntityId), cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var subject in subjects)
+            Upsert(existing, subject, SeoAnalyzer.Analyze(subject, site, store), now);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            context.ChangeTracker.Clear();
+            _logger.LogDebug(ex, "SEO score refresh skipped");
+            return 0;
+        }
+        return subjects.Count;
     }
 
     /// <summary>پرجست‌وجوترین عبارت‌های جست‌وجوی داخلی سایت (نرمال‌شده → تعداد).</summary>

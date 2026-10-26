@@ -18,6 +18,12 @@ namespace Fratak_Shop.Core.Services.Seo.Engine;
 /// <summary>یک کلمهٔ کلیدی نامزد با امتیاز و دلیل‌ها (دلیل‌ها در صفحهٔ بررسی به کارشناس نشان داده می‌شود).</summary>
 public sealed record KeywordCandidate(string Phrase, double Score, IReadOnlyList<string> Reasons);
 
+/// <summary>
+/// یک عبارت جست‌وجوی واقعی گوگل که همین صفحه برایش نمایش داده شده (از Search Console، ۲۸ روز اخیر).
+/// منبع: جدول SearchConsoleQueryStats؛ ساخته‌شده در SeoEngineService.BuildModelsAsync. مثال: («قیمت گوشی a55»، ۱۲ کلیک، ۸۴۰ نمایش، جایگاه ۷٫۴).
+/// </summary>
+public sealed record SearchQueryStat(string Query, int Clicks, int Impressions, double Position);
+
 /// <summary>برنامه‌ریز کلمهٔ کلیدی (ایستا).</summary>
 public static class KeywordPlanner
 {
@@ -80,7 +86,7 @@ public static class KeywordPlanner
     /// tfidf (اختیاری) برای مقاله‌ها: واژه‌های مهم متن نسبت به کل سایت.
     /// </summary>
     public static List<KeywordCandidate> Candidates(SeoSubject subject, CompetitorInsight? insight, SeoSiteIndex? site,
-        IReadOnlyDictionary<string, int>? internalSearches, TfIdf? tfidf = null)
+        IReadOnlyDictionary<string, int>? internalSearches, TfIdf? tfidf = null, IReadOnlyList<SearchQueryStat>? gsc = null)
     {
         var phrases = new Dictionary<string, string>(StringComparer.Ordinal); // نرمال → نمایشی
         void Add(string? phrase)
@@ -147,6 +153,15 @@ public static class KeywordPlanner
             if (IsRelevant(subject, suggestion, nameTokens))
                 Add(suggestion);
 
+        // عبارت‌هایی که گوگل واقعاً این صفحه را برایشان نشان داده (Search Console): دقیق‌ترین نشانهٔ تقاضا.
+        var googleQueries = (gsc ?? [])
+            .Select(q => (Key: PersianText.Normalize(q.Query), Stat: q))
+            .Where(q => q.Key.Length > 0)
+            .ToList();
+        foreach (var (_, stat) in googleQueries)
+            if (IsRelevant(subject, stat.Query, nameTokens))
+                Add(stat.Query);
+
         var bodyText = subject.Kind == SeoEntityKind.BlogPost ? PersianText.HtmlToText(subject.BodyHtml) : null;
         var topStems = bodyText is not null && tfidf is not null
             ? tfidf.Top(bodyText, 15).ToDictionary(t => t.Stem, t => t.Weight, StringComparer.Ordinal)
@@ -178,6 +193,24 @@ public static class KeywordPlanner
             {
                 score += 1.5;
                 reasons.Add("ابتدای چند عبارت پرجست‌وجوست");
+            }
+
+            // دادهٔ واقعی گوگل: لگاریتم نمایش (۱۰۰ نمایش ≈ ۵ امتیاز) + کمی برای کلیک.
+            // مثال: ۸۴۰ نمایش و ۱۲ کلیک → ۲٫۵×۲٫۹۲ + ۱٫۲ ≈ ۸٫۵ (از پیشنهاد جست‌وجو قوی‌تر چون تقاضای ثابت‌شدهٔ همین صفحه است).
+            var google = googleQueries.Where(q => q.Key == key).Select(q => q.Stat).FirstOrDefault();
+            if (google is not null && google.Impressions > 0)
+            {
+                score += 2.5 * Math.Log10(1 + google.Impressions) + Math.Min(2, google.Clicks / 10.0);
+                reasons.Add($"در گوگل {PersianText.Digits(google.Impressions)} بار نمایش داده شده (جایگاه میانگین {PersianText.Decimal1(google.Position)})");
+            }
+            else if (googleQueries.Count > 0)
+            {
+                var within = googleQueries.Where(q => q.Key.Contains(key, StringComparison.Ordinal)).Sum(q => q.Stat.Impressions);
+                if (within > 0)
+                {
+                    score += Math.Log10(1 + within);
+                    reasons.Add($"بخشی از عبارت‌هایی است که در گوگل {PersianText.Digits(within)} بار نمایش داده شده‌اند");
+                }
             }
 
             if (internalSearches is not null)

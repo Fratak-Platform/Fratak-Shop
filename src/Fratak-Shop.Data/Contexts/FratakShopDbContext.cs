@@ -271,6 +271,15 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public DbSet<SeoEngineRun> SeoEngineRuns { get; set; } = null!;
 
+    // مرحلهٔ هفتم – فاز ۸ب: یابندهٔ لینک شکسته، آمار Search Console و تنظیمات ابزارهای سئو.
+    public DbSet<SeoLinkIssue> SeoLinkIssues { get; set; } = null!;
+
+    public DbSet<SearchConsoleQueryStat> SearchConsoleQueryStats { get; set; } = null!;
+
+    public DbSet<SearchConsoleDailyStat> SearchConsoleDailyStats { get; set; } = null!;
+
+    public DbSet<SeoToolsConfig> SeoToolsConfigs { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

@@ -121,6 +121,14 @@ public static class CoreLayerBootstrapper
         services.TryAddSingleton<Services.Seo.Engine.ISeoWebSource, Services.Seo.Engine.OfflineSeoWebSource>();
         services.AddScoped<Services.Seo.Engine.ISeoEngineService, Services.Seo.Engine.SeoEngineService>();
 
+        // فاز ۸ب: یابندهٔ لینک شکسته، ویرایش گروهی سئو و Search Console. پیش‌فرض‌های «آفلاین» (بدون شبکه) را
+        // لایهٔ Web با SeoLinkProbe و SearchConsoleHttp جایگزین می‌کند.
+        services.TryAddSingleton<Services.Seo.Tools.ISeoLinkProbe, Services.Seo.Tools.OfflineSeoLinkProbe>();
+        services.TryAddSingleton<Services.Seo.Tools.ISearchConsoleHttp, Services.Seo.Tools.OfflineSearchConsoleHttp>();
+        services.AddScoped<Services.Seo.Tools.ISeoLinkAuditService, Services.Seo.Tools.SeoLinkAuditService>();
+        services.AddScoped<Services.Seo.Tools.ISeoBulkEditService, Services.Seo.Tools.SeoBulkEditService>();
+        services.AddScoped<Services.Seo.Tools.ISearchConsoleService, Services.Seo.Tools.SearchConsoleService>();
+
         // ابزارهای کاتالوگ (فاز ۵): تغییر گروهی قیمت، انبار و پیش‌بینی، ورود از اکسل، کپی محصول.
         services.AddScoped<Services.Products.IBulkPriceService, Services.Products.BulkPriceService>();
         services.AddScoped<Services.Products.IInventoryService, Services.Products.InventoryService>();

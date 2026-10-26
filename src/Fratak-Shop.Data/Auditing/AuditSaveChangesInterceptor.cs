@@ -32,6 +32,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "ScheduledReport",
         // موتور سئو: نمره، کش و تاریخچهٔ اجرا داده‌های داخلی‌اند؛ پیشنهاد هم خودش سابقه دارد (تغییر واقعی روی خود صفحه ثبت می‌شود).
         "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
+        // ابزارهای سئو: گزارش لینک و آمار گوگل داده‌های محاسبه‌شده‌اند؛ تنظیمات کلید رمزنگاری‌شده دارد.
+        "SeoLinkIssue", "SearchConsoleQueryStat", "SearchConsoleDailyStat", "SeoToolsConfig",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)

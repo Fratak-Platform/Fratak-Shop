@@ -68,6 +68,15 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.SeoEngine.SeoEngineQueue>();
         services.AddHostedService<Infrastructure.SeoEngine.SeoEngineWorker>();
 
+        // فاز ۸ب: ابزارهای سئو — بررسی لینک (هندلر امن بدون ریدایرکت خودکار)، اتصال Search Console و سرویس پس‌زمینه.
+        services.AddHttpClient(Infrastructure.SeoEngine.SeoLinkProbe.ClientName, Infrastructure.SeoEngine.SeoLinkProbe.Configure)
+            .ConfigurePrimaryHttpMessageHandler(Infrastructure.SeoEngine.SeoLinkProbe.CreateHandler)
+            .RemoveAllLoggers();
+        services.AddSingleton<Core.Services.Seo.Tools.ISeoLinkProbe, Infrastructure.SeoEngine.SeoLinkProbe>();
+        services.AddSingleton<Core.Services.Seo.Tools.ISearchConsoleHttp, Infrastructure.SeoEngine.SearchConsoleHttp>();
+        services.AddSingleton<Infrastructure.SeoEngine.SeoToolsQueue>();
+        services.AddHostedService<Infrastructure.SeoEngine.SeoToolsWorker>();
+
         // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.
         // RemoveAllLoggers: آدرس API ربات توکن را در خود دارد؛ لاگ پیش‌فرض HttpClient نباید آن را ثبت کند.
         services.AddHttpClient(Infrastructure.Insights.ReportDelivery.BotClientName, Infrastructure.Insights.ReportDelivery.Configure)

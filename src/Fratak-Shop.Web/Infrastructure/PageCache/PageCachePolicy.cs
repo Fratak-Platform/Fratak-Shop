@@ -36,6 +36,7 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "SupplierProductState", "SupplierSyncRun", "SupplierChange", "Supplier",
         "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "Expense", "SalesGoal", "ScheduledReport", "ReportDeliveryConfig",
         "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
+        "SeoLinkIssue", "SearchConsoleQueryStat", "SearchConsoleDailyStat", "SeoToolsConfig",
     };
 
     /// <summary>True while rendering a response that may be stored in the page cache.</summary>

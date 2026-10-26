@@ -89,6 +89,7 @@ public static class SeoEngineUi
         SeoResearchKind.Suggest => "پیشنهاد جست‌وجو (گوگل/بینگ)",
         SeoResearchKind.Serp => "نتایج برتر (بینگ/داک‌داک‌گو)",
         SeoResearchKind.Page => "خواندن صفحهٔ رقبا",
+        SeoResearchKind.Link => "بررسی لینک‌های بیرونی",
         _ => kind.ToString(),
     };
 
@@ -109,4 +110,21 @@ public static class SeoEngineUi
     /// <summary>طول نمایشی عنوان کامل در نتیجهٔ گوگل (عنوان + « | نام‌سایت»).</summary>
     public static string FullTitle(string title, string siteName) =>
         string.IsNullOrWhiteSpace(siteName) || title.Contains(siteName, StringComparison.Ordinal) ? title : $"{title} | {siteName}";
+}
+
+/// <summary>
+/// دادهٔ پیش‌نمایش اشتراک (کارت تلگرام/واتس‌اپ/اینستاگرام/ایکس) – فاز ۸ب.
+/// ساخته می‌شود در AnalyzeModel.BuildShareAsync و نمایش با Areas/Admin/Pages/Shared/_SharePreview.cshtml.
+/// مثال: new SharePreviewModel("گوشی X | فراتک", "خرید گوشی X با گارانتی…", "/uploads/products/x.webp", "fratak.ir", "/product/x").
+/// </summary>
+public sealed record SharePreviewModel(string Title, string Description, string ImageUrl, string Host, string Path)
+{
+    /// <summary>پیام‌رسان‌ها عنوان را حدود ۶۵ و توضیح را حدود ۱۶۰ نویسه نشان می‌دهند.</summary>
+    public const int TitleLimit = 65, DescriptionLimit = 160;
+
+    public bool TitleTooLong => Title.Length > TitleLimit;
+    public bool DescriptionTooLong => Description.Length > DescriptionLimit;
+
+    /// <summary>متن کوتاه‌شده با «…» همان‌طور که در کارت دیده می‌شود.</summary>
+    public static string Cut(string text, int limit) => text.Length <= limit ? text : text[..(limit - 1)].TrimEnd() + "…";
 }

@@ -73,6 +73,11 @@ else if (subject.HasCanonicalElsewhere)
   </div>
 </div>
 
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Globe", null, 18) پیش‌نمایش اشتراک در تلگرام، واتس‌اپ و شبکه‌های اجتماعی</span></div>
+  <div class="a-card-body"><partial name="_SharePreview" model="Model.Share" /></div>
+</div>
+
 <div class="grid gap-4 lg:grid-cols-3">
   <div class="lg:col-span-2 a-stack">
     @foreach (var group in groups)
@@ -107,6 +112,28 @@ else if (subject.HasCanonicalElsewhere)
   </div>
 
   <div class="a-stack">
+    @if (Model.GoogleQueries.Count > 0)
+    {
+      <div class="a-card">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) عبارت‌های واقعی گوگل</span>
+          <a class="a-link text-xs" href="/admin/seo/search-console">Search Console</a>
+        </div>
+        <ul class="a-checks">
+          @foreach (var q in Model.GoogleQueries)
+          {
+            <li class="flex-col items-start">
+              <div class="flex w-full items-center justify-between gap-2">
+                <b>@q.Query</b>
+                <span class="a-badge a-badge-gray" title="جایگاه میانگین">جایگاه @SearchConsoleModel.Position(q.Position)</span>
+              </div>
+              <div class="a-muted text-xs">@Format.Number(q.Impressions) نمایش · @Format.Number(q.Clicks) کلیک · نرخ کلیک @SearchConsoleModel.Percent(q.Ctr)</div>
+            </li>
+          }
+        </ul>
+        <div class="a-card-body"><p class="a-help">۲۸ روز اخیر. موتور سئو هنگام انتخاب کلمهٔ کلیدی به این عبارت‌ها وزن زیادی می‌دهد.</p></div>
+      </div>
+    }
     <div class="a-card">
       <div class="a-card-head"><span class="a-card-title">کلمه‌های کلیدی نامزد</span></div>
       @if (a.Keywords.Count == 0)

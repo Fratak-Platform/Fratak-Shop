@@ -240,6 +240,13 @@ public static partial class PersianText
     public static string Digits(long value) =>
         new(value.ToString(CultureInfo.InvariantCulture).Select(c => c is >= '0' and <= '9' ? (char)('۰' + (c - '0')) : c).ToArray());
 
+    /// <summary>عدد اعشاری با یک رقم اعشار و ممیز فارسی (برای جایگاه میانگین گوگل). مثال: 7.46 → «۷٫۵»، 3.0 → «۳».</summary>
+    public static string Decimal1(double value)
+    {
+        var text = Math.Round(value, 1).ToString("0.#", CultureInfo.InvariantCulture).Replace('.', '٫');
+        return new string(text.Select(c => c is >= '0' and <= '9' ? (char)('۰' + (c - '0')) : c).ToArray());
+    }
+
     /// <summary>مبلغ با جداکنندهٔ هزارگان و رقم فارسی. مثال: 1500000 → «۱٬۵۰۰٬۰۰۰».</summary>
     public static string Money(decimal value)
     {
