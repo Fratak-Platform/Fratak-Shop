@@ -267,6 +267,8 @@ public sealed class SeoEngineService(
                     failed++;
                     _logger.LogWarning(ex, "SEO suggestion failed for {Kind} {Id}", subject.Kind, subject.EntityId);
                     context.ChangeTracker.Clear();
+                    // ردیف اجرا هم با Clear جدا شد؛ دوباره وصلش می‌کنیم تا پایان اجرا (FinishedAt و آمار) ذخیره شود.
+                    context.SeoEngineRuns.Attach(run);
                 }
             }
         }
