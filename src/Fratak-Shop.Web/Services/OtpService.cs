@@ -10,6 +10,9 @@ public enum OtpPurpose
     VerifyPhone = 1,
     Login = 2,
     TwoFactor = 3,
+
+    /// <summary>تأیید دوبارهٔ هویت کارمند پیش از کار حساس در پنل (مرحلهٔ هفتم – فاز ۱۰).</summary>
+    Reauth = 4,
 }
 
 /// <summary>
@@ -75,6 +78,7 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
         {
             OtpPurpose.Login => $"کد ورود شما: {code}\nاین کد را در اختیار دیگران قرار ندهید.",
             OtpPurpose.TwoFactor => $"کد تایید دو مرحله‌ای: {code}\nاگر شما درخواست ورود نداده‌اید، رمز عبور خود را تغییر دهید.",
+            OtpPurpose.Reauth => $"کد تایید عملیات حساس در پنل مدیریت: {code}\nاگر شما درخواست نداده‌اید، فوراً به مدیر فروشگاه خبر دهید.",
             _ => $"کد تایید شما: {code}",
         };
 

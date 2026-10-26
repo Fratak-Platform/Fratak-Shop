@@ -79,14 +79,22 @@ public static class AdminUi
         Data.Entities.Admin.SecurityEventType.UserUnblocked => "رفع مسدودی",
         Data.Entities.Admin.SecurityEventType.RolesChanged => "تغییر نقش‌ها",
         Data.Entities.Admin.SecurityEventType.SessionsRevoked => "خروج اجباری از دستگاه‌ها",
+        Data.Entities.Admin.SecurityEventType.TotpEnabled => "فعال‌سازی برنامهٔ احراز هویت",
+        Data.Entities.Admin.SecurityEventType.TotpDisabled => "غیرفعال‌سازی برنامهٔ احراز هویت",
+        Data.Entities.Admin.SecurityEventType.TotpFailed => "کد نادرست برنامهٔ احراز هویت",
+        Data.Entities.Admin.SecurityEventType.ReauthFailed => "تأیید دوبارهٔ ناموفق",
+        Data.Entities.Admin.SecurityEventType.TotpRecoveryUsed => "استفاده از کد بازیابی",
         _ => type.ToString(),
     };
 
     public static string SecurityEventBadge(Data.Entities.Admin.SecurityEventType type) => type switch
     {
         Data.Entities.Admin.SecurityEventType.LoginSucceeded or Data.Entities.Admin.SecurityEventType.UserUnblocked => "a-badge-green",
-        Data.Entities.Admin.SecurityEventType.LoginFailed or Data.Entities.Admin.SecurityEventType.OtpFailed => "a-badge-yellow",
-        Data.Entities.Admin.SecurityEventType.RolesChanged or Data.Entities.Admin.SecurityEventType.SessionsRevoked => "a-badge-blue",
+        Data.Entities.Admin.SecurityEventType.LoginFailed or Data.Entities.Admin.SecurityEventType.OtpFailed
+            or Data.Entities.Admin.SecurityEventType.TotpFailed or Data.Entities.Admin.SecurityEventType.ReauthFailed
+            or Data.Entities.Admin.SecurityEventType.TotpRecoveryUsed => "a-badge-yellow",
+        Data.Entities.Admin.SecurityEventType.RolesChanged or Data.Entities.Admin.SecurityEventType.SessionsRevoked
+            or Data.Entities.Admin.SecurityEventType.TotpEnabled => "a-badge-blue",
         _ => "a-badge-red",
     };
 

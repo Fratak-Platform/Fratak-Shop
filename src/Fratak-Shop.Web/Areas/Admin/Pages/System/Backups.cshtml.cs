@@ -42,6 +42,7 @@ public class BackupsModel(IBackupService backups, IMonitoringService monitoring,
     }
 
     [AdminPermission(AdminPermissions.SystemManage)]
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostDeleteAsync(Guid id)
     {
         var result = await backups.DeleteAsync(id, HttpContext.RequestAborted);
@@ -52,6 +53,7 @@ public class BackupsModel(IBackupService backups, IMonitoringService monitoring,
     }
 
     [AdminPermission(AdminPermissions.SystemManage)]
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnGetDownloadAsync(Guid id)
     {
         var record = await backups.GetAsync(id, HttpContext.RequestAborted);

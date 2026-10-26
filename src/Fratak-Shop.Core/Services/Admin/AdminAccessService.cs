@@ -195,7 +195,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
 
         var users = await context.Users
             .Where(u => u.Role == UserRole.SuperAdmin || ids.Contains(u.Id))
-            .Select(u => new { u.Id, u.FirstName, u.LastName, u.PhoneNumber, u.Role, u.IsBlocked, u.TwoFactorEnabled, u.LastLoginAt })
+            .Select(u => new { u.Id, u.FirstName, u.LastName, u.PhoneNumber, u.Role, u.IsBlocked, u.TwoFactorEnabled, TotpEnabled = u.TotpEnabledAt != null, u.LastLoginAt })
             .ToListAsync();
 
         return users
@@ -207,6 +207,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
                 IsOwner = u.Role == UserRole.SuperAdmin,
                 IsBlocked = u.IsBlocked,
                 TwoFactorEnabled = u.TwoFactorEnabled,
+                TotpEnabled = u.TotpEnabled,
                 LastLoginAt = u.LastLoginAt,
                 Roles = memberships.Where(m => m.UserId == u.Id).Select(m => m.Role).ToList(),
             })

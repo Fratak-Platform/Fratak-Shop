@@ -320,7 +320,7 @@
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Note", null, 18) تاریخچه و یادداشت‌های داخلی</span></div>
       <div class="a-card-body">
         <form method="post" asp-page-handler="Note" class="flex gap-2 mb-5">
-          <input name="content" class="a-input" placeholder="یادداشت داخلی (مشتری نمی‌بیند)…" maxlength="2000" required>
+          <input name="content" class="a-input" placeholder="یادداشت داخلی (مشتری نمی‌بیند)… با @ همکار را خبر کنید" maxlength="2000" required data-mentions autocomplete="off">
           <button type="submit" class="a-btn">ثبت</button>
         </form>
         @if (d.Notes.Count == 0)
@@ -334,7 +334,7 @@
             {
               var css = note.Kind switch { OrderNoteKind.StatusChange => "is-status", OrderNoteKind.System => note.Content.StartsWith("فاکتور") ? "is-invoice" : "is-system", _ => "" };
               <div class="a-timeline-item @css">
-                <div class="text-sm">@note.Content</div>
+                <div class="text-sm">@MentionHighlighter.Render(note.Content)</div>
                 <div class="a-muted text-xs mt-1">@(note.AuthorName ?? "سیستم") · @Format.DateTime(note.CreatedAt)</div>
               </div>
             }
@@ -353,7 +353,7 @@
       <div class="a-card-body">
         <dl class="a-kv">
           <dt>نام</dt><dd>@o.CustomerName</dd>
-          <dt>موبایل</dt><dd><a class="a-link a-ltr" href="tel:@o.CustomerPhone">@o.CustomerPhone</a></dd>
+          <dt>موبایل</dt><dd>@if (Pii.ShowContacts) { <a class="a-link a-ltr" href="tel:@o.CustomerPhone">@o.CustomerPhone</a> } else { <span class="a-ltr">@Pii.Phone(o.CustomerPhone)</span> }</dd>
           @if (o.UserId is not null)
           {
             <dt>سفارش‌ها</dt><dd>@Format.Number(d.CustomerOrderCount)</dd>
@@ -370,10 +370,10 @@
     <div class="a-card">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MapPin", null, 18) ارسال</span></div>
       <div class="a-card-body">
-        <p class="text-sm leading-7">@o.ShippingProvince، @o.ShippingCity، @o.ShippingAddress @(o.ShippingBuildingNumber is null ? "" : $"، پلاک {o.ShippingBuildingNumber}") @(o.ShippingUnit is null ? "" : $"، واحد {o.ShippingUnit}")</p>
+        <p class="text-sm leading-7">@o.ShippingProvince، @o.ShippingCity، @Pii.Address(o.ShippingAddress) @if (Pii.ShowContacts) { <span>@(o.ShippingBuildingNumber is null ? "" : $"، پلاک {o.ShippingBuildingNumber}") @(o.ShippingUnit is null ? "" : $"، واحد {o.ShippingUnit}")</span> }</p>
         <dl class="a-kv mt-3">
-          <dt>کد پستی</dt><dd class="a-ltr">@o.ShippingPostalCode</dd>
-          <dt>تلفن گیرنده</dt><dd class="a-ltr">@o.ShippingPhone</dd>
+          <dt>کد پستی</dt><dd class="a-ltr">@(Pii.ShowContacts ? o.ShippingPostalCode : Fratak_Shop.Core.Services.Team.Masking.Dots)</dd>
+          <dt>تلفن گیرنده</dt><dd class="a-ltr">@Pii.Phone(o.ShippingPhone)</dd>
           <dt>روش ارسال</dt><dd>@(o.ShippingMethod ?? "—")</dd>
           @if (o.DeliveryTimeSlotTitle is not null) { <dt>بازه تحویل</dt><dd>@Format.Date(o.RequestedDeliveryDate) – @o.DeliveryTimeSlotTitle</dd> }
           @if (Model.Estimate is { } est) { <dt>تحویل تخمینی</dt><dd>@Format.Date(est.From) تا @Format.Date(est.To)</dd> }

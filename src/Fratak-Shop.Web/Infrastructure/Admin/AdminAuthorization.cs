@@ -29,7 +29,13 @@ public sealed class AdminOwnerOnlyAttribute : Attribute;
 /// page and a security-log entry. Every admin response is private, uncached and noindex, and every change
 /// saved during an admin request is audited with the staff member as actor.
 /// </summary>
-public sealed class AdminPageFilter(IAdminAccessService accessService, IMonitoringService monitoring, ILogger<AdminPageFilter> logger) : IAsyncPageFilter
+public sealed class AdminPageFilter(
+    IAdminAccessService accessService,
+    IMonitoringService monitoring,
+    Core.Services.Settings.IStoreSettingService settingsService,
+    Core.Services.Team.IStaffTotpService totp,
+    Team.IReauthTicket reauth,
+    ILogger<AdminPageFilter> logger) : IAsyncPageFilter
 {
     public const string AccessItemKey = "fratak.admin.access";
 
@@ -79,11 +85,50 @@ public sealed class AdminPageFilter(IAdminAccessService accessService, IMonitori
             return;
         }
 
+        // ── فاز ۱۰: امنیت کارکنان ──
+        var settings = await settingsService.GetAsync();
+
+        // ۱) برنامهٔ احراز هویت اجباری: کارمندی که فعالش نکرده، اول به صفحهٔ راه‌اندازی («حساب من») می‌رود.
+        if (settings.IsStaffTotpEnabled && settings.IsStaffTotpRequired && !isDeniedPage
+            && pageType.GetCustomAttribute<Team.AllowWithoutTotpAttribute>() is null
+            && !await totp.IsActiveAsync(userId.Value))
+        {
+            context.Result = new RedirectResult("/admin/account?setup=required");
+            return;
+        }
+
+        // ۲) تأیید دوباره برای کارهای حساس: اگر در N دقیقهٔ اخیر تأیید نشده، به /admin/reauth و بعد برگشت به همین صفحه.
+        if (settings.IsReauthEnabled && RequiresReauth(pageType, method) && !reauth.IsFresh(http, userId.Value, settings.ReauthMinutes))
+        {
+            context.Result = new RedirectResult("/admin/reauth?returnUrl=" + Uri.EscapeDataString(ReauthReturnUrl(http)));
+            return;
+        }
+
         using (AuditContext.Begin(new AuditActor(access.UserId, access.DisplayName, http.Connection.RemoteIpAddress?.ToString(),
                    $"{http.Request.Method} {http.Request.Path}")))
         {
             await next();
         }
+    }
+
+    /// <summary>آیا این صفحه یا handler برچسب [RequireReauth] دارد؟</summary>
+    public static bool RequiresReauth(Type pageType, MethodInfo? method) =>
+        pageType.GetCustomAttribute<Team.RequireReauthAttribute>(true) is not null
+        || method?.GetCustomAttribute<Team.RequireReauthAttribute>(true) is not null;
+
+    /// <summary>
+    /// بعد از تأیید دوباره کجا برگردیم؟ برای GET همان آدرس؛ برای POST (فرم ارسال‌شده) صفحه‌ای که فرم از آن آمده
+    /// (فقط اگر داخل خود پنل باشد)، چون فرم باید دوباره ارسال شود.
+    /// </summary>
+    public static string ReauthReturnUrl(HttpContext http)
+    {
+        if (HttpMethods.IsGet(http.Request.Method))
+            return (http.Request.Path.Value ?? "/admin") + http.Request.QueryString.Value;
+        if (Uri.TryCreate(http.Request.Headers.Referer.ToString(), UriKind.Absolute, out var referer)
+            && string.Equals(referer.Authority, http.Request.Host.Value, StringComparison.OrdinalIgnoreCase)
+            && referer.AbsolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase))
+            return referer.PathAndQuery + referer.Fragment;
+        return http.Request.Path.Value ?? "/admin";
     }
 
     public static bool IsAllowed(AdminAccess access, Type pageType, MethodInfo? method, out string? missing)

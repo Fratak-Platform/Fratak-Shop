@@ -48,15 +48,15 @@
               <span class="a-muted text-xs">@Format.DateTime(w.CreatedAt)</span>
             </div>
             <div class="text-sm mt-1">
-              @if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@w.UserId">@(string.IsNullOrEmpty(w.UserName) ? w.Phone : w.UserName)</a> } else { @w.UserName }
-              <span class="a-muted a-ltr">@w.Phone</span> · موجودی فعلی کیف پول: @Format.Toman(w.CurrentWallet)
+              @if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@w.UserId">@Pii.NameOrPhone(w.UserName, w.Phone)</a> } else { @w.UserName }
+              <span class="a-muted a-ltr">@Pii.Phone(w.Phone)</span> · موجودی فعلی کیف پول: @Format.Toman(w.CurrentWallet)
             </div>
           </div>
           <dl class="a-kv text-sm" style="min-width:260px">
             <dt>صاحب حساب</dt><dd>@w.AccountHolder</dd>
-            @if (w.Iban is not null) { <dt>شبا</dt><dd class="a-ltr a-mono">@w.Iban <button type="button" class="a-link text-xs" data-copy="@w.Iban">کپی</button></dd> }
-            @if (w.CardNumber is not null) { <dt>کارت</dt><dd class="a-ltr a-mono">@w.CardNumber <button type="button" class="a-link text-xs" data-copy="@w.CardNumber">کپی</button></dd> }
-            @if (w.AccountNumber is not null) { <dt>حساب</dt><dd class="a-ltr a-mono">@w.AccountNumber</dd> }
+            @if (w.Iban is not null) { <dt>شبا</dt><dd class="a-ltr a-mono">@Pii.Iban(w.Iban) @if (Pii.ShowBank) { <button type="button" class="a-link text-xs" data-copy="@w.Iban">کپی</button> }</dd> }
+            @if (w.CardNumber is not null) { <dt>کارت</dt><dd class="a-ltr a-mono">@Pii.Card(w.CardNumber) @if (Pii.ShowBank) { <button type="button" class="a-link text-xs" data-copy="@w.CardNumber">کپی</button> }</dd> }
+            @if (w.AccountNumber is not null) { <dt>حساب</dt><dd class="a-ltr a-mono">@Pii.Card(w.AccountNumber)</dd> }
             @if (w.BankTrackingNumber is not null) { <dt>پیگیری واریز</dt><dd class="a-ltr">@w.BankTrackingNumber</dd> }
             @if (w.AdminNote is not null) { <dt>یادداشت</dt><dd>@w.AdminNote</dd> }
           </dl>

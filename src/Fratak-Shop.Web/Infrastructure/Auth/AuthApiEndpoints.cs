@@ -16,7 +16,11 @@ namespace Fratak_Shop.Web.Infrastructure.Auth;
 /// </summary>
 public static class AuthApiEndpoints
 {
-    public record TokenRequest(string? PhoneNumber, string? Password);
+    /// <param name="TotpCode">
+    /// فاز ۱۰: برای کارکنانی که برنامهٔ احراز هویت را فعال کرده‌اند، کد ۶ رقمی برنامه (یا یک کد بازیابی) لازم است.
+    /// بدون آن پاسخ 401 با <c>{"error": "...", "totpRequired": true}</c> برمی‌گردد.
+    /// </param>
+    public record TokenRequest(string? PhoneNumber, string? Password, string? TotpCode = null);
 
     public record RefreshRequest(string? RefreshToken);
 
@@ -32,7 +36,8 @@ public static class AuthApiEndpoints
         var group = app.MapGroup("/api/auth").DisableAntiforgery();
 
         group.MapPost("/token", async (TokenRequest request, HttpContext http, IUserService users,
-            IRefreshTokenService refreshTokens, IAccessTokenService accessTokens, IOptions<JwtOptions> jwt) =>
+            IRefreshTokenService refreshTokens, IAccessTokenService accessTokens, IOptions<JwtOptions> jwt,
+            Core.Services.Team.IStaffTotpService totp, Admin.SecurityEventRecorder securityEvents) =>
         {
             if (string.IsNullOrWhiteSpace(request.PhoneNumber) || string.IsNullOrEmpty(request.Password)
                 || request.PhoneNumber.Length > 20 || request.Password.Length > 128)
@@ -43,6 +48,26 @@ public static class AuthApiEndpoints
                 return Error(StatusCodes.Status401Unauthorized, login.Message);
 
             var user = login.Data;
+
+            // مرحلهٔ دوم برای کارکنانِ دارای برنامهٔ احراز هویت (همان قوانین قفل ۵ کد نادرست در ۱۰ دقیقه).
+            if (await totp.IsActiveAsync(user.Id))
+            {
+                if (string.IsNullOrWhiteSpace(request.TotpCode) || request.TotpCode.Length > 20)
+                    return Results.Json(new { error = "کد برنامهٔ احراز هویت لازم است.", totpRequired = true }, statusCode: StatusCodes.Status401Unauthorized);
+                var check = await totp.VerifyAsync(user.Id, request.TotpCode, allowRecovery: true);
+                if (check is not (Core.Services.Team.TotpCheck.Ok or Core.Services.Team.TotpCheck.RecoveryUsed))
+                {
+                    await securityEvents.RecordAsync(Data.Entities.Admin.SecurityEventType.TotpFailed, user.Id, user.PhoneNumber, "API ورود");
+                    return Results.Json(new
+                    {
+                        error = check == Core.Services.Team.TotpCheck.Locked ? Core.Services.Team.StaffTotpService.LockedMessage : "کد برنامهٔ احراز هویت صحیح نیست.",
+                        totpRequired = true,
+                    }, statusCode: StatusCodes.Status401Unauthorized);
+                }
+                if (check == Core.Services.Team.TotpCheck.RecoveryUsed)
+                    await securityEvents.RecordAsync(Data.Entities.Admin.SecurityEventType.TotpRecoveryUsed, user.Id, user.PhoneNumber, "API ورود");
+            }
+
             var stamp = await users.GetSecurityStampAsync(user.Id);
             if (stamp is null)
                 return Error(StatusCodes.Status401Unauthorized, "حساب کاربری یافت نشد.");

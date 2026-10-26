@@ -16,7 +16,11 @@ public static class AdminNav
     public static readonly AdminNavGroup[] Groups =
     [
         new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour"), new AdminNavItem("اعلان‌های من", "/admin/inbox", "Tray"),
-            new AdminNavItem("میانبرهای من", "/admin/ux", "PushPin")),
+            new AdminNavItem("میانبرهای من", "/admin/ux", "PushPin"),
+            // مرحلهٔ هفتم – فاز ۱۰: کار تیمی و امنیت کارکنان.
+            new AdminNavItem("کارهای من", "/admin/tasks", "ListChecks", null, "tasks"),
+            new AdminNavItem("تأییدهای دونفره", "/admin/approvals", "ShieldCheck", [P.CustomersWallet, P.WithdrawalsManage, P.StaffManage], "approvals"),
+            new AdminNavItem("امنیت حساب من", "/admin/account", "Fingerprint")),
         new("فروش",
             new AdminNavItem("سفارش‌ها", "/admin/orders", "Orders", [P.OrdersView], "orders"),
             new AdminNavItem("کانبان سفارش‌ها", "/admin/orders/board", "Kanban", [P.OrdersView]),

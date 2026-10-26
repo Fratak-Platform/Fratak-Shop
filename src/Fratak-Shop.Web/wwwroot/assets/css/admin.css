@@ -771,3 +771,38 @@ html[data-theme="dark"] .a-share-card { background: #111827; }
 html[data-theme="dark"] .a-share-compact { background: #052e16; }
 html[data-theme="dark"] .a-share-title { color: #f3f4f6; }
 html[data-theme="dark"] .a-share-desc, html[data-theme="dark"] .a-share-host { color: #9ca3af; }
+
+/* ═══ مرحلهٔ هفتم – فاز ۱۰: امنیت و کار تیمی کارکنان ═══ */
+/* منشن در یادداشت‌ها و منوی پیشنهاد همکاران (admin-team.js) */
+.a-mention { display: inline-block; padding: 0 6px; border-radius: 6px; background: #eef2ff; color: var(--a-primary); font-weight: 600; }
+.a-mention-menu { position: absolute; z-index: 40; inset-inline-start: 0; margin-top: 4px; min-width: 220px; max-width: 100%; max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid var(--a-border); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,.08); padding: 4px; }
+.a-mention-option { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-radius: 8px; text-align: start; font-size: 13px; }
+.a-mention-option span { color: var(--a-muted); font-size: 12px; direction: rtl; }
+.a-mention-option:hover, .a-mention-option.is-active { background: var(--a-bg); }
+/* کارهای من */
+.a-todo-list { display: flex; flex-direction: column; }
+.a-todo { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--a-border); }
+.a-todo:last-child { border-bottom: 0; }
+.a-todo-check { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-top: 2px; border-radius: 999px; border: 2px solid #c7d2fe; background: #fff; color: #fff; cursor: pointer; transition: border-color .15s, background .15s; }
+.a-todo-check:hover { border-color: var(--a-primary); }
+.a-todo-check.is-static { cursor: default; border-style: dashed; }
+.a-todo.is-done .a-todo-check { background: #16a34a; border-color: #16a34a; }
+.a-todo-check svg { fill: currentColor; }
+.a-todo-body { flex: 1; min-width: 0; }
+.a-todo.is-done .a-todo-title { text-decoration: line-through; color: var(--a-muted); }
+.a-todo-actions { display: flex; gap: 4px; flex-shrink: 0; }
+/* امنیت حساب من / تأیید دوباره */
+.a-qr { width: 220px; max-width: 100%; padding: 10px; background: #fff; border: 1px solid var(--a-border); border-radius: 12px; }
+.a-qr svg { width: 100%; height: auto; display: block; }
+.a-recovery-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-width: 360px; }
+.a-recovery-codes code { padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.7); font-family: ui-monospace, monospace; font-size: 14px; text-align: center; letter-spacing: .5px; }
+.a-steps { list-style: decimal; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 4px; }
+.a-reauth { max-width: 440px; margin: 24px auto; }
+/* تأییدهای دونفره */
+.a-approval.is-pending { border-inline-start: 4px solid #f59e0b; }
+.a-approval-result { padding: 8px 10px; border-radius: 8px; background: var(--a-bg); display: flex; flex-direction: column; gap: 2px; }
+.a-approval-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.a-approval-form .a-input { flex: 1 1 220px; }
+html[data-theme="dark"] .a-mention { background: #312e81; color: #c7d2fe; }
+html[data-theme="dark"] .a-mention-menu, html[data-theme="dark"] .a-todo-check { background: #111827; }
+html[data-theme="dark"] .a-recovery-codes code { background: rgba(0,0,0,.25); }

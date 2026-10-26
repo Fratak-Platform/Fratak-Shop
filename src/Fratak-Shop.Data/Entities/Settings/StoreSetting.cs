@@ -676,6 +676,41 @@ public class StoreSetting : BaseEntity
     [MaxLength(100)]
     public string? HealthCheckToken { get; set; }
 
+    // ── امنیت کارکنان (فاز ۱۰) – منطق: Core/Services/Team ──
+
+    /// <summary>کارکنان بتوانند برنامهٔ احراز هویت (Google Authenticator و …) را برای ورود دومرحله‌ای فعال کنند.</summary>
+    public bool IsStaffTotpEnabled { get; set; } = true;
+
+    /// <summary>
+    /// برنامهٔ احراز هویت برای همهٔ کارکنان اجباری باشد: کارمندی که فعالش نکرده با ورود به پنل اول به صفحهٔ راه‌اندازی می‌رود.
+    /// فقط وقتی IsStaffTotpEnabled روشن است اثر دارد.
+    /// </summary>
+    public bool IsStaffTotpRequired { get; set; }
+
+    /// <summary>برای کارهای حساس (ذخیرهٔ تنظیمات، تغییر نقش، کیف پول، برداشت، پشتیبان، فایروال) دوباره رمز یا کد خواسته شود.</summary>
+    public bool IsReauthEnabled { get; set; }
+
+    /// <summary>بعد از تأیید دوباره، تا چند دقیقه کار حساس بدون پرسش مجاز است (۵ تا ۲۴۰). مثال: ۱۵.</summary>
+    public int ReauthMinutes { get; set; } = 15;
+
+    /// <summary>«تأیید دونفره»: کارهای حساس بالای سقف‌ها فقط بعد از تأیید یک کارمند دیگر اجرا می‌شوند.</summary>
+    public bool IsTwoPersonApprovalEnabled { get; set; }
+
+    /// <summary>تغییر دستی کیف پول از این مبلغ (تومان، قدر مطلق) به بالا تأیید دوم می‌خواهد. ۰ = همهٔ تغییرها.</summary>
+    public decimal TwoPersonWalletThreshold { get; set; } = 1_000_000;
+
+    /// <summary>پرداخت درخواست برداشت از این مبلغ (تومان) به بالا تأیید دوم می‌خواهد. ۰ = همهٔ برداشت‌ها.</summary>
+    public decimal TwoPersonWithdrawalThreshold { get; set; } = 5_000_000;
+
+    /// <summary>تغییر نقش‌های کارکنان (و مالک کردن) هم تأیید دوم بخواهد.</summary>
+    public bool IsTwoPersonRoleChangeEnabled { get; set; } = true;
+
+    /// <summary>
+    /// پوشاندن اطلاعات شخصی مشتریان (موبایل، ایمیل، نشانی، شبا و کارت) در پنل برای کارکنانی که دسترسی
+    /// «دیدن اطلاعات کامل مشتری» ندارند. مثال: 09121234567 ← ۰۹۱۲•••۴۵۶۷.
+    /// </summary>
+    public bool IsDataMaskingEnabled { get; set; }
+
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }

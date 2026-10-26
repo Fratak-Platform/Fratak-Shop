@@ -1,0 +1,61 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.ReauthModel
+@{
+    ViewData["Title"] = "تأیید دوبارهٔ هویت";
+    var returnUrl = Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.ReauthModel.SafeReturnUrl(Model.ReturnUrl);
+}
+<div class="a-reauth">
+  <div class="a-card">
+    <div class="a-card-body a-stack">
+      <div class="flex items-center gap-3">
+        <span class="a-stat-icon">@Icons.Svg("LockKey", null, 24)</span>
+        <div>
+          <h2 class="text-lg font-bold">تأیید دوبارهٔ هویت</h2>
+          <p class="a-muted text-sm">این کار حساس است. برای اطمینان از اینکه خودتان پشت سیستم هستید، هویتتان را دوباره تأیید کنید. تا @Format.Number(Model.Minutes) دقیقه دیگر دوباره پرسیده نمی‌شود.</p>
+        </div>
+      </div>
+
+      @if (Model.HasTotp)
+      {
+        <form method="post" asp-page-handler="Totp" class="a-stack">
+          <input type="hidden" name="returnUrl" value="@returnUrl">
+          <div class="a-field"><label class="a-label" for="ra-totp">کد برنامهٔ احراز هویت (یا کد بازیابی)</label><input id="ra-totp" name="code" class="a-input a-ltr text-center" inputmode="numeric" autocomplete="one-time-code" maxlength="20" required autofocus></div>
+          <button class="a-btn" type="submit">تأیید</button>
+        </form>
+        <div class="a-divider"><span>یا</span></div>
+      }
+
+      @if (Model.HasPassword)
+      {
+        <form method="post" asp-page-handler="Password" class="a-stack">
+          <input type="hidden" name="returnUrl" value="@returnUrl">
+          <div class="a-field"><label class="a-label" for="ra-pass">رمز عبور حساب</label><input id="ra-pass" name="password" type="password" class="a-input a-ltr" autocomplete="current-password" required></div>
+          <button class="a-btn @(Model.HasTotp ? "a-btn-light" : "")" type="submit">تأیید با رمز عبور</button>
+        </form>
+        <div class="a-divider"><span>یا</span></div>
+      }
+
+      @if (Model.SmsSent)
+      {
+        <form method="post" asp-page-handler="Sms" class="a-stack">
+          <input type="hidden" name="returnUrl" value="@returnUrl">
+          <div class="a-field">
+            <label class="a-label" for="ra-sms">کد پیامک‌شده به @Fratak_Shop.Core.Services.Team.Masking.Phone(Model.Access.PhoneNumber)</label>
+            <input id="ra-sms" name="code" class="a-input a-ltr text-center" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required autofocus>
+            @if (Model.DevelopmentCode is not null) { <p class="a-help">حالت توسعه – کد: <b class="a-ltr">@Model.DevelopmentCode</b></p> }
+          </div>
+          <button class="a-btn a-btn-light" type="submit">تأیید کد پیامکی</button>
+        </form>
+      }
+      else
+      {
+        <form method="post" asp-page-handler="SendSms">
+          <input type="hidden" name="returnUrl" value="@returnUrl">
+          <button class="a-btn a-btn-light w-full" type="submit">ارسال کد پیامکی به موبایلم</button>
+        </form>
+      }
+
+      <a class="a-link text-sm text-center" href="@returnUrl">انصراف و بازگشت</a>
+    </div>
+  </div>
+</div>

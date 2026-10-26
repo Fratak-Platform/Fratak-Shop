@@ -141,7 +141,7 @@
             <td data-label="تاریخ" class="nowrap">@Format.DateTime(o.CreatedAt)</td>
             <td data-label="مشتری">
               <div>@o.CustomerName</div>
-              <div class="a-muted text-xs a-ltr">@o.CustomerPhone</div>
+              <div class="a-muted text-xs a-ltr">@Pii.Phone(o.CustomerPhone)</div>
             </td>
             <td data-label="مقصد">@o.ShippingProvince، @o.ShippingCity</td>
             <td data-label="اقلام" class="num">@o.ItemCount</td>

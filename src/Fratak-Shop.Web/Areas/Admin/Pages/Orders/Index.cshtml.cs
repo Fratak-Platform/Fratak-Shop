@@ -61,9 +61,10 @@ public class IndexModel(IAdminOrderService orders, IOrderSlaService sla) : Admin
         var rows = await orders.GetExportRowsAsync(await BuildFilterAsync(1, 50_000));
         var table = new ExportTable("سفارش‌ها", "شماره سفارش", "تاریخ", "مشتری", "موبایل", "استان", "شهر", "وضعیت", "وضعیت پرداخت", "روش پرداخت",
             "تعداد اقلام", "تخفیف", "هزینه ارسال", "مبلغ قابل پرداخت", "روش ارسال", "کد رهگیری", "تعداد فاکتور خرید", "بهای خرید", "سود ناخالص");
+        var pii = HttpContext.RequestServices.GetRequiredService<global::Fratak_Shop.Web.Infrastructure.Team.SensitiveData>();
         foreach (var r in rows)
         {
-            table.Add(r.OrderNumber, r.CreatedAt, r.CustomerName, r.CustomerPhone, r.ShippingProvince, r.ShippingCity, AdminUi.OrderStatus(r.Status),
+            table.Add(r.OrderNumber, r.CreatedAt, r.CustomerName, pii.Phone(r.CustomerPhone), r.ShippingProvince, r.ShippingCity, AdminUi.OrderStatus(r.Status),
                 Display.PaymentStatus(r.PaymentStatus), Display.PaymentMethod(r.PaymentMethod), r.ItemCount, r.DiscountTotal, r.ShippingAmount,
                 r.PayableAmount, r.ShippingMethod, r.TrackingCode, r.PurchaseInvoiceCount, r.PurchaseCost,
                 r.PurchaseInvoiceCount > 0 ? r.PayableAmount - r.ShippingAmount - r.PurchaseCost : null);

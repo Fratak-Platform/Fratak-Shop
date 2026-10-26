@@ -70,7 +70,7 @@
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-2 text-sm">
                 <b>@c.AuthorName</b>
-                @if (c.UserId is not null && Model.Can(AdminPermissions.CustomersView)) { <a class="a-link a-ltr text-xs" href="/admin/customers/@c.UserId">@c.AuthorPhone</a> } else { <span class="a-muted a-ltr text-xs">@c.AuthorPhone</span> }
+                @if (c.UserId is not null && Model.Can(AdminPermissions.CustomersView)) { <a class="a-link a-ltr text-xs" href="/admin/customers/@c.UserId">@Pii.Phone(c.AuthorPhone)</a> } else { <span class="a-muted a-ltr text-xs">@Pii.Phone(c.AuthorPhone)</span> }
                 <span class="a-badge a-badge-gray">@TypeTitle(c.Type)</span>
                 @if (c.ParentId is not null) { <span class="a-badge a-badge-blue">پاسخ کاربر</span> }
                 @if (c.IsVerifiedPurchase) { <span class="a-badge a-badge-green">خریدار</span> }

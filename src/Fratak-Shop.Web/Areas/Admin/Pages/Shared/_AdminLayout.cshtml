@@ -4,9 +4,16 @@
 @inject IAdminHelpService HelpArticles
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject Fratak_Shop.Core.Services.Settings.IStoreSettingService StoreSettings
+@inject Fratak_Shop.Core.Services.Team.IApprovalService ApprovalRequests
+@inject Fratak_Shop.Core.Services.Team.IStaffTaskService StaffTasks
 @{
     var access = ViewContext.HttpContext.Items[AdminPageFilter.AccessItemKey] as AdminAccess;
-    var badges = access is null ? new Dictionary<string, int>() : await BadgeService.GetAsync();
+    var badges = access is null ? new Dictionary<string, int>() : new Dictionary<string, int>(await BadgeService.GetAsync());
+    // فاز ۱۰: شمارنده‌های شخصی (تأییدهای منتظر من، کارهای دیرشده/امروز من) کنار شمارنده‌های عمومی.
+    if (access is not null)
+    {
+        foreach (var (badgeKey, badgeValue) in await BadgeService.GetPersonalAsync(access, ApprovalRequests, StaffTasks)) { badges[badgeKey] = badgeValue; }
+    }
     // منوی زنگوله: ۸ اعلان آخر + تعداد خوانده‌نشده‌ها (live.js آن را زنده به‌روز می‌کند).
     List<StaffNotificationDto> bellItems = access is null ? [] : await StaffNotifications.GetLatestAsync(access.UserId, 8);
     var bellUnread = access is null ? 0 : await StaffNotifications.GetUnreadCountAsync(access.UserId);
@@ -132,6 +139,8 @@
           {
             <button type="button" class="a-icon-btn" data-help-open aria-controls="admin-help" aria-label="راهنمای این صفحه" title="راهنمای این صفحه">@Icons.Svg("Question", null, 22)</button>
           }
+          @* فاز ۱۰: ساخت سریع «کار» با لینک همین صفحه. *@
+          <a class="a-icon-btn hidden sm:inline-flex" href="/admin/tasks?new=1&amp;url=@Uri.EscapeDataString(currentUrl)&amp;title=@Uri.EscapeDataString(title)" aria-label="افزودن کار برای این صفحه" title="افزودن به کارهای من">@Icons.Svg("ListChecks", null, 20)</a>
           <button type="button" class="a-icon-btn hidden sm:inline-flex" data-theme-toggle aria-label="تغییر حالت تیره و روشن" title="حالت تیره / روشن">
             <span class="a-theme-dark">@Icons.Svg("Moon", null, 20)</span><span class="a-theme-light">@Icons.Svg("Sun", null, 20)</span>
           </button>
@@ -182,6 +191,8 @@
                 @string.Join("، ", access?.RoleNames ?? [])
               }
             </div>
+            <a href="/admin/account" class="a-dropdown-item">@Icons.Svg("ShieldCheck", null, 18) امنیت حساب من</a>
+            <a href="/admin/tasks" class="a-dropdown-item">@Icons.Svg("ListChecks", null, 18) کارهای من</a>
             <a href="/profile" class="a-dropdown-item">@Icons.Svg("User", null, 18) حساب کاربری من</a>
             <a href="/admin/ux" class="a-dropdown-item">@Icons.Svg("PushPin", null, 18) میانبرهای من</a>
             <button type="button" class="a-dropdown-item w-full sm:hidden" data-theme-toggle>@Icons.Svg("Moon", null, 18) حالت تیره / روشن</button>
@@ -263,6 +274,7 @@
   <script src="~/assets/js/admin-tables.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-edit.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-orders.js" asp-append-version="true"></script>
+  <script src="~/assets/js/admin-team.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

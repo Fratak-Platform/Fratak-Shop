@@ -202,6 +202,15 @@ public static class StoreSettingMapper
             IpAutoBlockHours = entity.IpAutoBlockHours,
             LogFileRetentionDays = entity.LogFileRetentionDays,
             HealthCheckToken = entity.HealthCheckToken,
+            IsStaffTotpEnabled = entity.IsStaffTotpEnabled,
+            IsStaffTotpRequired = entity.IsStaffTotpRequired,
+            IsReauthEnabled = entity.IsReauthEnabled,
+            ReauthMinutes = entity.ReauthMinutes,
+            IsTwoPersonApprovalEnabled = entity.IsTwoPersonApprovalEnabled,
+            TwoPersonWalletThreshold = entity.TwoPersonWalletThreshold,
+            TwoPersonWithdrawalThreshold = entity.TwoPersonWithdrawalThreshold,
+            IsTwoPersonRoleChangeEnabled = entity.IsTwoPersonRoleChangeEnabled,
+            IsDataMaskingEnabled = entity.IsDataMaskingEnabled,
         };
     }
 
@@ -398,5 +407,14 @@ public static class StoreSettingMapper
         entity.IpAutoBlockHours = command.IpAutoBlockHours;
         entity.LogFileRetentionDays = command.LogFileRetentionDays;
         entity.HealthCheckToken = command.HealthCheckToken;
+        entity.IsStaffTotpEnabled = command.IsStaffTotpEnabled;
+        entity.IsStaffTotpRequired = command.IsStaffTotpRequired;
+        entity.IsReauthEnabled = command.IsReauthEnabled;
+        entity.ReauthMinutes = command.ReauthMinutes;
+        entity.IsTwoPersonApprovalEnabled = command.IsTwoPersonApprovalEnabled;
+        entity.TwoPersonWalletThreshold = command.TwoPersonWalletThreshold;
+        entity.TwoPersonWithdrawalThreshold = command.TwoPersonWithdrawalThreshold;
+        entity.IsTwoPersonRoleChangeEnabled = command.IsTwoPersonRoleChangeEnabled;
+        entity.IsDataMaskingEnabled = command.IsDataMaskingEnabled;
     }
 }

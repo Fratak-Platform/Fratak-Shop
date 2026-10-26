@@ -55,7 +55,7 @@
           @foreach (var r in Model.Items.Items)
           {
             <tr>
-              <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@(string.IsNullOrEmpty(r.CustomerName) ? r.Phone : r.CustomerName)</a> } else { @(string.IsNullOrEmpty(r.CustomerName) ? r.Phone : r.CustomerName) }<div class="a-muted text-xs">@AdminUi.Ago(r.AbandonedAt)</div></td>
+              <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@Pii.NameOrPhone(r.CustomerName, r.Phone)</a> } else { @Pii.NameOrPhone(r.CustomerName, r.Phone) }<div class="a-muted text-xs">@AdminUi.Ago(r.AbandonedAt)</div></td>
               <td data-label="کالاها" class="text-xs">@string.Join("، ", r.Products)@if (r.ItemCount > r.Products.Count) { <span class="a-muted"> …</span> }</td>
               <td data-label="مبلغ" class="num">@Format.Price(r.CartAmount)<div class="a-muted text-xs">@r.ItemCount کالا</div></td>
               <td data-label="یادآوری" class="text-xs">@r.RemindersSent بار @if (r.CouponCode is not null) { <div class="a-ltr">@r.CouponCode</div> }</td>

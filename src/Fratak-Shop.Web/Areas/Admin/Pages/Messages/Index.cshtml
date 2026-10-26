@@ -79,8 +79,8 @@
                 <span class="a-muted text-xs" title="@Format.DateTime(m.CreatedAt)">@AdminUi.Ago(m.CreatedAt)</span>
               </div>
               <div class="flex flex-wrap gap-3 text-xs mt-1">
-                @if (!string.IsNullOrEmpty(m.PhoneNumber)) { <a class="a-link a-ltr" href="tel:@m.PhoneNumber">@m.PhoneNumber</a> }
-                @if (!string.IsNullOrEmpty(m.Email)) { <a class="a-link a-ltr break-all" href="@($"mailto:{m.Email}?subject={Uri.EscapeDataString("پاسخ: " + (m.Subject ?? "پیام شما"))}")">@m.Email</a> }
+                @if (!string.IsNullOrEmpty(m.PhoneNumber)) { if (Pii.ShowContacts) { <a class="a-link a-ltr" href="tel:@m.PhoneNumber">@m.PhoneNumber</a> } else { <span class="a-ltr">@Pii.Phone(m.PhoneNumber)</span> } }
+                @if (!string.IsNullOrEmpty(m.Email) && !Pii.ShowContacts) { <span class="a-ltr">@Pii.Email(m.Email)</span> } else if (!string.IsNullOrEmpty(m.Email)) { <a class="a-link a-ltr break-all" href="@($"mailto:{m.Email}?subject={Uri.EscapeDataString("پاسخ: " + (m.Subject ?? "پیام شما"))}")">@m.Email</a> }
               </div>
               @if (!string.IsNullOrWhiteSpace(m.Subject)) { <div class="font-semibold mt-2">@m.Subject</div> }
               <p class="mt-1 text-sm leading-7 whitespace-pre-line">@m.Content</p>

@@ -21,7 +21,8 @@ public class DetailModel(
     IOrderMessageService messages,
     IOrderSlaService sla,
     IStaffOrderService staffOrders,
-    IShipmentTrackingService shipments) : AdminPageModel
+    IShipmentTrackingService shipments,
+    global::Fratak_Shop.Core.Services.Team.IMentionService mentions) : AdminPageModel
 {
     /// <summary>رهگیری مرسوله (شرکت حمل، وضعیت و رویدادهای سامانهٔ پست)؛ اگر هنوز ثبت نشده null.</summary>
     public ShipmentTimelineDto? Shipment { get; private set; }
@@ -167,7 +168,11 @@ public class DetailModel(
 
     public async Task<IActionResult> OnPostNoteAsync(Guid id, string? content)
     {
-        ShowResult(await orders.AddNoteAsync(id, content, ActorId, ActorName));
+        var result = await orders.AddNoteAsync(id, content, ActorId, ActorName);
+        ShowResult(result);
+        // فاز ۱۰: همکارانی که با @نام آمده‌اند اعلان می‌گیرند.
+        if (Succeeded(result))
+            await mentions.NotifyAsync(content, "یادداشت سفارش", $"/admin/orders/{id}#notes", Access);
         return Redirect($"/admin/orders/{id}#notes");
     }
 

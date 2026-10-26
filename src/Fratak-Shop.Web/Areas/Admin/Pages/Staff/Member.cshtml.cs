@@ -8,7 +8,12 @@ using Microsoft.EntityFrameworkCore;
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Staff;
 
 [AdminPermission(AdminPermissions.StaffManage)]
-public class MemberModel(IAdminAccessService access, IAdminDataService data) : AdminPageModel
+public class MemberModel(
+    IAdminAccessService access,
+    IAdminDataService data,
+    global::Fratak_Shop.Core.Services.Team.IApprovalService approvals,
+    global::Fratak_Shop.Core.Services.Team.IStaffTotpService totp,
+    global::Fratak_Shop.Core.Services.Settings.IStoreSettingService settingsService) : AdminPageModel
 {
     public User Member { get; private set; } = null!;
     public List<AdminRoleDto> Roles { get; private set; } = [];
@@ -32,15 +37,40 @@ public class MemberModel(IAdminAccessService access, IAdminDataService data) : A
         return Page();
     }
 
+    /// <summary>
+    /// ذخیرهٔ نقش‌ها. فاز ۱۰: اگر «تأیید دوم برای تغییر نقش» روشن باشد، فقط درخواست ثبت می‌شود و بعد از تأیید
+    /// یک همکار دیگرِ دارای «مدیریت کارکنان» اجرا می‌شود.
+    /// </summary>
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostAsync(Guid id, List<Guid> roles)
     {
-        ShowResult(await access.SetUserRolesAsync(id, roles.Distinct().ToList(), Access));
+        var ids = roles.Distinct().ToList();
+        if (approvals.NeedsRoleApproval(await settingsService.GetAsync()))
+            ShowResult(await approvals.RequestStaffRolesAsync(new global::Fratak_Shop.Core.Services.Team.StaffRolesPayload(id, ids, null), Access));
+        else
+            ShowResult(await access.SetUserRolesAsync(id, ids, Access));
         return Redirect($"/admin/staff/member/{id}");
     }
 
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostOwnerAsync(Guid id, bool owner)
     {
-        ShowResult(await access.SetOwnerAsync(id, owner, Access));
+        if (approvals.NeedsRoleApproval(await settingsService.GetAsync()))
+            ShowResult(await approvals.RequestStaffRolesAsync(new global::Fratak_Shop.Core.Services.Team.StaffRolesPayload(id, null, owner), Access));
+        else
+            ShowResult(await access.SetOwnerAsync(id, owner, Access));
+        return Redirect($"/admin/staff/member/{id}");
+    }
+
+    /// <summary>
+    /// بازنشانی برنامهٔ احراز هویت همکار (فاز ۱۰) – فقط مالک. کاربرد: گوشی کارمند گم شده و کد بازیابی هم ندارد.
+    /// بعد از بازنشانی، ورود او دوباره با رمز/پیامک است تا برنامه را از نو راه‌اندازی کند.
+    /// </summary>
+    [AdminOwnerOnly]
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
+    public async Task<IActionResult> OnPostResetTotpAsync(Guid id)
+    {
+        ShowResult(await totp.ResetAsync(id, Access));
         return Redirect($"/admin/staff/member/{id}");
     }
 }

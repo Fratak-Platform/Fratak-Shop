@@ -43,4 +43,27 @@ public sealed class AdminBadgeService(FratakShopDbContext context, IMemoryCache 
     }
 
     public void Invalidate() => cache.Remove("admin:badges");
+
+    /// <summary>
+    /// شمارنده‌های شخصی هر کارمند (فاز ۱۰): «approvals» = درخواست‌های تأییدی که او می‌تواند تصمیم بگیرد،
+    /// «tasks» = کارهای باز دیرشده یا موعد امروز. ۳۰ ثانیه برای هر کارمند کش می‌شود.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, int>> GetPersonalAsync(Fratak_Shop.Core.DTOs.Admin.AdminAccess access,
+        Fratak_Shop.Core.Services.Team.IApprovalService approvals, Fratak_Shop.Core.Services.Team.IStaffTaskService tasks)
+    {
+        var key = $"admin:badges:{access.UserId:N}";
+        if (cache.TryGetValue<IReadOnlyDictionary<string, int>>(key, out var cached) && cached is not null)
+            return cached;
+        var counts = await tasks.CountsAsync(access.UserId, DateTimeOffset.UtcNow);
+        var personal = new Dictionary<string, int>
+        {
+            ["approvals"] = await approvals.CountDecidableAsync(access),
+            ["tasks"] = counts.Overdue + counts.DueToday,
+        };
+        cache.Set(key, (IReadOnlyDictionary<string, int>)personal, TimeSpan.FromSeconds(30));
+        return personal;
+    }
+
+    /// <summary>پاک کردن شمارنده‌های شخصی یک کارمند بعد از تغییر کارها یا تصمیم دربارهٔ تأییدها.</summary>
+    public void InvalidatePersonal(Guid userId) => cache.Remove($"admin:badges:{userId:N}");
 }

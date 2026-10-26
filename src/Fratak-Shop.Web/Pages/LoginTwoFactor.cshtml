@@ -17,7 +17,14 @@
             <h1 class="text-lg font-semibold">ورود دو مرحله‌ای</h1>
           </div>
           <div class="my-4 text-xs text-zinc-500">
-            رمز عبور تایید شد. برای ورود، کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.MaskedPhone</span> را وارد کنید.
+            @if (Model.IsTotp)
+            {
+              <span>مرحلهٔ اول تایید شد. کد ۶ رقمی برنامهٔ احراز هویت (Google Authenticator و …) روی گوشی‌تان را وارد کنید.</span>
+            }
+            else
+            {
+              <span>رمز عبور تایید شد. برای ورود، کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.MaskedPhone</span> را وارد کنید.</span>
+            }
           </div>
           <partial name="_DevelopmentCode" model="Model.DevelopmentCode" />
           <partial name="_OtpDigits" model="Model.CodeLength" />
@@ -25,11 +32,31 @@
             تایید و ورود
           </button>
         </form>
+        @if (Model.IsTotp)
+        {
+          <details class="mt-4 text-sm">
+            <summary class="cursor-pointer text-sky-500">گوشی در دسترس نیست؟ ورود با کد بازیابی</summary>
+            <form method="post" class="mt-3 flex gap-2">
+              <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+              <input name="RecoveryCode" dir="ltr" maxlength="20" autocomplete="off" required aria-label="کد بازیابی" placeholder="XXXX-XXXX"
+                     class="flex-1 rounded-md border border-zinc-200 px-3 py-2 text-center outline-none focus:border-sky-500" />
+              <button type="submit" class="rounded-md bg-zinc-800 px-4 py-2 text-white">ورود</button>
+            </form>
+            <p class="mt-2 text-xs text-zinc-500">هر کد بازیابی فقط یک بار کار می‌کند. اگر کدها را هم ندارید، از مدیر فروشگاه بخواهید برنامهٔ شما را بازنشانی کند.</p>
+          </details>
+        }
         <div class="flex items-center justify-between mt-4 text-sm">
-          <form method="post" asp-page-handler="Resend">
-            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-            <button type="submit" class="text-sky-500 hover:text-sky-600">ارسال مجدد کد</button>
-          </form>
+          @if (!Model.IsTotp)
+          {
+            <form method="post" asp-page-handler="Resend">
+              <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+              <button type="submit" class="text-sky-500 hover:text-sky-600">ارسال مجدد کد</button>
+            </form>
+          }
+          else
+          {
+            <span></span>
+          }
           <a asp-page="/Login" asp-route-mode="password" class="text-zinc-500 hover:text-zinc-600">انصراف</a>
         </div>
       </div>

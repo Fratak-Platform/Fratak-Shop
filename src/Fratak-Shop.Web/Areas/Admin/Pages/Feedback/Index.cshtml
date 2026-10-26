@@ -78,7 +78,7 @@
           {
             <tr>
               <td data-label="سفارش">@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@r.OrderId">@r.OrderNumber</a> } else { <span class="a-ltr">@r.OrderNumber</span> }<div class="a-muted text-xs">@AdminUi.Ago(r.CreatedAt)</div></td>
-              <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@(string.IsNullOrEmpty(r.CustomerName) ? r.Phone : r.CustomerName)</a> } else { @(string.IsNullOrEmpty(r.CustomerName) ? r.Phone : r.CustomerName) }</td>
+              <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@Pii.NameOrPhone(r.CustomerName, r.Phone)</a> } else { @Pii.NameOrPhone(r.CustomerName, r.Phone) }</td>
               <td data-label="کلی"><span class="a-badge @(r.Overall <= 2 ? "a-badge-red" : r.Overall == 3 ? "a-badge-yellow" : "a-badge-green")">@r.Overall ★</span>
                 @if (r.WouldRecommend == false) { <div class="text-xs text-red-600">پیشنهاد نمی‌کند</div> }</td>
               <td data-label="جزئیات" class="text-sm nowrap">@r.Delivery / @r.Packaging / @r.ProductMatch</td>

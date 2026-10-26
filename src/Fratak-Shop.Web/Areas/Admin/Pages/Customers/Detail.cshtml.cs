@@ -14,7 +14,15 @@ using Microsoft.EntityFrameworkCore;
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Customers;
 
 [AdminPermission(AdminPermissions.CustomersView)]
-public class DetailModel(IAdminDataService data, IAdminCustomerService customers, IWalletService wallet, IAdminAccessService access, ICustomerCrmService crm) : AdminPageModel
+public class DetailModel(
+    IAdminDataService data,
+    IAdminCustomerService customers,
+    IWalletService wallet,
+    IAdminAccessService access,
+    ICustomerCrmService crm,
+    global::Fratak_Shop.Core.Services.Team.IApprovalService approvals,
+    global::Fratak_Shop.Core.Services.Team.IMentionService mentions,
+    global::Fratak_Shop.Core.Services.Settings.IStoreSettingService settingsService) : AdminPageModel
 {
     public User Customer { get; private set; } = null!;
     public List<Order> Orders { get; private set; } = [];
@@ -95,6 +103,9 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
     [AdminPermission(AdminPermissions.CustomersManage)]
     public async Task<IActionResult> OnPostProfileAsync(Guid id, string? firstName, string? lastName, string? email, string? adminNote)
     {
+        // فاز ۱۰: کارمندی که ایمیل را پوشانده می‌بیند، فیلد ایمیل ندارد؛ ایمیل فعلی دست نمی‌خورد.
+        if (!Request.Form.ContainsKey("email"))
+            email = await data.Query<User>().Where(u => u.Id == id).Select(u => u.Email).FirstOrDefaultAsync();
         ShowResult(await customers.UpdateProfileAsync(id, firstName, lastName, email, adminNote));
         return Redirect($"/admin/customers/{id}");
     }
@@ -119,7 +130,11 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
     [AdminPermission(AdminPermissions.CustomersManage)]
     public async Task<IActionResult> OnPostNoteAsync(Guid id, string? content, bool pinned = false)
     {
-        ShowResult(await crm.AddNoteAsync(id, content, pinned, ActorId, ActorName));
+        var result = await crm.AddNoteAsync(id, content, pinned, ActorId, ActorName);
+        ShowResult(result);
+        // فاز ۱۰: همکارانی که با @نام در یادداشت آمده‌اند اعلان می‌گیرند.
+        if (Succeeded(result))
+            await mentions.NotifyAsync(content, "یادداشت مشتری", $"/admin/customers/{id}#notes", Access);
         return Redirect($"/admin/customers/{id}#notes");
     }
 
@@ -147,6 +162,7 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
     }
 
     [AdminPermission(AdminPermissions.CustomersManage)]
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostSessionsAsync(Guid id)
     {
         ShowResult(await customers.RevokeSessionsAsync(id, Access));
@@ -154,6 +170,7 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
     }
 
     [AdminPermission(AdminPermissions.CustomersWallet)]
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostWalletAsync(Guid id, decimal amount, string direction, string? description, bool promotional = true)
     {
         if (amount <= 0 || amount > 1_000_000_000)
@@ -168,6 +185,16 @@ public class DetailModel(IAdminDataService data, IAdminCustomerService customers
         }
 
         var signed = direction == "debit" ? -amount : amount;
+
+        // فاز ۱۰: مبلغ بزرگ‌تر از سقف «تأیید دونفره» → فقط درخواست ثبت می‌شود و بعد از تأیید همکار دوم انجام می‌شود.
+        if (approvals.NeedsWalletApproval(await settingsService.GetAsync(), amount))
+        {
+            var request = await approvals.RequestWalletAdjustAsync(
+                new global::Fratak_Shop.Core.Services.Team.WalletAdjustPayload(id, signed, description.Trim(), promotional), Access);
+            ShowResult(request);
+            return Redirect($"/admin/customers/{id}#wallet");
+        }
+
         var text = $"{description.Trim()} – {ActorName}";
         ShowResult(await wallet.AdjustBalanceAsync(id, signed, text.Length > 450 ? text[..450] : text, promotional));
         return Redirect($"/admin/customers/{id}#wallet");

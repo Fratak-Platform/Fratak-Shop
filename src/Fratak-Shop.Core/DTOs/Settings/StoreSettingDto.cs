@@ -199,6 +199,15 @@ public class StoreSettingCommand
     public int IpAutoBlockHours { get; set; } = 24;
     public int LogFileRetentionDays { get; set; } = 14;
     public string? HealthCheckToken { get; set; }
+    public bool IsStaffTotpEnabled { get; set; } = true;
+    public bool IsStaffTotpRequired { get; set; }
+    public bool IsReauthEnabled { get; set; }
+    public int ReauthMinutes { get; set; } = 15;
+    public bool IsTwoPersonApprovalEnabled { get; set; }
+    public decimal TwoPersonWalletThreshold { get; set; } = 1_000_000;
+    public decimal TwoPersonWithdrawalThreshold { get; set; } = 5_000_000;
+    public bool IsTwoPersonRoleChangeEnabled { get; set; } = true;
+    public bool IsDataMaskingEnabled { get; set; }
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

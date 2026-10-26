@@ -44,6 +44,8 @@ public sealed class SqlServerFixture : IAsyncLifetime
         services.AddFratakShopCore();
         services.AddSingleton<ISmsSender, RecordingSmsSender>();
         services.AddSingleton<ISecretProtector, ReversibleTestProtector>();
+        // ارسال واقعی ایمیل/ربات در لایهٔ Web است؛ اینجا یک نسخهٔ بی‌اثر تا سرویس‌هایی مثل AlertService ساخته شوند.
+        services.AddSingleton<Fratak_Shop.Core.Services.Insights.IReportDelivery, NullReportDelivery>();
         Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
         await Services.InitializeFratakShopDataAsync();
@@ -135,6 +137,18 @@ public sealed class RecordingSmsSender : ISmsSender
             Sent.Add((phoneNumber, message));
         return Task.CompletedTask;
     }
+}
+
+/// <summary>ارسال‌کنندهٔ بی‌اثر گزارش/هشدار برای آزمون‌ها (بدون شبکه؛ همیشه «ارسال نشد»).</summary>
+public sealed class NullReportDelivery : Fratak_Shop.Core.Services.Insights.IReportDelivery
+{
+    public Task<Fratak_Shop.Core.Services.Insights.DeliveryAttempt> SendEmailAsync(Fratak_Shop.Core.Services.Insights.SmtpSettings smtp,
+        IReadOnlyList<string> to, string subject, string html, string text, CancellationToken cancellationToken) =>
+        Task.FromResult(new Fratak_Shop.Core.Services.Insights.DeliveryAttempt(false, "در آزمون ارسال نمی‌شود"));
+
+    public Task<Fratak_Shop.Core.Services.Insights.DeliveryAttempt> SendBotMessageAsync(Fratak_Shop.Data.Entities.Insights.ReportChannels channel,
+        string token, string chatId, string text, CancellationToken cancellationToken) =>
+        Task.FromResult(new Fratak_Shop.Core.Services.Insights.DeliveryAttempt(false, "در آزمون ارسال نمی‌شود"));
 }
 
 /// <summary>Stand-in for the Data Protection based protector of the web app.</summary>

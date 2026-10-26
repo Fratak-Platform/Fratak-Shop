@@ -21,6 +21,7 @@ public class LoginModel(
     ITwoFactorTicket twoFactorTicket,
     ISiteContext site,
     IPageMetaService pageMeta,
+    Core.Services.Team.IStaffTotpService totp,
     Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
 {
     public const string DevelopmentCodeKey = "OtpDevelopmentCode";
@@ -82,6 +83,13 @@ public class LoginModel(
 
         CaptchaPassed(CaptchaActions.Login);
         var user = result.Data;
+
+        // فاز ۱۰: کارمندی که برنامهٔ احراز هویت را فعال کرده، به‌جای پیامک کد برنامه را وارد می‌کند (پیامکی فرستاده نمی‌شود).
+        if (await totp.IsActiveAsync(user.Id))
+        {
+            twoFactorTicket.Issue(HttpContext, user.Id, Input.RememberMe);
+            return RedirectToPage("/LoginTwoFactor", new { returnUrl = ReturnUrl });
+        }
 
         if (user.TwoFactorEnabled && site.Settings.IsTwoFactorAvailable)
         {

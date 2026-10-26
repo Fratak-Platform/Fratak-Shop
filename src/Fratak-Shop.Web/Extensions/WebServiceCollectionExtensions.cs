@@ -155,6 +155,11 @@ public static class WebServiceCollectionExtensions
         // آمار کش حافظه (تعداد، برخورد/عدم برخورد) برای کارت «کش» در /admin/system.
         services.Configure<Microsoft.Extensions.Caching.Memory.MemoryCacheOptions>(options => options.TrackStatistics = true);
 
+        // مرحلهٔ هفتم – فاز ۱۰ (امنیت و کار تیمی کارکنان): تأیید دوباره، پوشاندن اطلاعات و یادآوری کارها.
+        services.AddSingleton<Infrastructure.Team.IReauthTicket, Infrastructure.Team.ReauthTicket>();
+        services.AddScoped<Infrastructure.Team.SensitiveData>();
+        services.AddHostedService<Infrastructure.Team.TeamWorker>();
+
         return services;
     }
 }

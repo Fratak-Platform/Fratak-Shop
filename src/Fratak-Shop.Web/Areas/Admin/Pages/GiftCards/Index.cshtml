@@ -49,8 +49,8 @@
           <tr>
             <td data-label="کارت"><span class="a-ltr font-semibold">@g.Reference</span><div class="a-muted text-xs">کد: <span class="a-ltr">••••@g.CodeLast4</span> · @Format.Date(g.CreatedAt)</div></td>
             <td data-label="مبلغ" class="num">@Format.Price(g.Amount)<div class="a-muted text-xs">@(g.PaymentMethod == GiftCardPaymentMethod.Wallet ? "از کیف پول" : "درگاه")</div></td>
-            <td data-label="خریدار">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@g.PurchaserId">@(string.IsNullOrEmpty(g.PurchaserName) ? g.PurchaserPhone : g.PurchaserName)</a> } else { @g.PurchaserPhone }@if (g.RecipientName is not null) { <div class="a-muted text-xs">برای: @g.RecipientName</div> }</td>
-            <td data-label="استفاده" class="text-xs">@if (g.RedeemedAt is { } ra) { <span>@Format.DateTime(ra)</span> <div class="a-ltr">@g.RedeemedByPhone</div> <div class="a-muted">@(g.RedeemedAsWithdrawable ? "اعتبار قابل برداشت" : "اعتبار هدیه")</div> } else if (g.ExpiresAt is { } e) { <span>اعتبار تا @Format.Date(e)</span> } else { <span>—</span> }</td>
+            <td data-label="خریدار">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@g.PurchaserId">@Pii.NameOrPhone(g.PurchaserName, g.PurchaserPhone)</a> } else { @Pii.Phone(g.PurchaserPhone) }@if (g.RecipientName is not null) { <div class="a-muted text-xs">برای: @g.RecipientName</div> }</td>
+            <td data-label="استفاده" class="text-xs">@if (g.RedeemedAt is { } ra) { <span>@Format.DateTime(ra)</span> <div class="a-ltr">@Pii.Phone(g.RedeemedByPhone)</div> <div class="a-muted">@(g.RedeemedAsWithdrawable ? "اعتبار قابل برداشت" : "اعتبار هدیه")</div> } else if (g.ExpiresAt is { } e) { <span>اعتبار تا @Format.Date(e)</span> } else { <span>—</span> }</td>
             <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(g.Status)">@IndexModel.StatusTitle(g.Status)</span></td>
           </tr>
         }

@@ -128,4 +128,21 @@ public enum SecurityEventType
     UserUnblocked = 8,
     RolesChanged = 9,
     SessionsRevoked = 10,
+
+    // ── فاز ۱۰ مرحلهٔ هفتم: امنیت کارکنان ──
+
+    /// <summary>کارمند برنامهٔ احراز هویت (TOTP) را فعال کرد.</summary>
+    TotpEnabled = 11,
+
+    /// <summary>برنامهٔ احراز هویت غیرفعال شد (توسط خود کارمند یا بازنشانی مالک).</summary>
+    TotpDisabled = 12,
+
+    /// <summary>کد برنامهٔ احراز هویت (یا کد بازیابی) نادرست وارد شد.</summary>
+    TotpFailed = 13,
+
+    /// <summary>تأیید دوباره برای کار حساس ناموفق بود (رمز یا کد نادرست).</summary>
+    ReauthFailed = 14,
+
+    /// <summary>یکی از کدهای بازیابی برنامهٔ احراز هویت مصرف شد (احتمالاً گوشی در دسترس نیست).</summary>
+    TotpRecoveryUsed = 15,
 }

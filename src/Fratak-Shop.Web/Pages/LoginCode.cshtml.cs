@@ -18,6 +18,8 @@ public class LoginCodeModel(
     IShopAuthService authService,
     IShopEvents events,
     ISiteContext site,
+    Infrastructure.Auth.ITwoFactorTicket twoFactorTicket,
+    Core.Services.Team.IStaffTotpService totp,
     Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
 {
     [BindProperty(SupportsGet = true)]
@@ -90,6 +92,15 @@ public class LoginCodeModel(
         }
 
         var user = result.Data.User;
+
+        // فاز ۱۰: اگر کارمند برنامهٔ احراز هویت دارد، کد پیامکی به‌تنهایی کافی نیست (در برابر سرقت سیم‌کارت)؛
+        // مرحلهٔ دوم در /login/2fa با کد برنامه انجام می‌شود.
+        if (!result.Data.Created && await totp.IsActiveAsync(user.Id))
+        {
+            twoFactorTicket.Issue(HttpContext, user.Id, true);
+            return RedirectToPage("/LoginTwoFactor", new { returnUrl = ReturnUrl });
+        }
+
         await authService.SignInAsync(user, isPersistent: true);
 
         if (result.Data.Created)

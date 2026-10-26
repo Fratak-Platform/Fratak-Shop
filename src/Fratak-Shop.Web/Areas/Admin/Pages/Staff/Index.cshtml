@@ -38,7 +38,11 @@
                     <span class="a-badge" style="@(r.Color is null ? "" : $"background:{r.Color}22;color:{r.Color}")">@r.Name</span>
                   }
                 </td>
-                <td data-label="ورود دومرحله‌ای">@if (s.TwoFactorEnabled) { <span class="a-badge a-badge-green">فعال</span> } else { <span class="a-badge a-badge-yellow">غیرفعال</span> }</td>
+                <td data-label="ورود دومرحله‌ای">
+                  @if (s.TotpEnabled) { <span class="a-badge a-badge-green" title="برنامهٔ احراز هویت (Google Authenticator و …)">برنامهٔ احراز هویت</span> }
+                  else if (s.TwoFactorEnabled) { <span class="a-badge a-badge-blue">پیامکی</span> }
+                  else { <span class="a-badge a-badge-yellow">غیرفعال</span> }
+                </td>
                 <td data-label="آخرین ورود" class="nowrap">@(s.LastLoginAt is { } l ? AdminUi.Ago(l) : "—")</td>
                 <td class="actions" data-label=""><a class="a-btn a-btn-light a-btn-xs" href="/admin/staff/member/@s.UserId">ویرایش دسترسی</a></td>
               </tr>
@@ -46,7 +50,7 @@
           </tbody>
         </table>
       </div>
-      <div class="a-card-body"><p class="a-help">برای امنیت بیشتر، از همه کارکنان بخواهید ورود دومرحله‌ای را از پروفایل خود فعال کنند.</p></div>
+      <div class="a-card-body"><p class="a-help">برای امنیت بیشتر، از همه کارکنان بخواهید «برنامهٔ احراز هویت» را از منوی حساب ← «امنیت حساب من» فعال کنند (رایگان و بدون پیامک). در تنظیمات «امنیت کارکنان» می‌توانید آن را اجباری کنید.</p></div>
     </div>
   </div>
 

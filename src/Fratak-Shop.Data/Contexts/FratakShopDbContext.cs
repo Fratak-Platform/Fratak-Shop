@@ -287,6 +287,8 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<Fratak_Shop.Data.Entities.Ops.BackgroundJobSetting> BackgroundJobSettings { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Ops.AlertRule> AlertRules { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Ops.AlertEvent> AlertEvents { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Team.ApprovalRequest> ApprovalRequests { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Team.StaffTask> StaffTasks { get; set; } = null!;
 
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";

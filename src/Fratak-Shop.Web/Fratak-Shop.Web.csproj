@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="MailKit" Version="4.18.1" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <!-- مرحلهٔ هفتم: اجرای آفلاین مدل کوچک خواندن کد امنیتی رهگیری پست (Resources/Captcha/digits.onnx)؛ رایگان و بدون سرویس بیرونی. -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />

@@ -158,6 +158,15 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
             "AND [MaintenanceRetryMinutes] BETWEEN 5 AND 1440 AND [IpAutoBlockThreshold] BETWEEN 5 AND 1000 AND [IpAutoBlockHours] BETWEEN 1 AND 720 " +
             "AND [LogFileRetentionDays] BETWEEN 1 AND 180"));
 
+        // مرحلهٔ هفتم – فاز ۱۰: امنیت کارکنان (TOTP، تأیید دوباره، تأیید دونفره، پوشاندن اطلاعات).
+        builder.Property(s => s.IsStaffTotpEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ReauthMinutes).HasDefaultValue(15).HasSentinel(15);
+        builder.Property(s => s.TwoPersonWalletThreshold).HasPrecision(18, 0).HasDefaultValue(1_000_000m).HasSentinel(1_000_000m);
+        builder.Property(s => s.TwoPersonWithdrawalThreshold).HasPrecision(18, 0).HasDefaultValue(5_000_000m).HasSentinel(5_000_000m);
+        builder.Property(s => s.IsTwoPersonRoleChangeEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Team",
+            "[ReauthMinutes] BETWEEN 5 AND 240 AND [TwoPersonWalletThreshold] >= 0 AND [TwoPersonWithdrawalThreshold] >= 0"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));

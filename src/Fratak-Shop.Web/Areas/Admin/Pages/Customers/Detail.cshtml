@@ -12,7 +12,7 @@
     <a href="/admin/customers" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
     <div>
       <h2>@name @if (u.IsBlocked) { <span class="a-badge a-badge-red">مسدود</span> } @foreach (var role in Model.RoleNames) { <span class="a-badge a-badge-purple">@role</span> }</h2>
-      <p class="a-muted text-sm mt-1"><span class="a-ltr">@u.PhoneNumber</span> · عضویت @Format.Date(u.CreatedAt) · آخرین ورود @(u.LastLoginAt is { } l ? AdminUi.Ago(l) : "—")</p>
+      <p class="a-muted text-sm mt-1"><span class="a-ltr">@Pii.Phone(u.PhoneNumber)</span> · عضویت @Format.Date(u.CreatedAt) · آخرین ورود @(u.LastLoginAt is { } l ? AdminUi.Ago(l) : "—")</p>
     </div>
   </div>
   <div class="a-btn-group">
@@ -29,7 +29,7 @@
 
 @foreach (var pin in Model.Notes.Where(n => n.IsPinned))
 {
-  <div class="a-alert a-alert-warn mb-3">@Icons.Svg("PushPin", "shrink-0", 20)<div><span class="whitespace-pre-line">@pin.Content</span> <span class="a-muted text-xs">— @(pin.AuthorName ?? "کارمند") · @Format.Date(pin.CreatedAt)</span></div></div>
+  <div class="a-alert a-alert-warn mb-3">@Icons.Svg("PushPin", "shrink-0", 20)<div><span class="whitespace-pre-line">@MentionHighlighter.Render(pin.Content)</span> <span class="a-muted text-xs">— @(pin.AuthorName ?? "کارمند") · @Format.Date(pin.CreatedAt)</span></div></div>
 }
 
 <div class="a-stats mb-4">
@@ -69,7 +69,7 @@
       {
         <form method="post" asp-page-handler="Note" class="a-card-body border-b border-gray-100 a-form-grid">
           <label class="sr-only" for="n-content">متن یادداشت</label>
-          <textarea id="n-content" name="content" class="a-textarea" rows="2" maxlength="2000" required placeholder="مثلاً: تماس گرفت، ارسال به آدرس محل کار را ترجیح می‌دهد."></textarea>
+          <textarea id="n-content" name="content" class="a-textarea" rows="2" maxlength="2000" required data-mentions placeholder="مثلاً: تماس گرفت، ارسال به آدرس محل کار را ترجیح می‌دهد. (با @ همکار را خبر کنید)"></textarea>
           <div class="flex flex-wrap items-center justify-between gap-2">
             <label class="a-check"><input type="checkbox" name="pinned" value="true"> سنجاق بالای صفحه (هشدار مهم)</label>
             <input type="hidden" name="pinned" value="false">
@@ -90,7 +90,7 @@
               <div class="flex flex-wrap items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
                   @if (note.IsPinned) { <span class="a-badge a-badge-yellow">سنجاق</span> }
-                  <span class="whitespace-pre-line leading-7">@note.Content</span>
+                  <span class="whitespace-pre-line leading-7">@MentionHighlighter.Render(note.Content)</span>
                   <div class="a-muted text-xs mt-1">@(note.AuthorName ?? "کارمند") · @Format.DateTime(note.CreatedAt)</div>
                 </div>
                 @if (canManage)
@@ -262,14 +262,14 @@
             <div class="a-field"><label class="a-label" for="c-fn">نام</label><input id="c-fn" name="firstName" value="@u.FirstName" class="a-input" maxlength="100"></div>
             <div class="a-field"><label class="a-label" for="c-ln">نام خانوادگی</label><input id="c-ln" name="lastName" value="@u.LastName" class="a-input" maxlength="100"></div>
           </div>
-          <div class="a-field"><label class="a-label" for="c-email">ایمیل</label><input id="c-email" type="email" name="email" value="@u.Email" class="a-input a-ltr" maxlength="150"></div>
+          <div class="a-field"><label class="a-label" for="c-email">ایمیل</label>@if (Pii.ShowContacts) { <input id="c-email" type="email" name="email" value="@u.Email" class="a-input a-ltr" maxlength="150"> } else { <input id="c-email" value="@Pii.Email(u.Email)" class="a-input a-ltr" disabled title="پوشانده‌شده؛ ایمیل فعلی حفظ می‌شود"> }</div>
           <div class="a-field"><label class="a-label" for="c-note">یادداشت داخلی (مشتری نمی‌بیند)</label><textarea id="c-note" name="adminNote" class="a-textarea" rows="3" maxlength="1000">@u.AdminNote</textarea></div>
           <div class="flex justify-end"><button class="a-btn a-btn-soft" type="submit">ذخیره</button></div>
         </form>
       }
       else
       {
-        <div class="a-card-body"><dl class="a-kv"><dt>ایمیل</dt><dd class="a-ltr">@(u.Email ?? "—")</dd><dt>یادداشت</dt><dd>@(u.AdminNote ?? "—")</dd></dl></div>
+        <div class="a-card-body"><dl class="a-kv"><dt>ایمیل</dt><dd class="a-ltr">@(u.Email is null ? "—" : Pii.Email(u.Email))</dd><dt>یادداشت</dt><dd>@(u.AdminNote ?? "—")</dd></dl></div>
       }
       <div class="a-card-body border-t border-gray-100">
         <dl class="a-kv">
@@ -318,8 +318,8 @@
         {
           <li class="px-4 py-3 leading-7">
             <b>@a.Title</b> @if (a.IsDefault) { <span class="a-badge a-badge-blue">پیش‌فرض</span> }
-            <div>@Model.LocationNames.GetValueOrDefault(a.ProvinceId)، @Model.LocationNames.GetValueOrDefault(a.CityId)، @a.AddressLine</div>
-            <div class="a-muted text-xs">کد پستی <span class="a-ltr">@a.PostalCode</span> · <span class="a-ltr">@a.PhoneNumber</span></div>
+            <div>@Model.LocationNames.GetValueOrDefault(a.ProvinceId)، @Model.LocationNames.GetValueOrDefault(a.CityId)، @Pii.Address(a.AddressLine)</div>
+            <div class="a-muted text-xs">کد پستی <span class="a-ltr">@(Pii.ShowContacts ? a.PostalCode : Fratak_Shop.Core.Services.Team.Masking.Dots)</span> · <span class="a-ltr">@Pii.Phone(a.PhoneNumber)</span></div>
           </li>
         }
         @if (Model.Addresses.Count == 0) { <li class="a-empty">آدرسی ثبت نشده.</li> }

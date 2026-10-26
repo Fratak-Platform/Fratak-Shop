@@ -137,6 +137,12 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Ops.IBackgroundJobControl, Services.Ops.BackgroundJobControl>();
         services.AddScoped<Services.Ops.IAlertService, Services.Ops.AlertService>();
 
+        // مرحلهٔ هفتم – فاز ۱۰: امنیت و کار تیمی کارکنان (TOTP، تأیید دونفره، منشن، کارهای شخصی).
+        services.AddScoped<Services.Team.IStaffTotpService, Services.Team.StaffTotpService>();
+        services.AddScoped<Services.Team.IApprovalService, Services.Team.ApprovalService>();
+        services.AddScoped<Services.Team.IMentionService, Services.Team.MentionService>();
+        services.AddScoped<Services.Team.IStaffTaskService, Services.Team.StaffTaskService>();
+
         // ابزارهای کاتالوگ (فاز ۵): تغییر گروهی قیمت، انبار و پیش‌بینی، ورود از اکسل، کپی محصول.
         services.AddScoped<Services.Products.IBulkPriceService, Services.Products.BulkPriceService>();
         services.AddScoped<Services.Products.IInventoryService, Services.Products.InventoryService>();

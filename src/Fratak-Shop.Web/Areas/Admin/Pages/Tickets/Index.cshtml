@@ -58,7 +58,7 @@
               <a class="a-link font-semibold" href="/admin/tickets/@t.Id">@t.Subject</a>
               <div class="a-muted text-xs"><span class="a-ltr">#@t.TicketNumber</span> · @t.MessageCount پیام @if (t.OrderNumber is not null) { <span>· سفارش <span class="a-ltr">@t.OrderNumber</span></span> }</div>
             </td>
-            <td data-label="مشتری">@(string.IsNullOrEmpty(t.CustomerName) ? t.Phone : t.CustomerName)<div class="a-muted text-xs a-ltr text-right">@t.Phone</div></td>
+            <td data-label="مشتری">@Pii.NameOrPhone(t.CustomerName, t.Phone)<div class="a-muted text-xs a-ltr text-right">@Pii.Phone(t.Phone)</div></td>
             <td data-label="دپارتمان">@t.Department @if (t.Priority == TicketPriority.High) { <span class="a-badge a-badge-red">فوری</span> }</td>
             <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(t.Status)">@IndexModel.StatusTitle(t.Status)</span></td>
             <td data-label="ارجاع" class="text-xs">@(t.AssignedTo ?? "—")</td>

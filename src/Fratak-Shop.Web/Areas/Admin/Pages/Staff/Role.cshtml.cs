@@ -23,6 +23,7 @@ public class RoleModel(IAdminAccessService access) : AdminPageModel
         return Page();
     }
 
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostAsync(Guid? id, string? name, string? description, string? color, List<string> permissions)
     {
         var result = await access.SaveRoleAsync(new SaveAdminRoleCommand
@@ -50,6 +51,7 @@ public class RoleModel(IAdminAccessService access) : AdminPageModel
         return Page();
     }
 
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostDeleteAsync(Guid id)
     {
         var result = await access.DeleteRoleAsync(id, Access);

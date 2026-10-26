@@ -31,7 +31,13 @@ public sealed class AdminWithdrawalRow
 }
 
 [AdminPermission(AdminPermissions.WithdrawalsManage, AdminPermissions.FinanceView)]
-public class WithdrawalsModel(IAdminDataService data, IWalletService wallet, IMonitoringService monitoring) : AdminPageModel
+public class WithdrawalsModel(
+    IAdminDataService data,
+    IWalletService wallet,
+    IMonitoringService monitoring,
+    global::Fratak_Shop.Core.Services.Team.IApprovalService approvals,
+    global::Fratak_Shop.Core.Services.Settings.IStoreSettingService settingsService,
+    global::Fratak_Shop.Web.Infrastructure.Team.SensitiveData pii) : AdminPageModel
 {
     [BindProperty(SupportsGet = true, Name = "status")] public WithdrawalStatus? Status { get; set; }
     [BindProperty(SupportsGet = true, Name = "q")] public string? Search { get; set; }
@@ -61,14 +67,30 @@ public class WithdrawalsModel(IAdminDataService data, IWalletService wallet, IMo
     {
         var rows = await Project(Filter().OrderByDescending(w => w.CreatedAt)).Take(50_000).ToListAsync();
         var table = new ExportTable("درخواست‌های برداشت", "تاریخ", "مشتری", "موبایل", "مبلغ", "صاحب حساب", "شبا", "کارت", "حساب", "وضعیت", "شماره پیگیری واریز", "تاریخ پردازش", "یادداشت");
+        // فاز ۱۰: اگر «پوشاندن اطلاعات» روشن است، خروجی Excel هم همان شکل پوشانده را دارد.
         foreach (var w in rows)
-            table.Add(w.CreatedAt, w.UserName, w.Phone, w.Amount, w.AccountHolder, w.Iban, w.CardNumber, w.AccountNumber, Display.WithdrawalStatus(w.Status), w.BankTrackingNumber, w.ProcessedAt, w.AdminNote);
+            table.Add(w.CreatedAt, w.UserName, pii.Phone(w.Phone), w.Amount, w.AccountHolder, pii.Iban(w.Iban), pii.Card(w.CardNumber), pii.Card(w.AccountNumber),
+                Display.WithdrawalStatus(w.Status), w.BankTrackingNumber, w.ProcessedAt, w.AdminNote);
         return Exporter.File(table, format, "withdrawals");
     }
 
     [AdminPermission(AdminPermissions.WithdrawalsManage)]
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnPostStatusAsync(Guid id, WithdrawalStatus status, string? adminNote, string? tracking)
     {
+        // فاز ۱۰: «پرداخت شد» برای مبلغ‌های از سقف به بالا → درخواست تأیید دونفره (پرداخت بعد از تأیید همکار ثبت می‌شود).
+        if (status == WithdrawalStatus.Paid)
+        {
+            var amount = await data.Query<WithdrawalRequest>().Where(w => w.Id == id).Select(w => (decimal?)w.Amount).FirstOrDefaultAsync();
+            if (amount is { } value && approvals.NeedsWithdrawalApproval(await settingsService.GetAsync(), status, value))
+            {
+                ShowResult(await approvals.RequestWithdrawalPaidAsync(new global::Fratak_Shop.Core.Services.Team.WithdrawalPaidPayload(id,
+                    string.IsNullOrWhiteSpace(adminNote) ? null : adminNote.Trim(),
+                    string.IsNullOrWhiteSpace(tracking) ? null : SearchText.NormalizeDigits(tracking.Trim())), Access));
+                return BackToList();
+            }
+        }
+
         var result = await wallet.ChangeWithdrawalStatusAsync(new ChangeWithdrawalStatusCommand
         {
             Id = id,

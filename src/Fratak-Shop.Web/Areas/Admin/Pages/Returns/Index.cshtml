@@ -42,7 +42,7 @@
         {
           <tr>
             <td data-label="درخواست"><a class="a-link font-semibold a-ltr" href="/admin/returns/@r.Id">@r.RequestNumber</a><div class="a-muted text-xs">سفارش <span class="a-ltr">@r.OrderNumber</span> · @r.ItemCount کالا @if (r.ImageCount > 0) { <span>· @r.ImageCount عکس</span> }</div></td>
-            <td data-label="مشتری">@(string.IsNullOrEmpty(r.CustomerName) ? r.Phone : r.CustomerName)<div class="a-muted text-xs a-ltr text-right">@r.Phone</div></td>
+            <td data-label="مشتری">@Pii.NameOrPhone(r.CustomerName, r.Phone)<div class="a-muted text-xs a-ltr text-right">@Pii.Phone(r.Phone)</div></td>
             <td data-label="دلیل" class="text-sm">@r.ReasonTitle</td>
             <td data-label="مبلغ" class="num">@Format.Price(r.ApprovedAmount ?? r.RequestedAmount)@if (r.RefundedAmount > 0) { <div class="a-up text-xs">بازپرداخت: @Format.Price(r.RefundedAmount)</div> }</td>
             <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(r.Status)">@IndexModel.StatusTitle(r.Status)</span>@if (r.TrackingCode is not null) { <div class="a-muted text-xs a-ltr">@r.TrackingCode</div> }</td>

@@ -42,7 +42,7 @@
         {
           <tr>
             <td data-label="تاریخ" class="nowrap text-xs">@Format.DateTime(t.CreatedAt)</td>
-            <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@t.UserId">@(string.IsNullOrEmpty(t.UserName) ? t.Phone : t.UserName)</a> } else { <span class="a-ltr">@t.Phone</span> }</td>
+            <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@t.UserId">@Pii.NameOrPhone(t.UserName, t.Phone)</a> } else { <span class="a-ltr">@Pii.Phone(t.Phone)</span> }</td>
             <td data-label="نوع">@Display.WalletTransactionType(t.Type)</td>
             <td data-label="نقدی" class="num @(t.Amount < 0 ? "a-down" : t.Amount > 0 ? "a-up" : "")">@Format.Price(t.Amount)</td>
             <td data-label="هدیه" class="num @(t.BonusAmount < 0 ? "a-down" : t.BonusAmount > 0 ? "a-up" : "")">@Format.Price(t.BonusAmount)</td>

@@ -71,7 +71,7 @@
           <tr>
             <td data-label="مشتری">
               <a class="a-link font-semibold" href="/admin/customers/@c.Id">@c.FullName</a>
-              <div class="a-muted text-xs a-ltr text-right">@c.PhoneNumber</div>
+              <div class="a-muted text-xs a-ltr text-right">@Pii.Phone(c.PhoneNumber)</div>
             </td>
             <td data-label="عضویت" class="nowrap">@Format.Date(c.CreatedAt)</td>
             <td data-label="آخرین ورود" class="nowrap">@(c.LastLoginAt is { } login ? AdminUi.Ago(login) : "—")</td>

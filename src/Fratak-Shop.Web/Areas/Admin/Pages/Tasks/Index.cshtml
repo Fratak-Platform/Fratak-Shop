@@ -1,0 +1,124 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.TasksModel
+@using Fratak_Shop.Core.Services.Team
+@using Fratak_Shop.Data.Entities.Team
+@using Fratak_Shop.Web.Areas.Admin.Pages.TeamPages
+@{
+    ViewData["Title"] = "کارهای من";
+    var now = DateTimeOffset.UtcNow;
+    var viewKey = Model.CurrentView switch { StaffTaskView.Done => "done", StaffTaskView.Delegated => "delegated", _ => "open" };
+    var e = Model.Editing;
+    var formTitle = e?.Title ?? Model.PrefillTitle;
+    var formUrl = e?.Url ?? StaffTaskService.CleanUrl(Model.PrefillUrl);
+    var formDue = e?.DueAt is { } d ? PersianDateInput.FormatDateTime(d) : "";
+    var formPriority = e?.Priority ?? StaffTaskPriority.Normal;
+    var formAssignee = e?.AssigneeId ?? Model.Access.UserId;
+}
+<div class="a-page-head">
+  <div>
+    <h2>کارهای من</h2>
+    <p class="a-muted text-sm mt-1">یادداشت کارهای روزانه با موعد و لینک به همان صفحهٔ پنل. می‌توانید کار را به همکارتان هم بسپارید؛ موعد که برسد یادآوری می‌آید.</p>
+  </div>
+  @if (!Model.ShowNew) { <a class="a-btn" href="/admin/tasks?new=1">@Icons.Svg("Plus", null, 18) کار جدید</a> }
+</div>
+
+<div class="a-stats mb-4">
+  <a class="a-stat" href="/admin/tasks"><div class="a-stat-label">کارهای باز</div><div class="a-stat-value">@Format.Number(Model.Counts.Open)</div></a>
+  <div class="a-stat"><div class="a-stat-label">دیر شده</div><div class="a-stat-value @(Model.Counts.Overdue > 0 ? "text-red-600" : "")">@Format.Number(Model.Counts.Overdue)</div></div>
+  <div class="a-stat"><div class="a-stat-label">موعد امروز</div><div class="a-stat-value">@Format.Number(Model.Counts.DueToday)</div></div>
+</div>
+
+@if (Model.ShowNew)
+{
+  <div class="a-card mb-4" id="task-form">
+    <div class="a-card-head"><span class="a-card-title">@(e is null ? "کار جدید" : "ویرایش کار")</span><a class="a-link text-sm" href="/admin/tasks">بستن</a></div>
+    <form method="post" action="/admin/tasks?handler=Save" class="a-card-body a-form-grid">
+      @Html.AntiForgeryToken()
+      @if (e is not null) { <input type="hidden" name="id" value="@e.Id"> }
+      <div class="a-field md:col-span-2"><label class="a-label" for="t-title">عنوان *</label><input id="t-title" name="title" value="@formTitle" class="a-input" maxlength="200" required autofocus placeholder="مثلاً: تماس با مشتری دربارهٔ تأخیر سفارش"></div>
+      <div class="a-field md:col-span-2"><label class="a-label" for="t-notes">توضیح</label><textarea id="t-notes" name="notes" class="a-textarea" rows="3" maxlength="2000" data-mentions>@e?.Notes</textarea><p class="a-help">با تایپ «@» همکاران را نام ببرید.</p></div>
+      <div class="a-field"><label class="a-label" for="t-due">موعد</label><input id="t-due" name="due" value="@formDue" class="a-input a-ltr" data-jalali="datetime" placeholder="1405/08/10 10:00"><p class="a-help">بدون ساعت ← ۱۰ صبح.</p></div>
+      <div class="a-field"><label class="a-label" for="t-priority">اولویت</label>
+        <select id="t-priority" name="priority" class="a-select">
+          @foreach (var p in new[] { StaffTaskPriority.Normal, StaffTaskPriority.High, StaffTaskPriority.Low })
+          {
+            <option value="@((int)p)" selected="@(p == formPriority)">@TasksModel.PriorityLabel(p).Text</option>
+          }
+        </select>
+      </div>
+      <div class="a-field"><label class="a-label" for="t-assignee">برای</label>
+        <select id="t-assignee" name="assigneeId" class="a-select">
+          <option value="@Model.Access.UserId">خودم</option>
+          @foreach (var s in Model.Staff.Where(x => x.UserId != Model.Access.UserId).OrderBy(x => x.Name))
+          {
+            <option value="@s.UserId" selected="@(s.UserId == formAssignee)">@s.Name</option>
+          }
+        </select>
+      </div>
+      <div class="a-field"><label class="a-label" for="t-url">لینک صفحهٔ پنل</label><input id="t-url" name="url" value="@formUrl" class="a-input a-ltr" maxlength="500" placeholder="/admin/orders/…"><p class="a-help">فقط آدرس‌های داخل پنل.</p></div>
+      <div class="md:col-span-2 flex gap-2"><button class="a-btn" type="submit">ذخیره</button><a class="a-btn a-btn-light" href="/admin/tasks">انصراف</a></div>
+    </form>
+  </div>
+}
+
+<div class="a-list-toolbar mb-3">
+  <div class="a-pills">
+    <a class="a-pill @(viewKey == "open" ? "is-active" : "")" href="/admin/tasks">باز<b>@Format.Number(Model.Counts.Open)</b></a>
+    <a class="a-pill @(viewKey == "delegated" ? "is-active" : "")" href="/admin/tasks?view=delegated">سپرده به همکاران</a>
+    <a class="a-pill @(viewKey == "done" ? "is-active" : "")" href="/admin/tasks?view=done">انجام‌شده</a>
+  </div>
+</div>
+
+<div class="a-card">
+  <ul class="a-todo-list">
+    @foreach (var t in Model.Items)
+    {
+      var (prText, prCss) = TasksModel.PriorityLabel(t.Priority);
+      var (dueText, dueCss) = TasksModel.DueLabel(t, now);
+      var mineToComplete = t.AssigneeId == Model.Access.UserId;
+      <li class="a-todo @(t.IsDone ? "is-done" : "")">
+        @if (mineToComplete)
+        {
+          <form method="post" action="/admin/tasks?handler=Done" class="shrink-0">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@t.Id"><input type="hidden" name="done" value="@(t.IsDone ? "false" : "true")"><input type="hidden" name="view" value="@viewKey">
+            <button class="a-todo-check" type="submit" aria-label="@(t.IsDone ? "برگرداندن به کارهای باز" : "علامت انجام شد")" title="@(t.IsDone ? "برگرداندن" : "انجام شد")">@if (t.IsDone) { <span>@Icons.Svg("Check", null, 16)</span> }</button>
+          </form>
+        }
+        else
+        {
+          <span class="a-todo-check is-static" title="@(t.IsDone ? "انجام شد" : "در انتظار همکار")">@if (t.IsDone) { <span>@Icons.Svg("Check", null, 16)</span> }</span>
+        }
+        <div class="a-todo-body">
+          <div class="flex flex-wrap items-center gap-2">
+            <b class="a-todo-title">@t.Title</b>
+            @if (t.Priority != StaffTaskPriority.Normal) { <span class="a-badge @prCss">@prText</span> }
+          </div>
+          @if (!string.IsNullOrEmpty(t.Notes)) { <div class="text-sm a-muted whitespace-pre-line">@MentionHighlighter.Render(t.Notes)</div> }
+          <div class="text-xs flex flex-wrap gap-x-3 gap-y-1 mt-1">
+            <span class="@dueCss">@dueText</span>
+            @if (t.CreatedById != Model.Access.UserId) { <span class="a-muted">از: @t.CreatedByName</span> }
+            @if (t.AssigneeId != Model.Access.UserId) { <span class="a-muted">برای: @(Model.StaffName(t.AssigneeId) ?? "همکار")</span> }
+            @if (t.IsDone && t.DoneAt is { } doneAt) { <span class="a-muted">انجام @AdminUi.Ago(doneAt)</span> }
+            @if (!string.IsNullOrEmpty(t.Url)) { <a class="a-link" href="@t.Url">باز کردن صفحه</a> }
+          </div>
+        </div>
+        <div class="a-todo-actions">
+          @if (!t.IsDone) { <a class="a-icon-btn" href="/admin/tasks?edit=@t.Id" aria-label="ویرایش">@Icons.Svg("PencilSimple", null, 18)</a> }
+          @if (t.CreatedById == Model.Access.UserId)
+          {
+            <form method="post" action="/admin/tasks?handler=Delete" data-confirm="این کار حذف شود؟">
+              @Html.AntiForgeryToken()
+              <input type="hidden" name="id" value="@t.Id"><input type="hidden" name="view" value="@viewKey">
+              <button class="a-icon-btn" type="submit" aria-label="حذف">@Icons.Svg("Trash", null, 18)</button>
+            </form>
+          }
+        </div>
+      </li>
+    }
+  </ul>
+  @if (Model.Items.Count == 0)
+  {
+    <div class="a-empty">@(viewKey == "open" ? "کار بازی ندارید. 🎉" : viewKey == "done" ? "هنوز کاری انجام نشده است." : "کاری به همکاران نسپرده‌اید.")</div>
+  }
+</div>

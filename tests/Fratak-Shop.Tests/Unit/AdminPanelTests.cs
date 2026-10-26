@@ -48,7 +48,11 @@ public class AdminPermissionTests
             // Only the dashboard, the access-denied page and the personal inbox are open to every staff member.
             if (page.Name is "DeniedModel" || page.FullName is "Fratak_Shop.Web.Areas.Admin.Pages.IndexModel" or "Fratak_Shop.Web.Areas.Admin.Pages.Inbox.IndexModel"
                     // «میانبرهای من» فقط تنظیمات شخصی خود کارمند را تغییر می‌دهد؛ جست‌وجویش بر اساس مجوز محدود می‌شود.
-                    or "Fratak_Shop.Web.Areas.Admin.Pages.Ux.IndexModel")
+                    or "Fratak_Shop.Web.Areas.Admin.Pages.Ux.IndexModel"
+                    // فاز ۱۰: «حساب من» (TOTP و نشست‌های خود کارمند)، «تأیید دوباره» و «کارهای من» شخصی‌اند و هر کارمند باید به آن‌ها برسد.
+                    or "Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.AccountModel"
+                    or "Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.ReauthModel"
+                    or "Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.TasksModel")
                 continue;
             var protectedByManage = page.Namespace?.EndsWith(".Manage") == true; // checked per table (MDef.Permissions)
             Assert.True(attributes.Count > 0 || protectedByManage || page.GetCustomAttribute<AdminOwnerOnlyAttribute>() is not null,

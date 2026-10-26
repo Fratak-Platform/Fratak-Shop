@@ -74,7 +74,7 @@
       <div class="a-card-body">
         <dl class="a-kv text-sm">
           <dt>نام</dt><dd>@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@t.UserId">@(string.IsNullOrEmpty(Model.CustomerName) ? "بدون نام" : Model.CustomerName)</a> } else { @Model.CustomerName }</dd>
-          <dt>موبایل</dt><dd class="a-ltr">@Model.CustomerPhone</dd>
+          <dt>موبایل</dt><dd class="a-ltr">@Pii.Phone(Model.CustomerPhone)</dd>
           <dt>تیکت‌ها</dt><dd>@Model.CustomerTicketCount</dd>
           @if (Model.OrderNumber is not null) { <dt>سفارش</dt><dd>@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@t.OrderId">@Model.OrderNumber</a> } else { <span class="a-ltr">@Model.OrderNumber</span> }</dd> }
           <dt>ایجاد</dt><dd>@Format.DateTime(t.CreatedAt)</dd>

@@ -67,6 +67,7 @@ public class IndexModel(IAdminDataService data, ICustomerCrmService crm) : Admin
         return Page();
     }
 
+    [global::Fratak_Shop.Web.Infrastructure.Team.RequireReauth]
     public async Task<IActionResult> OnGetExportAsync(string format = "xlsx")
     {
         if (!CanAny(AdminPermissions.CustomersManage, AdminPermissions.FinanceExport))
@@ -74,8 +75,10 @@ public class IndexModel(IAdminDataService data, ICustomerCrmService crm) : Admin
 
         var rows = await SortQuery(Project(Filter())).Take(50_000).ToListAsync();
         var table = new ExportTable("مشتریان", "نام", "موبایل", "ایمیل", "تاریخ عضویت", "آخرین ورود", "تعداد سفارش", "مجموع خرید", "کیف پول", "اعتبار هدیه", "امتیاز", "وضعیت");
+        // فاز ۱۰: با «پوشاندن اطلاعات» روشن، خروجی هم پوشانده است (مگر دسترسی «دیدن اطلاعات کامل مشتری»).
+        var pii = HttpContext.RequestServices.GetRequiredService<global::Fratak_Shop.Web.Infrastructure.Team.SensitiveData>();
         foreach (var c in rows)
-            table.Add(c.FullName, c.PhoneNumber, c.Email, c.CreatedAt, c.LastLoginAt, c.OrderCount, c.TotalSpent, c.Wallet, c.WalletBonus, c.Points, c.IsBlocked ? "مسدود" : "فعال");
+            table.Add(c.FullName, pii.Phone(c.PhoneNumber), pii.Email(c.Email), c.CreatedAt, c.LastLoginAt, c.OrderCount, c.TotalSpent, c.Wallet, c.WalletBonus, c.Points, c.IsBlocked ? "مسدود" : "فعال");
         return Exporter.File(table, format, "customers");
     }
 

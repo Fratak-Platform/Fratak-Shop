@@ -106,7 +106,7 @@
       <div class="a-card-body">
         <dl class="a-kv text-sm">
           <dt>سفارش</dt><dd>@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@r.OrderId">@Model.OrderNumber</a> } else { <span class="a-ltr">@Model.OrderNumber</span> } <span class="a-muted text-xs">@Format.Date(Model.OrderDate)</span></dd>
-          <dt>مشتری</dt><dd>@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@(string.IsNullOrEmpty(Model.CustomerName) ? Model.CustomerPhone : Model.CustomerName)</a> } else { @Model.CustomerName } <div class="a-ltr a-muted text-xs text-right">@Model.CustomerPhone</div></dd>
+          <dt>مشتری</dt><dd>@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@Pii.NameOrPhone(Model.CustomerName, Model.CustomerPhone)</a> } else { @Model.CustomerName } <div class="a-ltr a-muted text-xs text-right">@Pii.Phone(Model.CustomerPhone)</div></dd>
           <dt>مبلغ درخواستی</dt><dd>@AdminUi.Money(r.RequestedAmount)</dd>
           @if (r.ApprovedAmount is { } approved) { <dt>مبلغ تأییدشده</dt><dd>@AdminUi.Money(approved)</dd> }
           @if (r.RefundedAmount > 0) { <dt>بازپرداخت‌شده</dt><dd class="a-up">@AdminUi.Money(r.RefundedAmount) @if (r.RefundedBonusAmount > 0) { <span class="a-muted text-xs">(هدیه: @Format.Toman(r.RefundedBonusAmount))</span> }</dd> }

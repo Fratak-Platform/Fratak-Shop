@@ -368,7 +368,7 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
     {
         var since = DateTimeOffset.UtcNow.AddHours(-24);
         var rows = await context.SecurityLogs.AsNoTracking()
-            .Where(l => (l.Type == SecurityEventType.LoginFailed || l.Type == SecurityEventType.OtpFailed) && l.CreatedAt >= since && l.IpAddress != null)
+            .Where(l => (l.Type == SecurityEventType.LoginFailed || l.Type == SecurityEventType.OtpFailed || l.Type == SecurityEventType.TotpFailed) && l.CreatedAt >= since && l.IpAddress != null)
             .GroupBy(l => l.IpAddress!)
             .Select(g => new { Ip = g.Key, Count = g.Count(), Last = g.Max(l => l.CreatedAt) })
             .Where(x => x.Count >= minFailures)
@@ -405,7 +405,7 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
     {
         var since = now.AddHours(-1);
         var candidates = await context.SecurityLogs.AsNoTracking()
-            .Where(l => (l.Type == SecurityEventType.LoginFailed || l.Type == SecurityEventType.OtpFailed) && l.CreatedAt >= since && l.IpAddress != null)
+            .Where(l => (l.Type == SecurityEventType.LoginFailed || l.Type == SecurityEventType.OtpFailed || l.Type == SecurityEventType.TotpFailed) && l.CreatedAt >= since && l.IpAddress != null)
             .GroupBy(l => l.IpAddress!)
             .Select(g => new { Ip = g.Key, Count = g.Count() })
             .Where(x => x.Count >= threshold)
@@ -416,8 +416,10 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
         var snapshot = await ReloadAsync(cancellationToken);
         var allows = snapshot.Allows.Select(a => a.Range).ToList();
         // قانون‌های موجود (حتی منقضی‌شده‌هایی که هنوز پاک نشده‌اند) به‌خاطر ایندکس یکتای Value؛ منقضی‌ها تمدید می‌شوند.
-        var existing = (await context.IpRules.AsTracking().ToListAsync(cancellationToken)).ToDictionary(r => r.Value, StringComparer.OrdinalIgnoreCase);
+        // بدون ردیابی خوانده می‌شود تا مقدار واقعی دیتابیس دیده شود (نه نسخهٔ قدیمی‌ای که همین DbContext قبلاً ردیابی کرده).
+        var existing = (await context.IpRules.AsNoTracking().ToListAsync(cancellationToken)).ToDictionary(r => r.Value, StringComparer.OrdinalIgnoreCase);
         var added = 0;
+        var newRules = new List<IpRule>();
         foreach (var candidate in candidates)
         {
             if (!IpRange.TryParse(candidate.Ip, out var range) || !range.IsSingle)
@@ -432,14 +434,17 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
                 // قانون فعال (مسدود یا مجاز دستی) دست نمی‌خورد؛ فقط مسدودی منقضی‌شده دوباره فعال می‌شود.
                 if (rule.Action != IpRuleAction.Block || rule.ExpiresAt is null || rule.ExpiresAt > now)
                     continue;
-                rule.ExpiresAt = now.AddHours(hours);
-                rule.IsAutomatic = true;
-                rule.Reason = reason;
-                rule.CreatedBy = "سیستم";
+                var expires = now.AddHours(hours);
+                await context.IpRules.Where(r => r.Id == rule.Id).ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.ExpiresAt, expires)
+                    .SetProperty(r => r.IsAutomatic, true)
+                    .SetProperty(r => r.Reason, reason)
+                    .SetProperty(r => r.CreatedBy, "سیستم")
+                    .SetProperty(r => r.UpdatedAt, now), cancellationToken);
             }
             else
             {
-                context.IpRules.Add(new IpRule
+                newRules.Add(new IpRule
                 {
                     Value = range.Text,
                     Action = IpRuleAction.Block,
@@ -453,7 +458,14 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
         }
         if (added == 0)
             return 0;
-        await context.SaveChangesAsync(cancellationToken);
+        if (newRules.Count > 0)
+        {
+            context.IpRules.AddRange(newRules);
+            await context.SaveChangesAsync(cancellationToken);
+            // ردیف‌های تازه از ردیابی خارج می‌شوند تا اجرای بعدی (در همین scope) مقدار تازهٔ دیتابیس را ببیند.
+            foreach (var entity in newRules)
+                context.Entry(entity).State = EntityState.Detached;
+        }
         await ReloadAsync(cancellationToken);
         logger.LogWarning("Firewall auto-blocked {Count} IP address(es) after repeated failed logins", added);
         return added;

@@ -296,6 +296,18 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
             && (token.Length is < 16 or > 100 || !System.Text.RegularExpressions.Regex.IsMatch(token, "^[A-Za-z0-9_\\-]+$")))
             return "توکن بررسی سلامت باید ۱۶ تا ۱۰۰ نویسه و فقط حروف انگلیسی، عدد، خط تیره یا زیرخط باشد.";
 
+        return ValidateTeam(command);
+    }
+
+    /// <summary>بررسی تنظیمات «امنیت کارکنان» (مرحلهٔ هفتم – فاز ۱۰). مثال خطا: ReauthMinutes = 1.</summary>
+    private static string? ValidateTeam(StoreSettingCommand command)
+    {
+        if (command.ReauthMinutes is < 5 or > 240)
+            return "اعتبار تأیید دوبارهٔ هویت باید بین ۵ تا ۲۴۰ دقیقه باشد.";
+        if (command.TwoPersonWalletThreshold is < 0 or > 100_000_000_000m || command.TwoPersonWithdrawalThreshold is < 0 or > 100_000_000_000m)
+            return "سقف‌های تأیید دونفره باید عددی بین ۰ تا ۱۰۰ میلیارد تومان باشند.";
+        if (command.IsStaffTotpRequired && !command.IsStaffTotpEnabled)
+            command.IsStaffTotpRequired = false;
         return null;
     }
 

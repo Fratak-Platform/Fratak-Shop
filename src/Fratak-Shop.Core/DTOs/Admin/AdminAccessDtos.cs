@@ -41,6 +41,9 @@ public sealed class StaffMemberDto
     public bool IsOwner { get; set; }
     public bool IsBlocked { get; set; }
     public bool TwoFactorEnabled { get; set; }
+
+    /// <summary>برنامهٔ احراز هویت (TOTP) فعال است – فاز ۱۰.</summary>
+    public bool TotpEnabled { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public List<AdminRoleRef> Roles { get; set; } = [];
 }

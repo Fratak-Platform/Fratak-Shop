@@ -32,6 +32,12 @@ public static class AdminPermissions
     public const string CustomersManage = "customers.manage";
     public const string CustomersWallet = "customers.wallet";
 
+    /// <summary>
+    /// دیدن اطلاعات شخصی کامل مشتریان (موبایل، ایمیل، نشانی) وقتی «پوشاندن اطلاعات» در تنظیمات روشن است.
+    /// بدون آن، مثلاً موبایل به شکل «۰۹۱۲•••۴۵۶۷» دیده می‌شود. منطق: Web/Infrastructure/Team/SensitiveData.
+    /// </summary>
+    public const string CustomersSensitive = "customers.sensitive";
+
     public const string StaffManage = "staff.manage";
 
     public const string FinanceView = "finance.view";
@@ -88,6 +94,7 @@ public static class AdminPermissions
         new(CustomersView, "مشتریان", "مشاهده مشتریان"),
         new(CustomersManage, "مشتریان", "مدیریت مشتریان", "ویرایش، مسدودسازی، خروج از همه دستگاه‌ها و امتیاز باشگاه"),
         new(CustomersWallet, "مشتریان", "اصلاح موجودی کیف پول"),
+        new(CustomersSensitive, "مشتریان", "دیدن اطلاعات کامل مشتری", "موبایل، ایمیل و نشانی کامل وقتی «پوشاندن اطلاعات» در تنظیمات امنیت کارکنان روشن است"),
 
         new(StaffManage, "کارکنان", "مدیریت نقش‌ها و کارکنان", "ساخت نقش، تعیین دسترسی و انتساب نقش به کاربران"),
 
@@ -130,13 +137,13 @@ public static class AdminPermissions
     [
         ("مدیر فروشگاه", "دسترسی کامل به همه بخش‌ها", "#7c3aed", All.Select(p => p.Key).ToArray()),
         ("مدیر فروش و سفارش‌ها", "پردازش سفارش‌ها، فاکتور خرید، مرجوعی و مشتریان", "#2563eb",
-            [Dashboard, OrdersView, OrdersManage, OrdersCancel, OrdersCreate, PurchaseInvoices, ProductsView, ProductsSupplier, CustomersView, ReturnsManage, TicketsManage, CommentsModerate, ReportsView]),
+            [Dashboard, OrdersView, OrdersManage, OrdersCancel, OrdersCreate, PurchaseInvoices, ProductsView, ProductsSupplier, CustomersView, CustomersSensitive, ReturnsManage, TicketsManage, CommentsModerate, ReportsView]),
         ("انبار و محصولات", "مدیریت کاتالوگ، موجودی، قیمت و تأمین‌کنندگان", "#0891b2",
             [Dashboard, ProductsView, ProductsManage, ProductsSupplier, CatalogManage, SuppliersManage, OrdersView, PurchaseInvoices]),
         ("پشتیبانی", "تیکت، پیام‌ها، نظرات و پیگیری سفارش", "#16a34a",
             [Dashboard, OrdersView, CustomersView, TicketsManage, MessagesManage, ReturnsManage, CommentsModerate]),
         ("حسابداری و مالی", "گزارش‌های مالی، خروجی‌ها و تسویه برداشت‌ها", "#ca8a04",
-            [Dashboard, FinanceView, FinanceExport, WithdrawalsManage, OrdersView, PurchaseInvoices, CustomersView, CustomersWallet, GiftCardsManage, ReportsView, ExpensesManage]),
+            [Dashboard, FinanceView, FinanceExport, WithdrawalsManage, OrdersView, PurchaseInvoices, CustomersView, CustomersSensitive, CustomersWallet, GiftCardsManage, ReportsView, ExpensesManage]),
         ("بازاریابی", "کوپن، کارت هدیه، باشگاه، بنر و اعلان", "#db2777",
             [Dashboard, MarketingManage, GiftCardsManage, LoyaltyManage, NotificationsSend, ProductsView, CustomersView, ReportsView]),
         ("کارشناس سئو", "سئوی صفحات و محتوا، ریدایرکت‌ها و آمار جست‌وجو", "#059669",

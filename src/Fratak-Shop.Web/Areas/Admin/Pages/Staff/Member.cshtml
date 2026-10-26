@@ -19,7 +19,8 @@
 </div>
 
 @if (u.IsBlocked) { <div class="a-alert a-alert-danger mb-4">این حساب مسدود است و نمی‌تواند وارد پنل شود.</div> }
-@if (!u.TwoFactorEnabled && (Model.MemberIsOwner || Model.Assigned.Count > 0)) { <div class="a-alert a-alert-warn mb-4">ورود دومرحله‌ای این همکار غیرفعال است. برای امنیت پنل، فعال‌سازی آن توصیه می‌شود.</div> }
+@if (!u.TwoFactorEnabled && u.TotpEnabledAt is null && (Model.MemberIsOwner || Model.Assigned.Count > 0)) { <div class="a-alert a-alert-warn mb-4">ورود دومرحله‌ای این همکار غیرفعال است. برای امنیت پنل، فعال کردن «برنامهٔ احراز هویت» (از «امنیت حساب من») توصیه می‌شود.</div> }
+@if (Site.Settings.IsTwoPersonApprovalEnabled && Site.Settings.IsTwoPersonRoleChangeEnabled && !self) { <div class="a-alert a-alert-info mb-4">@Icons.Svg("ShieldCheck", "shrink-0", 20)<div>تغییر نقش‌ها و مالکیت با «تأیید دونفره» انجام می‌شود: بعد از ذخیره، یک همکار دیگرِ دارای «مدیریت کارکنان» باید در <a class="a-link" href="/admin/approvals">تأییدها</a> آن را تأیید کند.</div></div> }
 
 <div class="a-grid xl:grid-cols-3">
   <div class="xl:col-span-2 a-stack">
@@ -61,6 +62,25 @@
         </form>
       </div>
     }
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Fingerprint", null, 18) برنامهٔ احراز هویت</span>@if (u.TotpEnabledAt is not null) { <span class="a-badge a-badge-green">فعال</span> } else { <span class="a-badge a-badge-gray">غیرفعال</span> }</div>
+      <div class="a-card-body">
+        @if (u.TotpEnabledAt is { } totpAt)
+        {
+          <p class="text-sm">از @Format.Date(totpAt) فعال است.</p>
+          @if (Model.Access.IsOwner && !self)
+          {
+            <form method="post" asp-page-handler="ResetTotp" class="mt-3" data-confirm="برنامهٔ احراز هویت این همکار بازنشانی شود؟ فقط وقتی گوشی‌اش گم شده و کد بازیابی ندارد." data-confirm-danger>
+              <button class="a-btn a-btn-sm a-btn-danger-soft w-full" type="submit">بازنشانی (گوشی گم شده)</button>
+            </form>
+          }
+        }
+        else
+        {
+          <p class="a-muted text-sm">هنوز راه‌اندازی نکرده است. هر کارمند از منوی حساب ← «امنیت حساب من» آن را فعال می‌کند.</p>
+        }
+      </div>
+    </div>
     <div class="a-card">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ListChecks", null, 18) دسترسی‌های فعلی</span></div>
       <div class="a-card-body">

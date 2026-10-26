@@ -67,6 +67,28 @@ public class User : BaseEntity
     /// <summary>Password sign-in additionally requires a one-time SMS code.</summary>
     public bool TwoFactorEnabled { get; set; }
 
+    /// <summary>
+    /// کلید مخفی برنامهٔ احراز هویت (Google Authenticator و …) – رمزنگاری‌شده با ISecretProtector، نه متن خام.
+    /// null = برنامهٔ احراز هویت فعال نیست. فقط برای کارکنان (صفحهٔ «حساب من» پنل). منطق: Core/Services/Team/TotpService.
+    /// </summary>
+    [MaxLength(300)]
+    public string? TotpSecretProtected { get; set; }
+
+    /// <summary>زمان فعال شدن برنامهٔ احراز هویت؛ null یعنی هنوز تأیید نشده (کلید ساخته شده ولی کد اول وارد نشده).</summary>
+    public DateTimeOffset? TotpEnabledAt { get; set; }
+
+    /// <summary>
+    /// شمارهٔ آخرین بازهٔ ۳۰ثانیه‌ای که کدش پذیرفته شد؛ کد همان بازه یا قبل‌تر دوباره پذیرفته نمی‌شود
+    /// (جلوگیری از استفادهٔ دوباره از کدی که کسی دیده یا شنود کرده).
+    /// </summary>
+    public long? TotpLastStep { get; set; }
+
+    /// <summary>
+    /// کدهای بازیابی (برای وقتی گوشی گم شده) به شکل هش SHA-256 و جداشده با «;». هر کد یک بار مصرف می‌شود.
+    /// </summary>
+    [MaxLength(1000)]
+    public string? TotpRecoveryCodes { get; set; }
+
     /// <summary>Current customer-club points (ledger: <see cref="LoyaltyTransactions"/>).</summary>
     public int LoyaltyPoints { get; set; }
 

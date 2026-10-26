@@ -305,7 +305,7 @@ public static class OpsDbMetrics
             case AlertMetric.FailedLoginsPerHour:
             {
                 var since = now.AddHours(-1);
-                return await context.SecurityLogs.CountAsync(l => (l.Type == SecurityEventType.LoginFailed || l.Type == SecurityEventType.OtpFailed) && l.CreatedAt >= since, cancellationToken);
+                return await context.SecurityLogs.CountAsync(l => (l.Type == SecurityEventType.LoginFailed || l.Type == SecurityEventType.OtpFailed || l.Type == SecurityEventType.TotpFailed) && l.CreatedAt >= since, cancellationToken);
             }
             case AlertMetric.StuckPayments:
             {
