@@ -4969,6 +4969,103 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("SearchSynonyms");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SearchConsoleDailyStat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Clicks")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<double>("Ctr")
+                        .HasColumnType("float");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Impressions")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("Position")
+                        .HasColumnType("float");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("SearchConsoleDailyStats");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SearchConsoleQueryStat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Clicks")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<double>("Ctr")
+                        .HasColumnType("float");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Impressions")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<double>("Position")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Query")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Impressions");
+
+                    b.HasIndex("Path");
+
+                    b.ToTable("SearchConsoleQueryStats");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoEngineRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5022,6 +5119,97 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("StartedAt");
 
                     b.ToTable("SeoEngineRuns");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoLinkIssue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AnchorText")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsIgnored")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsImage")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("bit");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Occurrences")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<byte>("Problem")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SuggestedUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("UrlHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Problem", "IsIgnored");
+
+                    b.HasIndex("Kind", "EntityId", "UrlHash")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("SeoLinkIssues");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoResearchCache", b =>
@@ -5247,6 +5435,74 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("Kind", "EntityId", "Status");
 
                     b.ToTable("SeoSuggestions");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoEngine.SeoToolsConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("CheckExternalLinks")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsLinkCheckEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsSearchConsoleEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LinkCheckAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LinkCheckSummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SearchConsoleKeyProtected")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("SearchConsoleOk")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SearchConsoleProxy")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("SearchConsoleSite")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("SearchConsoleStatus")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("SearchConsoleSyncedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ServiceAccountEmail")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SeoToolsConfigs");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.SeoRedirects.SeoNotFoundLog", b =>
