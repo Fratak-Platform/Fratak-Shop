@@ -64,6 +64,15 @@
               <label class="a-label" for="@id">@f.Label</label>
               <input id="@id" name="@name" value="@value" class="a-input a-ltr" inputmode="decimal" dir="ltr">
               break;
+            case SKind.Image:
+              @* مرحلهٔ دهم: آدرس تصویر + انتخاب/آپلود از کتابخانهٔ رسانه (editor.js → data-media-pick) + پیش‌نمایش. *@
+              <label class="a-label" for="@id">@f.Label</label>
+              <div class="flex gap-2 items-center">
+                @if (!string.IsNullOrEmpty(value)) { <img src="@value" alt="" class="h-10 w-10 rounded-lg border object-contain bg-white" data-lightbox="settings-images" loading="lazy"> }
+                <input id="@id" name="@name" value="@value" class="a-input a-ltr" dir="ltr" placeholder="خالی = پیش‌فرض برند">
+                <button type="button" class="a-btn a-btn-light a-btn-sm nowrap" data-media-pick="#@id">@Icons.Svg("Image", null, 16) انتخاب / آپلود</button>
+              </div>
+              break;
             case SKind.Url:
             case SKind.Ltr:
               <label class="a-label" for="@id">@f.Label</label>
@@ -75,6 +84,18 @@
               break;
           }
           @if (f.Help is not null) { <p class="a-help">@f.Help</p> }
+        </div>
+      }
+      @if (g.Key == "brand")
+      {
+        @* پیش‌نمایش زندهٔ لوگو با تنظیمات ذخیره‌شده: روشن و تیره. *@
+        <div class="a-field span-all">
+          <span class="a-label">پیش‌نمایش (پس از ذخیره)</span>
+          <div class="flex flex-wrap gap-3">
+            <div class="rounded-xl border bg-white p-4">@await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Auth, 40) { ForceText = true })</div>
+            <div class="rounded-xl border p-4" style="background:#0B1927">@await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Admin, 40) { ForceText = true, OnDark = true })</div>
+            <div class="rounded-xl border bg-white p-4">@await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Header, 40))<div class="a-muted text-xs mt-2">هدر سایت</div></div>
+          </div>
         </div>
       }
       @if (g.Key == "pwa" && !string.IsNullOrEmpty(Model.VapidPublicKey))

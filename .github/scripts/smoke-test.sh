@@ -151,14 +151,19 @@ for legacy in /assets/image/pwa/icon-192.png /assets/image/pwa/icon-512.png /ass
   expect 200 "$legacy"
 done
 if cmp -s <(curl -s "$BASE/assets/image/pwa/icon-192.png") <(curl -s "$BASE/assets/brand/app-icon-192.png"); then pass "legacy icon = brand icon"; else fail "legacy icon URL should serve the brand icon"; fi
+# Round 10: the logo is an icon (no text inside the image) + HTML brand text from the settings.
+# Header = icon only by default; login shows "فراتک" + coloured "شاپ".
 expect 200 /
-contains '/assets/brand/logo.svg'
-contains '/assets/brand/logo-on-dark.svg'
+contains '/assets/brand/mark.svg'
+contains '/assets/brand/mark-on-dark.svg'
+lacks 'brand-text-accent'
 contains '/assets/brand/favicon.svg'
 contains 'content="#0B1927"'
 lacks 'YekanBakh'
 expect 200 /login
-contains '/assets/brand/logo.svg'
+contains '/assets/brand/mark.svg'
+contains 'brand-text-accent'
+contains 'شاپ</span>'
 # Specification filters (f-{slug}): water resistance IPX5 -> Haylou only.
 # Without a category only general filters: no brand or specification boxes.
 expect 200 /search

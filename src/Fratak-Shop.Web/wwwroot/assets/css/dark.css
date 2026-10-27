@@ -18,6 +18,8 @@ html.dark main img:not([src*=".svg"]) { filter: brightness(.92); }
 /* لوگوی برند: نسخهٔ سفید (logo-on-dark.svg) به‌جای نسخهٔ روشن. */
 html.dark .brand-logo-light { display: none; }
 html.dark .brand-logo-dark { display: block; }
+/* متن برند (بخش اول) روی زمینهٔ تیره همیشه سفید است تا خوانا بماند؛ بخش رنگی رنگ خودش را نگه می‌دارد. */
+html.dark .brand-text-main { color: #FFFFFF !important; }
 html.dark .prose-content { color: #C9D4E1; }
 html.dark .prose-content h2, html.dark .prose-content h3, html.dark .prose-content strong, html.dark .prose-content b { color: #F2F6FB; }
 html.dark .prose-content a { color: #66BEFF; }

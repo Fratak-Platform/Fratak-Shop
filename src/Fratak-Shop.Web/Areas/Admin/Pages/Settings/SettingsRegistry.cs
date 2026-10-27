@@ -1,6 +1,7 @@
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Settings;
 
-public enum SKind { Text, Area, Bool, Int, Money, Decimal, Url, Color, Select, Ltr }
+/// <summary>نوع ورودی هر تنظیم. Image (مرحلهٔ دهم) = آدرس تصویر + دکمهٔ «انتخاب / آپلود از کتابخانهٔ رسانه» + پیش‌نمایش.</summary>
+public enum SKind { Text, Area, Bool, Int, Money, Decimal, Url, Color, Select, Ltr, Image }
 
 public sealed record SField(string Name, string Label, SKind Kind = SKind.Text, string? Help = null)
 {
@@ -23,16 +24,33 @@ public static class SettingsRegistry
     private static SField T(string name, string label, string? help = null) => new(name, label, SKind.Text, help);
     private static SField A(string name, string label, string? help = null) => new(name, label, SKind.Area, help) { Wide = true };
     private static SField U(string name, string label, string? help = null) => new(name, label, SKind.Url, help);
+    private static SField Img(string name, string label, string? help = null) => new(name, label, SKind.Image, help);
+    private static SField D(string name, string label, string? help = null) => new(name, label, SKind.Decimal, help);
 
     public static readonly SGroup[] Groups =
     [
         new("general", "عمومی", "Storefront", "نام، معرفی و ظاهر فروشگاه",
         [
             T("SiteName", "نام فروشگاه"), T("Tagline", "شعار"), A("SiteDescription", "معرفی کوتاه فروشگاه", "در فوتر و توضیحات پیش‌فرض متا استفاده می‌شود."),
-            U("LogoUrl", "آدرس لوگو", "خالی = لوگوی هویت بصری فراتک شاپ (با نسخهٔ سفید برای حالت تیره)"), U("FaviconUrl", "آدرس فاوآیکن", "خالی = فاوآیکن‌های برند (SVG، ICO و آیکون iOS)"),
             new("ThemeColor", "رنگ اصلی (PWA و نوار مرورگر)", SKind.Color, "خالی = سرمه‌ای برند #0B1927"),
             B("IsDarkModeEnabled", "حالت تاریک برای مشتریان"),
             new("DefaultTheme", "پوسته پیش‌فرض", SKind.Select) { Options = [("0", "روشن"), ("1", "تاریک"), ("2", "مطابق دستگاه")] },
+        ]),
+        // مرحلهٔ دهم: لوگو = آیکون (تصویر بدون نوشته) + نام فروشگاه به صورت متن HTML. نمایش در Pages/Shared/_BrandLockup.cshtml.
+        new("brand", "برند و لوگو", "Image", "آیکون‌ها را از کتابخانهٔ رسانه انتخاب یا آپلود کنید؛ نام فروشگاه به صورت متن کنار آیکون نوشته می‌شود و رنگ و محل نمایشش را همین‌جا تعیین می‌کنید (بدون نیاز به تغییر کد).",
+        [
+            Img("LogoUrl", "آیکون لوگو (زمینهٔ روشن)", "تصویر نشان بدون نوشته (PNG/SVG شفاف، مربع یا افقی کوتاه). خالی = نشان فراتک."),
+            Img("LogoDarkUrl", "آیکون لوگو (زمینهٔ تیره)", "برای حالت شب سایت و نوار کناری پنل. خالی = نسخهٔ سفید نشان فراتک (یا همان آیکون روشن اگر آیکون اختصاصی گذاشته‌اید)."),
+            Img("PwaIconUrl", "آیکون اپلیکیشن (PWA)", "تصویر مربع حداقل ۵۱۲×۵۱۲ با پس‌زمینهٔ پر؛ روی صفحهٔ گوشی و پیشنهاد نصب. خالی = زمینهٔ مشکی با نشان فراتک، بدون متن."),
+            Img("FaviconUrl", "فاوآیکن (آیکون تب مرورگر)", "خالی = فاوآیکن‌های برند (SVG، ICO و آیکون iOS)."),
+            T("BrandTextPrimary", "متن برند – بخش اول", "خالی = «فراتک»."),
+            T("BrandTextAccent", "متن برند – بخش رنگی", "خالی = «شاپ». برای نداشتن بخش دوم یک «-» بنویسید."),
+            new("BrandTextColor", "رنگ بخش اول", SKind.Color, "خالی = سرمه‌ای برند #0B1927 (روی زمینهٔ تیره همیشه سفید)."),
+            new("BrandAccentColor", "رنگ بخش رنگی", SKind.Color, "خالی = آبی برند #0069FD."),
+            B("BrandTextInHeader", "نمایش متن کنار آیکون در هدر سایت", "خاموش = هدر فقط آیکون را نشان می‌دهد."),
+            B("BrandTextInAuth", "نمایش متن در صفحه‌های ورود و ثبت‌نام"),
+            B("BrandTextInAdmin", "نمایش متن در سربرگ پنل مدیریت"),
+            B("BrandTextInInvoice", "نمایش متن روی فاکتور"),
         ]),
         new("contact", "تماس و شبکه‌ها", "Phone", "اطلاعات تماس نمایش‌داده‌شده در سایت",
         [
@@ -82,6 +100,37 @@ public static class SettingsRegistry
             new("SupplierStockMarginPercent", "حاشیهٔ اطمینان موجودی (درصد)", SKind.Int, "موجودی پیشنهادی ما این مقدار کمتر از منبع است. مثال: منبع ۵۰ و حاشیهٔ ۲۰ → پیشنهاد ۴۰.") { ShowWhen = "IsSupplierSyncEnabled" },
             new("SupplierStockMaxQuantity", "سقف موجودی پیشنهادی هر کالا", SKind.Int, "حتی اگر منبع موجودی زیادی داشته باشد، بیشتر از این پیشنهاد نمی‌شود.") { ShowWhen = "IsSupplierSyncEnabled" },
             new("SupplierRequestDelayMs", "فاصلهٔ درخواست‌ها به سایت منبع (میلی‌ثانیه)", SKind.Int, "برای اینکه سایت تأمین‌کننده ما را ربات مزاحم تشخیص ندهد. پیشنهاد: ۱۵۰۰") { ShowWhen = "IsSupplierSyncEnabled" },
+            // مرحلهٔ دهم: سیاست قیمت فروش وقتی قیمت خرید عوض شد (Core/Services/Suppliers/SupplierRepricing.cs).
+            new("SupplierPriceAutoMode", "اعمال تغییر قیمت خرید", SKind.Select, "«افزایش‌ها خودکار» یعنی اگر کسی یادش رفت تأیید بزند، کالا با قیمت قدیمیِ زیان‌ده فروخته نمی‌شود.")
+            {
+                Options = [("0", "همیشه با تأیید کارمند"), ("1", "افزایش‌ها خودکار، کاهش‌ها با تأیید (پیشنهادی)"), ("2", "همهٔ تغییرها خودکار")],
+            },
+            new("SupplierRepriceMode", "روش محاسبهٔ قیمت فروش تازه", SKind.Select, "مثال: خرید ۲۰۰ → ۴۰۰ و فروش فعلی ۳۰۰ هزار. حفظ درصد سود → ۶۰۰؛ حفظ مبلغ سود → ۵۰۰؛ بیشترینِ دو حالت → ۶۰۰.")
+            {
+                Options = [("1", "حفظ درصد سود (فروش × خرید تازه ÷ خرید قبلی)"), ("2", "حفظ مبلغ سود (فروش + اختلاف خرید)"), ("5", "بیشترینِ «حفظ درصد» و «حفظ مبلغ» (محتاطانه)"),
+                           ("3", "درصد ثابت روی قیمت خرید"), ("4", "مبلغ ثابت روی قیمت خرید"), ("0", "فقط قیمت خرید به‌روز شود (قیمت فروش دستی)")],
+            },
+            I("SupplierRepriceMarkupPercent", "درصد سود ثابت (روش «درصد ثابت»)", "مثال: ۲۵ ← خرید ۴۰۰ هزار → فروش ۵۰۰ هزار."),
+            M("SupplierRepriceMarkupAmount", "مبلغ سود ثابت – تومان (روش «مبلغ ثابت»)", "مثال: ۵۰٬۰۰۰ ← خرید ۴۰۰ هزار → فروش ۴۵۰ هزار."),
+            I("SupplierRepriceMinMarginPercent", "حداقل سود همیشگی (درصد روی خرید)", "در همهٔ روش‌ها قیمت فروش (و قیمت با تخفیف) از خرید × (۱ + این درصد) کمتر نمی‌شود. ۰ = فقط زیان نکند."),
+            M("SupplierRepriceRounding", "گرد کردن به بالا – تومان", "مثال: ۱۰۰۰ ← ۵۱۸٬۷۵۰ → ۵۱۹٬۰۰۰. ۰ = بدون گرد کردن."),
+            B("SupplierRepriceOnDecrease", "با ارزان شدن خرید، قیمت فروش هم پایین بیاید", "خاموش = قیمت فروش ثابت می‌ماند و سود بیشتر می‌شود."),
+            I("SupplierRepriceMaxJumpPercent", "سقف افزایش خودکار (درصد)", "افزایش بیشتر از این (شاید خطای خواندن سایت) خودکار اعمال نمی‌شود؛ کالا تا تأیید شما موقتاً ناموجود می‌شود. ۰ = بدون سقف."),
+        ]),
+        // مرحلهٔ دهم: دکمهٔ «پیشنهاد قیمت فروش» در فرم محصول (Core/Services/Pricing/PriceAdvisor.cs).
+        new("pricing", "پیشنهاد قیمت فروش", "Calculator", "هزینه‌هایی که روی هر کالا حساب می‌شوند (چه روی محصول ثبت شده باشند چه نه)، سود هدف و جست‌وجوی قیمت رقبا برای دکمهٔ «پیشنهاد قیمت» در فرم محصول.",
+        [
+            M("PricingPackagingCost", "بسته‌بندی هر عدد – تومان"),
+            M("PricingShippingCost", "سهم ارسال/کرایه که فروشگاه می‌پردازد – تومان", "مثلاً ارسال رایگان یا کرایهٔ رسیدن کالا از تأمین‌کننده."),
+            M("PricingOtherCostAmount", "هزینه‌های ثابت دیگر هر عدد – تومان", "سهم اجاره، حقوق، لوازم و …"),
+            D("PricingGatewayFeePercent", "کارمزد درگاه پرداخت (درصد از فروش)", "مثال: ۱"),
+            D("PricingOtherCostPercent", "هزینه‌های درصدی دیگر (درصد از فروش)", "تبلیغات، مرجوعی، تخفیف‌ها. مثال: ۳"),
+            D("PricingTaxPercent", "مالیات بر ارزش افزوده (درصد)", "۰ = مشمول نیست."),
+            I("PricingTargetMarginPercent", "سود خالص هدف (درصد روی هزینهٔ تمام‌شده)", "مثال: ۳۰"),
+            I("PricingMinMarginPercent", "کمترین سود خالص قابل‌قبول (درصد)", "پیشنهاد هیچ‌وقت پایین‌تر از این نمی‌رود، حتی اگر رقبا ارزان‌تر باشند."),
+            D("PricingUndercutPercent", "چند درصد ارزان‌تر از رقبا", "مثال: ۲ ← ارزان‌ترین رقیب معتبر ۲۷۰ هزار → حدود ۲۶۴ هزار."),
+            M("PricingRounding", "گرد کردن قیمت پیشنهادی – تومان", "مثال: ۱۰۰۰"),
+            B("IsCompetitorPriceLookupEnabled", "جست‌وجوی قیمت رقبا", "ترب (ده‌ها فروشگاه) و دیجی‌کالا؛ رایگان و بدون کلید. اگر سرور به این سایت‌ها دسترسی نداشته باشد، پیشنهاد فقط بر اساس هزینه‌ها و سود هدف است."),
         ]),
         // رهگیری خودکار مرسوله‌های پستی؛ موتور در Core/Services/Orders/ShipmentTrackingService.cs.
         new("tracking", "رهگیری مرسوله", "Truck", "خواندن خودکار وضعیت مرسوله‌های پستی از سامانهٔ رهگیری پست و تأیید خودکار تحویل.",

@@ -40,14 +40,7 @@ public static class PwaEndpoints
                 ["display"] = "standalone",
                 ["background_color"] = "#ffffff",
                 ["theme_color"] = themeColor,
-                ["icons"] = new object[]
-                {
-                    // آیکون‌های هویت بصری (wwwroot/assets/brand): گرادیان برند با گوشهٔ گرد + نسخهٔ maskable تمام‌صفحه.
-                    new { src = Icon(BrandIdentity.AppIcon192), sizes = "192x192", type = "image/png", purpose = "any" },
-                    new { src = Icon(BrandIdentity.AppIcon512), sizes = "512x512", type = "image/png", purpose = "any" },
-                    new { src = Icon(BrandIdentity.AppIconMaskable192), sizes = "192x192", type = "image/png", purpose = "maskable" },
-                    new { src = Icon(BrandIdentity.AppIconMaskable512), sizes = "512x512", type = "image/png", purpose = "maskable" },
-                },
+                ["icons"] = Icons(settings.PwaIconUrl, Icon),
                 ["shortcuts"] = new object[]
                 {
                     new { name = "سبد خرید", url = "/cart" },
@@ -78,6 +71,39 @@ public static class PwaEndpoints
         }
 
         return app;
+    }
+
+    /// <summary>
+    /// آیکون‌های مانیفست. مرحلهٔ دهم: اگر مدیر «آیکون اپلیکیشن» آپلود کرده باشد (PwaIconUrl) همان یک تصویر برای any و maskable
+    /// (با اندازهٔ «any» تا مرورگر خودش مقیاس بدهد) استفاده می‌شود؛ وگرنه آیکون‌های مشکی برند (wwwroot/assets/brand).
+    /// مثال: PwaIconUrl = "/uploads/media/app.png" → [{ src: "/uploads/media/app.png", sizes: "any", type: "image/png", purpose: "any" }, …]
+    /// </summary>
+    internal static object[] Icons(string? customUrl, Func<string, string> version)
+    {
+        if (Helpers.UrlSafety.IsSafeLink(customUrl))
+        {
+            var url = customUrl!.Trim();
+            var src = url.StartsWith('/') ? version(url) : url;
+            var type = url.Split('?')[0].EndsWith(".svg", StringComparison.OrdinalIgnoreCase) ? "image/svg+xml"
+                : url.Split('?')[0].EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+                : url.Split('?')[0].EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || url.Split('?')[0].EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ? "image/jpeg"
+                : "image/png";
+            return
+            [
+                new { src, sizes = "512x512", type, purpose = "any" },
+                new { src, sizes = "192x192", type, purpose = "any" },
+                new { src, sizes = "512x512", type, purpose = "maskable" },
+            ];
+        }
+
+        // آیکون‌های هویت بصری: زمینهٔ مشکی با گوشهٔ گرد + نسخهٔ maskable تمام‌صفحه، نشان فراتک بدون متن.
+        return
+        [
+            new { src = version(BrandIdentity.AppIcon192), sizes = "192x192", type = "image/png", purpose = "any" },
+            new { src = version(BrandIdentity.AppIcon512), sizes = "512x512", type = "image/png", purpose = "any" },
+            new { src = version(BrandIdentity.AppIconMaskable192), sizes = "192x192", type = "image/png", purpose = "maskable" },
+            new { src = version(BrandIdentity.AppIconMaskable512), sizes = "512x512", type = "image/png", purpose = "maskable" },
+        ];
     }
 
     private static string SafeColor(string? value, string fallback) =>

@@ -714,4 +714,125 @@ public class StoreSetting : BaseEntity
     /// <summary>Generated automatically (base64url P-256 private key). Never exposed to the storefront.</summary>
     [MaxLength(200)]
     public string? VapidPrivateKey { get; set; }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  مرحلهٔ دهم – برند قابل‌تنظیم (لوگو = آیکون + متن HTML)
+    //  نمایش: Pages/Shared/_BrandLockup.cshtml و SiteContext.Brand*؛ تنظیم: پنل ← تنظیمات ← «برند و لوگو».
+    //  آیکون «نشان» (LogoUrl) همیشه بدون متن است و نام فروشگاه به صورت متن واقعی (نه داخل تصویر) کنارش نوشته می‌شود:
+    //  «فراتک» با رنگ متن و «شاپ» با رنگ تأکیدی. مثال خروجی: [آیکون] فراتک <span style="color:#0069FD">شاپ</span>
+    // ════════════════════════════════════════════════════════════════════
+
+    /// <summary>آیکون نشان برای زمینهٔ تیره (حالت شب سایت و نوار کناری پنل). خالی = نسخهٔ سفید نشان برند یا همان LogoUrl.</summary>
+    [MaxLength(500)]
+    public string? LogoDarkUrl { get; set; }
+
+    /// <summary>آیکون اپ (PWA) و صفحهٔ اصلی گوشی؛ تصویر مربع حداقل ۵۱۲×۵۱۲. خالی = آیکون مشکی برند با نشان فراتک (بدون متن).</summary>
+    [MaxLength(500)]
+    public string? PwaIconUrl { get; set; }
+
+    /// <summary>بخش اول متن برند. خالی = «فراتک». مثال: «فراتک».</summary>
+    [MaxLength(40)]
+    public string? BrandTextPrimary { get; set; }
+
+    /// <summary>بخش دوم (رنگی) متن برند. خالی = «شاپ». برای حذف بخش دوم یک خط تیره «-» بنویسید.</summary>
+    [MaxLength(40)]
+    public string? BrandTextAccent { get; set; }
+
+    /// <summary>رنگ بخش اول روی زمینهٔ روشن (hex). خالی = سرمه‌ای برند؛ روی زمینهٔ تیره همیشه سفید است تا خوانا بماند.</summary>
+    [MaxLength(9)]
+    public string? BrandTextColor { get; set; }
+
+    /// <summary>رنگ بخش دوم (hex). خالی = آبی برند #0069FD.</summary>
+    [MaxLength(9)]
+    public string? BrandAccentColor { get; set; }
+
+    /// <summary>متن برند کنار آیکون در هدر سایت. پیش‌فرض خاموش: هدر فقط آیکون را نشان می‌دهد.</summary>
+    public bool BrandTextInHeader { get; set; }
+
+    /// <summary>متن برند در صفحه‌های ورود و ثبت‌نام.</summary>
+    public bool BrandTextInAuth { get; set; } = true;
+
+    /// <summary>متن برند در سربرگ پنل مدیریت.</summary>
+    public bool BrandTextInAdmin { get; set; } = true;
+
+    /// <summary>متن برند در فاکتور (و PDF آن).</summary>
+    public bool BrandTextInInvoice { get; set; } = true;
+
+    // ════════════════════════════════════════════════════════════════════
+    //  مرحلهٔ دهم – سیاست قیمت‌گذاری خودکار وقتی قیمت خرید از تأمین‌کننده عوض می‌شود
+    //  موتور: Core/Services/Suppliers/SupplierRepricing.cs (محاسبهٔ خالص و تست‌پذیر).
+    // ════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// اعمال خودکار تغییر قیمت خرید: ۰ = همیشه با تأیید کارمند (مثل قبل)، ۱ = افزایش‌ها خودکار (کاهش‌ها با تأیید)،
+    /// ۲ = همهٔ تغییرها خودکار. پیش‌فرض ۱ تا اگر کسی یادش رفت تأیید بزند، با قیمت قدیم زیان نکنیم.
+    /// </summary>
+    public int SupplierPriceAutoMode { get; set; } = 1;
+
+    /// <summary>
+    /// روش محاسبهٔ قیمت فروش تازه (SupplierRepriceMode): ۰ = فقط قیمت خرید به‌روز شود، ۱ = حفظ درصد سود،
+    /// ۲ = حفظ مبلغ سود، ۳ = درصد ثابت روی خرید، ۴ = مبلغ ثابت روی خرید، ۵ = بیشترینِ «حفظ درصد» و «حفظ مبلغ» (محتاطانه‌ترین).
+    /// مثال (خرید ۲۰۰→۴۰۰، فروش ۳۰۰): حالت ۱ → ۶۰۰، حالت ۲ → ۵۰۰.
+    /// </summary>
+    public int SupplierRepriceMode { get; set; } = 1;
+
+    /// <summary>درصد سود ثابت روی قیمت خرید در حالت ۳. مثال: ۲۵ ← خرید ۴۰۰ → فروش ۵۰۰.</summary>
+    public int SupplierRepriceMarkupPercent { get; set; } = 25;
+
+    /// <summary>مبلغ سود ثابت (تومان) روی قیمت خرید در حالت ۴. مثال: ۵۰٬۰۰۰ ← خرید ۴۰۰ هزار → فروش ۴۵۰ هزار.</summary>
+    public decimal SupplierRepriceMarkupAmount { get; set; }
+
+    /// <summary>حداقل سود مجاز (درصد روی خرید)؛ قیمت فروش هیچ‌وقت از خرید × (۱ + این درصد) کمتر نمی‌شود. ۰ = فقط زیان نکند.</summary>
+    public int SupplierRepriceMinMarginPercent { get; set; } = 5;
+
+    /// <summary>گرد کردن قیمت تازه به بالا (تومان). مثال: ۱۰۰۰ ← ۵۱۸٬۷۵۰ → ۵۱۹٬۰۰۰. ۰ = بدون گرد کردن.</summary>
+    public decimal SupplierRepriceRounding { get; set; } = 1000;
+
+    /// <summary>وقتی قیمت خرید کم شد قیمت فروش هم با همان روش پایین بیاید؟ خاموش = قیمت فروش ثابت می‌ماند (سود بیشتر).</summary>
+    public bool SupplierRepriceOnDecrease { get; set; }
+
+    /// <summary>
+    /// سقف افزایش خودکار (درصد). افزایش بیشتر از این (شاید خطای خواندن سایت منبع) خودکار اعمال نمی‌شود؛
+    /// به‌جایش کالا موقتاً ناموجود می‌شود تا با قیمت زیان‌ده فروخته نشود و پیشنهاد برای تأیید می‌ماند. ۰ = بدون سقف.
+    /// </summary>
+    public int SupplierRepriceMaxJumpPercent { get; set; } = 50;
+
+    // ════════════════════════════════════════════════════════════════════
+    //  مرحلهٔ دهم – «پیشنهاد قیمت فروش» در فرم محصول
+    //  موتور: Core/Services/Pricing/PriceAdvisor.cs؛ قیمت رقبا: Web/Infrastructure/Pricing/CompetitorPriceSource.cs.
+    //  همهٔ هزینه‌ها برای هر عدد کالا حساب می‌شوند، چه روی محصول ثبت شده باشند چه نه.
+    // ════════════════════════════════════════════════════════════════════
+
+    /// <summary>هزینهٔ بسته‌بندی هر عدد (تومان). مثال: ۱۵٬۰۰۰.</summary>
+    public decimal PricingPackagingCost { get; set; }
+
+    /// <summary>سهم ارسالی که فروشگاه می‌پردازد برای هر عدد (تومان) – مثلاً ارسال رایگان یا کرایهٔ رسیدن کالا از تأمین‌کننده.</summary>
+    public decimal PricingShippingCost { get; set; }
+
+    /// <summary>کارمزد درگاه پرداخت (درصد از قیمت فروش). مثال: ۱.</summary>
+    public decimal PricingGatewayFeePercent { get; set; } = 1;
+
+    /// <summary>هزینه‌های دیگر به درصد از قیمت فروش (تبلیغات، مرجوعی، تخفیف‌ها). مثال: ۳.</summary>
+    public decimal PricingOtherCostPercent { get; set; }
+
+    /// <summary>هزینه‌های ثابت دیگر برای هر عدد (تومان) – مثل سهم اجاره و حقوق.</summary>
+    public decimal PricingOtherCostAmount { get; set; }
+
+    /// <summary>مالیات بر ارزش افزوده که روی قیمت فروش می‌آید (درصد). ۰ = مشمول نیست.</summary>
+    public decimal PricingTaxPercent { get; set; }
+
+    /// <summary>سود خالص هدف (درصد روی کل هزینهٔ تمام‌شده). مثال: ۳۰.</summary>
+    public int PricingTargetMarginPercent { get; set; } = 30;
+
+    /// <summary>کمترین سود خالص قابل‌قبول (درصد)؛ پیشنهاد هیچ‌وقت پایین‌تر از این نمی‌رود حتی اگر رقبا ارزان‌تر باشند.</summary>
+    public int PricingMinMarginPercent { get; set; } = 8;
+
+    /// <summary>چند درصد ارزان‌تر از ارزان‌ترین رقیب معتبر پیشنهاد شود. مثال: ۲ ← رقیب ۲۷۰ → ۲۶۴٫۶.</summary>
+    public decimal PricingUndercutPercent { get; set; } = 2;
+
+    /// <summary>گرد کردن قیمت پیشنهادی (تومان). مثال: ۱۰۰۰.</summary>
+    public decimal PricingRounding { get; set; } = 1000;
+
+    /// <summary>جست‌وجوی خودکار قیمت همین کالا در سایت‌های دیگر (ترب و دیجی‌کالا؛ رایگان، بدون کلید).</summary>
+    public bool IsCompetitorPriceLookupEnabled { get; set; } = true;
 }

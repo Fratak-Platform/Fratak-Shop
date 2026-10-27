@@ -42,6 +42,15 @@ public static class BrandIdentity
     /// <summary>رنگ پیش‌فرض نوار اطلاعیهٔ بالای سایت (AnnouncementColor خالی یا نامعتبر).</summary>
     public const string DefaultAnnouncementColor = Navy;
 
+    /// <summary>بخش اول پیش‌فرض متن برند (تنظیم BrandTextPrimary خالی).</summary>
+    public const string DefaultTextPrimary = "فراتک";
+
+    /// <summary>بخش دوم (رنگی) پیش‌فرض متن برند (تنظیم BrandTextAccent خالی).</summary>
+    public const string DefaultTextAccent = "شاپ";
+
+    /// <summary>زمینهٔ پیش‌فرض آیکون اپ (PWA) – مشکی، به خواست مدیر فروشگاه در مرحلهٔ دهم.</summary>
+    public const string AppIconBackground = "#000000";
+
     // ── فایل‌ها (wwwroot/assets/brand) ───────────────────────────────────────────────
 
     /// <summary>لوگوی افقی (نشان + «Fratak Shop») برای زمینهٔ روشن.</summary>
@@ -74,14 +83,17 @@ public static class BrandIdentity
     /// <summary>آیکون صفحهٔ اصلی iOS (۱۸۰×۱۸۰).</summary>
     public const string AppleTouchIcon = "/assets/brand/apple-touch-icon.png";
 
-    /// <summary>آیکون‌های اپ (گرادیان برند با گوشهٔ گرد) برای مانیفست با purpose=any و اعلان‌ها.</summary>
+    /// <summary>
+    /// آیکون‌های اپ برای مانیفست با purpose=any و اعلان‌ها: از مرحلهٔ دهم زمینهٔ مشکی با گوشهٔ گرد و نشان فراتک (F سفید + سبد آبی)،
+    /// بدون هیچ متنی. منبع: Visual-Identities/Fratak-Shop/svg/app-icon-black.svg. مدیر می‌تواند در تنظیمات (PwaIconUrl) عوضش کند.
+    /// </summary>
     public const string AppIcon192 = "/assets/brand/app-icon-192.png";
 
     /// <inheritdoc cref="AppIcon192"/>
     public const string AppIcon512 = "/assets/brand/app-icon-512.png";
 
     /// <summary>
-    /// آیکون maskable (گرادیان تمام‌صفحه، نشان سفید داخل ناحیهٔ امن ۸۰٪) تا اندروید آن را به هر شکلی برش بزند.
+    /// آیکون maskable (زمینهٔ مشکی تمام‌صفحه، نشان داخل ناحیهٔ امن ۸۰٪) تا اندروید آن را به هر شکلی برش بزند.
     /// </summary>
     public const string AppIconMaskable192 = "/assets/brand/app-icon-maskable-192.png";
 
@@ -100,7 +112,7 @@ public static class BrandIdentity
     /// همان اپ می‌ماند و فقط آیکونش به‌روز می‌شود.
     /// محل استفاده: _Layout (تگ link rel=manifest).
     /// </summary>
-    public const string ManifestUrl = "/manifest.webmanifest?v=brand2";
+    public const string ManifestUrl = "/manifest.webmanifest?v=brand3";
 
     /// <summary>
     /// آدرس‌های آیکون/لوگوی قالب قدیمی که مرورگرها، اپ‌های نصب‌شده، کش CDN یا مانیفست‌های کهنه ممکن است هنوز
@@ -125,4 +137,106 @@ public static class BrandIdentity
         Logo, LogoOnDark, LogoPng, Mark, MarkPng, MarkOnDark, FaviconSvg, FaviconIco, AppleTouchIcon,
         AppIcon192, AppIcon512, AppIconMaskable192, AppIconMaskable512, NotificationBadge, OgImage,
     ];
+}
+
+/// <summary>
+/// محل‌هایی که لوگو (آیکون + متن برند) نمایش داده می‌شود. برای هر محل در تنظیمات تعیین می‌شود که متن کنار آیکون باشد یا نه.
+/// </summary>
+public enum BrandPlace
+{
+    /// <summary>هدر سایت (دسکتاپ و منوی موبایل) – پیش‌فرض فقط آیکون.</summary>
+    Header,
+
+    /// <summary>صفحه‌های ورود و ثبت‌نام.</summary>
+    Auth,
+
+    /// <summary>سربرگ نوار کناری پنل مدیریت (زمینهٔ تیره).</summary>
+    Admin,
+
+    /// <summary>فاکتور مشتری و PDF آن.</summary>
+    Invoice,
+}
+
+/// <summary>
+/// برند آماده برای نمایش (از تنظیمات فروشگاه ساخته می‌شود؛ همهٔ آدرس‌ها و رنگ‌ها اعتبارسنجی شده‌اند).
+/// مثال پیش‌فرض: آیکون mark.svg، متن «فراتک» + «شاپ»، رنگ متن null (سرمه‌ای/سفید با CSS)، رنگ تأکیدی #0069FD.
+/// </summary>
+/// <param name="IconUrl">آیکون زمینهٔ روشن.</param>
+/// <param name="IconDarkUrl">آیکون زمینهٔ تیره (حالت شب سایت، نوار کناری پنل).</param>
+/// <param name="IconRasterUrl">نسخهٔ قابل‌چاپ آیکون برای فاکتور PDF (html2canvas با SVG مشکل دارد).</param>
+/// <param name="IsDefaultIcon">مدیر آیکون اختصاصی نگذاشته است.</param>
+/// <param name="Primary">بخش اول متن. مثال: «فراتک».</param>
+/// <param name="Accent">بخش رنگی متن یا null. مثال: «شاپ».</param>
+/// <param name="TextColor">رنگ بخش اول روی زمینهٔ روشن یا null (= رنگ پیش‌فرض CSS).</param>
+/// <param name="AccentColor">رنگ بخش رنگی (hex).</param>
+public sealed record BrandLockup(
+    string IconUrl,
+    string IconDarkUrl,
+    string IconRasterUrl,
+    bool IsDefaultIcon,
+    string Primary,
+    string? Accent,
+    string? TextColor,
+    string AccentColor)
+{
+    /// <summary>متن کامل برای alt و aria-label. مثال: «فراتک شاپ».</summary>
+    public string FullText => Accent is null ? Primary : Primary + " " + Accent;
+
+    /// <summary>ساخت از تنظیمات با جایگزینی مقدارهای خالی/نامعتبر با پیش‌فرض برند.</summary>
+    public static BrandLockup From(Fratak_Shop.Core.DTOs.Settings.StoreSettingDto settings)
+    {
+        var custom = Helpers.UrlSafety.IsSafeLink(settings.LogoUrl);
+        var icon = custom ? settings.LogoUrl!.Trim() : BrandIdentity.Mark;
+        var dark = Helpers.UrlSafety.IsSafeLink(settings.LogoDarkUrl) ? settings.LogoDarkUrl!.Trim() : custom ? icon : BrandIdentity.MarkOnDark;
+        var primary = Clean(settings.BrandTextPrimary) ?? BrandIdentity.DefaultTextPrimary;
+        var accentRaw = Clean(settings.BrandTextAccent);
+        var accent = accentRaw is null ? BrandIdentity.DefaultTextAccent : accentRaw == "-" ? null : accentRaw;
+        return new BrandLockup(icon, dark, custom ? icon : BrandIdentity.MarkPng, !custom, primary, accent,
+            Hex(settings.BrandTextColor), Hex(settings.BrandAccentColor) ?? BrandIdentity.Blue);
+    }
+
+    private static string? Clean(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var text = value.Trim();
+        return text.Length > 40 ? text[..40] : text;
+    }
+
+    /// <summary>فقط #RGB یا #RRGGBB؛ هر چیز دیگر (حتی تلاش برای تزریق CSS) null می‌شود.</summary>
+    public static string? Hex(string? value) =>
+        value is not null && System.Text.RegularExpressions.Regex.IsMatch(value.Trim(), "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$") ? value.Trim() : null;
+}
+
+/// <summary>
+/// ورودی partial «_BrandLockup» (Pages/Shared/_BrandLockup.cshtml).
+/// مثال: <c>@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Auth, 44) { CssClass = "justify-center" })</c>
+/// </summary>
+/// <param name="Place">محل نمایش (تعیین می‌کند متن نوشته شود یا نه).</param>
+/// <param name="IconHeight">ارتفاع آیکون به پیکسل؛ اندازهٔ متن متناسب با آن است (حدود ۰٫۶۵ ارتفاع).</param>
+public sealed record BrandLockupModel(BrandPlace Place, int IconHeight)
+{
+    /// <summary>کلاس‌های اضافهٔ ظرف (چینش و فاصله).</summary>
+    public string? CssClass { get; init; }
+
+    /// <summary>روی زمینهٔ همیشه تیره (پنل): فقط آیکون تیره و متن سفید.</summary>
+    public bool OnDark { get; init; }
+
+    /// <summary>نمایش متن بدون توجه به تنظیم محل (پیش‌نمایش صفحهٔ تنظیمات).</summary>
+    public bool ForceText { get; init; }
+
+    /// <summary>آیکون نسخهٔ PNG/قابل‌چاپ (فاکتور PDF).</summary>
+    public bool Raster { get; init; }
+
+    /// <summary>
+    /// عرض تقریبی آیکون پیش‌فرض برای رزرو جا (جلوگیری از پرش صفحه). نسبت نشان برند ۲۴۰٫۹ × ۱۹۲٫۹ است.
+    /// مثال: ارتفاع ۴۰ → عرض ۵۰.
+    /// </summary>
+    public int IconWidth => (int)Math.Round(IconHeight * MarkAspectRatio);
+
+    /// <summary>نسبت عرض به ارتفاع نشان برند (viewBox فایل mark.svg).</summary>
+    public const double MarkAspectRatio = 240.9 / 192.9;
+
+    /// <summary>اندازهٔ قلم متن برند به پیکسل. مثال: آیکون ۴۰ → قلم ۲۶.</summary>
+    public int FontSize => Math.Max(12, (int)Math.Round(IconHeight * 0.65));
 }

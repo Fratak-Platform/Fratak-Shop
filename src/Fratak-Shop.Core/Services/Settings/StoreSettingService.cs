@@ -39,6 +39,14 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         command.MaintenanceMessage = Blank(command.MaintenanceMessage);
         command.MaintenanceAllowedIps = Blank(command.MaintenanceAllowedIps);
         command.HealthCheckToken = Blank(command.HealthCheckToken);
+        // برند (مرحلهٔ دهم): خالی = پیش‌فرض برند.
+        command.LogoUrl = Blank(command.LogoUrl);
+        command.LogoDarkUrl = Blank(command.LogoDarkUrl);
+        command.PwaIconUrl = Blank(command.PwaIconUrl);
+        command.BrandTextPrimary = Blank(command.BrandTextPrimary);
+        command.BrandTextAccent = Blank(command.BrandTextAccent);
+        command.BrandTextColor = Blank(command.BrandTextColor);
+        command.BrandAccentColor = Blank(command.BrandAccentColor);
 
         var error = Validate(command);
         if (error is not null)
@@ -116,6 +124,10 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         var round5 = ValidateRound5(command);
         if (round5 is not null)
             return round5;
+
+        var round10 = ValidateRound10(command);
+        if (round10 is not null)
+            return round10;
 
         if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor))
             return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0069FD).";
@@ -297,6 +309,46 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
             return "توکن بررسی سلامت باید ۱۶ تا ۱۰۰ نویسه و فقط حروف انگلیسی، عدد، خط تیره یا زیرخط باشد.";
 
         return ValidateTeam(command);
+    }
+
+    /// <summary>
+    /// بررسی تنظیمات مرحلهٔ دهم: برند (رنگ hex و آدرس امن آیکون‌ها)، سیاست قیمت تأمین‌کننده و هزینه‌های پیشنهاد قیمت.
+    /// مثال خطا: BrandAccentColor = "blue" یا مجموع درصدهای کارمزد/هزینه/مالیات ۷۰٪.
+    /// </summary>
+    private static string? ValidateRound10(StoreSettingCommand command)
+    {
+        if (!IsHexColor(command.BrandTextColor) || !IsHexColor(command.BrandAccentColor))
+            return "رنگ‌های متن برند باید کد هگز باشند (مثلاً #0069FD).";
+        if (!IsSiteLink(command.LogoUrl) || !IsSiteLink(command.LogoDarkUrl) || !IsSiteLink(command.PwaIconUrl) || !IsSiteLink(command.FaviconUrl))
+            return "آدرس آیکون‌ها باید با / شروع شود (فایل آپلودشده در کتابخانهٔ رسانه) یا آدرس کامل http(s) باشد.";
+        if (command.BrandTextPrimary is { Length: > 40 } || command.BrandTextAccent is { Length: > 40 })
+            return "هر بخش متن برند حداکثر ۴۰ نویسه است.";
+        if ((command.BrandTextPrimary + command.BrandTextAccent).IndexOfAny(['<', '>']) >= 0)
+            return "متن برند نباید < یا > داشته باشد.";
+
+        if (command.SupplierPriceAutoMode is < 0 or > 2 || command.SupplierRepriceMode is < 0 or > 5)
+            return "حالت قیمت‌گذاری خودکار تأمین‌کننده معتبر نیست.";
+        if (command.SupplierRepriceMarkupPercent is < 0 or > 1000 || command.SupplierRepriceMinMarginPercent is < 0 or > 500)
+            return "درصدهای سود قیمت‌گذاری خودکار باید بین ۰ تا ۱۰۰۰ (حداقل سود تا ۵۰۰) باشند.";
+        if (command.SupplierRepriceMarkupAmount is < 0 or > 10_000_000_000m || command.SupplierRepriceRounding is < 0 or > 10_000_000m)
+            return "مبلغ سود ثابت یا گرد کردن قیمت معتبر نیست.";
+        if (command.SupplierRepriceMaxJumpPercent is < 0 or > 1000)
+            return "سقف افزایش خودکار باید بین ۰ تا ۱۰۰۰ درصد باشد.";
+
+        if (command.PricingPackagingCost < 0 || command.PricingShippingCost < 0 || command.PricingOtherCostAmount < 0
+            || command.PricingPackagingCost + command.PricingShippingCost + command.PricingOtherCostAmount > 10_000_000_000m)
+            return "هزینه‌های ثابت پیشنهاد قیمت معتبر نیست.";
+        if (command.PricingGatewayFeePercent is < 0 or > 20 || command.PricingOtherCostPercent is < 0 or > 50 || command.PricingTaxPercent is < 0 or > 30)
+            return "درصد کارمزد درگاه (۰ تا ۲۰)، هزینه‌های دیگر (۰ تا ۵۰) یا مالیات (۰ تا ۳۰) معتبر نیست.";
+        if (command.PricingGatewayFeePercent + command.PricingOtherCostPercent + command.PricingTaxPercent >= 60)
+            return "مجموع درصدهای کارمزد، هزینه و مالیات باید کمتر از ۶۰٪ باشد.";
+        if (command.PricingTargetMarginPercent is < 0 or > 500 || command.PricingMinMarginPercent is < 0 or > 500)
+            return "درصد سود هدف و حداقل سود باید بین ۰ تا ۵۰۰ باشد.";
+        if (command.PricingMinMarginPercent > command.PricingTargetMarginPercent)
+            return "حداقل سود نمی‌تواند از سود هدف بیشتر باشد.";
+        if (command.PricingUndercutPercent is < 0 or > 30 || command.PricingRounding is < 0 or > 10_000_000m)
+            return "درصد ارزان‌تر از رقبا (۰ تا ۳۰) یا گرد کردن قیمت پیشنهادی معتبر نیست.";
+        return null;
     }
 
     /// <summary>بررسی تنظیمات «امنیت کارکنان» (مرحلهٔ هفتم – فاز ۱۰). مثال خطا: ReauthMinutes = 1.</summary>

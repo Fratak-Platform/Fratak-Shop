@@ -31,13 +31,25 @@ public interface ISiteContext
     /// <summary>False for links to features turned off in the settings (club, order tracking, wallet).</summary>
     bool IsLinkEnabled(string? url);
 
-    /// <summary>Safe logo URL (configured one, or the brand logo <see cref="BrandIdentity.Logo"/>).</summary>
+    /// <summary>
+    /// برند قابل‌تنظیم (مرحلهٔ دهم): آیکون‌های روشن/تیره، متن «فراتک» + «شاپ» و رنگ‌هایشان، همه از تنظیمات.
+    /// محل استفاده: partial «_BrandLockup» (هدر، ورود، ثبت‌نام، پنل، فاکتور).
+    /// </summary>
+    BrandLockup Brand { get; }
+
+    /// <summary>آیا متن برند در این محل کنار آیکون نوشته شود؟ (تنظیمات BrandTextIn*). مثال: Header → پیش‌فرض false.</summary>
+    bool ShowBrandText(BrandPlace place);
+
+    /// <summary>آیکون اپ (PWA): آیکون آپلودشدهٔ مدیر یا آیکون مشکی برند <see cref="BrandIdentity.AppIcon512"/>.</summary>
+    string PwaIconUrl { get; }
+
+    /// <summary>True وقتی مدیر آیکون اپ اختصاصی نگذاشته و آیکون‌های برند (any + maskable) استفاده می‌شوند.</summary>
+    bool UsesBrandPwaIcon { get; }
+
+    /// <summary>آیکون لوگو برای زمینهٔ روشن (همان <see cref="BrandLockup.IconUrl"/>؛ برای سازگاری با کد قبلی).</summary>
     string LogoUrl { get; }
 
-    /// <summary>
-    /// لوگو برای حالت تیره: اگر مدیر لوگوی خودش را گذاشته همان (نسخهٔ تیره ندارد)، وگرنه لوگوی سفید برند.
-    /// محل استفاده: partial «_BrandLogo» (هدر، ورود، ثبت‌نام).
-    /// </summary>
+    /// <summary>آیکون لوگو برای زمینهٔ تیره (همان <see cref="BrandLockup.IconDarkUrl"/>).</summary>
     string LogoDarkUrl { get; }
 
     /// <summary>نسخهٔ PNG لوگو (schema.org، فاکتور PDF): لوگوی مدیر یا <see cref="BrandIdentity.LogoPng"/>.</summary>
@@ -82,12 +94,30 @@ public class SiteContext(
     public IReadOnlyList<MenuDto> Menus { get; private set; } = [];
     public bool IsLoaded => _settings is not null;
 
-    public string LogoUrl => Helpers.UrlSafety.Link(Settings.LogoUrl, BrandIdentity.Logo);
+    private BrandLockup? _brand;
 
-    public bool UsesBrandLogo => !Helpers.UrlSafety.IsSafeLink(Settings.LogoUrl);
+    public BrandLockup Brand => _brand ??= BrandLockup.From(Settings);
 
-    public string LogoDarkUrl => UsesBrandLogo ? BrandIdentity.LogoOnDark : LogoUrl;
+    public bool ShowBrandText(BrandPlace place) => place switch
+    {
+        BrandPlace.Header => Settings.BrandTextInHeader,
+        BrandPlace.Auth => Settings.BrandTextInAuth,
+        BrandPlace.Admin => Settings.BrandTextInAdmin,
+        BrandPlace.Invoice => Settings.BrandTextInInvoice,
+        _ => true,
+    };
 
+    public bool UsesBrandPwaIcon => !Helpers.UrlSafety.IsSafeLink(Settings.PwaIconUrl);
+
+    public string PwaIconUrl => Helpers.UrlSafety.Link(Settings.PwaIconUrl, BrandIdentity.AppIcon512);
+
+    public string LogoUrl => Brand.IconUrl;
+
+    public bool UsesBrandLogo => Brand.IsDefaultIcon;
+
+    public string LogoDarkUrl => Brand.IconDarkUrl;
+
+    // schema.org (Organization.logo): لوگوی افقی PNG برند، یا آیکون آپلودشدهٔ مدیر.
     public string LogoRasterUrl => UsesBrandLogo ? BrandIdentity.LogoPng : LogoUrl;
 
     public bool UsesBrandFavicon => !Helpers.UrlSafety.IsSafeLink(Settings.FaviconUrl);

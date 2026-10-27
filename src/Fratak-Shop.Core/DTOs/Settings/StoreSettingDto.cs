@@ -208,6 +208,37 @@ public class StoreSettingCommand
     public decimal TwoPersonWithdrawalThreshold { get; set; } = 5_000_000;
     public bool IsTwoPersonRoleChangeEnabled { get; set; } = true;
     public bool IsDataMaskingEnabled { get; set; }
+
+    // مرحلهٔ دهم: برند، سیاست قیمت تأمین‌کننده، پیشنهاد قیمت فروش (توضیح هر فیلد در StoreSetting).
+    public string? LogoDarkUrl { get; set; }
+    public string? PwaIconUrl { get; set; }
+    public string? BrandTextPrimary { get; set; }
+    public string? BrandTextAccent { get; set; }
+    public string? BrandTextColor { get; set; }
+    public string? BrandAccentColor { get; set; }
+    public bool BrandTextInHeader { get; set; }
+    public bool BrandTextInAuth { get; set; } = true;
+    public bool BrandTextInAdmin { get; set; } = true;
+    public bool BrandTextInInvoice { get; set; } = true;
+    public int SupplierPriceAutoMode { get; set; } = 1;
+    public int SupplierRepriceMode { get; set; } = 1;
+    public int SupplierRepriceMarkupPercent { get; set; } = 25;
+    public decimal SupplierRepriceMarkupAmount { get; set; }
+    public int SupplierRepriceMinMarginPercent { get; set; } = 5;
+    public decimal SupplierRepriceRounding { get; set; } = 1000;
+    public bool SupplierRepriceOnDecrease { get; set; }
+    public int SupplierRepriceMaxJumpPercent { get; set; } = 50;
+    public decimal PricingPackagingCost { get; set; }
+    public decimal PricingShippingCost { get; set; }
+    public decimal PricingGatewayFeePercent { get; set; } = 1;
+    public decimal PricingOtherCostPercent { get; set; }
+    public decimal PricingOtherCostAmount { get; set; }
+    public decimal PricingTaxPercent { get; set; }
+    public int PricingTargetMarginPercent { get; set; } = 30;
+    public int PricingMinMarginPercent { get; set; } = 8;
+    public decimal PricingUndercutPercent { get; set; } = 2;
+    public decimal PricingRounding { get; set; } = 1000;
+    public bool IsCompetitorPriceLookupEnabled { get; set; } = true;
 }
 
 /// <summary>Store settings as read by the storefront (cached).</summary>

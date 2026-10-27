@@ -80,6 +80,6 @@ html {
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
 
-/* ── لوگوی برند (Pages/Shared/_BrandLogo.cshtml) ─────────────────────────
-   نسخهٔ سفید لوگو فقط در حالت تیره دیده می‌شود (dark.css جای دو تصویر را عوض می‌کند). */
+/* ── لوگوی برند (Pages/Shared/_BrandLockup.cshtml) ───────────────────────
+   نسخهٔ سفید آیکون فقط در حالت تیره دیده می‌شود (dark.css جای دو تصویر را عوض می‌کند). */
 .brand-logo-dark { display: none; }

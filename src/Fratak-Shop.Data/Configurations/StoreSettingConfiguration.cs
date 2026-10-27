@@ -167,6 +167,37 @@ public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
         builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Team",
             "[ReauthMinutes] BETWEEN 5 AND 240 AND [TwoPersonWalletThreshold] >= 0 AND [TwoPersonWithdrawalThreshold] >= 0"));
 
+        // مرحلهٔ دهم: برند، سیاست قیمت تأمین‌کننده و پیشنهاد قیمت فروش.
+        builder.Property(s => s.BrandTextInAuth).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.BrandTextInAdmin).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.BrandTextInInvoice).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SupplierPriceAutoMode).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.SupplierRepriceMode).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.SupplierRepriceMarkupPercent).HasDefaultValue(25).HasSentinel(25);
+        builder.Property(s => s.SupplierRepriceMarkupAmount).HasPrecision(18, 0);
+        builder.Property(s => s.SupplierRepriceMinMarginPercent).HasDefaultValue(5).HasSentinel(5);
+        builder.Property(s => s.SupplierRepriceRounding).HasPrecision(18, 0).HasDefaultValue(1000m).HasSentinel(1000m);
+        builder.Property(s => s.SupplierRepriceMaxJumpPercent).HasDefaultValue(50).HasSentinel(50);
+        builder.Property(s => s.PricingPackagingCost).HasPrecision(18, 0);
+        builder.Property(s => s.PricingShippingCost).HasPrecision(18, 0);
+        builder.Property(s => s.PricingGatewayFeePercent).HasPrecision(5, 2).HasDefaultValue(1m).HasSentinel(1m);
+        builder.Property(s => s.PricingOtherCostPercent).HasPrecision(5, 2);
+        builder.Property(s => s.PricingOtherCostAmount).HasPrecision(18, 0);
+        builder.Property(s => s.PricingTaxPercent).HasPrecision(5, 2);
+        builder.Property(s => s.PricingTargetMarginPercent).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.PricingMinMarginPercent).HasDefaultValue(8).HasSentinel(8);
+        builder.Property(s => s.PricingUndercutPercent).HasPrecision(5, 2).HasDefaultValue(2m).HasSentinel(2m);
+        builder.Property(s => s.PricingRounding).HasPrecision(18, 0).HasDefaultValue(1000m).HasSentinel(1000m);
+        builder.Property(s => s.IsCompetitorPriceLookupEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Round10",
+            "[SupplierPriceAutoMode] BETWEEN 0 AND 2 AND [SupplierRepriceMode] BETWEEN 0 AND 5 " +
+            "AND [SupplierRepriceMarkupPercent] BETWEEN 0 AND 1000 AND [SupplierRepriceMarkupAmount] >= 0 " +
+            "AND [SupplierRepriceMinMarginPercent] BETWEEN 0 AND 500 AND [SupplierRepriceRounding] >= 0 AND [SupplierRepriceMaxJumpPercent] BETWEEN 0 AND 1000 " +
+            "AND [PricingPackagingCost] >= 0 AND [PricingShippingCost] >= 0 AND [PricingOtherCostAmount] >= 0 " +
+            "AND [PricingGatewayFeePercent] BETWEEN 0 AND 20 AND [PricingOtherCostPercent] BETWEEN 0 AND 50 AND [PricingTaxPercent] BETWEEN 0 AND 30 " +
+            "AND [PricingTargetMarginPercent] BETWEEN 0 AND 500 AND [PricingMinMarginPercent] BETWEEN 0 AND 500 " +
+            "AND [PricingUndercutPercent] BETWEEN 0 AND 30 AND [PricingRounding] >= 0"));
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_StoreSettings_Round6",
             "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));

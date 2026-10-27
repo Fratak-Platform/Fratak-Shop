@@ -211,6 +211,35 @@ public static class StoreSettingMapper
             TwoPersonWithdrawalThreshold = entity.TwoPersonWithdrawalThreshold,
             IsTwoPersonRoleChangeEnabled = entity.IsTwoPersonRoleChangeEnabled,
             IsDataMaskingEnabled = entity.IsDataMaskingEnabled,
+            LogoDarkUrl = entity.LogoDarkUrl,
+            PwaIconUrl = entity.PwaIconUrl,
+            BrandTextPrimary = entity.BrandTextPrimary,
+            BrandTextAccent = entity.BrandTextAccent,
+            BrandTextColor = entity.BrandTextColor,
+            BrandAccentColor = entity.BrandAccentColor,
+            BrandTextInHeader = entity.BrandTextInHeader,
+            BrandTextInAuth = entity.BrandTextInAuth,
+            BrandTextInAdmin = entity.BrandTextInAdmin,
+            BrandTextInInvoice = entity.BrandTextInInvoice,
+            SupplierPriceAutoMode = entity.SupplierPriceAutoMode,
+            SupplierRepriceMode = entity.SupplierRepriceMode,
+            SupplierRepriceMarkupPercent = entity.SupplierRepriceMarkupPercent,
+            SupplierRepriceMarkupAmount = entity.SupplierRepriceMarkupAmount,
+            SupplierRepriceMinMarginPercent = entity.SupplierRepriceMinMarginPercent,
+            SupplierRepriceRounding = entity.SupplierRepriceRounding,
+            SupplierRepriceOnDecrease = entity.SupplierRepriceOnDecrease,
+            SupplierRepriceMaxJumpPercent = entity.SupplierRepriceMaxJumpPercent,
+            PricingPackagingCost = entity.PricingPackagingCost,
+            PricingShippingCost = entity.PricingShippingCost,
+            PricingGatewayFeePercent = entity.PricingGatewayFeePercent,
+            PricingOtherCostPercent = entity.PricingOtherCostPercent,
+            PricingOtherCostAmount = entity.PricingOtherCostAmount,
+            PricingTaxPercent = entity.PricingTaxPercent,
+            PricingTargetMarginPercent = entity.PricingTargetMarginPercent,
+            PricingMinMarginPercent = entity.PricingMinMarginPercent,
+            PricingUndercutPercent = entity.PricingUndercutPercent,
+            PricingRounding = entity.PricingRounding,
+            IsCompetitorPriceLookupEnabled = entity.IsCompetitorPriceLookupEnabled,
         };
     }
 
@@ -416,5 +445,34 @@ public static class StoreSettingMapper
         entity.TwoPersonWithdrawalThreshold = command.TwoPersonWithdrawalThreshold;
         entity.IsTwoPersonRoleChangeEnabled = command.IsTwoPersonRoleChangeEnabled;
         entity.IsDataMaskingEnabled = command.IsDataMaskingEnabled;
+        entity.LogoDarkUrl = command.LogoDarkUrl;
+        entity.PwaIconUrl = command.PwaIconUrl;
+        entity.BrandTextPrimary = command.BrandTextPrimary;
+        entity.BrandTextAccent = command.BrandTextAccent;
+        entity.BrandTextColor = command.BrandTextColor;
+        entity.BrandAccentColor = command.BrandAccentColor;
+        entity.BrandTextInHeader = command.BrandTextInHeader;
+        entity.BrandTextInAuth = command.BrandTextInAuth;
+        entity.BrandTextInAdmin = command.BrandTextInAdmin;
+        entity.BrandTextInInvoice = command.BrandTextInInvoice;
+        entity.SupplierPriceAutoMode = command.SupplierPriceAutoMode;
+        entity.SupplierRepriceMode = command.SupplierRepriceMode;
+        entity.SupplierRepriceMarkupPercent = command.SupplierRepriceMarkupPercent;
+        entity.SupplierRepriceMarkupAmount = command.SupplierRepriceMarkupAmount;
+        entity.SupplierRepriceMinMarginPercent = command.SupplierRepriceMinMarginPercent;
+        entity.SupplierRepriceRounding = command.SupplierRepriceRounding;
+        entity.SupplierRepriceOnDecrease = command.SupplierRepriceOnDecrease;
+        entity.SupplierRepriceMaxJumpPercent = command.SupplierRepriceMaxJumpPercent;
+        entity.PricingPackagingCost = command.PricingPackagingCost;
+        entity.PricingShippingCost = command.PricingShippingCost;
+        entity.PricingGatewayFeePercent = command.PricingGatewayFeePercent;
+        entity.PricingOtherCostPercent = command.PricingOtherCostPercent;
+        entity.PricingOtherCostAmount = command.PricingOtherCostAmount;
+        entity.PricingTaxPercent = command.PricingTaxPercent;
+        entity.PricingTargetMarginPercent = command.PricingTargetMarginPercent;
+        entity.PricingMinMarginPercent = command.PricingMinMarginPercent;
+        entity.PricingUndercutPercent = command.PricingUndercutPercent;
+        entity.PricingRounding = command.PricingRounding;
+        entity.IsCompetitorPriceLookupEnabled = command.IsCompetitorPriceLookupEnabled;
     }
 }

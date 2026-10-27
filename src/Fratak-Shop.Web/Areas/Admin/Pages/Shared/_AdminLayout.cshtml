@@ -74,9 +74,9 @@
   <div class="a-shell">
     <aside class="a-sidebar" id="admin-sidebar" data-sidebar>
       <div class="a-sidebar-head">
-        <a href="/admin" class="a-brand">
-          <img class="a-brand-mark" src="@BrandIdentity.MarkOnDark" alt="" width="34" height="27">
-          <span>@Site.Settings.SiteName</span>
+        <a href="/admin" class="a-brand" aria-label="پنل مدیریت @Site.Settings.SiteName">
+          @* مرحلهٔ دهم: آیکون تیره + متن برند از تنظیمات (BrandTextInAdmin). *@
+          @await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Admin, 30) { OnDark = true })
         </a>
         <button type="button" class="a-icon-btn lg:hidden" data-sidebar-close aria-label="بستن منو">@Icons.Svg("Close", null, 20)</button>
       </div>

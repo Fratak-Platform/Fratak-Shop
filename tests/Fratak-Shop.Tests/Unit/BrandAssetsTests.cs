@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Fratak_Shop.Web.Infrastructure;
-using Fratak_Shop.Web.Models;
 
 namespace Fratak_Shop.Tests.Unit;
 
@@ -155,11 +154,22 @@ public class BrandAssetsTests
     }
 
     [Theory]
-    [InlineData(176, 55)]
-    [InlineData(144, 45)]
-    [InlineData(128, 40)]
-    public void Logo_partial_reserves_the_brand_aspect_ratio(int width, int height)
+    [InlineData(40, 50)]
+    [InlineData(44, 55)]
+    [InlineData(30, 37)]
+    public void Lockup_reserves_the_mark_aspect_ratio(int height, int width)
     {
-        Assert.Equal(height, new BrandLogoModel("w-44", width).Height);
+        Assert.Equal(width, new BrandLockupModel(BrandPlace.Header, height).IconWidth);
+    }
+
+    [Fact]
+    public void Default_pwa_icons_are_black_without_text()
+    {
+        // پیکسل وسط لبهٔ بالای آیکون maskable (زمینهٔ تمام‌صفحه) باید مشکی باشد؛ PNG فشرده است پس فقط هدر و اندازه بررسی
+        // می‌شود و رنگ از فایل منبع SVG که آیکون از آن ساخته شده.
+        var svg = File.ReadAllText(Path.Combine(RepoRoot, "Visual-Identities", "Fratak-Shop", "svg", "app-icon-black.svg"));
+        Assert.Contains($"fill=\"{BrandIdentity.AppIconBackground}\"", svg);
+        Assert.DoesNotContain("<text", svg);
+        Assert.Equal((512, 512), PngSize(BrandIdentity.AppIconMaskable512));
     }
 }
