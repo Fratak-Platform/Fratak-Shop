@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.DTOs.Admin;
+using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Utilities;
@@ -232,7 +233,8 @@ public class SupplierSyncService(
             context.SupplierSyncRuns.Add(run);
             await context.SaveChangesAsync(cancellationToken);
 
-            var policy = new SupplierSyncPolicy(current.SupplierAutoOutOfStock, current.SupplierStockMarginPercent, current.SupplierStockMaxQuantity);
+            var policy = new SupplierSyncPolicy(current.SupplierAutoOutOfStock, current.SupplierStockMarginPercent, current.SupplierStockMaxQuantity,
+                RepricePolicy(current));
             var delay = TimeSpan.FromMilliseconds(Math.Clamp(current.SupplierRequestDelayMs, 200, 30000));
             await ProcessAsync(run, policy, delay, cancellationToken);
 
@@ -367,6 +369,19 @@ public class SupplierSyncService(
         run.Message = candidates.Count >= MaxProducts ? $"فقط {MaxProducts:N0} محصول اول بررسی شد." : null;
     }
 
+    /// <summary>
+    /// سیاست قیمت‌گذاری دوباره از تنظیمات فروشگاه (تب «تأمین‌کننده»). مثال پیش‌فرض: افزایش‌ها خودکار، حفظ درصد سود، کف ۵٪.
+    /// </summary>
+    internal static SupplierRepricePolicy RepricePolicy(StoreSettingDto current) => new(
+        current.SupplierPriceAutoMode,
+        current.SupplierRepriceMode,
+        current.SupplierRepriceMarkupPercent,
+        current.SupplierRepriceMarkupAmount,
+        current.SupplierRepriceMinMarginPercent,
+        current.SupplierRepriceRounding,
+        current.SupplierRepriceOnDecrease,
+        current.SupplierRepriceMaxJumpPercent);
+
     /// <summary>اعمال نتیجهٔ یک دسته محصول و ذخیره.</summary>
     private async Task ApplyChunkAsync(
         SupplierSyncRun run,
@@ -416,9 +431,23 @@ public class SupplierSyncService(
                         break;
 
                     case SupplierDecisionAction.AutoApply:
-                        product.StockQuantity = (int)(decision.NewValue ?? 0);
-                        if (decision.Kind == SupplierChangeKind.OutOfStock)
-                            state.AutoOutOfStock = true;
+                        var note = decision.Note;
+                        if (decision.Kind == SupplierChangeKind.PriceChange)
+                        {
+                            // دور ۱۰: قیمت خرید تازه + قیمت فروش طبق سیاست تنظیمات (تاریخچهٔ قیمت را DbContext خودکار ثبت می‌کند).
+                            var newCost = decision.NewValue ?? 0;
+                            var priced = SupplierRepricing.Calculate(product.PurchasePrice, newCost, product.Price, product.DiscountPrice, policy.Reprice ?? SupplierRepricePolicy.Default);
+                            product.PurchasePrice = newCost;
+                            product.Price = priced.Price;
+                            product.DiscountPrice = priced.DiscountPrice;
+                            note = Clip(priced.Note, 480);
+                        }
+                        else
+                        {
+                            product.StockQuantity = (int)(decision.NewValue ?? 0);
+                            if (decision.Kind == SupplierChangeKind.OutOfStock)
+                                state.AutoOutOfStock = true;
+                        }
                         context.SupplierChanges.Add(new SupplierChange
                         {
                             ProductId = candidate.Id,
@@ -428,7 +457,7 @@ public class SupplierSyncService(
                             OldValue = decision.OldValue,
                             NewValue = decision.NewValue,
                             SourceStock = snapshot.Stock,
-                            Note = decision.Note,
+                            Note = note,
                             DecidedAt = now,
                             DecidedByName = SystemName,
                         });

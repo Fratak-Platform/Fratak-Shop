@@ -176,7 +176,13 @@
           <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Tag", null, 18) قیمت و موجودی</span></div>
           <div class="a-card-body a-form-grid">
             <div class="a-field">
-              <label class="a-label req" for="p-price">قیمت فروش (تومان)</label>
+              <div class="a-label-row">
+                <label class="a-label req" for="p-price">قیمت فروش (تومان)</label>
+                @if (Model.CanEditProduct)
+                {
+                  <button type="button" class="a-btn a-btn-sm a-btn-light" data-price-advisor-open>@Icons.Svg("Calculator", null, 14) پیشنهاد قیمت فروش</button>
+                }
+              </div>
               <input id="p-price" type="number" name="Input.Price" value="@(i.Price?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" required data-money>
             </div>
             <div class="a-field">
@@ -377,4 +383,67 @@ else
       </div>
     }
   </div>
+}
+
+@if (Model.CanEditProduct)
+{
+  @* دیالوگ «پیشنهاد قیمت فروش» (دور ۱۰). ورودی‌ها name ندارند تا با فرم محصول ارسال نشوند؛ price-advisor.js آن را می‌گرداند. *@
+  <div class="a-palette a-price-advisor" id="price-advisor" hidden data-url="@(HttpContext.Request.Path)?handler=SuggestPrice">
+    <div class="a-palette-backdrop" data-advisor-close></div>
+    <div class="a-palette-box a-price-advisor-box" role="dialog" aria-modal="true" aria-labelledby="price-advisor-title">
+      <div class="a-palette-head">
+        <b id="price-advisor-title" class="flex-1">@Icons.Svg("Calculator", null, 18) پیشنهاد قیمت فروش</b>
+        <button type="button" class="a-btn a-btn-sm a-btn-light" data-advisor-close>بستن</button>
+      </div>
+      <div class="a-price-advisor-body">
+        <div class="a-form-grid cols-2">
+          <div class="a-field">
+            <label class="a-label req" for="pa-cost">قیمت خرید (تومان)</label>
+            <input id="pa-cost" type="number" min="0" step="1" class="a-input a-ltr" data-money>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="pa-extra">هزینهٔ اضافهٔ همین کالا (تومان)</label>
+            <input id="pa-extra" type="number" min="0" step="1" value="0" class="a-input a-ltr" data-money>
+            <p class="a-help">فقط برای این محاسبه؛ ذخیره نمی‌شود. هزینه‌های عمومی (بسته‌بندی، ارسال، کارمزد درگاه، مالیات …) از <a class="a-link" href="/admin/settings?tab=pricing" target="_blank">تنظیمات</a> خودکار حساب می‌شوند.</p>
+          </div>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="pa-query">نام کالا برای جست‌وجو در سایت‌های دیگر</label>
+          <input id="pa-query" type="search" maxlength="120" class="a-input" placeholder="مثلاً هندزفری بلوتوثی هایلو T15">
+          <p class="a-help">ترب (همهٔ فروشگاه‌های آن کالا) و دیجی‌کالا جست‌وجو می‌شوند. نام دقیق با مدل، نتیجهٔ بهتری می‌دهد.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="a-btn a-btn-sm" data-advisor-run>جست‌وجو و محاسبه</button>
+          <button type="button" class="a-btn a-btn-sm a-btn-light" data-advisor-run="costs">فقط از روی هزینه‌ها</button>
+        </div>
+        <p class="a-muted text-sm" data-advisor-status aria-live="polite"></p>
+        <div data-advisor-result hidden>
+          <div class="a-price-advisor-summary">
+            <div><span>قیمت پیشنهادی</span><b data-advisor-field="suggested"></b></div>
+            <div><span>سود خالص هر عدد</span><b data-advisor-field="profit"></b></div>
+            <div><span>کل هزینه</span><b data-advisor-field="totalCost"></b></div>
+            <div><span>سربه‌سر</span><b data-advisor-field="breakEven"></b></div>
+            <div><span>کمترین قیمت مجاز</span><b data-advisor-field="minPrice"></b></div>
+            <div><span>قیمت با سود هدف</span><b data-advisor-field="targetPrice"></b></div>
+          </div>
+          <p class="a-alert a-alert-info text-sm" data-advisor-field="reason"></p>
+          <p class="a-muted text-xs" data-advisor-field="matched"></p>
+          <div class="a-table-wrap">
+            <table class="a-table">
+              <thead><tr><th>فروشگاه</th><th>قیمت (تومان)</th><th>منبع</th></tr></thead>
+              <tbody data-advisor-offers></tbody>
+            </table>
+          </div>
+          <ul class="a-muted text-xs" data-advisor-problems></ul>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button type="button" class="a-btn a-btn-success" data-advisor-apply>استفاده از این قیمت</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@section Scripts {
+  <script src="~/assets/js/price-advisor.js" asp-append-version="true"></script>
 }

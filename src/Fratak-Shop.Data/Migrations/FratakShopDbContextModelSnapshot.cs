@@ -6059,6 +6059,40 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("BrandAccentColor")
+                        .HasMaxLength(9)
+                        .HasColumnType("nvarchar(9)");
+
+                    b.Property<string>("BrandTextAccent")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("BrandTextColor")
+                        .HasMaxLength(9)
+                        .HasColumnType("nvarchar(9)");
+
+                    b.Property<bool>("BrandTextInAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("BrandTextInAuth")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("BrandTextInHeader")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("BrandTextInInvoice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("BrandTextPrimary")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<int>("CaptchaAfterFailedAttempts")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -6240,6 +6274,11 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsCommentVotingEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsCompetitorPriceLookupEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
@@ -6483,6 +6522,10 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(14);
 
+                    b.Property<string>("LogoDarkUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("LogoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -6610,10 +6653,62 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(90);
 
+                    b.Property<decimal>("PricingGatewayFeePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(1m);
+
+                    b.Property<int>("PricingMinMarginPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(8);
+
+                    b.Property<decimal>("PricingOtherCostAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal>("PricingOtherCostPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("PricingPackagingCost")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<decimal>("PricingRounding")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)")
+                        .HasDefaultValue(1000m);
+
+                    b.Property<decimal>("PricingShippingCost")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<int>("PricingTargetMarginPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30);
+
+                    b.Property<decimal>("PricingTaxPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("PricingUndercutPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)")
+                        .HasDefaultValue(2m);
+
                     b.Property<int>("ProductAlertMaxPerUser")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(50);
+
+                    b.Property<string>("PwaIconUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("PwaInstallPromptAfterPages")
                         .ValueGeneratedOnAdd()
@@ -6763,6 +6858,44 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<int>("SupplierPriceAutoMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<decimal>("SupplierRepriceMarkupAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<int>("SupplierRepriceMarkupPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(25);
+
+                    b.Property<int>("SupplierRepriceMaxJumpPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(50);
+
+                    b.Property<int>("SupplierRepriceMinMarginPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(5);
+
+                    b.Property<int>("SupplierRepriceMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<bool>("SupplierRepriceOnDecrease")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("SupplierRepriceRounding")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)")
+                        .HasDefaultValue(1000m);
+
                     b.Property<int>("SupplierRequestDelayMs")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -6910,6 +7043,8 @@ namespace Fratak_Shop.Data.Migrations
                             t.HasCheckConstraint("CK_StoreSettings_Ops", "[BackupRunsPerDay] BETWEEN 1 AND 4 AND [BackupStartHour] BETWEEN 0 AND 23 AND [BackupKeepCount] BETWEEN 1 AND 60 AND [MaintenanceRetryMinutes] BETWEEN 5 AND 1440 AND [IpAutoBlockThreshold] BETWEEN 5 AND 1000 AND [IpAutoBlockHours] BETWEEN 1 AND 720 AND [LogFileRetentionDays] BETWEEN 1 AND 180");
 
                             t.HasCheckConstraint("CK_StoreSettings_PostTracking", "[PostTrackingRunsPerDay] BETWEEN 1 AND 12 AND [PostTrackingMaxDays] BETWEEN 3 AND 120");
+
+                            t.HasCheckConstraint("CK_StoreSettings_Round10", "[SupplierPriceAutoMode] BETWEEN 0 AND 2 AND [SupplierRepriceMode] BETWEEN 0 AND 5 AND [SupplierRepriceMarkupPercent] BETWEEN 0 AND 1000 AND [SupplierRepriceMarkupAmount] >= 0 AND [SupplierRepriceMinMarginPercent] BETWEEN 0 AND 500 AND [SupplierRepriceRounding] >= 0 AND [SupplierRepriceMaxJumpPercent] BETWEEN 0 AND 1000 AND [PricingPackagingCost] >= 0 AND [PricingShippingCost] >= 0 AND [PricingOtherCostAmount] >= 0 AND [PricingGatewayFeePercent] BETWEEN 0 AND 20 AND [PricingOtherCostPercent] BETWEEN 0 AND 50 AND [PricingTaxPercent] BETWEEN 0 AND 30 AND [PricingTargetMarginPercent] BETWEEN 0 AND 500 AND [PricingMinMarginPercent] BETWEEN 0 AND 500 AND [PricingUndercutPercent] BETWEEN 0 AND 30 AND [PricingRounding] >= 0");
 
                             t.HasCheckConstraint("CK_StoreSettings_Round4", "[WalletMaxWithdrawalAmount] >= 0 AND [WalletMaxPendingWithdrawals] > 0 AND [AbandonedCartAfterMinutes] > 0 AND [AbandonedCartMinAmount] >= 0 AND [AbandonedCartExpireDays] > 0 AND [ReviewMaxImages] >= 0 AND [ReviewMaxImages] <= 10 AND [ReviewMaxImageSizeKb] > 0 AND [PwaInstallPromptAfterPages] >= 0 AND [PwaInstallPromptSnoozeDays] >= 0");
 

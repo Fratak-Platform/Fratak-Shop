@@ -68,8 +68,91 @@ public class SupplierSyncIntegrationTests(SqlServerFixture db)
         return id;
     }
 
+    /// <summary>
+    /// تنظیم موقت سیاست قیمت (دور ۱۰) و برگرداندن مقدار قبلی در finally (تنظیمات یک ردیف مشترک بین تست‌هاست).
+    /// </summary>
+    private async Task WithRepriceAsync(int autoMode, int mode, Func<Task> body)
+    {
+        int oldAuto, oldMode;
+        await using (var scope = db.Scope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+            var entity = await context.StoreSettings.AsTracking().FirstAsync();
+            (oldAuto, oldMode) = (entity.SupplierPriceAutoMode, entity.SupplierRepriceMode);
+            entity.SupplierPriceAutoMode = autoMode;
+            entity.SupplierRepriceMode = mode;
+            await context.SaveChangesAsync();
+        }
+        try
+        {
+            await body();
+        }
+        finally
+        {
+            await using var scope = db.Scope();
+            var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+            var entity = await context.StoreSettings.AsTracking().FirstAsync();
+            entity.SupplierPriceAutoMode = oldAuto;
+            entity.SupplierRepriceMode = oldMode;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// دور ۱۰: افزایش قیمت خرید با حالت «خودکار» بدون تأیید اعمال می‌شود و قیمت فروش طبق «حفظ درصد سود» بالا می‌رود
+    /// (۴۰۰/۵۰۰ هزار ← خرید ۴۱۵ = فروش ۵۱۸٬۷۵۰ ← گرد به ۵۱۹٬۰۰۰)؛ افزایش بیش از سقف ۵۰٪ کالا را ناموجود و منتظر تأیید می‌کند.
+    /// </summary>
     [SqlFact]
-    public async Task FullCycle_AutoOutOfStock_Proposals_Approve_Reject()
+    public async Task AutoReprice_KeepsMargin_And_PausesHugeJumps() => await WithRepriceAsync(1, 1, async () =>
+    {
+        var run = Guid.NewGuid().ToString("N")[..8];
+        Guid supplierId;
+        await using (var scope = db.Scope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+            var supplier = new Supplier { Name = "تأمین‌کنندهٔ قیمت " + run, SyncMode = SupplierSyncMode.WooCommerce };
+            context.Suppliers.Add(supplier);
+            await context.SaveChangesAsync();
+            supplierId = supplier.Id;
+        }
+
+        var upKey = "up-" + run;
+        var jumpKey = "jump-" + run;
+        var upId = await PrepareAsync(upKey, stock: 5, price: 500_000, purchase: 400_000, supplierId);
+        var jumpId = await PrepareAsync(jumpKey, stock: 5, price: 500_000, purchase: 400_000, supplierId);
+        var store = new FakeStore();
+        var external = Random.Shared.NextInt64(1_000_000, 9_000_000);
+        store.BySlug[upKey] = (external, Item(external, true, 415_000, 50));
+        store.BySlug[jumpKey] = (external + 1, Item(external + 1, true, 700_000, 50));
+
+        await using (var scope = db.Scope())
+            await Service(scope, store).RunAsync(SupplierSyncTrigger.Manual, "تست", CancellationToken.None);
+
+        await using (var scope = db.Scope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+            var up = await context.Products.SingleAsync(p => p.Id == upId);
+            Assert.Equal(415_000m, up.PurchasePrice);
+            Assert.Equal(519_000m, up.Price);
+            Assert.Equal(5, up.StockQuantity);
+            var auto = await context.SupplierChanges.SingleAsync(c => c.ProductId == upId && c.Kind == SupplierChangeKind.PriceChange);
+            Assert.Equal(SupplierChangeStatus.AutoApplied, auto.Status);
+            Assert.Contains(519_000m.ToString("N0"), auto.Note);
+
+            var jump = await context.Products.SingleAsync(p => p.Id == jumpId);
+            Assert.Equal(400_000m, jump.PurchasePrice); // تغییر قیمت منتظر تأیید است
+            Assert.Equal(500_000m, jump.Price);
+            Assert.Equal(0, jump.StockQuantity);        // تا بررسی، با قیمت قدیم (ضرر) فروخته نمی‌شود
+            Assert.True(await context.SupplierChanges.AnyAsync(c => c.ProductId == jumpId && c.Kind == SupplierChangeKind.PriceChange && c.Status == SupplierChangeStatus.Pending));
+            Assert.True(await context.SupplierChanges.AnyAsync(c => c.ProductId == jumpId && c.Kind == SupplierChangeKind.OutOfStock && c.Status == SupplierChangeStatus.AutoApplied));
+            Assert.False(await context.SupplierChanges.AnyAsync(c => c.ProductId == jumpId && c.Kind == SupplierChangeKind.StockIncrease && c.Status == SupplierChangeStatus.Pending));
+        }
+    });
+
+    [SqlFact]
+    public async Task FullCycle_AutoOutOfStock_Proposals_Approve_Reject() => await WithRepriceAsync(0, 1, FullCycleAsync);
+
+    private async Task FullCycleAsync()
     {
         var run = Guid.NewGuid().ToString("N")[..8];
         Guid supplierId;

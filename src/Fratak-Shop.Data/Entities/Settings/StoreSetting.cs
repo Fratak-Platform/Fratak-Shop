@@ -799,7 +799,7 @@ public class StoreSetting : BaseEntity
 
     // ════════════════════════════════════════════════════════════════════
     //  مرحلهٔ دهم – «پیشنهاد قیمت فروش» در فرم محصول
-    //  موتور: Core/Services/Pricing/PriceAdvisor.cs؛ قیمت رقبا: Web/Infrastructure/Pricing/CompetitorPriceSource.cs.
+    //  موتور: Core/Services/Pricing/PriceAdvisor.cs؛ قیمت رقبا: Core/Services/Pricing/CompetitorPrices.cs.
     //  همهٔ هزینه‌ها برای هر عدد کالا حساب می‌شوند، چه روی محصول ثبت شده باشند چه نه.
     // ════════════════════════════════════════════════════════════════════
 

@@ -71,7 +71,9 @@ public sealed class ProductInput
 [RequestSizeLimit(42 * 1024 * 1024)]
 public class EditModel(IProductService products, IAdminDataService data, IUploadStore uploads,
     IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence, ISupplierSyncService supplierSync,
-    IInventoryService inventory, IProductCloneService cloner) : AdminPageModel
+    IInventoryService inventory, IProductCloneService cloner,
+    Fratak_Shop.Core.Services.Pricing.ICompetitorPriceService competitorPrices,
+    Fratak_Shop.Core.Services.Settings.IStoreSettingService storeSettings) : AdminPageModel
 {
     private const int MaxImages = 12;
 
@@ -322,6 +324,76 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         product.Seo = Input.Seo.ApplyToCopy(product.Seo);
         ShowResult(await data.UpdateAsync(product));
         return Redirect($"/admin/products/edit/{id}#seo");
+    }
+
+    /// <summary>
+    /// دکمهٔ «پیشنهاد قیمت فروش» (دور ۱۰): قیمت خرید + همهٔ هزینه‌های تنظیمات + هزینهٔ اضافهٔ همین کالا، و قیمت همان کالا
+    /// در سایت‌های دیگر (ترب و دیجی‌کالا، رایگان) ← قیمت کمی ارزان‌تر از رقبا با سود مناسب.
+    /// <para>چیزی ذخیره نمی‌شود (فقط محاسبه)؛ کارمند با «استفاده از این قیمت» عدد را در فرم می‌گذارد و خودش ذخیره می‌کند.
+    /// POST است چون به اینترنت درخواست می‌فرستد و باید توکن ضد جعل داشته باشد.</para>
+    /// <para>مثال پاسخ: { ok, suggested: 264000, profit: 161360, offers: [{ shop: "دیجی‌کالا", price: 300000 }, …] }.</para>
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostSuggestPriceAsync(decimal purchase, decimal extra, string? query, bool lookup = true)
+    {
+        if (purchase <= 0 || purchase > 100_000_000_000m)
+            return new JsonResult(new { ok = false, message = "قیمت خرید را وارد کنید (عددی بزرگ‌تر از صفر)." });
+        if (extra is < 0 or > 100_000_000_000m)
+            return new JsonResult(new { ok = false, message = "هزینهٔ اضافه نامعتبر است." });
+
+        var settings = await storeSettings.GetAsync(HttpContext.RequestAborted);
+        var problems = new List<string>();
+        string? matched = null;
+        IReadOnlyList<Fratak_Shop.Core.Services.Pricing.CompetitorOffer> found = [];
+        query = query?.Trim();
+        if (!settings.IsCompetitorPriceLookupEnabled)
+            problems.Add("جست‌وجوی قیمت رقبا در تنظیمات خاموش است؛ فقط از روی هزینه‌ها محاسبه شد.");
+        else if (lookup && !string.IsNullOrEmpty(query))
+        {
+            var result = await competitorPrices.SearchAsync(query, HttpContext.RequestAborted);
+            found = result.Offers;
+            matched = result.MatchedTitle;
+            problems.AddRange(result.Problems);
+        }
+
+        var costs = Fratak_Shop.Core.Services.Pricing.PricingCosts.From(settings);
+        var s = Fratak_Shop.Core.Services.Pricing.PriceAdvisor.Suggest(purchase, extra, costs, found);
+        object Offer(Fratak_Shop.Core.Services.Pricing.CompetitorOffer o) => new
+        {
+            shop = o.Shop,
+            price = o.Price,
+            source = o.Source,
+            url = global::Fratak_Shop.Web.Helpers.UrlSafety.IsHttpUrl(o.Url) ? o.Url : null,
+            title = o.Title,
+        };
+        return new JsonResult(new
+        {
+            ok = true,
+            totalCost = s.TotalCost,
+            breakEven = s.BreakEven,
+            minPrice = s.MinPrice,
+            targetPrice = s.TargetPrice,
+            suggested = s.Suggested,
+            profit = s.Profit,
+            profitPercent = s.ProfitPercent,
+            strategy = s.Strategy,
+            reason = s.Reason,
+            lowest = s.Lowest,
+            median = s.Median,
+            matched,
+            offers = s.Offers.Select(Offer),
+            ignored = s.Ignored.Select(Offer),
+            problems,
+            costs = new
+            {
+                packaging = costs.PackagingCost,
+                shipping = costs.ShippingCost,
+                other = costs.OtherCostAmount,
+                percent = costs.PercentOfSale,
+                target = costs.TargetMarginPercent,
+                min = costs.MinMarginPercent,
+            },
+        });
     }
 
     /// <summary>بازگردانی یک ویرایش محصول از تاریخچه (AuditHistoryService).</summary>

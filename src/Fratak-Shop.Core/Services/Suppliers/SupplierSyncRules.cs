@@ -7,7 +7,8 @@ namespace Fratak_Shop.Core.Services.Suppliers;
 /// <param name="AutoOutOfStock">ناموجودی منبع خودکار به فروشگاه اعمال شود.</param>
 /// <param name="MarginPercent">موجودی پیشنهادی چند درصد کمتر از منبع باشد.</param>
 /// <param name="MaxQuantity">سقف موجودی پیشنهادی.</param>
-public sealed record SupplierSyncPolicy(bool AutoOutOfStock, int MarginPercent, int MaxQuantity)
+/// <param name="Reprice">سیاست تغییر خودکار قیمت (دور ۱۰)؛ null یعنی مثل قبل همهٔ تغییر قیمت‌ها منتظر تأیید کارمند می‌مانند.</param>
+public sealed record SupplierSyncPolicy(bool AutoOutOfStock, int MarginPercent, int MaxQuantity, SupplierRepricePolicy? Reprice = null)
 {
     public static SupplierSyncPolicy Default { get; } = new(true, 20, 10);
 }
@@ -39,8 +40,9 @@ public sealed record SupplierDecision(SupplierChangeKind Kind, SupplierDecisionA
 
 /// <summary>
 /// قوانین خالص مقایسهٔ منبع با فروشگاه (بدون دیتابیس، کاملاً تست‌پذیر).
-/// <para>اصل ایمنی: فقط کارهایی خودکار انجام می‌شوند که جلوی «فروش کالای ناموجود» را بگیرند (صفر یا کم کردن موجودی).
-/// افزایش موجودی و تغییر قیمت همیشه با تأیید کارمند است.</para>
+/// <para>اصل ایمنی: فقط کارهایی خودکار انجام می‌شوند که جلوی «فروش کالای ناموجود» یا «فروش با ضرر» را بگیرند
+/// (صفر یا کم کردن موجودی، و از دور ۱۰ بالا بردن قیمت طبق <see cref="SupplierRepricePolicy"/>).
+/// افزایش موجودی همیشه با تأیید کارمند است.</para>
 /// </summary>
 public static class SupplierSyncRules
 {
@@ -145,11 +147,49 @@ public static class SupplierSyncRules
 
         // قیمت (هم برای موجود و هم ناموجود، اگر سایت اعلام کرده باشد).
         if (snapshot.Price is > 0 && snapshot.Price != ours.PurchasePrice)
-            decisions.Add(new(SupplierChangeKind.PriceChange, SupplierDecisionAction.Propose, ours.PurchasePrice, snapshot.Price));
+            AddPriceDecision(decisions, snapshot.Price.Value, ours, policy.Reprice);
         else if (snapshot.Price is > 0)
             decisions.Add(new(SupplierChangeKind.PriceChange, SupplierDecisionAction.Supersede));
 
         return decisions;
+    }
+
+    /// <summary>
+    /// تصمیم تغییر قیمت خرید (دور ۱۰، سیاست قیمت‌گذاری دوباره).
+    /// <list type="bullet">
+    /// <item>سیاست خاموش یا قیمت قبلی نامعلوم ← پیشنهاد برای تأیید (مثل قبل).</item>
+    /// <item>افزایش در حد مجاز (مثلاً ۴۰۰→۴۱۵ هزار) ← AutoApply؛ سرویس قیمت فروش را با <see cref="SupplierRepricing"/> بالا می‌برد.</item>
+    /// <item>افزایش بیش از سقف (مثلاً ۴۰۰→۷۰۰ هزار با سقف ۵۰٪) ← کالا خودکار ناموجود می‌شود (تا با قیمت قدیم و ضرر فروخته نشود)
+    /// و تغییر قیمت برای بررسی کارمند پیشنهاد می‌شود. پیشنهادهای افزایش موجودی هم کنار می‌روند.</item>
+    /// </list>
+    /// </summary>
+    private static void AddPriceDecision(List<SupplierDecision> decisions, decimal newCost, SupplierProductView ours, SupplierRepricePolicy? reprice)
+    {
+        var oldCost = ours.PurchasePrice;
+        if (reprice is null || !reprice.IsAutomatic(oldCost, newCost))
+        {
+            decisions.Add(new(SupplierChangeKind.PriceChange, SupplierDecisionAction.Propose, oldCost, newCost));
+            return;
+        }
+
+        if (reprice.ExceedsJump(oldCost, newCost))
+        {
+            var jump = (newCost - oldCost!.Value) * 100 / oldCost.Value;
+            var note = $"افزایش {jump:0.#}٪ بیش از سقف {reprice.MaxJumpPercent}٪ است؛ کالا تا بررسی شما موقتاً ناموجود شد.";
+            decisions.Add(new(SupplierChangeKind.PriceChange, SupplierDecisionAction.Propose, oldCost, newCost, note));
+            // تصمیم‌های موجودی قبلی با «ناموجود» جایگزین می‌شوند (هر نوع فقط یک تصمیم دارد) و پیشنهاد «دوباره موجود شد/افزایش»
+            // کنار می‌رود تا کسی اشتباهی کالا را با قیمت قدیم دوباره موجود نکند.
+            decisions.RemoveAll(d => IsStockKind(d.Kind));
+            decisions.Add(ours.Stock > 0
+                ? new(SupplierChangeKind.OutOfStock, SupplierDecisionAction.AutoApply, ours.Stock, 0, note)
+                : new(SupplierChangeKind.OutOfStock, SupplierDecisionAction.Supersede));
+            decisions.Add(new(SupplierChangeKind.BackInStock, SupplierDecisionAction.Supersede));
+            decisions.Add(new(SupplierChangeKind.StockIncrease, SupplierDecisionAction.Supersede));
+            decisions.Add(new(SupplierChangeKind.StockDecrease, SupplierDecisionAction.Supersede));
+            return;
+        }
+
+        decisions.Add(new(SupplierChangeKind.PriceChange, SupplierDecisionAction.AutoApply, oldCost, newCost));
     }
 
     /// <summary>عنوان فارسی نوع تغییر.</summary>
