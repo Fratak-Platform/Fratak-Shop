@@ -66,6 +66,8 @@ public sealed class SmsIrClient(HttpClient http)
 
     private async Task<SmsIrResponse> SendAsync(HttpMethod method, string path, string apiKey, object? body, CancellationToken cancellationToken)
     {
+        // درخواستی که کاربرش رفته (مثلاً صفحه بسته شد) اصلاً فرستاده نمی‌شود؛ لغو به فراخواننده می‌رسد، نه «خطای سرویس».
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             using var request = new HttpRequestMessage(method, path);

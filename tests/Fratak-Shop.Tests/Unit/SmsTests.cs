@@ -35,6 +35,7 @@ public class SmsTests
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested(); // مثل handler واقعی
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             var key = request.Headers.TryGetValues("x-api-key", out var values) ? values.Single() : null;
             lock (Requests)
@@ -192,6 +193,7 @@ public class SmsTests
         cts.Cancel();
         var api = new FakeSmsIr();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new SmsIrClient(new Factory(api).CreateClient("x")).CreditAsync(Key, cts.Token));
+        Assert.Empty(api.Requests); // چیزی به SMS.ir نرفت
     }
 
     // ───────────── ConfigurableSmsSender ─────────────
