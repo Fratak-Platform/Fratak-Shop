@@ -269,6 +269,19 @@ public sealed class SeoSiteIndex
     /// <summary>آدرس‌های موجود هر نوع صفحه (برای یکتا بودن نامک پیشنهادی). کلید: «/product/slug».</summary>
     public HashSet<string> Paths { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// حافظهٔ الگوهای جمله در کل سایت (مرحلهٔ یازدهم). نویسنده با آن الگوهای پرتکرار را کنار می‌گذارد تا صفحه‌های
+    /// مشابه متن قالبی یکسان نگیرند.
+    /// </summary>
+    public PhraseUsage Usage { get; } = new();
+
+    /// <summary>آمار مشخصات محصولات هر دسته (کلید: نامک دسته یا نام آن).</summary>
+    public Dictionary<string, CategoryProfile> Categories { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>آمار یک دسته. null = دسته‌ای با این کلید ثبت نشده.</summary>
+    public CategoryProfile? Category(string? key) =>
+        !string.IsNullOrWhiteSpace(key) && Categories.TryGetValue(key, out var profile) ? profile : null;
+
     public static SeoSiteIndex Build(IEnumerable<SeoSubject> subjects)
     {
         var index = new SeoSiteIndex();
@@ -286,6 +299,18 @@ public sealed class SeoSiteIndex
         var text = PersianText.HtmlToText(subject.BodyHtml);
         if (PersianText.WordCount(text) >= 60)
             BodyFingerprints[subject.EntityId] = TextModels.SimHash(text);
+
+        // الگوهای جمله‌های این صفحه (عنوان، توضیحات، متن، پرسش‌وپاسخ) برای سنجش «قالبی بودن».
+        var faq = subject.Faq.Select(f => f.Question + "\n" + f.Answer);
+        Usage.Register(subject.EntityId, subject.Kind,
+            new[] { subject.EffectiveTitle, subject.EffectiveDescription, text }.Concat(faq), PhraseUsage.TermsOf(subject));
+
+        if (subject.Product is { } product && (product.CategorySlug ?? product.CategoryName) is { Length: > 0 } category)
+        {
+            if (!Categories.TryGetValue(category, out var profile))
+                Categories[category] = profile = new CategoryProfile();
+            profile.Add(subject.EntityId, product.Features);
+        }
     }
 
     /// <summary>بعد از اعمال یک پیشنهاد، مقدارهای قدیمی صفحه را بردار و جدیدها را بگذار.</summary>
@@ -296,6 +321,9 @@ public sealed class SeoSiteIndex
         RemoveFrom(FocusKeywords, PersianText.Normalize(before.FocusKeyword), before.EntityId);
         Paths.Remove(before.Path);
         BodyFingerprints.Remove(before.EntityId);
+        Usage.Unregister(before.EntityId);
+        if (Category(before.Product?.CategorySlug ?? before.Product?.CategoryName) is { } profile)
+            profile.Remove(before.EntityId);
         Add(after);
     }
 

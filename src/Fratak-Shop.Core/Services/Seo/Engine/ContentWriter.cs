@@ -15,6 +15,9 @@ namespace Fratak_Shop.Core.Services.Seo.Engine;
 //      آموزش دیده، و سبک درخواستی کارشناس (کوتاه‌تر/بلندتر/کمتر تبلیغاتی).
 //   ۳) برای هر «نسخه» (Variant) یک دانهٔ تصادفی ثابت استفاده می‌شود؛ وقتی کارشناس پیشنهاد را رد می‌کند، نسخهٔ بعدی
 //      متن متفاوتی می‌سازد و متن‌های ردشده هرگز دوباره پیشنهاد نمی‌شوند.
+//   ۴) تنوع (مرحلهٔ یازدهم): الگوهایی که در صفحه‌های هم‌نوع زیاد استفاده شده‌اند امتیاز منفی می‌گیرند (PhraseUsage)،
+//      متن روی تفاوت‌های واقعی محصول (SpecKnowledge و CategoryProfile) تمرکز می‌کند و نگارش متن/پرسش‌وپاسخ در
+//      ContentWriter.Compose.cs انجام می‌شود.
 //  قانون‌های محتوا (برای جلوگیری از جریمه و ادعای نادرست):
 //   • فقط واقعیت‌های موجود در داده نوشته می‌شود؛ هیچ ادعای «اصل»، «بهترین»، «ارزان‌ترین» یا موجودی/قیمت دقیق.
 //   • متن فقط برای صفحهٔ کم‌محتوا (زیر ۱۵۰ واژه) نوشته می‌شود و متن فعلی همیشه اول و دست‌نخورده می‌ماند.
@@ -60,6 +63,82 @@ public sealed class WriterContext
     /// </summary>
     public string Lead => Keyword.Length == 0 || KeywordMatcher.Contains(ShortName, Keyword) ? ShortName : Keyword;
 
+    private IReadOnlyList<string>? _terms;
+    private List<SpecFact>? _facts;
+    private List<SpecFact>? _distinctive;
+
+    /// <summary>عبارت‌های خاص این صفحه که در «اسکلت» جمله‌ها حذف می‌شوند (نام، برند، مدل …).</summary>
+    public IReadOnlyList<string> Terms => _terms ??= PhraseUsage.TermsOf(Subject, Keyword);
+
+    /// <summary>
+    /// «قالبی بودن» متن نسبت به صفحه‌های هم‌نوع دیگر سایت (۰ تا ۱). بدون نمای سایت → ۰.
+    /// مثال: اگر عنوان «قیمت و خرید …» در ۸۰٪ محصولات استفاده شده باشد، حدود ۰٫۸.
+    /// </summary>
+    public double Commonness(string text) => Site?.Usage.Commonness(Subject.Kind, text, Terms, Subject.EntityId) ?? 0;
+
+    /// <summary>آمار مشخصات دستهٔ این محصول در فروشگاه (برای مقایسه و ویژگی‌های کمیاب). null = نامعلوم.</summary>
+    public CategoryProfile? Profile => Site?.Category(Subject.Product?.CategorySlug ?? Subject.Product?.CategoryName);
+
+    /// <summary>واژهٔ نوع کالا با املای نمایشی. مثال: «هدفون بی‌سیم هایلو …» → «هدفون».</summary>
+    public string? TypeWord => Subject.Kind == SeoEntityKind.Product
+        ? ShortName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(w => PersianText.PersianRatio(w) == 1 && !PersianText.IsStopWord(PersianText.Normalize(w)))
+        : null;
+
+    /// <summary>
+    /// بخش مدل نام (واژه‌های لاتین/عددی پشت سر هم با املای اصلی). مثال: «… شیائومی مدل Redmi Buds 4» → «Redmi Buds 4».
+    /// </summary>
+    public string? ModelName
+    {
+        get
+        {
+            var words = ShortName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var model = new List<string>();
+            foreach (var word in words)
+            {
+                var latin = PersianText.PersianRatio(word) == 0 && word.Any(char.IsLetterOrDigit);
+                if (latin) model.Add(word);
+                else if (model.Count > 0) break;
+            }
+            var text = string.Join(' ', model);
+            return text.Length is >= 2 and <= 30 ? text : null;
+        }
+    }
+
+    /// <summary>مشخصات قابل استفادهٔ محصول (بدون «ندارد» و تکراری)، حداکثر ۱۰ تا.</summary>
+    public IReadOnlyList<SpecFact> Facts => _facts ??= (Subject.Product?.Features ?? [])
+        .Select(SpecKnowledge.Read).OfType<SpecFact>()
+        .DistinctBy(f => f.NormalizedKey, StringComparer.Ordinal)
+        .Take(10).ToList();
+
+    /// <summary>
+    /// مشخصات به ترتیب «ارزش برجسته کردن» = تمایز × اهمیت موضوع (برای عنوان، معرفی و توضیحات متا).
+    /// تمایز: قابلیت «دارد» = سهم هم‌دسته‌هایی که ندارند؛ عدد جهت‌دار = چقدر از میانگین دسته بهتر است؛
+    /// بقیه = کمیاب بودن مقدار (حداکثر ۰٫۶). بدون آمار دسته، همه ۰٫۵ (فقط اهمیت موضوع و ترتیب اصلی مهم است).
+    /// مثال: در دسته‌ای که فقط ۲ از ۱۰ هدفون حذف نویز دارند، «حذف نویز» جلوتر از «بلوتوث 5.1» می‌آید.
+    /// </summary>
+    public IReadOnlyList<SpecFact> Distinctive => _distinctive ??= Facts
+        .Select((f, i) => (Fact: f, Index: i, Value: Distinctness(f) * (1 + SpecKnowledge.Weight(f.Topic))))
+        .OrderByDescending(x => Math.Round(x.Value, 2))
+        .ThenBy(x => x.Index)
+        .Select(x => x.Fact).ToList();
+
+    private double Distinctness(SpecFact fact)
+    {
+        var profile = Profile;
+        if (profile is null || profile.Count < 3)
+            return 0.5;
+        if (fact.IsYes)
+            return 1 - profile.Share(Subject.EntityId, fact.Key, fact.Value);
+        if (fact.Direction != 0 && fact.Number is > 0)
+            return profile.Average(Subject.EntityId, fact.Key) is { Average: > 0 } average
+                ? Math.Clamp((fact.Number.Value / average.Average - 1) * fact.Direction * 2, 0, 1)
+                : 0.3;
+        return Math.Min(0.6, 1 - profile.Share(Subject.EntityId, fact.Key, fact.Value));
+    }
+
+    /// <summary>عبارت‌های برجستهٔ محصول برای عنوان/متا (حداکثر ۳). مثال: «حذف نویز فعال»، «40 ساعت شارژدهی».</summary>
+    public IReadOnlyList<string> Highlights => Distinctive.Select(SpecKnowledge.Highlight).OfType<string>().Take(3).ToList();
+
     /// <summary>عبارت روان‌تر طبق مدل زبانی (۰ تا ۱).</summary>
     public double Fluency(string text)
     {
@@ -69,11 +148,11 @@ public sealed class WriterContext
     }
 
     /// <summary>نویز کوچک ثابت برای شکستن تساوی و تنوع بین نسخه‌ها.</summary>
-    public double Noise() => (Random.NextDouble() - 0.5) * (Variant == 0 ? 0.05 : 0.6);
+    public double Noise() => (Random.NextDouble() - 0.5) * (Variant == 0 ? 0.25 : 0.6);
 }
 
 /// <summary>نویسندهٔ متن‌های سئو.</summary>
-public static class ContentWriter
+public static partial class ContentWriter
 {
     // ── عنوان ───────────────────────────────────────────────────────────
 
@@ -108,6 +187,14 @@ public static class ContentWriter
                     {
                         options.Add($"خرید {l} با {warranty}");
                         options.Add($"{l} با {warranty}");
+                    }
+                    // عنوان‌های «متمایزکننده» با برجسته‌ترین ویژگی واقعی محصول (هم یکتاتر، هم نرخ کلیک بهتر).
+                    foreach (var highlight in ctx.Highlights.Take(2))
+                    {
+                        options.Add($"{l} با {highlight}");
+                        options.Add($"{l}؛ {highlight}");
+                        options.Add($"خرید {l} با {highlight}");
+                        options.Add($"{l}، {highlight} | مشخصات و قیمت");
                     }
                 }
                 options.Add(name);
@@ -189,6 +276,8 @@ public static class ContentWriter
 
         if (ctx.Site is not null && SeoSiteIndex.Others(ctx.Site.Titles, title, ctx.Subject.EntityId) > 0)
             score -= 5;
+        // الگوی عنوانی که صفحه‌های هم‌نوع زیاد دارند («قیمت و خرید …» روی همهٔ محصولات) امتیاز کمتری می‌گیرد.
+        score -= 2.5 * ctx.Commonness(title);
 
         score += TermBonus(title, ctx.Insight?.TitleTerms, ctx.Insight?.SampleTitles.Count ?? 0, 0.3, 1.2);
         score += StyleBonus(title.Length, ctx.Style, 45);
@@ -223,6 +312,25 @@ public static class ContentWriter
                 if (features.Count >= 1) seconds.Add($"دارای {features[0]}.");
                 if (ctx.Store.FreeShippingThreshold > 0)
                     seconds.Add($"ارسال رایگان برای خریدهای بالای {PersianText.Money(ctx.Store.FreeShippingThreshold)} تومان.");
+
+                // توضیحات متمایز با ویژگی‌های برجستهٔ واقعی (هر محصول ویژگی‌های خودش را دارد).
+                var highlights = ctx.Highlights;
+                if (highlights.Count >= 1)
+                {
+                    var h = highlights.Select(SpecKnowledge.Safe).ToList();
+                    var type = ctx.TypeWord ?? "محصولی";
+                    var list = PersianText.JoinList(h);
+                    var patterns = new List<string>
+                    {
+                        $"{lead} با {list}؛ [مشخصات کامل|مشخصات فنی]، تصاویر و شرایط خرید را در {site} ببینید.",
+                        $"[به دنبال|دنبال] {type} با {h[0]} هستید؟ {lead} را در {site} [ببینید|بررسی کنید] و آنلاین سفارش دهید.",
+                        $"{lead}: {list}. [مشخصات|جزئیات] را ببینید و [آنلاین سفارش دهید|از {site} آنلاین بخرید].",
+                    };
+                    foreach (var fact in productFacts.Take(2))
+                        patterns.Add($"{lead} با {list} و {fact}؛ [خرید آنلاین|سفارش آنلاین] از {site}.");
+                    foreach (var pattern in patterns)
+                        options.AddRange(Spin.Expand(pattern));
+                }
 
                 foreach (var subset in Subsets(productFacts, 3))
                 {
@@ -328,6 +436,7 @@ public static class ContentWriter
         }
         if (ctx.Site is not null && SeoSiteIndex.Others(ctx.Site.Descriptions, meta, ctx.Subject.EntityId) > 0)
             score -= 5;
+        score -= 2.5 * ctx.Commonness(meta);
         score += TermBonus(meta, ctx.Insight?.CommonTerms, Math.Max(1, ctx.Insight?.PagesAnalyzed ?? 1), 0.15, 0.9);
         score += StyleBonus(meta.Length, ctx.Style, 140);
         return score;
@@ -349,165 +458,56 @@ public static class ContentWriter
         if (existingWords >= SeoLimits.ThinContentWords)
             return null;
 
-        var sections = s.Kind == SeoEntityKind.Product ? ProductSections(ctx) : ListingSections(ctx);
-        if (sections.Count == 0)
-            return null;
-
-        var builder = new StringBuilder();
-        if (existingHtml.Length > 0)
-            builder.Append(existingHtml).Append('\n');
-        foreach (var section in sections)
-            builder.Append(section).Append('\n');
-        var html = builder.ToString().Trim();
-
-        // اگر چیزی جز متن فعلی اضافه نشد یا کمتر از ۴۰ واژه اضافه شد، ارزش پیشنهاد ندارد.
-        return PersianText.AnalyzeHtml(html).Words - existingWords < 40 ? null : html;
-    }
-
-    private static List<string> ProductSections(WriterContext ctx)
-    {
-        var s = ctx.Subject;
-        var p = s.Product;
-        var lead = ctx.Lead;
-        var name = ctx.ShortName;
-        var sections = new List<string>();
-        var features = FeaturePhrases(p).ToList();
-
-        // ۱) معرفی: نوع، برند، دسته + مهم‌ترین ویژگی‌ها + گارانتی (فقط اگر داده موجود باشد).
-        var intro = new List<string>();
-        if (p?.BrandName is { } brand && p.CategoryName is { } category)
-            intro.Add(Pick(ctx,
-                $"{lead} از محصولات برند {brand} در دستهٔ {category} است.",
-                $"{lead} یکی از محصولات دستهٔ {category} است که برند {brand} آن را عرضه کرده است.",
-                $"{lead} محصولی از برند {brand} است و در گروه {category} قرار می‌گیرد."));
-        else if (p?.CategoryName is { } onlyCategory)
-            intro.Add(Pick(ctx, $"{lead} از محصولات دستهٔ {onlyCategory} است.", $"{lead} در گروه {onlyCategory} قرار می‌گیرد."));
-        else
-            intro.Add($"در این صفحه مشخصات و شرایط خرید {lead} را می‌بینید.");
-
-        if (features.Count >= 3)
-            intro.Add(Pick(ctx,
-                $"از مشخصات مهم این محصول می‌توان به {features[0]}، {features[1]} و {features[2]} اشاره کرد.",
-                $"{features[0]}، {features[1]} و {features[2]} از ویژگی‌های اصلی آن است.",
-                $"این کالا با {features[0]}، {features[1]} و {features[2]} عرضه می‌شود."));
-        else if (features.Count > 0)
-            intro.Add(Pick(ctx, $"از ویژگی‌های آن {PersianText.JoinList(features)} است.", $"این کالا با {PersianText.JoinList(features)} عرضه می‌شود."));
-
-        if (WarrantyPhrase(p) is { } warranty)
-            intro.Add(Pick(ctx, $"این کالا با {warranty} عرضه می‌شود.", $"{name} همراه با {warranty} به دست شما می‌رسد."));
-        sections.Add(P(string.Join(' ', intro)));
-
-        // ۲) ویژگی‌ها به نثر (هر ویژگی یک جمله با ساختارهای گوناگون). فقط با حداقل ۴ ویژگی.
-        if (features.Count >= 4 && p is not null)
+        // تا ۵ بار با دانه‌های متفاوت نوشته می‌شود؛ از نسخه‌هایی که تراکم کلمهٔ کلیدی سالم دارند (۰٫۵ تا ۲٫۴ درصد)،
+        // نسخه‌ای که از متن بقیهٔ صفحه‌ها دورتر است (SimHash) انتخاب می‌شود. اگر هیچ‌کدام تراکم سالم نداشت، دورترین.
+        string? best = null;
+        var bestDistance = -1;
+        var bestHealthy = false;
+        for (var salt = 0; salt < 5; salt++)
         {
-            var sentences = new List<string>();
-            foreach (var feature in p.Features.Where(IsUsableFeature).Take(8))
+            var composer = new Composer(ctx, salt);
+            var sections = s.Kind == SeoEntityKind.Product ? ProductSections(composer) : ListingSections(composer);
+            if (sections.Count == 0)
+                return null;
+
+            var builder = new StringBuilder();
+            if (existingHtml.Length > 0)
+                builder.Append(existingHtml).Append('\n');
+            foreach (var section in sections)
+                builder.Append(section).Append('\n');
+            var html = builder.ToString().Trim();
+
+            // اگر چیزی جز متن فعلی اضافه نشد یا کمتر از ۴۰ واژه اضافه شد، ارزش پیشنهاد ندارد.
+            if (PersianText.AnalyzeHtml(html).Words - existingWords < 40)
+                return null;
+            var distance = NearestDistance(ctx, html);
+            var healthy = HealthyDensity(ctx, html);
+            if (healthy && !bestHealthy || healthy == bestHealthy && distance > bestDistance)
             {
-                var key = PersianText.Clean(feature.Key);
-                var value = PersianText.Clean(feature.Value);
-                if (IsYes(value))
-                    sentences.Add(Pick(ctx, $"این محصول از {key} پشتیبانی می‌کند.", $"{key} یکی از قابلیت‌های آن است.", $"{name} دارای {key} است."));
-                else
-                    sentences.Add(Pick(ctx, $"{key} این محصول {value} است.", $"{name} دارای {key} {value} است.", $"از نظر {key}، مقدار {value} ارائه شده است.", $"{key}: {value}."));
+                best = html;
+                bestDistance = distance;
+                bestHealthy = healthy;
             }
-            sentences.Add("فهرست کامل مشخصات فنی در جدول مشخصات همین صفحه آمده است.");
-            sections.Add(H2(Pick(ctx, $"ویژگی‌های {name}", $"مشخصات کلیدی {name}", $"نگاهی به ویژگی‌های {name}")));
-            sections.Add(P(string.Join(' ', sentences)));
+            if (bestHealthy && bestDistance >= 10)
+                break;
         }
-
-        // ۳) شرایط خرید از فروشگاه (همه از تنظیمات) + لینک داخلی به دسته و برند.
-        var buy = new List<string>
-        {
-            Pick(ctx,
-                $"برای خرید {lead} کافی است آن را به سبد خرید اضافه کنید و سفارش را آنلاین ثبت کنید.",
-                $"خرید {lead} از {ctx.Store.SiteName} به‌صورت آنلاین و در چند مرحلهٔ ساده انجام می‌شود."),
-        };
-        buy.AddRange(StoreSentences(ctx));
-        var links = new List<string>();
-        if (p?.CategorySlug is { } categorySlug && p.CategoryName is { } categoryName)
-            links.Add(A("/category/" + categorySlug, categoryName));
-        if (p?.BrandSlug is { } brandSlug && p.BrandName is { } brandName)
-            links.Add(A("/brand/" + brandSlug, "محصولات " + brandName));
-        if (links.Count > 0)
-            buy.Add($"برای دیدن مدل‌های مشابه، صفحهٔ {PersianText.JoinList(links)} را ببینید.");
-        sections.Add(H2(Pick(ctx, $"خرید {lead}", $"شرایط خرید {name}", $"خرید {name} از {ctx.Store.SiteName}")));
-        sections.Add(P(string.Join(' ', buy)));
-        return sections;
+        return best;
     }
 
-    private static List<string> ListingSections(WriterContext ctx)
+    /// <summary>
+    /// تراکم کلمهٔ کلیدی در محدودهٔ امن (۰٫۵ تا ۲٫۴ درصد، کمی سخت‌گیرانه‌تر از مرز ۲٫۵ تحلیل‌گر)؟
+    /// بدون کلمهٔ کلیدی یا متن کوتاه‌تر از ۱۰۰ واژه (که تحلیل‌گر تراکمش را نمی‌سنجد) → true.
+    /// </summary>
+    private static bool HealthyDensity(WriterContext ctx, string html)
     {
-        var s = ctx.Subject;
-        var listing = s.Listing;
-        if (listing is null || listing.ProductCount == 0)
-            return [];
-        var name = PersianText.Clean(s.Name);
-        var lead = ctx.Lead;
-        var site = ctx.Store.SiteName;
-        var sections = new List<string>();
-        var count = listing.ProductCount >= 10 ? $"بیش از {PersianText.Digits(listing.ProductCount / 10 * 10)} مدل" : "مدل‌های مختلف";
-        var groups = listing.RelatedGroups.Take(4).ToList();
-
-        var intro = new List<string>();
-        if (s.Kind == SeoEntityKind.Category)
-        {
-            intro.Add(Pick(ctx,
-                $"در این صفحه {count} از {lead} را با قیمت روز و مشخصات کامل می‌بینید.",
-                $"{lead} در {site} با {count} و امکان مقایسهٔ مشخصات عرضه می‌شود.",
-                $"این صفحه {count} از {lead} را یک‌جا نشان می‌دهد تا راحت‌تر مقایسه و انتخاب کنید."));
-            if (groups.Count >= 2)
-                intro.Add(Pick(ctx,
-                    $"محصولات این دسته از برندهایی مانند {PersianText.JoinList(groups.Select(g => A(g.Path, g.Text)).ToList())} عرضه می‌شوند.",
-                    $"برندهای {PersianText.JoinList(groups.Select(g => A(g.Path, g.Text)).ToList())} از جمله برندهای این دسته‌اند."));
-            if (listing.ParentName is { } parent)
-                intro.Add($"این دسته زیرمجموعهٔ {parent} است.");
-        }
-        else
-        {
-            intro.Add(Pick(ctx,
-                $"در این صفحه {count} از {lead} را با قیمت روز و مشخصات کامل می‌بینید.",
-                $"{site} {count} از محصولات {name} را با امکان مقایسهٔ مشخصات عرضه می‌کند."));
-            if (groups.Count >= 1)
-                intro.Add($"محصولات {name} در {site} در دسته‌های {PersianText.JoinList(groups.Select(g => A(g.Path, g.Text)).ToList())} قرار دارند.");
-        }
-        sections.Add(P(string.Join(' ', intro)));
-
-        if (listing.SubCategories.Count >= 2)
-        {
-            sections.Add(H2(Pick(ctx, $"انواع {name}", $"زیردسته‌های {name}")));
-            sections.Add(P($"برای پیدا کردن سریع‌تر محصول مورد نظر، یکی از زیردسته‌ها را انتخاب کنید: {PersianText.JoinList(listing.SubCategories.Take(8).Select(c => A(c.Path, c.Text)).ToList())}."));
-        }
-
-        if (listing.CommonFeatureKeys.Count >= 2)
-        {
-            var keys = listing.CommonFeatureKeys.Take(4).ToList();
-            var guide = new List<string>
-            {
-                Pick(ctx,
-                    $"هنگام انتخاب {name} به {PersianText.JoinList(keys)} توجه کنید؛ این مشخصات برای هر محصول در صفحهٔ همان محصول آمده است.",
-                    $"مهم‌ترین مشخصاتی که در خرید {name} باید مقایسه کنید {PersianText.JoinList(keys)} است."),
-                "با ابزار مقایسه می‌توانید چند مدل را کنار هم ببینید و تفاوت‌هایشان را بسنجید.",
-            };
-            if (listing.WarrantyPercent >= 60)
-                guide.Add("بیشتر محصولات این بخش گارانتی دارند؛ نوع و مدت گارانتی هر کالا در صفحهٔ آن نوشته شده است.");
-            sections.Add(H2(Pick(ctx, $"راهنمای خرید {name}", $"نکات انتخاب {name}")));
-            sections.Add(P(string.Join(' ', guide)));
-        }
-
-        if (listing.TopProducts.Count >= 3)
-        {
-            sections.Add(H2(Pick(ctx, $"پرطرفدارترین {name}", $"محبوب‌ترین محصولات {name}")));
-            sections.Add("<ul>" + string.Concat(listing.TopProducts.Take(6).Select(t => "<li>" + A(t.Path, t.Text) + "</li>")) + "</ul>");
-        }
-
-        var buy = new List<string>
-        {
-            Pick(ctx, $"خرید {lead} از {site} آنلاین انجام می‌شود.", $"برای خرید {lead} محصول مورد نظر را به سبد خرید اضافه کنید و سفارش را آنلاین ثبت کنید."),
-        };
-        buy.AddRange(StoreSentences(ctx));
-        sections.Add(H2(Pick(ctx, $"خرید {lead}", $"شرایط خرید {name} از {site}")));
-        sections.Add(P(string.Join(' ', buy)));
-        return sections;
+        if (string.IsNullOrWhiteSpace(ctx.Keyword))
+            return true;
+        var text = PersianText.HtmlToText(html);
+        var words = PersianText.WordCount(text);
+        if (words < 100)
+            return true;
+        var density = 100.0 * KeywordMatcher.Count(text, ctx.Keyword) / words;
+        return density is >= 0.5 and <= 2.4;
     }
 
     // ── پرسش‌وپاسخ ───────────────────────────────────────────────────────
@@ -519,63 +519,11 @@ public static class ContentWriter
     public static List<SeoFaqItem> Faq(WriterContext ctx)
     {
         var s = ctx.Subject;
-        var items = new List<SeoFaqItem>();
-        var name = ctx.ShortName;
-        var store = ctx.Store;
-
-        switch (s.Kind)
-        {
-            case SeoEntityKind.Product:
-                if (WarrantyPhrase(s.Product) is { } warranty)
-                    items.Add(new($"{name} گارانتی دارد؟", $"بله، {name} با {warranty} عرضه می‌شود."));
-                foreach (var feature in (s.Product?.Features ?? []).Where(f => IsUsableFeature(f) && !IsYes(f.Value)).Take(2))
-                {
-                    var key = PersianText.Clean(feature.Key);
-                    var asks = feature.Value.Any(char.IsDigit) ? "چقدر است؟" : "چیست؟";
-                    items.Add(new($"{key} {name} {asks}", $"{key} {name} {PersianText.Clean(feature.Value)} است."));
-                }
-                break;
-            case SeoEntityKind.Category when s.Listing is not null:
-                var brands = s.Listing.RelatedGroups.Select(g => g.Text).Take(5).ToList();
-                if (brands.Count >= 2)
-                    items.Add(new($"{s.Name} از چه برندهایی موجود است؟", $"در این دسته محصولات برندهای {PersianText.JoinList(brands)} عرضه می‌شود."));
-                var subs = s.Listing.SubCategories.Select(g => g.Text).Take(6).ToList();
-                if (subs.Count >= 2)
-                    items.Add(new($"انواع {s.Name} کدام‌اند؟", $"این دسته شامل {PersianText.JoinList(subs)} است."));
-                if (s.Listing.WarrantyPercent >= 60)
-                    items.Add(new($"{s.Name} گارانتی دارند؟", "بیشتر محصولات این دسته گارانتی دارند؛ نوع و مدت گارانتی هر کالا در صفحهٔ همان محصول آمده است."));
-                break;
-            case SeoEntityKind.Brand when s.Listing is not null:
-                var categories = s.Listing.RelatedGroups.Select(g => g.Text).Take(5).ToList();
-                if (categories.Count >= 1)
-                    items.Add(new($"محصولات {s.Name} در چه دسته‌هایی عرضه می‌شود؟", $"محصولات {s.Name} در {store.SiteName} در دسته‌های {PersianText.JoinList(categories)} عرضه می‌شود."));
-                var top = s.Listing.TopProducts.Select(t => t.Text).Take(3).ToList();
-                if (top.Count >= 2)
-                    items.Add(new($"پرطرفدارترین محصولات {s.Name} کدام‌اند؟", $"در حال حاضر {PersianText.JoinList(top)} از پربازدیدترین محصولات {s.Name} در {store.SiteName} هستند."));
-                break;
-            case SeoEntityKind.BlogPost:
-                return QuestionHeadings(s.BodyHtml);
-        }
-
+        if (s.Kind == SeoEntityKind.BlogPost)
+            return QuestionHeadings(s.BodyHtml);
         if (s.Kind is SeoEntityKind.Product or SeoEntityKind.Category or SeoEntityKind.Brand)
-        {
-            var subject = s.Kind == SeoEntityKind.Product ? name : s.Kind == SeoEntityKind.Brand ? "محصولات " + s.Name : s.Name;
-            if (store.DeliveryMaxDays > 0)
-                items.Add(new($"ارسال {subject} چقدر طول می‌کشد؟",
-                    $"پس از آماده‌سازی و ارسال سفارش، مرسوله معمولاً ظرف {PersianText.Digits(store.DeliveryMinDays)} تا {PersianText.Digits(store.DeliveryMaxDays)} روز کاری به دست شما می‌رسد و کد رهگیری آن در حساب کاربری نمایش داده می‌شود."));
-            if (store.ReturnEnabled && store.ReturnDays > 0)
-                items.Add(new($"امکان مرجوع کردن {subject} وجود دارد؟",
-                    $"بله، تا {PersianText.Digits(store.ReturnDays)} روز پس از تحویل می‌توانید از بخش سفارش‌های حساب کاربری درخواست مرجوعی ثبت کنید."));
-            if (store.CashOnDelivery)
-                items.Add(new($"پرداخت در محل برای {subject} امکان‌پذیر است؟",
-                    "اگر سفارش شما شرایط پرداخت در محل را داشته باشد، این گزینه هنگام تکمیل خرید نمایش داده می‌شود."));
-            else if (store.FreeShippingThreshold > 0)
-                items.Add(new($"ارسال {subject} رایگان است؟",
-                    $"برای سفارش‌هایی که مبلغشان از {PersianText.Money(store.FreeShippingThreshold)} تومان بیشتر باشد، ارسال رایگان است."));
-        }
-
-        items = items.Take(6).ToList();
-        return items.Count >= 2 ? items : [];
+            return CommercialFaq(ctx);
+        return [];
     }
 
     /// <summary>
@@ -669,28 +617,6 @@ public static class ContentWriter
             .OrderByDescending(x => x.Score)
             .Select(x => x.Text)
             .ToList();
-
-    /// <summary>انتخاب یکی از چند جملهٔ هم‌معنی: روان‌ترین طبق مدل زبانی، با تنوع بین نسخه‌ها.</summary>
-    private static string Pick(WriterContext ctx, params string[] options) =>
-        options.Select(o => (Text: o, Score: ctx.Fluency(o) + ctx.Noise()))
-            .OrderByDescending(x => x.Score)
-            .First().Text;
-
-    /// <summary>جمله‌های شرایط خرید از تنظیمات فروشگاه.</summary>
-    private static List<string> StoreSentences(WriterContext ctx)
-    {
-        var store = ctx.Store;
-        var list = new List<string>();
-        if (store.DeliveryMaxDays > 0)
-            list.Add($"سفارش پس از ارسال معمولاً ظرف {PersianText.Digits(store.DeliveryMinDays)} تا {PersianText.Digits(store.DeliveryMaxDays)} روز کاری به دستتان می‌رسد و وضعیت مرسوله را می‌توانید در حساب کاربری پیگیری کنید.");
-        if (store.ReturnEnabled && store.ReturnDays > 0)
-            list.Add($"تا {PersianText.Digits(store.ReturnDays)} روز پس از تحویل هم امکان ثبت درخواست مرجوعی وجود دارد.");
-        if (store.FreeShippingThreshold > 0)
-            list.Add($"ارسال سفارش‌های بالای {PersianText.Money(store.FreeShippingThreshold)} تومان رایگان است.");
-        if (store.CashOnDelivery)
-            list.Add("در صورت فراهم بودن شرایط، پرداخت در محل هم ممکن است.");
-        return list;
-    }
 
     /// <summary>عبارت‌های اسمی شرایط فروشگاه (برای «با …»). مثال: «امکان مرجوعی ۷ روزه».</summary>
     private static List<string> StoreFactPhrases(WriterContext ctx)
