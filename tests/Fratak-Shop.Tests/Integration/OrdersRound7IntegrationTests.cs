@@ -75,7 +75,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         return question.Id;
     }
 
-    [Fact]
+    [SqlFact]
     public async Task RemoveItem_RecalculatesOrder_AndRefundsPaidDifferenceToWallet()
     {
         var userId = await db.CreateUserAsync();
@@ -116,7 +116,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task RemoveItem_OnUnpaidOrder_OnlyLowersTheAmount()
     {
         var userId = await db.CreateUserAsync();
@@ -138,7 +138,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task RemovingTheOnlyItem_CancelsTheWholeOrder()
     {
         var userId = await db.CreateUserAsync();
@@ -162,7 +162,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task WithdrawnQuestion_CanNoLongerBeAnswered()
     {
         var userId = await db.CreateUserAsync();
@@ -176,7 +176,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         Assert.Equal(0m, await scope.ServiceProvider.GetRequiredService<IWalletService>().GetBalanceAsync(userId));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task CustomerAndStaffMessages_AreThreadedAndCountedAsUnread()
     {
         var userId = await db.CreateUserAsync();
@@ -201,7 +201,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         Assert.DoesNotContain(thread, m => m.Body.Contains('<'));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task PaymentLinkPage_ShowsOnlyValidTokens()
     {
         var userId = await db.CreateUserAsync();
@@ -240,7 +240,7 @@ public class OrdersRound7IntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Crm_TagsNotesAndRfm()
     {
         var userId = await db.CreateUserAsync();

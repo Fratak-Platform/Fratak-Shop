@@ -38,7 +38,7 @@ public class WalletTests(SqlServerFixture db)
         Assert.True(result.IsSuccess(), result.Message);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Balance_KeepsOwnMoneyAndPromotionalCreditApart()
     {
         var user = await db.CreateUserAsync();
@@ -51,7 +51,7 @@ public class WalletTests(SqlServerFixture db)
         Assert.Equal(300_000m, summary.WithdrawableBalance);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task PromotionalCredit_CanNeverBeSpentAsOwnMoney()
     {
         var user = await db.CreateUserAsync();
@@ -67,7 +67,7 @@ public class WalletTests(SqlServerFixture db)
         Assert.Equal(200_000m, (await SummaryAsync(user)).Balance);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Purchases_UsePromotionalCreditFirst()
     {
         var user = await db.CreateUserAsync();
@@ -83,7 +83,7 @@ public class WalletTests(SqlServerFixture db)
         Assert.Equal(250_000m, summary.WithdrawableBalance);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Debit_AboveTheBalanceIsRejected()
     {
         var user = await db.CreateUserAsync();
@@ -95,7 +95,7 @@ public class WalletTests(SqlServerFixture db)
         Assert.Equal(50_000m, (await SummaryAsync(user)).Balance);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(0)]
     [InlineData(-1000)]
     public async Task Movements_NeedAPositiveWholeAmount(int amount)
@@ -105,7 +105,7 @@ public class WalletTests(SqlServerFixture db)
         Assert.False(credit.IsSuccess());
     }
 
-    [Fact]
+    [SqlFact]
     public async Task ParallelDebits_NeverSpendTheSameMoneyTwice()
     {
         var user = await db.CreateUserAsync();
@@ -176,7 +176,7 @@ public class GiftCardTests(SqlServerFixture db)
         return user;
     }
 
-    [Fact]
+    [SqlFact]
     public async Task BuyWithWallet_ThenAFriendRedeemsIt()
     {
         var buyer = await CustomerWithOwnMoneyAsync(500_000);
@@ -203,7 +203,7 @@ public class GiftCardTests(SqlServerFixture db)
         Assert.NotEqual(code, card.CodeHash); // only a hash is stored for lookups
     }
 
-    [Fact]
+    [SqlFact]
     public async Task ACode_WorksOnlyOnce_EvenInParallel()
     {
         var buyer = await CustomerWithOwnMoneyAsync(300_000);
@@ -224,7 +224,7 @@ public class GiftCardTests(SqlServerFixture db)
         Assert.False(again.IsSuccess());
     }
 
-    [Fact]
+    [SqlFact]
     public async Task PromotionalCredit_CannotBeTurnedIntoAGiftCard()
     {
         var user = await db.CreateUserAsync();
@@ -239,7 +239,7 @@ public class GiftCardTests(SqlServerFixture db)
         Assert.False(await check.ServiceProvider.GetRequiredService<FratakShopDbContext>().GiftCards.AnyAsync(g => g.PurchaserUserId == user));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(99_000)] // below the minimum
     [InlineData(150_500)] // not a multiple of 1,000
     [InlineData(20_000_000)] // above the maximum
@@ -251,7 +251,7 @@ public class GiftCardTests(SqlServerFixture db)
         Assert.Equal(30_000_000m, (await SummaryAsync(buyer)).Balance);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task UnknownCodes_AreThrottled()
     {
         var buyer = await CustomerWithOwnMoneyAsync(300_000);
@@ -271,7 +271,7 @@ public class GiftCardTests(SqlServerFixture db)
         Assert.True((await RedeemAsync(await db.CreateUserAsync(), realCode)).IsSuccess());
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("1234")]

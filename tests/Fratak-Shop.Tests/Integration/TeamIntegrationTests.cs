@@ -61,7 +61,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
 
     // ═══ تأیید دونفره ═══════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Wallet_adjustment_needs_a_second_staff_member_and_then_runs()
     {
         var requester = await CreateStaffAsync(AdminPermissions.CustomersWallet, AdminPermissions.CustomersView);
@@ -131,7 +131,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Rejection_keeps_the_balance_and_records_the_reason()
     {
         var requester = await CreateStaffAsync(AdminPermissions.CustomersWallet);
@@ -152,7 +152,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
         Assert.Equal(0m, await Ctx(scope).Users.Where(u => u.Id == customer).Select(u => u.WalletBalance).SingleAsync());
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Role_change_runs_with_the_requesters_rights_after_approval()
     {
         var requester = await CreateStaffAsync(AdminPermissions.StaffManage, AdminPermissions.OrdersView);
@@ -182,7 +182,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Requests_are_visible_only_to_matching_staff_and_expire()
     {
         var requester = await CreateStaffAsync(AdminPermissions.CustomersWallet);
@@ -217,7 +217,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
 
     // ═══ TOTP ═══════════════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Totp_setup_replay_protection_recovery_codes_lockout_and_owner_reset()
     {
         var staff = await CreateStaffAsync(AdminPermissions.OrdersView);
@@ -288,7 +288,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
 
     // ═══ کارهای شخصی ═══════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Tasks_can_be_delegated_to_staff_only_and_deleted_only_by_their_creator()
     {
         var boss = await CreateStaffAsync(AdminPermissions.OrdersView);
@@ -336,7 +336,7 @@ public class TeamIntegrationTests(SqlServerFixture db)
 
     // ═══ تنظیمات ═══════════════════════════════════════════════════════
 
-    [Theory]
+    [SqlTheory]
     [InlineData(1, 1_000_000d, "دقیقه")]
     [InlineData(500, 1_000_000d, "دقیقه")]
     [InlineData(15, -5d, "سقف")]

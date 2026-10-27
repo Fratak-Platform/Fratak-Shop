@@ -69,7 +69,7 @@ public class JwtAttackE2ETests(ShopApp app)
 
     private static string Base64Url(string json) => Base64UrlEncoder.Encode(json);
 
-    [Fact]
+    [SqlFact]
     public async Task Genuine_token_is_accepted()
     {
         var customer = await app.CreateCustomerAsync();
@@ -79,7 +79,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.OK, await MeAsync(client, tokens.AccessToken));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Unsigned_alg_none_token_is_rejected()
     {
         var customer = await app.CreateCustomerAsync();
@@ -92,7 +92,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, forged));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Token_signed_with_another_key_is_rejected()
     {
         var customer = await app.CreateCustomerAsync();
@@ -104,7 +104,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, forged));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Changing_the_role_inside_a_token_breaks_its_signature()
     {
         var customer = await app.CreateCustomerAsync();
@@ -123,7 +123,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.NotEqual(HttpStatusCode.OK, admin.StatusCode);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Expired_token_is_rejected_even_with_a_valid_signature()
     {
         var customer = await app.CreateCustomerAsync();
@@ -146,7 +146,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, expired));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("evil-issuer", ShopApp.Audience)]
     [InlineData(ShopApp.Issuer, "evil-audience")]
     public async Task Token_for_another_issuer_or_audience_is_rejected(string issuer, string audience)
@@ -160,7 +160,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, forged));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Correctly_signed_token_with_an_old_security_stamp_is_rejected()
     {
         // حتی اگر کلید امضا لو برود، مهر امنیتی (sst) باید با پایگاه داده یکی باشد.
@@ -173,7 +173,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, Sign(claims, ShopApp.SigningKey)));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("")]
     [InlineData("not-a-jwt")]
     [InlineData("a.b.c")]
@@ -191,7 +191,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Empty(app.Logs.ErrorsSince(started));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Garbage_auth_cookie_is_ignored_and_pages_still_work()
     {
         using var client = app.CreateClient();
@@ -211,7 +211,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Empty(app.Logs.ErrorsSince(started));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Access_token_is_rejected_after_the_password_changes()
     {
         var customer = await app.CreateCustomerAsync();
@@ -234,7 +234,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, tokens.AccessToken));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Refresh_rotates_the_token_and_a_stolen_old_token_burns_the_whole_session()
     {
         var customer = await app.CreateCustomerAsync();
@@ -260,7 +260,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(0, await app.WithDbAsync(db => db.UserRefreshTokens.CountAsync(t => t.UserId == customer.Id && t.RevokedAt == null)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Parallel_refresh_with_the_same_token_does_not_mint_two_sessions()
     {
         var customer = await app.CreateCustomerAsync();
@@ -278,7 +278,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(1, await app.WithDbAsync(db => db.UserRefreshTokens.CountAsync(t => t.UserId == customer.Id && t.RevokedAt == null)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Revoked_refresh_token_cannot_be_used()
     {
         var customer = await app.CreateCustomerAsync();
@@ -292,7 +292,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(null, "123456")]
     [InlineData("09120000000", null)]
     [InlineData("09120000000", "")]
@@ -305,7 +305,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Oversized_credentials_are_refused_before_hashing()
     {
         using var client = app.CreateClient();
@@ -315,7 +315,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Token_endpoint_is_rate_limited_per_ip()
     {
         using var client = app.CreateClient();
@@ -331,7 +331,7 @@ public class JwtAttackE2ETests(ShopApp app)
         Assert.True(statuses.Take(10).All(s => s != HttpStatusCode.TooManyRequests));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Customer_token_cannot_open_the_admin_panel()
     {
         var customer = await app.CreateCustomerAsync();

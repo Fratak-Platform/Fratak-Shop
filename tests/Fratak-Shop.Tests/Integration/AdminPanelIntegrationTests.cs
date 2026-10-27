@@ -28,7 +28,7 @@ public class AdminRoleTests(SqlServerFixture db)
         }, actor);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task RoleAssignment_GrantsExactlyTheRolePermissions()
     {
         var role = await SaveRoleAsync(Owner, AdminPermissions.OrdersView, AdminPermissions.PurchaseInvoices, "not.a.permission");
@@ -62,7 +62,7 @@ public class AdminRoleTests(SqlServerFixture db)
             Assert.False((await scope.ServiceProvider.GetRequiredService<IAdminAccessService>().GetAccessAsync(user)).IsStaff);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Staff_CannotEscalatePermissions()
     {
         var staffUser = await db.CreateUserAsync();
@@ -114,7 +114,7 @@ public class PurchaseInvoiceRuleTests(SqlServerFixture db)
         return order.Id;
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Preparation_RequiresAnUploadedPurchaseInvoice()
     {
         var orderId = await CreateConfirmedOrderAsync();
@@ -154,7 +154,7 @@ public class PurchaseInvoiceRuleTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task PurchaseInvoice_RejectsInvalidAmounts()
     {
         var orderId = await CreateConfirmedOrderAsync();

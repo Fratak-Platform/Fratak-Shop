@@ -21,6 +21,14 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.WebEncoders;
 using Microsoft.Net.Http.Headers;
 
+// فرهنگ (Culture) ثابت برای کل برنامه: روی ویندوزِ فارسی (fa-IR) تاریخ پیش‌فرض شمسی است و جداکنندهٔ اعشار «٫»؛
+// آن‌وقت مثلاً شمارهٔ سفارش FR-1405… یا تاریخ JSON-LD «1405-08-05» می‌شد و رفتار سرور به زبان ویندوزش بستگی داشت.
+// نمایش فارسی (تاریخ شمسی، رقم فارسی، جداکنندهٔ هزارگان) را کلاس‌های Format/IranClock خودشان صریح انجام می‌دهند.
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 

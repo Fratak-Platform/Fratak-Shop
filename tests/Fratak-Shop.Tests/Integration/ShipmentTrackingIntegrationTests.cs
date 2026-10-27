@@ -88,7 +88,7 @@ public class ShipmentTrackingIntegrationTests(SqlServerFixture db)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.LastCheckedAt, DateTimeOffset.UtcNow.AddHours(-1)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Events_are_merged_without_duplicates_and_delivery_completes_the_order()
     {
         var code = NewCode();
@@ -164,7 +164,7 @@ public class ShipmentTrackingIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Returned_parcel_is_not_auto_delivered_and_failures_are_recorded()
     {
         var returnedCode = NewCode();
@@ -208,7 +208,7 @@ public class ShipmentTrackingIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Changing_the_code_restarts_tracking_and_pause_resume_work()
     {
         var code = NewCode();

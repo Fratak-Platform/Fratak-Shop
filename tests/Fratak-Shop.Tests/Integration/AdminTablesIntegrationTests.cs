@@ -38,7 +38,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
 
     // ── پیش‌نویس خودکار ──────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Drafts_SaveReplaceListDelete_PerUser()
     {
         var userId = await db.CreateUserAsync();
@@ -66,7 +66,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
         Assert.Empty(await drafts.ListAsync(userId));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Drafts_RejectBadInput_AndDropExternalUrls()
     {
         var userId = await db.CreateUserAsync();
@@ -84,7 +84,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
         Assert.Null(summary.Url);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Drafts_PurgeRemovesOldOnes()
     {
         var userId = await db.CreateUserAsync();
@@ -109,7 +109,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
 
     // ── سطل بازیافت ───────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Trash_SoftDeleteThenRestore()
     {
         var productId = await db.CreateProductAsync();
@@ -148,7 +148,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Trash_RestoreUnknownId_IsNotFound()
     {
         await using var scope = db.Scope();
@@ -158,7 +158,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
 
     // ── نسخهٔ رکورد و تاریخچه ─────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Stamp_ChangesOnlyWhenStaffSaves()
     {
         var productId = await db.CreateProductAsync();
@@ -192,7 +192,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
         Assert.Contains(items[0].Changes, c => c.Field == nameof(Product.Price) && c.Before == "300000" && c.After == "310000");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Revert_RestoresOldValues_ButKeepsLaterEdits()
     {
         var productId = await db.CreateProductAsync(price: 400_000);
@@ -222,7 +222,7 @@ public class AdminTablesIntegrationTests(SqlServerFixture db)
         Assert.Equal(original.Name + " ویرایش ۲", product.Name);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Revert_RejectsWrongEntity_AndNonUpdates()
     {
         var productId = await db.CreateProductAsync();

@@ -34,7 +34,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Another_customers_order_and_invoice_are_not_found()
     {
         var (_, number, attacker, _) = await SetupAsync();
@@ -48,7 +48,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         Assert.DoesNotContain(number, orders.Html, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Another_customers_order_cannot_be_cancelled()
     {
         var (_, number, attacker, _) = await SetupAsync();
@@ -59,7 +59,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         Assert.NotEqual(OrderStatus.Cancelled, (await app.OrderAsync(number))!.Status);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Another_customers_address_cannot_be_edited_deleted_or_made_default()
     {
         var (victim, _, attacker, _) = await SetupAsync();
@@ -83,7 +83,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         Assert.Equal("خانه", after.Title);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Another_customers_session_cannot_be_revoked()
     {
         var victim = await app.CreateCustomerAsync();
@@ -102,7 +102,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         await victimClient.GetPageAsync("/profile");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Extra_form_fields_cannot_change_role_wallet_or_verification()
     {
         var customer = await app.CreateCustomerAsync();
@@ -124,7 +124,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         Assert.NotEqual(HttpStatusCode.OK, admin.StatusCode);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Address_with_a_city_from_another_province_is_rejected()
     {
         var customer = await app.CreateCustomerAsync();
@@ -148,7 +148,7 @@ public class ProfileSecurityE2ETests(ShopApp app)
         Assert.False(await app.WithDbAsync(db => db.UserAddresses.AnyAsync(a => a.UserId == customer.Id && a.Title == "ناجور")));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Script_in_names_and_addresses_is_rendered_as_text()
     {
         const string payload = "<script>alert('xss')</script><img src=x onerror=alert(1)>";

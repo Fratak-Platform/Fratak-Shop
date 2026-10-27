@@ -14,7 +14,7 @@ namespace Fratak_Shop.Tests.E2E.Storefront;
 [Trait("Area", "Storefront")]
 public class StorefrontPagesE2ETests(ShopApp app)
 {
-    [Theory]
+    [SqlTheory]
     [InlineData("/")]
     [InlineData("/products")]
     [InlineData("/search")]
@@ -53,7 +53,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Empty(app.Logs.ErrorsSince(started));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/no-such-page")]
     [InlineData("/product/this-product-does-not-exist")]
     [InlineData("/blog/no-such-post")]
@@ -67,7 +67,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Contains("noindex", page.Html, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Inactive_product_is_not_reachable()
     {
         var (_, slug) = await app.CreateProductAsync(active: false);
@@ -76,7 +76,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         await client.GetPageAsync("/product/" + slug, HttpStatusCode.NotFound);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task New_product_appears_on_its_page_with_structured_data_and_canonical_link()
     {
         var (_, slug) = await app.CreateProductAsync(price: 1_234_000);
@@ -91,7 +91,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.DoesNotContain("content=\"noindex", page.Html, StringComparison.Ordinal);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/about-us", "/page/about-us")]
     [InlineData("/rules", "/page/rules")]
     [InlineData("/contact", "/contact-us")]
@@ -107,7 +107,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Equal(target, response.Headers.Location?.OriginalString);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Sitemap_is_valid_xml_listing_products_pages_and_blog_posts()
     {
         using var client = app.CreateClient();
@@ -125,7 +125,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.DoesNotContain(locations, l => l.Contains("/profile", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Robots_txt_points_to_the_sitemap_and_hides_private_areas()
     {
         using var client = app.CreateClient();
@@ -136,7 +136,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Contains("/admin", body, StringComparison.Ordinal);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/login")]
     [InlineData("/cart")]
     [InlineData("/checkout/failed/x")]
@@ -151,7 +151,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
             Assert.Contains("noindex", html, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Health_endpoint_reports_the_database_as_up_without_caching()
     {
         using var client = app.CreateClient();
@@ -164,7 +164,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("haylou")]
     [InlineData("اپل")]
     [InlineData("")]
@@ -181,7 +181,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Equal(System.Text.Json.JsonValueKind.Array, document.RootElement.GetProperty("products").ValueKind);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Search_by_text_finds_a_matching_product()
     {
         using var client = app.CreateClient();
@@ -191,7 +191,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
         Assert.Contains("MacBook", page.Html, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Province_cities_api_returns_the_cities_of_a_province()
     {
         var provinceId = await app.WithDbAsync(db => db.Locations
@@ -210,7 +210,7 @@ public class StorefrontPagesE2ETests(ShopApp app)
     /// <summary>
     /// خزندهٔ کوچک: همهٔ لینک‌های داخلی صفحهٔ اول و صفحه‌های لیست (تا ۱۵۰ آدرس) – هیچ‌کدام نباید خطای 5xx یا استثنا بدهند.
     /// </summary>
-    [Fact]
+    [SqlFact]
     public async Task Crawling_the_storefront_finds_no_broken_page()
     {
         using var client = app.CreateClient();

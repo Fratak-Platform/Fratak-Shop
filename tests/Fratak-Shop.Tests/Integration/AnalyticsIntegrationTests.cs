@@ -51,7 +51,7 @@ public class AnalyticsIntegrationTests(SqlServerFixture db)
         return order.Id;
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Consecutive_batches_are_merged_into_one_row_per_visitor_and_day()
     {
         var day = new DateOnly(2021, 1, 5);
@@ -80,7 +80,7 @@ public class AnalyticsIntegrationTests(SqlServerFixture db)
         Assert.Equal(6, (await context.AnalyticsCounters.SingleAsync(c => c.Key == product)).Count);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Order_source_is_written_only_once()
     {
         var orderId = await CreateOrderAsync(DateTimeOffset.UtcNow, PaymentStatus.Pending, null, 100_000);
@@ -109,7 +109,7 @@ public class AnalyticsIntegrationTests(SqlServerFixture db)
         Assert.Null(direct.VisitorKey);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Funnel_and_campaign_reports_count_unique_visitors_and_realized_orders()
     {
         var day = new DateOnly(2021, 3, 10);
@@ -155,7 +155,7 @@ public class AnalyticsIntegrationTests(SqlServerFixture db)
         Assert.Equal(2, heatmap.Visits[row][21]);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Purge_removes_only_rows_older_than_retention()
     {
         var oldKey = TrafficRules.NewVisitorKey();

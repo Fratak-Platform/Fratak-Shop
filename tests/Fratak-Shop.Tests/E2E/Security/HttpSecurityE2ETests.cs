@@ -18,7 +18,7 @@ namespace Fratak_Shop.Tests.E2E.Security;
 [Trait("Area", "Http")]
 public class HttpSecurityE2ETests(ShopApp app)
 {
-    [Theory]
+    [SqlTheory]
     [InlineData("/")]
     [InlineData("/product/xiaomi-redmi-watch-3-active")]
     [InlineData("/login")]
@@ -46,7 +46,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.True(headers.Contains("Strict-Transport-Security"), "HSTS is missing in production.");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Plain_http_is_redirected_to_https()
     {
         using var client = app.CreateClient();
@@ -57,7 +57,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.StartsWith("https://", response.Headers.Location?.ToString(), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Antiforgery_cookie_is_http_only_secure_and_same_site()
     {
         using var client = app.CreateClient();
@@ -74,7 +74,7 @@ public class HttpSecurityE2ETests(ShopApp app)
     /// CSP اسکریپت درون‌خطی و onclick را در مرورگر می‌بندد؛ پس اگر صفحه‌ای چنین چیزی داشته باشد، آن قابلیت در مرورگر واقعی
     /// خراب است. این آزمون صفحه‌های اصلی فروشگاه و پنل را بررسی می‌کند (JSON-LD داده است و مجاز).
     /// </summary>
-    [Theory]
+    [SqlTheory]
     [InlineData(null, "/")]
     [InlineData(null, "/product/xiaomi-redmi-watch-3-active")]
     [InlineData(null, "/search?q=a")]
@@ -110,7 +110,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.Equal(0, javascriptUrls);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/appsettings.json")]
     [InlineData("/appsettings.Development.json")]
     [InlineData("/web.config")]
@@ -135,7 +135,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.DoesNotContain("[core]", body, StringComparison.Ordinal);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/search?q=' OR 1=1--")]
     [InlineData("/search?q=%27%3B%20DROP%20TABLE%20Users%3B--")]
     [InlineData("/search?sort=Name;DROP TABLE Products")]
@@ -162,7 +162,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.True(await app.WithDbAsync(db => db.Users.CountAsync()) >= users);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/search?q=<script>alert(1)</script>")]
     [InlineData("/search?q=\"><img src=x onerror=alert(1)>")]
     [InlineData("/login?returnUrl=\"><script>alert(1)</script>")]
@@ -178,7 +178,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.DoesNotContain("<img src=x onerror=alert(1)>", body, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("https://evil.example/")]
     [InlineData("//evil.example/")]
     [InlineData("/\\evil.example")]
@@ -194,7 +194,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.DoesNotContain("evil", location, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Forms_without_a_valid_csrf_token_are_rejected()
     {
         var customer = await app.CreateCustomerAsync();
@@ -212,7 +212,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         await stillWorks.LoginAsync(customer.Phone, customer.Password);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Malformed_requests_get_client_errors_not_server_errors()
     {
         using var client = app.CreateClient();
@@ -238,7 +238,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.Empty(app.Logs.ErrorsSince(started));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Blocked_ip_is_refused_everywhere_and_others_are_not_affected()
     {
         const string attackerIp = "10.250.0.66";
@@ -277,7 +277,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         await released.GetPageAsync("/");
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("sqlmap/1.7.2#stable (https://sqlmap.org)")]
     [InlineData("Mozilla/5.00 (Nikto/2.1.6)")]
     [InlineData("Nuclei - Open-source project (github.com/projectdiscovery/nuclei)")]
@@ -292,7 +292,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Contact_form_flood_is_rate_limited()
     {
         using var client = app.CreateClient();
@@ -311,7 +311,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.DoesNotContain(HttpStatusCode.InternalServerError, statuses);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Sms_bombing_from_one_ip_triggers_the_captcha()
     {
         using var client = app.CreateClient();
@@ -330,7 +330,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.True(sent <= 3, $"{sent} SMS were sent from a single IP without a captcha.");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Maintenance_mode_shows_503_to_visitors_but_keeps_login_and_admin_open()
     {
         var restore = await app.ChangeSettingsAsync(s => { s.IsMaintenanceMode = true; s.MaintenanceRetryMinutes = 30; });
@@ -358,7 +358,7 @@ public class HttpSecurityE2ETests(ShopApp app)
         await after.GetPageAsync("/");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Error_pages_do_not_leak_stack_traces()
     {
         using var client = app.CreateClient();

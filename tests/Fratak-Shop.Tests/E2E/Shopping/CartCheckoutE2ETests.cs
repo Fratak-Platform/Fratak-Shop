@@ -27,7 +27,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── سبد خرید ─────────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Guest_cart_survives_login_and_is_merged_into_the_account()
     {
         var customer = await app.CreateCustomerAsync();
@@ -49,7 +49,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Equal(2, quantity);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Cart_quantity_can_be_updated_and_removed()
     {
         var (customer, client, productId) = await ShopperAsync();
@@ -67,7 +67,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Null(await CartQuantityAsync(customer.Id, productId));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("11")]          // بیش از موجودی (۱۰)
     [InlineData("2147483647")]  // int.MaxValue
     [InlineData("-5")]          // منفی
@@ -90,7 +90,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         await client.GetPageAsync("/cart");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Inactive_or_unknown_products_cannot_be_added()
     {
         var (customer, client, _) = await ShopperAsync();
@@ -109,7 +109,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── پرداخت در محل ────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Cash_on_delivery_order_reserves_stock_clears_the_cart_and_shows_everywhere()
     {
         var (customer, client, productId) = await ShopperAsync(price: 300_000, stock: 10);
@@ -140,7 +140,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Contains("پیش‌فاکتور", invoice.Html, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Cancelling_before_preparation_returns_the_stock()
     {
         var (_, client, productId) = await ShopperAsync(stock: 5);
@@ -163,7 +163,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Equal(5, await app.StockAsync(productId));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Order_in_preparation_cannot_be_cancelled_by_the_customer()
     {
         var (_, client, productId) = await ShopperAsync(stock: 5);
@@ -184,7 +184,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── کیف پول ──────────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Wallet_payment_debits_exactly_the_payable_amount_and_refunds_it_on_cancel()
     {
         var (customer, client, productId) = await ShopperAsync(wallet: 2_000_000, price: 400_000);
@@ -209,7 +209,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Equal(2_000_000m, await app.WalletBalanceAsync(customer.Id));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Wallet_payment_without_enough_balance_creates_no_order()
     {
         var (customer, client, productId) = await ShopperAsync(wallet: 10_000, price: 400_000, stock: 3);
@@ -226,7 +226,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── درگاه زرین‌پال ───────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Online_payment_goes_to_zarinpal_and_the_verified_callback_marks_the_order_paid()
     {
         var (_, client, productId) = await ShopperAsync(price: 520_000);
@@ -255,7 +255,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.NotNull(paid.PaidAt);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Cancelled_payment_leaves_the_order_unpaid_and_cannot_be_flipped_to_ok()
     {
         var (_, client, productId) = await ShopperAsync();
@@ -275,7 +275,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.NotEqual(PaymentStatus.Paid, await app.WithDbAsync(db => db.Orders.Where(o => o.Id == transaction.OrderId).Select(o => o.PaymentStatus).FirstAsync()));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Gateway_rejecting_the_verification_never_marks_the_order_paid()
     {
         var (_, client, productId) = await ShopperAsync();
@@ -300,7 +300,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.NotEqual(PaymentStatus.Paid, await app.WithDbAsync(db => db.Orders.Where(o => o.Id == transaction.OrderId).Select(o => o.PaymentStatus).FirstAsync()));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Unreachable_gateway_fails_gracefully_and_keeps_the_order_payable_later()
     {
         var (customer, client, productId) = await ShopperAsync();
@@ -334,7 +334,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Forged_callback_with_an_unknown_authority_changes_nothing()
     {
         using var client = app.CreateClient();
@@ -347,7 +347,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Equal(paidBefore, await app.WithDbAsync(db => db.Orders.CountAsync(o => o.PaymentStatus == PaymentStatus.Paid)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Replaying_a_successful_callback_does_not_verify_or_credit_twice()
     {
         var (customer, client, productId) = await ShopperAsync();
@@ -372,7 +372,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Equal(1, await app.WithDbAsync(db => db.PaymentTransactions.CountAsync(t => t.Authority == authority && t.Status == PaymentTransactionStatus.Succeeded)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Wallet_top_up_through_the_gateway_credits_the_wallet_once()
     {
         var customer = await app.CreateCustomerAsync();
@@ -397,7 +397,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── دستکاری فرم تسویه ────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Posted_prices_are_ignored_and_the_server_recomputes_the_total()
     {
         var (_, client, productId) = await ShopperAsync(price: 700_000);
@@ -412,7 +412,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.True(order.PayableAmount >= 700_000m);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Another_customers_address_cannot_be_used()
     {
         var victim = await app.CreateCustomerAsync();
@@ -427,7 +427,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.False(await app.WithDbAsync(db => db.Orders.AnyAsync(o => o.UserId == customer.Id)));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("99")]
     [InlineData("-1")]
     [InlineData("None")]
@@ -444,7 +444,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.False(await app.WithDbAsync(db => db.Orders.AnyAsync(o => o.UserId == customer.Id)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Disabled_online_payment_cannot_be_forced_through_the_form()
     {
         var (customer, client, productId) = await ShopperAsync();
@@ -466,7 +466,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Stock_that_ran_out_after_adding_to_the_cart_blocks_the_order()
     {
         var (customer, client, productId) = await ShopperAsync(stock: 2);
@@ -483,7 +483,7 @@ public class CartCheckoutE2ETests(ShopApp app)
         Assert.Equal(1, await app.StockAsync(productId));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Empty_cart_cannot_place_an_order()
     {
         var customer = await app.CreateCustomerAsync();
@@ -501,7 +501,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── کد تخفیف ─────────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Coupon_discount_is_applied_once_and_expired_coupons_are_refused()
     {
         var code = "E2E" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
@@ -540,7 +540,7 @@ public class CartCheckoutE2ETests(ShopApp app)
 
     // ── پیگیری سفارش مهمان ────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Order_tracking_needs_the_matching_phone_number()
     {
         var (customer, client, productId) = await ShopperAsync();

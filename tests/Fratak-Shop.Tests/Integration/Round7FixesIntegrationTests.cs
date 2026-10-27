@@ -17,7 +17,7 @@ namespace Fratak_Shop.Tests.Integration;
 [Trait("Category", "Integration")]
 public class Round7FixesIntegrationTests(SqlServerFixture db)
 {
-    [Fact]
+    [SqlFact]
     public async Task Brand_description_accepts_long_html()
     {
         var slug = "brand-" + Guid.NewGuid().ToString("N")[..10];
@@ -40,7 +40,7 @@ public class Round7FixesIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Length_guard_reports_overflow_without_saving()
     {
         var id = await db.CreateProductAsync();

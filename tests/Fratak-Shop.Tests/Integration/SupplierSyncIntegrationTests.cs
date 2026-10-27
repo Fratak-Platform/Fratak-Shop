@@ -68,7 +68,7 @@ public class SupplierSyncIntegrationTests(SqlServerFixture db)
         return id;
     }
 
-    [Fact]
+    [SqlFact]
     public async Task FullCycle_AutoOutOfStock_Proposals_Approve_Reject()
     {
         var run = Guid.NewGuid().ToString("N")[..8];

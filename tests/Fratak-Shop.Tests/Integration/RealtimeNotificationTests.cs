@@ -20,7 +20,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
     /// هیچ قالب پیش‌فرضی نباید برچسبی داشته باشد که برای رویدادش تعریف نشده
     /// (وگرنه در پیام واقعی خالی می‌ماند و ویرایشگر قالب هم اجازهٔ ذخیره نمی‌دهد).
     /// </summary>
-    [Fact]
+    [SqlFact]
     public async Task SeededTemplates_UseOnlyKnownPlaceholders()
     {
         var userId = await db.CreateUserAsync();
@@ -39,7 +39,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Preview_FillsCustomerPlaceholders_AndReportsTypos()
     {
         var userId = await db.CreateUserAsync();
@@ -55,7 +55,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         Assert.False(string.IsNullOrWhiteSpace(preview.Sms));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task RenderForUser_ReplacesKnownKeys_AndKeepsUnknownBraces()
     {
         var userId = await db.CreateUserAsync();
@@ -68,7 +68,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         Assert.Equal("سلام کاربر، تیکت T-100 – {not-a-key} {Other}", text);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task StaffNotifications_CountMuteAndMarkRead()
     {
         var userId = await db.CreateUserAsync();
@@ -99,7 +99,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         Assert.Empty(page.Items);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task StaffNotifications_CannotBeReadByAnotherUser()
     {
         var owner = await db.CreateUserAsync();
@@ -115,7 +115,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         Assert.Empty(await staff.GetLatestAsync(other));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task ReadyMessages_ValidateAndFilterByScope()
     {
         await using var scope = db.Scope();
@@ -140,7 +140,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         Assert.DoesNotContain(await ready.AllAsync(), m => m.Name == name);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task DefaultReadyMessages_AreSeeded()
     {
         await using var scope = db.Scope();
@@ -148,7 +148,7 @@ public class RealtimeNotificationTests(SqlServerFixture db)
         Assert.True(await context.ReadyMessages.IgnoreQueryFilters().CountAsync() >= 4);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task AdminPreferences_RoundTripPerUser()
     {
         var userId = await db.CreateUserAsync();

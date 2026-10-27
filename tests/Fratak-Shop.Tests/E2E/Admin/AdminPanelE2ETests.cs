@@ -18,7 +18,7 @@ namespace Fratak_Shop.Tests.E2E.Admin;
 [Trait("Area", "Admin")]
 public class AdminPanelE2ETests(ShopApp app)
 {
-    [Theory]
+    [SqlTheory]
     [InlineData("/admin")]
     [InlineData("/admin/orders")]
     [InlineData("/admin/settings")]
@@ -33,7 +33,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.StartsWith("/login", response.Headers.Location?.OriginalString, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/admin")]
     [InlineData("/admin/orders")]
     [InlineData("/admin/customers")]
@@ -49,7 +49,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(ShopApp.WriterPhone, "/admin/orders")]
     [InlineData(ShopApp.WriterPhone, "/admin/finance")]
     [InlineData(ShopApp.WriterPhone, "/admin/staff")]
@@ -69,7 +69,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.True(await app.WithDbAsync(db => db.SecurityLogs.AnyAsync(e => e.Type == SecurityEventType.AdminAccessDenied && e.Details!.Contains(url))));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(ShopApp.WriterPhone, "/admin/blog")]
     [InlineData(ShopApp.SeoPhone, "/admin/seo")]
     [InlineData(ShopApp.AccountantPhone, "/admin/finance")]
@@ -86,7 +86,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.Contains("no-store", page.Response.Headers.CacheControl?.ToString() ?? "", StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Denied_staff_post_changes_nothing()
     {
         var before = await app.WithDbAsync(db => db.StoreSettings.Select(s => s.SiteName).FirstAsync());
@@ -99,7 +99,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.Equal(before, await app.WithDbAsync(db => db.StoreSettings.Select(s => s.SiteName).FirstAsync()));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Admin_forms_without_a_csrf_token_are_rejected()
     {
         using var client = app.CreateClient();
@@ -113,7 +113,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.NotEqual("CSRF", await app.WithDbAsync(db => db.StoreSettings.Select(s => s.SiteName).FirstAsync()));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Csrf_token_of_one_user_does_not_work_for_another()
     {
         using var attacker = app.CreateClient();
@@ -130,7 +130,7 @@ public class AdminPanelE2ETests(ShopApp app)
     /// <summary>
     /// مدیر کل همهٔ لینک‌های پنل را باز می‌کند (فقط GET؛ handler و خروج کنار گذاشته می‌شوند): هیچ 5xx و هیچ استثنایی.
     /// </summary>
-    [Fact]
+    [SqlFact]
     public async Task Owner_can_open_every_admin_page_without_a_server_error()
     {
         using var client = app.CreateClient();
@@ -169,7 +169,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.Empty(app.Logs.ErrorsSince(started));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData(ShopApp.SalesManagerPhone)]
     [InlineData(ShopApp.SeoPhone)]
     [InlineData(ShopApp.WriterPhone)]
@@ -199,7 +199,7 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.Empty(app.Logs.ErrorsSince(started));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Blocking_a_customer_from_the_panel_ends_their_session_immediately()
     {
         var customer = await app.CreateCustomerAsync();

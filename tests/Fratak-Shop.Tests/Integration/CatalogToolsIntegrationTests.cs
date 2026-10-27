@@ -33,7 +33,7 @@ public class CatalogToolsIntegrationTests(SqlServerFixture db)
         return await Ctx(scope).Products.AsNoTracking().Include(p => p.Images).Include(p => p.Features).SingleAsync(p => p.Id == id);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Bulk_price_is_applied_and_reverted_without_overwriting_later_edits()
     {
         var a = await db.CreateProductAsync(400_000, 5);
@@ -87,7 +87,7 @@ public class CatalogToolsIntegrationTests(SqlServerFixture db)
             Assert.Equal(EnOperationResultStatus.Error, (await new BulkPriceService(Ctx(s)).RevertAsync(batchId, null, "تست")).Status);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Apply_is_rejected_when_data_changed_after_the_preview()
     {
         var a = await db.CreateProductAsync(200_000, 3);
@@ -113,7 +113,7 @@ public class CatalogToolsIntegrationTests(SqlServerFixture db)
         Assert.Null((await GetAsync(b)).DiscountPrice);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Import_updates_by_sku_and_records_price_history_and_stock_ledger()
     {
         var id = await db.CreateProductAsync(250_000, 10);
@@ -157,7 +157,7 @@ public class CatalogToolsIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Clone_creates_an_inactive_copy_with_unique_slug_and_sku()
     {
         var id = await db.CreateProductAsync(150_000, 7);

@@ -17,7 +17,7 @@ public class AuthFlowE2ETests(ShopApp app)
 
     // ── ثبت‌نام ───────────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Register_then_verify_phone_with_the_sms_code()
     {
         using var client = app.CreateClient();
@@ -44,7 +44,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.DoesNotContain("secret123", user.PasswordHash, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Wrong_verification_code_keeps_the_phone_unverified()
     {
         using var client = app.CreateClient();
@@ -62,7 +62,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.False(await app.WithDbAsync(db => db.Users.Where(u => u.PhoneNumber == phone).Select(u => u.IsPhoneVerified).FirstAsync()));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("0912", "secret123", "secret123", "true")]          // شمارهٔ ناقص
     [InlineData("08123456789", "secret123", "secret123", "true")]   // پیش‌شمارهٔ غیرموبایل
     [InlineData("{phone}", "123", "123", "true")]                   // رمز کوتاه
@@ -81,7 +81,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.False(await app.WithDbAsync(db => db.Users.IgnoreQueryFilters().AnyAsync(u => u.PhoneNumber == actualPhone)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Registering_an_existing_phone_does_not_take_over_the_account()
     {
         var owner = await app.CreateCustomerAsync();
@@ -97,7 +97,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.Equal(hashBefore, await app.WithDbAsync(db => db.Users.Where(u => u.Id == owner.Id).Select(u => u.PasswordHash).FirstAsync()));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Bulk_sign_up_from_one_ip_is_stopped_by_the_captcha()
     {
         using var client = app.CreateClient();
@@ -121,7 +121,7 @@ public class AuthFlowE2ETests(ShopApp app)
 
     // ── ورود با رمز عبور ──────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Password_login_issues_secure_http_only_jwt_cookies()
     {
         var customer = await app.CreateCustomerAsync();
@@ -144,7 +144,7 @@ public class AuthFlowE2ETests(ShopApp app)
         await client.GetPageAsync("/profile");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Wrong_password_and_unknown_phone_get_the_same_answer()
     {
         var customer = await app.CreateCustomerAsync();
@@ -164,7 +164,7 @@ public class AuthFlowE2ETests(ShopApp app)
         await wrongPassword.GetPageAsync("/profile", HttpStatusCode.Redirect);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Captcha_appears_after_three_failures_from_one_ip()
     {
         var customer = await app.CreateCustomerAsync();
@@ -188,7 +188,7 @@ public class AuthFlowE2ETests(ShopApp app)
         await other.LoginAsync(customer.Phone, customer.Password);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Distributed_password_guessing_locks_the_account()
     {
         var customer = await app.CreateCustomerAsync();
@@ -217,7 +217,7 @@ public class AuthFlowE2ETests(ShopApp app)
             e.Type == Fratak_Shop.Data.Entities.Admin.SecurityEventType.LockedOut && e.Identifier == masked)));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Blocked_customer_cannot_sign_in_with_password_or_sms_code()
     {
         var customer = await app.CreateCustomerAsync();
@@ -238,7 +238,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.DoesNotContain(ShopClient.SetCookies(otp), c => c.StartsWith("fratak_at=", StringComparison.Ordinal));
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("https://evil.example/steal")]
     [InlineData("//evil.example/steal")]
     [InlineData("/\\evil.example/steal")]
@@ -258,7 +258,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.DoesNotContain("evil", location, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Login_returns_to_the_local_page_that_asked_for_it()
     {
         var customer = await app.CreateCustomerAsync();
@@ -276,7 +276,7 @@ public class AuthFlowE2ETests(ShopApp app)
 
     // ── ورود با کد پیامکی ─────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Sms_code_login_works_once_and_the_code_cannot_be_reused()
     {
         var customer = await app.CreateCustomerAsync();
@@ -297,7 +297,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.DoesNotContain(ShopClient.SetCookies(replay), c => c.StartsWith("fratak_at=", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Sms_code_is_destroyed_after_five_wrong_guesses()
     {
         var customer = await app.CreateCustomerAsync();
@@ -321,7 +321,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.DoesNotContain(ShopClient.SetCookies(late), c => c.StartsWith("fratak_at=", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Sms_code_resend_is_throttled()
     {
         var phone = (await app.CreateCustomerAsync()).Phone;
@@ -344,7 +344,7 @@ public class AuthFlowE2ETests(ShopApp app)
 
     // ── ورود دومرحله‌ای ───────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Two_factor_login_needs_the_sms_code_after_the_password()
     {
         var customer = await app.CreateCustomerAsync();
@@ -364,7 +364,7 @@ public class AuthFlowE2ETests(ShopApp app)
         await client.GetPageAsync("/profile");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Two_factor_step_cannot_be_used_without_the_password_step()
     {
         using var client = app.CreateClient();
@@ -377,7 +377,7 @@ public class AuthFlowE2ETests(ShopApp app)
 
     // ── خروج و تغییر رمز ─────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Logout_revokes_the_refresh_token_and_ends_the_session()
     {
         var customer = await app.CreateCustomerAsync();
@@ -392,7 +392,7 @@ public class AuthFlowE2ETests(ShopApp app)
         Assert.Equal(0, active);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Changing_the_password_signs_out_every_other_device()
     {
         var customer = await app.CreateCustomerAsync();
@@ -417,7 +417,7 @@ public class AuthFlowE2ETests(ShopApp app)
         await newPassword.LoginAsync(customer.Phone, "NewSecret456");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Password_change_with_a_wrong_current_password_is_refused()
     {
         var customer = await app.CreateCustomerAsync();
@@ -432,7 +432,7 @@ public class AuthFlowE2ETests(ShopApp app)
         await other.LoginAsync(customer.Phone, customer.Password);
     }
 
-    [Theory]
+    [SqlTheory]
     [InlineData("/profile")]
     [InlineData("/profile/orders")]
     [InlineData("/profile/addresses")]

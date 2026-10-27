@@ -123,7 +123,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
 
     // ── هزینه‌ها ─────────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Expenses_are_summed_per_period_and_soft_deleted()
     {
         // ماه مخصوص این تست: خرداد ۱۳۹۸
@@ -161,7 +161,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
         Assert.True(await context.Expenses.IgnoreQueryFilters().AnyAsync(e => e.Id == second.Data && e.IsDeleted));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Recurring_expense_records_next_period_and_reminds_once_per_day()
     {
         var staff = await CreateStaffAsync(AdminPermissions.ExpensesManage);
@@ -223,7 +223,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
 
     // ── هدف فروش ─────────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Sales_goal_is_upserted_and_progress_counts_only_realized_orders()
     {
         const int year = 1397, month = 4; // تیر ۱۳۹۷؛ ماه گذشته = همهٔ روزها سپری شده
@@ -280,7 +280,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
 
     // ── گزارش خودکار ─────────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Scheduled_report_is_sent_to_every_channel_and_runs_once_when_due()
     {
         var delivery = new RecordingDelivery();
@@ -354,7 +354,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Failed_scheduled_report_notifies_staff()
     {
         var staff = await CreateStaffAsync(AdminPermissions.SettingsManage);
@@ -397,7 +397,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Digest_contains_the_requested_sections()
     {
         await using var scope = db.Scope();
@@ -416,7 +416,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
 
     // ── عملکرد کارکنان ───────────────────────────────────────────────────
 
-    [Fact]
+    [SqlFact]
     public async Task Staff_performance_counts_each_kind_of_work_in_the_period()
     {
         var staff = await CreateStaffAsync(AdminPermissions.OrdersManage);

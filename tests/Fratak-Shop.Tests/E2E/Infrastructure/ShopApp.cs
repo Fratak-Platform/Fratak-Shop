@@ -32,7 +32,7 @@ namespace Fratak_Shop.Tests.E2E.Infrastructure;
 /// </list>
 /// محیط «Production» است تا رفتار واقعی (HSTS، صفحهٔ خطای عمومی، بدون جزئیات استثنا) آزموده شود.
 /// </para>
-/// سرور SQL از متغیر محیطی <c>FRATAK_TEST_SQL</c> می‌آید (مثل آزمون‌های Integration).
+/// سرور SQL را <see cref="TestSql"/> پیدا می‌کند (متغیر محیطی <c>FRATAK_TEST_SQL</c>، appsettings برنامه یا LocalDB).
 /// </summary>
 public sealed class ShopApp : IAsyncLifetime
 {
@@ -68,10 +68,10 @@ public sealed class ShopApp : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var server = Environment.GetEnvironmentVariable(SqlServerFixture.EnvironmentVariable);
-        if (string.IsNullOrWhiteSpace(server))
-            throw new InvalidOperationException(
-                $"E2E tests need a SQL Server: set {SqlServerFixture.EnvironmentVariable} (or run `dotnet test --filter Category!=E2E`).");
+        // سرور به‌طور خودکار پیدا می‌شود (TestSql: متغیر محیطی، appsettings برنامه، LocalDB)؛ اگر نبود آزمون‌ها Skipped می‌شوند.
+        var server = TestSql.Server;
+        if (server is null)
+            return;
 
         var connection = new SqlConnectionStringBuilder(server) { InitialCatalog = _database, MultipleActiveResultSets = true }.ConnectionString;
 

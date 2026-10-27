@@ -62,7 +62,7 @@ public class SeoToolsIntegrationTests(SqlServerFixture db)
         return (await Ctx(scope).Products.AsNoTracking().SingleAsync(p => p.Id == productId)).Description ?? "";
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Link_audit_finds_fixes_and_forgets_broken_links()
     {
         var productId = await db.CreateProductAsync();
@@ -163,7 +163,7 @@ public class SeoToolsIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Link_audit_respects_the_settings()
     {
         await using (var scope = db.Scope())
@@ -195,7 +195,7 @@ public class SeoToolsIntegrationTests(SqlServerFixture db)
 
     // ═══ ویرایش گروهی ═══════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Bulk_edit_saves_cleaned_values_and_guards_concurrent_edits()
     {
         var productId = await db.CreateProductAsync();
@@ -322,7 +322,7 @@ public class SeoToolsIntegrationTests(SqlServerFixture db)
             scope.ServiceProvider.GetRequiredService<IStaffNotificationService>(), scope.ServiceProvider.GetRequiredService<IMemoryCache>(),
             NullLogger<SearchConsoleService>.Instance);
 
-    [Fact]
+    [SqlFact]
     public async Task Search_console_connects_syncs_and_reports()
     {
         var google = new FakeGoogle();

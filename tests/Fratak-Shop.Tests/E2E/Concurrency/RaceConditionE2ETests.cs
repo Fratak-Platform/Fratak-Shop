@@ -16,7 +16,7 @@ public class RaceConditionE2ETests(ShopApp app)
 {
     private const int Parallel = 8;
 
-    [Fact]
+    [SqlFact]
     public async Task Parallel_gateway_callbacks_credit_a_top_up_exactly_once()
     {
         var customer = await app.CreateCustomerAsync();
@@ -39,7 +39,7 @@ public class RaceConditionE2ETests(ShopApp app)
         Assert.Equal(1, app.ZarinPal.VerifyCalls - verifiesBefore);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Parallel_callbacks_mark_an_order_paid_once_with_one_reference()
     {
         var customer = await app.CreateCustomerAsync();
@@ -64,7 +64,7 @@ public class RaceConditionE2ETests(ShopApp app)
         Assert.Equal(payment.RefId, order.TransactionId);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task The_last_item_is_sold_only_once_when_buyers_race()
     {
         var (productId, _) = await app.CreateProductAsync(price: 120_000, stock: 1);
@@ -101,7 +101,7 @@ public class RaceConditionE2ETests(ShopApp app)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Parallel_wallet_orders_never_overdraw_the_wallet()
     {
         var customer = await app.CreateCustomerAsync(wallet: 500_000);
@@ -135,7 +135,7 @@ public class RaceConditionE2ETests(ShopApp app)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Parallel_cart_additions_never_exceed_the_stock()
     {
         var (productId, _) = await app.CreateProductAsync(stock: 3);

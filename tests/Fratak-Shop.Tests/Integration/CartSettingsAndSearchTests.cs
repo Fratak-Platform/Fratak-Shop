@@ -27,7 +27,7 @@ public class SaveForLaterTests(SqlServerFixture db)
         return (cart.Id, product);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task SavedItems_LeaveTheCartAndComeBack()
     {
         var (cartId, productId) = await CartWithProductAsync(quantity: 2);
@@ -63,7 +63,7 @@ public class SaveForLaterTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task OutOfStockItems_StayInTheSavedList()
     {
         var (cartId, productId) = await CartWithProductAsync();
@@ -88,7 +88,7 @@ public class SaveForLaterTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task OnlyItemsOfTheCartCanBeSaved()
     {
         var (cartId, _) = await CartWithProductAsync();
@@ -105,7 +105,7 @@ public class SaveForLaterTests(SqlServerFixture db)
 [Trait("Category", "Integration")]
 public class CacheRefreshTests(SqlServerFixture db)
 {
-    [Fact]
+    [SqlFact]
     public async Task StoreSettings_AreReloadedAfterAChange()
     {
         decimal original;
@@ -135,7 +135,7 @@ public class CacheRefreshTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task NewSynonyms_AreUsedImmediately()
     {
         await using (var scope = db.Scope())
@@ -162,7 +162,7 @@ public class CacheRefreshTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task ProductChanges_BumpTheCatalogVersion()
     {
         var productId = await db.CreateProductAsync();

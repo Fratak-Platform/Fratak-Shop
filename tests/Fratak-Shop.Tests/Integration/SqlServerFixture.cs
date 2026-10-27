@@ -23,7 +23,7 @@ namespace Fratak_Shop.Tests.Integration;
 /// </summary>
 public sealed class SqlServerFixture : IAsyncLifetime
 {
-    public const string EnvironmentVariable = "FRATAK_TEST_SQL";
+    public const string EnvironmentVariable = TestSql.EnvironmentVariable;
 
     private readonly string _database = "FratakTests_" + Guid.NewGuid().ToString("N")[..12];
 
@@ -31,10 +31,11 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var server = Environment.GetEnvironmentVariable(EnvironmentVariable);
-        if (string.IsNullOrWhiteSpace(server))
-            throw new InvalidOperationException(
-                $"Integration tests need a SQL Server: set {EnvironmentVariable} (or run `dotnet test --filter Category!=Integration`).");
+        // سرور به‌طور خودکار پیدا می‌شود (TestSql)؛ اگر نبود، آزمون‌ها با [SqlFact]/[SqlTheory] رد (Skipped) می‌شوند
+        // و این fixture کاری نمی‌کند.
+        var server = TestSql.Server;
+        if (server is null)
+            return;
 
         var connection = new SqlConnectionStringBuilder(server) { InitialCatalog = _database }.ConnectionString;
 

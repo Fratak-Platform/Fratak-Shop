@@ -41,7 +41,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         return result.Data;
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Generated_suggestion_is_applied_only_for_the_approved_fields()
     {
         var productId = await db.CreateProductAsync();
@@ -86,7 +86,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
             Assert.Equal(EnOperationResultStatus.Error, (await Engine(scope).ApproveAsync(suggestionId, SeoFields.All, null, "تست")).Status);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Rejecting_regenerates_a_new_variant_that_avoids_the_rejected_text()
     {
         var productId = await db.CreateProductAsync();
@@ -115,7 +115,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         Assert.Equal(first.FocusKeyword, second.FocusKeyword); // بخش ردنشده همان نسخهٔ قبل می‌ماند
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Editing_the_page_after_generation_makes_the_suggestion_stale()
     {
         var productId = await db.CreateProductAsync();
@@ -143,7 +143,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Slug_change_adds_a_permanent_redirect_from_the_old_address()
     {
         // نامک «test-<کد هگز>» بی‌معنی است و محصول تازه است → موتور نامک بهتر پیشنهاد می‌دهد.
@@ -172,7 +172,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Scheduled_slot_runs_only_once_and_scores_every_page()
     {
         var productId = await db.CreateProductAsync();
@@ -206,7 +206,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Clone_does_not_copy_the_seo_faq_or_review_state()
     {
         var productId = await db.CreateProductAsync();
@@ -240,7 +240,7 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         }
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Analyze_returns_report_and_history_for_a_page()
     {
         var productId = await db.CreateProductAsync();

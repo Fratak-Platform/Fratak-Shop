@@ -15,7 +15,7 @@ namespace Fratak_Shop.Tests.Integration;
 [Trait("Category", "Integration")]
 public class AdminUxIntegrationTests(SqlServerFixture db)
 {
-    [Fact]
+    [SqlFact]
     public async Task Pins_Toggle_AndRejectExternalUrls()
     {
         var userId = await db.CreateUserAsync();
@@ -35,7 +35,7 @@ public class AdminUxIntegrationTests(SqlServerFixture db)
         Assert.Single(await shortcuts.GetPinsAsync(userId));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Recents_SkipRepeat_MoveToTop_AndKeepEight()
     {
         var userId = await db.CreateUserAsync();
@@ -55,7 +55,7 @@ public class AdminUxIntegrationTests(SqlServerFixture db)
         Assert.DoesNotContain(recents, r => r.Url == "/admin/page0");
     }
 
-    [Fact]
+    [SqlFact]
     public async Task SavedFilters_SaveReplaceDelete_PerPage()
     {
         var userId = await db.CreateUserAsync();
@@ -80,7 +80,7 @@ public class AdminUxIntegrationTests(SqlServerFixture db)
         Assert.Single(await shortcuts.GetAllFiltersAsync(userId));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Help_IsSeeded_ResolvesParents_AndCustomTextSurvivesReseed()
     {
         await using var scope = db.Scope();
@@ -114,7 +114,7 @@ public class AdminUxIntegrationTests(SqlServerFixture db)
         Assert.False((await help.SaveAsync(null, "javascript:alert(1)", "x", "<p>x</p>")).IsSuccess());
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Search_FindsByScope_AndRespectsPermissions()
     {
         var productId = await db.CreateProductAsync();
@@ -141,7 +141,7 @@ public class AdminUxIntegrationTests(SqlServerFixture db)
         Assert.Empty(await search.SearchAsync(product.SKU, AdminSearchScope.None));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Media_AddUpdateListDelete()
     {
         await using var scope = db.Scope();

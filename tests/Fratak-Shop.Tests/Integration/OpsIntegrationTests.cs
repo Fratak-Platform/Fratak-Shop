@@ -26,7 +26,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
 
     // ═══ پشتیبان‌گیری ═══════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Manual_backup_creates_a_verified_database_backup()
     {
         await using var scope = db.Scope();
@@ -57,7 +57,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
         Assert.False((await backups.DeleteAsync(Guid.NewGuid())).Status == EnOperationResultStatus.Success);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Scheduled_backup_runs_once_per_slot()
     {
         await using var scope = db.Scope();
@@ -81,7 +81,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
 
     // ═══ فایروال ═════════════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Ip_rules_are_validated_applied_and_removed()
     {
         await using var scope = db.Scope();
@@ -122,7 +122,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
         Assert.False((await firewall.DeleteIpRuleAsync(Guid.NewGuid())).Status == EnOperationResultStatus.Success);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Default_bot_rules_are_seeded_once_and_protected_patterns_are_refused()
     {
         await using var scope = db.Scope();
@@ -151,7 +151,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
         Assert.True((await firewall.DeleteBotRuleAsync(scraper.Id)).Status == EnOperationResultStatus.Success);
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Repeated_failed_logins_auto_block_the_ip_and_expired_blocks_are_reactivated()
     {
         await using var scope = db.Scope();
@@ -201,7 +201,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
 
     // ═══ کارهای پس‌زمینه ═════════════════════════════════════════════════
 
-    [Fact]
+    [SqlFact]
     public async Task Job_pause_is_persisted()
     {
         await using var scope = db.Scope();
@@ -238,7 +238,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
         });
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Alert_fires_once_per_cooldown_and_resolves()
     {
         await using var scope = db.Scope();
@@ -280,7 +280,7 @@ public class OpsIntegrationTests(SqlServerFixture db)
         Assert.Contains(recent, e => e.RuleId == rule.Id && e.IsResolved && e.Message.StartsWith("برطرف شد", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [SqlFact]
     public async Task Alert_recipients_are_validated_and_saved()
     {
         await using var scope = db.Scope();
