@@ -36,7 +36,6 @@ public class LoginCodeModel(
 
     public int CodeLength => otpService.CodeLength;
 
-    public string? DevelopmentCode { get; private set; }
 
     public bool ShowReferral => site.Settings.IsReferralEnabled && site.Settings.IsOtpRegistrationEnabled;
 
@@ -51,7 +50,6 @@ public class LoginCodeModel(
         if (!IsValidPhone())
             return RedirectToPage("/Login", new { returnUrl = ReturnUrl });
 
-        DevelopmentCode = TempData[LoginModel.DevelopmentCodeKey] as string;
         ReferralCode ??= ReferralCookie.Read(HttpContext);
         ViewData[PageMetaKeys.Title] = "کد ورود";
         PrepareCaptcha(CaptchaActions.OtpVerify);
@@ -109,7 +107,8 @@ public class LoginCodeModel(
             await events.UserRegisteredAsync(user.Id, site.Settings.IsReferralEnabled ? referral : null);
             ReferralCookie.Clear(HttpContext);
             SuccessMessage = "حساب کاربری شما ساخته شد؛ خوش آمدید.";
-            return RedirectToPage("/Welcome", new { returnUrl = ReturnUrl });
+            // حساب تازه با کد پیامکی ساخته شد (شماره هم‌زمان تأیید شده) ← تکمیل اختیاری اطلاعات.
+            return RedirectToPage("/Profile/PersonalInfo", new { welcome = true, returnUrl = ReturnUrl });
         }
 
         SuccessMessage = $"{user.FullName ?? "کاربر"} عزیز، خوش آمدید.";
@@ -139,7 +138,6 @@ public class LoginCodeModel(
         else
             ErrorMessage = $"برای ارسال مجدد {Math.Ceiling(send.RetryAfter.TotalSeconds)} ثانیه صبر کنید.";
 
-        TempData[LoginModel.DevelopmentCodeKey] = send.DevelopmentCode;
         return RedirectToPage(new { phone = Phone!.Trim(), returnUrl = ReturnUrl });
     }
 

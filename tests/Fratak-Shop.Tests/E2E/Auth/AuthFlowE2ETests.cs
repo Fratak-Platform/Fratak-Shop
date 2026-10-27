@@ -37,7 +37,11 @@ public class AuthFlowE2ETests(ShopApp app)
         using var verify = await client.PostFormAsync("/verify", code!.Select(d => ("Digits", d.ToString())).ToArray());
 
         Assert.Equal(HttpStatusCode.Redirect, verify.StatusCode);
-        Assert.StartsWith("/welcome", verify.Headers.Location?.OriginalString, StringComparison.OrdinalIgnoreCase);
+        // مرحلهٔ دهم: بعد از تأیید شماره، صفحهٔ تکمیل اختیاری اطلاعات باز می‌شود (نه /welcome).
+        Assert.StartsWith("/profile/info?welcome=true", verify.Headers.Location?.OriginalString, StringComparison.OrdinalIgnoreCase);
+        var info = await client.GetPageAsync(verify.Headers.Location!.OriginalString);
+        Assert.Contains("بعداً، ادامه بده", info.Html);
+        Assert.Empty(info.All("input[name='Input.FirstName'][required]"));
         var user = await app.WithDbAsync(db => db.Users.FirstAsync(u => u.PhoneNumber == phone));
         Assert.True(user.IsPhoneVerified);
         Assert.NotEqual("secret123", user.PasswordHash);

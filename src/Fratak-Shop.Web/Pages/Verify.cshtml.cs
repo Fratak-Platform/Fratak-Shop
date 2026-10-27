@@ -8,7 +8,7 @@ namespace Fratak_Shop.Web.Pages;
 /// <summary>
 /// Phone-number verification with a one-time code (sent by SMS).
 /// </summary>
-public class VerifyModel(IOtpService otpService, IUserService userService, IWebHostEnvironment environment) : ShopPageModel
+public class VerifyModel(IOtpService otpService, IUserService userService) : ShopPageModel
 {
     [BindProperty(SupportsGet = true)]
     public string? ReturnUrl { get; set; }
@@ -21,7 +21,6 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
     public int CodeLength => otpService.CodeLength;
 
     /// <summary>The code is shown on the page in development (no SMS provider configured).</summary>
-    public string? DevelopmentCode { get; private set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -34,7 +33,6 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
 
         PhoneNumber = user.PhoneNumber;
         var send = await otpService.SendAsync(PhoneNumber);
-        DevelopmentCode = environment.IsDevelopment() ? send.DevelopmentCode : null;
         // همین درخواست صفحه را می‌سازد؛ ویژگی [TempData] تا پایان درخواست به TempData نمی‌رسد، پس مستقیم نوشته می‌شود.
         if (send.Failed)
             TempData["ErrorMessage"] = OtpSendResult.FailedMessage;
@@ -60,7 +58,8 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
         var result = await userService.ConfirmPhoneAsync(CurrentUserId!.Value);
         ShowResult(result);
 
-        return RedirectToPage("/Welcome", new { returnUrl = ReturnUrl });
+        // مرحلهٔ دهم: بعد از ثبت‌نام، صفحهٔ «اطلاعات حساب» با پیام خوش‌آمد باز می‌شود (تکمیل اختیاری است و دکمهٔ «بعداً» دارد).
+        return RedirectToPage("/Profile/PersonalInfo", new { welcome = true, returnUrl = ReturnUrl });
     }
 
     public async Task<IActionResult> OnPostResendAsync()

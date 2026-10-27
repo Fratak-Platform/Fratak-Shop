@@ -113,7 +113,7 @@
               @foreach (var image in r.Images)
               {
                 var src = "/uploads/returns/" + Uri.EscapeDataString(image);
-                <a href="@src" target="_blank" rel="noopener" class="block h-20 w-20 overflow-hidden rounded-lg border">
+                <a href="@src" data-lightbox="return-@r.Id" class="block h-20 w-20 overflow-hidden rounded-lg border">
                   <img src="@ImageHelper.Sized(src, 160, Site.Settings.IsImageOptimizationEnabled)" alt="تصویر ارسالی" loading="lazy" class="h-full w-full object-cover" width="80" height="80">
                 </a>
               }

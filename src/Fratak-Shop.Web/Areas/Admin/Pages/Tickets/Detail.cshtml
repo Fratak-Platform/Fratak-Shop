@@ -46,7 +46,7 @@
             <div class="mt-3 flex flex-wrap gap-2">
               @foreach (var a in m.Attachments)
               {
-                <a class="a-btn a-btn-light a-btn-xs" href="/admin/tickets/@t.Id?handler=attachment&name=@Uri.EscapeDataString(a.FileName)">@Icons.Svg("Paperclip", null, 14) @a.FileName <span class="a-muted">(@AdminUi.FileSize(a.SizeBytes))</span></a>
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/tickets/@t.Id?handler=attachment&name=@Uri.EscapeDataString(a.FileName)" data-lightbox="@(a.ContentType.StartsWith("image/", StringComparison.Ordinal) ? "ticket" : null)" data-caption="@a.FileName">@Icons.Svg("Paperclip", null, 14) @a.FileName <span class="a-muted">(@AdminUi.FileSize(a.SizeBytes))</span></a>
               }
             </div>
           }

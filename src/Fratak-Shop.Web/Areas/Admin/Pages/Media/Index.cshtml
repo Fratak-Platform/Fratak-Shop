@@ -36,7 +36,7 @@ else
     @foreach (var m in Model.Items.Items)
     {
       <figure class="a-media-item">
-        <a href="@m.Url" target="_blank" rel="noopener" class="a-media-thumb"><img src="@m.Url" alt="@m.AltText" loading="lazy" decoding="async"></a>
+        <a href="@m.Url" data-lightbox="media" class="a-media-thumb"><img src="@m.Url" alt="@m.AltText" loading="lazy" decoding="async"></a>
         <figcaption>
           <form method="post" asp-page-handler="Alt" class="m-0 flex gap-1">
             <input type="hidden" name="id" value="@m.Id">

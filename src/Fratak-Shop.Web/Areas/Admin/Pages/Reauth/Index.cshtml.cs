@@ -24,8 +24,7 @@ public class ReauthModel(
     IOtpService otpService,
     IReauthTicket ticket,
     IStoreSettingService settingsService,
-    SecurityEventRecorder securityEvents,
-    IWebHostEnvironment environment) : AdminPageModel
+    SecurityEventRecorder securityEvents) : AdminPageModel
 {
     [BindProperty(SupportsGet = true)]
     public string? ReturnUrl { get; set; }
@@ -37,7 +36,6 @@ public class ReauthModel(
     public int Minutes { get; private set; }
 
     /// <summary>کد پیامکی در حالت توسعه (بدون سرویس پیامک) برای آزمایش.</summary>
-    public string? DevelopmentCode { get; private set; }
 
     /// <summary>آیا کد پیامکی فرستاده شده و فرم واردکردنش باید نمایش داده شود؟</summary>
     public bool SmsSent { get; private set; }
@@ -86,7 +84,6 @@ public class ReauthModel(
         var send = await otpService.SendAsync(Access.PhoneNumber, OtpPurpose.Reauth);
         await LoadAsync();
         SmsSent = !send.Failed;
-        DevelopmentCode = environment.IsDevelopment() ? send.DevelopmentCode : null;
         if (send.Failed)
             ErrorMessage = OtpSendResult.FailedMessage;
         else if (send.Blocked)

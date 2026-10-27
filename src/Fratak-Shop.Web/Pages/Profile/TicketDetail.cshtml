@@ -47,7 +47,7 @@
                   <div class="mt-2 flex flex-wrap gap-2">
                     @foreach (var file in message.Attachments)
                     {
-                      <a href="/profile/tickets/@number?handler=Attachment&amp;name=@Uri.EscapeDataString(file.FileName)" class="inline-flex items-center gap-x-1 rounded-lg border bg-white px-2 py-1 text-xs text-zinc-600 hover:border-sky-300 hover:text-sky-600">
+                      <a href="/profile/tickets/@number?handler=Attachment&amp;name=@Uri.EscapeDataString(file.FileName)" data-lightbox="@(file.ContentType.StartsWith("image/", StringComparison.Ordinal) ? "ticket" : null)" class="inline-flex items-center gap-x-1 rounded-lg border bg-white px-2 py-1 text-xs text-zinc-600 hover:border-sky-300 hover:text-sky-600">
                         @Icons.Svg("Paperclip", "fill-current", 14)
                         @(file.ContentType == "application/pdf" ? "PDF" : "تصویر") – @Format.Number(Math.Max(1, file.SizeBytes / 1024)) KB
                       </a>

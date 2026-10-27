@@ -479,7 +479,7 @@ if [ -n "${ORDER_NO:-}" ]; then
   lacks "${ORDER_NO^^}</"
 fi
 
-echo "== Passwordless login (SMS code; development shows the code)"
+echo "== Passwordless login (SMS code; the code is never shown on the page, read it from the server log)"
 rm -f "$JAR"; JAR="$(mktemp)"
 expect 200 /login
 TOKEN=$(token)
@@ -488,19 +488,27 @@ case "$TARGET" in
   */login/code*)
     pass "code sent -> $TARGET"
     expect 200 "${TARGET#$BASE}"
-    CODE=$(grep -o 'class="font-bold" dir="ltr">[0-9]*' /tmp/smoke-body | grep -o '[0-9]*$')
+    # Round 10: the page must never reveal the code (no "development" hint either).
+    if grep -q "محیط توسعه" /tmp/smoke-body; then fail "login code page reveals a development hint"; else pass "code not shown on /login/code"; fi
+    # Development without an SMS.ir key logs the text instead of sending it ("SMS to <phone>: ... <code>").
+    CODE=""
+    for _ in 1 2 3 4 5; do
+      CODE=$(sed -n 's/.*SMS to 09125554433: [^0-9]*\([0-9]\{5\}\).*/\1/p' "${APP_LOG:-app.log}" 2>/dev/null | tail -1)
+      [ -n "$CODE" ] && break
+      sleep 1
+    done
     TOKEN=$(token)
     if [ -n "$CODE" ]; then
       DIGITS=()
       for ((i = 0; i < ${#CODE}; i++)); do DIGITS+=(--data-urlencode "Digits=${CODE:$i:1}"); done
       DONE=$(location "${TARGET#$BASE}" --data-urlencode "__RequestVerificationToken=$TOKEN" "${DIGITS[@]}")
       case "$DONE" in
-        */welcome*|*/) pass "signed in with SMS code -> $DONE" ;;
+        */welcome*|*/profile/info*|*/) pass "signed in with SMS code -> $DONE" ;;
         *) fail "SMS code login redirected to '$DONE'" ;;
       esac
       if grep -q "fratak_at" "$JAR"; then pass "session after SMS login"; else fail "no session after SMS login"; fi
     else
-      fail "development code not shown on /login/code"
+      fail "SMS code for 09125554433 not found in ${APP_LOG:-app.log}"
     fi ;;
   *) fail "send code redirected to '$TARGET'" ;;
 esac

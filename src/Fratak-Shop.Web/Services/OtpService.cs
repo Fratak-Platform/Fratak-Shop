@@ -34,16 +34,19 @@ public interface IOtpService
 
 /// <param name="Sent">False when the resend delay or the hourly limit prevented sending.</param>
 /// <param name="RetryAfter">Time until the next code can be requested.</param>
-/// <param name="DevelopmentCode">The code, only in the development environment (no SMS provider).</param>
 /// <param name="Blocked">True when the hourly limit of the number is reached.</param>
 /// <param name="Failed">پیامک به سرویس‌دهنده تحویل نشد (کلید نامعتبر، قطعی SMS.ir، …)؛ کد ساخته‌شده باطل شده و کاربر می‌تواند فوراً دوباره درخواست کند.</param>
-public record OtpSendResult(bool Sent, TimeSpan RetryAfter, string? DevelopmentCode, bool Blocked = false, bool Failed = false)
+/// <remarks>
+/// امنیت (مرحلهٔ دهم): کد یک‌بارمصرف هرگز در این نتیجه برنمی‌گردد و در هیچ صفحه‌ای (حتی محیط توسعه) نمایش داده نمی‌شود؛
+/// فقط با پیامک به صاحب شماره می‌رسد. در محیط توسعهٔ بدون کلید SMS.ir، فرستندهٔ «فقط لاگ» متن پیامک را در لاگ سرور می‌نویسد.
+/// </remarks>
+public record OtpSendResult(bool Sent, TimeSpan RetryAfter, bool Blocked = false, bool Failed = false)
 {
     /// <summary>پیام فارسی یکسان برای همهٔ صفحه‌ها وقتی ارسال ناموفق بود.</summary>
     public const string FailedMessage = "ارسال پیامک در حال حاضر ممکن نشد؛ لطفاً چند لحظه بعد دوباره تلاش کنید یا با رمز عبور وارد شوید.";
 }
 
-public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnvironment environment) : IOtpService
+public class OtpService(IMemoryCache cache, ISmsSender smsSender) : IOtpService
 {
     private const int MaxAttempts = 5;
     private const int MaxCodesPerHour = 6;
@@ -63,7 +66,7 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
         {
             var elapsed = now - existing.SentAt;
             if (elapsed < ResendDelay)
-                return new OtpSendResult(false, ResendDelay - elapsed, environment.IsDevelopment() ? existing.Code : null);
+                return new OtpSendResult(false, ResendDelay - elapsed);
         }
 
         var counter = cache.GetOrCreate($"otp:hourly:{phone}", entry =>
@@ -73,7 +76,7 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
         })!;
 
         if (counter.Increment() > MaxCodesPerHour)
-            return new OtpSendResult(false, counter.ResetAt - now, null, Blocked: true);
+            return new OtpSendResult(false, counter.ResetAt - now, Blocked: true);
 
         var max = (int)Math.Pow(10, CodeLength);
         var code = RandomNumberGenerator.GetInt32(max / 10, max).ToString();
@@ -93,10 +96,10 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
             // کدی که به دست کاربر نرسیده نباید معتبر بماند یا جلوی درخواست دوباره را بگیرد.
             // سهمیهٔ ساعتی عمداً پس داده نمی‌شود تا تکرار درخواست هنگام خطای سرویس هم محدود بماند.
             cache.Remove(key);
-            return new OtpSendResult(false, TimeSpan.Zero, null, Failed: true);
+            return new OtpSendResult(false, TimeSpan.Zero, Failed: true);
         }
 
-        return new OtpSendResult(true, ResendDelay, environment.IsDevelopment() ? code : null);
+        return new OtpSendResult(true, ResendDelay);
     }
 
     public bool Verify(string phoneNumber, string code, OtpPurpose purpose = OtpPurpose.VerifyPhone)

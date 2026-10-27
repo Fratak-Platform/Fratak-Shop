@@ -53,7 +53,7 @@
                 </div>
               </button>
             </div>
-            <img class="w-10/12 lg:w-full mx-auto border-2 rounded-xl @(p.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(mainImage.ImageName)"
+            <img data-ui="slide-go" data-arg="1" role="button" tabindex="0" title="نمایش بزرگ تصویر" class="cursor-zoom-in w-10/12 lg:w-full mx-auto border-2 rounded-xl @(p.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(mainImage.ImageName)"
                  srcset="@ImageHelper.Srcset(ImageHelper.Product(mainImage.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="(min-width: 1024px) 30vw, 85vw"
                  alt="@(mainImage.AltText ?? p.Name)" fetchpriority="high" decoding="async">
             @if (images.Count > 1)
@@ -515,7 +515,7 @@
                     @foreach (var image in review.Images)
                     {
                       var src = IReviewImageStore.WebPath + image;
-                      <a href="@src" target="_blank" rel="noopener" class="block h-20 w-20 overflow-hidden rounded-lg border bg-zinc-50">
+                      <a href="@src" data-lightbox="review-@review.Id" class="block h-20 w-20 overflow-hidden rounded-lg border bg-zinc-50">
                         <img src="@src" alt="تصویر ارسالی @review.AuthorName" loading="lazy" class="h-full w-full object-cover" width="80" height="80">
                       </a>
                     }

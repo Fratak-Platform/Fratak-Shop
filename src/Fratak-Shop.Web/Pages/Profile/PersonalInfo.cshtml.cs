@@ -13,6 +13,20 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
     [BindProperty]
     public ProfileInput Input { get; set; } = new();
 
+    /// <summary>
+    /// true وقتی کاربر تازه ثبت‌نام کرده (از /verify یا ورود پیامکی حساب جدید می‌آید): پیام خوش‌آمد و دکمهٔ «بعداً» نمایش داده می‌شود
+    /// و بعد از ذخیره، کاربر به همان صفحه‌ای که می‌خواست (ReturnUrl) برمی‌گردد. مثال: /profile/info?welcome=true&amp;returnUrl=/cart
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool Welcome { get; set; }
+
+    /// <summary>صفحهٔ مقصد پس از تکمیل یا رد شدن (فقط آدرس داخلی سایت پذیرفته می‌شود).</summary>
+    [BindProperty(SupportsGet = true)]
+    public string? ReturnUrl { get; set; }
+
+    /// <summary>آدرس امن ادامه: ReturnUrl داخلی یا صفحهٔ اصلی.</summary>
+    public string ContinueUrl => !string.IsNullOrWhiteSpace(ReturnUrl) && Url.IsLocalUrl(ReturnUrl) ? ReturnUrl : "/";
+
     public string PhoneNumber { get; private set; } = string.Empty;
     public bool IsPhoneVerified { get; private set; }
 
@@ -41,7 +55,7 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
         if (!ModelState.IsValid)
         {
             ErrorMessage = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).FirstOrDefault();
-            return RedirectToPage();
+            return Stay();
         }
 
         DateOnly? birthDate = null;
@@ -51,7 +65,7 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
             if (parts.Any(p => !p.HasValue))
             {
                 ErrorMessage = "روز، ماه و سال تولد را کامل انتخاب کنید.";
-                return RedirectToPage();
+                return Stay();
             }
 
             try
@@ -61,7 +75,7 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
             catch (ArgumentOutOfRangeException)
             {
                 ErrorMessage = "تاریخ تولد معتبر نیست.";
-                return RedirectToPage();
+                return Stay();
             }
         }
 
@@ -81,8 +95,16 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
         }
 
         ShowResult(result);
-        return RedirectToPage();
+        // کاربر تازه‌وارد بعد از ذخیرهٔ موفق به ادامهٔ مسیرش (مثلاً سبد خرید) می‌رود.
+        if (Welcome && Succeeded(result))
+            return LocalRedirect(ContinueUrl);
+        return Stay();
     }
+
+    /// <summary>ماندن در همین صفحه با حفظ حالت خوش‌آمد و مقصد.</summary>
+    private IActionResult Stay() => Welcome
+        ? RedirectToPage(new { welcome = true, returnUrl = ReturnUrl })
+        : RedirectToPage();
 
     private static readonly System.Globalization.PersianCalendar Persian = new();
 

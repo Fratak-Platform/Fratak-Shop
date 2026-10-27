@@ -354,12 +354,11 @@ public class SmsTests
     public async Task Otp_WhenSmsFails_CodeIsInvalid_AndRetryIsImmediate()
     {
         var sms = new FailingSms { Result = false };
-        var otp = new OtpService(new MemoryCache(new MemoryCacheOptions()), sms, new Env(Environments.Production));
+        var otp = new OtpService(new MemoryCache(new MemoryCacheOptions()), sms);
 
         var first = await otp.SendAsync("09121234567", OtpPurpose.Login);
         Assert.True(first.Failed);
         Assert.False(first.Sent);
-        Assert.Null(first.DevelopmentCode);
         Assert.False(otp.Verify("09121234567", sms.LastCode!, OtpPurpose.Login)); // کد نرسیده معتبر نیست
 
         sms.Result = true;
@@ -373,7 +372,7 @@ public class SmsTests
     public async Task Otp_FailedSends_StillCountTowardHourlyLimit()
     {
         var sms = new FailingSms { Result = false };
-        var otp = new OtpService(new MemoryCache(new MemoryCacheOptions()), sms, new Env(Environments.Production));
+        var otp = new OtpService(new MemoryCache(new MemoryCacheOptions()), sms);
         for (var i = 0; i < 6; i++)
             Assert.True((await otp.SendAsync("09120001111")).Failed);
 

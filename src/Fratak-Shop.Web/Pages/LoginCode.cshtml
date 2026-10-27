@@ -20,7 +20,6 @@
             کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.Phone</span> را وارد کنید.
             <a asp-page="/Login" asp-route-returnUrl="@Model.ReturnUrl" class="text-sky-500 mr-1">ویرایش شماره</a>
           </div>
-          <partial name="_DevelopmentCode" model="Model.DevelopmentCode" />
           <partial name="_OtpDigits" model="Model.CodeLength" />
           @if (Model.Captcha is not null)
           {

@@ -48,7 +48,7 @@
             @foreach (var img in Model.Images)
             {
               var src = "/uploads/returns/" + Uri.EscapeDataString(img);
-              <a href="@src" target="_blank" rel="noopener" class="block h-24 w-24 overflow-hidden rounded-lg border"><img src="@src" alt="تصویر ارسالی مشتری" loading="lazy" class="h-full w-full object-cover" width="96" height="96"></a>
+              <a href="@src" data-lightbox="return" class="block h-24 w-24 overflow-hidden rounded-lg border"><img src="@src" alt="تصویر ارسالی مشتری" loading="lazy" class="h-full w-full object-cover" width="96" height="96"></a>
             }
           </div>
         }

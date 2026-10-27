@@ -35,7 +35,6 @@ public class LoginTwoFactorModel(
 
     public string MaskedPhone { get; private set; } = string.Empty;
 
-    public string? DevelopmentCode { get; private set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -44,7 +43,6 @@ public class LoginTwoFactorModel(
             return Expired();
 
         MaskedPhone = Mask(user.PhoneNumber);
-        DevelopmentCode = IsTotp ? null : TempData[LoginModel.DevelopmentCodeKey] as string;
         ViewData[PageMetaKeys.Title] = "ورود دو مرحله‌ای";
         return Page();
     }
@@ -93,7 +91,6 @@ public class LoginTwoFactorModel(
         else
             ErrorMessage = $"برای ارسال مجدد {Math.Ceiling(send.RetryAfter.TotalSeconds)} ثانیه صبر کنید.";
 
-        TempData[LoginModel.DevelopmentCodeKey] = send.DevelopmentCode;
         return RedirectToPage(new { returnUrl = ReturnUrl });
     }
 

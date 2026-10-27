@@ -11,7 +11,20 @@
       <partial name="_ProfileSidebar" model="ProfileSection.PersonalInfo" />
       <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
         <form method="post">
-          <h1 class="text-zinc-800 text-lg font-semibold">اطلاعات حساب کاربری</h1>
+          @if (Model.Welcome)
+          {
+            @* مرحلهٔ دهم: تکمیل اطلاعات بعد از ثبت‌نام کاملاً اختیاری است. *@
+            <input type="hidden" asp-for="Welcome" />
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div class="mb-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800 sm:flex sm:items-center sm:justify-between gap-3" role="status">
+              <div>
+                <b class="block mb-1">به @Site.Settings.SiteName خوش آمدید!</b>
+                حساب شما آماده است. اگر بخواهید نام و تاریخ تولدتان را وارد کنید تا فاکتور و هدیه‌ها به نام خودتان باشد؛ این کار اختیاری است.
+              </div>
+              <a href="@Model.ContinueUrl" class="mt-3 sm:mt-0 inline-block shrink-0 rounded-lg border border-sky-300 bg-white px-4 py-2 text-sky-700 hover:bg-sky-100 transition">بعداً، ادامه بده</a>
+            </div>
+          }
+          <h1 class="text-zinc-800 text-lg font-semibold">@(Model.Welcome ? "تکمیل اطلاعات (اختیاری)" : "اطلاعات حساب کاربری")</h1>
           <!-- inputs -->
           <div class="sm:flex gap-x-5 mt-5">
             <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">

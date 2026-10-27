@@ -24,7 +24,6 @@ public class LoginModel(
     Core.Services.Team.IStaffTotpService totp,
     Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
 {
-    public const string DevelopmentCodeKey = "OtpDevelopmentCode";
 
     [BindProperty]
     public LoginInput Input { get; set; } = new();
@@ -96,7 +95,6 @@ public class LoginModel(
             // Password was right; the session is created only after the SMS code.
             twoFactorTicket.Issue(HttpContext, user.Id, Input.RememberMe);
             var send = await otpService.SendAsync(user.PhoneNumber, OtpPurpose.TwoFactor);
-            TempData[DevelopmentCodeKey] = send.DevelopmentCode;
             if (send.Failed)
                 ErrorMessage = OtpSendResult.FailedMessage; // در صفحهٔ بعد دکمهٔ «ارسال مجدد» هست
             return RedirectToPage("/LoginTwoFactor", new { returnUrl = ReturnUrl });
@@ -140,7 +138,6 @@ public class LoginModel(
         }
 
         // A code sent less than a minute ago is still valid: continue with it.
-        TempData[DevelopmentCodeKey] = send.DevelopmentCode;
         return RedirectToPage("/LoginCode", new { phone, returnUrl = ReturnUrl });
     }
 

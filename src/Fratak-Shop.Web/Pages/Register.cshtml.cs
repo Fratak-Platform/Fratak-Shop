@@ -53,10 +53,7 @@ public class RegisterModel(
         var result = await userService.CreateUserAsync(new CreateUserCommand
         {
             PhoneNumber = phoneNumber,
-            Email = string.IsNullOrWhiteSpace(Input.Email) ? null : Input.Email.Trim(),
             Password = Input.Password,
-            FirstName = Input.FirstName?.Trim(),
-            LastName = Input.LastName?.Trim(),
             Role = UserRole.Customer,
         });
 
@@ -84,18 +81,13 @@ public class RegisterModel(
         return RedirectToPage("/Verify", new { returnUrl = ReturnUrl });
     }
 
+    /// <summary>
+    /// فرم ثبت‌نام کوتاه (مرحلهٔ دهم): فقط موبایل، رمز و تکرار آن، کد معرف (اختیاری) و پذیرش قوانین.
+    /// نام، نام خانوادگی، ایمیل و تاریخ تولد عمداً پرسیده نمی‌شوند تا کاربر وسط ثبت‌نام منصرف نشود؛
+    /// بعد از تأیید شماره، کاربر به «اطلاعات حساب» (/profile/info?welcome=true) می‌رود و می‌تواند آن‌ها را کامل کند یا رد شود.
+    /// </summary>
     public class RegisterInput
     {
-        [MaxLength(100)]
-        public string? FirstName { get; set; }
-
-        [MaxLength(100)]
-        public string? LastName { get; set; }
-
-        [EmailAddress(ErrorMessage = "ایمیل وارد شده معتبر نیست.")]
-        [MaxLength(255)]
-        public string? Email { get; set; }
-
         [Required(ErrorMessage = "شماره موبایل را وارد کنید.")]
         [RegularExpression(@"^09\d{9}$", ErrorMessage = "شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد.")]
         public string PhoneNumber { get; set; } = string.Empty;

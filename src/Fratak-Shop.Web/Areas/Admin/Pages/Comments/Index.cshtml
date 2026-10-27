@@ -104,7 +104,7 @@
                   @foreach (var img in c.Images)
                   {
                     var src = IReviewImageStore.WebPath + img;
-                    <a href="@src" target="_blank" rel="noopener" class="block h-16 w-16 overflow-hidden rounded-lg border"><img src="@src" alt="" loading="lazy" class="h-full w-full object-cover" width="64" height="64"></a>
+                    <a href="@src" data-lightbox="comment-@c.Id" class="block h-16 w-16 overflow-hidden rounded-lg border"><img src="@src" alt="" loading="lazy" class="h-full w-full object-cover" width="64" height="64"></a>
                   }
                 </div>
               }

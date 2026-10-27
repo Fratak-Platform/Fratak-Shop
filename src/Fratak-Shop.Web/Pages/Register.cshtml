@@ -17,14 +17,9 @@
           ثبت نام در سایت
         </h1>
         <div class="my-4 text-xs text-zinc-500">
-          لطفا شماره موبایل و رمز عبور خود را وارد کنید
+          فقط شماره موبایل و یک رمز عبور کافی است؛ نام و بقیهٔ اطلاعات را بعداً (اختیاری) در پروفایل کامل می‌کنید.
         </div>
         <partial name="_ValidationSummary" />
-        <div class="grid grid-cols-2 gap-x-3 mb-7">
-          <input asp-for="Input.FirstName" type="text" placeholder="نام (اختیاری)" autocomplete="given-name" class="@inputClass">
-          <input asp-for="Input.LastName" type="text" placeholder="نام خانوادگی (اختیاری)" autocomplete="family-name" class="@inputClass">
-        </div>
-        <input asp-for="Input.Email" type="email" placeholder="ایمیل (اختیاری)" autocomplete="email" dir="ltr" class="@inputClass mb-7">
         <input asp-for="Input.PhoneNumber" type="tel" placeholder="شماره همراه" autocomplete="username" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass mb-7">
         <input asp-for="Input.Password" type="password" placeholder="رمز عبور (حداقل ۶ کاراکتر)" autocomplete="new-password" class="@inputClass mb-7">
         <input asp-for="Input.ConfirmPassword" type="password" placeholder="تکرار رمز عبور" autocomplete="new-password" class="@inputClass mb-7">
