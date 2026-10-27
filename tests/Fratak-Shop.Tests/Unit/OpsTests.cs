@@ -291,6 +291,25 @@ public class OpsTests
         Assert.Equal(BackupSchedule.CurrentSlot(now, 1, 23), BackupSchedule.CurrentSlot(now, 1, 99));
     }
 
+    [Theory]
+    [InlineData(@"C:\Data\fratak.mdf", @"C:\Data")]
+    [InlineData("/var/opt/mssql/data/fratak.mdf", "/var/opt/mssql/data")]
+    [InlineData("fratak.mdf", null)]
+    [InlineData("", null)]
+    public void Folder_of_a_database_file(string path, string? expected) =>
+        Assert.Equal(expected, BackupSchedule.FolderOf(path));
+
+    [Fact]
+    public void First_usable_backup_folder_wins()
+    {
+        // LocalDB/Express: پوشهٔ پیش‌فرض پشتیبان خالی ← پوشهٔ داده.
+        Assert.Equal(@"C:\Users\dev\", BackupSchedule.FirstFolder(null, @"C:\Users\dev\", @"C:\Data"));
+        Assert.Equal(@"D:\Backup", BackupSchedule.FirstFolder(@"D:\Backup", @"C:\Users\dev\"));
+        Assert.Equal("/var/opt/mssql/data", BackupSchedule.FirstFolder("", "  ", "/var/opt/mssql/data"));
+        Assert.Null(BackupSchedule.FirstFolder(null, "", "relative\\folder"));
+        Assert.Null(BackupSchedule.FirstFolder(@"C:\x';DROP"));
+    }
+
     [Fact]
     public void Backup_file_names_use_iran_time_and_kind_extension()
     {

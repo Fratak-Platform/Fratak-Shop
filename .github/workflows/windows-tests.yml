@@ -23,6 +23,8 @@ concurrency:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # متن فارسی پیام‌های خطا در کنسول ویندوز (cp1252) پایتون را از کار می‌انداخت.
+  PYTHONIOENCODING: utf-8
 
 jobs:
   tests:

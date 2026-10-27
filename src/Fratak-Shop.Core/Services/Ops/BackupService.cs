@@ -79,6 +79,19 @@ public static class BackupSchedule
     /// پوشهٔ واردشده امن است؟ فقط مسیر مطلق، بدون «..» و بدون نویسه‌های خطرناک SQL/پوسته.
     /// مثال معتبر: «/var/opt/mssql/backups» یا «D:\Backups»؛ نامعتبر: «../etc» یا «C:\x';DROP».
     /// </summary>
+    /// <summary>پوشهٔ یک مسیر فایل با هر دو جداکننده؛ مثال: «C:\\Data\\x.mdf» → «C:\\Data»، «/var/opt/mssql/data/x.mdf» → «/var/opt/mssql/data».</summary>
+    public static string? FolderOf(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return null;
+        var cut = filePath.LastIndexOfAny(['\\', '/']);
+        return cut <= 0 ? null : filePath[..cut];
+    }
+
+    /// <summary>اولین پوشهٔ غیرخالی و معتبر از نامزدها (به ترتیب ترجیح)؛ null اگر هیچ‌کدام نبود.</summary>
+    public static string? FirstFolder(params string?[] candidates) =>
+        candidates.Select(c => c?.Trim()).FirstOrDefault(c => !string.IsNullOrEmpty(c) && IsValidFolder(c));
+
     public static bool IsValidFolder(string? folder)
     {
         if (string.IsNullOrWhiteSpace(folder))
@@ -424,10 +437,18 @@ public sealed class BackupService(
             try
             {
                 await using var command = connection.CreateCommand();
-                command.CommandText = "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400)), CAST(SERVERPROPERTY('Edition') AS nvarchar(200))";
+                // پوشهٔ پیش‌فرض پشتیبان در LocalDB، بعضی نسخه‌های Express و نصب‌های قدیمی خالی است؛ آن‌وقت پوشهٔ پیش‌فرض داده
+                // و در آخر پوشهٔ فایل خود همین پایگاه داده (جایی که سرویس SQL Server قطعاً اجازهٔ نوشتن دارد) استفاده می‌شود.
+                command.CommandText = "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(400)), CAST(SERVERPROPERTY('Edition') AS nvarchar(200)), " +
+                                      "CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS nvarchar(400)), " +
+                                      "(SELECT TOP 1 physical_name FROM sys.database_files WHERE type = 0 ORDER BY file_id)";
                 await using var reader = await command.ExecuteReaderAsync(cancellationToken);
                 if (await reader.ReadAsync(cancellationToken))
-                    return (reader.IsDBNull(0) ? null : reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetString(1));
+                {
+                    string? Text(int index) => reader.IsDBNull(index) ? null : reader.GetString(index);
+                    var folder = BackupSchedule.FirstFolder(Text(0), Text(2), BackupSchedule.FolderOf(Text(3)));
+                    return (folder, Text(1));
+                }
             }
             finally
             {
