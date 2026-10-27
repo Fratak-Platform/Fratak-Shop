@@ -259,7 +259,7 @@ public static class CompetitorParsers
                 var id = p.TryGetProperty("id", out var idElement) && idElement.ValueKind == JsonValueKind.Number ? idElement.GetRawText() : null;
                 var link = uri is not null && uri.StartsWith('/') ? "https://www.digikala.com" + uri
                     : id is not null ? $"https://www.digikala.com/product/dkp-{id}/" : null;
-                list.Add(new CompetitorOffer("دیجی‌کالا", Math.Round(rial.Value / 10m), "دیجی‌کالا", link, Clip(title, 200)));
+                list.Add(new CompetitorOffer("دیجی‌کالا", Math.Round(rial / 10m), "دیجی‌کالا", link, Clip(title, 200)));
             }
         }
         return list;
