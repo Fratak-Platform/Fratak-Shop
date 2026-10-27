@@ -86,6 +86,8 @@ public class LoginTwoFactorModel(
         var send = await otpService.SendAsync(user.PhoneNumber, OtpPurpose.TwoFactor);
         if (send.Sent)
             SuccessMessage = "کد جدید ارسال شد.";
+        else if (send.Failed)
+            ErrorMessage = OtpSendResult.FailedMessage;
         else if (send.Blocked)
             ErrorMessage = "تعداد درخواست کد بیش از حد مجاز است؛ لطفاً بعداً تلاش کنید.";
         else

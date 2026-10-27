@@ -290,6 +290,9 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<Fratak_Shop.Data.Entities.Team.ApprovalRequest> ApprovalRequests { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Team.StaffTask> StaffTasks { get; set; } = null!;
 
+    // دور هشتم: تنظیمات سرویس پیامک (SMS.ir).
+    public DbSet<Fratak_Shop.Data.Entities.Settings.SmsProviderConfig> SmsProviderConfigs { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

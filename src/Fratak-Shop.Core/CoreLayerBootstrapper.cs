@@ -136,6 +136,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Ops.IBackupService, Services.Ops.BackupService>();
         services.AddScoped<Services.Ops.IBackgroundJobControl, Services.Ops.BackgroundJobControl>();
         services.AddScoped<Services.Ops.IAlertService, Services.Ops.AlertService>();
+        // دور هشتم: تنظیمات سرویس پیامک (SMS.ir) – ارسال واقعی در لایهٔ وب (ConfigurableSmsSender).
+        services.AddScoped<Services.Notifications.ISmsProviderService, Services.Notifications.SmsProviderService>();
 
         // مرحلهٔ هفتم – فاز ۱۰: امنیت و کار تیمی کارکنان (TOTP، تأیید دونفره، منشن، کارهای شخصی).
         services.AddScoped<Services.Team.IStaffTotpService, Services.Team.StaffTotpService>();

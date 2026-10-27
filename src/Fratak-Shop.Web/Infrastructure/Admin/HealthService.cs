@@ -135,14 +135,44 @@ public sealed class HealthService(
         if (errorQueue.Dropped > 0)
             checks.Add(new HealthCheck("ثبت خطاها", HealthLevel.Warning, $"{errorQueue.Dropped} خطا به دلیل حجم زیاد ثبت نشد."));
 
-        if (smsSender is LoggingSmsSender)
-            checks.Add(new HealthCheck("پیامک", environment.IsProduction() ? HealthLevel.Warning : HealthLevel.Healthy,
-                "سرویس پیامک واقعی متصل نیست؛ پیامک‌ها فقط در لاگ نوشته می‌شوند.", "اتصال سرویس پیامک در مرحله بعد انجام می‌شود."));
+        if (smsSender is Infrastructure.Sms.ConfigurableSmsSender configurable)
+            checks.Add(await SmsCheckAsync(configurable, cancellationToken));
 
         if (!environment.IsProduction())
             checks.Add(new HealthCheck("محیط اجرا", HealthLevel.Warning, $"برنامه در محیط «{environment.EnvironmentName}» اجرا می‌شود."));
 
         return checks;
+    }
+
+    /// <summary>
+    /// وضعیت سرویس پیامک (بدون ارسال پیامک): تنظیم بودن کلید/خط/قالب و نتیجهٔ آخرین ارسال از زمان روشن شدن برنامه.
+    /// راه‌حل‌ها به صفحهٔ «فنی ← سرویس پیامک» اشاره می‌کنند. حداکثر «هشدار» است، نه «بحرانی»: /healthz با وضعیت بحرانی ۵۰۳ می‌دهد
+    /// و نبودن پیامک نباید سرویس مانیتورینگ/لود بالانسر را به خیال از کار افتادن کل سایت بیندازد (ورود با رمز و خرید کار می‌کند).
+    /// </summary>
+    private async Task<HealthCheck> SmsCheckAsync(Infrastructure.Sms.ConfigurableSmsSender sender, CancellationToken cancellationToken)
+    {
+        const string Name = "پیامک";
+        const string Fix = "در «فنی ← سرویس پیامک» تنظیمات SMS.ir را کامل و پیامک آزمایشی بفرستید.";
+        try
+        {
+            var (provider, keySource, config) = await sender.DescribeAsync(cancellationToken);
+            var production = environment.IsProduction();
+            if (provider != global::Fratak_Shop.Data.Entities.Settings.SmsProvider.SmsIr)
+                return new HealthCheck(Name, production ? HealthLevel.Warning : HealthLevel.Healthy, "سرویس پیامک روی «فقط لاگ» است؛ کد ورود و اعلان‌ها پیامک نمی‌شوند.", Fix);
+            if (keySource is null)
+                return new HealthCheck(Name, HealthLevel.Warning, "کلید API سرویس SMS.ir ثبت نشده است.", Fix);
+            if (config.OtpTemplateId is null && config.LineNumber is null)
+                return new HealthCheck(Name, HealthLevel.Warning, "نه قالب کد تأیید و نه خط ارسال SMS.ir ثبت شده است.", Fix);
+
+            var stats = sender.Diagnostics;
+            if (stats.LastAttemptFailed)
+                return new HealthCheck(Name, HealthLevel.Warning, $"آخرین ارسال ناموفق بود: {stats.LastFailure}", Fix);
+            return new HealthCheck(Name, HealthLevel.Healthy, $"SMS.ir (کلید از {keySource})؛ {stats.Sent} پیامک موفق و {stats.Failed} ناموفق از زمان روشن شدن.");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new HealthCheck(Name, HealthLevel.Warning, "وضعیت سرویس پیامک خوانده نشد: " + exception.GetType().Name, Fix);
+        }
     }
 
     public RuntimeInfo Runtime()

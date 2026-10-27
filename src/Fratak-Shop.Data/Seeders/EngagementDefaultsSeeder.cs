@@ -47,6 +47,9 @@ public static class EngagementDefaultsSeeder
         // Round 7 (پیام‌های آماده و ...)
         await Round7DefaultsSeeder.SeedAsync(context, cancellationToken);
 
+        // Round 8 (تنظیمات پیش‌فرض سرویس پیامک)
+        await Round8DefaultsSeeder.SeedAsync(context, cancellationToken);
+
         // هویت بصری فراتک شاپ
         await ApplyBrandColorsAsync(context, cancellationToken);
     }

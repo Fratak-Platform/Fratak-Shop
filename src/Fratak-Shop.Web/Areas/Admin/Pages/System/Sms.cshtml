@@ -1,0 +1,108 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.SmsModel
+@using Fratak_Shop.Data.Entities.Settings
+@{
+    ViewData["Title"] = "سرویس پیامک";
+    var canManage = Model.Can(AdminPermissions.SystemManage);
+    var cfg = Model.Config;
+    var stats = Model.Stats;
+    var isSmsIr = cfg.Provider == SmsProvider.SmsIr;
+}
+<div class="a-page-head">
+  <div>
+    <h2>سرویس پیامک</h2>
+    <p class="a-muted text-sm mt-1">کد ورود و تأیید شماره، تأیید دومرحله‌ای و اعلان‌های سفارش از این سرویس پیامک می‌شوند. کلید API رمزنگاری‌شده ذخیره می‌شود و دیگر نمایش داده نمی‌شود.</p>
+  </div>
+</div>
+
+@if (isSmsIr && Model.KeySource is null)
+{
+  <div class="a-alert a-alert-danger mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div><b>کلید API ثبت نشده است.</b> تا ثبت کلید، پیامکی ارسال نمی‌شود و ورود با کد پیامکی کار نمی‌کند (ورود با رمز عبور برقرار است).</div></div>
+}
+else if (!isSmsIr)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Info", "shrink-0", 20)<div>حالت «فقط لاگ» فعال است؛ متن پیامک‌ها فقط در محیط توسعه در لاگ سرور نوشته می‌شود و در محیط اصلی هیچ پیامکی ارسال نمی‌شود.</div></div>
+}
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <form method="post" asp-page-handler="Save" class="a-card" data-dirty-guard autocomplete="off">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Gear", null, 18) تنظیمات</span></div>
+    <div class="a-card-body grid gap-3">
+      <div class="a-field">
+        <label class="a-label" for="s-provider">سرویس‌دهنده</label>
+        <select id="s-provider" name="sms.Provider" class="a-select" disabled="@(!canManage)">
+          <option value="@SmsProvider.SmsIr" selected="@isSmsIr">SMS.ir</option>
+          <option value="@SmsProvider.LogOnly" selected="@(!isSmsIr)">فقط لاگ (بدون ارسال)</option>
+        </select>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="s-key">کلید API @(cfg.HasApiKey ? "(ثبت شده؛ خالی = بدون تغییر)" : "")</label>
+        <input id="s-key" name="sms.ApiKey" type="password" class="a-input a-ltr" dir="ltr" maxlength="200" autocomplete="new-password" spellcheck="false" readonly="@(!canManage)">
+        @if (cfg.HasApiKey && canManage) { <label class="a-check text-xs mt-1"><input type="checkbox" name="sms.ClearApiKey" value="true"> حذف کلید ثبت‌شده</label> }
+        <p class="a-help">پنل SMS.ir ← برنامه‌نویسان ← لیست کلیدهای API. کلید را فقط برای «ارسال» بسازید و IP سرور را در آن مجاز کنید.
+          @if (Model.KeySource == "تنظیمات سرور") { <br><span>اکنون کلید از تنظیمات سرور (<span class="a-ltr" dir="ltr">SmsIr__ApiKey</span>) خوانده می‌شود؛ کلید ثبت‌شده در پنل بر آن مقدم است.</span> }
+        </p>
+      </div>
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="s-line">شمارهٔ خط ارسال</label>
+          <input id="s-line" name="sms.LineNumber" value="@cfg.LineNumber" class="a-input a-ltr" dir="ltr" inputmode="numeric" maxlength="15" placeholder="30000123456" readonly="@(!canManage)">
+          <p class="a-help">برای پیامک‌های متنی (اعلان سفارش، پیام فروشگاه).</p>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="s-template">شناسهٔ قالب کد تأیید</label>
+          <input id="s-template" name="sms.OtpTemplateId" value="@cfg.OtpTemplateId" class="a-input a-ltr" dir="ltr" inputmode="numeric" maxlength="10" placeholder="718643" readonly="@(!canManage)">
+          <p class="a-help">قالب «ارسال سریع» در پنل SMS.ir. خالی = کد با متن معمولی از خط ارسال می‌رود.</p>
+        </div>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="s-param">نام متغیر کد در قالب</label>
+        <input id="s-param" name="sms.OtpParameterName" value="@cfg.OtpParameterName" class="a-input a-ltr" dir="ltr" maxlength="50" placeholder="Code" readonly="@(!canManage)">
+        <p class="a-help">بدون #؛ اگر متن قالب «کد تایید شما: #Code#» است، اینجا Code بنویسید.</p>
+      </div>
+      @if (canManage)
+      {
+        <div class="flex flex-wrap gap-2"><button class="a-btn" type="submit">ذخیره</button></div>
+      }
+    </div>
+  </form>
+
+  <div class="grid gap-4 content-start">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Pulse", null, 18) وضعیت</span><span class="a-muted text-xs">از زمان روشن شدن برنامه</span></div>
+      <div class="a-card-body">
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="a-badge @(Model.KeySource is null ? "a-badge-red" : "a-badge-green")">کلید: @(Model.KeySource ?? "ثبت نشده")</span>
+          <span class="a-badge a-badge-green">موفق: @Format.Number(stats.Sent)</span>
+          <span class="a-badge @(stats.Failed > 0 ? "a-badge-yellow" : "a-badge-gray")">ناموفق: @Format.Number(stats.Failed)</span>
+        </div>
+        <dl class="a-kv text-sm">
+          <dt>آخرین ارسال موفق</dt><dd>@(stats.LastSuccessAt is { } ok ? AdminUi.Ago(ok) : "-")</dd>
+          <dt>آخرین خطا</dt><dd>@(stats.LastFailureAt is { } bad ? AdminUi.Ago(bad) + " · " + stats.LastFailure : "-")</dd>
+        </dl>
+        @if (canManage)
+        {
+          <form method="post" asp-page-handler="Check" class="mt-3"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("ArrowsClockwise", null, 18) بررسی اتصال و اعتبار</button></form>
+        }
+      </div>
+    </div>
+
+    @if (canManage)
+    {
+      <form method="post" asp-page-handler="Test" class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("PaperPlaneTilt", null, 18) پیامک آزمایشی</span></div>
+        <div class="a-card-body grid gap-3">
+          <div class="a-field">
+            <label class="a-label" for="t-phone">شمارهٔ موبایل</label>
+            <input id="t-phone" name="phone" class="a-input a-ltr" dir="ltr" inputmode="numeric" maxlength="11" placeholder="09121234567" required>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="a-btn a-btn-light" type="submit" name="kind" value="template">@Icons.Svg("Key", null, 18) کد نمونه با قالب</button>
+            <button class="a-btn a-btn-light" type="submit" name="kind" value="text">@Icons.Svg("ChatDots", null, 18) متن از خط ارسال</button>
+          </div>
+          <p class="a-help">یک پیامک واقعی (با هزینه) ارسال می‌شود. «کد نمونه» عدد ۱۲۳۴۵ را با قالب کد تأیید می‌فرستد.</p>
+        </div>
+      </form>
+    }
+  </div>
+</div>

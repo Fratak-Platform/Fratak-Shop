@@ -39,6 +39,8 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "SeoLinkIssue", "SearchConsoleQueryStat", "SearchConsoleDailyStat", "SeoToolsConfig",
         // فاز ۹ (فنی): پشتیبان، فایروال، کارها و هشدارها هیچ‌وقت در صفحات عمومی نیستند (شمارندهٔ فایروال هر چند دقیقه ذخیره می‌شود).
         "BackupRecord", "IpRule", "BotRule", "BackgroundJobSetting", "AlertRule", "AlertEvent",
+        // دور هشتم: تنظیمات سرویس پیامک.
+        "SmsProviderConfig",
     };
 
     // ── آمار کش صفحات از زمان روشن شدن سایت (کارت «کش» در /admin/system) ──

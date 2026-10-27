@@ -85,9 +85,11 @@ public class ReauthModel(
     {
         var send = await otpService.SendAsync(Access.PhoneNumber, OtpPurpose.Reauth);
         await LoadAsync();
-        SmsSent = true;
+        SmsSent = !send.Failed;
         DevelopmentCode = environment.IsDevelopment() ? send.DevelopmentCode : null;
-        if (send.Blocked)
+        if (send.Failed)
+            ErrorMessage = OtpSendResult.FailedMessage;
+        else if (send.Blocked)
             ErrorMessage = "تعداد پیامک‌های این ساعت به حد مجاز رسیده است؛ از رمز عبور یا برنامهٔ احراز هویت استفاده کنید.";
         else if (!send.Sent)
             ErrorMessage = $"کد قبلی هنوز معتبر است؛ {Math.Ceiling(send.RetryAfter.TotalSeconds)} ثانیهٔ دیگر می‌توانید دوباره درخواست کنید.";

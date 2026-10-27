@@ -36,7 +36,12 @@ public interface IOtpService
 /// <param name="RetryAfter">Time until the next code can be requested.</param>
 /// <param name="DevelopmentCode">The code, only in the development environment (no SMS provider).</param>
 /// <param name="Blocked">True when the hourly limit of the number is reached.</param>
-public record OtpSendResult(bool Sent, TimeSpan RetryAfter, string? DevelopmentCode, bool Blocked = false);
+/// <param name="Failed">پیامک به سرویس‌دهنده تحویل نشد (کلید نامعتبر، قطعی SMS.ir، …)؛ کد ساخته‌شده باطل شده و کاربر می‌تواند فوراً دوباره درخواست کند.</param>
+public record OtpSendResult(bool Sent, TimeSpan RetryAfter, string? DevelopmentCode, bool Blocked = false, bool Failed = false)
+{
+    /// <summary>پیام فارسی یکسان برای همهٔ صفحه‌ها وقتی ارسال ناموفق بود.</summary>
+    public const string FailedMessage = "ارسال پیامک در حال حاضر ممکن نشد؛ لطفاً چند لحظه بعد دوباره تلاش کنید یا با رمز عبور وارد شوید.";
+}
 
 public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnvironment environment) : IOtpService
 {
@@ -82,7 +87,14 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
             _ => $"کد تایید شما: {code}",
         };
 
-        await smsSender.SendAsync(phone, text);
+        // با قالب «ارسال سریع» SMS.ir (اگر تعریف شده باشد) یا همین متن.
+        if (!await smsSender.SendOtpAsync(phone, code, text))
+        {
+            // کدی که به دست کاربر نرسیده نباید معتبر بماند یا جلوی درخواست دوباره را بگیرد.
+            // سهمیهٔ ساعتی عمداً پس داده نمی‌شود تا تکرار درخواست هنگام خطای سرویس هم محدود بماند.
+            cache.Remove(key);
+            return new OtpSendResult(false, TimeSpan.Zero, null, Failed: true);
+        }
 
         return new OtpSendResult(true, ResendDelay, environment.IsDevelopment() ? code : null);
     }
@@ -125,14 +137,5 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender, IWebHostEnviro
         private int _count;
 
         public int Increment() => Interlocked.Increment(ref _count);
-    }
-}
-
-public class LoggingSmsSender(ILogger<LoggingSmsSender> logger) : ISmsSender
-{
-    public Task SendAsync(string phoneNumber, string message)
-    {
-        logger.LogInformation("SMS to {PhoneNumber}: {Message}", phoneNumber, message);
-        return Task.CompletedTask;
     }
 }

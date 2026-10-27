@@ -35,6 +35,9 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
         PhoneNumber = user.PhoneNumber;
         var send = await otpService.SendAsync(PhoneNumber);
         DevelopmentCode = environment.IsDevelopment() ? send.DevelopmentCode : null;
+        // همین درخواست صفحه را می‌سازد؛ ویژگی [TempData] تا پایان درخواست به TempData نمی‌رسد، پس مستقیم نوشته می‌شود.
+        if (send.Failed)
+            TempData["ErrorMessage"] = OtpSendResult.FailedMessage;
 
         ViewData[PageMetaKeys.Title] = "تایید شماره موبایل";
         return Page();
@@ -69,6 +72,10 @@ public class VerifyModel(IOtpService otpService, IUserService userService, IWebH
         var send = await otpService.SendAsync(phone);
         if (send.Sent)
             SuccessMessage = "کد تایید جدید ارسال شد.";
+        else if (send.Failed)
+            ErrorMessage = OtpSendResult.FailedMessage;
+        else if (send.Blocked)
+            ErrorMessage = "تعداد درخواست کد برای این شماره بیش از حد مجاز است؛ لطفاً بعداً تلاش کنید.";
         else
             ErrorMessage = $"برای ارسال مجدد {Math.Ceiling(send.RetryAfter.TotalSeconds)} ثانیه صبر کنید.";
 

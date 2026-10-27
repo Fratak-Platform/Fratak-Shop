@@ -132,6 +132,8 @@ public class LoginCodeModel(
         CaptchaFailed(CaptchaActions.OtpSend);
         if (send.Sent)
             SuccessMessage = "کد ورود جدید ارسال شد.";
+        else if (send.Failed)
+            ErrorMessage = OtpSendResult.FailedMessage;
         else if (send.Blocked)
             ErrorMessage = "تعداد درخواست کد برای این شماره بیش از حد مجاز است؛ لطفاً بعداً تلاش کنید.";
         else

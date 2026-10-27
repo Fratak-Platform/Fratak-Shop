@@ -97,6 +97,8 @@ public static class AdminNav
             new AdminNavItem("کارهای پس‌زمینه", "/admin/system/jobs", "ArrowsClockwise", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("فایروال", "/admin/system/firewall", "Prohibit", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("هشدارها", "/admin/system/alerts", "BellRinging", [P.MonitoringView, P.SystemManage]),
+            // دور هشتم: تنظیم و آزمون سرویس پیامک (SMS.ir).
+            new AdminNavItem("سرویس پیامک", "/admin/system/sms", "ChatDots", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("گزارش‌های سرور", "/admin/system/logs", "Article", [P.MonitoringView])),
     ];
 }

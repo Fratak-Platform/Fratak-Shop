@@ -38,7 +38,11 @@ public static class WebServiceCollectionExtensions
 
         services.AddSingleton<IOtpService, OtpService>();
         services.AddSingleton<IReviewImageStore, ReviewImageStore>();
-        services.AddSingleton<ISmsSender, LoggingSmsSender>();
+        // دور هشتم: پیامک واقعی با SMS.ir بر اساس تنظیمات پنل («فنی ← سرویس پیامک»)؛ بدون کلید فقط لاگ می‌شود.
+        services.AddHttpClient(Infrastructure.Sms.SmsIrClient.ClientName, Infrastructure.Sms.SmsIrClient.Configure);
+        services.AddSingleton<Infrastructure.Sms.SmsDiagnostics>();
+        services.AddSingleton<Infrastructure.Sms.ConfigurableSmsSender>();
+        services.AddSingleton<ISmsSender>(sp => sp.GetRequiredService<Infrastructure.Sms.ConfigurableSmsSender>());
         services.AddSingleton<Infrastructure.Auth.ITwoFactorTicket, Infrastructure.Auth.TwoFactorTicket>();
 
         services.AddHostedService<OrderMaintenanceService>();

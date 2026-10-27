@@ -97,6 +97,8 @@ public class LoginModel(
             twoFactorTicket.Issue(HttpContext, user.Id, Input.RememberMe);
             var send = await otpService.SendAsync(user.PhoneNumber, OtpPurpose.TwoFactor);
             TempData[DevelopmentCodeKey] = send.DevelopmentCode;
+            if (send.Failed)
+                ErrorMessage = OtpSendResult.FailedMessage; // در صفحهٔ بعد دکمهٔ «ارسال مجدد» هست
             return RedirectToPage("/LoginTwoFactor", new { returnUrl = ReturnUrl });
         }
 
@@ -127,6 +129,13 @@ public class LoginModel(
         if (send.Blocked)
         {
             ModelState.AddModelError(string.Empty, "تعداد درخواست کد برای این شماره بیش از حد مجاز است؛ لطفاً بعداً تلاش کنید.");
+            return Page();
+        }
+
+        // پیامک به سرویس‌دهنده نرسید (مثلاً قطعی SMS.ir): در همین صفحه می‌ماند تا دوباره تلاش کند یا با رمز وارد شود.
+        if (send.Failed)
+        {
+            ModelState.AddModelError(string.Empty, OtpSendResult.FailedMessage);
             return Page();
         }
 
