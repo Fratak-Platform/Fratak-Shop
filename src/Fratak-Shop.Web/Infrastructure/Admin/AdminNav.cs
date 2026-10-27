@@ -36,6 +36,7 @@ public static class AdminNav
             new AdminNavItem("انبار و موجودی", "/admin/products/inventory", "ChartLine", [P.ProductsView]),
             new AdminNavItem("تغییر گروهی قیمت", "/admin/products/bulk-price", "Calculator", [P.ProductsManage]),
             new AdminNavItem("ورود از اکسل", "/admin/products/import", "UploadSimple", [P.ProductsManage]),
+            new AdminNavItem("درون‌ریزی از سایت", "/admin/products/site-import", "Storefront", [P.ProductsSupplier]),
             new AdminNavItem("دسته‌بندی‌ها", "/admin/manage/categories", "Stack", [P.CatalogManage]),
             new AdminNavItem("برندها", "/admin/manage/brands", "Tag", [P.CatalogManage]),
             new AdminNavItem("تأمین‌کنندگان", "/admin/manage/suppliers", "Factory", [P.SuppliersManage]),

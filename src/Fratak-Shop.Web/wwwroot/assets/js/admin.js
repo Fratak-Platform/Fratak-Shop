@@ -105,6 +105,11 @@
       $$("button[type=submit], button:not([type])", form).forEach((b) => {
         if (b.dataset.keepEnabled === undefined) setTimeout(() => { b.disabled = true; }, 0);
       });
+      // Long-running actions (e.g. site import): show progress text on the clicked button.
+      if (submitter && submitter.dataset.busyText) {
+        const text = submitter.dataset.busyText;
+        setTimeout(() => { submitter.textContent = text; submitter.setAttribute("aria-busy", "true"); }, 0);
+      }
     }
   });
 

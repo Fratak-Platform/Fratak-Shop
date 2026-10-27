@@ -117,7 +117,7 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
 
         // جزئیات در دسترس نبود: دست‌کم ارزان‌ترین قیمت کارت جست‌وجو.
         return best.Price is > 0
-            ? new CompetitorLookup([new CompetitorOffer(best.Shop ?? "ارزان‌ترین فروشگاه ترب", best.Price.Value, "ترب", best.WebUrl, best.Title)],
+            ? new CompetitorLookup([new CompetitorOffer("ارزان‌ترین فروشگاه ترب", best.Price.Value, "ترب", best.WebUrl, best.Title)],
                 ["ترب: فهرست فروشندگان در دسترس نبود؛ فقط ارزان‌ترین قیمت آمد."], best.Title)
             : new CompetitorLookup([], ["ترب: این کالا فعلاً فروشندهٔ موجود ندارد."], best.Title);
     }
@@ -188,6 +188,8 @@ public static class CompetitorParsers
             return list;
         foreach (var item in results.EnumerateArray())
         {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
             var title = Text(item, "name1") ?? Text(item, "name2");
             if (string.IsNullOrWhiteSpace(title))
                 continue;
@@ -214,6 +216,8 @@ public static class CompetitorParsers
             return offers;
         foreach (var row in result.EnumerateArray())
         {
+            if (row.ValueKind != JsonValueKind.Object)
+                continue;
             var shop = Clip(Text(row, "shop_name"), 80);
             if (string.IsNullOrWhiteSpace(shop))
                 continue;
@@ -241,6 +245,8 @@ public static class CompetitorParsers
             return list;
         foreach (var p in products.EnumerateArray())
         {
+            if (p.ValueKind != JsonValueKind.Object)
+                continue;
             var title = Text(p, "title_fa") ?? Text(p, "title_en");
             if (string.IsNullOrWhiteSpace(title))
                 continue;

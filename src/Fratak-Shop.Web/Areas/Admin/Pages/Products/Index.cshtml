@@ -16,6 +16,10 @@
       <a href="/admin/products/edit" class="a-btn">@Icons.Svg("Plus", null, 18) محصول جدید</a>
       <a href="/admin/products/bulk-price" class="a-btn a-btn-light">@Icons.Svg("Calculator", null, 18) تغییر گروهی قیمت</a>
       <a href="/admin/products/import" class="a-btn a-btn-light">@Icons.Svg("UploadSimple", null, 18) ورود از اکسل</a>
+      @if (Model.Can(AdminPermissions.ProductsSupplier))
+      {
+        <a href="/admin/products/site-import" class="a-btn a-btn-light">@Icons.Svg("Storefront", null, 18) درون‌ریزی از سایت</a>
+      }
     }
     <a href="/admin/products/inventory" class="a-btn a-btn-light">@Icons.Svg("Package", null, 18) انبار</a>
     @if (Model.Can(AdminPermissions.ProductsSupplier))

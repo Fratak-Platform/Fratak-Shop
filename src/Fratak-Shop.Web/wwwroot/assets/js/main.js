@@ -97,6 +97,17 @@
     action(trigger.getAttribute("data-arg"));
   });
 
+  // Keyboard: Enter/Space on non-button triggers with role="button" (e.g. the main product image → image modal).
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const trigger = event.target.closest && event.target.closest("[data-ui][role='button']");
+    if (!trigger || trigger.tagName === "BUTTON" || trigger.tagName === "A") return;
+    const action = actions[trigger.getAttribute("data-ui")];
+    if (!action) return;
+    event.preventDefault();
+    action(trigger.getAttribute("data-arg"));
+  });
+
   // Escape closes whatever is open.
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;

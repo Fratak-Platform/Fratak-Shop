@@ -19,6 +19,13 @@
       }
     </div>
   </div>
+  @if (Model.IsNew && Model.CanSupplier)
+  {
+    @* دور ۱۰: ساخت گروهی محصولات از روی یک سایت دیگر (Products/SiteImport). *@
+    <div class="a-btn-group">
+      <a href="/admin/products/site-import" class="a-btn a-btn-light">@Icons.Svg("Storefront", null, 18) درون‌ریزی گروهی از یک سایت</a>
+    </div>
+  }
   @if (!Model.IsNew)
   {
     <div class="a-btn-group">

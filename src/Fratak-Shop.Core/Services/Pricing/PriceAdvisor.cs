@@ -165,7 +165,7 @@ public static class PriceAdvisor
             .OrderBy(o => o.Price)
             .ToList();
         if (valid.Count < 3)
-            return (valid, []); // با کمتر از ۳ قیمت، «پرت» قابل تشخیص نیست.
+            return (valid, new List<CompetitorOffer>()); // با کمتر از ۳ قیمت، «پرت» قابل تشخیص نیست.
 
         var median = Median(valid.Select(o => o.Price).ToList());
         var kept = valid.Where(o => o.Price >= median * 0.4m && o.Price <= median * 2.5m).ToList();

@@ -202,7 +202,7 @@ public class PriceAdvisorTests
     [InlineData("ناموجود", null)]
     [InlineData(null, null)]
     public void Price_from_text(string? text, int? expected)
-        => Assert.Equal(expected, CompetitorParsers.FromText(text));
+        => Assert.Equal((decimal?)expected, CompetitorParsers.FromText(text));
 
     // ── سرویس با HTTP جعلی ──
 
