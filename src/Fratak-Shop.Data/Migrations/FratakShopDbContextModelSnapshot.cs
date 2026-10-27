@@ -5937,6 +5937,52 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("SeoRedirects");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Settings.SmsProviderConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApiKeyProtected")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<long?>("LineNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OtpParameterName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("OtpTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SmsProviderConfigs", t =>
+                        {
+                            t.HasCheckConstraint("CK_SmsProviderConfigs_Line", "[LineNumber] IS NULL OR [LineNumber] > 0");
+
+                            t.HasCheckConstraint("CK_SmsProviderConfigs_Template", "[OtpTemplateId] IS NULL OR [OtpTemplateId] > 0");
+                        });
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Settings.StoreSetting", b =>
                 {
                     b.Property<Guid>("Id")
