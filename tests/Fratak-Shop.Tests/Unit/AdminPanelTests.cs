@@ -129,7 +129,12 @@ public class AdminRegistryTests
             Assert.True(ok, $"{field.Name}: {field.Kind} vs {type.Name}");
         }
 
-        var missing = commandProps.Keys.Except(fields.Select(f => f.Name)).ToList();
+        // مرحلهٔ دوازدهم: فیلدهای لوگو فقط در «استودیوی لوگو» (Settings/Brand) هستند؛ نباید در تب‌ها هم تکرار شوند.
+        var studio = BrandModel.ManagedFields;
+        Assert.All(studio, name => Assert.True(commandProps.ContainsKey(name), $"unknown studio setting {name}"));
+        Assert.DoesNotContain(fields, f => studio.Contains(f.Name));
+
+        var missing = commandProps.Keys.Except(fields.Select(f => f.Name)).Except(studio).ToList();
         Assert.True(missing.Count == 0, "settings without a tab: " + string.Join(", ", missing));
     }
 

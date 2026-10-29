@@ -91,7 +91,7 @@
             {
               <div class="border-2 border-dashed rounded-xl p-4 my-2 mr-8 md:mr-20">
                 <div class="flex items-center gap-x-1">
-                  <img class="w-12 md:w-16 ml-2 rounded-xl" src="@(Site.UsesBrandPwaIcon ? BrandIdentity.AppIcon192 : Site.PwaIconUrl)" alt="@Site.Settings.SiteName" width="64" height="64" loading="lazy">
+                  <img class="w-12 md:w-16 ml-2 rounded-xl" src="@Site.Pwa.Icon192" alt="@Site.Settings.SiteName" width="64" height="64" loading="lazy">
                   <div>
                     <div class="text-zinc-800 mb-3 font-semibold text-lg">
                       @reply.AuthorName

@@ -31,7 +31,7 @@
         <nav class="bg-white w-9/12 h-full py-5 drop-shadow-2xl max-w-md overflow-y-auto overscroll-contain" aria-label="منوی اصلی">
           <div class="mx-auto mb-5">
             <a asp-page="/Index" class="flex justify-center" aria-label="@siteName">
-              @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Header, 44))
+              @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.MobileMenu))
             </a>
           </div>
           <ul class="flex flex-col gap-y-3 px-2">
@@ -152,7 +152,7 @@
       <!-- logo -->
       <div class="mr-0 md:mr-5">
         <a asp-page="/Index" aria-label="@siteName">
-          @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Header, 44))
+          @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Header))
         </a>
       </div>
       <!-- search input -->

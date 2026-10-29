@@ -44,6 +44,14 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Sms.ConfigurableSmsSender>();
         services.AddSingleton<ISmsSender>(sp => sp.GetRequiredService<Infrastructure.Sms.ConfigurableSmsSender>());
         services.AddSingleton<Infrastructure.Auth.ITwoFactorTicket, Infrastructure.Auth.TwoFactorTicket>();
+        // مرحلهٔ دوازدهم: سرویس ایمیل (SMTP با MailKit) بر اساس تنظیمات پنل («فنی ← سرویس ایمیل») – صف حافظه + ارسال پس‌زمینه.
+        services.AddSingleton<Core.Services.Notifications.IEmailServerSecret, Infrastructure.Email.ConfigurationEmailServerSecret>();
+        services.AddSingleton<Infrastructure.Email.EmailDiagnostics>();
+        services.AddSingleton<Infrastructure.Email.EmailQueue>();
+        services.AddSingleton<Core.Services.Notifications.IEmailSender>(sp => sp.GetRequiredService<Infrastructure.Email.EmailQueue>());
+        services.AddSingleton<Infrastructure.Email.EmailDelivery>();
+        services.AddHostedService<Infrastructure.Email.EmailDispatcher>();
+        services.AddScoped<Infrastructure.Email.EmailVerification>();
 
         services.AddHostedService<OrderMaintenanceService>();
 

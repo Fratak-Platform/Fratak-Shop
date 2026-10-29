@@ -92,12 +92,26 @@ public sealed class WebPushDispatcher(
         if (targets.Count == 0)
             return results;
 
+        // مرحلهٔ دوازدهم: آیکون اعلان = آیکون کوچک اپ از «استودیوی لوگو» (فقط فایل همین سایت؛ sw.js هم دوباره بررسی می‌کند).
+        string? icon = null;
+        try
+        {
+            var settings = await scope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Settings.IStoreSettingService>().GetAsync();
+            var small = PwaIconSet.From(settings, Fratak_Shop.Core.Services.Branding.BrandStyleRules.Parse(settings.BrandStyleJson)).Icon192;
+            icon = small.StartsWith('/') && !small.StartsWith("//") && small.Length <= 300 ? small : null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogDebug(exception, "Push icon could not be resolved; the default icon is used");
+        }
+
         var payload = JsonSerializer.SerializeToUtf8Bytes(new
         {
             title = Truncate(message.Title, 120),
             body = Truncate(message.Body, 300),
             url = message.Url is { } url && url.StartsWith('/') && !url.StartsWith("//") ? url : "/",
             tag = message.Tag,
+            icon,
         }, Json);
 
         var client = httpClientFactory.CreateClient(HttpClientName);

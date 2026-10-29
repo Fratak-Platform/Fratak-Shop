@@ -31,12 +31,16 @@ public class IndexModel(IAdminDataService data, IStoreSettingService settings, I
     public string? VapidPublicKey { get; private set; }
     public DateTimeOffset? UpdatedAt { get; private set; }
 
-    public async Task OnGetAsync()
+    public async Task<IActionResult> OnGetAsync()
     {
+        // مرحلهٔ دوازدهم: لینک‌های قدیمی «?tab=brand» به استودیوی لوگو می‌روند.
+        if (string.Equals(Tab, "brand", StringComparison.OrdinalIgnoreCase))
+            return Redirect("/admin/settings/brand");
         Group = SettingsRegistry.Groups.FirstOrDefault(g => g.Key == Tab) ?? SettingsRegistry.Groups[0];
         var entity = await LoadAsync();
         if (entity is not null)
             Values = ReadValues(entity);
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()

@@ -59,6 +59,11 @@ public class NotificationContent
 
     /// <summary>Also send a browser push notification to the customer's subscribed devices.</summary>
     public bool Push { get; set; } = true;
+
+    /// <summary>
+    /// مرحلهٔ دوازدهم: همین عنوان و متن به ایمیل «تأییدشدهٔ» مشتری هم برود (اگر سرویس ایمیل وصل باشد).
+    /// </summary>
+    public bool Email { get; set; }
 }
 
 /// <summary>Manual broadcast (admin panel): coupon campaigns, news, maintenance notices, ...</summary>

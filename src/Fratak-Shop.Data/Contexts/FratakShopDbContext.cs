@@ -293,6 +293,9 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     // دور هشتم: تنظیمات سرویس پیامک (SMS.ir).
     public DbSet<Fratak_Shop.Data.Entities.Settings.SmsProviderConfig> SmsProviderConfigs { get; set; } = null!;
 
+    // مرحلهٔ دوازدهم: تنظیمات سرویس ایمیل (SMTP).
+    public DbSet<Fratak_Shop.Data.Entities.Settings.EmailProviderConfig> EmailProviderConfigs { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

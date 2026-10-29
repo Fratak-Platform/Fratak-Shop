@@ -5156,6 +5156,10 @@ video {
     gap: 1.25rem;
   }
 
+  .md\:gap-8 {
+    gap: 2rem;
+  }
+
   .md\:gap-x-3 {
     -moz-column-gap: 0.75rem;
          column-gap: 0.75rem;

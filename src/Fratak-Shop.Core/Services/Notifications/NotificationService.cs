@@ -46,6 +46,7 @@ public partial class NotificationService(
     ISmsSender smsSender,
     IPushSender pushSender,
     IRealtimeNotifier realtime,
+    IEmailSender emailSender,
     ILogger<NotificationService> logger) : INotificationService
 {
     private static readonly TimeSpan UnreadCacheLifetime = TimeSpan.FromSeconds(60);
@@ -56,11 +57,12 @@ public partial class NotificationService(
         {
             string title, body;
             string? linkText, smsText;
-            bool inSite, push;
+            bool inSite, push, email;
             if (request.Content is { } content)
             {
                 (title, body, linkText, inSite, smsText) = (content.Title, content.Body, content.LinkText, content.InSite, content.SmsText);
                 push = content.Push;
+                email = content.Email;
             }
             else
             {
@@ -72,6 +74,8 @@ public partial class NotificationService(
                 smsText = template.SendSms ? template.SmsText : null;
                 // Every channel is switchable per event (admin panel): in-site = IsActive, SMS, push.
                 push = template.IsActive && template.SendPush;
+                // مرحلهٔ دوازدهم: کانال ایمیل هم برای هر رویداد جدا روشن/خاموش می‌شود (پیش‌فرض خاموش).
+                email = template.SendEmail;
             }
 
             var settings = await settingService.GetAsync();
@@ -119,11 +123,27 @@ public partial class NotificationService(
                     request.Event.ToString()));
             }
 
-            if (!string.IsNullOrWhiteSpace(smsText))
+            var wantsSms = !string.IsNullOrWhiteSpace(smsText);
+            var wantsEmail = email && !string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(body);
+            if (wantsSms || wantsEmail)
             {
-                var phone = await context.Users.Where(u => u.Id == request.UserId).Select(u => u.PhoneNumber).FirstOrDefaultAsync();
-                if (!string.IsNullOrWhiteSpace(phone))
-                    await smsSender.SendAsync(phone, Render(smsText, request.Values));
+                // یک پرس‌وجو برای هر دو کانال. ایمیل فقط به نشانی «تأییدشده» می‌رود تا کسی با ثبت ایمیل دیگران از فروشگاه برایشان هرزنامه نفرستد.
+                var contact = await context.Users.Where(u => u.Id == request.UserId)
+                    .Select(u => new { u.PhoneNumber, u.Email, u.IsEmailVerified })
+                    .FirstOrDefaultAsync();
+
+                if (wantsSms && !string.IsNullOrWhiteSpace(contact?.PhoneNumber))
+                    await smsSender.SendAsync(contact.PhoneNumber, Render(smsText!, request.Values));
+
+                if (wantsEmail && contact is { IsEmailVerified: true } && EmailRules.IsValidAddress(contact.Email))
+                {
+                    emailSender.Enqueue(new EmailMessage(contact.Email!, Limit(Render(title, request.Values), 200), Limit(Render(body, request.Values), 4000))
+                    {
+                        ActionUrl = IsSafeLink(request.LinkUrl) ? request.LinkUrl : "/profile/notifications",
+                        ActionText = string.IsNullOrWhiteSpace(linkText) ? null : Limit(linkText, 60),
+                        Category = request.Event.ToString(),
+                    });
+                }
             }
         }
         catch (Exception exception)

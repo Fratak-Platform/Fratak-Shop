@@ -101,7 +101,14 @@ public class BrandLockupTests
     [InlineData(30, 20)]
     [InlineData(10, 12)] // حداقل اندازهٔ قلم
     public void Text_size_follows_the_icon(int height, int fontSize)
-        => Assert.Equal(fontSize, new BrandLockupModel(BrandPlace.Auth, height).FontSize);
+    {
+        // مرحلهٔ دوازدهم: اندازه‌ها از BrandResolver می‌آیند؛ قلم خالی = «خودکار» ≈ ۰٫۶۵ × آیکون (حداقل ۱۲).
+        var config = new Fratak_Shop.Core.Services.Branding.BrandStyleConfig();
+        config.Places["Auth"] = new Fratak_Shop.Core.Services.Branding.BrandPlaceStyle { IconHeight = height };
+        var view = Fratak_Shop.Core.Services.Branding.BrandResolver.Resolve(Fratak_Shop.Core.Services.Branding.BrandPlace.Auth,
+            new StoreSettingDto(), config, BrandIdentity.Defaults);
+        Assert.Equal(fontSize, view.FontSize);
+    }
 
     /// <summary>اعتبارسنجی تنظیمات دور ۱۰ (متد خصوصی سرویس تنظیمات، با بازتاب صدا زده می‌شود تا بدون دیتابیس تست شود).</summary>
     private static string? ValidateRound10(Action<StoreSettingCommand> change)

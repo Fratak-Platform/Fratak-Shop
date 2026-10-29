@@ -65,6 +65,7 @@ public class InsightsIntegrationTests(SqlServerFixture db)
         services.GetRequiredService<ISecretProtector>(),
         services.GetRequiredService<IStaffNotificationService>(),
         services.GetRequiredService<IStoreSettingService>(),
+        services.GetRequiredService<Fratak_Shop.Core.Services.Notifications.IEmailProviderService>(),
         services.GetRequiredService<ILogger<ScheduledReportService>>());
 
     /// <summary>کارمند آزمایشی با یک نقش تازه که مجوزهای داده‌شده را دارد.</summary>

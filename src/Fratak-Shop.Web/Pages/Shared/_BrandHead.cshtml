@@ -7,11 +7,13 @@
   محل استفاده: _Layout، _LayoutMinimal، _AdminLayout و صفحهٔ فاکتور.
 *@
 <meta name="theme-color" content="@Site.ThemeColor">
+@* مرحلهٔ دوازدهم: قاعده‌های ثابت لوگو (اندازه‌ها با متغیر CSS روی خود لوگو می‌آیند – BrandLockupHtml). *@
+<link rel="stylesheet" href="~/assets/css/brand-lockup.css" asp-append-version="true">
 @if (Site.UsesBrandFavicon)
 {
   <link rel="icon" href="@BrandIdentity.FaviconIco" asp-append-version="true" sizes="48x48">
   <link rel="icon" href="@BrandIdentity.FaviconSvg" asp-append-version="true" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="@(Site.UsesBrandPwaIcon ? BrandIdentity.AppleTouchIcon : Site.PwaIconUrl)" asp-append-version="true">
+  <link rel="apple-touch-icon" href="@Site.Pwa.AppleTouch" asp-append-version="true">
 }
 else
 {

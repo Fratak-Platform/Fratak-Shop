@@ -53,6 +53,7 @@ public sealed class DirectInput
     public string? LinkUrl { get; set; }
     public bool SendPush { get; set; } = true;
     public bool SendSms { get; set; }
+    public bool SendEmail { get; set; }
 }
 
 [AdminPermission(AdminPermissions.NotificationsSend)]
@@ -154,7 +155,7 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
             UserId = user!.Id,
             Category = NotificationCategory.System,
             LinkUrl = string.IsNullOrWhiteSpace(Direct.LinkUrl) ? null : Direct.LinkUrl.Trim(),
-            Content = new NotificationContent { Title = title, Body = body, InSite = true, Push = Direct.SendPush, SmsText = Direct.SendSms ? $"{title}\n{body}" : null },
+            Content = new NotificationContent { Title = title, Body = body, InSite = true, Push = Direct.SendPush, SmsText = Direct.SendSms ? $"{title}\n{body}" : null, Email = Direct.SendEmail },
         });
         await monitoring.LogActionAsync("notification.direct", "User", user.Id, $"پیام مستقیم: {title}");
         SuccessMessage = "پیام برای مشتری ارسال شد.";

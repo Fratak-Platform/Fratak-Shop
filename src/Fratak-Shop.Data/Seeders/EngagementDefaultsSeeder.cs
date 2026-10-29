@@ -50,6 +50,9 @@ public static class EngagementDefaultsSeeder
         // Round 8 (تنظیمات پیش‌فرض سرویس پیامک)
         await Round8DefaultsSeeder.SeedAsync(context, cancellationToken);
 
+        // مرحلهٔ دوازدهم (تنظیمات پیش‌فرض سرویس ایمیل: «فقط لاگ» تا مدیر SMTP را وصل کند)
+        await Round12DefaultsSeeder.SeedAsync(context, cancellationToken);
+
         // هویت بصری فراتک شاپ
         await ApplyBrandColorsAsync(context, cancellationToken);
     }

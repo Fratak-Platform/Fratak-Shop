@@ -81,6 +81,8 @@ public static class AdminNav
             new AdminNavItem("Search Console", "/admin/seo/search-console", "ChartLine", [P.SeoManage])),
         new("تنظیمات",
             new AdminNavItem("تنظیمات فروشگاه", "/admin/settings", "Gear", [P.SettingsManage]),
+            // مرحلهٔ دوازدهم: لوگوی همهٔ محل‌ها + آیکون اپ.
+            new AdminNavItem("استودیوی لوگو", "/admin/settings/brand", "Palette", [P.SettingsManage]),
             new AdminNavItem("ارسال و تحویل", "/admin/manage/shipping-methods", "Truck", [P.ShippingManage]),
             new AdminNavItem("کارکنان و نقش‌ها", "/admin/staff", "UserGear", [P.StaffManage]),
             new AdminNavItem("همه جدول‌ها", "/admin/manage", "Sliders"),
@@ -100,6 +102,8 @@ public static class AdminNav
             new AdminNavItem("هشدارها", "/admin/system/alerts", "BellRinging", [P.MonitoringView, P.SystemManage]),
             // دور هشتم: تنظیم و آزمون سرویس پیامک (SMS.ir).
             new AdminNavItem("سرویس پیامک", "/admin/system/sms", "ChatDots", [P.MonitoringView, P.SystemManage]),
+            // مرحلهٔ دوازدهم: تنظیم و آزمون سرویس ایمیل (SMTP).
+            new AdminNavItem("سرویس ایمیل", "/admin/system/email", "Envelope", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("گزارش‌های سرور", "/admin/system/logs", "Article", [P.MonitoringView])),
     ];
 }

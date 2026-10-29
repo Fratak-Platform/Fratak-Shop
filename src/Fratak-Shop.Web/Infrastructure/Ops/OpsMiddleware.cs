@@ -82,7 +82,11 @@ public sealed class MaintenanceMiddleware(RequestDelegate next)
             return;
         }
         http.Response.ContentType = "text/html; charset=utf-8";
-        await http.Response.WriteAsync(MaintenanceRules.Page(settings.SiteName, settings.MaintenanceMessage, settings.MaintenanceRetryMinutes), http.RequestAborted);
+        // مرحلهٔ دوازدهم: لوگوی محل «صفحهٔ تعمیرات» از استودیوی لوگو (قابل خاموش کردن؛ خاموش = رشتهٔ خالی).
+        var brand = global::Fratak_Shop.Core.Services.Branding.BrandResolver.Resolve(global::Fratak_Shop.Core.Services.Branding.BrandPlace.Maintenance,
+            settings, global::Fratak_Shop.Core.Services.Branding.BrandStyleRules.Parse(settings.BrandStyleJson), BrandIdentity.Defaults);
+        await http.Response.WriteAsync(MaintenanceRules.Page(settings.SiteName, settings.MaintenanceMessage, settings.MaintenanceRetryMinutes,
+            BrandLockupHtml.Render(brand)), http.RequestAborted);
     }
 
     private static async Task<bool> IsStaffAsync(HttpContext http)
@@ -122,9 +126,13 @@ public static class MaintenanceRules
 
     public static string Message(string? custom) => string.IsNullOrWhiteSpace(custom) ? DefaultMessage : custom.Trim();
 
-    /// <summary>صفحهٔ سادهٔ مستقل (بدون وابستگی به قالب سایت تا در هر شرایطی نمایش داده شود).</summary>
-    public static string Page(string? siteName, string? message, int retryMinutes)
+    /// <summary>
+    /// صفحهٔ سادهٔ مستقل (بدون وابستگی به قالب سایت تا در هر شرایطی نمایش داده شود).
+    /// <paramref name="brandHtml"/>: HTML آمادهٔ لوگو (BrandLockupHtml.Render، همه چیز Encode‌شده) یا خالی = بدون لوگو.
+    /// </summary>
+    public static string Page(string? siteName, string? message, int retryMinutes, string? brandHtml = null)
     {
+        var brand = string.IsNullOrEmpty(brandHtml) ? "" : $"<div class=\"brand\">{brandHtml}</div>";
         var name = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(siteName) ? "فروشگاه" : siteName);
         var text = WebUtility.HtmlEncode(Message(message)).Replace("\n", "<br>");
         var eta = retryMinutes >= 60
@@ -138,6 +146,7 @@ public static class MaintenanceRules
             <title>در حال به‌روزرسانی – {{name}}</title>
             <link rel="stylesheet" href="/assets/css/output.css">
             <link rel="stylesheet" href="/assets/css/font.css">
+            <link rel="stylesheet" href="/assets/css/brand-lockup.css">
             <link rel="icon" href="{{BrandIdentity.FaviconSvg}}" type="image/svg+xml">
             <meta name="theme-color" content="{{BrandIdentity.Navy}}">
             <style>
@@ -145,11 +154,14 @@ public static class MaintenanceRules
             .box{max-width:480px;width:100%;background:#fff;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 10px 40px rgba(11,25,39,.08);border-top:4px solid #0069FD}
             .icon{width:72px;height:72px;margin:0 auto 18px;border-radius:50%;background:#EBF5FF;display:flex;align-items:center;justify-content:center;font-size:34px}
             h1{font-size:22px;margin:0 0 12px}p{line-height:2;color:#475569;margin:0}.eta{margin-top:18px;font-size:13px;color:#64748b}
-            @media (prefers-color-scheme:dark){body{background:#0B1927;color:#E1E8F1}.box{background:#102132;box-shadow:none}p{color:#C9D4E1}.icon{background:#182E44} }
+            .brand{display:flex;justify-content:center;margin:0 0 22px}
+            @media (prefers-color-scheme:dark){body{background:#0B1927;color:#E1E8F1}.box{background:#102132;box-shadow:none}p{color:#C9D4E1}.icon{background:#182E44}
+              .bl .brand-logo-light{display:none}.bl .brand-logo-dark{display:block}.bl .brand-text-main{color:#FFFFFF}.bl .brand-tagline{color:#94A3B8} }
             </style>
             </head>
             <body>
             <main class="box">
+            {{brand}}
             <div class="icon" aria-hidden="true">🛠️</div>
             <h1>{{name}} در حال به‌روزرسانی است</h1>
             <p>{{text}}</p>

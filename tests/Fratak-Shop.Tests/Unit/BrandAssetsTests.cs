@@ -159,7 +159,11 @@ public class BrandAssetsTests
     [InlineData(30, 37)]
     public void Lockup_reserves_the_mark_aspect_ratio(int height, int width)
     {
-        Assert.Equal(width, new BrandLockupModel(BrandPlace.Header, height).IconWidth);
+        var config = new Fratak_Shop.Core.Services.Branding.BrandStyleConfig();
+        config.Places["Header"] = new Fratak_Shop.Core.Services.Branding.BrandPlaceStyle { IconHeight = height };
+        var view = Fratak_Shop.Core.Services.Branding.BrandResolver.Resolve(Fratak_Shop.Core.Services.Branding.BrandPlace.Header,
+            new Fratak_Shop.Core.DTOs.Settings.StoreSettingDto(), config, BrandIdentity.Defaults);
+        Assert.Equal(width, view.IconWidth(view.IconHeight));
     }
 
     [Fact]

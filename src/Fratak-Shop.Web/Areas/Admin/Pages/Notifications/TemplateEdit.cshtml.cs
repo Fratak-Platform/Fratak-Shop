@@ -18,6 +18,9 @@ public sealed class TemplateInput
     public bool IsActive { get; set; } = true;
     public bool SendPush { get; set; } = true;
     public bool SendSms { get; set; }
+
+    /// <summary>مرحلهٔ دوازدهم: همان عنوان و متن به ایمیل تأییدشدهٔ مشتری هم برود.</summary>
+    public bool SendEmail { get; set; }
 }
 
 /// <summary>
@@ -57,6 +60,7 @@ public class TemplateEditModel(IAdminDataService data, INotificationService noti
                 IsActive = template.IsActive,
                 SendPush = template.SendPush,
                 SendSms = template.SendSms,
+                SendEmail = template.SendEmail,
             };
         }
 
@@ -107,6 +111,7 @@ public class TemplateEditModel(IAdminDataService data, INotificationService noti
         template.IsActive = Input.IsActive;
         template.SendPush = Input.SendPush;
         template.SendSms = Input.SendSms && template.SmsText is not null;
+        template.SendEmail = Input.SendEmail;
 
         var result = isNew ? await data.AddAsync(template) : await data.UpdateAsync(template);
         if (!result.IsSuccess())

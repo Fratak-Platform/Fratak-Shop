@@ -10,6 +10,7 @@
         صفحه اصلی
       </a>
       <div class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
+        <a asp-page="/Index" class="flex justify-center" aria-label="@Site.Settings.SiteName">@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Auth))</a>
         <form method="post">
           <input type="hidden" asp-for="ReturnUrl" />
           <h1 class="mt-5 text-lg font-semibold text-zinc-800">

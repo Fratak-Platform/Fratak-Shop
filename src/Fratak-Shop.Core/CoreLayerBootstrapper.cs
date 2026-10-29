@@ -141,6 +141,10 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Ops.IAlertService, Services.Ops.AlertService>();
         // دور هشتم: تنظیمات سرویس پیامک (SMS.ir) – ارسال واقعی در لایهٔ وب (ConfigurableSmsSender).
         services.AddScoped<Services.Notifications.ISmsProviderService, Services.Notifications.SmsProviderService>();
+        // مرحلهٔ دوازدهم: تنظیمات سرویس ایمیل (SMTP) – صف و ارسال واقعی در لایهٔ وب (EmailQueue)؛ اینجا نسخه‌های بی‌اثر برای آزمون/ابزار.
+        services.AddScoped<Services.Notifications.IEmailProviderService, Services.Notifications.EmailProviderService>();
+        services.TryAddSingleton<Services.Notifications.IEmailSender, Services.Notifications.NullEmailSender>();
+        services.TryAddSingleton<Services.Notifications.IEmailServerSecret, Services.Notifications.NoEmailServerSecret>();
 
         // مرحلهٔ هفتم – فاز ۱۰: امنیت و کار تیمی کارکنان (TOTP، تأیید دونفره، منشن، کارهای شخصی).
         services.AddScoped<Services.Team.IStaffTotpService, Services.Team.StaffTotpService>();

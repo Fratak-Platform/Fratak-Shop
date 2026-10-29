@@ -20,7 +20,7 @@
     <div class="a-card-head"><span class="a-card-title">@group.Key</span></div>
     <div class="a-table-wrap">
       <table class="a-table a-table-cards">
-        <thead><tr><th>رویداد</th><th>عنوان پیام</th><th>اعلان سایت</th><th>اعلان مرورگر</th><th>پیامک</th><th></th></tr></thead>
+        <thead><tr><th>رویداد</th><th>عنوان پیام</th><th>اعلان سایت</th><th>اعلان مرورگر</th><th>پیامک</th><th>ایمیل</th><th></th></tr></thead>
         <tbody>
           @foreach (var row in group)
           {
@@ -28,9 +28,9 @@
             <tr>
               <td data-label="رویداد" class="font-semibold">@row.Title</td>
               <td data-label="عنوان پیام" class="text-sm">@(t?.Title ?? "— هنوز قالبی ساخته نشده —")</td>
-              @foreach (var (channel, on) in new[] { ("site", t?.IsActive == true), ("push", t?.IsActive == true && t.SendPush), ("sms", t?.SendSms == true) })
+              @foreach (var (channel, on) in new[] { ("site", t?.IsActive == true), ("push", t?.IsActive == true && t.SendPush), ("sms", t?.SendSms == true), ("email", t?.SendEmail == true) })
               {
-                <td data-label="@(channel == "site" ? "اعلان سایت" : channel == "push" ? "اعلان مرورگر" : "پیامک")">
+                <td data-label="@(channel switch { "site" => "اعلان سایت", "push" => "اعلان مرورگر", "sms" => "پیامک", _ => "ایمیل" })">
                   @if (t is null)
                   {
                     <span class="a-muted">—</span>

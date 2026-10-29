@@ -758,6 +758,14 @@ public class StoreSetting : BaseEntity
     /// <summary>متن برند در فاکتور (و PDF آن).</summary>
     public bool BrandTextInInvoice { get; set; } = true;
 
+    /// <summary>
+    /// مرحلهٔ دوازدهم – «استودیوی لوگو»: تنظیم جداگانهٔ لوگو برای هر محل (هدر، منوی موبایل، فوتر، ورود، پنل، فاکتور، ایمیل،
+    /// صفحهٔ تعمیرات) و آیکون‌های اپ، به صورت JSON. ساختار و اعتبارسنجی: Core/Services/Branding/BrandStyle.cs.
+    /// مثال: {"tagline":"خرید آنلاین لوازم جانبی","places":{"Header":{"iconHeight":48,"iconHeightMobile":36,"showText":true,"fontSize":26,"iconGap":10,"partGap":6}}}
+    /// خالی = همهٔ محل‌ها با ظاهر پیش‌فرض (همان ظاهر مرحلهٔ دهم).
+    /// </summary>
+    public string? BrandStyleJson { get; set; }
+
     // ════════════════════════════════════════════════════════════════════
     //  مرحلهٔ دهم – سیاست قیمت‌گذاری خودکار وقتی قیمت خرید از تأمین‌کننده عوض می‌شود
     //  موتور: Core/Services/Suppliers/SupplierRepricing.cs (محاسبهٔ خالص و تست‌پذیر).

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Fratak_Shop.Core.Services.Branding;
 using Fratak_Shop.Core.Services.Settings;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
@@ -27,6 +28,8 @@ public static class PwaEndpoints
                 return Results.NotFound();
 
             var themeColor = SafeColor(settings.ThemeColor, BrandIdentity.DefaultThemeColor);
+            // مرحلهٔ دوازدهم: آیکون‌های اپ (اصلی، کوچک، maskable) و رنگ صفحهٔ شروع از «استودیوی لوگو».
+            var pwa = PwaIconSet.From(settings, BrandStyleRules.Parse(settings.BrandStyleJson));
             var manifest = new Dictionary<string, object?>
             {
                 ["id"] = "/",
@@ -38,9 +41,9 @@ public static class PwaEndpoints
                 ["start_url"] = "/?source=pwa",
                 ["scope"] = "/",
                 ["display"] = "standalone",
-                ["background_color"] = "#ffffff",
+                ["background_color"] = pwa.Background,
                 ["theme_color"] = themeColor,
-                ["icons"] = Icons(settings.PwaIconUrl, Icon),
+                ["icons"] = Icons(pwa, Icon),
                 ["shortcuts"] = new object[]
                 {
                     new { name = "سبد خرید", url = "/cart" },
@@ -74,36 +77,37 @@ public static class PwaEndpoints
     }
 
     /// <summary>
-    /// آیکون‌های مانیفست. مرحلهٔ دهم: اگر مدیر «آیکون اپلیکیشن» آپلود کرده باشد (PwaIconUrl) همان یک تصویر برای any و maskable
-    /// (با اندازهٔ «any» تا مرورگر خودش مقیاس بدهد) استفاده می‌شود؛ وگرنه آیکون‌های مشکی برند (wwwroot/assets/brand).
-    /// مثال: PwaIconUrl = "/uploads/media/app.png" → [{ src: "/uploads/media/app.png", sizes: "any", type: "image/png", purpose: "any" }, …]
+    /// آیکون‌های مانیفست از <see cref="PwaIconSet"/> (مرحلهٔ دوازدهم):
+    /// همیشه یک آیکون ۱۹۲ و یک آیکون ۵۱۲ با purpose=any؛ آیکون maskable فقط اگر واقعاً وجود دارد (آیکون معمولی که maskable
+    /// اعلام شود در اندروید بریده می‌شود). آدرس‌های محلی نسخهٔ فایل (?v=hash) می‌گیرند تا با هر تغییر، اپ نصب‌شده آیکون تازه بگیرد.
+    /// مثال پیش‌فرض: app-icon-192.png، app-icon-512.png، app-icon-maskable-192.png، app-icon-maskable-512.png.
     /// </summary>
-    internal static object[] Icons(string? customUrl, Func<string, string> version)
+    public static object[] Icons(PwaIconSet pwa, Func<string, string> version)
     {
-        if (Helpers.UrlSafety.IsSafeLink(customUrl))
+        string Src(string url) => url.StartsWith('/') && !url.StartsWith("//") ? version(url) : url;
+        var icons = new List<object>
         {
-            var url = customUrl!.Trim();
-            var src = url.StartsWith('/') ? version(url) : url;
-            var type = url.Split('?')[0].EndsWith(".svg", StringComparison.OrdinalIgnoreCase) ? "image/svg+xml"
-                : url.Split('?')[0].EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
-                : url.Split('?')[0].EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || url.Split('?')[0].EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ? "image/jpeg"
-                : "image/png";
-            return
-            [
-                new { src, sizes = "512x512", type, purpose = "any" },
-                new { src, sizes = "192x192", type, purpose = "any" },
-                new { src, sizes = "512x512", type, purpose = "maskable" },
-            ];
-        }
+            new { src = Src(pwa.Icon192), sizes = Size(pwa.Icon192, "192x192", pwa.IsDefault), type = MimeOf(pwa.Icon192), purpose = "any" },
+            new { src = Src(pwa.Icon512), sizes = Size(pwa.Icon512, "512x512", pwa.IsDefault), type = MimeOf(pwa.Icon512), purpose = "any" },
+        };
+        if (pwa.Maskable192 is { } mask192)
+            icons.Add(new { src = Src(mask192), sizes = "192x192", type = MimeOf(mask192), purpose = "maskable" });
+        if (pwa.Maskable512 is { } mask512)
+            icons.Add(new { src = Src(mask512), sizes = Size(mask512, "512x512", pwa.IsDefault), type = MimeOf(mask512), purpose = "maskable" });
+        return [.. icons];
+    }
 
-        // آیکون‌های هویت بصری: زمینهٔ مشکی با گوشهٔ گرد + نسخهٔ maskable تمام‌صفحه، نشان فراتک بدون متن.
-        return
-        [
-            new { src = version(BrandIdentity.AppIcon192), sizes = "192x192", type = "image/png", purpose = "any" },
-            new { src = version(BrandIdentity.AppIcon512), sizes = "512x512", type = "image/png", purpose = "any" },
-            new { src = version(BrandIdentity.AppIconMaskable192), sizes = "192x192", type = "image/png", purpose = "maskable" },
-            new { src = version(BrandIdentity.AppIconMaskable512), sizes = "512x512", type = "image/png", purpose = "maskable" },
-        ];
+    /// <summary>SVG اندازهٔ «any» دارد؛ بقیه اندازهٔ اعلام‌شده (مرورگر تصویر بزرگ‌تر/کوچک‌تر را خودش مقیاس می‌دهد).</summary>
+    private static string Size(string url, string size, bool isDefault) => !isDefault && BrandResolver.IsSvg(url) ? "any" : size;
+
+    /// <summary>نوع فایل از پسوند. مثال: «/a.webp» → image/webp؛ ناشناخته → image/png.</summary>
+    public static string MimeOf(string url)
+    {
+        var path = url.Split('?', '#')[0];
+        return path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) ? "image/svg+xml"
+            : path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+            : path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ? "image/jpeg"
+            : "image/png";
     }
 
     private static string SafeColor(string? value, string fallback) =>

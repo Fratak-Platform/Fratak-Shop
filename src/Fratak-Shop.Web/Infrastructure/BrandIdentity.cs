@@ -1,3 +1,5 @@
+using Fratak_Shop.Core.Services.Branding;
+
 ﻿namespace Fratak_Shop.Web.Infrastructure;
 
 /// <summary>
@@ -112,7 +114,13 @@ public static class BrandIdentity
     /// همان اپ می‌ماند و فقط آیکونش به‌روز می‌شود.
     /// محل استفاده: _Layout (تگ link rel=manifest).
     /// </summary>
-    public const string ManifestUrl = "/manifest.webmanifest?v=brand3";
+    public const string ManifestUrl = "/manifest.webmanifest?v=brand4";
+
+    /// <summary>
+    /// پیش‌فرض‌های هویت بصری برای سازندهٔ لوگوی هر محل (Core/Services/Branding/BrandResolver).
+    /// </summary>
+    public static Fratak_Shop.Core.Services.Branding.BrandDefaults Defaults { get; } =
+        new(Mark, MarkOnDark, MarkPng, DefaultTextPrimary, DefaultTextAccent, Navy, Blue);
 
     /// <summary>
     /// آدرس‌های آیکون/لوگوی قالب قدیمی که مرورگرها، اپ‌های نصب‌شده، کش CDN یا مانیفست‌های کهنه ممکن است هنوز
@@ -137,24 +145,6 @@ public static class BrandIdentity
         Logo, LogoOnDark, LogoPng, Mark, MarkPng, MarkOnDark, FaviconSvg, FaviconIco, AppleTouchIcon,
         AppIcon192, AppIcon512, AppIconMaskable192, AppIconMaskable512, NotificationBadge, OgImage,
     ];
-}
-
-/// <summary>
-/// محل‌هایی که لوگو (آیکون + متن برند) نمایش داده می‌شود. برای هر محل در تنظیمات تعیین می‌شود که متن کنار آیکون باشد یا نه.
-/// </summary>
-public enum BrandPlace
-{
-    /// <summary>هدر سایت (دسکتاپ و منوی موبایل) – پیش‌فرض فقط آیکون.</summary>
-    Header,
-
-    /// <summary>صفحه‌های ورود و ثبت‌نام.</summary>
-    Auth,
-
-    /// <summary>سربرگ نوار کناری پنل مدیریت (زمینهٔ تیره).</summary>
-    Admin,
-
-    /// <summary>فاکتور مشتری و PDF آن.</summary>
-    Invoice,
 }
 
 /// <summary>
@@ -209,34 +199,56 @@ public sealed record BrandLockup(
 }
 
 /// <summary>
-/// ورودی partial «_BrandLockup» (Pages/Shared/_BrandLockup.cshtml).
-/// مثال: <c>@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Auth, 44) { CssClass = "justify-center" })</c>
+/// ورودی partial «_BrandLockup» (Pages/Shared/_BrandLockup.cshtml) – مرحلهٔ دوازدهم.
+/// همهٔ اندازه‌ها، فاصله‌ها، رنگ‌ها و متن‌ها از «استودیوی لوگو» (پنل ← تنظیمات ← استودیوی لوگو) برای همین محل می‌آیند؛
+/// صفحه فقط محل را می‌گوید. مثال: <c>@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Auth))</c>
 /// </summary>
-/// <param name="Place">محل نمایش (تعیین می‌کند متن نوشته شود یا نه).</param>
-/// <param name="IconHeight">ارتفاع آیکون به پیکسل؛ اندازهٔ متن متناسب با آن است (حدود ۰٫۶۵ ارتفاع).</param>
-public sealed record BrandLockupModel(BrandPlace Place, int IconHeight)
+/// <param name="Place">محل نمایش.</param>
+public sealed record BrandLockupModel(BrandPlace Place)
 {
     /// <summary>کلاس‌های اضافهٔ ظرف (چینش و فاصله).</summary>
     public string? CssClass { get; init; }
 
-    /// <summary>روی زمینهٔ همیشه تیره (پنل): فقط آیکون تیره و متن سفید.</summary>
-    public bool OnDark { get; init; }
+    /// <summary>پیش‌نمایش پنل: لوگوی ساخته‌شده از تنظیمات در حال ویرایش به‌جای تنظیمات ذخیره‌شده.</summary>
+    public BrandView? View { get; init; }
 
-    /// <summary>نمایش متن بدون توجه به تنظیم محل (پیش‌نمایش صفحهٔ تنظیمات).</summary>
-    public bool ForceText { get; init; }
+    /// <summary>پیش‌نمایش زندهٔ پنل: همهٔ بخش‌ها (حتی خاموش‌ها با hidden) ساخته می‌شوند تا اسکریپت روشن/خاموششان کند.</summary>
+    public bool Preview { get; init; }
+}
 
-    /// <summary>آیکون نسخهٔ PNG/قابل‌چاپ (فاکتور PDF).</summary>
-    public bool Raster { get; init; }
-
+/// <summary>
+/// آیکون‌های نهایی اپ (PWA) و آیفون؛ از تنظیمات (PwaIconUrl و آیکون‌های تکمیلی استودیوی لوگو) یا آیکون‌های مشکی برند.
+/// مثال پیش‌فرض: Icon512 = app-icon-512.png، Maskable512 = app-icon-maskable-512.png، AppleTouch = apple-touch-icon.png.
+/// </summary>
+/// <param name="Icon512">آیکون اصلی (purpose=any).</param>
+/// <param name="Icon192">آیکون کوچک (purpose=any)؛ پیش‌نمایش نصب و اعلان‌ها.</param>
+/// <param name="Maskable512">آیکون maskable یا null (اگر مدیر آیکون اختصاصی بی‌maskable گذاشته).</param>
+/// <param name="Maskable192">نسخهٔ کوچک maskable یا null.</param>
+/// <param name="AppleTouch">آیکون صفحهٔ اصلی آیفون.</param>
+/// <param name="IsDefault">هیچ آیکون اختصاصی اپ تنظیم نشده.</param>
+/// <param name="Background">رنگ صفحهٔ شروع اپ (background_color).</param>
+public sealed record PwaIconSet(string Icon512, string Icon192, string? Maskable512, string? Maskable192, string AppleTouch, bool IsDefault, string Background)
+{
     /// <summary>
-    /// عرض تقریبی آیکون پیش‌فرض برای رزرو جا (جلوگیری از پرش صفحه). نسبت نشان برند ۲۴۰٫۹ × ۱۹۲٫۹ است.
-    /// مثال: ارتفاع ۴۰ → عرض ۵۰.
+    /// همهٔ آدرس‌ها در یک رشته؛ هش آن نسخهٔ آدرس مانیفست می‌شود تا با هر تغییر آیکون، مرورگر مانیفست تازه بخواند.
     /// </summary>
-    public int IconWidth => (int)Math.Round(IconHeight * MarkAspectRatio);
+    public string Fingerprint => string.Join("|", Icon512, Icon192, Maskable512, Maskable192, AppleTouch, Background);
 
-    /// <summary>نسبت عرض به ارتفاع نشان برند (viewBox فایل mark.svg).</summary>
-    public const double MarkAspectRatio = 240.9 / 192.9;
+    public static PwaIconSet From(Fratak_Shop.Core.DTOs.Settings.StoreSettingDto settings, BrandStyleConfig style)
+    {
+        var custom = BrandStyleRules.Asset(settings.PwaIconUrl);
+        var small = BrandStyleRules.Asset(style.PwaIcon192Url);
+        var maskable = BrandStyleRules.Asset(style.PwaMaskableIconUrl);
+        var apple = BrandStyleRules.Asset(style.AppleTouchIconUrl);
+        var background = BrandStyleRules.Hex(style.PwaBackgroundColor) ?? "#ffffff";
+        if (custom is null && small is null && maskable is null && apple is null)
+            return new PwaIconSet(BrandIdentity.AppIcon512, BrandIdentity.AppIcon192, BrandIdentity.AppIconMaskable512, BrandIdentity.AppIconMaskable192,
+                BrandIdentity.AppleTouchIcon, true, background);
 
-    /// <summary>اندازهٔ قلم متن برند به پیکسل. مثال: آیکون ۴۰ → قلم ۲۶.</summary>
-    public int FontSize => Math.Max(12, (int)Math.Round(IconHeight * 0.65));
+        var main = custom ?? small ?? BrandIdentity.AppIcon512;
+        // آیکون maskable برند فقط وقتی معنا دارد که آیکون اصلی هم برند باشد؛ وگرنه نشان دو اپ متفاوت دیده می‌شود.
+        var mask = maskable ?? (custom is null && small is null ? BrandIdentity.AppIconMaskable512 : null);
+        var mask192 = maskable is null && mask is not null ? BrandIdentity.AppIconMaskable192 : null;
+        return new PwaIconSet(main, small ?? main, mask, mask192, apple ?? custom ?? small ?? BrandIdentity.AppleTouchIcon, false, background);
+    }
 }

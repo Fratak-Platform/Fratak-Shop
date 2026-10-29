@@ -1,46 +1,16 @@
 @model Fratak_Shop.Web.Infrastructure.BrandLockupModel
+@inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersions
 @*
-  لوگوی فروشگاه = «آیکون» + «متن برند» (مرحلهٔ دهم). همه چیز از تنظیمات می‌آید (پنل ← تنظیمات ← برند و لوگو):
-   - آیکون روشن/تیره (LogoUrl / LogoDarkUrl)؛ پیش‌فرض نشان فراتک بدون نوشته.
-   - متن واقعی HTML (نه داخل تصویر): بخش اول با رنگ متن و بخش دوم با رنگ تأکیدی. مثال: فراتک <span style="color:#0069FD">شاپ</span>
-   - نمایش متن برای هر محل جدا تنظیم می‌شود (Site.ShowBrandText). هدر پیش‌فرض فقط آیکون است.
-  حالت تیرهٔ فروشگاه: آیکون سفید جایگزین می‌شود (brand-logo-light/dark در style.css و dark.css) و متن سفید می‌شود (brand-text-main).
-  محل استفاده: هدر (دسکتاپ و منوی موبایل)، ورود و ثبت‌نام، سربرگ پنل، فاکتور و پیش‌نمایش صفحهٔ تنظیمات.
-  امنیت: رنگ‌ها فقط hex معتبرند (BrandLockup.Hex) و آدرس‌ها فقط / یا http(s) (UrlSafety)؛ متن با Razor کدگذاری می‌شود.
+  لوگوی فروشگاه = «آیکون» + «بخش اول» + «بخش رنگی» + «شعار» (مرحلهٔ دوازدهم – استودیوی لوگو).
+  همه چیز برای هر محل جدا از پنل ← تنظیمات ← استودیوی لوگو می‌آید: نمایش آیکون/متن/شعار، آیکون اختصاصی، اندازهٔ آیکون
+  (دسکتاپ و موبایل)، اندازه و وزن قلم، فاصلهٔ آیکون تا متن، فاصلهٔ دو بخش متن، فاصلهٔ شعار، چینش، تراز و رنگ‌ها.
+  ساخت HTML: Infrastructure/BrandLockupHtml.cs (یک منبع برای سایت، پنل، پیش‌نمایش و صفحهٔ تعمیرات).
+  قاعده‌های ثابت CSS: wwwroot/assets/css/brand-lockup.css (در _BrandHead لینک شده).
+  محل استفاده: هدر، منوی موبایل، فوتر، ورود/ثبت‌نام/کد تأیید، سربرگ پنل، فاکتور و پیش‌نمایش استودیوی لوگو.
+  امنیت: متن‌ها و آدرس‌ها HtmlEncode، رنگ‌ها فقط hex معتبر و اندازه‌ها عدد صحیح در محدوده (BrandResolver).
 *@
 @{
-    var b = Site.Brand;
-    var showText = Model.ForceText || Site.ShowBrandText(Model.Place);
-    var h = Model.IconHeight;
-    int? w = b.IsDefaultIcon ? Model.IconWidth : null;
-    var iconStyle = $"height:{h}px;width:auto;max-width:{h * 3}px;object-fit:contain;flex-shrink:0";
-    var alt = showText ? "" : b.FullText;
-    var textColor = Model.OnDark ? "#FFFFFF" : (b.TextColor ?? BrandIdentity.Navy);
-    var gap = Math.Max(6, h / 5);
+    var view = Model.View ?? Site.BrandFor(Model.Place);
+    var html = BrandLockupHtml.Render(view, Model.CssClass, url => FileVersions.AddFileVersionToPath(Context.Request.PathBase, url), Model.Preview);
 }
-<span class="brand-lockup @Model.CssClass" style="display:inline-flex;align-items:center;gap:@(gap)px;line-height:1;direction:rtl">
-  @if (Model.Raster)
-  {
-    <img src="@b.IconRasterUrl" alt="@alt" height="@h" width="@w" style="@iconStyle">
-  }
-  else if (Model.OnDark)
-  {
-    <img src="@b.IconDarkUrl" asp-append-version="true" alt="@alt" height="@h" width="@w" style="@iconStyle" decoding="async">
-  }
-  else
-  {
-    var hasDark = b.IconDarkUrl != b.IconUrl;
-    <img class="@(hasDark ? "brand-logo-light" : null)" src="@b.IconUrl" asp-append-version="true" alt="@alt" height="@h" width="@w" style="@iconStyle" decoding="async">
-    @if (hasDark)
-    {
-      <img class="brand-logo-dark" src="@b.IconDarkUrl" asp-append-version="true" alt="@alt" height="@h" width="@w" style="@iconStyle" loading="lazy" decoding="async">
-    }
-  }
-  @if (showText)
-  {
-    <span class="@(Model.OnDark || Model.Place == BrandPlace.Invoice ? null : "brand-text-main")" style="font-weight:800;font-size:@(Model.FontSize)px;color:@textColor;white-space:nowrap;letter-spacing:0"><span>@b.Primary</span>@if (b.Accent is not null)
-      {
-        <span class="brand-text-accent" style="color:@b.AccentColor;margin-inline-start:.28em">@b.Accent</span>
-      }</span>
-  }
-</span>
+@Html.Raw(html)

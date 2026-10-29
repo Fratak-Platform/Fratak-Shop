@@ -107,6 +107,12 @@ public class NotificationTemplate : BaseEntity
     /// <summary>Also send as a browser push notification to the customer's subscribed devices.</summary>
     public bool SendPush { get; set; } = true;
 
+    /// <summary>
+    /// مرحلهٔ دوازدهم: همین عنوان و متن به ایمیل مشتری هم (اگر ایمیل ثبت کرده باشد) با قالب برند فرستاده شود.
+    /// پیش‌فرض خاموش؛ مدیر برای هر رویداد جدا روشنش می‌کند. سرویس ایمیل: پنل ← فنی ← سرویس ایمیل.
+    /// </summary>
+    public bool SendEmail { get; set; }
+
     [MaxLength(500)]
     public string? SmsText { get; set; }
 }

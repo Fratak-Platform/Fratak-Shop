@@ -7,7 +7,7 @@
  *  - web push: shows the notification sent by the shop and opens its (same-origin) link.
  * Bump VERSION to drop the old caches after changing this file.
  */
-const VERSION = "v5"; // v5: آیکون پیش‌فرض PWA مشکی با نشان فراتک (مرحلهٔ دهم). v4: مانیفست بدون کش و آیکون‌های نسخه‌دار. v3: هویت بصری جدید (فونت Vazirmatn، لوگو و آیکون‌های برند)
+const VERSION = "v6"; // v6: آیکون اعلان از تنظیمات «استودیوی لوگو» (مرحلهٔ دوازدهم). v5: آیکون پیش‌فرض PWA مشکی با نشان فراتک (مرحلهٔ دهم). v4: مانیفست بدون کش و آیکون‌های نسخه‌دار. v3: هویت بصری جدید (فونت Vazirmatn، لوگو و آیکون‌های برند)
 const CACHE = `fratak-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [
@@ -87,7 +87,8 @@ self.addEventListener("fetch", (event) => {
 });
 
 // ── Web push ───────────────────────────────────────────────────────────
-// Payload (JSON, encrypted by the server): { title, body, url, tag }.
+// Payload (JSON, encrypted by the server): { title, body, url, tag, icon }.
+// icon فقط اگر مسیر همین سایت باشد («/…» و نه «//…») پذیرفته می‌شود؛ وگرنه آیکون برند.
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -96,10 +97,11 @@ self.addEventListener("push", (event) => {
     data = { body: event.data ? event.data.text() : "" };
   }
   const title = data.title || "فراتک";
+  const icon = typeof data.icon === "string" && data.icon.startsWith("/") && !data.icon.startsWith("//") ? data.icon : "/assets/brand/app-icon-192.png";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/assets/brand/app-icon-192.png",
+      icon,
       badge: "/assets/brand/notification-badge-96.png",
       tag: data.tag || undefined,
       renotify: !!data.tag,

@@ -221,6 +221,7 @@ public static class StoreSettingMapper
             BrandTextInAuth = entity.BrandTextInAuth,
             BrandTextInAdmin = entity.BrandTextInAdmin,
             BrandTextInInvoice = entity.BrandTextInInvoice,
+            BrandStyleJson = entity.BrandStyleJson,
             SupplierPriceAutoMode = entity.SupplierPriceAutoMode,
             SupplierRepriceMode = entity.SupplierRepriceMode,
             SupplierRepriceMarkupPercent = entity.SupplierRepriceMarkupPercent,
@@ -455,6 +456,7 @@ public static class StoreSettingMapper
         entity.BrandTextInAuth = command.BrandTextInAuth;
         entity.BrandTextInAdmin = command.BrandTextInAdmin;
         entity.BrandTextInInvoice = command.BrandTextInInvoice;
+        entity.BrandStyleJson = command.BrandStyleJson;
         entity.SupplierPriceAutoMode = command.SupplierPriceAutoMode;
         entity.SupplierRepriceMode = command.SupplierRepriceMode;
         entity.SupplierRepriceMarkupPercent = command.SupplierRepriceMarkupPercent;

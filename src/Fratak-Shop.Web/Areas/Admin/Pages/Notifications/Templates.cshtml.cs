@@ -33,7 +33,7 @@ public class TemplatesModel(IAdminDataService data, IMonitoringService monitorin
             .ToList();
     }
 
-    /// <summary>روشن/خاموش کردن سریع یک کانال: site (اعلان سایت)، push یا sms.</summary>
+    /// <summary>روشن/خاموش کردن سریع یک کانال: site (اعلان سایت)، push، sms یا email.</summary>
     public async Task<IActionResult> OnPostChannelAsync(NotificationEvent @event, string channel)
     {
         var template = await data.Query<NotificationTemplate>().FirstOrDefaultAsync(t => t.Event == @event);
@@ -57,6 +57,10 @@ public class TemplatesModel(IAdminDataService data, IMonitoringService monitorin
             case "sms":
                 TempData["ErrorMessage"] = "ابتدا متن پیامک این رویداد را بنویسید.";
                 return RedirectToPage();
+            case "email":
+                // مرحلهٔ دوازدهم: همان عنوان و متن قالب به ایمیل تأییدشدهٔ مشتری (فنی ← سرویس ایمیل).
+                template.SendEmail = !template.SendEmail;
+                break;
             default:
                 return BadRequest();
         }

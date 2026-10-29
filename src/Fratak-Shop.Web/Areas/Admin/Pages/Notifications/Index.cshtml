@@ -82,6 +82,7 @@
       <div class="a-field"><label class="a-label" for="d-link">لینک (اختیاری)</label><input id="d-link" asp-for="Direct.LinkUrl" class="a-input a-ltr" placeholder="/profile/orders"></div>
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendPush" value="true" checked="@Model.Direct.SendPush"><input type="hidden" name="Direct.SendPush" value="false"> اعلان مرورگر</label>
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendSms" value="true" checked="@Model.Direct.SendSms"><input type="hidden" name="Direct.SendSms" value="false"> پیامک هم ارسال شود</label>
+      <label class="a-check text-sm"><input type="checkbox" name="Direct.SendEmail" value="true" checked="@Model.Direct.SendEmail"><input type="hidden" name="Direct.SendEmail" value="false"> ایمیل هم ارسال شود (اگر ایمیل مشتری تأیید شده باشد)</label>
       <div><button class="a-btn" type="submit">ارسال</button></div>
     </form>
   </div>

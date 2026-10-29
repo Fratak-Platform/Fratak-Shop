@@ -38,7 +38,7 @@
     <article id="invoice" class="inv-sheet" data-invoice-sheet>
       <header class="inv-header">
         <div class="inv-brand">
-          @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Invoice, 40) { Raster = true })
+          @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Invoice))
           <div class="inv-brand-name">@sellerName</div>
         </div>
         <div class="inv-title">

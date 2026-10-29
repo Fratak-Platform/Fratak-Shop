@@ -220,6 +220,9 @@ public class StoreSettingCommand
     public bool BrandTextInAuth { get; set; } = true;
     public bool BrandTextInAdmin { get; set; } = true;
     public bool BrandTextInInvoice { get; set; } = true;
+
+    /// <summary>مرحلهٔ دوازدهم: تنظیمات «استودیوی لوگو» (JSON؛ ساختار در Core/Services/Branding/BrandStyle.cs).</summary>
+    public string? BrandStyleJson { get; set; }
     public int SupplierPriceAutoMode { get; set; } = 1;
     public int SupplierRepriceMode { get; set; } = 1;
     public int SupplierRepriceMarkupPercent { get; set; } = 25;

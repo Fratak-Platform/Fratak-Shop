@@ -11,11 +11,11 @@
   <partial name="_BrandHead" />
   @if (settings.IsPwaEnabled)
   {
-    <link rel="manifest" href="@BrandIdentity.ManifestUrl">
+    <link rel="manifest" href="@Site.ManifestUrl">
     if (!Site.UsesBrandFavicon)
     {
       @* فاوآیکن اختصاصی مدیر: آیکون iOS برای نصب PWA از برند می‌آید (با فاوآیکن برند، _BrandHead آن را گذاشته). *@
-      <link rel="apple-touch-icon" href="@(Site.UsesBrandPwaIcon ? BrandIdentity.AppleTouchIcon : Site.PwaIconUrl)" asp-append-version="true">
+      <link rel="apple-touch-icon" href="@Site.Pwa.AppleTouch" asp-append-version="true">
     }
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="@(settings.PwaShortName ?? settings.SiteName)">

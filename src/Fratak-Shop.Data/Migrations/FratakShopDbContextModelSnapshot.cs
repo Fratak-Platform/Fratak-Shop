@@ -2750,6 +2750,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("SendEmail")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("SendPush")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -5937,6 +5940,82 @@ namespace Fratak_Shop.Data.Migrations
                     b.ToTable("SeoRedirects");
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Settings.EmailProviderConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FromAddress")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("FromName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Host")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxPerHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(100);
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PasswordProtected")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("Port")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(587);
+
+                    b.Property<string>("Preset")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ReplyTo")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Security")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SiteBaseUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EmailProviderConfigs", t =>
+                        {
+                            t.HasCheckConstraint("CK_EmailProviderConfigs_MaxPerHour", "[MaxPerHour] >= 0");
+
+                            t.HasCheckConstraint("CK_EmailProviderConfigs_Port", "[Port] BETWEEN 1 AND 65535");
+                        });
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Settings.SmsProviderConfig", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6062,6 +6141,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<string>("BrandAccentColor")
                         .HasMaxLength(9)
                         .HasColumnType("nvarchar(9)");
+
+                    b.Property<string>("BrandStyleJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BrandTextAccent")
                         .HasMaxLength(40)

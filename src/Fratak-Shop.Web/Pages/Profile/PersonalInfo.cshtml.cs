@@ -3,12 +3,13 @@ using Fratak_Shop.Core.DTOs.Users.Command;
 using Fratak_Shop.Core.Services.Users;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Web.Infrastructure;
+using Fratak_Shop.Web.Infrastructure.Email;
 using Fratak_Shop.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fratak_Shop.Web.Pages.Profile;
 
-public class PersonalInfoModel(IUserService userService, IShopAuthService authService, IPageMetaService pageMeta) : ShopPageModel
+public class PersonalInfoModel(IUserService userService, IShopAuthService authService, IPageMetaService pageMeta, EmailVerification emailVerification) : ShopPageModel
 {
     [BindProperty]
     public ProfileInput Input { get; set; } = new();
@@ -30,6 +31,10 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
     public string PhoneNumber { get; private set; } = string.Empty;
     public bool IsPhoneVerified { get; private set; }
 
+    /// <summary>مرحلهٔ دوازدهم: ایمیل ذخیره‌شدهٔ حساب و وضعیت تأیید آن (نشان «تأیید نشده» و دکمهٔ «ارسال لینک تأیید»).</summary>
+    public string? SavedEmail { get; private set; }
+    public bool IsEmailVerified { get; private set; }
+
     public async Task<IActionResult> OnGetAsync()
     {
         var user = await userService.GetUserByIdAsync(CurrentUserId!.Value);
@@ -44,6 +49,8 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
         }
         PhoneNumber = user.PhoneNumber;
         IsPhoneVerified = user.IsPhoneVerified;
+        SavedEmail = user.Email;
+        IsEmailVerified = user.IsEmailVerified;
 
         await pageMeta.ApplyAsync(ViewData, SitePage.UserProfile, "اطلاعات حساب کاربری");
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
@@ -79,6 +86,7 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
             }
         }
 
+        var before = await userService.GetUserByIdAsync(CurrentUserId!.Value);
         var result = await userService.UpdateProfileAsync(new UpdateProfileCommand
         {
             UserId = CurrentUserId!.Value,
@@ -95,9 +103,28 @@ public class PersonalInfoModel(IUserService userService, IShopAuthService authSe
         }
 
         ShowResult(result);
+
+        // مرحلهٔ دوازدهم: ایمیل تازه → لینک تأیید خودکار ارسال می‌شود (اگر سرویس ایمیل فعال باشد).
+        var newEmail = string.IsNullOrWhiteSpace(Input.Email) ? null : Input.Email.Trim();
+        if (Succeeded(result) && newEmail is not null && !string.Equals(before?.Email?.Trim(), newEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            var sent = await emailVerification.SendAsync(CurrentUserId!.Value, HttpContext.RequestAborted);
+            if (Succeeded(sent))
+                SuccessMessage = $"{result.Message} {sent.Message}";
+        }
         // کاربر تازه‌وارد بعد از ذخیرهٔ موفق به ادامهٔ مسیرش (مثلاً سبد خرید) می‌رود.
         if (Welcome && Succeeded(result))
             return LocalRedirect(ContinueUrl);
+        return Stay();
+    }
+
+    /// <summary>
+    /// مرحلهٔ دوازدهم: ارسال دوبارهٔ لینک تأیید ایمیل (هر ۲ دقیقه یک بار، حداکثر ۵ بار در روز – EmailVerification).
+    /// </summary>
+    public async Task<IActionResult> OnPostSendVerificationAsync()
+    {
+        var result = await emailVerification.SendAsync(CurrentUserId!.Value, HttpContext.RequestAborted);
+        ShowResult(result);
         return Stay();
     }
 

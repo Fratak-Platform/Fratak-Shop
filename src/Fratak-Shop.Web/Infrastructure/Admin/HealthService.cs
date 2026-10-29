@@ -138,6 +138,10 @@ public sealed class HealthService(
         if (smsSender is Infrastructure.Sms.ConfigurableSmsSender configurable)
             checks.Add(await SmsCheckAsync(configurable, cancellationToken));
 
+        // مرحلهٔ دوازدهم: سرویس ایمیل.
+        if (await EmailCheckAsync(cancellationToken) is { } emailCheck)
+            checks.Add(emailCheck);
+
         if (!environment.IsProduction())
             checks.Add(new HealthCheck("محیط اجرا", HealthLevel.Warning, $"برنامه در محیط «{environment.EnvironmentName}» اجرا می‌شود."));
 
@@ -172,6 +176,35 @@ public sealed class HealthService(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             return new HealthCheck(Name, HealthLevel.Warning, "وضعیت سرویس پیامک خوانده نشد: " + exception.GetType().Name, Fix);
+        }
+    }
+
+    /// <summary>
+    /// وضعیت سرویس ایمیل (مرحلهٔ دوازدهم، بدون اتصال به سرور): خاموش/فقط لاگ = سالم (انتخاب مدیر است)؛ SMTP ناقص یا شکست
+    /// آخرین ارسال = هشدار. مثل پیامک هرگز «بحرانی» نیست. اگر سرویس ایمیل ثبت نشده باشد (مثلاً در تست‌ها) null.
+    /// </summary>
+    private async Task<HealthCheck?> EmailCheckAsync(CancellationToken cancellationToken)
+    {
+        const string Name = "ایمیل";
+        const string Fix = "در «فنی ← سرویس ایمیل» تنظیمات SMTP را کامل کنید، «بررسی اتصال» و ایمیل آزمایشی بزنید.";
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            if (scope.ServiceProvider.GetService<Email.EmailDelivery>() is not { } delivery)
+                return null;
+            var config = await delivery.GetConfigAsync(cancellationToken);
+            if (config.Mode != global::Fratak_Shop.Data.Entities.Settings.EmailMode.Smtp)
+                return new HealthCheck(Name, HealthLevel.Healthy, (config.NotReadyReason ?? "ارسال ایمیل خاموش است") + "؛ اعلان‌ها فقط پیامکی/درون‌سایتی‌اند.");
+            if (config.NotReadyReason is { } reason)
+                return new HealthCheck(Name, HealthLevel.Warning, reason + ".", Fix);
+            var stats = delivery.Diagnostics;
+            if (stats.LastAttemptFailed)
+                return new HealthCheck(Name, HealthLevel.Warning, $"آخرین ارسال ناموفق بود: {stats.LastFailure}", Fix);
+            return new HealthCheck(Name, HealthLevel.Healthy, $"SMTP ({config.Host})؛ {stats.Sent} ایمیل موفق و {stats.Failed} ناموفق از زمان روشن شدن.");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return new HealthCheck(Name, HealthLevel.Warning, "وضعیت سرویس ایمیل خوانده نشد: " + exception.GetType().Name, Fix);
         }
     }
 

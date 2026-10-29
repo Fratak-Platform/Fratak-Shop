@@ -83,46 +83,24 @@ public sealed class ReportDelivery(IHttpClientFactory factory, ILogger<ReportDel
 
     public async Task<DeliveryAttempt> SendEmailAsync(SmtpSettings smtp, IReadOnlyList<string> to, string subject, string html, string text, CancellationToken cancellationToken)
     {
+        MimeMessage message;
         try
         {
-            var message = new MimeMessage();
+            message = new MimeMessage();
             message.From.Add(new MailboxAddress(smtp.FromName ?? "", smtp.FromAddress));
             foreach (var address in to)
                 message.To.Add(MailboxAddress.Parse(address));
             message.Subject = subject;
             message.Body = new BodyBuilder { HtmlBody = html, TextBody = text }.ToMessageBody();
+        }
+        catch (Exception ex) when (ex is ParseException or FormatException or ArgumentException)
+        {
+            return new DeliveryAttempt(false, "نشانی ایمیل فرستنده/گیرنده معتبر نیست");
+        }
 
-            using var client = new SmtpClient { Timeout = 20_000 };
-            await client.ConnectAsync(smtp.Host, smtp.Port, SocketOptions(smtp.Port), cancellationToken);
-            if (!string.IsNullOrEmpty(smtp.UserName))
-                await client.AuthenticateAsync(smtp.UserName, smtp.Password ?? "", cancellationToken);
-            await client.SendAsync(message, cancellationToken);
-            await client.DisconnectAsync(true, cancellationToken);
-            return new DeliveryAttempt(true, to.Count == 1 ? "ارسال شد" : $"به {to.Count} گیرنده ارسال شد");
-        }
-        catch (AuthenticationException)
-        {
-            return new DeliveryAttempt(false, "نام کاربری یا رمز SMTP اشتباه است");
-        }
-        catch (SslHandshakeException)
-        {
-            return new DeliveryAttempt(false, "خطای SSL؛ درگاه (۴۶۵/۵۸۷) را بررسی کنید");
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return new DeliveryAttempt(false, "مهلت اتصال به SMTP تمام شد");
-        }
-        catch (Exception ex) when (ex is SmtpCommandException or SmtpProtocolException or IOException or System.Net.Sockets.SocketException or ParseException or TimeoutException)
-        {
-            logger.LogWarning("Report email failed: {Type} {Message}", ex.GetType().Name, ex.Message);
-            var detail = ex.Message.Length > 150 ? ex.Message[..150] : ex.Message;
-            return new DeliveryAttempt(false, $"خطای SMTP: {detail}");
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(ex, "Report email failed unexpectedly");
-            return new DeliveryAttempt(false, "خطای پیش‌بینی‌نشده در ارسال ایمیل");
-        }
+        // مرحلهٔ دوازدهم: اتصال، رمزنگاری (Security) و ترجمهٔ خطاها در Email/SmtpTransport (مشترک با سرویس ایمیل سراسری).
+        var attempt = await Email.SmtpTransport.SendAsync(smtp, message, logger, cancellationToken);
+        return attempt.Ok && to.Count > 1 ? attempt with { Message = $"به {to.Count} گیرنده ارسال شد" } : attempt;
     }
 
     /// <summary>۴۶۵ = SSL از ابتدا؛ ۵۸۷ = STARTTLS اجباری؛ بقیه (مثلاً ۲۵) = STARTTLS اگر سرور پشتیبانی کند.</summary>

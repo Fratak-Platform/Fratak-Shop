@@ -1,5 +1,6 @@
 using Fratak_Shop.Core.DTOs.Contents;
 using Fratak_Shop.Core.DTOs.Settings;
+using Fratak_Shop.Core.Services.Branding;
 using Fratak_Shop.Core.Services.Contents;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Data.Entities.Contents;
@@ -37,8 +38,25 @@ public interface ISiteContext
     /// </summary>
     BrandLockup Brand { get; }
 
-    /// <summary>آیا متن برند در این محل کنار آیکون نوشته شود؟ (تنظیمات BrandTextIn*). مثال: Header → پیش‌فرض false.</summary>
+    /// <summary>آیا متن برند در این محل کنار آیکون نوشته شود؟ مثال: Header → پیش‌فرض false.</summary>
     bool ShowBrandText(BrandPlace place);
+
+    /// <summary>
+    /// مرحلهٔ دوازدهم: تنظیمات «استودیوی لوگو» (JSON ستون BrandStyleJson، خوانده‌شده و بی‌خطا).
+    /// </summary>
+    BrandStyleConfig BrandStyle { get; }
+
+    /// <summary>
+    /// لوگوی نهایی یک محل (اندازه‌ها، فاصله‌ها، رنگ‌ها، متن‌ها و آیکون). در هر درخواست یک بار برای هر محل ساخته می‌شود.
+    /// محل استفاده: partial «_BrandLockup»، قالب ایمیل و صفحهٔ تعمیرات.
+    /// </summary>
+    BrandView BrandFor(BrandPlace place);
+
+    /// <summary>آیکون‌های اپ (PWA) و آیفون (اختصاصی مدیر یا آیکون‌های مشکی برند).</summary>
+    PwaIconSet Pwa { get; }
+
+    /// <summary>آدرس مانیفست با نسخه‌ای که از آیکون‌های اپ ساخته می‌شود؛ با هر تغییر آیکون، مرورگر مانیفست تازه می‌خواند.</summary>
+    string ManifestUrl { get; }
 
     /// <summary>آیکون اپ (PWA): آیکون آپلودشدهٔ مدیر یا آیکون مشکی برند <see cref="BrandIdentity.AppIcon512"/>.</summary>
     string PwaIconUrl { get; }
@@ -98,18 +116,30 @@ public class SiteContext(
 
     public BrandLockup Brand => _brand ??= BrandLockup.From(Settings);
 
-    public bool ShowBrandText(BrandPlace place) => place switch
+    public bool ShowBrandText(BrandPlace place) => BrandFor(place).ShowText;
+
+    private BrandStyleConfig? _brandStyle;
+    private readonly Dictionary<BrandPlace, BrandView> _brandViews = [];
+    private PwaIconSet? _pwa;
+
+    public BrandStyleConfig BrandStyle => _brandStyle ??= BrandStyleRules.Parse(Settings.BrandStyleJson);
+
+    public BrandView BrandFor(BrandPlace place)
     {
-        BrandPlace.Header => Settings.BrandTextInHeader,
-        BrandPlace.Auth => Settings.BrandTextInAuth,
-        BrandPlace.Admin => Settings.BrandTextInAdmin,
-        BrandPlace.Invoice => Settings.BrandTextInInvoice,
-        _ => true,
-    };
+        if (!_brandViews.TryGetValue(place, out var view))
+            _brandViews[place] = view = BrandResolver.Resolve(place, Settings, BrandStyle, BrandIdentity.Defaults);
+        return view;
+    }
 
-    public bool UsesBrandPwaIcon => !Helpers.UrlSafety.IsSafeLink(Settings.PwaIconUrl);
+    public PwaIconSet Pwa => _pwa ??= PwaIconSet.From(Settings, BrandStyle);
 
-    public string PwaIconUrl => Helpers.UrlSafety.Link(Settings.PwaIconUrl, BrandIdentity.AppIcon512);
+    // نسخهٔ ثابت + ۸ نویسه از هش آیکون‌ها. مثال: /manifest.webmanifest?v=brand4-1a2b3c4d
+    public string ManifestUrl => BrandIdentity.ManifestUrl + "-" + Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Pwa.Fingerprint)))[..8].ToLowerInvariant();
+
+    public bool UsesBrandPwaIcon => Pwa.IsDefault;
+
+    public string PwaIconUrl => Pwa.Icon512;
 
     public string LogoUrl => Brand.IconUrl;
 

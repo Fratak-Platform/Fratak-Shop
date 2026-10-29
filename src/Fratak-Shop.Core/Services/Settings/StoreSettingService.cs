@@ -47,6 +47,7 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         command.BrandTextAccent = Blank(command.BrandTextAccent);
         command.BrandTextColor = Blank(command.BrandTextColor);
         command.BrandAccentColor = Blank(command.BrandAccentColor);
+        command.BrandStyleJson = Blank(command.BrandStyleJson);
 
         var error = Validate(command);
         if (error is not null)
@@ -326,6 +327,19 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if ((command.BrandTextPrimary + command.BrandTextAccent).IndexOfAny(['<', '>']) >= 0)
             return "متن برند نباید < یا > داشته باشد.";
 
+        // مرحلهٔ دوازدهم: استودیوی لوگو. JSON دوباره خوانده، بررسی و فشرده نوشته می‌شود (کلید ناشناخته یا مقدار خارج از محدوده رد می‌شود).
+        if (command.BrandStyleJson is { } brandJson)
+        {
+            if (brandJson.Length > Branding.BrandStyleRules.MaxJsonLength)
+                return "تنظیمات استودیوی لوگو بیش از حد بزرگ است.";
+            if (!IsJsonObject(brandJson))
+                return "تنظیمات استودیوی لوگو خراب است؛ صفحه را دوباره باز کنید.";
+            var brandStyle = Branding.BrandStyleRules.Parse(brandJson);
+            if (Branding.BrandStyleRules.Validate(brandStyle) is { } brandError)
+                return brandError;
+            command.BrandStyleJson = Branding.BrandStyleRules.Serialize(brandStyle);
+        }
+
         if (command.SupplierPriceAutoMode is < 0 or > 2 || command.SupplierRepriceMode is < 0 or > 5)
             return "حالت قیمت‌گذاری خودکار تأمین‌کننده معتبر نیست.";
         if (command.SupplierRepriceMarkupPercent is < 0 or > 1000 || command.SupplierRepriceMinMarginPercent is < 0 or > 500)
@@ -364,6 +378,20 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
     }
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>متن یک شیء JSON سالم است. مثال: «{}» → true؛ «{broken» یا «[1]» → false.</summary>
+    private static bool IsJsonObject(string json)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json, new System.Text.Json.JsonDocumentOptions { MaxDepth = 8 });
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
+    }
 
     private static bool IsHexColor(string? value) =>
         string.IsNullOrWhiteSpace(value)

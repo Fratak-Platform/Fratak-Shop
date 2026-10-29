@@ -21,6 +21,11 @@
       @foreach (var group in SettingsRegistry.Groups)
       {
         <a href="/admin/settings?tab=@group.Key" class="a-dropdown-item nowrap @(group.Key == g.Key ? "is-active font-semibold" : "")">@Icons.Svg(group.Icon, null, 18) @group.Title</a>
+        if (group.Key == "general")
+        {
+          @* مرحلهٔ دوازدهم: لوگو، آیکون اپ و فاوآیکن با تنظیم جدای هر محل و پیش‌نمایش زنده. *@
+          <a href="/admin/settings/brand" class="a-dropdown-item nowrap">@Icons.Svg("Image", null, 18) استودیوی لوگو</a>
+        }
       }
     </div>
   </nav>
@@ -84,18 +89,6 @@
               break;
           }
           @if (f.Help is not null) { <p class="a-help">@f.Help</p> }
-        </div>
-      }
-      @if (g.Key == "brand")
-      {
-        @* پیش‌نمایش زندهٔ لوگو با تنظیمات ذخیره‌شده: روشن و تیره. *@
-        <div class="a-field span-all">
-          <span class="a-label">پیش‌نمایش (پس از ذخیره)</span>
-          <div class="flex flex-wrap gap-3">
-            <div class="rounded-xl border bg-white p-4">@await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Auth, 40) { ForceText = true })</div>
-            <div class="rounded-xl border p-4" style="background:#0B1927">@await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Admin, 40) { ForceText = true, OnDark = true })</div>
-            <div class="rounded-xl border bg-white p-4">@await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(BrandPlace.Header, 40))<div class="a-muted text-xs mt-2">هدر سایت</div></div>
-          </div>
         </div>
       }
       @if (g.Key == "pwa" && !string.IsNullOrEmpty(Model.VapidPublicKey))

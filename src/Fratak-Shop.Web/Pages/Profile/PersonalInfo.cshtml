@@ -61,6 +61,17 @@
                 ایمیل
               </label>
               <input asp-for="Input.Email" type="email" autocomplete="email" dir="ltr" class="@inputClass">
+              @if (!string.IsNullOrWhiteSpace(Model.SavedEmail))
+              {
+                @* مرحلهٔ دوازدهم: اعلان ایمیلی فقط به ایمیل تأییدشده ارسال می‌شود. *@
+                <span class="text-xs @(Model.IsEmailVerified ? "text-green-600" : "text-yellow-600")">
+                  @(Model.IsEmailVerified ? "ایمیل تأیید شده است." : "ایمیل تأیید نشده است؛ تا تأیید نشود اعلان ایمیلی ارسال نمی‌شود.")
+                  @if (!Model.IsEmailVerified)
+                  {
+                    <button type="submit" form="send-email-verification" class="text-sky-600 hover:text-sky-500">ارسال لینک تأیید</button>
+                  }
+                </span>
+              }
             </div>
           </div>
           <fieldset class="mt-5">
@@ -93,6 +104,17 @@
             ثبت اطلاعات
           </button>
         </form>
+        @if (!string.IsNullOrWhiteSpace(Model.SavedEmail) && !Model.IsEmailVerified)
+        {
+          @* فرم جدا (فرم تو در تو مجاز نیست)؛ دکمهٔ کنار ایمیل با form="send-email-verification" آن را ارسال می‌کند. *@
+          <form id="send-email-verification" method="post" asp-page-handler="SendVerification" class="hidden">
+            @if (Model.Welcome)
+            {
+              <input type="hidden" name="Welcome" value="true" />
+              <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
+            }
+          </form>
+        }
       </div>
     </div>
   </main>

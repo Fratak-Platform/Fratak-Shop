@@ -24,8 +24,12 @@ namespace Fratak_Shop.Core.Services.Insights;
 /// <summary>نتیجهٔ یک تلاش ارسال. Message برای نمایش به مدیر است (بدون توکن یا رمز).</summary>
 public sealed record DeliveryAttempt(bool Ok, string Message);
 
-/// <summary>تنظیمات SMTP رمزگشایی‌شده که فقط در لحظهٔ ارسال ساخته می‌شود.</summary>
-public sealed record SmtpSettings(string Host, int Port, string? UserName, string? Password, string FromAddress, string? FromName);
+/// <summary>
+/// تنظیمات SMTP رمزگشایی‌شده که فقط در لحظهٔ ارسال ساخته می‌شود.
+/// مرحلهٔ دوازدهم: Security (خودکار از روی درگاه، یا SSL/STARTTLS/بدون رمزنگاری) و ReplyTo برای سرویس ایمیل سراسری اضافه شد.
+/// </summary>
+public sealed record SmtpSettings(string Host, int Port, string? UserName, string? Password, string FromAddress, string? FromName,
+    Fratak_Shop.Data.Entities.Settings.EmailSecurity Security = Fratak_Shop.Data.Entities.Settings.EmailSecurity.Auto, string? ReplyTo = null);
 
 /// <summary>
 /// ارسال واقعی پیام. پیاده‌سازی: Web/Infrastructure/Insights/ReportDelivery (MailKit و HttpClient).
@@ -174,6 +178,7 @@ public class ScheduledReportService(
     ISecretProtector secrets,
     IStaffNotificationService notifications,
     Fratak_Shop.Core.Services.Settings.IStoreSettingService settings,
+    Fratak_Shop.Core.Services.Notifications.IEmailProviderService emailProvider,
     ILogger<ScheduledReportService> logger) : IScheduledReportService
 {
     /// <summary>در هر دور حداکثر این تعداد گزارش اجرا می‌شود (بقیه در دور بعد).</summary>
@@ -445,9 +450,9 @@ public class ScheduledReportService(
         if (report.Channels.HasFlag(ReportChannels.Email))
         {
             var recipients = ScheduledReportRules.ParseEmails(report.EmailTo).Valid;
-            var smtp = BuildSmtp(config);
+            var smtp = await BuildSmtpAsync(config, cancellationToken);
             results.Add(("ایمیل", smtp is null
-                ? new DeliveryAttempt(false, "تنظیمات SMTP کامل نیست")
+                ? new DeliveryAttempt(false, "SMTP ثبت نشده (نه در گزارش‌ها و نه در فنی ← سرویس ایمیل)")
                 : recipients.Count == 0
                     ? new DeliveryAttempt(false, "گیرنده‌ای ثبت نشده")
                     : await delivery.SendEmailAsync(smtp, recipients, $"{digest.Title} – {digest.PeriodLabel}", digest.ToHtml(), digest.ToText(), cancellationToken)));
@@ -475,12 +480,17 @@ public class ScheduledReportService(
         return await delivery.SendBotMessageAsync(channel, token, chatId!.Trim(), text, cancellationToken);
     }
 
-    private SmtpSettings? BuildSmtp(ReportDeliveryConfig? config)
+    /// <summary>
+    /// SMTP گزارش‌ها: اگر در «گزارش‌های خودکار» SMTP جدا ثبت شده همان؛ وگرنه (مرحلهٔ دوازدهم) SMTP سراسری «فنی ← سرویس ایمیل».
+    /// خروجی null یعنی هیچ‌کدام کامل نیست.
+    /// </summary>
+    private async Task<SmtpSettings?> BuildSmtpAsync(ReportDeliveryConfig? config, CancellationToken cancellationToken)
     {
-        if (config is null || string.IsNullOrWhiteSpace(config.SmtpHost) || string.IsNullOrWhiteSpace(config.FromAddress))
-            return null;
-        return new SmtpSettings(config.SmtpHost.Trim(), config.SmtpPort, config.SmtpUserName, Unprotect(config.SmtpPasswordProtected),
-            config.FromAddress.Trim(), config.FromName);
+        if (config is not null && !string.IsNullOrWhiteSpace(config.SmtpHost) && !string.IsNullOrWhiteSpace(config.FromAddress))
+            return new SmtpSettings(config.SmtpHost.Trim(), config.SmtpPort, config.SmtpUserName, Unprotect(config.SmtpPasswordProtected),
+                config.FromAddress.Trim(), config.FromName);
+        var global = await emailProvider.GetRuntimeAsync(cancellationToken);
+        return global.ToSmtp();
     }
 
     private string? Unprotect(string? value)
@@ -516,9 +526,9 @@ public class ScheduledReportService(
         var emails = ScheduledReportRules.ParseEmails(emailTo).Valid;
         if (emails.Count > 0)
         {
-            var smtp = BuildSmtp(config);
+            var smtp = await BuildSmtpAsync(config, cancellationToken);
             var html = $"<div dir=\"rtl\" style=\"font-family:Tahoma,sans-serif\"><h3>{WebUtility.HtmlEncode(title)}</h3><p>{WebUtility.HtmlEncode(body).Replace("\n", "<br>")}</p></div>";
-            var attempt = smtp is null ? new DeliveryAttempt(false, "تنظیمات SMTP کامل نیست") : await delivery.SendEmailAsync(smtp, emails, title, html, body, cancellationToken);
+            var attempt = smtp is null ? new DeliveryAttempt(false, "SMTP ثبت نشده (نه در گزارش‌ها و نه در فنی ← سرویس ایمیل)") : await delivery.SendEmailAsync(smtp, emails, title, html, body, cancellationToken);
             results.Add("ایمیل: " + attempt.Message);
         }
         var text = title + "\n" + body;
