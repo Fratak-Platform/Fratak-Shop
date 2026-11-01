@@ -34,6 +34,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
         // ابزارهای سئو: گزارش لینک و آمار گوگل داده‌های محاسبه‌شده‌اند؛ تنظیمات کلید رمزنگاری‌شده دارد.
         "SeoLinkIssue", "SearchConsoleQueryStat", "SearchConsoleDailyStat", "SeoToolsConfig",
+        // مرحلهٔ شانزدهم: دانش سئو (هزاران ردیف بذر و یادگیری خودکار) و بازخورد پیشنهاد هوشمند داده‌های داخلی‌اند.
+        "SeoKnowledgeEntry", "SmartTextFeedback",
     };
 
     private static readonly HashSet<string> IgnoredProperties = new(StringComparer.Ordinal)

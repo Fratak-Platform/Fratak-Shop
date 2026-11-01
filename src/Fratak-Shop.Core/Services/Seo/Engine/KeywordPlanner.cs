@@ -86,7 +86,8 @@ public static class KeywordPlanner
     /// tfidf (اختیاری) برای مقاله‌ها: واژه‌های مهم متن نسبت به کل سایت.
     /// </summary>
     public static List<KeywordCandidate> Candidates(SeoSubject subject, CompetitorInsight? insight, SeoSiteIndex? site,
-        IReadOnlyDictionary<string, int>? internalSearches, TfIdf? tfidf = null, IReadOnlyList<SearchQueryStat>? gsc = null)
+        IReadOnlyDictionary<string, int>? internalSearches, TfIdf? tfidf = null, IReadOnlyList<SearchQueryStat>? gsc = null,
+        Knowledge.SeoKnowledgeBase? knowledge = null)
     {
         var phrases = new Dictionary<string, string>(StringComparer.Ordinal); // نرمال → نمایشی
         void Add(string? phrase)
@@ -154,6 +155,12 @@ public static class KeywordPlanner
                 Add(suggestion);
 
         // عبارت‌هایی که گوگل واقعاً این صفحه را برایشان نشان داده (Search Console): دقیق‌ترین نشانهٔ تقاضا.
+        // مرحلهٔ شانزدهم: عبارت‌هایی که تحقیق‌های قبلی برای همین موضوع پیدا کرده‌اند (جدول دانش؛ با هر تحقیق بیشتر می‌شود).
+        var learned = knowledge?.PhrasesFor(ResearchQuery(subject)) ?? [];
+        foreach (var phrase in learned)
+            if (IsRelevant(subject, phrase.Term, nameTokens))
+                Add(phrase.Term);
+
         var googleQueries = (gsc ?? [])
             .Select(q => (Key: PersianText.Normalize(q.Query), Stat: q))
             .Where(q => q.Key.Length > 0)
@@ -170,7 +177,7 @@ public static class KeywordPlanner
         var result = new List<KeywordCandidate>();
         foreach (var (key, phrase) in phrases)
         {
-            if (!IsRelevant(subject, phrase, nameTokens))
+            if (!IsRelevant(subject, phrase, nameTokens) || knowledge is not null && Knowledge.SpamGuard.IsSpammy(phrase, knowledge))
                 continue;
             var reasons = new List<string>();
             var score = 0.0;
@@ -257,6 +264,26 @@ public static class KeywordPlanner
                 }
                 else if (inBody == 0)
                     score -= 1.5;
+            }
+
+            if (knowledge is not null)
+            {
+                // تقاضای پایدار: عبارتی که در چند تحقیق جداگانه دوباره پیدا شده (وزن = دفعات).
+                var memory = learned.FirstOrDefault(l => PersianText.Normalize(l.Term) == key);
+                if (memory is not null)
+                {
+                    score += Math.Min(1.5, 0.6 + 0.5 * Math.Log10(1 + memory.Weight));
+                    reasons.Add(memory.Weight >= 2
+                        ? $"در {PersianText.Digits((int)memory.Weight)} تحقیق قبلی هم پیدا شده بود (تقاضای پایدار)"
+                        : "در تحقیق‌های قبلی موتور هم پیدا شده بود");
+                }
+                // تجربهٔ کارشناس: کلمه‌ای که قبلاً تأیید شده جلو و کلمهٔ ردشده عقب می‌رود.
+                var bonus = knowledge.KeywordBonus(phrase);
+                if (bonus != 0)
+                {
+                    score += bonus;
+                    reasons.Add(bonus > 0 ? "کارشناس قبلاً این کلمه را برای صفحه‌های مشابه تأیید کرده" : "این کلمه قبلاً رد شده است");
+                }
             }
 
             if (site is not null && SeoSiteIndex.Others(site.FocusKeywords, phrase, subject.EntityId) > 0)
@@ -391,6 +418,32 @@ public static class SlugAdvisor
 
         var age = young ? "صفحه تازه است" : $"صفحه کم‌بازدید است ({PersianText.Digits(subject.Views)} بازدید)";
         return new SlugAdvice(unique, $"{string.Join("؛ ", problems)}. {age} و تغییر نامک با ریدایرکت ۳۰۱ خودکار بی‌خطر است.");
+    }
+
+    /// <summary>
+    /// نامک برای صفحه‌ای که هنوز نامک ندارد (ساخت محصول/مقالهٔ تازه در «سئوی هوشمند درجا»؛ مرحلهٔ شانزدهم).
+    /// همان قانون‌های <see cref="Advise"/> برای خط (فارسی/انگلیسی)، طول و یکتایی، بدون شرط «مشکل داشتن نامک فعلی».
+    /// مثال: کلمهٔ «هدفون سونی WH-1000XM5» و رقبای انگلیسی‌نامک → «sony-wh-1000xm5» (اگر نام انگلیسی ثبت شده باشد).
+    /// </summary>
+    public static SlugAdvice? ForNewPage(SeoSubject subject, string? keyword, CompetitorInsight? insight, SeoSiteIndex? site)
+    {
+        var keywordText = PersianText.Clean(keyword);
+        var english = !string.IsNullOrWhiteSpace(subject.EnglishName) ? subject.EnglishName
+            : PersianText.PersianRatio(keywordText) < 0.5 && keywordText.Length > 0 ? keywordText : null;
+        var preferLatin = PreferLatin(insight, keywordText);
+        var source = preferLatin && english is not null
+            ? english
+            : keywordText.Length > 0 ? keywordText : KeywordPlanner.ShortName(subject.Name);
+        var proposed = Limit(source.ToSlug());
+        if (proposed.Length < 3)
+            return null;
+        var unique = proposed;
+        for (var i = 2; site is not null && site.Paths.Contains(subject.PathPrefix + unique) && i < 10; i++)
+            unique = proposed + "-" + i;
+        if (site is not null && site.Paths.Contains(subject.PathPrefix + unique))
+            return null;
+        var why = preferLatin && english is not null ? "بیشتر صفحه‌های برتر نامک انگلیسی دارند" : "نامک از کلمهٔ کلیدی ساخته شد";
+        return new SlugAdvice(unique, why + "؛ کوتاه (حداکثر ۶ واژه) و یکتا در سایت.");
     }
 
     /// <summary>

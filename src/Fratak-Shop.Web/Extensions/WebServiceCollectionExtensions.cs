@@ -81,6 +81,8 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Core.Services.Seo.Engine.ISeoWebSource, Infrastructure.SeoEngine.SeoWebSource>();
         services.AddSingleton<Infrastructure.SeoEngine.SeoEngineQueue>();
         services.AddHostedService<Infrastructure.SeoEngine.SeoEngineWorker>();
+        // مرحلهٔ شانزدهم: ریختن دادهٔ اولیهٔ جدول دانش سئو در پس‌زمینه (یک بار برای هر نسخهٔ داده).
+        services.AddHostedService<Infrastructure.SeoEngine.SeoKnowledgeSeedWorker>();
 
         // فاز ۸ب: ابزارهای سئو — بررسی لینک (هندلر امن بدون ریدایرکت خودکار)، اتصال Search Console و سرویس پس‌زمینه.
         services.AddHttpClient(Infrastructure.SeoEngine.SeoLinkProbe.ClientName, Infrastructure.SeoEngine.SeoLinkProbe.Configure)

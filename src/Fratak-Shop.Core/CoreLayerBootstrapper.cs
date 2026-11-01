@@ -129,6 +129,10 @@ public static class CoreLayerBootstrapper
         // منبع وب پیش‌فرض «آفلاین» است؛ لایهٔ Web پیاده‌سازی HTTP واقعی را جایگزین می‌کند.
         services.TryAddSingleton<Services.Seo.Engine.ISeoWebSource, Services.Seo.Engine.OfflineSeoWebSource>();
         services.AddScoped<Services.Seo.Engine.ISeoEngineService, Services.Seo.Engine.SeoEngineService>();
+        // مرحلهٔ شانزدهم: جدول دانش سئو (کش حافظه + یادگیری با scope جداگانه) و «پیشنهاد هوشمند» متن.
+        services.AddSingleton<Services.Seo.Knowledge.SeoKnowledgeCache>();
+        services.AddSingleton<Services.Seo.Knowledge.ISeoKnowledgeService, Services.Seo.Knowledge.SeoKnowledgeService>();
+        services.AddScoped<Services.Seo.Smart.ISmartTextService, Services.Seo.Smart.SmartTextService>();
 
         // فاز ۸ب: یابندهٔ لینک شکسته، ویرایش گروهی سئو و Search Console. پیش‌فرض‌های «آفلاین» (بدون شبکه) را
         // لایهٔ Web با SeoLinkProbe و SearchConsoleHttp جایگزین می‌کند.

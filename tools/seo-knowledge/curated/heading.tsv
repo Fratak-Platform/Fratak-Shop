@@ -1,0 +1,76 @@
+# الگوی تیترهای H2/H3 برای ساختاردهی متن: «الگو ⇥ نقش ⇥ نوع صفحه ⇥ وزن»
+# {name} = نام صفحه یا کلمهٔ کلیدی، {type} = نوع کالا (مثل «هدفون»)، {site} = نام فروشگاه.
+# نقش‌ها: intro (معرفی)، features (ویژگی‌ها)، specs (مشخصات)، usage (کاربرد)، buying (راهنمای خرید)، care (نگهداری)، why (چرا ما)، summary (جمع‌بندی)، faq (پرسش‌ها)، steps (مراحل)، pros (مزایا)، cons (معایب)، compare (مقایسه)
+معرفی {name}	intro	product	1
+آشنایی با {name}	intro	product	0.8
+{name} چه ویژگی‌هایی دارد؟	features	product	0.9
+ویژگی‌های کلیدی {name}	features	product	1
+مهم‌ترین قابلیت‌های {name}	features	product	0.8
+مشخصات فنی {name}	specs	product	1
+نگاهی به مشخصات {name}	specs	product	0.7
+{name} برای چه کسانی مناسب است؟	usage	product	1
+کاربردهای {name}	usage	product	0.9
+نحوهٔ استفاده از {name}	usage	product	0.8
+نکات مهم پیش از خرید {type}	buying	product	1
+راهنمای خرید {type}	buying	product	0.9
+چه {type}ی بخریم؟	buying	product	0.6
+نکات نگهداری از {name}	care	product	0.9
+چطور عمر {type} را بیشتر کنیم؟	care	product	0.7
+مزایای {name}	pros	product	0.8
+نقاط قوت {name}	pros	product	0.7
+محدودیت‌های {name}	cons	product	0.6
+مقایسهٔ {name} با مدل‌های مشابه	compare	product	0.7
+چرا {name} را از {site} بخریم؟	why	product	1
+خرید {name} با خیال راحت	why	product	0.8
+جمع‌بندی	summary	product	0.8
+سخن پایانی دربارهٔ {name}	summary	product	0.6
+سؤالات متداول دربارهٔ {name}	faq	product	1
+{name} چیست؟	intro	blog	1
+آشنایی با {name}	intro	blog	0.9
+چرا {name} اهمیت دارد؟	intro	blog	0.8
+{name} چه کاربردی دارد؟	usage	blog	0.9
+کاربردهای {name}	usage	blog	0.9
+انواع {name}	features	blog	0.9
+ویژگی‌های مهم {name}	features	blog	0.8
+مزایای {name}	pros	blog	0.9
+معایب و محدودیت‌های {name}	cons	blog	0.8
+مزایا و معایب {name}	pros	blog	0.8
+مراحل {name}	steps	blog	0.8
+چگونه {name}؟	steps	blog	0.6
+قدم‌به‌قدم تا {name}	steps	blog	0.6
+نکات مهم دربارهٔ {name}	buying	blog	0.9
+اشتباهات رایج در {name}	cons	blog	0.8
+راهنمای انتخاب {name}	buying	blog	0.9
+مقایسهٔ {name} با گزینه‌های دیگر	compare	blog	0.7
+جمع‌بندی	summary	blog	1
+حرف آخر	summary	blog	0.7
+سؤالات متداول	faq	blog	1
+خرید {name} از {site}	why	category	0.9
+انواع {name}	features	category	1
+راهنمای خرید {name}	buying	category	1
+چه نکاتی را در خرید {name} در نظر بگیریم؟	buying	category	0.9
+پرفروش‌ترین {name}	features	category	0.7
+قیمت {name}	features	category	0.8
+مقایسهٔ {name}	compare	category	0.7
+سؤالات متداول خرید {name}	faq	category	0.9
+دربارهٔ برند {name}	intro	brand	1
+تاریخچهٔ {name}	intro	brand	0.7
+محصولات {name}	features	brand	1
+چرا {name}؟	why	brand	0.8
+خرید محصولات اصل {name}	why	brand	0.9
+دربارهٔ {site}	intro	page	1
+داستان ما	intro	page	0.7
+چرا {site}؟	why	page	0.9
+ارزش‌های ما	features	page	0.8
+خدمات ما	features	page	0.8
+تعهد ما به شما	why	page	0.7
+راه‌های ارتباط با ما	usage	page	0.8
+قوانین کلی	features	page	0.6
+شرایط استفاده	features	page	0.6
+فروشگاه اینترنتی {site}	intro	home	1
+چرا از {site} خرید کنیم؟	why	home	1
+دسته‌بندی‌های محبوب	features	home	0.8
+پرفروش‌ترین محصولات	features	home	0.8
+راه‌های ارتباط با {site}	usage	contact	1
+ساعات پاسخ‌گویی	usage	contact	0.8
+آدرس و شماره تماس	usage	contact	0.9

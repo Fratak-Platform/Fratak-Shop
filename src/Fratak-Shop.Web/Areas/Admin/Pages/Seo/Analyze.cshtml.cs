@@ -100,6 +100,14 @@ public class AnalyzeModel(ISeoEngineService engine, ISearchConsoleService gsc, I
                 (ogTitle, ogDescription, image) = (row?.OgTitle, row?.OgDescription, row?.ImageUrl);
                 break;
             }
+            case SeoEntityKind.StaticPage when StaticSeoPages.Find(subject.EntityId) is { } fixedPage:
+            {
+                // صفحهٔ ثابت (صفحهٔ اصلی، وبلاگ …): عنوان/توضیح اشتراک‌گذاری از جدول PageSeo.
+                var row = await data.Query<global::Fratak_Shop.Data.Entities.Pages.PageSeo>().Where(p => p.Page == fixedPage.Page)
+                    .Select(p => new { p.Seo!.OgTitle, p.Seo!.OgDescription }).FirstOrDefaultAsync(ct);
+                (ogTitle, ogDescription) = (row?.OgTitle, row?.OgDescription);
+                break;
+            }
         }
 
         var store = await settings.GetAsync(ct);

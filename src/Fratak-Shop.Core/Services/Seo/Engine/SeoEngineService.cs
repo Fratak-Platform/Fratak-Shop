@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.Services.Admin;
+using Fratak_Shop.Core.Services.Seo.Knowledge;
 using Fratak_Shop.Core.Services.Seo.Tools;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Utilities;
@@ -107,16 +108,24 @@ public interface ISeoEngineService
     /// تا جدول نمره‌ها همان لحظه درست باشد. خروجی = تعداد صفحه‌های نمره‌گرفته.
     /// </summary>
     Task<int> RefreshScoresAsync(SeoEntityKind kind, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// «سئوی هوشمند درجا» (مرحلهٔ شانزدهم): همان موتور، روی مقدارهای فعلی فرم (حتی صفحه‌ای که هنوز ذخیره نشده).
+    /// هیچ چیز ذخیره نمی‌شود؛ چند گزینهٔ عنوان/توضیحات، کلمهٔ کلیدی، نامک، پرسش‌وپاسخ و متن پیشنهادی برمی‌گردد
+    /// تا کاربر در همان صفحه انتخاب کند و خودش ذخیره بزند.
+    /// </summary>
+    Task<SeoDraft> DraftAsync(SeoDraftInput input, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="ISeoEngineService"/>
-public sealed class SeoEngineService(
+public sealed partial class SeoEngineService(
     FratakShopDbContext context,
     IStoreSettingService settings,
     ISeoWebSource web,
     IStaffNotificationService notifications,
     IMemoryCache cache,
-    ILoggerFactory loggerFactory) : ISeoEngineService
+    ILoggerFactory loggerFactory,
+    ISeoKnowledgeService knowledge) : ISeoEngineService
 {
     /// <summary>جلوگیری از دو اجرای هم‌زمان در یک سرور (اجرای دستی + زمان‌بندی‌شده).</summary>
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -124,8 +133,14 @@ public sealed class SeoEngineService(
     /// <summary>آیا همین الان اجرایی در این سرور در جریان است؟ (برای دکمهٔ «همین الان اجرا کن»)</summary>
     public static bool IsRunning => Gate.CurrentCount == 0;
 
-    /// <summary>حداکثر عبارت تازه‌ای که در هر اجرا از اینترنت تحقیق می‌شود (هر عبارت ≈ ۶ درخواست).</summary>
-    public const int ResearchQueriesPerRun = 15;
+    /// <summary>
+    /// حداکثر عبارت تازه‌ای که در هر اجرا از اینترنت تحقیق می‌شود (هر عبارت ≈ ۸ درخواست: دو پیشنهاد جست‌وجو، نتایج و
+    /// تا ۶ صفحهٔ رقیب). مرحلهٔ شانزدهم: از ۱۵ به ۲۵ رسید و نتایج در جدول دانش هم ذخیره می‌شوند.
+    /// </summary>
+    public const int ResearchQueriesPerRun = 25;
+
+    /// <summary>بودجهٔ درخواست اینترنتی هر عبارت (پیشنهاد، پیشنهاد تکمیلی، نتایج و صفحه‌های رقیب).</summary>
+    public const int RequestsPerQuery = 10;
 
     /// <summary>حداقل افزایش نمره برای ثبت پیشنهاد (پیشنهادهای بی‌اثر وقت کارشناس را نمی‌گیرند).</summary>
     public const int MinimumGain = 2;
@@ -257,7 +272,7 @@ public sealed class SeoEngineService(
         if (queue.Count > 0)
         {
             var models = await BuildModelsAsync(subjects, cancellationToken);
-            var research = CreateResearch(current, current.SeoCompetitorResearch ? ResearchQueriesPerRun * 6 : 0, store.SiteName);
+            var research = CreateResearch(current, current.SeoCompetitorResearch ? ResearchQueriesPerRun * RequestsPerQuery : 0, store.SiteName);
             foreach (var (subject, report) in queue)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -313,6 +328,7 @@ public sealed class SeoEngineService(
     {
         var kindWeight = subject.Kind switch
         {
+            SeoEntityKind.StaticPage => 1.4, // صفحهٔ اصلی و صفحه‌های ثابت: پربازدیدترین ورودی‌های سایت
             SeoEntityKind.Category => 1.3,
             SeoEntityKind.Product => 1.2,
             SeoEntityKind.BlogPost => 1.0,
@@ -347,16 +363,14 @@ public sealed class SeoEngineService(
         EngineModels models, SeoResearchService research, bool allowSlug, int variant, SeoSuggestion? previous,
         SeoFields rejectedFields, WriterStyle style, AvoidSet avoid, CancellationToken cancellationToken)
     {
-        var commercial = subject.Kind is SeoEntityKind.Product or SeoEntityKind.Category or SeoEntityKind.Brand;
-        CompetitorInsight? insight = null;
-        if (subject.Kind != SeoEntityKind.ContentPage)
-            insight = await research.ResearchAsync(KeywordPlanner.ResearchQuery(subject), commercial, cancellationToken);
+        var kb = await knowledge.GetAsync(cancellationToken);
+        var insight = await ResearchSubjectAsync(subject, research, cancellationToken);
 
         // کلمهٔ کلیدی: کلمهٔ انسانی هرگز عوض نمی‌شود؛ فقط وقتی خالی است پیشنهاد می‌شود.
         var proposal = new SeoProposal();
         var keyword = PersianText.Clean(subject.FocusKeyword);
         var candidates = KeywordPlanner.Candidates(subject, insight, site, models.InternalSearches, models.TfIdf,
-            models.Google.GetValueOrDefault(SeoPaths.Normalize(subject.Path)));
+            models.Google.GetValueOrDefault(SeoPaths.Normalize(subject.Path)), kb);
         KeywordCandidate? chosen = null;
         if (keyword.Length == 0)
         {
@@ -377,9 +391,12 @@ public sealed class SeoEngineService(
             Site = site, Variant = variant, Style = style, Avoid = avoid.Texts,
         };
 
-        if (weak.HasFlag(SeoFields.Title) && ContentWriter.BestTitle(ctx) is { } title && Differs(title, subject.EffectiveTitle))
+        // نگهبان اسپم (مرحلهٔ شانزدهم): عبارت‌های اغراق‌آمیز/جریمه‌دار جدول دانش از عنوان و توضیحات حذف می‌شوند.
+        if (weak.HasFlag(SeoFields.Title) && ContentWriter.BestTitle(ctx) is { } rawTitle
+            && SpamGuard.CleanTitle(rawTitle, kb) is { Length: > 0 } title && Differs(title, subject.EffectiveTitle))
             proposal.Title = title;
-        if (weak.HasFlag(SeoFields.MetaDescription) && ContentWriter.BestMeta(ctx) is { } meta && Differs(meta, subject.EffectiveDescription))
+        if (weak.HasFlag(SeoFields.MetaDescription) && ContentWriter.BestMeta(ctx) is { } rawMeta
+            && SpamGuard.CleanText(rawMeta, kb) is { Length: > 0 } meta && Differs(meta, subject.EffectiveDescription))
             proposal.MetaDescription = meta;
         if (weak.HasFlag(SeoFields.Description) && ContentWriter.Body(ctx) is { } body && !avoid.BodyHashes.Contains(PersianText.Hash(body))
             && FitsColumn(subject.Kind, body))
@@ -555,7 +572,8 @@ public sealed class SeoEngineService(
 
         // کلمه‌های نامزد فقط از کش (بدون درخواست اینترنتی تا صفحه سریع باز شود).
         var research = CreateResearch(current, 0, store.SiteName);
-        var insight = await research.ResearchAsync(KeywordPlanner.ResearchQuery(subject), kind is not (SeoEntityKind.BlogPost or SeoEntityKind.ContentPage), cancellationToken);
+        var insight = await research.ResearchAsync(KeywordPlanner.ResearchQuery(subject), kind is not (SeoEntityKind.BlogPost or SeoEntityKind.ContentPage or SeoEntityKind.StaticPage), cancellationToken);
+        var kb = await knowledge.GetAsync(cancellationToken);
         var searches = await InternalSearchesAsync(cancellationToken);
         var google = (await GoogleQueriesAsync(SeoPaths.Normalize(subject.Path), cancellationToken)).GetValueOrDefault(SeoPaths.Normalize(subject.Path));
         var history = await context.SeoSuggestions.AsNoTracking()
@@ -568,7 +586,7 @@ public sealed class SeoEngineService(
         {
             Subject = subject,
             Report = report,
-            Keywords = KeywordPlanner.Candidates(subject, insight, site, searches, gsc: google).Take(8).ToList(),
+            Keywords = KeywordPlanner.Candidates(subject, insight, site, searches, gsc: google, knowledge: kb).Take(8).ToList(),
             EditUrl = EditUrl(kind, id),
             History = history,
             TitleSuffixLength = store.TitleSuffixLength,
@@ -609,8 +627,8 @@ public sealed class SeoEngineService(
         var site = await GetSiteIndexAsync(cancellationToken);
         var before = SeoAnalyzer.Analyze(subject, site, store);
         var models = await BuildModelsAsync(null, cancellationToken);
-        // ساخت دستی: حداکثر یک عبارت تازه از اینترنت (۶ درخواست) تا پاسخ سریع بماند.
-        var research = CreateResearch(current, current.SeoCompetitorResearch ? 6 : 0, store.SiteName);
+        // ساخت دستی: حداکثر یک عبارت تازه از اینترنت (همراه پیشنهاد تکمیلی) تا پاسخ سریع بماند.
+        var research = CreateResearch(current, current.SeoCompetitorResearch ? RequestsPerQuery : 0, store.SiteName);
         var avoid = await AvoidAsync(subject.Kind, subject.EntityId, cancellationToken);
         return await BuildSuggestionAsync(subject, before, store, site, models, research, current.SeoAllowSlugChanges,
             variant, previous, rejectedFields, style, avoid, cancellationToken);
@@ -682,6 +700,7 @@ public sealed class SeoEngineService(
             var store = StoreFactsFrom(await settings.GetAsync(cancellationToken));
             await SaveScoreAsync(after, SeoAnalyzer.Analyze(after, site, store), cancellationToken);
         }
+        await LearnAsync(subject, proposal, fields, accepted: true, cancellationToken);
         return OperationResult.Success("پیشنهاد روی صفحه اعمال شد.");
     }
 
@@ -770,6 +789,8 @@ public sealed class SeoEngineService(
                 page.Seo = ApplySeo(page.Seo, proposal, fields, userId, now);
                 return null;
             }
+            case SeoEntityKind.StaticPage:
+                return await ApplyStaticAsync(id, proposal, fields, userId, now, cancellationToken);
             default:
                 return "نوع صفحه پشتیبانی نمی‌شود.";
         }
@@ -853,6 +874,8 @@ public sealed class SeoEngineService(
 
         var current = await settings.GetAsync(cancellationToken);
         var subject = (await LoadSubjectsAsync(suggestion.Kind, suggestion.EntityId, cancellationToken)).FirstOrDefault();
+        if (subject is not null)
+            await LearnAsync(subject, SeoProposal.FromJson(suggestion.ProposalJson), rejected, accepted: false, cancellationToken);
         if (subject is null || subject.ContentHash != suggestion.ContentHash)
             return OperationResult<Guid?>.Success(null, "پیشنهاد رد شد. صفحه تغییر کرده؛ نسخهٔ تازه در اجرای بعدی موتور ساخته می‌شود.");
 
@@ -941,6 +964,7 @@ public sealed class SeoEngineService(
         SeoEntityKind.Category => $"/admin/manage/categories/edit/{id}",
         SeoEntityKind.Brand => $"/admin/manage/brands/edit/{id}",
         SeoEntityKind.ContentPage => $"/admin/manage/content-pages/edit/{id}",
+        SeoEntityKind.StaticPage => "/admin/manage/page-seo",
         _ => "/admin/seo",
     };
 
@@ -1131,6 +1155,8 @@ public sealed class SeoEngineService(
             list.AddRange(await LoadPostsAsync(id, cancellationToken));
         if (kind is null or SeoEntityKind.ContentPage)
             list.AddRange(await LoadPagesAsync(id, cancellationToken));
+        if (kind is null or SeoEntityKind.StaticPage)
+            list.AddRange(await LoadStaticPagesAsync(id, cancellationToken));
         return list;
     }
 

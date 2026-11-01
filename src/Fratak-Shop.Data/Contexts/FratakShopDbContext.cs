@@ -280,6 +280,11 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
 
     public DbSet<SeoToolsConfig> SeoToolsConfigs { get; set; } = null!;
 
+    // مرحلهٔ شانزدهم: جدول دانش سئو/نگارش (یادگیرنده) و بازخورد «پیشنهاد هوشمند».
+    public DbSet<SeoKnowledgeEntry> SeoKnowledgeEntries { get; set; } = null!;
+
+    public DbSet<SmartTextFeedback> SmartTextFeedbacks { get; set; } = null!;
+
     // ── عملیات فنی (مرحلهٔ هفتم – فاز ۹): پشتیبان، دیوار آتش، کنترل کارها، هشدار ──
     public DbSet<Fratak_Shop.Data.Entities.Ops.BackupRecord> BackupRecords { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Ops.IpRule> IpRules { get; set; } = null!;

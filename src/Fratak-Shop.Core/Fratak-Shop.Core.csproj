@@ -14,4 +14,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.13" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- مرحلهٔ شانزدهم: دادهٔ اولیهٔ جدول دانش سئو (واژه‌نامهٔ hazm با مجوز MIT + فهرست‌های دست‌نوشته؛ سازنده: tools/seo-knowledge/build_seed.py). -->
+    <EmbeddedResource Include="Services\Seo\Knowledge\Data\seo-knowledge.tsv.gz" LogicalName="Fratak_Shop.Core.SeoKnowledge.tsv.gz" />
+  </ItemGroup>
+
 </Project>

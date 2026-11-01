@@ -349,7 +349,7 @@ public sealed class SeoResearchService(FratakShopDbContext context, ISeoWebSourc
     public static readonly TimeSpan FailureLifetime = TimeSpan.FromHours(6);
 
     /// <summary>حداکثر صفحهٔ رقیب که برای هر عبارت خوانده می‌شود.</summary>
-    public const int PagesPerQuery = 4;
+    public const int PagesPerQuery = 6;
 
     /// <summary>
     /// سقف درخواست اینترنتی (غیر کش) در این نمونه. موتور در هر اجرا مقدار می‌دهد تا اجرا طولانی نشود.

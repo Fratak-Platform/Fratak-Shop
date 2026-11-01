@@ -36,6 +36,8 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "SupplierProductState", "SupplierSyncRun", "SupplierChange", "Supplier",
         "StockMovement", "PriceChangeBatch", "PriceChangeItem", "ShipmentTracking", "ShipmentEvent", "VisitorDay", "AnalyticsCounter", "Expense", "SalesGoal", "ScheduledReport", "ReportDeliveryConfig",
         "SeoScore", "SeoSuggestion", "SeoResearchCache", "SeoEngineRun",
+        // مرحلهٔ شانزدهم: جدول دانش سئو و بازخورد «پیشنهاد هوشمند» (یادگیری پیوسته؛ هرگز مستقیم در صفحات عمومی نیستند).
+        "SeoKnowledgeEntry", "SmartTextFeedback",
         "SeoLinkIssue", "SearchConsoleQueryStat", "SearchConsoleDailyStat", "SeoToolsConfig",
         // فاز ۹ (فنی): پشتیبان، فایروال، کارها و هشدارها هیچ‌وقت در صفحات عمومی نیستند (شمارندهٔ فایروال هر چند دقیقه ذخیره می‌شود).
         "BackupRecord", "IpRule", "BotRule", "BackgroundJobSetting", "AlertRule", "AlertEvent",

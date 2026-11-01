@@ -27,6 +27,31 @@ public class SeoSuggestionConfiguration : IEntityTypeConfiguration<SeoSuggestion
     }
 }
 
+/// <summary>
+/// جدول دانش سئو (مرحلهٔ شانزدهم): هر (نوع، واژه، موضوع) یکتاست؛ ایندکس (نوع، منبع) برای بارگذاری و صفحهٔ پنل.
+/// مقدار پیش‌فرض IsActive = true با Sentinel تا false هم واقعاً ذخیره شود.
+/// </summary>
+public class SeoKnowledgeEntryConfiguration : IEntityTypeConfiguration<SeoKnowledgeEntry>
+{
+    public void Configure(EntityTypeBuilder<SeoKnowledgeEntry> builder)
+    {
+        builder.HasIndex(e => new { e.Kind, e.Term, e.Topic }).IsUnique();
+        builder.HasIndex(e => new { e.Kind, e.Source });
+        builder.Property(e => e.Topic).HasDefaultValue("").UseCollation(SeoKnowledgeEntry.ExactCollation);
+        // مقایسهٔ دقیق (باینری): وگرنه SQL Server نیم‌فاصله و بزرگی/کوچکی حروف را نادیده می‌گیرد و «نرم‌افزار» و «نرمافزار»
+        // (که هر دو در دانش لازم‌اند: یکی شکل درست و دیگری شکل غلط برای اصلاح) تکراری حساب می‌شوند.
+        builder.Property(e => e.Term).UseCollation(SeoKnowledgeEntry.ExactCollation);
+        builder.Property(e => e.IsActive).HasDefaultValue(true).HasSentinel(true);
+    }
+}
+
+/// <summary>ایندکس (نوع فیلد، نسخه) برای آمار «کدام نسخه بیشتر پذیرفته می‌شود».</summary>
+public class SmartTextFeedbackConfiguration : IEntityTypeConfiguration<SmartTextFeedback>
+{
+    public void Configure(EntityTypeBuilder<SmartTextFeedback> builder) =>
+        builder.HasIndex(f => new { f.Purpose, f.Variant });
+}
+
 /// <summary>هر (نوع، کلید) فقط یک ردیف کش.</summary>
 public class SeoResearchCacheConfiguration : IEntityTypeConfiguration<SeoResearchCache>
 {

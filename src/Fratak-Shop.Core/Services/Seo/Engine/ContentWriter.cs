@@ -242,6 +242,9 @@ public static partial class ContentWriter
                     options.Add($"راهنمای {ctx.Keyword}");
                 }
                 break;
+            case SeoEntityKind.StaticPage:
+                options.AddRange(StaticTitleOptions(ctx));
+                break;
             default:
                 options.Add(name);
                 if (!string.IsNullOrWhiteSpace(ctx.Store.Tagline))
@@ -377,6 +380,9 @@ public static partial class ContentWriter
                         options.Add((first + " " + second).Trim());
                 break;
             }
+            case SeoEntityKind.StaticPage:
+                options.AddRange(StaticMetaOptions(ctx));
+                break;
             default:
                 options.AddRange(ExtractiveMetas(ctx));
                 break;

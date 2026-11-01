@@ -23,6 +23,7 @@ public static class SeoEngineUi
         SeoEntityKind.Brand => "برند",
         SeoEntityKind.BlogPost => "مقاله",
         SeoEntityKind.ContentPage => "صفحهٔ محتوا",
+        SeoEntityKind.StaticPage => "صفحهٔ ثابت",
         _ => "صفحه",
     };
 

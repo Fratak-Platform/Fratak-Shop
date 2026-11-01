@@ -143,11 +143,13 @@ public static partial class SeoAnalyzer
 
         // ── محتوا ────────────────────────────────────────────────
         var contentWeight = subject.Kind == SeoEntityKind.ContentPage ? 4 : 10;
-        checks.Add(words >= goodWords
-            ? new("content-length", "محتوا", SeoCheckLevel.Good, $"محتوای کافی ({PersianText.Digits(words)} واژه).", contentWeight, SeoFields.Description)
-            : words >= okWords
-                ? new("content-length", "محتوا", SeoCheckLevel.Ok, $"محتوا کمی کم است ({PersianText.Digits(words)} واژه؛ هدف: {PersianText.Digits(goodWords)}).", contentWeight, SeoFields.Description)
-                : new("content-length", "محتوا", SeoCheckLevel.Bad, $"محتوا خیلی کم است ({PersianText.Digits(words)} واژه؛ حداقل {PersianText.Digits(okWords)}). صفحه‌های کم‌محتوا رتبهٔ خوبی نمی‌گیرند.", contentWeight, SeoFields.Description));
+        // صفحهٔ ثابت (صفحهٔ اصلی، وبلاگ …) متن قابل ویرایش ندارد و محتوایش از قالب می‌آید؛ طول متن برایش سنجیده نمی‌شود.
+        if (subject.Kind != SeoEntityKind.StaticPage)
+            checks.Add(words >= goodWords
+                ? new("content-length", "محتوا", SeoCheckLevel.Good, $"محتوای کافی ({PersianText.Digits(words)} واژه).", contentWeight, SeoFields.Description)
+                : words >= okWords
+                    ? new("content-length", "محتوا", SeoCheckLevel.Ok, $"محتوا کمی کم است ({PersianText.Digits(words)} واژه؛ هدف: {PersianText.Digits(goodWords)}).", contentWeight, SeoFields.Description)
+                    : new("content-length", "محتوا", SeoCheckLevel.Bad, $"محتوا خیلی کم است ({PersianText.Digits(words)} واژه؛ حداقل {PersianText.Digits(okWords)}). صفحه‌های کم‌محتوا رتبهٔ خوبی نمی‌گیرند.", contentWeight, SeoFields.Description));
 
         var keywordCount = 0;
         var density = 0.0;
