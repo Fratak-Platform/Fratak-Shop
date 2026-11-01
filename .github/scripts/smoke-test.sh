@@ -146,7 +146,15 @@ lacks '/assets/image/pwa/'
 contains '.png?v='
 # Installed PWA icon (round 8): the manifest is revalidated on every use, and the old template icon URLs
 # (stale manifests / earlier installs) now return the brand icon instead of the template sparkle or a 404.
-if curl -s -D - -o /dev/null "$BASE/manifest.webmanifest" | grep -qi '^cache-control: no-cache'; then pass "manifest is no-cache"; else fail "manifest should be Cache-Control: no-cache"; fi
+# (دور ۱۴: علت شکست گاه‌به‌گاه در CI: «curl | grep -q» با pipefail – grep با اولین تطبیق خارج می‌شود، curl هنگام نوشتن بقیهٔ
+#  سرآیندها SIGPIPE می‌گیرد و کل خط لوله «ناموفق» حساب می‌شد. اکنون سرآیندها اول در متغیر و grep روی here-string، بدون لوله.)
+manifest_ok=false
+for attempt in 1 2 3; do
+  manifest_headers=$(curl -s --max-time 15 -D - -o /dev/null "$BASE/manifest.webmanifest" || true)
+  if grep -qi '^cache-control: no-cache' <<<"$manifest_headers"; then manifest_ok=true; break; fi
+  sleep 1
+done
+if [[ "$manifest_ok" == true ]]; then pass "manifest is no-cache"; else fail "manifest should be Cache-Control: no-cache"; printf '%s\n' "$manifest_headers" | head -n 20; fi
 for legacy in /assets/image/pwa/icon-192.png /assets/image/pwa/icon-512.png /assets/image/pwa/maskable-512.png /assets/image/pwa/apple-touch-icon.png /assets/image/logo.png /apple-touch-icon.png; do
   expect 200 "$legacy"
 done
