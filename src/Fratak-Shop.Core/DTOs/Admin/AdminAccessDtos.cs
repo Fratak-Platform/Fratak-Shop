@@ -40,6 +40,9 @@ public sealed class StaffMemberDto
     public string PhoneNumber { get; set; } = null!;
     public bool IsOwner { get; set; }
     public bool IsBlocked { get; set; }
+
+    /// <summary>مرحلهٔ پانزدهم: مدیر اصلی تعریف‌شده در تنظیمات سرور (Shop:DefaultAdmins)؛ حذف/مسدود/بی‌دسترسی نمی‌شود.</summary>
+    public bool IsSystemAdmin { get; set; }
     public bool TwoFactorEnabled { get; set; }
 
     /// <summary>برنامهٔ احراز هویت (TOTP) فعال است – فاز ۱۰.</summary>

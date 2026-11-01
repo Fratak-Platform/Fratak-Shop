@@ -73,7 +73,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     IAuditHistoryService history, IEditDraftService drafts, EditPresenceNotifier presence, ISupplierSyncService supplierSync,
     IInventoryService inventory, IProductCloneService cloner,
     Fratak_Shop.Core.Services.Pricing.ICompetitorPriceService competitorPrices,
-    Fratak_Shop.Core.Services.Settings.IStoreSettingService storeSettings) : AdminPageModel
+    Fratak_Shop.Core.Services.Settings.IStoreSettingService storeSettings,
+    Fratak_Shop.Core.Services.Pricing.IProductCompetitorService productCompetitors,
+    Microsoft.Extensions.Options.IOptions<global::Fratak_Shop.Web.Infrastructure.ShopOptions> shopOptions) : AdminPageModel
 {
     private const int MaxImages = 12;
 
@@ -124,6 +126,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
 
     /// <summary>آخرین گردش‌های موجودی همین محصول.</summary>
     public List<StockMovementRow> Movements { get; private set; } = [];
+
+    /// <summary>مرحلهٔ پانزدهم: آخرین بررسی قیمت رقبای همین محصول (کارت «قیمت رقبا»)؛ null = هنوز بررسی نشده.</summary>
+    public Fratak_Shop.Core.Services.Pricing.ProductCompetitorDetail? Competitors { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(Guid? id)
     {
@@ -327,48 +332,74 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     }
 
     /// <summary>
-    /// دکمهٔ «پیشنهاد قیمت فروش» (دور ۱۰): قیمت خرید + همهٔ هزینه‌های تنظیمات + هزینهٔ اضافهٔ همین کالا، و قیمت همان کالا
-    /// در سایت‌های دیگر (ترب و دیجی‌کالا، رایگان) ← قیمت کمی ارزان‌تر از رقبا با سود مناسب.
-    /// <para>چیزی ذخیره نمی‌شود (فقط محاسبه)؛ کارمند با «استفاده از این قیمت» عدد را در فرم می‌گذارد و خودش ذخیره می‌کند.
+    /// دکمهٔ «پیشنهاد قیمت فروش» (دور ۱۰، بازنویسی مرحلهٔ پانزدهم): قیمت خرید + همهٔ هزینه‌های تنظیمات + هزینهٔ اضافهٔ همین کالا،
+    /// و قیمت همان کالا در ترب (همهٔ فروشندگان)، دیجی‌کالا، غرفه‌های باسلام و «سایت‌های دیگر» (فروشگاه‌هایی که در جست‌وجوی وب پیدا شدند)
+    /// ← قیمت کمی ارزان‌تر از ارزان‌ترین فروشندهٔ ترب (یا اگر ترب نبود، ارزان‌ترین رقیب معتبر) با سود مناسب.
+    /// <para>هر پیشنهاد داوری می‌شود (عنوان نامشابه، لوازم جانبی، مدل دیگر، تکراری، قیمت پرت، فروشگاه خودمان) و کارمند می‌تواند
+    /// هر کدام را «حذف» کند (exclude) یا کنارگذاشته‌ای را «حساب کند» (include). این انتخاب‌ها <b>فقط برای همین محاسبه</b>اند و ذخیره نمی‌شوند:
+    /// دفعهٔ بعد همه دوباره داوری می‌شوند.</para>
+    /// <para>قیمت فروش محصول عوض نمی‌شود؛ کارمند با «استفاده از این قیمت» عدد را در فرم می‌گذارد و خودش ذخیره می‌کند.
+    /// فقط «آخرین قیمت رقبا»ی این محصول برای کارت «قیمت رقبا» و صفحهٔ «رصد قیمت رقبا» ذخیره می‌شود.
     /// POST است چون به اینترنت درخواست می‌فرستد و باید توکن ضد جعل داشته باشد.</para>
-    /// <para>مثال پاسخ: { ok, suggested: 264000, profit: 161360, offers: [{ shop: "دیجی‌کالا", price: 300000 }, …] }.</para>
+    /// <para>مثال پاسخ: { ok, suggested: 264000, reference: 270000, torob: { sellers: 3, lowest: 270000, rank: 1 },
+    /// offers: [{ id: "a1b2c3d4e5f6", shop: "فروشگاه Y", price: 270000, source: "ترب", accepted: true, code: "ok" }, …] }.</para>
     /// </summary>
     [AdminPermission(AdminPermissions.ProductsManage)]
-    public async Task<IActionResult> OnPostSuggestPriceAsync(decimal purchase, decimal extra, string? query, bool lookup = true)
+    public async Task<IActionResult> OnPostSuggestPriceAsync(Guid? id, decimal purchase, decimal extra, string? query, bool lookup = true,
+        string[]? exclude = null, string[]? include = null)
     {
         if (purchase <= 0 || purchase > 100_000_000_000m)
             return new JsonResult(new { ok = false, message = "قیمت خرید را وارد کنید (عددی بزرگ‌تر از صفر)." });
         if (extra is < 0 or > 100_000_000_000m)
             return new JsonResult(new { ok = false, message = "هزینهٔ اضافه نامعتبر است." });
 
-        var settings = await storeSettings.GetAsync(HttpContext.RequestAborted);
+        var cancellationToken = HttpContext.RequestAborted;
+        var settings = await storeSettings.GetAsync(cancellationToken);
         var problems = new List<string>();
         string? matched = null;
+        DateTimeOffset? cachedAt = null;
+        Fratak_Shop.Core.Services.Pricing.CompetitorLookup? result = null;
         IReadOnlyList<Fratak_Shop.Core.Services.Pricing.CompetitorOffer> found = [];
         query = query?.Trim();
+        if (query is { Length: > 200 })
+            query = query[..200];
         if (!settings.IsCompetitorPriceLookupEnabled)
             problems.Add("جست‌وجوی قیمت رقبا در تنظیمات خاموش است؛ فقط از روی هزینه‌ها محاسبه شد.");
         else if (lookup && !string.IsNullOrEmpty(query))
         {
-            var result = await competitorPrices.SearchAsync(query, HttpContext.RequestAborted);
+            result = await competitorPrices.SearchAsync(query, cancellationToken);
             found = result.Offers;
             matched = result.MatchedTitle;
+            cachedAt = result.CachedAt;
             problems.AddRange(result.Problems);
             // مرحلهٔ سیزدهم: قیمت‌های کش ماندگار (حداکثر ۶ ساعت) تا درخواست تکراری باعث محدود شدن نشود.
-            if (result.CachedAt is { } cachedAt && result.Problems.Count == 0)
-                problems.Add($"قیمت‌ها از جست‌وجوی حدود {Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - cachedAt).TotalHours))} ساعت پیش است (هر کالا حداکثر هر ۶ ساعت یک بار دوباره جست‌وجو می‌شود تا منابع ما را محدود نکنند).");
+            if (result.CachedAt is { } at && result.Problems.Count == 0)
+                problems.Add($"قیمت‌ها از جست‌وجوی حدود {Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - at).TotalHours))} ساعت پیش است (هر کالا حداکثر هر ۶ ساعت یک بار دوباره جست‌وجو می‌شود تا منابع ما را محدود نکنند).");
         }
 
+        // حذف/حساب‌کردن‌های کارمند فقط برای همین محاسبه (شناسه‌های کوتاه هگز؛ حداکثر ۲۰۰ تا).
+        static string[] Ids(string[]? values) => (values ?? Array.Empty<string>())
+            .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length <= 24).Select(v => v.Trim()).Distinct().Take(200).ToArray();
+        var excluded = Ids(exclude);
+        var included = Ids(include);
+        var ownShops = OwnShopNames.For(settings, shopOptions.Value, Request);
+        var review = new Fratak_Shop.Core.Services.Pricing.OfferReviewOptions(query, excluded, included, ownShops);
+
         var costs = Fratak_Shop.Core.Services.Pricing.PricingCosts.From(settings);
-        var s = Fratak_Shop.Core.Services.Pricing.PriceAdvisor.Suggest(purchase, extra, costs, found);
-        object Offer(Fratak_Shop.Core.Services.Pricing.CompetitorOffer o) => new
+        var s = Fratak_Shop.Core.Services.Pricing.PriceAdvisor.Suggest(purchase, extra, costs, found, review);
+
+        // اولین جست‌وجو (بدون حذف/حساب‌کردن کارمند) برای کارت «قیمت رقبا» ذخیره می‌شود.
+        if (id is { } productId && result is not null && excluded.Length == 0 && included.Length == 0)
         {
-            shop = o.Shop,
-            price = o.Price,
-            source = o.Source,
-            url = global::Fratak_Shop.Web.Helpers.UrlSafety.IsHttpUrl(o.Url) ? o.Url : null,
-            title = o.Title,
-        };
+            var current = await data.Query<Product>().Where(p => p.Id == productId)
+                .Select(p => new { p.Price, p.DiscountPrice, p.DiscountStartAt, p.DiscountEndAt }).FirstOrDefaultAsync(cancellationToken);
+            if (current is not null)
+                await productCompetitors.SaveAsync(productId, query!, result,
+                    Fratak_Shop.Core.Services.Pricing.ProductCompetitorService.Effective(current.Price, current.DiscountPrice, current.DiscountStartAt, current.DiscountEndAt, DateTimeOffset.UtcNow),
+                    ownShops, cancellationToken);
+        }
+
+        var reviewed = s.Reviewed ?? Array.Empty<Fratak_Shop.Core.Services.Pricing.ReviewedOffer>();
         return new JsonResult(new
         {
             ok = true,
@@ -383,9 +414,26 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             reason = s.Reason,
             lowest = s.Lowest,
             median = s.Median,
+            highest = s.Offers.Count > 0 ? s.Offers.Max(o => o.Price) : (decimal?)null,
+            reference = s.Reference,
             matched,
-            offers = s.Offers.Select(Offer),
-            ignored = s.Ignored.Select(Offer),
+            cachedAt,
+            torob = s.Torob is { } t ? new { sellers = t.Sellers, lowest = t.Lowest, rank = t.Rank, cheaperElsewhere = t.CheaperElsewhere } : null,
+            offers = reviewed.Select(r => new
+            {
+                id = r.Id,
+                shop = r.Offer.Shop,
+                price = r.Offer.Price,
+                source = r.Offer.Source,
+                url = global::Fratak_Shop.Web.Helpers.UrlSafety.IsHttpUrl(r.Offer.Url) ? r.Offer.Url : null,
+                title = r.Offer.Title,
+                accepted = r.Accepted,
+                code = r.Code,
+                reason = r.Reason,
+                match = r.Match,
+                // فاصله با قیمت پیشنهادی به درصد (مثبت = رقیب گران‌تر است). مثال: ۳٫۴.
+                diff = s.Suggested > 0 ? Math.Round((r.Offer.Price - s.Suggested) * 100 / s.Suggested, 1) : 0,
+            }),
             problems,
             costs = new
             {
@@ -397,6 +445,18 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
                 min = costs.MinMarginPercent,
             },
         });
+    }
+
+    /// <summary>
+    /// دکمهٔ «بررسی دوباره» در کارت «قیمت رقبا» (مرحلهٔ پانزدهم): قیمت رقبای همین محصول را با نام آن (یا آخرین عبارت جست‌وجو) دوباره می‌گیرد و ذخیره می‌کند.
+    /// قیمت محصول عوض نمی‌شود.
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostRefreshCompetitorsAsync(Guid id)
+    {
+        var settings = await storeSettings.GetAsync(HttpContext.RequestAborted);
+        ShowResult(await productCompetitors.RefreshAsync(id, OwnShopNames.For(settings, shopOptions.Value, Request), HttpContext.RequestAborted));
+        return Redirect($"/admin/products/edit/{id}#competitors");
     }
 
     /// <summary>بازگردانی یک ویرایش محصول از تاریخچه (AuditHistoryService).</summary>
@@ -506,6 +566,8 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             }
             if (CanSupplier)
                 SupplierStatus = await supplierSync.GetProductStatusAsync(id);
+            if (Can(AdminPermissions.ProductsView))
+                Competitors = await productCompetitors.GetAsync(id, HttpContext.RequestAborted);
         }
     }
 

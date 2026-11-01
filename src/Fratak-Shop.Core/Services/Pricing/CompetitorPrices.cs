@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Suppliers;
 using Fratak_Shop.Core.Utilities;
@@ -121,7 +123,10 @@ public enum SourceVerdict
 /// <item><b>ترب</b> (موتور مقایسهٔ قیمت): جست‌وجو در <c>api.torob.com/v4/base-product/search</c>، انتخاب نزدیک‌ترین کالا به نام ما،
 /// سپس فهرست همهٔ فروشندگان آن کالا از صفحهٔ جزئیات (معمولاً ۵ تا ۳۰ فروشگاه). قیمت‌ها به تومان‌اند.</item>
 /// <item><b>دیجی‌کالا</b>: جست‌وجو در <c>api.digikala.com/v1/search</c>؛ قیمت به ریال است و به تومان تبدیل می‌شود.</item>
-/// <item><b>باسلام</b>: جست‌وجو در <c>search.basalam.com</c>؛ تا ۳ فروشندهٔ مشابه (قیمت ریالی ← تومان). منبع تکمیلی است: «پیدا نشد» آن خطا حساب نمی‌شود.</item>
+/// <item><b>باسلام</b>: جست‌وجو در <c>search.basalam.com</c>؛ تا ۵ غرفهٔ مشابه (قیمت ریالی ← تومان). منبع تکمیلی است: «پیدا نشد» آن خطا حساب نمی‌شود.</item>
+/// <item><b>سایت‌های دیگر</b> (مرحلهٔ پانزدهم): جست‌وجوی «نام کالا + قیمت» در بینگ/داک‌داک‌گو (همان منبع رایگان موتور سئو،
+/// <see cref="ISeoWebSource"/>)، باز کردن حداکثر ۸ صفحهٔ فروشگاهی (هر دامنه یکی) و خواندن قیمت از دادهٔ ساخت‌یافتهٔ خود صفحه
+/// (JSON-LD محصول، متای product:price، itemprop=price). ترب، دیجی‌کالا و باسلام اینجا تکرار نمی‌شوند.</item>
 /// </list>
 /// <para><b>مقاوم در برابر محدودیت (مرحلهٔ سیزدهم)</b> — بدون دور زدن کپچا، فقط با رفتار درست:</para>
 /// <list type="bullet">
@@ -132,12 +137,25 @@ public enum SourceVerdict
 /// </list>
 /// <para>درخواست‌ها از همان کلاینت امن تأمین‌کننده (<see cref="ISupplierHttp"/>: محافظ SSRF، سقف حجم و زمان، User-Agent مرورگر) می‌روند.</para>
 /// </summary>
-public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cache, IExternalSourceGate gate, ICompetitorPriceStore? store = null)
+public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cache, IExternalSourceGate gate, ICompetitorPriceStore? store = null,
+    ISeoWebSource? web = null)
     : ICompetitorPriceService
 {
     public const string Torob = "ترب";
     public const string DigikalaSource = "دیجی‌کالا";
     public const string Basalam = "باسلام";
+
+    /// <summary>نام منبع «فروشگاه‌های اینترنتی دیگر» (مرحلهٔ پانزدهم).</summary>
+    public const string WebShops = "سایت‌های دیگر";
+
+    /// <summary>حداکثر صفحه‌های فروشگاهی که برای هر جست‌وجو باز می‌شود (هر دامنه یک صفحه؛ مؤدبانه و سریع).</summary>
+    public const int MaxWebPages = 8;
+
+    /// <summary>بودجهٔ زمانی خواندن صفحه‌های فروشگاه‌ها؛ هر صفحه‌ای تا این زمان جواب داد حساب می‌شود و بقیه رها می‌شوند.</summary>
+    private static readonly TimeSpan WebPagesBudget = TimeSpan.FromSeconds(14);
+
+    /// <summary>سقف کل منبع «سایت‌های دیگر» (جست‌وجو + صفحه‌ها).</summary>
+    private static readonly TimeSpan WebTimeout = TimeSpan.FromSeconds(24);
 
     /// <summary>بیشترین زمان انتظار برای هر منبع (شامل نوبت صف).</summary>
     private static readonly TimeSpan SourceTimeout = TimeSpan.FromSeconds(20);
@@ -177,13 +195,23 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
             return fresh;
         }
 
-        var results = await Task.WhenAll(
+        // قیمت‌هایی از سایت‌های دیگر که واحدشان (ریال/تومان) در صفحه نیامده بود؛ بعد از جواب بقیهٔ منابع تصمیم گرفته می‌شود.
+        var unclear = new StrongBox<IReadOnlyList<WebPagePrice>>(Array.Empty<WebPagePrice>());
+        var sources = new List<Task<CompetitorLookup>>
+        {
             GuardAsync(Torob, token => TorobAsync(query, token), cancellationToken),
             GuardAsync(DigikalaSource, token => DigikalaAsync(query, token), cancellationToken),
-            GuardAsync(Basalam, token => BasalamAsync(query, token), cancellationToken));
+            GuardAsync(Basalam, token => BasalamAsync(query, token), cancellationToken),
+        };
+        // «سایت‌های دیگر» فقط وقتی منبع واقعی وب ثبت شده باشد (در تست‌ها و لایهٔ Core تنها، منبع آفلاین است).
+        if (web is not null and not OfflineSeoWebSource)
+            sources.Add(GuardAsync(WebShops, token => WebShopsAsync(query, unclear, token), cancellationToken, WebTimeout));
+        var results = await Task.WhenAll(sources);
 
         var offers = results.SelectMany(r => r.Offers).ToList();
         var problems = results.SelectMany(r => r.Problems).ToList();
+        if (unclear.Value is { Count: > 0 } pending)
+            offers.AddRange(CompetitorParsers.ResolveCurrency(pending, offers));
         var limited = results.Any(r => r.Limited);
         var matched = results.Select(r => r.MatchedTitle).FirstOrDefault(t => t is not null);
         var lookup = new CompetitorLookup(offers, problems, matched, limited);
@@ -238,10 +266,11 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
     }
 
     /// <summary>اجرای یک منبع با سقف زمان و تبدیل هر خطا به پیام فارسی (یک منبع خراب، بقیه را خراب نمی‌کند).</summary>
-    private async Task<CompetitorLookup> GuardAsync(string name, Func<CancellationToken, Task<CompetitorLookup>> run, CancellationToken cancellationToken)
+    private async Task<CompetitorLookup> GuardAsync(string name, Func<CancellationToken, Task<CompetitorLookup>> run, CancellationToken cancellationToken,
+        TimeSpan? limit = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(SourceTimeout);
+        timeout.CancelAfter(limit ?? SourceTimeout);
         try
         {
             return await run(timeout.Token);
@@ -358,11 +387,90 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
             .ThenBy(x => x.Item.Price)
             .Select(x => x.Item)
             .DistinctBy(o => o.Shop)
-            .Take(3)
+            .Take(5)
             .ToList();
         return new CompetitorLookup(offers, [], null);
     }
+
+    /// <summary>
+    /// منبع «سایت‌های دیگر» (مرحلهٔ پانزدهم): همهٔ فروشگاه‌های اینترنتی که این کالا را می‌فروشند، نه فقط ترب/دیجی‌کالا/باسلام.
+    /// <para>روند: ۱) جست‌وجوی «نام کالا قیمت» در بینگ (اگر نشد داک‌داک‌گو) از راه <see cref="ISeoWebSource"/> با همان دروازهٔ
+    /// محدودیت موتور سئو؛ ۲) از نتایج، صفحه‌های فروشگاهی (نه شبکهٔ اجتماعی، ویکی، دیوار، و نه سه منبع اصلی) و از هر دامنه یکی،
+    /// حداکثر ۸ صفحه؛ ۳) هم‌زمان باز کردن صفحه‌ها (هر دامنه با فاصلهٔ مؤدبانه، محافظ SSRF و سقف حجم ۱٫۵ مگابایت)؛
+    /// ۴) خواندن قیمت از دادهٔ ساخت‌یافته (<see cref="CompetitorParsers.ShopPage"/>)؛ ۵) عنوان با نام کالای ما سنجیده می‌شود.</para>
+    /// <para>هر صفحه‌ای تا ۱۴ ثانیه جواب نداد رها می‌شود تا کارمند منتظر نماند. مثال: «هدفون هایلو T15» ← تکنولایف ۲۸۹ هزار، فروشگاه X ۲۹۵ هزار.</para>
+    /// </summary>
+    private async Task<CompetitorLookup> WebShopsAsync(string query, StrongBox<IReadOnlyList<WebPagePrice>> unclear, CancellationToken cancellationToken)
+    {
+        var serp = await web!.SearchAsync(query + " قیمت", cancellationToken);
+        if (!serp.Ok || serp.Value is null)
+        {
+            var error = serp.Error ?? "";
+            var limited = error.Contains("استراحت", StringComparison.Ordinal) || error.Contains("محدودیت", StringComparison.Ordinal)
+                          || error.Contains("کپچا", StringComparison.Ordinal);
+            return new CompetitorLookup([], [$"{WebShops}: موتور جست‌وجو فعلاً نتیجه نداد ({(error.Length > 120 ? error[..120] : error)})."], null, limited);
+        }
+
+        var urls = serp.Value.Select(r => r.Url)
+            .Where(CompetitorParsers.IsShopCandidate)
+            .DistinctBy(u => PriceAdvisor.HostOf(u))
+            .Take(MaxWebPages)
+            .ToList();
+        if (urls.Count == 0)
+            return new CompetitorLookup([], [$"{WebShops}: در نتایج جست‌وجو فروشگاه دیگری پیدا نشد."], null);
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var pages = urls.Select(url => ReadShopPageAsync(url, query, budget.Token)).ToList();
+        await Task.WhenAny(Task.WhenAll(pages), Task.Delay(WebPagesBudget, cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
+        budget.Cancel(); // صفحه‌های جانمانده رها می‌شوند (خطایشان داخل ReadShopPageAsync گرفته می‌شود)
+
+        var found = pages.Where(t => t.IsCompletedSuccessfully && t.Result is not null).Select(t => t.Result!).ToList();
+        var offers = found.Where(f => f.Currency is not null)
+            .Select(f => new CompetitorOffer(f.Shop, f.Price, WebShops, f.Url, f.Title))
+            .ToList();
+        unclear.Value = found.Where(f => f.Currency is null).ToList();
+
+        var problems = new List<string>();
+        if (found.Count == 0)
+            problems.Add($"{WebShops}: {urls.Count} صفحهٔ فروشگاهی بررسی شد ولی قیمت قابل اطمینانی (کالای مشابه و موجود) در آن‌ها نبود.");
+        return new CompetitorLookup(offers, problems, null);
+    }
+
+    /// <summary>یک صفحهٔ فروشگاه را می‌خواند و قیمت را برمی‌گرداند؛ هر خطایی (شبکه، لغو، HTML خراب) ← null.</summary>
+    private async Task<WebPagePrice?> ReadShopPageAsync(string url, string query, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var page = await web!.FetchPageAsync(url, cancellationToken);
+            return page.Ok && page.Value is not null ? CompetitorParsers.ShopPage(page.Value, url, query) : null;
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or HttpRequestException or JsonException
+                                              or RegexMatchTimeoutException or InvalidOperationException or ArgumentException)
+        {
+            return null;
+        }
+    }
 }
+
+/// <summary>
+/// قیمت خوانده‌شده از صفحهٔ یک فروشگاه اینترنتی (مرحلهٔ پانزدهم).
+/// </summary>
+/// <param name="Shop">نام فروشگاه (og:site_name) یا دامنه. مثال: «تکنولایف» یا «example-shop.ir».</param>
+/// <param name="Url">آدرس صفحه.</param>
+/// <param name="Title">نام کالا در آن صفحه.</param>
+/// <param name="Price">قیمت؛ اگر <paramref name="Currency"/> معلوم باشد به تومان، وگرنه عدد خام صفحه.</param>
+/// <param name="Currency">«IRT» (تومان) یا «IRR» (ریال، قبلاً به تومان تبدیل شده)؛ null یعنی صفحه واحد را نگفته بود.</param>
+/// <param name="Score">شباهت عنوان با نام کالای ما (۰ تا ۱).</param>
+public sealed record WebPagePrice(string Shop, string Url, string? Title, decimal Price, string? Currency, double Score);
+
+/// <summary>
+/// نتیجهٔ سنجش شباهت عنوان (مرحلهٔ پانزدهم).
+/// </summary>
+/// <param name="Score">۰ تا ۱؛ از <see cref="CompetitorParsers.MinScore"/> کمتر یعنی کالای دیگر.</param>
+/// <param name="MissingCode">کد مدل/عدد نام ما (مثل T15 یا 256gb) در عنوان نیست.</param>
+/// <param name="Accessory">عنوان واژهٔ لوازم جانبی (قاب، کاور، محافظ …) دارد که در نام ما نیست.</param>
+public sealed record TitleMatch(double Score, bool MissingCode, bool Accessory);
 
 /// <summary>یک کارت نتیجهٔ جست‌وجوی ترب.</summary>
 /// <param name="Title">نام کالا (name1).</param>
@@ -512,11 +620,18 @@ public static class CompetitorParsers
     /// <para>مثال: («هدفون هایلو T15»، «هدفون بی‌سیم هایلو مدل T15») ← ۱؛ («هدفون هایلو T15»، «هدفون هایلو GT1») ← ۰٫۳۳؛
     /// («هدفون هایلو T15»، «قاب هدفون هایلو T15») ← ۰٫۵.</para>
     /// </summary>
-    public static double TitleScore(string query, string? title)
+    public static double TitleScore(string query, string? title) => TitleCheck(query, title).Score;
+
+    /// <summary>
+    /// همان <see cref="TitleScore"/> به‌همراه دلیل (مرحلهٔ پانزدهم، برای نمایش «چرا این قیمت حساب نشد»).
+    /// <para>مثال: («هدفون هایلو T15»، «هدفون هایلو GT1») ← (۰٫۳۳، MissingCode: true، Accessory: false)؛
+    /// («هدفون هایلو T15»، «قاب هدفون هایلو T15») ← (۰٫۵، false، true).</para>
+    /// </summary>
+    public static TitleMatch TitleCheck(string query, string? title)
     {
-        var wanted = Words(query);
+        var wanted = Words(query ?? "");
         if (wanted.Count == 0 || string.IsNullOrWhiteSpace(title))
-            return 0;
+            return new TitleMatch(0, false, false);
         var have = Words(title);
         var matched = 0;
         var missingCode = false;
@@ -530,9 +645,10 @@ public static class CompetitorParsers
         var score = (double)matched / wanted.Count;
         if (missingCode)
             score /= 2;
-        if (have.Any(h => AccessoryWords.Contains(h) && !wanted.Contains(h)))
+        var accessory = have.Any(h => AccessoryWords.Contains(h) && !wanted.Contains(h));
+        if (accessory)
             score /= 2;
-        return score;
+        return new TitleMatch(score, missingCode, accessory);
     }
 
     /// <summary>
@@ -552,6 +668,288 @@ public static class CompetitorParsers
         if (unit.Length > 0 && unit.All(char.IsLetter) && have.Contains(digits))
             return true;
         return unit.Length == 0 && have.Any(h => h.Length > word.Length && h.StartsWith(word, StringComparison.Ordinal) && h[word.Length..].All(char.IsLetter));
+    }
+
+    // ── مرحلهٔ پانزدهم: فروشگاه‌های اینترنتی دیگر ──
+
+    /// <summary>دامنه‌هایی که صفحهٔ فروش کالا نیستند یا منبع جداگانه دارند (ترب/دیجی‌کالا/باسلام) — زیردامنه‌ها هم.</summary>
+    private static readonly string[] NotShopHosts =
+    [
+        "torob.com", "digikala.com", "basalam.com", "aparat.com", "youtube.com", "instagram.com", "facebook.com", "twitter.com", "x.com",
+        "t.me", "telegram.me", "wikipedia.org", "wikiwand.com", "linkedin.com", "pinterest.com", "google.com", "bing.com", "duckduckgo.com",
+        "divar.ir", "sheypoor.com", "virgool.io", "blogfa.com", "blogsky.com", "namnak.com", "reddit.com", "quora.com", "github.com",
+    ];
+
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(250);
+    private static readonly Regex JsonLdRegex = new(@"<script[^>]*type\s*=\s*[""']application/ld\+json[""'][^>]*>(.*?)</script>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, RegexTimeout);
+    private static readonly Regex TagRegex = new(@"<(?:meta|span|div|p|ins|bdi|data|link)\b[^>]{0,600}>",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, RegexTimeout);
+    private static readonly Regex AttributeRegex = new(@"([a-zA-Z:_-]+)\s*=\s*(?:""([^""]*)""|'([^']*)')",
+        RegexOptions.CultureInvariant, RegexTimeout);
+    private static readonly Regex TitleRegex = new(@"<title[^>]*>(.*?)</title>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, RegexTimeout);
+
+    /// <summary>
+    /// آیا این نتیجهٔ جست‌وجو ارزش باز کردن برای قیمت دارد؟ فقط http/https، نه شبکهٔ اجتماعی/ویکی/آگهی و نه ترب/دیجی‌کالا/باسلام
+    /// (آن‌ها منبع جداگانه دارند) و نه صفحهٔ اول سایت.
+    /// <para>مثال: «https://shop.example.ir/product/haylou-t15» ← true؛ «https://torob.com/p/…» ← false؛ «https://www.aparat.com/v/1» ← false.</para>
+    /// </summary>
+    public static bool IsShopCandidate(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            || !uri.IsDefaultPort || uri.HostNameType != UriHostNameType.Dns || !uri.Host.Contains('.'))
+            return false;
+        var host = uri.Host.ToLowerInvariant();
+        if (NotShopHosts.Any(h => host == h || host.EndsWith("." + h, StringComparison.Ordinal)))
+            return false;
+        return uri.AbsolutePath.Trim('/').Length > 0;
+    }
+
+    /// <summary>
+    /// قیمت کالا از HTML صفحهٔ یک فروشگاه (بدون حدس از متن آزاد؛ فقط دادهٔ ساخت‌یافته‌ای که خود فروشگاه برای گوگل گذاشته):
+    /// <list type="number">
+    /// <item>JSON-LD از نوع Product با offers (Offer یا AggregateOffer؛ price یا lowPrice و priceCurrency)؛ ناموجود (OutOfStock) کنار می‌رود.</item>
+    /// <item>اگر نبود: متای product:price:amount / og:price:amount یا itemprop="price" (با واحد product:price:currency یا itemprop="priceCurrency").</item>
+    /// </list>
+    /// <para>واحد: IRR/ریال ← تقسیم بر ۱۰؛ IRT/TOMAN/تومان ← همان؛ واحد خارجی ← کنار؛ بدون واحد ← Currency = null (بعداً با قیمت بقیه تصمیم گرفته می‌شود).</para>
+    /// <para>اگر صفحه چند محصول داشت، شبیه‌ترین عنوان به نام کالای ما انتخاب می‌شود. خروجی null یعنی قیمت قابل اطمینانی نبود.</para>
+    /// <para>مثال: JSON-LD {"@type":"Product","name":"هدفون هایلو T15","offers":{"price":"2890000","priceCurrency":"IRR"}} ← ۲۸۹٬۰۰۰ تومان.</para>
+    /// </summary>
+    public static WebPagePrice? ShopPage(string html, string url, string query)
+    {
+        var host = PriceAdvisor.HostOf(url);
+        if (host is null || string.IsNullOrEmpty(html))
+            return null;
+        if (html.Length > 1_500_000)
+            html = html[..1_500_000];
+
+        var candidates = new List<(string? Title, decimal Price, string? Currency)>();
+        try
+        {
+            foreach (Match match in JsonLdRegex.Matches(html))
+            {
+                var json = match.Groups[1].Value.Trim();
+                if (json.Length is 0 or > 400_000)
+                    continue;
+                try
+                {
+                    using var doc = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip, MaxDepth = 64 });
+                    CollectProducts(doc.RootElement, candidates, 0);
+                }
+                catch (JsonException)
+                {
+                    // JSON-LD خراب در بعضی قالب‌ها رایج است؛ سراغ بلوک بعدی یا متاها می‌رویم.
+                }
+                if (candidates.Count >= 20)
+                    break;
+            }
+
+            var tags = TagRegex.Matches(html).Select(m => Attributes(m.Value)).ToList();
+            var pageTitle = Meta(tags, "og:title") ?? Clean(TitleRegex.Match(html) is { Success: true } t ? t.Groups[1].Value : null);
+            if (candidates.Count == 0)
+            {
+                var availability = Meta(tags, "product:availability") ?? Meta(tags, "og:availability") ?? ItemProp(tags, "availability");
+                var raw = Meta(tags, "product:price:amount") ?? Meta(tags, "og:price:amount") ?? ItemProp(tags, "price");
+                var currency = Meta(tags, "product:price:currency") ?? Meta(tags, "og:price:currency") ?? ItemProp(tags, "priceCurrency");
+                if (!IsUnavailable(availability) && ParsePrice(raw) is { } price)
+                    candidates.Add((pageTitle, price, currency));
+            }
+
+            var shop = Clip(Clean(Meta(tags, "og:site_name")), 60);
+            var best = candidates
+                .Select(c => (c.Title, c.Price, Currency: NormalizeCurrency(c.Currency), Name: c.Title ?? pageTitle))
+                .Where(c => c.Currency != "foreign")
+                .Select(c => (c.Name, Price: c.Currency == "IRR" ? Math.Round(c.Price / 10m) : c.Price, c.Currency, Score: TitleScore(query, c.Name)))
+                .Where(c => c.Price >= 1_000)
+                .OrderByDescending(c => c.Score).ThenBy(c => c.Price)
+                .FirstOrDefault();
+            if (best.Price <= 0)
+                return null;
+            return new WebPagePrice(string.IsNullOrWhiteSpace(shop) ? host : shop!, url, Clip(best.Name, 200), best.Price, best.Currency, best.Score);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return null; // HTML بیمارگونه؛ وقت سرور هدر نمی‌رود
+        }
+    }
+
+    /// <summary>
+    /// قیمت‌های بدون واحد سایت‌های دیگر: با میانهٔ قیمت بقیهٔ منابع (ترب/دیجی‌کالا/…) تصمیم می‌گیریم که عدد تومان است یا ریال.
+    /// نزدیک‌ترین تعبیر به میانه انتخاب می‌شود و فقط اگر بین ۴۰٪ تا ۲۵۰٪ میانه باشد پذیرفته می‌شود؛ بدون مرجع ← کنار.
+    /// <para>مثال: میانهٔ بقیه ۲۸۰ هزار، صفحه «2900000» بدون واحد ← ۲۹۰ هزار تومان (ریال بوده)؛ صفحه «285000» ← ۲۸۵ هزار.</para>
+    /// </summary>
+    public static List<CompetitorOffer> ResolveCurrency(IReadOnlyList<WebPagePrice> unclear, IReadOnlyList<CompetitorOffer> known)
+    {
+        var list = new List<CompetitorOffer>();
+        var prices = known.Where(o => o.Price > 0).Select(o => o.Price).ToList();
+        if (prices.Count == 0)
+            return list;
+        var reference = PriceAdvisor.Median(prices);
+        foreach (var item in unclear)
+        {
+            var asToman = item.Price;
+            var asRial = Math.Round(item.Price / 10m);
+            var pick = Math.Abs(Math.Log((double)(asToman / reference))) <= Math.Abs(Math.Log((double)Math.Max(1, asRial) / (double)reference)) ? asToman : asRial;
+            if (pick >= reference * PriceAdvisor.LowOutlier && pick <= reference * PriceAdvisor.HighOutlier)
+                list.Add(new CompetitorOffer(item.Shop, pick, CompetitorPriceService.WebShops, item.Url, item.Title));
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// عدد قیمت از متن ساخت‌یافته: رقم فارسی/عربی، جداکنندهٔ هزارگان و اعشار. مثال: «2,890,000» ← ۲۸۹۰۰۰۰؛ «۲۸۹۰۰۰۰.00» ← ۲۸۹۰۰۰۰؛ «رایگان» ← null.
+    /// </summary>
+    public static decimal? ParsePrice(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length > 40)
+            return null;
+        var chars = text.Trim().Select(c => c switch
+        {
+            >= '۰' and <= '۹' => (char)('0' + (c - '۰')),
+            >= '٠' and <= '٩' => (char)('0' + (c - '٠')),
+            '٫' => '.',
+            _ => c,
+        }).Where(c => char.IsAsciiDigit(c) || c == '.').ToArray();
+        var clean = new string(chars);
+        // «2.890.000» (نقطه به‌جای جداکنندهٔ هزارگان) ← بیش از یک نقطه یعنی جداکننده است.
+        if (clean.Count(c => c == '.') > 1)
+            clean = clean.Replace(".", "", StringComparison.Ordinal);
+        return clean.Length is > 0 and <= 18 && decimal.TryParse(clean, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value) && value > 0
+            ? Math.Floor(value)
+            : null;
+    }
+
+    /// <summary>
+    /// واحد پول: «IRR»/«ریال»/«RIAL» ← IRR؛ «IRT»/«TOMAN»/«TMN»/«تومان» ← IRT؛ خالی ← null؛ هر واحد دیگر (USD، EUR …) ← «foreign».
+    /// </summary>
+    public static string? NormalizeCurrency(string? currency)
+    {
+        if (string.IsNullOrWhiteSpace(currency))
+            return null;
+        var c = currency.Trim().ToUpperInvariant();
+        return c switch
+        {
+            "IRR" or "RIAL" or "ریال" => "IRR",
+            "IRT" or "TOMAN" or "TMN" or "تومان" => "IRT",
+            _ => "foreign",
+        };
+    }
+
+    /// <summary>JSON-LD را می‌گردد و هر Product با قیمت موجود را جمع می‌کند (@graph، آرایه‌ها و محصول تو در تو؛ حداکثر عمق ۸).</summary>
+    private static void CollectProducts(JsonElement element, List<(string? Title, decimal Price, string? Currency)> found, int depth)
+    {
+        if (depth > 8 || found.Count >= 20)
+            return;
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                CollectProducts(item, found, depth + 1);
+            return;
+        }
+        if (element.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (HasType(element, "Product") || HasType(element, "ProductGroup"))
+        {
+            var name = Clean(Text(element, "name"));
+            if (element.TryGetProperty("offers", out var offers))
+                CollectOffers(offers, name, found, 0);
+            return;
+        }
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+                CollectProducts(property.Value, found, depth + 1);
+        }
+    }
+
+    /// <summary>offers یک محصول: Offer تکی، آرایه، یا AggregateOffer (lowPrice یا offers داخلی).</summary>
+    private static void CollectOffers(JsonElement offers, string? name, List<(string? Title, decimal Price, string? Currency)> found, int depth)
+    {
+        if (depth > 3)
+            return;
+        if (offers.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var offer in offers.EnumerateArray())
+                CollectOffers(offer, name, found, depth + 1);
+            return;
+        }
+        if (offers.ValueKind != JsonValueKind.Object || IsUnavailable(Text(offers, "availability")))
+            return;
+
+        var price = ParsePrice(Text(offers, "price")) ?? ParsePrice(Text(offers, "lowPrice"));
+        var currency = Text(offers, "priceCurrency");
+        if (price is null && offers.TryGetProperty("priceSpecification", out var spec))
+        {
+            var first = spec.ValueKind == JsonValueKind.Array ? spec.EnumerateArray().FirstOrDefault() : spec;
+            if (first.ValueKind == JsonValueKind.Object)
+            {
+                price = ParsePrice(Text(first, "price"));
+                currency ??= Text(first, "priceCurrency");
+            }
+        }
+        if (price is > 0)
+            found.Add((name, price.Value, currency));
+        else if (offers.TryGetProperty("offers", out var inner))
+            CollectOffers(inner, name, found, depth + 1);
+    }
+
+    private static bool HasType(JsonElement element, string type)
+    {
+        if (!element.TryGetProperty("@type", out var value))
+            return false;
+        if (value.ValueKind == JsonValueKind.String)
+            return string.Equals(value.GetString(), type, StringComparison.OrdinalIgnoreCase);
+        return value.ValueKind == JsonValueKind.Array
+               && value.EnumerateArray().Any(v => v.ValueKind == JsonValueKind.String && string.Equals(v.GetString(), type, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>«https://schema.org/OutOfStock»، «SoldOut»، «Discontinued»، «out of stock» ← ناموجود.</summary>
+    private static bool IsUnavailable(string? availability)
+        => !string.IsNullOrEmpty(availability)
+           && (availability.Contains("OutOfStock", StringComparison.OrdinalIgnoreCase) || availability.Contains("SoldOut", StringComparison.OrdinalIgnoreCase)
+               || availability.Contains("Discontinued", StringComparison.OrdinalIgnoreCase) || availability.Contains("out of stock", StringComparison.OrdinalIgnoreCase)
+               || availability.Contains("oos", StringComparison.OrdinalIgnoreCase) && availability.Length <= 4);
+
+    private static Dictionary<string, string> Attributes(string tag)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match a in AttributeRegex.Matches(tag))
+            map.TryAdd(a.Groups[1].Value, a.Groups[2].Success ? a.Groups[2].Value : a.Groups[3].Value);
+        return map;
+    }
+
+    /// <summary>محتوای متا با property یا name برابر کلید. مثال: Meta(tags, "og:site_name") ← «تکنولایف».</summary>
+    private static string? Meta(List<Dictionary<string, string>> tags, string key)
+        => tags.FirstOrDefault(t => (t.TryGetValue("property", out var p) && p.Equals(key, StringComparison.OrdinalIgnoreCase))
+                                    || (t.TryGetValue("name", out var n) && n.Equals(key, StringComparison.OrdinalIgnoreCase)))
+            is { } tag && tag.TryGetValue("content", out var content) && !string.IsNullOrWhiteSpace(content) ? System.Net.WebUtility.HtmlDecode(content).Trim() : null;
+
+    /// <summary>مقدار itemprop (از content یا value). مثال: &lt;meta itemprop="price" content="2890000"&gt; ← «2890000».</summary>
+    private static string? ItemProp(List<Dictionary<string, string>> tags, string key)
+    {
+        foreach (var tag in tags)
+        {
+            if (!tag.TryGetValue("itemprop", out var prop) || !prop.Equals(key, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (tag.TryGetValue("content", out var content) && !string.IsNullOrWhiteSpace(content))
+                return System.Net.WebUtility.HtmlDecode(content).Trim();
+            if (tag.TryGetValue("value", out var value) && !string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+            if (tag.TryGetValue("href", out var href) && !string.IsNullOrWhiteSpace(href))
+                return href.Trim();
+        }
+        return null;
+    }
+
+    /// <summary>متن HTML به متن ساده (رمزگشایی موجودیت‌ها و حذف فاصله‌های اضافه).</summary>
+    private static string? Clean(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+        var decoded = System.Net.WebUtility.HtmlDecode(text);
+        return string.Join(' ', decoded.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
     /// <summary>فقط آدرس جزئیات خود ترب دنبال می‌شود (آدرس داخل پاسخ نباید ما را به جای دیگری بفرستد).</summary>

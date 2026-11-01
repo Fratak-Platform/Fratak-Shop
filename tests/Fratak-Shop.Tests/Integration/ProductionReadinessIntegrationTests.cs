@@ -42,21 +42,27 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
     }
 
     [SqlFact]
-    public async Task DefaultAdmin_IsCreatedWithPassword_OnlyOnce_AndNotRecreatedAfterDelete()
+    public async Task DefaultAdmin_IsCreatedOnce_KeepsUserChanges_AndIsAlwaysRestored()
     {
-        var phone = "0901" + Random.Shared.Next(1_000_000, 9_999_999);
+        var number = Random.Shared.Next(1_000_000, 9_999_998);
+        var phone = "0901" + number;
+        var newPhone = "0901" + (number + 1);
+        var key = "owner-test-" + number;
         await using var scope = db.Scope();
         var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
         var access = scope.ServiceProvider.GetRequiredService<IAdminAccessService>();
+        DefaultAdminAccount[] Config() => [new DefaultAdminAccount(phone, "محمدامین", "ناظری", "12345678", Key: key)];
         try
         {
-            var notes = await access.EnsureDefaultsAsync([new DefaultAdminAccount(" " + phone + " ", "محمدامین", "ناظری", "12345678")]);
+            // ۱) اولین اجرا: ساخت با رمز اولیه، مالک، شمارهٔ تأییدشده و کلید ثابت.
+            var notes = await access.EnsureDefaultsAsync([new DefaultAdminAccount(" " + phone + " ", "محمدامین", "ناظری", "12345678", Key: key)]);
             var owner = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == phone);
             Assert.Equal(UserRole.SuperAdmin, owner.Role);
             Assert.True(PasswordHasher.Verify("12345678", owner.PasswordHash));
             Assert.True(owner.IsPhoneVerified);
             Assert.Equal("محمدامین", owner.FirstName);
             Assert.Equal("ناظری", owner.LastName);
+            Assert.Equal("key:" + key, owner.SystemAdminKey);
             Assert.False(string.IsNullOrEmpty(owner.SecurityStamp));
             Assert.True((await access.GetAccessAsync(owner.Id)).IsOwner);
             // رمز هرگز در یادداشت‌های لاگ نمی‌آید؛ شماره هم پوشیده است.
@@ -64,37 +70,111 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
             Assert.DoesNotContain("12345678", notes[0], StringComparison.Ordinal);
             Assert.DoesNotContain(phone, notes[0], StringComparison.Ordinal);
 
-            // مالک رمزش را عوض کرد: اجرای دوباره نه حساب تکراری می‌سازد نه رمز را به 12345678 برمی‌گرداند.
-            var tracked = await context.Users.AsTracking().SingleAsync(u => u.PhoneNumber == phone);
+            // ۲) کاربر رمز، نام و شماره‌اش را عوض کرد: اجرای دوباره هیچ‌کدام را برنمی‌گرداند و حساب تازه‌ای با شمارهٔ قدیمی نمی‌سازد.
+            var tracked = await context.Users.AsTracking().SingleAsync(u => u.Id == owner.Id);
             tracked.PasswordHash = PasswordHasher.Hash("my-new-strong-pass");
+            tracked.FirstName = "امین";
+            tracked.PhoneNumber = newPhone;
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
-            await access.EnsureDefaultsAsync([new DefaultAdminAccount(phone, "محمدامین", "ناظری", "12345678")]);
-            Assert.Equal(1, await context.Users.IgnoreQueryFilters().CountAsync(u => u.PhoneNumber == phone));
-            var after = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == phone);
+            await access.EnsureDefaultsAsync(Config());
+            Assert.False(await context.Users.IgnoreQueryFilters().AnyAsync(u => u.PhoneNumber == phone));
+            var after = await context.Users.AsNoTracking().SingleAsync(u => u.Id == owner.Id);
+            Assert.Equal(newPhone, after.PhoneNumber);
+            Assert.Equal("امین", after.FirstName);
             Assert.True(PasswordHasher.Verify("my-new-strong-pass", after.PasswordHash));
             Assert.False(PasswordHasher.Verify("12345678", after.PasswordHash));
+            Assert.Equal(UserRole.SuperAdmin, after.Role);
 
-            // مدیر حساب را حذف کرد: با ری‌استارت برنامه دوباره ساخته نمی‌شود.
-            tracked = await context.Users.AsTracking().SingleAsync(u => u.PhoneNumber == phone);
+            // ۳) حساب حذف، مسدود و از مالکیت خارج شد (مثلاً مستقیم در دیتابیس): با ری‌استارت همان حساب برمی‌گردد.
+            tracked = await context.Users.AsTracking().SingleAsync(u => u.Id == owner.Id);
+            tracked.IsBlocked = true;
+            tracked.BlockReason = "test";
+            tracked.Role = UserRole.Customer;
+            await context.SaveChangesAsync();
             context.Users.Remove(tracked);
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
+            Assert.False(await context.Users.AnyAsync(u => u.Id == owner.Id));
 
-            await access.EnsureDefaultsAsync([new DefaultAdminAccount(phone, "محمدامین", "ناظری", "12345678")]);
-            Assert.False(await context.Users.AnyAsync(u => u.PhoneNumber == phone));
-            Assert.Equal(1, await context.Users.IgnoreQueryFilters().CountAsync(u => u.PhoneNumber == phone));
+            await access.EnsureDefaultsAsync(Config());
+            var restored = await context.Users.AsNoTracking().SingleAsync(u => u.Id == owner.Id);
+            Assert.False(restored.IsDeleted);
+            Assert.False(restored.IsBlocked);
+            Assert.Null(restored.BlockReason);
+            Assert.Equal(UserRole.SuperAdmin, restored.Role);
+            Assert.Equal(newPhone, restored.PhoneNumber);
+            Assert.True(PasswordHasher.Verify("my-new-strong-pass", restored.PasswordHash));
+            Assert.Equal(1, await context.Users.IgnoreQueryFilters().CountAsync(u => u.SystemAdminKey == "key:" + key));
 
-            // شمارهٔ نامعتبر یا رمز کوتاه هیچ حسابی نمی‌سازد.
+            // ۴) شمارهٔ نامعتبر، رمز کوتاه یا Key نامعتبر هیچ حسابی نمی‌سازد.
             var before = await context.Users.IgnoreQueryFilters().CountAsync();
-            await access.EnsureDefaultsAsync([new DefaultAdminAccount("12345", "x", "y", "12345678"), new DefaultAdminAccount(phone[..^1] + "0", "x", "y", "123")]);
+            await access.EnsureDefaultsAsync(
+            [
+                new DefaultAdminAccount("12345", "x", "y", "12345678"),
+                new DefaultAdminAccount(phone, "x", "y", "123"),
+                new DefaultAdminAccount(phone, "x", "y", "12345678", Key: "کلید فارسی"),
+                new DefaultAdminAccount(phone, "x", "y", "12345678", Key: key), // تکراری با بالا نیست ولی کلید موجود است ← همان حساب
+            ]);
             Assert.Equal(before, await context.Users.IgnoreQueryFilters().CountAsync());
+
+            // ۵) از تنظیمات برداشته شد: حساب و دسترسی می‌ماند، فقط حفاظت «مدیر اصلی» برداشته می‌شود.
+            await access.EnsureDefaultsAsync([]);
+            var released = await context.Users.AsNoTracking().SingleAsync(u => u.Id == owner.Id);
+            Assert.Null(released.SystemAdminKey);
+            Assert.Equal(UserRole.SuperAdmin, released.Role);
         }
         finally
         {
             context.ChangeTracker.Clear();
-            var leftovers = await context.Users.IgnoreQueryFilters().AsTracking().Where(u => u.PhoneNumber == phone).ToListAsync();
+            var leftovers = await context.Users.IgnoreQueryFilters().AsTracking()
+                .Where(u => u.PhoneNumber == phone || u.PhoneNumber == newPhone).ToListAsync();
             context.Users.RemoveRange(leftovers);
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+            // حذف نرم کلید را نگه می‌دارد؛ برای اینکه اجرای بعدی آزمون‌ها تمیز باشد، کلید آزمون آزاد می‌شود.
+            foreach (var user in await context.Users.IgnoreQueryFilters().AsTracking().Where(u => u.SystemAdminKey == "key:" + key).ToListAsync())
+                user.SystemAdminKey = null;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    [SqlFact]
+    public async Task SystemAdmin_CannotBeBlocked_Deleted_OrDemoted_FromThePanel()
+    {
+        var number = Random.Shared.Next(1_000_000, 9_999_998);
+        var phone = "0903" + number;
+        var key = "partner-test-" + number;
+        await using var scope = db.Scope();
+        var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+        var access = scope.ServiceProvider.GetRequiredService<IAdminAccessService>();
+        var customers = scope.ServiceProvider.GetRequiredService<IAdminCustomerService>();
+        var users = scope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Users.IUserService>();
+        try
+        {
+            await access.EnsureDefaultsAsync([new DefaultAdminAccount(phone, "شریک", "آزمون", "12345678", Key: key)]);
+            var partner = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == phone);
+            var otherOwner = new Fratak_Shop.Core.DTOs.Admin.AdminAccess(Guid.NewGuid(), "مالک دیگر", "09120000009", true, new HashSet<string>(), ["مالک"]);
+
+            Assert.False((await customers.SetBlockedAsync(partner.Id, true, "x", otherOwner)).IsSuccess());
+            Assert.False((await access.SetOwnerAsync(partner.Id, false, otherOwner)).IsSuccess());
+            Assert.False((await users.DeleteUserAsync(partner.Id)).IsSuccess());
+            context.ChangeTracker.Clear();
+
+            var still = await context.Users.AsNoTracking().SingleAsync(u => u.Id == partner.Id);
+            Assert.False(still.IsBlocked);
+            Assert.False(still.IsDeleted);
+            Assert.Equal(UserRole.SuperAdmin, still.Role);
+            Assert.True((await access.GetAccessAsync(partner.Id)).IsOwner);
+        }
+        finally
+        {
+            context.ChangeTracker.Clear();
+            foreach (var user in await context.Users.IgnoreQueryFilters().AsTracking().Where(u => u.PhoneNumber == phone).ToListAsync())
+            {
+                user.SystemAdminKey = null;
+                context.Users.Remove(user);
+            }
             await context.SaveChangesAsync();
         }
     }

@@ -109,14 +109,19 @@ public sealed class HealthService(
                 // مرحلهٔ چهاردهم: مدیر پیش‌فرضی که هنوز رمز اولیهٔ تنظیمات (Shop:DefaultAdmins) را دارد = خطر جدی روی سایت واقعی.
                 if (defaultAdminPasswords.Phones.Count > 0)
                 {
+                    // مرحلهٔ پانزدهم: مدیر اصلی با کلید ثابت پیدا می‌شود (حتی اگر شماره‌اش را عوض کرده)؛ حساب‌های بی‌کلید با شماره.
                     var phones = defaultAdminPasswords.Phones.ToList();
-                    var admins = await context.Users.Where(u => phones.Contains(u.PhoneNumber) && !u.IsBlocked && u.PasswordHash != null)
-                        .Select(u => new { u.PhoneNumber, u.PasswordHash }).ToListAsync(cancellationToken);
-                    var weak = admins.Count(x => defaultAdminPasswords.StillUsesDefault(x.PhoneNumber, x.PasswordHash));
+                    var keys = defaultAdminPasswords.Keys.ToList();
+                    var admins = await context.Users
+                        .Where(u => (keys.Contains(u.SystemAdminKey!) || (u.SystemAdminKey == null && phones.Contains(u.PhoneNumber))) && !u.IsBlocked && u.PasswordHash != null)
+                        .Select(u => new { u.PhoneNumber, u.PasswordHash, u.SystemAdminKey }).ToListAsync(cancellationToken);
+                    var weak = admins.Count(x => x.SystemAdminKey is not null
+                        ? defaultAdminPasswords.StillUsesDefaultForKey(x.SystemAdminKey, x.PasswordHash)
+                        : defaultAdminPasswords.StillUsesDefault(x.PhoneNumber, x.PasswordHash));
                     if (weak > 0)
                         checks.Add(new HealthCheck("رمز مدیران پیش‌فرض", HealthLevel.Warning,
                             $"{weak} مدیر پیش‌فرض هنوز با رمز اولیهٔ تنظیمات وارد می‌شود.",
-                            "هر کدام از «پروفایل › رمز عبور» رمز تازه بگذارند؛ رمز اولیه را از appsettings بردارید یا با متغیر محیطی Shop__DefaultAdmins__N__Password بدهید."));
+                            "هر کدام از «پروفایل › رمز عبور» رمز تازه بگذارند (رمز اولیه فقط برای ساخت حساب است و برنامه هرگز رمز تازه را برنمی‌گرداند)."));
                 }
 
                 var stuck = await context.PaymentTransactions.CountAsync(p =>

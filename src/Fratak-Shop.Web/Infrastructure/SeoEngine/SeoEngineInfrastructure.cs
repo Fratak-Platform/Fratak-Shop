@@ -53,8 +53,16 @@ public sealed class SeoWebSource(IHttpClientFactory factory, ILogger<SeoWebSourc
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
     ];
 
+    /// <summary>کمترین تعداد پیشنهاد که با آن سراغ موتور بعدی نمی‌رویم (مرحلهٔ پانزدهم).</summary>
+    public const int EnoughSuggestions = 8;
+
+    /// <summary>کمترین تعداد نتیجهٔ جست‌وجو که با آن سراغ موتور بعدی نمی‌رویم (مرحلهٔ پانزدهم).</summary>
+    public const int EnoughResults = 6;
+
     /// <summary>
-    /// پیشنهادهای جست‌وجو: اول گوگل، اگر نشد بینگ، بعد داک‌داک‌گو. خروجی هر سه قالب OpenSearch است: ["عبارت", ["پیشنهاد۱", …]].
+    /// پیشنهادهای جست‌وجو: اول گوگل، بعد بینگ، بعد داک‌داک‌گو. خروجی هر سه قالب OpenSearch است: ["عبارت", ["پیشنهاد۱", …]].
+    /// <para>مرحلهٔ پانزدهم: اگر موتور اول کمتر از ۸ پیشنهاد داد، موتور بعدی هم پرسیده و نتیجه‌ها (بدون تکرار) ادغام می‌شوند؛
+    /// برای عبارت‌های فارسی کم‌جست‌وجو، یک موتور معمولاً فقط ۲ تا ۴ پیشنهاد دارد. حداکثر ۲۰ پیشنهاد.</para>
     /// موتوری که در حال استراحت است (قبلاً محدودمان کرده) اصلاً درخواست نمی‌گیرد.
     /// </summary>
     public async Task<WebResult<IReadOnlyList<string>>> SuggestAsync(string query, CancellationToken cancellationToken)
@@ -67,6 +75,9 @@ public sealed class SeoWebSource(IHttpClientFactory factory, ILogger<SeoWebSourc
             ("duckduckgo-suggest", $"https://duckduckgo.com/ac/?q={q}&type=list&kl=ir-fa"),
         };
         string? lastError = null;
+        var merged = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var used = new List<string>();
         foreach (var (name, url) in sources)
         {
             var body = await GetFromEngineAsync(name, url, "application/json", cancellationToken);
@@ -75,49 +86,102 @@ public sealed class SeoWebSource(IHttpClientFactory factory, ILogger<SeoWebSourc
                 lastError = $"{name}: {body.Error}";
                 continue;
             }
-            var items = SeoParsers.ParseSuggestions(body.Value!);
-            return WebResult<IReadOnlyList<string>>.Success(items, name);
+            used.Add(name);
+            foreach (var item in SeoParsers.ParseSuggestions(body.Value!))
+            {
+                var text = item.Trim();
+                if (text.Length > 0 && seen.Add(Core.Services.Seo.Engine.PersianText.Normalize(text)))
+                    merged.Add(text);
+            }
+            if (merged.Count >= EnoughSuggestions)
+                break;
         }
-        return WebResult<IReadOnlyList<string>>.Fail(lastError ?? "no source");
+        return used.Count > 0
+            ? WebResult<IReadOnlyList<string>>.Success(merged.Take(20).ToList(), string.Join("+", used))
+            : WebResult<IReadOnlyList<string>>.Fail(lastError ?? "no source");
     }
 
-    /// <summary>نتایج برتر: اول بینگ (نسخهٔ HTML)، اگر نتیجه‌ای نداد داک‌داک‌گو.</summary>
+    /// <summary>
+    /// نتایج برتر: اول بینگ (نسخهٔ HTML)، و اگر بینگ کمتر از ۶ نتیجه داد یا در دسترس نبود، داک‌داک‌گو هم؛
+    /// نتیجه‌ها با حذف آدرس تکراری ادغام می‌شوند (مرحلهٔ پانزدهم؛ هم برای تحلیل رقبای سئو و هم برای پیدا کردن فروشگاه‌های دیگر در «پیشنهاد قیمت»).
+    /// </summary>
     public async Task<WebResult<IReadOnlyList<SerpItem>>> SearchAsync(string query, CancellationToken cancellationToken)
     {
         var q = Uri.EscapeDataString(query);
         string? lastError = null;
+        var merged = new List<SerpItem>();
+        var used = new List<string>();
 
         var bing = await GetFromEngineAsync("bing", $"https://www.bing.com/search?q={q}&setlang=fa&cc=IR&count=10", "text/html", cancellationToken);
         if (bing.Ok)
         {
             var items = SeoParsers.ParseBing(bing.Value!);
             if (items.Count > 0)
-                return WebResult<IReadOnlyList<SerpItem>>.Success(items, "bing");
-            lastError = "bing: نتیجه‌ای خوانده نشد";
-            // صفحهٔ بی‌نتیجه که کپچا/چالش است ← استراحت موتور (فقط وقتی نتیجه‌ای نبود، تا متن عادی صفحه اشتباه گرفته نشود).
-            if (Core.Services.Pricing.CompetitorPriceService.LooksLikeChallenge(bing.Value!))
             {
-                sourceGate.ReportBlocked("bing", null, "صفحهٔ کپچا");
-                lastError = "bing: صفحهٔ کپچا/ضدربات";
+                MergeResults(merged, items);
+                used.Add("bing");
+            }
+            else
+            {
+                lastError = "bing: نتیجه‌ای خوانده نشد";
+                // صفحهٔ بی‌نتیجه که کپچا/چالش است ← استراحت موتور (فقط وقتی نتیجه‌ای نبود، تا متن عادی صفحه اشتباه گرفته نشود).
+                if (Core.Services.Pricing.CompetitorPriceService.LooksLikeChallenge(bing.Value!))
+                {
+                    sourceGate.ReportBlocked("bing", null, "صفحهٔ کپچا");
+                    lastError = "bing: صفحهٔ کپچا/ضدربات";
+                }
             }
         }
         else
             lastError = $"bing: {bing.Error}";
 
-        var ddg = await GetFromEngineAsync("duckduckgo", $"https://html.duckduckgo.com/html/?q={q}&kl=ir-fa", "text/html", cancellationToken);
-        if (ddg.Ok)
+        if (merged.Count < EnoughResults)
         {
-            var items = SeoParsers.ParseDuckDuckGo(ddg.Value!);
-            if (items.Count > 0)
-                return WebResult<IReadOnlyList<SerpItem>>.Success(items, "duckduckgo");
-            lastError += "؛ duckduckgo: نتیجه‌ای خوانده نشد";
-            if (Core.Services.Pricing.CompetitorPriceService.LooksLikeChallenge(ddg.Value!))
-                sourceGate.ReportBlocked("duckduckgo", null, "صفحهٔ کپچا");
+            var ddg = await GetFromEngineAsync("duckduckgo", $"https://html.duckduckgo.com/html/?q={q}&kl=ir-fa", "text/html", cancellationToken);
+            if (ddg.Ok)
+            {
+                var items = SeoParsers.ParseDuckDuckGo(ddg.Value!);
+                if (items.Count > 0)
+                {
+                    MergeResults(merged, items);
+                    used.Add("duckduckgo");
+                }
+                else
+                {
+                    lastError += "؛ duckduckgo: نتیجه‌ای خوانده نشد";
+                    if (Core.Services.Pricing.CompetitorPriceService.LooksLikeChallenge(ddg.Value!))
+                        sourceGate.ReportBlocked("duckduckgo", null, "صفحهٔ کپچا");
+                }
+            }
+            else
+                lastError += $"؛ duckduckgo: {ddg.Error}";
         }
-        else
-            lastError += $"؛ duckduckgo: {ddg.Error}";
 
-        return WebResult<IReadOnlyList<SerpItem>>.Fail(lastError);
+        return merged.Count > 0
+            ? WebResult<IReadOnlyList<SerpItem>>.Success(merged.Take(15).ToList(), string.Join("+", used))
+            : WebResult<IReadOnlyList<SerpItem>>.Fail(lastError ?? "no source");
+    }
+
+    /// <summary>
+    /// ادغام نتایج دو موتور بدون تکرار؛ آدرس‌ها بدون http/https، www، اسلش پایانی و بخش # مقایسه می‌شوند.
+    /// مثال: «https://www.a.ir/p/1/» و «http://a.ir/p/1#x» یکی‌اند.
+    /// </summary>
+    public static void MergeResults(List<SerpItem> into, IEnumerable<SerpItem> items)
+    {
+        var seen = new HashSet<string>(into.Select(i => UrlKey(i.Url)), StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Url) && seen.Add(UrlKey(item.Url)))
+                into.Add(item);
+        }
+    }
+
+    private static string UrlKey(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return url.Trim();
+        var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host;
+        return host + uri.AbsolutePath.TrimEnd('/') + uri.Query;
     }
 
     public async Task<WebResult<string>> FetchPageAsync(string url, CancellationToken cancellationToken)

@@ -20,6 +20,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(u => u.ReferredByUserId);
 
+        // مرحلهٔ پانزدهم: هر مدیر اصلی تنظیمات فقط یک حساب دارد (کلید ثابت، مستقل از شمارهٔ فعلی).
+        builder.HasIndex(u => u.SystemAdminKey)
+            .IsUnique()
+            .HasFilter("[SystemAdminKey] IS NOT NULL AND [IsDeleted] = 0");
+
         // The balance can never go negative – the database enforces it even if two
         // debits race each other.
         builder.ToTable(t =>

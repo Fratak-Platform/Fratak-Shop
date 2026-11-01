@@ -300,6 +300,9 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     public DbSet<Fratak_Shop.Data.Entities.Products.CompetitorPriceCache> CompetitorPriceCaches { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Products.MarketPriceCheck> MarketPriceChecks { get; set; } = null!;
 
+    // مرحلهٔ پانزدهم: آخرین قیمت رقبای هر محصول (نمایش در فرم محصول و صفحهٔ «رصد قیمت رقبا»).
+    public DbSet<Fratak_Shop.Data.Entities.Products.ProductCompetitorSnapshot> ProductCompetitorSnapshots { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

@@ -4780,6 +4780,83 @@ namespace Fratak_Shop.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.ProductCompetitorSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AcceptedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("LowestPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("MatchedTitle")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("MedianPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<int>("OfferCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OffersJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("OurPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<string>("Problems")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Query")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("TorobLowestPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<int>("TorobSellerCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckedAt");
+
+                    b.HasIndex("ProductId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("ProductCompetitorSnapshots");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Products.ProductFeature", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8273,6 +8350,10 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("SystemAdminKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<DateTimeOffset?>("TotpEnabledAt")
                         .HasColumnType("datetimeoffset");
 
@@ -8312,6 +8393,10 @@ namespace Fratak_Shop.Data.Migrations
                         .HasFilter("[ReferralCode] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.HasIndex("ReferredByUserId");
+
+                    b.HasIndex("SystemAdminKey")
+                        .IsUnique()
+                        .HasFilter("[SystemAdminKey] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.ToTable("Users", t =>
                         {

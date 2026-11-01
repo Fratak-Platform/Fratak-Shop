@@ -110,6 +110,16 @@ public class User : BaseEntity
     [MaxLength(500)]
     public string? BlockReason { get; set; }
 
+    /// <summary>
+    /// مرحلهٔ پانزدهم: شناسهٔ ثابت «مدیر اصلی سیستم» از تنظیمات سرور (<c>Shop:DefaultAdmins</c>).
+    /// <para>چرا: مدیر ممکن است شماره، نام یا رمزش را عوض کند؛ برنامه در هر بار اجرا او را با همین کلید پیدا می‌کند،
+    /// نه با شمارهٔ فعلی. مثال: «phone:09013181090» (از شمارهٔ اولیهٔ تنظیمات) یا «key:owner» (فیلد Key در تنظیمات).</para>
+    /// <para>حساب دارای این کلید از پنل حذف، مسدود یا بی‌دسترسی نمی‌شود و اگر به هر دلیلی پاک/مسدود شده باشد،
+    /// در اجرای بعدی برنامه برمی‌گردد. null = کاربر عادی. استفاده: AdminAccessService.EnsureDefaultsAsync.</para>
+    /// </summary>
+    [MaxLength(80)]
+    public string? SystemAdminKey { get; set; }
+
     /// <summary>Internal note of the staff about this customer.</summary>
     [MaxLength(2000)]
     public string? AdminNote { get; set; }

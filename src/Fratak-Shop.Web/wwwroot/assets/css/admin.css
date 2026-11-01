@@ -464,7 +464,7 @@ html[data-theme="dark"] .a-seo-desc { color: #9ca3af; }
 /* دور ۱۰: ردیف برچسب با دکمهٔ کنارش (مثل «پیشنهاد قیمت فروش») و دیالوگ پیشنهاد قیمت */
 .a-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .a-label-row .a-label { margin-bottom: 0; }
-.a-price-advisor-box { width: min(760px, 100%); max-height: 88vh; }
+.a-price-advisor-box { width: min(1040px, 100%); max-height: 90vh; }
 .a-price-advisor-body { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .a-price-advisor-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
 .a-price-advisor-summary > div { border: 1px solid var(--a-border); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -472,8 +472,36 @@ html[data-theme="dark"] .a-seo-desc { color: #9ca3af; }
 .a-price-advisor-summary b { font-size: 15px; }
 .a-price-advisor-summary > div:first-child { border-color: var(--a-primary); background: var(--a-primary-soft); }
 .a-price-advisor-summary > div:first-child b { color: var(--a-primary); font-size: 18px; }
-.a-price-advisor tr.is-ignored td { opacity: .55; text-decoration: line-through; }
-.a-price-advisor tr.is-lowest td { font-weight: 700; }
+/* مرحلهٔ پانزدهم: جدول قیمت رقبا (دیالوگ پیشنهاد قیمت، کارت فرم محصول و صفحهٔ «رصد قیمت رقبا») */
+.a-competitor-table td { vertical-align: top; }
+.a-competitor-table tr.is-rejected td { opacity: .6; }
+.a-competitor-table tr.is-rejected td:last-child { opacity: 1; }
+.a-competitor-table tr.is-reference td { background: var(--a-primary-soft); }
+.a-competitor-table tr.is-reference td:first-child { box-shadow: inset -3px 0 0 var(--a-primary); }
+.a-competitor-title { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.a-price-advisor-tabs, .a-price-advisor-sources { display: flex; flex-wrap: wrap; gap: 6px; }
+.a-price-advisor-tabs button { border: 1px solid var(--a-border); border-radius: 999px; padding: 5px 12px; font-size: 13px; background: transparent; color: inherit; }
+.a-price-advisor-tabs button.is-active { background: var(--a-primary); border-color: var(--a-primary); color: #fff; }
+.a-price-advisor-tabs small { opacity: .8; }
+.a-price-advisor-sources .a-chip.is-active { background: var(--a-primary-soft); border-color: var(--a-primary); border-style: solid; color: var(--a-primary); }
+.a-price-range { padding: 4px 2px 0; }
+.a-price-range-bar { position: relative; height: 8px; border-radius: 999px; background: linear-gradient(to left, #10b981, #f59e0b, #ef4444); }
+.a-price-range-bar i { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; transform: translate(50%, -50%); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.a-price-range-bar i[data-range-median] { background: #64748b; }
+.a-price-range-bar i[data-range-ours] { background: var(--a-primary); width: 18px; height: 18px; z-index: 1; }
+.a-price-range-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--a-muted); margin-top: 6px; gap: 6px; }
+.a-competitor-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.a-competitor-stats > div { border: 1px solid var(--a-border); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.a-competitor-stats span, .a-competitor-stats small { font-size: 12px; color: var(--a-muted); }
+.a-competitor-stats b { font-size: 15px; }
+html[data-theme="dark"] .a-price-range-bar i { border-color: #0f172a; }
+html[data-theme="dark"] .a-price-advisor-sources .a-chip.is-active { color: #85C4FF; }
+@media (max-width: 640px) {
+  .a-price-advisor { padding: 0; }
+  .a-price-advisor-box { max-height: 100vh; height: 100%; border-radius: 0; }
+  .a-price-advisor-body { padding: 10px; }
+  .a-competitor-title { max-width: 180px; }
+}
 .a-price-advisor [hidden] { display: none !important; }
 .a-media-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 10px; overflow-y: auto; }
 .a-media-picker-item { aspect-ratio: 1; border: 2px solid transparent; border-radius: 10px; background: #f8fafc; overflow: hidden; }
@@ -869,3 +897,7 @@ html[data-theme="dark"] .a-bl-color input[type=color] { background: #112233; }
 
 /* ── سرویس ایمیل (مرحلهٔ دوازدهم – /admin/system/email) ── */
 .a-email-preview { display: block; width: 100%; height: 560px; border: 1px solid var(--a-border); border-radius: 12px; background: #f4f6fb; }
+
+/* مرحلهٔ پانزدهم: کارت‌های آمار قابل کلیک (رصد قیمت رقبا) */
+a.a-stat { display: block; color: inherit; text-decoration: none; }
+a.a-stat:hover { border-color: var(--a-primary); }

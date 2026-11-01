@@ -21,6 +21,7 @@ namespace Fratak_Shop.Web.Infrastructure.Auth;
 public sealed class DefaultAdminPasswords
 {
     private readonly Dictionary<string, byte[]> _passwords = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, byte[]> _byKey = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, bool> _verified = new(StringComparer.Ordinal);
 
     public DefaultAdminPasswords(IOptions<ShopOptions> options)
@@ -28,9 +29,27 @@ public sealed class DefaultAdminPasswords
         foreach (var admin in options.Value.DefaultAdminAccounts())
         {
             var phone = AdminAccessService.NormalizeOwnerPhone(admin.PhoneNumber);
-            if (phone is not null && DefaultAdminAccount.IsValidPassword(admin.Password))
-                _passwords[phone] = Encoding.UTF8.GetBytes(admin.Password!);
+            if (phone is null || !DefaultAdminAccount.IsValidPassword(admin.Password))
+                continue;
+            var bytes = Encoding.UTF8.GetBytes(admin.Password!);
+            _passwords[phone] = bytes;
+            // مرحلهٔ پانزدهم: با کلید ثابت هم نگه می‌داریم تا اگر مدیر شماره‌اش را عوض کرد، هشدار «رمز اولیه» باز هم درست باشد.
+            if (admin.StableKey() is { } key)
+                _byKey[key] = bytes;
         }
+    }
+
+    /// <summary>کلیدهای ثابت مدیران اصلی که رمز اولیه دارند (ستون Users.SystemAdminKey؛ برای پرس‌وجوی سلامت).</summary>
+    public IReadOnlyCollection<string> Keys => _byKey.Keys;
+
+    /// <summary>
+    /// هش ذخیره‌شدهٔ مدیر اصلی با این کلید هنوز با رمز اولیه می‌خواند؟ مثال: («key:owner», هشِ 12345678) ← true.
+    /// </summary>
+    public bool StillUsesDefaultForKey(string key, string? passwordHash)
+    {
+        if (string.IsNullOrEmpty(passwordHash) || !_byKey.TryGetValue(key, out var expected))
+            return false;
+        return _verified.GetOrAdd(key + "|" + passwordHash, _ => PasswordHasher.Verify(Encoding.UTF8.GetString(expected), passwordHash));
     }
 
     /// <summary>شماره‌های مدیران پیش‌فرضی که رمز اولیه دارند (برای پرس‌وجوی سلامت).</summary>

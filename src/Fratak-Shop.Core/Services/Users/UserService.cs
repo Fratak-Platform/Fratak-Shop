@@ -163,6 +163,10 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events,
         if (user.Role == UserRole.SuperAdmin)
             return OperationResult.Error("حساب سوپر ادمین قابل حذف نیست.");
 
+        // مرحلهٔ پانزدهم: مدیر اصلی تنظیمات سرور (حتی با دسترسی محدود) حذف نمی‌شود.
+        if (user.SystemAdminKey is not null)
+            return OperationResult.Error("حساب مدیر اصلی تعریف‌شده در تنظیمات سرور قابل حذف نیست.");
+
         context.Users.Remove(user);
         await context.SaveChangesAsync();
 

@@ -38,11 +38,17 @@ public interface IAdminAccessService
     /// <summary>
     /// Creates the default roles once, moves legacy Admin / SeoManager users onto roles and bootstraps the
     /// default admins from configuration (<c>Shop:DefaultAdmins</c>, any number of them).
-    /// <para>برای هر مدیر پیش‌فرض: اگر هیچ‌وقت حسابی با آن شماره نبوده، با رمز اولیه (Argon2id) ساخته می‌شود؛ اگر هست و رمز ندارد،
-    /// یک بار رمز اولیه می‌گیرد؛ رمز موجود هرگز بازنویسی نمی‌شود؛ حساب حذف‌شده دوباره ساخته نمی‌شود؛ حساب مسدود دست نمی‌خورد.</para>
-    /// <para>خروجی: یادداشت‌های قابل لاگ (بدون رمز)، مثل «ساخته شد: 0901***1090» یا «نادیده: رمز کوتاه‌تر از ۸ نویسه».</para>
+    /// <para>مرحلهٔ پانزدهم — در <b>هر</b> اجرای برنامه، برای هر مدیر اصلی تنظیمات (مالک، شریک …):</para>
+    /// <list type="number">
+    /// <item>حسابش با کلید ثابت (<see cref="DefaultAdminAccount.StableKey"/>) پیدا می‌شود؛ اگر هنوز کلید نخورده، با شمارهٔ تنظیمات
+    /// پیدا و کلید می‌خورد؛ اگر اصلاً نیست با رمز اولیه (Argon2id) ساخته می‌شود.</item>
+    /// <item>نام، شماره و رمزی که خودش عوض کرده هرگز به مقدار اولیه برنمی‌گردد (فقط حساب بی‌رمز، هنگام اولین شناسایی، رمز اولیه می‌گیرد).</item>
+    /// <item>حساب حذف‌شده برمی‌گردد، حساب مسدود باز می‌شود و دسترسی مالک/نقش‌ها دوباره داده می‌شود.</item>
+    /// <item>کاربری که کلید مدیر اصلی داشت ولی دیگر در تنظیمات نیست، کاربر عادی می‌شود (فقط حفاظت برداشته می‌شود).</item>
+    /// </list>
+    /// <para>خروجی: یادداشت‌های قابل لاگ (بدون رمز و با شمارهٔ پوشیده)، مثل «ساخته شد 0901***1090» یا «بازگردانی شد …».</para>
     /// <para>مثال: <c>EnsureDefaultsAsync([new("09013181090", "محمدامین", "ناظری", "12345678")])</c> در اولین اجرا مالک را با رمز
-    /// 12345678 می‌سازد؛ اجراهای بعدی چیزی را دوباره نمی‌سازند و رمزی را که مالک عوض کرده دست نمی‌زنند.</para>
+    /// 12345678 می‌سازد؛ اجراهای بعدی فقط بودن و دسترسی‌اش را تضمین می‌کنند.</para>
     /// </summary>
     Task<IReadOnlyList<string>> EnsureDefaultsAsync(IReadOnlyList<DefaultAdminAccount>? defaultAdmins = null);
 }
@@ -203,7 +209,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
 
         var users = await context.Users
             .Where(u => u.Role == UserRole.SuperAdmin || ids.Contains(u.Id))
-            .Select(u => new { u.Id, u.FirstName, u.LastName, u.PhoneNumber, u.Role, u.IsBlocked, u.TwoFactorEnabled, TotpEnabled = u.TotpEnabledAt != null, u.LastLoginAt })
+            .Select(u => new { u.Id, u.FirstName, u.LastName, u.PhoneNumber, u.Role, u.IsBlocked, u.TwoFactorEnabled, TotpEnabled = u.TotpEnabledAt != null, u.LastLoginAt, IsSystemAdmin = u.SystemAdminKey != null })
             .ToListAsync();
 
         return users
@@ -214,6 +220,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
                 PhoneNumber = u.PhoneNumber,
                 IsOwner = u.Role == UserRole.SuperAdmin,
                 IsBlocked = u.IsBlocked,
+                IsSystemAdmin = u.IsSystemAdmin,
                 TwoFactorEnabled = u.TwoFactorEnabled,
                 TotpEnabled = u.TotpEnabled,
                 LastLoginAt = u.LastLoginAt,
@@ -289,6 +296,10 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         if (user is null)
             return OperationResult.NotFound("کاربر یافت نشد.");
 
+        // مرحلهٔ پانزدهم: مالکیت مدیر اصلی تنظیمات سرور (Shop:DefaultAdmins) برداشته نمی‌شود.
+        if (!isOwner && user.SystemAdminKey is not null && user.Role == UserRole.SuperAdmin)
+            return OperationResult.Error("این حساب «مدیر اصلی» تعریف‌شده در تنظیمات سرور است و دسترسی مالکیتش برداشته نمی‌شود.");
+
         if (!isOwner && user.Role == UserRole.SuperAdmin
                      && await context.Users.CountAsync(u => u.Role == UserRole.SuperAdmin) <= 1)
             return OperationResult.Error("فروشگاه باید حداقل یک مالک داشته باشد.");
@@ -351,38 +362,77 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         }
 
         var notes = new List<string>();
+        var configuredKeys = new HashSet<string>(StringComparer.Ordinal);
+        var entries = new List<(DefaultAdminAccount Admin, string? Key)>();
         foreach (var admin in defaultAdmins ?? Array.Empty<DefaultAdminAccount>())
         {
             if (admin is null)
                 continue;
+            var key = admin.StableKey();
+            if (key is not null && !configuredKeys.Add(key))
+            {
+                notes.Add("نادیده: کلید/شمارهٔ تکراری در Shop:DefaultAdmins (" + Describe(admin) + ").");
+                continue;
+            }
+            entries.Add((admin, key));
+        }
+
+        foreach (var (admin, key) in entries)
+        {
             try
             {
-                notes.Add(await EnsureDefaultAdminAsync(admin));
+                notes.Add(await EnsureDefaultAdminAsync(admin, key, configuredKeys));
             }
             catch (DbUpdateException)
             {
-                // نمونهٔ دیگری از برنامه هم‌زمان همین حساب را ساخت (شمارهٔ موبایل یکتاست)؛ اجرای بعدی بقیه را انجام می‌دهد.
+                // نمونهٔ دیگری از برنامه هم‌زمان همین حساب را ساخت (شماره و کلید یکتا هستند) یا شماره در اختیار حساب دیگری است؛
+                // اجرای بعدی دوباره بررسی می‌کند.
                 context.ChangeTracker.Clear();
-                notes.Add("هم‌زمان توسط نمونهٔ دیگر برنامه ساخته شد: " + DefaultAdminAccount.Mask(NormalizeOwnerPhone(admin.PhoneNumber) ?? ""));
+                notes.Add("ذخیره نشد (هم‌زمانی یا شمارهٔ تکراری)، در اجرای بعدی دوباره بررسی می‌شود: " + Describe(admin));
             }
+        }
+
+        // فقط وقتی فهرست تنظیمات داده شده (Program.cs): مدیری که از تنظیمات برداشته شده، حفاظتش برداشته می‌شود
+        // (حسابش و دسترسی‌هایش سر جایش می‌ماند؛ از این به بعد مثل بقیهٔ کارکنان از پنل مدیریت می‌شود).
+        if (defaultAdmins is not null)
+        {
+            var keepKeys = configuredKeys.ToList();
+            var released = await context.Users.IgnoreQueryFilters().AsTracking()
+                .Where(u => u.SystemAdminKey != null && !keepKeys.Contains(u.SystemAdminKey))
+                .ToListAsync();
+            foreach (var user in released)
+            {
+                user.SystemAdminKey = null;
+                notes.Add("دیگر در تنظیمات نیست؛ حفاظت مدیر اصلی برداشته شد: " + DefaultAdminAccount.Mask(user.PhoneNumber));
+            }
+            if (released.Count > 0)
+                await context.SaveChangesAsync();
         }
 
         InvalidateAll();
         return notes;
     }
 
+    /// <summary>متن امن یک مورد تنظیمات برای لاگ: Key یا شمارهٔ پوشیده، هرگز رمز.</summary>
+    private static string Describe(DefaultAdminAccount admin)
+        => !string.IsNullOrWhiteSpace(admin.Key) ? "Key=" + admin.Key.Trim() : DefaultAdminAccount.Mask(NormalizeOwnerPhone(admin.PhoneNumber) ?? "");
+
     /// <summary>
-    /// یک مدیر پیش‌فرض را آماده می‌کند و یک یادداشت بدون رمز برمی‌گرداند (برای لاگ راه‌اندازی).
-    /// <para>ترتیب تصمیم: شمارهٔ نامعتبر ← نادیده؛ رمز نامعتبر (کمتر از ۸ یا بیشتر از ۱۰۰ نویسه) ← نادیده (حساب بی‌رمز نمی‌سازیم
-    /// چون صاحب سرور رمز خواسته بود)؛ حساب حذف‌شده ← هیچ کار؛ حساب مسدود ← هیچ کار؛ حساب موجود ← ارتقا/نقش + رمز اگر ندارد؛
-    /// هیچ حسابی ← ساخت با رمز.</para>
+    /// یک مدیر اصلی را تضمین می‌کند و یک یادداشت بدون رمز برمی‌گرداند (برای لاگ راه‌اندازی).
+    /// <para>ترتیب تصمیم: شماره/کلید نامعتبر ← نادیده؛ رمز نامعتبر (کمتر از ۸ یا بیشتر از ۱۰۰ نویسه) ← نادیده (حساب بی‌رمز
+    /// نمی‌سازیم چون صاحب سرور رمز خواسته بود)؛ پیدا کردن با کلید ← با شماره (و کلید زدن) ← ساخت؛ سپس بازگردانی حذف،
+    /// رفع مسدودی، مالکیت/نقش‌ها. نام، شماره و رمز موجود هرگز تغییر نمی‌کند.</para>
+    /// <para>مثال: مالک شماره‌اش را از 09013181090 به 09350000000 عوض کرده ← با کلید «phone:09013181090» همان حساب پیدا می‌شود
+    /// و حساب تازه‌ای با شمارهٔ قدیمی ساخته نمی‌شود.</para>
     /// </summary>
-    private async Task<string> EnsureDefaultAdminAsync(DefaultAdminAccount admin)
+    private async Task<string> EnsureDefaultAdminAsync(DefaultAdminAccount admin, string? key, IReadOnlySet<string> configuredKeys)
     {
         var phone = NormalizeOwnerPhone(admin.PhoneNumber);
         if (phone is null)
             return "نادیده (شمارهٔ موبایل نامعتبر در Shop:DefaultAdmins).";
         var masked = DefaultAdminAccount.Mask(phone);
+        if (key is null)
+            return $"نادیده {masked}: Key نامعتبر است (فقط حروف و رقم لاتین، - _ . و حداکثر {DefaultAdminAccount.MaxKeyLength} نویسه).";
 
         var hasPassword = !string.IsNullOrEmpty(admin.Password);
         if (hasPassword && !DefaultAdminAccount.IsValidPassword(admin.Password))
@@ -402,10 +452,39 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         }
 
         var unknownNote = unknownRoles.Count > 0 ? " (نقش ناشناخته: " + string.Join("، ", unknownRoles) + ")" : "";
-        var existing = await context.Users.IgnoreQueryFilters().AsTracking().FirstOrDefaultAsync(u => u.PhoneNumber == phone);
-        if (existing is null)
+        var changes = new List<string>();
+
+        // ۱) با کلید ثابت (حتی اگر حذف‌شده باشد).
+        var user = await context.Users.IgnoreQueryFilters().AsTracking()
+            .Where(u => u.SystemAdminKey == key)
+            .OrderBy(u => u.IsDeleted).ThenBy(u => u.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        // ۲) هنوز کلید نخورده (نسخهٔ قبلی برنامه یا اولین اجرا): حسابِ همین شماره که مدیر اصلی دیگری در تنظیمات فعلی نیست.
+        // مثال: Key تازه برای مالک گذاشته شد ← حسابش که کلید قدیمی «phone:…» داشت با کلید تازه ادامه می‌دهد.
+        var firstLink = false;
+        if (user is null)
         {
-            var user = new User
+            var keys = configuredKeys.ToList();
+            user = await context.Users.IgnoreQueryFilters().AsTracking()
+                .Where(u => u.PhoneNumber == phone && (u.SystemAdminKey == null || !keys.Contains(u.SystemAdminKey)))
+                .OrderBy(u => u.IsDeleted).ThenByDescending(u => u.UpdatedAt)
+                .FirstOrDefaultAsync();
+            if (user is not null)
+            {
+                user.SystemAdminKey = key;
+                firstLink = true;
+                changes.Add("به‌عنوان مدیر اصلی ثبت شد");
+            }
+        }
+
+        // ۳) اصلاً نیست: ساخت با رمز اولیه.
+        if (user is null)
+        {
+            if (await context.Users.AnyAsync(u => u.PhoneNumber == phone))
+                return $"ساخته نشد {masked}: این شماره در اختیار مدیر اصلی دیگری در تنظیمات است.";
+
+            var created = new User
             {
                 PhoneNumber = phone,
                 FirstName = Clip(admin.FirstName),
@@ -414,46 +493,62 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
                 PasswordHash = hasPassword ? PasswordHasher.Hash(admin.Password) : null,
                 IsPhoneVerified = true,
                 SecurityStamp = PasswordHasher.NewSecurityStamp(),
+                SystemAdminKey = key,
             };
-            context.Users.Add(user);
+            context.Users.Add(created);
             foreach (var roleId in roleIds)
-                context.UserAdminRoles.Add(new UserAdminRole { User = user, RoleId = roleId });
+                context.UserAdminRoles.Add(new UserAdminRole { User = created, RoleId = roleId });
             await context.SaveChangesAsync();
             return $"ساخته شد {masked}{(admin.FullAccess ? " (مالک، همهٔ دسترسی‌ها)" : $" ({roleIds.Count} نقش)")}{(hasPassword ? " با رمز اولیه" : " بدون رمز")}{unknownNote}.";
         }
 
-        if (existing.IsDeleted)
-            return $"بدون تغییر {masked}: حساب قبلاً از پنل حذف شده و دوباره ساخته نمی‌شود.";
-        if (existing.IsBlocked)
-            return $"بدون تغییر {masked}: حساب مسدود است.";
+        var current = DefaultAdminAccount.Mask(user.PhoneNumber);
 
-        var changes = new List<string>();
-        if (admin.FullAccess && existing.Role != UserRole.SuperAdmin)
+        // حساب حذف‌شده برمی‌گردد؛ مگر اینکه کسی دیگر در این فاصله با همان شماره ثبت‌نام کرده باشد (شمارهٔ فعال یکتاست).
+        if (user.IsDeleted)
         {
-            existing.Role = UserRole.SuperAdmin;
-            changes.Add("مالک شد");
+            if (await context.Users.AnyAsync(u => u.PhoneNumber == user.PhoneNumber && u.Id != user.Id))
+                return $"بازگردانی نشد {current}: شمارهٔ این حساب حالا در اختیار حساب دیگری است؛ از پنل بررسی کنید.";
+            user.IsDeleted = false;
+            user.DeletedAt = null;
+            changes.Add("حساب حذف‌شده بازگردانی شد");
+        }
+
+        if (user.IsBlocked)
+        {
+            user.IsBlocked = false;
+            user.BlockedAt = null;
+            user.BlockReason = null;
+            changes.Add("مسدودی برداشته شد");
+        }
+
+        if (admin.FullAccess && user.Role != UserRole.SuperAdmin)
+        {
+            user.Role = UserRole.SuperAdmin;
+            changes.Add("دسترسی مالک داده شد");
         }
 
         foreach (var roleId in roleIds)
         {
-            if (!await context.UserAdminRoles.AnyAsync(m => m.UserId == existing.Id && m.RoleId == roleId))
+            if (!await context.UserAdminRoles.AnyAsync(m => m.UserId == user.Id && m.RoleId == roleId))
             {
-                context.UserAdminRoles.Add(new UserAdminRole { UserId = existing.Id, RoleId = roleId });
+                context.UserAdminRoles.Add(new UserAdminRole { UserId = user.Id, RoleId = roleId });
                 changes.Add("نقش افزوده شد");
             }
         }
 
-        // فقط حسابی که هیچ رمزی ندارد (مثلاً با کد پیامکی ثبت‌نام کرده) رمز اولیه می‌گیرد؛ رمز انتخابی کاربر مقدس است.
-        if (hasPassword && string.IsNullOrEmpty(existing.PasswordHash))
+        // فقط هنگام اولین شناسایی و فقط اگر حساب هیچ رمزی ندارد (مثلاً با کد پیامکی ثبت‌نام کرده) رمز اولیه می‌گیرد؛
+        // رمز انتخابی کاربر مقدس است و بعد از آن، برنامه هیچ‌وقت سراغ رمز نمی‌رود.
+        if (firstLink && hasPassword && string.IsNullOrEmpty(user.PasswordHash))
         {
-            existing.PasswordHash = PasswordHasher.Hash(admin.Password);
+            user.PasswordHash = PasswordHasher.Hash(admin.Password);
             changes.Add("رمز اولیه تنظیم شد");
         }
 
         if (changes.Count == 0)
-            return $"بدون تغییر {masked}{unknownNote}.";
+            return $"بدون تغییر {current}{unknownNote}.";
         await context.SaveChangesAsync();
-        return $"به‌روز شد {masked}: {string.Join("، ", changes.Distinct())}{unknownNote}.";
+        return $"به‌روز شد {current}: {string.Join("، ", changes.Distinct())}{unknownNote}.";
     }
 
     /// <summary>

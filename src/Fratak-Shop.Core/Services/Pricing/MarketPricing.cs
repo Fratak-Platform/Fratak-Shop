@@ -56,7 +56,8 @@ public sealed class MarketPricingService(
     FratakShopDbContext context,
     ICompetitorPriceService competitors,
     IStoreSettingService settings,
-    IExternalSourceGate gate) : IMarketPricingService
+    IExternalSourceGate gate,
+    IProductCompetitorService? snapshots = null) : IMarketPricingService
 {
     /// <summary>بیشترین تعداد تلاش برای یک محصول وقتی منابع محدودند.</summary>
     public const int MaxAttempts = 6;
@@ -113,9 +114,15 @@ public sealed class MarketPricingService(
         else
         {
             var lookup = await competitors.SearchAsync(job.Query, cancellationToken);
-            var costs = PricingCosts.From(await settings.GetAsync(cancellationToken));
+            var store = await settings.GetAsync(cancellationToken);
+            var costs = PricingCosts.From(store);
             var purchase = product.PurchasePrice ?? job.PurchasePrice ?? 0;
-            var decision = Decide(purchase, costs, lookup, job.Attempts);
+            // مرحلهٔ پانزدهم: داوری با نام کالا (عنوان نامشابه/لوازم جانبی کنار می‌رود) و بدون قیمت فروشگاه خودمان.
+            var ownShops = ProductCompetitorService.OwnShops(store);
+            var decision = Decide(purchase, costs, lookup, job.Attempts, new OfferReviewOptions(job.Query, OwnShops: ownShops));
+            if (snapshots is not null)
+                await snapshots.SaveAsync(product.Id, job.Query, lookup,
+                    decision.Status == MarketPriceCheckStatus.Applied ? decision.Suggestion.Suggested : product.Price, ownShops, cancellationToken);
 
             job.LowestPrice = decision.Suggestion.Lowest;
             job.MedianPrice = decision.Suggestion.Median;
@@ -153,9 +160,10 @@ public sealed class MarketPricingService(
     /// <item>بقیه ← Kept (قیمت اولیهٔ سود هدف می‌ماند).</item>
     /// </list>
     /// </summary>
-    public static (MarketPriceCheckStatus Status, PriceSuggestion Suggestion, string Note) Decide(decimal purchase, PricingCosts costs, CompetitorLookup lookup, int attempts)
+    public static (MarketPriceCheckStatus Status, PriceSuggestion Suggestion, string Note) Decide(decimal purchase, PricingCosts costs, CompetitorLookup lookup, int attempts,
+        OfferReviewOptions? review = null)
     {
-        var suggestion = PriceAdvisor.Suggest(purchase, 0, costs, lookup.Offers);
+        var suggestion = PriceAdvisor.Suggest(purchase, 0, costs, lookup.Offers, review);
         if (suggestion.Offers.Count > 0)
         {
             var sources = string.Join("، ", suggestion.Offers.Select(o => o.Source).Distinct());

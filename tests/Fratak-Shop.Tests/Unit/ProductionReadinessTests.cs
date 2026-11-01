@@ -421,4 +421,41 @@ public class ProductionReadinessTests
         Assert.False(check.StillUsesDefault("09013181090", PasswordHasher.Hash("something-else")));
         Assert.False(check.StillUsesDefault("09013181090", null));
     }
+    [Fact]
+    public void Default_admin_without_password_gets_the_shared_initial_password_and_a_stable_key()
+    {
+        var shop = new Fratak_Shop.Web.Infrastructure.ShopOptions
+        {
+            DefaultAdmins =
+            [
+                new() { Key = "owner", PhoneNumber = "09013181090", FirstName = "محمدامین", LastName = "ناظری" },
+                new() { PhoneNumber = "09122222222" },
+            ],
+        };
+        var accounts = shop.DefaultAdminAccounts();
+        Assert.Equal(2, accounts.Count);
+        Assert.All(accounts, a => Assert.Equal(DefaultAdminAccount.DefaultInitialPassword, a.Password));
+        Assert.Equal("12345678", DefaultAdminAccount.DefaultInitialPassword);
+
+        // کلید ثابت: Key (حروف کوچک) یا اگر نبود شمارهٔ عادی‌شده؛ Key نامعتبر ← null (آن مورد نادیده گرفته می‌شود).
+        Assert.Equal("key:owner", accounts[0].StableKey());
+        Assert.Equal("phone:09122222222", accounts[1].StableKey());
+        Assert.Equal("key:partner_1", new DefaultAdminAccount("09120000000", Key: " Partner_1 ").StableKey());
+        Assert.Equal("phone:09013181090", new DefaultAdminAccount("+98 901 318 1090").StableKey());
+        Assert.Null(new DefaultAdminAccount("09120000000", Key: "مالک").StableKey());
+        Assert.Null(new DefaultAdminAccount("09120000000", Key: new string('a', DefaultAdminAccount.MaxKeyLength + 1)).StableKey());
+        Assert.Null(new DefaultAdminAccount("123").StableKey());
+
+        // هشدار «هنوز رمز اولیه» با کلید هم کار می‌کند (حتی اگر مدیر شماره‌اش را عوض کرده باشد).
+        var check = new Fratak_Shop.Web.Infrastructure.Auth.DefaultAdminPasswords(Microsoft.Extensions.Options.Options.Create(shop));
+        var hash = PasswordHasher.Hash("12345678");
+        Assert.True(check.StillUsesDefaultForKey("key:owner", hash));
+        Assert.False(check.StillUsesDefaultForKey("key:owner", PasswordHasher.Hash("changed-by-owner")));
+        Assert.False(check.StillUsesDefaultForKey("key:unknown", hash));
+        Assert.Contains("key:owner", check.Keys);
+
+        // رمز مشترک قابل تغییر از تنظیمات (Shop:DefaultAdminPassword).
+        shop.DefaultAdminPassword = "another-initial";
+        Assert.All(shop.DefaultAdminAccounts(), a => Assert.Equal("another-initial", a.Password));
+    }
 }

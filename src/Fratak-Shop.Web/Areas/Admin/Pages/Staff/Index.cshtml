@@ -29,6 +29,7 @@
                 <td data-label="نام">
                   <span class="font-semibold">@s.FullName</span>
                   @if (s.IsBlocked) { <span class="a-badge a-badge-red">مسدود</span> }
+                  @if (s.IsSystemAdmin) { <span class="a-badge a-badge-blue" title="تعریف‌شده در تنظیمات سرور (Shop:DefaultAdmins)؛ در هر اجرای برنامه بررسی می‌شود و حذف یا مسدود نمی‌شود.">@Icons.Svg("ShieldCheck", null, 12) مدیر اصلی</span> }
                   <div class="a-muted text-xs a-ltr text-right">@s.PhoneNumber</div>
                 </td>
                 <td data-label="نقش‌ها">

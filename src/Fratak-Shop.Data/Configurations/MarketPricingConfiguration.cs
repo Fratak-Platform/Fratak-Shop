@@ -28,3 +28,17 @@ public class MarketPriceCheckConfiguration : IEntityTypeConfiguration<MarketPric
         builder.Property(c => c.SuggestedPrice).HasPrecision(18, 0);
     }
 }
+
+/// <summary>آخرین قیمت رقبای هر محصول (مرحلهٔ پانزدهم): هر محصول یک ردیف؛ ایندکس زمان برای «تازه‌ترین بررسی‌ها».</summary>
+public class ProductCompetitorSnapshotConfiguration : IEntityTypeConfiguration<ProductCompetitorSnapshot>
+{
+    public void Configure(EntityTypeBuilder<ProductCompetitorSnapshot> builder)
+    {
+        builder.HasIndex(c => c.ProductId).IsUnique().HasFilter("[IsDeleted] = 0");
+        builder.HasIndex(c => c.CheckedAt);
+        builder.Property(c => c.LowestPrice).HasPrecision(18, 0);
+        builder.Property(c => c.MedianPrice).HasPrecision(18, 0);
+        builder.Property(c => c.TorobLowestPrice).HasPrecision(18, 0);
+        builder.Property(c => c.OurPrice).HasPrecision(18, 0);
+    }
+}

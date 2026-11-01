@@ -36,6 +36,10 @@ public class AdminCustomerService(FratakShopDbContext context, IRefreshTokenServ
         if (user is null)
             return OperationResult.NotFound("کاربر یافت نشد.");
 
+        // مرحلهٔ پانزدهم: مدیران اصلی تنظیمات سرور (مالک و شریک) هرگز مسدود نمی‌شوند.
+        if (blocked && user.SystemAdminKey is not null)
+            return OperationResult.Error("این حساب «مدیر اصلی» تعریف‌شده در تنظیمات سرور است و مسدود نمی‌شود.");
+
         if (user.Role == UserRole.SuperAdmin && !actor.IsOwner)
             return OperationResult.Error("مالک فروشگاه را فقط مالک دیگری می‌تواند مسدود کند.");
 

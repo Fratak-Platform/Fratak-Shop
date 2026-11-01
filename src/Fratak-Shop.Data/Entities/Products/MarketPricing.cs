@@ -29,6 +29,58 @@ public class CompetitorPriceCache : BaseEntity
     public DateTimeOffset FetchedAt { get; set; }
 }
 
+/// <summary>
+/// آخرین قیمت‌های رقبای یک محصول (مرحلهٔ پانزدهم) — برای اینکه تیم برای <b>هر محصول</b> ببیند رقبا چند می‌فروشند.
+/// <para>چه زمانی پر می‌شود: دکمهٔ «پیشنهاد قیمت فروش» در فرم محصول، دکمهٔ «بررسی» در صفحهٔ «رصد قیمت رقبا»
+/// و صف قیمت‌گذاری بازار محصولات درون‌ریزی‌شده. هر محصول فقط یک ردیف دارد (آخرین بررسی).</para>
+/// <para>کجا نمایش داده می‌شود: کارت «قیمت رقبا» در صفحهٔ ویرایش محصول و صفحهٔ «محصولات › رصد قیمت رقبا».</para>
+/// مثال: محصول «هدفون هایلو T15»، ارزان‌ترین فروشندهٔ ترب ۲۸۵ هزار از ۱۲ فروشنده، ارزان‌ترین کل ۲۷۹ هزار (باسلام)، بررسی: امروز ۱۰:۳۰.
+/// </summary>
+public class ProductCompetitorSnapshot : BaseEntity
+{
+    /// <summary>شناسهٔ محصول (یکتا؛ بدون کلید خارجی تا حذف محصول به این جدول گره نخورد).</summary>
+    public Guid ProductId { get; set; }
+
+    /// <summary>عبارتی که جست‌وجو شد. مثال: «هدفون هایلو T15».</summary>
+    [MaxLength(200)]
+    public string Query { get; set; } = "";
+
+    /// <summary>عنوان کالایی که در ترب انتخاب شد (برای اطمینان از اینکه همان کالاست).</summary>
+    [MaxLength(200)]
+    public string? MatchedTitle { get; set; }
+
+    /// <summary>همهٔ پیشنهادهای خام فروشگاه‌ها به JSON (CompetitorOffer[])؛ داوری هنگام نمایش دوباره انجام می‌شود.</summary>
+    public string OffersJson { get; set; } = "[]";
+
+    /// <summary>تعداد کل پیشنهادها.</summary>
+    public int OfferCount { get; set; }
+
+    /// <summary>تعداد پیشنهادهایی که سیستم معتبر دانست.</summary>
+    public int AcceptedCount { get; set; }
+
+    /// <summary>ارزان‌ترین قیمت معتبر بین همهٔ منابع (تومان).</summary>
+    public decimal? LowestPrice { get; set; }
+
+    /// <summary>میانهٔ قیمت‌های معتبر (تومان).</summary>
+    public decimal? MedianPrice { get; set; }
+
+    /// <summary>ارزان‌ترین فروشندهٔ معتبر ترب (تومان) — قیمت ما باید از این کمتر باشد.</summary>
+    public decimal? TorobLowestPrice { get; set; }
+
+    /// <summary>تعداد فروشندگان معتبر همین کالا در ترب.</summary>
+    public int TorobSellerCount { get; set; }
+
+    /// <summary>قیمت فروش ما هنگام بررسی (تومان؛ برای مقایسه با قیمت فعلی).</summary>
+    public decimal? OurPrice { get; set; }
+
+    /// <summary>خلاصهٔ مشکل منابع (مثلاً «ترب: کپچا»)، حداکثر ۱۰۰۰ نویسه.</summary>
+    [MaxLength(1000)]
+    public string? Problems { get; set; }
+
+    /// <summary>زمان بررسی.</summary>
+    public DateTimeOffset CheckedAt { get; set; }
+}
+
 /// <summary>وضعیت یک بررسی قیمت بازار.</summary>
 public enum MarketPriceCheckStatus
 {

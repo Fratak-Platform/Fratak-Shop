@@ -104,6 +104,8 @@ public static class CoreLayerBootstrapper
         // بررسی خودکار لینک تأمین‌کننده (مرحلهٔ هفتم – فاز ۵). ISupplierHttp در لایهٔ Web ثبت می‌شود.
         services.AddScoped<Services.Suppliers.ISupplierSyncService, Services.Suppliers.SupplierSyncService>();
         services.AddScoped<Services.Pricing.ICompetitorPriceService, Services.Pricing.CompetitorPriceService>();
+        // مرحلهٔ پانزدهم: آخرین قیمت رقبای هر محصول (کارت فرم محصول و صفحهٔ «رصد قیمت رقبا»).
+        services.AddScoped<Services.Pricing.IProductCompetitorService, Services.Pricing.ProductCompetitorService>();
         // مرحلهٔ سیزدهم: صف/استراحت مشترک منابع بیرونی (ترب، دیجی‌کالا، گوگل…)، کش ماندگار قیمت رقبا و قیمت‌گذاری بازار درون‌ریزی.
         services.AddSingleton<Utilities.IExternalSourceGate>(_ => new Utilities.ExternalSourceGate());
         services.AddSingleton<Services.Pricing.ICompetitorPriceStore, Services.Pricing.CompetitorPriceStore>();

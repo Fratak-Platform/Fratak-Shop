@@ -9,8 +9,9 @@ namespace Fratak_Shop.Web.Infrastructure;
 /// "Shop": {
 ///   "SeedDefaultData": true,     // دادهٔ پیش‌فرض سیستم، فقط روی پایگاه دادهٔ کاملاً تازه (یک بار برای همیشه)
 ///   "SeedDemoData": false,       // محصولات، دسته‌ها، کاربران و کدهای تخفیف ساختگی
+///   "DefaultAdminPassword": "12345678",
 ///   "DefaultAdmins": [
-///     { "PhoneNumber": "09013181090", "FirstName": "محمدامین", "LastName": "ناظری", "Password": "12345678" }
+///     { "Key": "owner", "PhoneNumber": "09013181090", "FirstName": "محمدامین", "LastName": "ناظری" }
 ///   ],
 ///   "CanonicalHost": "faratek.ir"
 /// }
@@ -36,19 +37,27 @@ public class ShopOptions
     public bool SeedDemoData { get; set; }
 
     /// <summary>
-    /// مدیران پیش‌فرض (هر تعداد). هر مورد در اولین اجرا با رمز اولیه‌اش ساخته می‌شود؛ قانون‌ها و مثال کامل:
-    /// <see cref="Core.Services.Admin.DefaultAdminAccount"/> و docs/DEPLOYMENT.md.
-    /// <para>رمز را روی سرور واقعی در فایل نگذارید؛ با متغیر محیطی بدهید: <c>Shop__DefaultAdmins__0__Password</c>
-    /// (عدد = جایگاه در فهرست، از ۰). مدیر دوم: <c>Shop__DefaultAdmins__1__PhoneNumber</c>، <c>…__1__Password</c> و …</para>
+    /// مدیران اصلی (هر تعداد؛ مثلاً مالک و شریک). در <b>هر</b> اجرای برنامه بررسی می‌شوند: اگر حسابشان نیست ساخته می‌شود،
+    /// اگر حذف یا مسدود شده برمی‌گردد و دسترسی‌شان تضمین می‌شود؛ ولی نام، شماره و رمزی که خودشان عوض کرده‌اند دست نمی‌خورد.
+    /// قانون‌ها و مثال کامل: <see cref="Core.Services.Admin.DefaultAdminAccount"/> و docs/DEPLOYMENT.md.
+    /// <para>متغیر محیطی: <c>Shop__DefaultAdmins__0__PhoneNumber</c>، <c>Shop__DefaultAdmins__1__Key</c> و … (عدد = جایگاه در فهرست، از ۰).</para>
     /// <para>نکته: فهرست‌ها در appsettings.{Environment}.json جایگاه‌به‌جایگاه با appsettings.json ادغام می‌شوند (حذف نمی‌شوند)؛
-    /// برای حذف یک مدیر پیش‌فرض او را از appsettings.json بردارید و حسابش را از پنل مسدود یا حذف کنید.</para>
+    /// برای کنار گذاشتن یک مدیر اصلی او را از appsettings.json بردارید؛ حسابش می‌ماند ولی از این به بعد مثل بقیهٔ کارکنان از پنل مدیریت می‌شود.</para>
     /// </summary>
     public List<DefaultAdminOptions> DefaultAdmins { get; set; } = [];
 
-    /// <summary>فهرست تنظیمات به مدل Core (موارد خالی حذف می‌شوند).</summary>
+    /// <summary>
+    /// رمز اولیهٔ مشترک مدیران اصلی که در فهرست رمز جداگانه ندارند (پیش‌فرض ۱۲۳۴۵۶۷۸). فقط هنگام ساخت حساب به کار می‌رود؛
+    /// بعد از اولین ورود، سیستم خودش کاربر را به صفحهٔ تغییر رمز می‌برد. خالی = بدون رمز (ورود فقط با کد پیامکی).
+    /// متغیر محیطی: <c>Shop__DefaultAdminPassword</c>.
+    /// </summary>
+    public string? DefaultAdminPassword { get; set; } = Core.Services.Admin.DefaultAdminAccount.DefaultInitialPassword;
+
+    /// <summary>فهرست تنظیمات به مدل Core (موارد بدون شماره حذف می‌شوند؛ رمز خالی ← <see cref="DefaultAdminPassword"/>).</summary>
     public IReadOnlyList<Core.Services.Admin.DefaultAdminAccount> DefaultAdminAccounts()
         => DefaultAdmins.Where(a => a is not null && !string.IsNullOrWhiteSpace(a.PhoneNumber))
-            .Select(a => new Core.Services.Admin.DefaultAdminAccount(a.PhoneNumber, a.FirstName, a.LastName, a.Password, a.FullAccess, a.Roles))
+            .Select(a => new Core.Services.Admin.DefaultAdminAccount(a.PhoneNumber, a.FirstName, a.LastName,
+                string.IsNullOrEmpty(a.Password) ? DefaultAdminPassword : a.Password, a.FullAccess, a.Roles, a.Key))
             .ToList();
 
     /// <summary>
@@ -65,6 +74,12 @@ public class ShopOptions
 /// </summary>
 public sealed class DefaultAdminOptions
 {
+    /// <summary>
+    /// کلید ثابت اختیاری (لاتین، مثل «owner» یا «partner»). با آن، حساب در هر اجرا پیدا می‌شود حتی اگر شمارهٔ این فهرست را بعداً
+    /// عوض کنید. خالی = شمارهٔ همین فهرست کلید است.
+    /// </summary>
+    public string? Key { get; set; }
+
     /// <summary>موبایل، مثال «09013181090».</summary>
     public string? PhoneNumber { get; set; }
 
@@ -74,7 +89,7 @@ public sealed class DefaultAdminOptions
     /// <summary>نام خانوادگی، مثال «ناظری».</summary>
     public string? LastName { get; set; }
 
-    /// <summary>رمز اولیه (۸ تا ۱۰۰ نویسه). فقط هنگام ساخت حساب (یا حساب بی‌رمز) استفاده می‌شود؛ بعد از اولین ورود عوضش کنید.</summary>
+    /// <summary>رمز اولیهٔ اختصاصی (۸ تا ۱۰۰ نویسه)؛ خالی = <see cref="ShopOptions.DefaultAdminPassword"/>. فقط هنگام ساخت حساب استفاده می‌شود.</summary>
     public string? Password { get; set; }
 
     /// <summary>true (پیش‌فرض) = همهٔ دسترسی‌ها؛ false = فقط <see cref="Roles"/>.</summary>
@@ -84,5 +99,5 @@ public sealed class DefaultAdminOptions
     public List<string> Roles { get; set; } = [];
 
     /// <summary>رمز در لاگ/دیباگر چاپ نشود.</summary>
-    public override string ToString() => $"DefaultAdmin {PhoneNumber} (password {(string.IsNullOrEmpty(Password) ? "none" : "***")})";
+    public override string ToString() => $"DefaultAdmin {Key} {PhoneNumber} (password {(string.IsNullOrEmpty(Password) ? "none" : "***")})";
 }

@@ -389,6 +389,11 @@ else
         </div>
       </div>
     }
+    @if (Model.Can(AdminPermissions.ProductsView) && Model.ProductId is { } competitorProductId)
+    {
+      @* مرحلهٔ پانزدهم: آخرین قیمت رقبای همین محصول. *@
+      <div class="xl:col-span-2"><partial name="_CompetitorCard" model="new CompetitorCardModel(competitorProductId, Model.Competitors, Model.CanEditProduct)" /></div>
+    }
   </div>
 }
 
@@ -417,7 +422,7 @@ else
         <div class="a-field">
           <label class="a-label" for="pa-query">نام کالا برای جست‌وجو در سایت‌های دیگر</label>
           <input id="pa-query" type="search" maxlength="120" class="a-input" placeholder="مثلاً هندزفری بلوتوثی هایلو T15">
-          <p class="a-help">ترب (همهٔ فروشگاه‌های آن کالا) و دیجی‌کالا جست‌وجو می‌شوند. نام دقیق با مدل، نتیجهٔ بهتری می‌دهد.</p>
+          <p class="a-help">همهٔ فروشندگان ترب، دیجی‌کالا، غرفه‌های باسلام و فروشگاه‌های دیگری که در جست‌وجوی وب پیدا شوند بررسی می‌شوند. سیستم هر قیمت را داوری می‌کند (کالای دیگر، لوازم جانبی، مدل دیگر، قیمت پرت). نام دقیق با مدل، نتیجهٔ بهتری می‌دهد.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" class="a-btn a-btn-sm" data-advisor-run>جست‌وجو و محاسبه</button>
@@ -429,18 +434,30 @@ else
             <div><span>قیمت پیشنهادی</span><b data-advisor-field="suggested"></b></div>
             <div><span>سود خالص هر عدد</span><b data-advisor-field="profit"></b></div>
             <div><span>کل هزینه</span><b data-advisor-field="totalCost"></b></div>
-            <div><span>سربه‌سر</span><b data-advisor-field="breakEven"></b></div>
             <div><span>کمترین قیمت مجاز</span><b data-advisor-field="minPrice"></b></div>
             <div><span>قیمت با سود هدف</span><b data-advisor-field="targetPrice"></b></div>
+            <div><span>جایگاه در ترب با این قیمت</span><b data-advisor-field="torob"></b></div>
           </div>
           <p class="a-alert a-alert-info text-sm" data-advisor-field="reason"></p>
+          @* نوار بازهٔ قیمت رقبا: کمترین تا بیشترین قیمت معتبر، با نشانهٔ قیمت پیشنهادی و میانه. *@
+          <div class="a-price-range" data-advisor-range hidden>
+            <div class="a-price-range-bar"><i data-range-median title="میانه"></i><i data-range-ours title="قیمت پیشنهادی"></i></div>
+            <div class="a-price-range-labels"><span data-range-min></span><span data-range-mid></span><span data-range-max></span></div>
+          </div>
           <p class="a-muted text-xs" data-advisor-field="matched"></p>
+          <div class="a-price-advisor-tabs" role="tablist" aria-label="منبع قیمت‌ها">
+            <button type="button" role="tab" class="is-active" aria-selected="true" data-advisor-tab="all">همه <small data-tab-count="all"></small></button>
+            <button type="button" role="tab" aria-selected="false" data-advisor-tab="accepted">حساب‌شده <small data-tab-count="accepted"></small></button>
+            <button type="button" role="tab" aria-selected="false" data-advisor-tab="rejected">کنارگذاشته <small data-tab-count="rejected"></small></button>
+          </div>
+          <div class="a-price-advisor-sources" data-advisor-sources aria-label="فیلتر منبع"></div>
           <div class="a-table-wrap">
-            <table class="a-table">
-              <thead><tr><th>فروشگاه</th><th>قیمت (تومان)</th><th>منبع</th></tr></thead>
+            <table class="a-table a-competitor-table">
+              <thead><tr><th>فروشگاه</th><th>منبع</th><th>قیمت (تومان)</th><th>داوری</th><th><span class="sr-only">کار</span></th></tr></thead>
               <tbody data-advisor-offers></tbody>
             </table>
           </div>
+          <p class="a-help">«حذف» یعنی این قیمت (لینک اشتباه، کالای دیگر یا کالای غیرهم‌ارز) <b>فقط در همین محاسبه</b> حساب نشود؛ ذخیره نمی‌شود و دفعهٔ بعد دوباره داوری می‌شود. «حساب کن» قیمتی را که سیستم کنار گذاشته بود وارد محاسبه می‌کند.</p>
           <ul class="a-muted text-xs" data-advisor-problems></ul>
           <div class="flex flex-wrap gap-2 mt-3">
             <button type="button" class="a-btn a-btn-success" data-advisor-apply>استفاده از این قیمت</button>
