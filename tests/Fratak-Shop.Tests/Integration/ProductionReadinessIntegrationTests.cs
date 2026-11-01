@@ -66,9 +66,10 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
             Assert.False(string.IsNullOrEmpty(owner.SecurityStamp));
             Assert.True((await access.GetAccessAsync(owner.Id)).IsOwner);
             // رمز هرگز در یادداشت‌های لاگ نمی‌آید؛ شماره هم پوشیده است.
-            Assert.Single(notes);
-            Assert.DoesNotContain("12345678", notes[0], StringComparison.Ordinal);
-            Assert.DoesNotContain(phone, notes[0], StringComparison.Ordinal);
+            // (دیتابیس آزمون مشترک است؛ ممکن است یادداشت «آزاد شدن» کلید آزمون‌های دیگر هم باشد.)
+            Assert.Single(notes, n => n.StartsWith("ساخته شد", StringComparison.Ordinal));
+            Assert.All(notes, n => Assert.DoesNotContain("12345678", n, StringComparison.Ordinal));
+            Assert.All(notes, n => Assert.DoesNotContain(phone, n, StringComparison.Ordinal));
 
             // ۲) کاربر رمز، نام و شماره‌اش را عوض کرد: اجرای دوباره هیچ‌کدام را برنمی‌گرداند و حساب تازه‌ای با شمارهٔ قدیمی نمی‌سازد.
             var tracked = await context.Users.AsTracking().SingleAsync(u => u.Id == owner.Id);
