@@ -178,7 +178,9 @@ public class SmartSeoIntegrationTests(SqlServerFixture db)
 
         var stats = await Knowledge.GetStatsAsync();
         Assert.True(stats.Seeded);
-        Assert.True(stats.Total >= 100_000, $"{stats.Total}");
+        // واژه‌نامهٔ عمومی (ردیف‌های Known) فقط در حافظه است؛ در جدول، قاعده‌ها و واژه‌های ویژه ذخیره می‌شوند.
+        var stored = SeoKnowledgeSeed.StoredRows.Count();
+        Assert.True(stats.Total >= stored * 0.95, $"{stats.Total} < {stored}");
         Assert.Contains(stats.ByKind, k => k.Kind == SeoKnowledgeKind.Correction && k.Total > 0);
 
         Knowledge.Invalidate();

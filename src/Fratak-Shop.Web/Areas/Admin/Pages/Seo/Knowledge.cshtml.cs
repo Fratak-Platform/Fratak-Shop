@@ -31,6 +31,11 @@ public class KnowledgeModel(ISeoKnowledgeService knowledge) : AdminPageModel
         SeoKnowledgeKind.Word, SeoKnowledgeKind.Compound,
     ];
 
+    /// <summary>تعداد واژه‌های واژه‌نامهٔ داخلی (فقط در حافظه، نه در جدول). مثال: حدود ۱۶۶ هزار.</summary>
+    public static int LexiconCount => Lexicon.Value;
+
+    private static readonly Lazy<int> Lexicon = new(() => SeoKnowledgeSeed.Rows.Count(r => r.Known));
+
     public async Task OnGetAsync([FromQuery(Name = "page")] int pageNumber = 1)
     {
         var ct = HttpContext.RequestAborted;

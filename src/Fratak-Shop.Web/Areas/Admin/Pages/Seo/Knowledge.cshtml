@@ -33,6 +33,7 @@
     <div class="a-stat-label">@Icons.Svg("Database", null, 16) کل ردیف‌ها</div>
     <div class="a-stat-value">@Format.Number(s.Total)</div>
     <div class="a-stat-sub">@(s.Seeded ? $"دادهٔ اولیه نسخهٔ {s.SeedVersion} بارگذاری شده" : "دادهٔ اولیه در حال بارگذاری است (چند دقیقه بعد از راه‌اندازی)")</div>
+    <div class="a-stat-sub">+ @Format.Number(KnowledgeModel.LexiconCount) واژهٔ واژه‌نامهٔ داخلی (برای املا و نیم‌فاصله)</div>
   </div>
   <div class="a-stat">
     <div class="a-stat-label">@Icons.Svg("Brain", null, 16) آموخته</div>
