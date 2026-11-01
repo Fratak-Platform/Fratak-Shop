@@ -61,6 +61,11 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="same-origin">
   <meta name="csrf-token" content="@csrfToken">
+  @if (access is not null && access.HasAny(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Permissions))
+  {
+    @* دکمه‌های «پیشنهاد هوشمند» و «سئوی هوشمند» (smart.js) فقط برای کارمندانی که حداقل یکی از مجوزهای محتوا را دارند. *@
+    <meta name="fratak-smart" content="/admin/seo/smart">
+  }
   <meta name="color-scheme" content="@(theme == "dark" ? "dark" : "light")">
   <title>@title | مدیریت @Site.Settings.SiteName</title>
   <partial name="_BrandHead" />
@@ -275,6 +280,7 @@
   <script src="~/assets/js/admin-edit.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-orders.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-team.js" asp-append-version="true"></script>
+  <script src="~/assets/js/smart.js" asp-append-version="true"></script>
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

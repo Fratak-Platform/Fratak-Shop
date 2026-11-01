@@ -1,0 +1,186 @@
+@page "/admin/seo/knowledge"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.KnowledgeModel
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Areas.Admin.Pages.Seo
+@*
+  جدول دانش سئو (مرحلهٔ شانزدهم).
+  • آمار: کل ردیف‌ها، آموخته‌ها (تأیید/رد کارشناس و انتخاب‌های «پیشنهاد هوشمند»)، عبارت‌های تحقیق اینترنتی، دستی، غیرفعال.
+  • فهرست قابل جست‌وجو با فیلتر نوع/منبع/وضعیت؛ هر ردیف قابل غیرفعال‌کردن است (مثلاً اصلاحی که برای فروشگاه شما درست نیست).
+  • افزودن ردیف دستی (اصلاح املایی، عبارت اسپم، هم‌معنی، دعوت به اقدام …).
+*@
+@{
+    ViewData["Title"] = "جدول دانش سئو";
+    var s = Model.Stats;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>جدول دانش سئو</h2>
+    <p class="a-muted text-sm mt-1">
+      دانش داخلی موتور سئو و «پیشنهاد هوشمند»: واژگان و فعل‌های فارسی، غلط‌های رایج املایی، عبارت‌های کلیشه‌ای، الگوهای تیتر و پرسش،
+      دعوت به اقدام، هم‌معنی‌ها و عبارت‌های اسپم. هر تحقیق اینترنتی موتور (عبارت‌های واقعی جست‌وجو) و هر تأیید یا رد کارشناس‌ها
+      در همین جدول ثبت می‌شود تا پیشنهادها روزبه‌روز دقیق‌تر شوند — بدون هیچ سرویس پولی.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/seo/smart">@Icons.Svg("MagicWand", null, 18) ویرایشگر هوشمند متن</a>
+    <a class="a-btn a-btn-light" href="/admin/seo/engine">@Icons.Svg("Gauge", null, 18) موتور سئو</a>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Database", null, 16) کل ردیف‌ها</div>
+    <div class="a-stat-value">@Format.Number(s.Total)</div>
+    <div class="a-stat-sub">@(s.Seeded ? $"دادهٔ اولیه نسخهٔ {s.SeedVersion} بارگذاری شده" : "دادهٔ اولیه در حال بارگذاری است (چند دقیقه بعد از راه‌اندازی)")</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Brain", null, 16) آموخته</div>
+    <div class="a-stat-value">@Format.Number(s.Learned)</div>
+    <div class="a-stat-sub">@(s.LastLearnedAt is { } at ? "آخرین یادگیری " + AdminUi.Ago(at) : "هنوز یادگیری ثبت نشده")</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("MagnifyingGlass", null, 16) از تحقیق اینترنتی</div>
+    <div class="a-stat-value">@Format.Number(s.Research)</div>
+    <div class="a-stat-sub">عبارت‌های واقعی جست‌وجوی کاربران</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("PencilSimple", null, 16) دستی / غیرفعال</div>
+    <div class="a-stat-value">@Format.Number(s.Manual) / @Format.Number(s.Disabled)</div>
+    <div class="a-stat-sub">ردیف غیرفعال در هیچ پیشنهادی استفاده نمی‌شود</div>
+  </div>
+</div>
+
+<div class="a-alert a-alert-info mb-4">
+  @Icons.Svg("ShieldCheck", null, 16)
+  <span>
+    ایمن در برابر جریمهٔ گوگل: از رقبا هیچ متنی کپی نمی‌شود (فقط عبارت‌های کوتاه جست‌وجو و واژه‌های پرتکرار)، ادعای بی‌پشتوانه (مثل «ضمانت اصالت»)
+    ساخته نمی‌شود و همهٔ پیشنهادها پیش از نمایش از نظر تراکم کلمهٔ کلیدی، تکرار و عبارت‌های اسپم بررسی می‌شوند.
+  </span>
+</div>
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">ردیف‌ها به تفکیک نوع</span></div>
+    <div class="a-card-body flex flex-wrap gap-2">
+      @foreach (var (kind, total, active) in s.ByKind)
+      {
+        <a class="a-chip" href="@Model.UrlWith(("kind", kind.ToString()), ("page", null))">
+          @KnowledgeModel.KindTitle(kind) <b>@Format.Number(total)</b>@if (active < total) { <small class="a-muted"> (@Format.Number(total - active) غیرفعال)</small> }
+        </a>
+      }
+    </div>
+  </div>
+  <form method="post" asp-page-handler="Add" class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Plus", null, 18) افزودن ردیف دستی</span></div>
+    <div class="a-card-body a-stack">
+      <div class="a-field">
+        <label class="a-label" for="k-kind">نوع</label>
+        <select id="k-kind" name="kind" class="a-select">
+          @foreach (var kind in KnowledgeModel.ManualKinds)
+          {
+            <option value="@kind">@KnowledgeModel.KindTitle(kind)</option>
+          }
+        </select>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="k-term">عبارت <span class="req">*</span></label>
+        <input id="k-term" name="term" class="a-input" maxlength="200" required data-smart="off" placeholder="مثلاً باطری">
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="k-value">مقدار</label>
+        <input id="k-value" name="value" class="a-input" maxlength="1000" data-smart="off" placeholder="مثلاً باتری (برای هم‌معنی: گزینه‌ها با |)">
+        <p class="a-help">اصلاح املایی/سبک: شکل درست (خالی = حذف عبارت). هم‌معنی: جایگزین‌ها با «|». دعوت به اقدام و مزیت: شرط (any، stock، warranty …).</p>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="k-topic">موضوع / نوع صفحه</label>
+        <input id="k-topic" name="topic" class="a-input" maxlength="100" data-smart="off" placeholder="مثلاً product یا املا">
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="k-weight">وزن (۰٫۱ تا ۱٫۵)</label>
+        <input id="k-weight" name="weight" type="number" min="0.1" max="1.5" step="0.1" value="1" class="a-input a-ltr">
+        <p class="a-help">وزن ۰٫۷ یا بیشتر = اعمال خودکار در «درست‌نویسی»؛ کمتر = فقط پیشنهاد.</p>
+      </div>
+      <button type="submit" class="a-btn">ذخیره</button>
+    </div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-card-body">
+    <form method="get" class="a-filters">
+      <div>
+        <label class="a-label" for="f-q">جست‌وجو</label>
+        <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="عبارت، مقدار یا موضوع">
+      </div>
+      <div>
+        <label class="a-label" for="f-kind">نوع</label>
+        <select id="f-kind" name="kind" class="a-input">
+          <option value="">همه</option>
+          @foreach (var kind in Enum.GetValues<SeoKnowledgeKind>().Where(k => k is not (SeoKnowledgeKind.None or SeoKnowledgeKind.Meta)))
+          {
+            <option value="@kind" selected="@(Model.Kind == kind ? "selected" : null)">@KnowledgeModel.KindTitle(kind)</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="a-label" for="f-source">منبع</label>
+        <select id="f-source" name="source" class="a-input">
+          <option value="">همه</option>
+          @foreach (var source in Enum.GetValues<SeoKnowledgeSource>().Where(x => x != SeoKnowledgeSource.None))
+          {
+            <option value="@source" selected="@(Model.Source == source ? "selected" : null)">@KnowledgeModel.SourceTitle(source)</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="a-label" for="f-active">وضعیت</label>
+        <select id="f-active" name="active" class="a-input">
+          <option value="">همه</option>
+          <option value="true" selected="@(Model.Active == true ? "selected" : null)">فعال</option>
+          <option value="false" selected="@(Model.Active == false ? "selected" : null)">غیرفعال</option>
+        </select>
+      </div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+    </form>
+  </div>
+
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>عبارت</th><th>مقدار</th><th>نوع / موضوع</th><th>منبع</th><th>یادگیری</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var row in Model.List.Items)
+        {
+          <tr class="@(row.IsActive ? "" : "opacity-60")">
+            <td data-label="عبارت"><b>@row.Term</b></td>
+            <td data-label="مقدار" class="text-sm break-all">@(string.IsNullOrEmpty(row.Value) ? "—" : row.Value)</td>
+            <td data-label="نوع / موضوع" class="text-xs">
+              <span class="a-badge a-badge-gray">@KnowledgeModel.KindTitle(row.Kind)</span>
+              @if (!string.IsNullOrEmpty(row.Topic)) { <div class="a-muted mt-1">@row.Topic</div> }
+            </td>
+            <td data-label="منبع" class="text-xs">
+              <span class="a-badge @(row.Source == SeoKnowledgeSource.Learned ? "a-badge-green" : row.Source == SeoKnowledgeSource.Research ? "a-badge-blue" : row.Source == SeoKnowledgeSource.Manual ? "a-badge-purple" : "a-badge-gray")">@KnowledgeModel.SourceTitle(row.Source)</span>
+              <div class="a-muted mt-1">وزن @row.Weight.ToString("0.##")</div>
+            </td>
+            <td data-label="یادگیری" class="text-xs nowrap">
+              <div>✓ @Format.Number(row.Successes) · ✕ @Format.Number(row.Rejections)</div>
+              <div class="a-muted">@Format.Number(row.Uses) بار استفاده</div>
+            </td>
+            <td data-label="">
+              <form method="post" asp-page-handler="Toggle">
+                <input type="hidden" name="id" value="@row.Id">
+                <input type="hidden" name="active" value="@(row.IsActive ? "false" : "true")">
+                <button type="submit" class="a-btn a-btn-xs a-btn-light">@(row.IsActive ? "غیرفعال" : "فعال")</button>
+              </form>
+            </td>
+          </tr>
+        }
+        @if (Model.List.Items.Count == 0)
+        {
+          <tr><td colspan="6" class="a-muted text-center py-6">ردیفی با این فیلتر پیدا نشد.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <partial name="_AdminPager" model="Model.Pager" />
+</div>

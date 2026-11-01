@@ -157,6 +157,20 @@ public sealed class SeoBulkEditService(FratakShopDbContext context, ISeoEngineSe
                         .Select(p => new { p.Id, p.Title, p.Slug, T = p.Seo!.Title, M = p.Seo!.MetaDescription, F = p.Seo!.FocusKeyword })
                         .ToListAsync(cancellationToken))
                     .Select(p => new Item(p.Id, p.Title, "/page/" + p.Slug, p.T, p.M, p.F)).ToList();
+            case SeoEntityKind.StaticPage:
+            {
+                // صفحه‌های ثابت (مرحلهٔ شانزدهم): همیشه همهٔ صفحه‌ها نشان داده می‌شوند، حتی اگر هنوز ردیف PageSeo نداشته باشند.
+                var pages = StaticSeoPages.All.Where(p => idList == null || idList.Contains(StaticSeoPages.IdOf(p.Page))).ToList();
+                var keys = pages.Select(p => p.Page).ToList();
+                var rows = await context.PageSeos.AsNoTracking().Where(p => keys.Contains(p.Page))
+                    .Select(p => new { p.Page, T = p.Seo!.Title, M = p.Seo!.MetaDescription, F = p.Seo!.FocusKeyword })
+                    .ToListAsync(cancellationToken);
+                return pages.Select(p =>
+                {
+                    var row = rows.FirstOrDefault(r => r.Page == p.Page);
+                    return new Item(StaticSeoPages.IdOf(p.Page), StaticSeoPages.Label(p.Page), p.Path, row?.T, row?.M, row?.F);
+                }).ToList();
+            }
             default:
                 return [];
         }
@@ -183,6 +197,31 @@ public sealed class SeoBulkEditService(FratakShopDbContext context, ISeoEngineSe
             case SeoEntityKind.ContentPage:
                 return (await context.ContentPages.AsTracking().Where(p => p.IsActive && idList.Contains(p.Id)).ToListAsync(cancellationToken))
                     .ToDictionary(p => p.Id, p => new Holder(p.Title, () => p.Seo, s => p.Seo = s));
+            case SeoEntityKind.StaticPage:
+            {
+                var pages = StaticSeoPages.All.Where(p => idList.Contains(StaticSeoPages.IdOf(p.Page))).ToList();
+                var keys = pages.Select(p => p.Page).ToList();
+                var rows = await context.PageSeos.AsTracking().Where(p => keys.Contains(p.Page)).ToListAsync(cancellationToken);
+                var result = new Dictionary<Guid, Holder>();
+                foreach (var page in pages)
+                {
+                    var row = rows.FirstOrDefault(r => r.Page == page.Page);
+                    if (row is null)
+                    {
+                        // ردیف فقط وقتی واقعاً ذخیره شود ساخته می‌شود (Set صدا زده شود).
+                        var created = new Fratak_Shop.Data.Entities.Pages.PageSeo { Page = page.Page };
+                        result[StaticSeoPages.IdOf(page.Page)] = new Holder(StaticSeoPages.Label(page.Page), () => created.Seo, s =>
+                        {
+                            created.Seo = s;
+                            if (context.Entry(created).State == EntityState.Detached)
+                                context.PageSeos.Add(created);
+                        });
+                    }
+                    else
+                        result[StaticSeoPages.IdOf(page.Page)] = new Holder(StaticSeoPages.Label(page.Page), () => row.Seo, s => row.Seo = s);
+                }
+                return result;
+            }
             default:
                 return new Dictionary<Guid, Holder>();
         }

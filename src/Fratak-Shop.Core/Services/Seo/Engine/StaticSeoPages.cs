@@ -37,6 +37,18 @@ public static class StaticSeoPages
 
     public static StaticSeoPage? Find(SitePage page) => All.FirstOrDefault(p => p.Page == page);
 
+    /// <summary>نام نمایشی صفحه در پنل. مثال: SitePage.Home → «صفحهٔ اصلی».</summary>
+    public static string Label(SitePage page) => page switch
+    {
+        SitePage.Home => "صفحهٔ اصلی",
+        SitePage.Products => "همهٔ محصولات",
+        SitePage.Blog => "وبلاگ",
+        SitePage.Faq => "سؤالات متداول",
+        SitePage.ContactUs => "تماس با ما",
+        SitePage.CustomerClub => "باشگاه مشتریان",
+        _ => page.ToString(),
+    };
+
     /// <summary>
     /// نام (موضوع صفحه برای کلمهٔ کلیدی)، عنوان پیش‌فرض و توضیح پیش‌فرض. مثال برای وبلاگ:
     /// («وبلاگ فراتک»، «وبلاگ»، «جدیدترین مقالات، راهنمای خرید و اخبار دنیای تکنولوژی.»).

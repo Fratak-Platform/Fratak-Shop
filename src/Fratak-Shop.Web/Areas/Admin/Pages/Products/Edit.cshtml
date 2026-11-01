@@ -54,7 +54,8 @@
   <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
         data-edit-key="@(Model.IsNew ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
         data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(Model.IsNew ? "محصول جدید" : "محصول: " + i.Name)"
-        data-autosave-ignore="Input.Images,Input.PrimaryImage">
+        data-autosave-ignore="Input.Images,Input.PrimaryImage"
+        data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("Product", Model.ProductId, new { name = "#p-name", english = "#p-en", slug = "#p-slug", category = "#p-cat", brand = "#p-brand", summary = "#p-short", body = "#p-desc", warrantyTitle = "#p-wt", warrantyMonths = "#p-wm" }))">
     <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
     <div class="a-grid xl:grid-cols-3">
       <div class="xl:col-span-2 a-stack">
@@ -234,7 +235,7 @@
                 <div class="a-field"><label class="a-label" for="p-ssku">کد کالا نزد تأمین‌کننده</label><input id="p-ssku" name="Input.SupplierSku" value="@i.SupplierSku" class="a-input a-ltr" maxlength="100"></div>
                 <div class="a-field"><label class="a-label" for="p-cost">قیمت خرید (تومان)</label><input id="p-cost" type="number" name="Input.PurchasePrice" value="@(i.PurchasePrice?.ToString("0", inv))" min="0" class="a-input a-ltr" data-money></div>
               </div>
-              <div class="a-field"><label class="a-label" for="p-snote">یادداشت خرید</label><input id="p-snote" name="Input.SupplierNote" value="@i.SupplierNote" class="a-input" maxlength="500" placeholder="مثلاً رنگ مشکی را انتخاب کنید"></div>
+              <div class="a-field"><label class="a-label" for="p-snote">یادداشت خرید</label><input id="p-snote" name="Input.SupplierNote" value="@i.SupplierNote" class="a-input" maxlength="500" data-smart="off" placeholder="مثلاً رنگ مشکی را انتخاب کنید"></div>
               <div class="a-field"><label class="a-label" for="p-mpn">MPN (کد سازنده)</label><input id="p-mpn" name="Input.Mpn" value="@i.Mpn" class="a-input a-ltr" maxlength="50"></div>
               <div class="a-field">
                 <label class="a-check"><input type="checkbox" name="Input.ExcludeFromSupplierSync" value="true" checked="@i.ExcludeFromSupplierSync"> از بررسی خودکار تأمین‌کننده خارج شود (ناموجود دستی)</label>
@@ -310,7 +311,7 @@ else
         <p class="a-muted text-sm mt-3">@i.ShortDescription</p>
       </div>
     </div>
-    <form method="post" asp-page-handler="Seo" class="a-card xl:col-span-2" id="seo">
+    <form method="post" asp-page-handler="Seo" class="a-card xl:col-span-2" id="seo" data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("Product", Model.ProductId))">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو محصول</span></div>
       <div class="a-card-body">
         @await Html.PartialAsync("_SeoFields", new SeoFieldsModel("Input.Seo", i.Seo, previewUrl, null, null))

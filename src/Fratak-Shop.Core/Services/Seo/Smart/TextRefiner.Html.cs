@@ -105,8 +105,21 @@ public static partial class TextRefiner
     private static void CleanDocument(IDocument document, SmartVariant variant)
     {
         var body = document.Body!;
-        foreach (var junk in body.QuerySelectorAll("script,style,noscript,template").ToList())
+        foreach (var junk in body.QuerySelectorAll("script,style,noscript,template,iframe,object,embed,form").ToList())
             junk.Remove();
+
+        // رویدادهای درون‌خطی (onclick، onerror …) و نشانی‌های javascript: هیچ‌وقت در خروجی نمی‌مانند
+        // (متن ممکن است از سایت تأمین‌کننده وارد شده باشد).
+        foreach (var element in body.QuerySelectorAll("*").ToList())
+        {
+            foreach (var attribute in element.Attributes.ToList())
+            {
+                var unsafeUrl = attribute.Name is "href" or "src" or "action" or "formaction" or "xlink:href"
+                    && attribute.Value.Trim().Replace("\t", "").Replace("\n", "").StartsWith("javascript:", StringComparison.OrdinalIgnoreCase);
+                if (attribute.Name.StartsWith("on", StringComparison.OrdinalIgnoreCase) || unsafeUrl)
+                    element.RemoveAttribute(attribute.Name);
+            }
+        }
 
         // متن پنهان = فریب گوگل (Hidden text) → حذف
         var hidden = body.QuerySelectorAll("[style]").Where(e => HiddenStyle().IsMatch(e.GetAttribute("style") ?? "")).ToList();

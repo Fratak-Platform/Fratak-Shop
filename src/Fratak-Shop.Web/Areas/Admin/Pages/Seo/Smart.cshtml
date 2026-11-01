@@ -1,0 +1,54 @@
+@page "/admin/seo/smart"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.SmartModel
+@*
+  ویرایشگر هوشمند متن (مرحلهٔ شانزدهم): هر متنی را این‌جا بچسبانید و با «پیشنهاد هوشمند» نسخهٔ بهتر بگیرید.
+  همین صفحه هندلرهای Draft/Text/Feedback دکمه‌های «سئوی هوشمند» و «پیشنهاد هوشمند» همهٔ فرم‌های پنل را هم دارد.
+  این‌جا فرمی ارسال نمی‌شود؛ data-smart-purpose-from به smart.js می‌گوید نوع متن را از فهرست «نوع متن» بخواند.
+*@
+@{
+    ViewData["Title"] = "ویرایشگر هوشمند متن";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>ویرایشگر هوشمند متن</h2>
+    <p class="a-muted text-sm mt-1">
+      متن را بنویسید یا بچسبانید و «پیشنهاد هوشمند» را بزنید: درست‌نویسی (نیم‌فاصله، املا، علائم)، حذف عبارت‌های کلیشه‌ای،
+      ساختاربندی با تیتر و فهرست، بهینه‌سازی برای گوگل و جذاب‌تر کردن برای مشتری — همه با موتور داخلی و بدون هزینه.
+      همین دکمه کنار همهٔ فیلدهای متنی پنل (محصول، مقاله، صفحه‌ها، دسته و برند) هم هست.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.SeoManage))
+    {
+      <a class="a-btn a-btn-light" href="/admin/seo/knowledge">@Icons.Svg("Database", null, 18) جدول دانش سئو</a>
+      <a class="a-btn a-btn-light" href="/admin/seo/engine">@Icons.Svg("Gauge", null, 18) موتور سئو</a>
+    }
+  </div>
+</div>
+
+<div class="a-card" data-smart-tool>
+  <div class="a-card-body a-form-grid cols-2">
+    <div class="a-field">
+      <label class="a-label" for="smart-purpose">نوع متن</label>
+      <select id="smart-purpose" class="a-select" data-smart="off">
+        <option value="Plain">متن معمولی</option>
+        <option value="ProductName">نام محصول</option>
+        <option value="SeoTitle">عنوان سئو</option>
+        <option value="MetaDescription">توضیحات متا</option>
+        <option value="ShortText">توضیح کوتاه / خلاصه</option>
+        <option value="Body">متن بلند (مقاله، توضیحات کامل)</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="smart-keyword">کلمهٔ کلیدی (اختیاری)</label>
+      <input id="smart-keyword" class="a-input" maxlength="200" data-focus-keyword data-smart="off" placeholder="مثلاً هدفون بی‌سیم">
+    </div>
+    <div class="a-field span-all">
+      <label class="a-label" for="smart-text">متن</label>
+      <textarea id="smart-text" name="text" class="a-textarea" rows="12" maxlength="200000" data-smart-purpose-from="#smart-purpose"
+                placeholder="متن خود را این‌جا بنویسید…"></textarea>
+      <p class="a-help">متن ذخیره نمی‌شود؛ فقط آمار انتخاب نسخه‌ها (بدون خود متن) برای بهتر شدن پیشنهادها نگه داشته می‌شود.</p>
+    </div>
+  </div>
+</div>

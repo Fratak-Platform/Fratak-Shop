@@ -40,7 +40,8 @@
 {
   <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
         data-edit-key="@(post is null ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
-        data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(post is null ? "مقالهٔ جدید" : "مقاله: " + post.Title)">
+        data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(post is null ? "مقالهٔ جدید" : "مقاله: " + post.Title)"
+        data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("BlogPost", post?.Id, new { name = "#bp-title", slug = "#bp-slug", summary = "#bp-excerpt", body = "#bp-content" }))">
     <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
     <div class="a-grid xl:grid-cols-3">
       <div class="xl:col-span-2 a-stack">
@@ -139,7 +140,7 @@ else if (post is not null && Model.CanSeo)
       <a class="a-link text-sm" href="/blog/@post.Slug" target="_blank" rel="noopener">مشاهده متن کامل</a>
     </div>
   </div>
-  <form method="post" asp-page-handler="Seo" asp-route-id="@post.Id" class="a-card" id="seo">
+  <form method="post" asp-page-handler="Seo" asp-route-id="@post.Id" class="a-card" id="seo" data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("BlogPost", post.Id))">
     <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو مقاله</span></div>
     <div class="a-card-body">
       @await Html.PartialAsync("_SeoFields", seoOnlyModel)

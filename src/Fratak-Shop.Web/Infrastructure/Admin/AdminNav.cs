@@ -83,6 +83,9 @@ public static class AdminNav
             new AdminNavItem("موتور هوشمند سئو", "/admin/seo/engine", "MagicWand", [P.SeoManage]),
             new AdminNavItem("بررسی پیشنهادهای سئو", "/admin/seo/review", "ListChecks", [P.SeoManage], "seo-review"),
             new AdminNavItem("ویرایش گروهی سئو", "/admin/seo/bulk", "PencilSimple", [P.SeoManage]),
+            // مرحلهٔ شانزدهم: جدول دانش سئو و ویرایشگر هوشمند متن (همان مجوزهای صفحه).
+            new AdminNavItem("جدول دانش سئو", "/admin/seo/knowledge", "Database", [P.SeoManage]),
+            new AdminNavItem("ویرایشگر هوشمند متن", "/admin/seo/smart", "Sparkle", [P.ProductsManage, P.CatalogManage, P.BlogWrite, P.ContentManage, P.SeoManage]),
             new AdminNavItem("لینک‌های شکسته", "/admin/seo/links", "LinkBreak", [P.SeoManage]),
             new AdminNavItem("Search Console", "/admin/seo/search-console", "ChartLine", [P.SeoManage])),
         new("تنظیمات",

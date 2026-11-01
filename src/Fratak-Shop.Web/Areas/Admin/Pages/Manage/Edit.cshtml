@@ -11,6 +11,17 @@
     var labelField = def.Field("Name") ?? def.Field("Title");
     var draftTitle = def.Singular + (labelField is not null && !Model.IsNew ? ": " + ManageEngine.InputValue(e, labelField) : " جدید");
     var previewUrl = $"{HttpContext.Request.Host}{(def.PublicUrl is not null && slugField is not null ? def.PublicUrl.Replace("{Slug}", ManageEngine.InputValue(e, slugField)) : "/")}";
+    // سئوی هوشمند درجا (مرحلهٔ شانزدهم): دسته، برند، صفحهٔ محتوا و صفحه‌های ثابت.
+    var smartKind = def.HasSeo ? Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.ManageKind(def.Key) : null;
+    var smartContext = smartKind is null ? null : Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context(smartKind, smartKind == "StaticPage" ? null : selfId, new
+    {
+        name = labelField is null ? null : "#m-" + labelField.Name,
+        english = def.Field("EnglishName") is null ? null : "#m-EnglishName",
+        slug = slugField is null ? null : "#m-Slug",
+        summary = def.Field("Summary") is null ? null : "#m-Summary",
+        body = def.Field("Content") is not null ? "#m-Content" : def.Field("Description") is not null ? "#m-Description" : null,
+        page = def.Field("Page") is null ? null : "#m-Page",
+    });
 }
 <div class="a-page-head">
   <div class="flex items-center gap-2">
@@ -30,7 +41,7 @@
 
 <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
       data-edit-key="@(Model.IsNew ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
-      data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@draftTitle">
+      data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@draftTitle" data-smart-context="@smartContext">
   <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
   @if (Model.Parent is not null) { <input type="hidden" name="parent" value="@Model.Parent"> }
   <div class="a-card">

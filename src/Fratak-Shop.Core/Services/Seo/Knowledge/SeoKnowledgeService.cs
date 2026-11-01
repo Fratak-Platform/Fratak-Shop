@@ -35,6 +35,16 @@ public sealed class SeoKnowledgeFeedback
     public IReadOnlyList<string> RuleIds { get; init; } = [];
 }
 
+/// <summary>فیلتر فهرست جدول دانش در پنل. Page از ۱.</summary>
+public sealed record SeoKnowledgeQuery(SeoKnowledgeKind? Kind, SeoKnowledgeSource? Source, string? Search, bool? Active, int Page = 1, int Take = 50);
+
+/// <summary>یک ردیف جدول دانش برای پنل.</summary>
+public sealed record SeoKnowledgeItem(Guid Id, SeoKnowledgeKind Kind, string Term, string? Value, string Topic, double Weight,
+    int Uses, int Successes, int Rejections, SeoKnowledgeSource Source, bool IsActive, DateTimeOffset UpdatedAt);
+
+/// <summary>یک صفحه از فهرست جدول دانش.</summary>
+public sealed record SeoKnowledgeList(IReadOnlyList<SeoKnowledgeItem> Items, int Total, int Page, int Take);
+
 /// <summary>آمار جدول دانش برای پنل. ByKind = (نوع، کل، فعال، آموخته).</summary>
 public sealed record SeoKnowledgeStats(int Total, int Learned, int Research, int Manual, int Disabled, int SeedVersion, bool Seeded,
     IReadOnlyList<(SeoKnowledgeKind Kind, int Total, int Active)> ByKind, DateTimeOffset? LastLearnedAt);
@@ -61,6 +71,18 @@ public interface ISeoKnowledgeService
     Task RecordOutcomeAsync(SeoKnowledgeFeedback feedback, CancellationToken cancellationToken = default);
 
     Task<SeoKnowledgeStats> GetStatsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>فهرست صفحه‌بندی‌شدهٔ ردیف‌ها برای پنل (جست‌وجو در عبارت/مقدار/موضوع).</summary>
+    Task<SeoKnowledgeList> ListAsync(SeoKnowledgeQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>فعال/غیرفعال کردن یک ردیف (ردیف غیرفعال در هیچ پیشنهادی استفاده نمی‌شود). false = پیدا نشد.</summary>
+    Task<bool> SetActiveAsync(Guid id, bool active, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// افزودن یا به‌روزرسانی ردیف دستی (منبع «دستی»). مثال: Kind=Correction، Term=«باطری»، Value=«باتری».
+    /// پاسخ: پیام خطا یا null.
+    /// </summary>
+    Task<string?> SaveManualAsync(SeoKnowledgeKind kind, string term, string? value, string? topic, double weight, CancellationToken cancellationToken = default);
 
     /// <summary>کش را باطل می‌کند تا تغییرهای پنل فوراً دیده شوند.</summary>
     void Invalidate();
@@ -317,6 +339,79 @@ public sealed class SeoKnowledgeService : ISeoKnowledgeService
             version >= SeoKnowledgeSeed.SeedVersion,
             byKind,
             lastLearned);
+    }
+
+    public async Task<SeoKnowledgeList> ListAsync(SeoKnowledgeQuery query, CancellationToken cancellationToken = default)
+    {
+        var take = Math.Clamp(query.Take, 10, 200);
+        var (context, lifetime) = open();
+        using var _ = lifetime;
+        var rows = context.SeoKnowledgeEntries.AsNoTracking().Where(e => e.Kind != SeoKnowledgeKind.Meta);
+        if (query.Kind is { } kind)
+            rows = rows.Where(e => e.Kind == kind);
+        if (query.Source is { } source)
+            rows = rows.Where(e => e.Source == source);
+        if (query.Active is { } active)
+            rows = rows.Where(e => e.IsActive == active);
+        var search = PersianText.Clean(query.Search);
+        if (search.Length > 0)
+        {
+            search = Cut(search, 100);
+            rows = rows.Where(e => e.Term.Contains(search) || (e.Value != null && e.Value.Contains(search)) || e.Topic.Contains(search));
+        }
+        var total = await rows.CountAsync(cancellationToken);
+        var page = Math.Clamp(query.Page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)take)));
+        var items = await rows
+            .OrderByDescending(e => e.Source == SeoKnowledgeSource.Learned || e.Source == SeoKnowledgeSource.Manual)
+            .ThenByDescending(e => e.UpdatedAt)
+            .ThenBy(e => e.Term)
+            .Skip((page - 1) * take)
+            .Take(take)
+            .Select(e => new SeoKnowledgeItem(e.Id, e.Kind, e.Term, e.Value, e.Topic, e.Weight, e.Uses, e.Successes, e.Rejections, e.Source, e.IsActive, e.UpdatedAt))
+            .ToListAsync(cancellationToken);
+        return new SeoKnowledgeList(items, total, page, take);
+    }
+
+    public async Task<bool> SetActiveAsync(Guid id, bool active, CancellationToken cancellationToken = default)
+    {
+        var (context, lifetime) = open();
+        using var _ = lifetime;
+        var row = await context.SeoKnowledgeEntries.AsTracking().FirstOrDefaultAsync(e => e.Id == id && e.Kind != SeoKnowledgeKind.Meta, cancellationToken);
+        if (row is null)
+            return false;
+        row.IsActive = active;
+        await context.SaveChangesAsync(cancellationToken);
+        cache.Invalidate();
+        return true;
+    }
+
+    public async Task<string?> SaveManualAsync(SeoKnowledgeKind kind, string term, string? value, string? topic, double weight, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(kind) || kind == SeoKnowledgeKind.Meta)
+            return "نوع ردیف نامعتبر است.";
+        term = PersianText.Clean(term);
+        if (term.Length is < 2 or > 200)
+            return "عبارت باید بین ۲ تا ۲۰۰ نویسه باشد.";
+        value = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        if (value is { Length: > 1000 })
+            return "مقدار حداکثر ۱۰۰۰ نویسه است.";
+        topic = Cut(PersianText.Clean(topic), 100);
+
+        var (context, lifetime) = open();
+        using var _ = lifetime;
+        var row = await context.SeoKnowledgeEntries.AsTracking().FirstOrDefaultAsync(e => e.Kind == kind && e.Term == term && e.Topic == topic, cancellationToken);
+        if (row is null)
+        {
+            row = new SeoKnowledgeEntry { Kind = kind, Term = term, Topic = topic };
+            context.SeoKnowledgeEntries.Add(row);
+        }
+        row.Value = value;
+        row.Weight = Math.Clamp(weight, 0.1, 1.5);
+        row.Source = SeoKnowledgeSource.Manual;
+        row.IsActive = true;
+        await context.SaveChangesAsync(cancellationToken);
+        cache.Invalidate();
+        return null;
     }
 
     private static string Cut(string value, int max) => value.Length <= max ? value : value[..max];
