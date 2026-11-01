@@ -36,13 +36,15 @@ public interface IAdminAccessService
     Task<OperationResult> SetOwnerAsync(Guid userId, bool isOwner, AdminAccess actor);
 
     /// <summary>
-    /// Creates the default roles once, moves legacy Admin / SeoManager users onto roles and bootstraps the store owner:
-    /// the configured phone number becomes the owner; if no account with that number has ever existed it is created
-    /// (passwordless – sign-in with an SMS code, the password can be set later in the profile).
-    /// <para>مثال: <c>EnsureDefaultsAsync("09013181090", "محمدامین", "ناظری")</c> در اولین اجرا حساب مالک را می‌سازد؛
-    /// در اجراهای بعدی حساب وجود دارد و دوباره ساخته نمی‌شود (حتی اگر بعداً حذف شده باشد).</para>
+    /// Creates the default roles once, moves legacy Admin / SeoManager users onto roles and bootstraps the
+    /// default admins from configuration (<c>Shop:DefaultAdmins</c>, any number of them).
+    /// <para>برای هر مدیر پیش‌فرض: اگر هیچ‌وقت حسابی با آن شماره نبوده، با رمز اولیه (Argon2id) ساخته می‌شود؛ اگر هست و رمز ندارد،
+    /// یک بار رمز اولیه می‌گیرد؛ رمز موجود هرگز بازنویسی نمی‌شود؛ حساب حذف‌شده دوباره ساخته نمی‌شود؛ حساب مسدود دست نمی‌خورد.</para>
+    /// <para>خروجی: یادداشت‌های قابل لاگ (بدون رمز)، مثل «ساخته شد: 0901***1090» یا «نادیده: رمز کوتاه‌تر از ۸ نویسه».</para>
+    /// <para>مثال: <c>EnsureDefaultsAsync([new("09013181090", "محمدامین", "ناظری", "12345678")])</c> در اولین اجرا مالک را با رمز
+    /// 12345678 می‌سازد؛ اجراهای بعدی چیزی را دوباره نمی‌سازند و رمزی را که مالک عوض کرده دست نمی‌زنند.</para>
     /// </summary>
-    Task EnsureDefaultsAsync(string? ownerPhoneNumber = null, string? ownerFirstName = null, string? ownerLastName = null);
+    Task<IReadOnlyList<string>> EnsureDefaultsAsync(IReadOnlyList<DefaultAdminAccount>? defaultAdmins = null);
 }
 
 public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache) : IAdminAccessService
@@ -300,7 +302,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         return OperationResult.Success(isOwner ? "کاربر به مالک فروشگاه تبدیل شد." : "دسترسی مالکیت برداشته شد.");
     }
 
-    public async Task EnsureDefaultsAsync(string? ownerPhoneNumber = null, string? ownerFirstName = null, string? ownerLastName = null)
+    public async Task<IReadOnlyList<string>> EnsureDefaultsAsync(IReadOnlyList<DefaultAdminAccount>? defaultAdmins = null)
     {
         if (!await context.AdminRoles.IgnoreQueryFilters().AnyAsync())
         {
@@ -348,47 +350,114 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
             await context.SaveChangesAsync();
         }
 
-        // Bootstrap: the configured phone number becomes the store owner (first installation).
-        var phone = NormalizeOwnerPhone(ownerPhoneNumber);
-        if (phone is not null)
+        var notes = new List<string>();
+        foreach (var admin in defaultAdmins ?? Array.Empty<DefaultAdminAccount>())
         {
-            var owner = await context.Users.AsTracking().FirstOrDefaultAsync(u => u.PhoneNumber == phone);
-            if (owner is not null && owner.Role != UserRole.SuperAdmin && !owner.IsBlocked)
+            if (admin is null)
+                continue;
+            try
             {
-                owner.Role = UserRole.SuperAdmin;
-                await context.SaveChangesAsync();
+                notes.Add(await EnsureDefaultAdminAsync(admin));
             }
-            else if (owner is null && !await context.Users.IgnoreQueryFilters().AnyAsync(u => u.PhoneNumber == phone))
+            catch (DbUpdateException)
             {
-                // مرحلهٔ سیزدهم: اولین کاربر سیستم = مالک فروشگاه، با همهٔ دسترسی‌ها (SuperAdmin یعنی همهٔ مجوزهای پنل).
-                // بدون رمز عبور: با کد پیامکی وارد می‌شود و بعداً از «پروفایل › رمز عبور» بدون رمز فعلی، رمز تعیین می‌کند.
-                // فقط وقتی هیچ حسابی (حتی حذف‌شده) با این شماره نبوده ساخته می‌شود؛ پس هرگز دوباره ساخته نمی‌شود.
-                context.Users.Add(new User
-                {
-                    PhoneNumber = phone,
-                    FirstName = Clip(ownerFirstName),
-                    LastName = Clip(ownerLastName),
-                    Role = UserRole.SuperAdmin,
-                    IsPhoneVerified = true,
-                    SecurityStamp = PasswordHasher.NewSecurityStamp(),
-                });
-                try
-                {
-                    await context.SaveChangesAsync();
-                }
-                catch (DbUpdateException)
-                {
-                    // نمونهٔ دیگری از برنامه هم‌زمان همین حساب را ساخت (شمارهٔ موبایل یکتاست).
-                    context.ChangeTracker.Clear();
-                }
+                // نمونهٔ دیگری از برنامه هم‌زمان همین حساب را ساخت (شمارهٔ موبایل یکتاست)؛ اجرای بعدی بقیه را انجام می‌دهد.
+                context.ChangeTracker.Clear();
+                notes.Add("هم‌زمان توسط نمونهٔ دیگر برنامه ساخته شد: " + DefaultAdminAccount.Mask(NormalizeOwnerPhone(admin.PhoneNumber) ?? ""));
             }
         }
 
         InvalidateAll();
+        return notes;
     }
 
     /// <summary>
-    /// شمارهٔ مالک از تنظیمات: رقم فارسی/عربی به لاتین، حذف فاصله و خط تیره؛ فقط قالب 09xxxxxxxxx پذیرفته می‌شود.
+    /// یک مدیر پیش‌فرض را آماده می‌کند و یک یادداشت بدون رمز برمی‌گرداند (برای لاگ راه‌اندازی).
+    /// <para>ترتیب تصمیم: شمارهٔ نامعتبر ← نادیده؛ رمز نامعتبر (کمتر از ۸ یا بیشتر از ۱۰۰ نویسه) ← نادیده (حساب بی‌رمز نمی‌سازیم
+    /// چون صاحب سرور رمز خواسته بود)؛ حساب حذف‌شده ← هیچ کار؛ حساب مسدود ← هیچ کار؛ حساب موجود ← ارتقا/نقش + رمز اگر ندارد؛
+    /// هیچ حسابی ← ساخت با رمز.</para>
+    /// </summary>
+    private async Task<string> EnsureDefaultAdminAsync(DefaultAdminAccount admin)
+    {
+        var phone = NormalizeOwnerPhone(admin.PhoneNumber);
+        if (phone is null)
+            return "نادیده (شمارهٔ موبایل نامعتبر در Shop:DefaultAdmins).";
+        var masked = DefaultAdminAccount.Mask(phone);
+
+        var hasPassword = !string.IsNullOrEmpty(admin.Password);
+        if (hasPassword && !DefaultAdminAccount.IsValidPassword(admin.Password))
+            return $"نادیده {masked}: رمز اولیه باید {DefaultAdminAccount.MinPasswordLength} تا {DefaultAdminAccount.MaxPasswordLength} نویسه باشد.";
+
+        // نقش‌های محدود (FullAccess = false) با نام؛ نام ناشناخته نادیده و گزارش می‌شود.
+        var roleIds = new List<Guid>();
+        var unknownRoles = new List<string>();
+        if (!admin.FullAccess)
+        {
+            var wanted = (admin.Roles ?? Array.Empty<string>()).Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim()).Distinct().ToList();
+            var known = await context.AdminRoles.Where(r => wanted.Contains(r.Name)).Select(r => new { r.Id, r.Name }).ToListAsync();
+            roleIds.AddRange(known.Select(r => r.Id));
+            unknownRoles.AddRange(wanted.Except(known.Select(r => r.Name)));
+            if (roleIds.Count == 0)
+                return $"نادیده {masked}: FullAccess خاموش است ولی هیچ نقش معتبری در Roles نیامده.";
+        }
+
+        var unknownNote = unknownRoles.Count > 0 ? " (نقش ناشناخته: " + string.Join("، ", unknownRoles) + ")" : "";
+        var existing = await context.Users.IgnoreQueryFilters().AsTracking().FirstOrDefaultAsync(u => u.PhoneNumber == phone);
+        if (existing is null)
+        {
+            var user = new User
+            {
+                PhoneNumber = phone,
+                FirstName = Clip(admin.FirstName),
+                LastName = Clip(admin.LastName),
+                Role = admin.FullAccess ? UserRole.SuperAdmin : UserRole.Customer,
+                PasswordHash = hasPassword ? PasswordHasher.Hash(admin.Password) : null,
+                IsPhoneVerified = true,
+                SecurityStamp = PasswordHasher.NewSecurityStamp(),
+            };
+            context.Users.Add(user);
+            foreach (var roleId in roleIds)
+                context.UserAdminRoles.Add(new UserAdminRole { User = user, RoleId = roleId });
+            await context.SaveChangesAsync();
+            return $"ساخته شد {masked}{(admin.FullAccess ? " (مالک، همهٔ دسترسی‌ها)" : $" ({roleIds.Count} نقش)")}{(hasPassword ? " با رمز اولیه" : " بدون رمز")}{unknownNote}.";
+        }
+
+        if (existing.IsDeleted)
+            return $"بدون تغییر {masked}: حساب قبلاً از پنل حذف شده و دوباره ساخته نمی‌شود.";
+        if (existing.IsBlocked)
+            return $"بدون تغییر {masked}: حساب مسدود است.";
+
+        var changes = new List<string>();
+        if (admin.FullAccess && existing.Role != UserRole.SuperAdmin)
+        {
+            existing.Role = UserRole.SuperAdmin;
+            changes.Add("مالک شد");
+        }
+
+        foreach (var roleId in roleIds)
+        {
+            if (!await context.UserAdminRoles.AnyAsync(m => m.UserId == existing.Id && m.RoleId == roleId))
+            {
+                context.UserAdminRoles.Add(new UserAdminRole { UserId = existing.Id, RoleId = roleId });
+                changes.Add("نقش افزوده شد");
+            }
+        }
+
+        // فقط حسابی که هیچ رمزی ندارد (مثلاً با کد پیامکی ثبت‌نام کرده) رمز اولیه می‌گیرد؛ رمز انتخابی کاربر مقدس است.
+        if (hasPassword && string.IsNullOrEmpty(existing.PasswordHash))
+        {
+            existing.PasswordHash = PasswordHasher.Hash(admin.Password);
+            changes.Add("رمز اولیه تنظیم شد");
+        }
+
+        if (changes.Count == 0)
+            return $"بدون تغییر {masked}{unknownNote}.";
+        await context.SaveChangesAsync();
+        return $"به‌روز شد {masked}: {string.Join("، ", changes.Distinct())}{unknownNote}.";
+    }
+
+    /// <summary>
+    /// شمارهٔ مدیر پیش‌فرض از تنظیمات: رقم فارسی/عربی به لاتین، حذف فاصله و خط تیره؛ فقط قالب 09xxxxxxxxx پذیرفته می‌شود.
     /// مثال: «۰۹۰۱ ۳۱۸ ۱۰۹۰» ← «09013181090»؛ «+989013181090» ← «09013181090»؛ «123» ← null.
     /// </summary>
     public static string? NormalizeOwnerPhone(string? value)

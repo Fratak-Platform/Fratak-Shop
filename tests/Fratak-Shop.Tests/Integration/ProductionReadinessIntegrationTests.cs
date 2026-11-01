@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Fratak_Shop.Tests.Integration;
 
 /// <summary>
-/// مرحلهٔ سیزدهم روی دیتابیس واقعی: دادهٔ پیش‌فرض فقط روی دیتابیس تازه (و هرگز دوباره)، ساخت حساب مالک بدون رمز و
+/// مرحلهٔ سیزدهم روی دیتابیس واقعی: دادهٔ پیش‌فرض فقط روی دیتابیس تازه (و هرگز دوباره)، ساخت مدیران پیش‌فرض با رمز اولیه (هر تعداد) و
 /// ساخته نشدن دوباره‌اش پس از حذف، و صف قیمت‌گذاری بازار محصولات درون‌ریزی‌شده (اعمال، دست نزدن به قیمت دستی، تلاش دوباره).
 /// </summary>
 [Collection(SqlServerCollection.Name)]
@@ -41,7 +41,7 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
     }
 
     [SqlFact]
-    public async Task Owner_IsCreatedPasswordless_OnlyOnce_AndNotRecreatedAfterDelete()
+    public async Task DefaultAdmin_IsCreatedWithPassword_OnlyOnce_AndNotRecreatedAfterDelete()
     {
         var phone = "0901" + Random.Shared.Next(1_000_000, 9_999_999);
         await using var scope = db.Scope();
@@ -49,40 +49,112 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
         var access = scope.ServiceProvider.GetRequiredService<IAdminAccessService>();
         try
         {
-            await access.EnsureDefaultsAsync(" " + phone + " ", "محمدامین", "ناظری");
+            var notes = await access.EnsureDefaultsAsync([new DefaultAdminAccount(" " + phone + " ", "محمدامین", "ناظری", "12345678")]);
             var owner = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == phone);
             Assert.Equal(UserRole.SuperAdmin, owner.Role);
-            Assert.Null(owner.PasswordHash);
+            Assert.True(PasswordHasher.Verify("12345678", owner.PasswordHash));
             Assert.True(owner.IsPhoneVerified);
             Assert.Equal("محمدامین", owner.FirstName);
             Assert.Equal("ناظری", owner.LastName);
             Assert.False(string.IsNullOrEmpty(owner.SecurityStamp));
             Assert.True((await access.GetAccessAsync(owner.Id)).IsOwner);
+            // رمز هرگز در یادداشت‌های لاگ نمی‌آید؛ شماره هم پوشیده است.
+            Assert.Single(notes);
+            Assert.DoesNotContain("12345678", notes[0], StringComparison.Ordinal);
+            Assert.DoesNotContain(phone, notes[0], StringComparison.Ordinal);
 
-            // اجرای دوباره: حساب تکراری ساخته نمی‌شود.
-            await access.EnsureDefaultsAsync(phone, "محمدامین", "ناظری");
+            // مالک رمزش را عوض کرد: اجرای دوباره نه حساب تکراری می‌سازد نه رمز را به 12345678 برمی‌گرداند.
+            var tracked = await context.Users.AsTracking().SingleAsync(u => u.PhoneNumber == phone);
+            tracked.PasswordHash = PasswordHasher.Hash("my-new-strong-pass");
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+            await access.EnsureDefaultsAsync([new DefaultAdminAccount(phone, "محمدامین", "ناظری", "12345678")]);
             Assert.Equal(1, await context.Users.IgnoreQueryFilters().CountAsync(u => u.PhoneNumber == phone));
+            var after = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == phone);
+            Assert.True(PasswordHasher.Verify("my-new-strong-pass", after.PasswordHash));
+            Assert.False(PasswordHasher.Verify("12345678", after.PasswordHash));
 
             // مدیر حساب را حذف کرد: با ری‌استارت برنامه دوباره ساخته نمی‌شود.
-            var tracked = await context.Users.AsTracking().SingleAsync(u => u.PhoneNumber == phone);
+            tracked = await context.Users.AsTracking().SingleAsync(u => u.PhoneNumber == phone);
             context.Users.Remove(tracked);
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
 
-            await access.EnsureDefaultsAsync(phone, "محمدامین", "ناظری");
+            await access.EnsureDefaultsAsync([new DefaultAdminAccount(phone, "محمدامین", "ناظری", "12345678")]);
             Assert.False(await context.Users.AnyAsync(u => u.PhoneNumber == phone));
             Assert.Equal(1, await context.Users.IgnoreQueryFilters().CountAsync(u => u.PhoneNumber == phone));
 
-            // شمارهٔ نامعتبر هیچ حسابی نمی‌سازد.
+            // شمارهٔ نامعتبر یا رمز کوتاه هیچ حسابی نمی‌سازد.
             var before = await context.Users.IgnoreQueryFilters().CountAsync();
-            await access.EnsureDefaultsAsync("12345", "x", "y");
+            await access.EnsureDefaultsAsync([new DefaultAdminAccount("12345", "x", "y", "12345678"), new DefaultAdminAccount(phone[..^1] + "0", "x", "y", "123")]);
             Assert.Equal(before, await context.Users.IgnoreQueryFilters().CountAsync());
         }
         finally
         {
             context.ChangeTracker.Clear();
-            var leftovers = await context.Users.AsTracking().Where(u => u.PhoneNumber == phone).ToListAsync();
+            var leftovers = await context.Users.IgnoreQueryFilters().AsTracking().Where(u => u.PhoneNumber == phone).ToListAsync();
             context.Users.RemoveRange(leftovers);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    [SqlFact]
+    public async Task SeveralDefaultAdmins_GetTheirOwnAccess_AndPasswordlessAccountGetsInitialPasswordOnce()
+    {
+        var baseNumber = Random.Shared.Next(1_000_000, 9_999_997);
+        var ownerPhone = "0902" + baseNumber;
+        var supportPhone = "0902" + (baseNumber + 1);
+        var existingPhone = "0902" + (baseNumber + 2);
+        await using var scope = db.Scope();
+        var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+        var access = scope.ServiceProvider.GetRequiredService<IAdminAccessService>();
+        try
+        {
+            // حسابی که قبلاً با کد پیامکی (بدون رمز) ثبت‌نام کرده بود.
+            context.Users.Add(new User { PhoneNumber = existingPhone, IsPhoneVerified = true, SecurityStamp = PasswordHasher.NewSecurityStamp() });
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            await access.EnsureDefaultsAsync(
+            [
+                new DefaultAdminAccount(ownerPhone, "مدیر", "یک", "first-pass-1"),
+                new DefaultAdminAccount(supportPhone, "پشتیبان", "دو", "second-pass-2", FullAccess: false, Roles: ["پشتیبانی", "نقش-ناموجود"]),
+                new DefaultAdminAccount(existingPhone, "قدیمی", "سه", "third-pass-3"),
+            ]);
+
+            var owner = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == ownerPhone);
+            var support = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == supportPhone);
+            var existing = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == existingPhone);
+
+            Assert.True((await access.GetAccessAsync(owner.Id)).IsOwner);
+            Assert.True(PasswordHasher.Verify("first-pass-1", owner.PasswordHash));
+
+            var supportAccess = await access.GetAccessAsync(support.Id);
+            Assert.False(supportAccess.IsOwner);
+            Assert.Equal(UserRole.Customer, support.Role);
+            Assert.True(await context.UserAdminRoles.AnyAsync(m => m.UserId == support.Id && m.Role.Name == "پشتیبانی"));
+            Assert.True(PasswordHasher.Verify("second-pass-2", support.PasswordHash));
+
+            Assert.Equal(UserRole.SuperAdmin, existing.Role);
+            Assert.True(PasswordHasher.Verify("third-pass-3", existing.PasswordHash));
+            Assert.Null(existing.FirstName); // نام حساب موجود را تنظیمات عوض نمی‌کند
+
+            // اجرای دوم با رمز دیگر: رمز موجود دست نمی‌خورد و نقش تکراری اضافه نمی‌شود.
+            await access.EnsureDefaultsAsync(
+            [
+                new DefaultAdminAccount(supportPhone, "پشتیبان", "دو", "changed-pass-9", FullAccess: false, Roles: ["پشتیبانی"]),
+            ]);
+            support = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == supportPhone);
+            Assert.True(PasswordHasher.Verify("second-pass-2", support.PasswordHash));
+            Assert.Equal(1, await context.UserAdminRoles.CountAsync(m => m.UserId == support.Id));
+        }
+        finally
+        {
+            context.ChangeTracker.Clear();
+            var phones = new[] { ownerPhone, supportPhone, existingPhone };
+            var ids = await context.Users.IgnoreQueryFilters().Where(u => phones.Contains(u.PhoneNumber)).Select(u => u.Id).ToListAsync();
+            context.UserAdminRoles.RemoveRange(await context.UserAdminRoles.IgnoreQueryFilters().AsTracking().Where(m => ids.Contains(m.UserId)).ToListAsync());
+            context.Users.RemoveRange(await context.Users.IgnoreQueryFilters().AsTracking().Where(u => ids.Contains(u.Id)).ToListAsync());
             await context.SaveChangesAsync();
         }
     }

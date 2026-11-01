@@ -99,6 +99,31 @@ public class AdminPanelE2ETests(ShopApp app)
         Assert.Equal(before, await app.WithDbAsync(db => db.StoreSettings.Select(s => s.SiteName).FirstAsync()));
     }
 
+    /// <summary>
+    /// مرحلهٔ چهاردهم: مدیر پیش‌فرض appsettings.json (Shop:DefaultAdmins[0] = 09013181090 / 12345678) در اولین اجرا با رمز ساخته شده،
+    /// با همان رمز وارد می‌شود، به صفحهٔ تغییر رمز فرستاده می‌شود و همهٔ پنل را می‌بیند.
+    /// </summary>
+    [SqlFact]
+    public async Task Default_admin_from_config_signs_in_with_the_initial_password_and_is_asked_to_change_it()
+    {
+        var account = await app.WithDbAsync(db => db.Users.Where(u => u.PhoneNumber == "09013181090")
+            .Select(u => new { u.Role, u.PasswordHash, u.FirstName, u.IsPhoneVerified }).FirstAsync());
+        Assert.Equal(global::Fratak_Shop.Data.Entities.Users.UserRole.SuperAdmin, account.Role);
+        Assert.Equal("محمدامین", account.FirstName);
+        Assert.True(account.IsPhoneVerified);
+        Assert.False(string.IsNullOrEmpty(account.PasswordHash));
+        Assert.DoesNotContain("12345678", account.PasswordHash, StringComparison.Ordinal);
+
+        using var client = app.CreateClient();
+        using var login = await client.PostFormAsync("/login",
+            ("Input.PhoneNumber", "09013181090"), ("Input.Password", "12345678"), ("Input.RememberMe", "false"));
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        Assert.Equal("/profile/password", login.Headers.Location?.OriginalString.ToLowerInvariant());
+
+        using var admin = await client.GetAsync("/admin");
+        Assert.Equal(HttpStatusCode.OK, admin.StatusCode);
+    }
+
     [SqlFact]
     public async Task Admin_forms_without_a_csrf_token_are_rejected()
     {

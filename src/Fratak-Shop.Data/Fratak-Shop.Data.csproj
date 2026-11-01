@@ -13,6 +13,12 @@
       <IncludeAssets>runtime; build; native; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.13" />
+    <!-- مرحلهٔ چهاردهم: ابزار Package Manager Console (Add-Migration) کنار مایگریشن‌ها، نه در برنامهٔ وب؛ تا Roslyn و BuildHost
+         (ده‌ها مگابایت) در bin برنامه و bin تست‌ها کپی نشوند. پروژهٔ شروع مایگریشن هم همین Data است (FratakShopDbContextFactory). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.13">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>build; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 

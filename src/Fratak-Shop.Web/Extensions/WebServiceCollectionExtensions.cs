@@ -155,6 +155,7 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Admin.ErrorLogQueue>();
         services.AddSingleton<ILoggerProvider, Infrastructure.Admin.DbErrorLoggerProvider>();
         services.AddSingleton<Infrastructure.Admin.HealthService>();
+        services.AddSingleton<Infrastructure.Auth.DefaultAdminPasswords>(); // مرحلهٔ ۱۴: هشدار رمز اولیهٔ مدیران پیش‌فرض
         services.AddHostedService<Infrastructure.Admin.ErrorLogWriter>();
         services.AddHostedService<Infrastructure.Admin.MonitoringMaintenanceService>();
 

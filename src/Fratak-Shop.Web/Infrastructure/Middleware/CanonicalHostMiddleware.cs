@@ -11,7 +11,7 @@ namespace Fratak_Shop.Web.Infrastructure.Middleware;
 /// (که از دامنهٔ درخواست ساخته می‌شوند) همیشه با دامنهٔ اصلی‌اند. هدر Host جعلی هم دیگر وارد لینک‌های ساخته‌شده نمی‌شود.</para>
 /// <para>استثناها: localhost و آدرس IP (آزمایش روی خود سرور و آزمون‌ها)، <c>/health</c> و <c>/healthz</c> (سرویس پایش)
 /// و <c>/.well-known/</c> (تأیید گواهی SSL). درخواست غیر GET با ۳۰۸ می‌رود تا متد و بدنه حفظ شود.</para>
-/// <para>محل ثبت: Program.cs، اوایل خط لوله (بعد از HSTS/HTTPS و پیش از فایل‌های ثابت).</para>
+/// <para>محل ثبت: Program.cs، بعد از هدرهای امنیتی و دیوار آتش و پیش از فایل‌های ثابت.</para>
 /// </summary>
 public sealed class CanonicalHostMiddleware(RequestDelegate next, IOptions<ShopOptions> options)
 {
@@ -49,6 +49,8 @@ public sealed class CanonicalHostMiddleware(RequestDelegate next, IOptions<ShopO
 
     /// <summary>
     /// مقدار تنظیمات به نام دامنهٔ خالص. مثال: «https://www.Faratek.ir/» ← «www.faratek.ir»؛ «faratek.ir» ← «faratek.ir»؛ «» ← null.
+    /// <para>دامنهٔ عمومی همیشه نقطه دارد؛ پس «off»، «none» یا «localhost» یعنی خاموش (null). با این، خاموش کردن با متغیر محیطی
+    /// <c>Shop__CanonicalHost=off</c> هم ممکن است (مقدار خالی متغیر محیطی در ویندوز یعنی «متغیر وجود ندارد»).</para>
     /// </summary>
     public static string? Normalize(string? value)
     {
@@ -57,7 +59,7 @@ public sealed class CanonicalHostMiddleware(RequestDelegate next, IOptions<ShopO
             return null;
         if (!text.Contains("://", StringComparison.Ordinal))
             text = "https://" + text;
-        return Uri.TryCreate(text, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host) && uri.HostNameType == UriHostNameType.Dns
+        return Uri.TryCreate(text, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Host) && uri.HostNameType == UriHostNameType.Dns && uri.IdnHost.Contains('.')
             ? uri.IdnHost.ToLowerInvariant()
             : null;
     }

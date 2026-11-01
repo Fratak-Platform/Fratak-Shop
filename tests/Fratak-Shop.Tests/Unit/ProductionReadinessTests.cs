@@ -310,6 +310,10 @@ public class ProductionReadinessTests
     [InlineData(null, null)]
     [InlineData("127.0.0.1", null)]
     [InlineData("not a host", null)]
+    [InlineData("off", null)]
+    [InlineData("OFF", null)]
+    [InlineData("none", null)]
+    [InlineData("localhost", null)]
     public void Canonical_host_setting_is_normalised(string? value, string? expected)
         => Assert.Equal(expected, CanonicalHostMiddleware.Normalize(value));
 
@@ -327,4 +331,94 @@ public class ProductionReadinessTests
     [InlineData(null, null)]
     public void Owner_phone_is_normalised(string? value, string? expected)
         => Assert.Equal(expected, AdminAccessService.NormalizeOwnerPhone(value));
+
+    [Theory]
+    [InlineData("GET", "www.faratek.ir", "/product/x", "?a=1", 301, "https://faratek.ir/product/x?a=1")]
+    [InlineData("POST", "www.faratek.ir", "/login", "", 308, "https://faratek.ir/login")]
+    [InlineData("GET", "faratek.ir", "/", "", 200, null)]
+    [InlineData("GET", "localhost", "/", "", 200, null)]
+    public async Task Canonical_host_middleware_redirects_only_foreign_hosts(string method, string host, string path, string query, int status, string? location)
+    {
+        var called = false;
+        var middleware = new CanonicalHostMiddleware(_ => { called = true; return Task.CompletedTask; },
+            Microsoft.Extensions.Options.Options.Create(new Fratak_Shop.Web.Infrastructure.ShopOptions { CanonicalHost = "faratek.ir" }));
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.Host = new HostString(host);
+        context.Request.Path = path;
+        context.Request.QueryString = new QueryString(query);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(status, context.Response.StatusCode);
+        Assert.Equal(location is null, called);
+        if (location is not null)
+            Assert.Equal(location, context.Response.Headers.Location.ToString());
+    }
+
+    [Theory]
+    [InlineData("off")]
+    [InlineData("")]
+    [InlineData("localhost")]
+    public async Task Canonical_host_middleware_is_disabled_by_off_values(string setting)
+    {
+        var called = false;
+        var middleware = new CanonicalHostMiddleware(_ => { called = true; return Task.CompletedTask; },
+            Microsoft.Extensions.Options.Options.Create(new Fratak_Shop.Web.Infrastructure.ShopOptions { CanonicalHost = setting }));
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString("fratak.test");
+        context.Request.Path = "/";
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(called);
+    }
+
+    [Theory]
+    [InlineData("12345678", true)]
+    [InlineData("1234567", false)]
+    [InlineData("        ", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void Default_admin_password_length_is_enforced(string? password, bool expected)
+        => Assert.Equal(expected, DefaultAdminAccount.IsValidPassword(password));
+
+    [Fact]
+    public void Default_admin_password_never_appears_in_text_or_logs()
+    {
+        var account = new DefaultAdminAccount("09013181090", "محمدامین", "ناظری", "12345678");
+        var options = new Fratak_Shop.Web.Infrastructure.DefaultAdminOptions { PhoneNumber = "09013181090", Password = "12345678" };
+
+        Assert.DoesNotContain("12345678", account.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("12345678", options.ToString(), StringComparison.Ordinal);
+        Assert.Equal("0901***1090", DefaultAdminAccount.Mask("09013181090"));
+        Assert.False(DefaultAdminAccount.IsValidPassword(new string('x', DefaultAdminAccount.MaxPasswordLength + 1)));
+    }
+
+    [Fact]
+    public void Default_admins_are_read_from_configuration_and_checked_in_constant_time()
+    {
+        var shop = new Fratak_Shop.Web.Infrastructure.ShopOptions
+        {
+            DefaultAdmins =
+            [
+                new() { PhoneNumber = "۰۹۰۱ ۳۱۸ ۱۰۹۰", FirstName = "محمدامین", Password = "12345678" },
+                new() { PhoneNumber = "09121111111", Password = "short" },
+                new() { PhoneNumber = " " },
+            ],
+        };
+        Assert.Equal(2, shop.DefaultAdminAccounts().Count);
+
+        var check = new Fratak_Shop.Web.Infrastructure.Auth.DefaultAdminPasswords(Microsoft.Extensions.Options.Options.Create(shop));
+        Assert.True(check.IsDefault("09013181090", "12345678"));
+        Assert.True(check.IsDefault("+989013181090", "12345678"));
+        Assert.False(check.IsDefault("09013181090", "12345679"));
+        Assert.False(check.IsDefault("09121111111", "short")); // رمز نامعتبر هرگز «پیش‌فرض» حساب نمی‌شود
+        Assert.Single(check.Phones);
+
+        var hash = PasswordHasher.Hash("12345678");
+        Assert.True(check.StillUsesDefault("09013181090", hash));
+        Assert.False(check.StillUsesDefault("09013181090", PasswordHasher.Hash("something-else")));
+        Assert.False(check.StillUsesDefault("09013181090", null));
+    }
 }

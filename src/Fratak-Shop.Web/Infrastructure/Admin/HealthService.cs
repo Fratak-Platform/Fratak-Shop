@@ -30,7 +30,8 @@ public sealed class HealthService(
     ErrorLogQueue errorQueue,
     ISmsSender smsSender,
     Microsoft.Extensions.Options.IOptions<ShopOptions> shopOptions,
-    Core.Utilities.IExternalSourceGate sourceGate)
+    Core.Utilities.IExternalSourceGate sourceGate,
+    Auth.DefaultAdminPasswords defaultAdminPasswords)
 {
     private static readonly DateTimeOffset ProcessStarted = Process.GetCurrentProcess().StartTime.ToUniversalTime();
 
@@ -103,6 +104,19 @@ public sealed class HealthService(
                     if (demoAccounts > 0)
                         checks.Add(new HealthCheck("حساب‌های نمونه", HealthLevel.Warning, $"{demoAccounts} حساب دادهٔ نمونه (با رمز 123456) روی سایت واقعی فعال است.",
                             "این حساب‌ها را از «مشتریان» و «تیم» حذف یا مسدود کنید و Shop:SeedDemoData را خاموش نگه دارید."));
+                }
+
+                // مرحلهٔ چهاردهم: مدیر پیش‌فرضی که هنوز رمز اولیهٔ تنظیمات (Shop:DefaultAdmins) را دارد = خطر جدی روی سایت واقعی.
+                if (defaultAdminPasswords.Phones.Count > 0)
+                {
+                    var phones = defaultAdminPasswords.Phones.ToList();
+                    var admins = await context.Users.Where(u => phones.Contains(u.PhoneNumber) && !u.IsBlocked && u.PasswordHash != null)
+                        .Select(u => new { u.PhoneNumber, u.PasswordHash }).ToListAsync(cancellationToken);
+                    var weak = admins.Count(x => defaultAdminPasswords.StillUsesDefault(x.PhoneNumber, x.PasswordHash));
+                    if (weak > 0)
+                        checks.Add(new HealthCheck("رمز مدیران پیش‌فرض", HealthLevel.Warning,
+                            $"{weak} مدیر پیش‌فرض هنوز با رمز اولیهٔ تنظیمات وارد می‌شود.",
+                            "هر کدام از «پروفایل › رمز عبور» رمز تازه بگذارند؛ رمز اولیه را از appsettings بردارید یا با متغیر محیطی Shop__DefaultAdmins__N__Password بدهید."));
                 }
 
                 var stuck = await context.PaymentTransactions.CountAsync(p =>

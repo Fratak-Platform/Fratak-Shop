@@ -153,10 +153,6 @@ var app = builder.Build();
 if (behindProxy)
     app.UseForwardedHeaders();
 
-// مرحلهٔ سیزدهم: یک دامنهٔ اصلی (Shop:CanonicalHost، مثلاً faratek.ir)؛ www و دامنه‌های دیگر با ۳۰۱ مستقیم به https://faratek.ir می‌روند
-// (پیش از HttpsRedirection تا http://www… فقط یک تغییر مسیر داشته باشد؛ بعد از ForwardedHeaders تا میزبان واقعی دیده شود).
-app.UseMiddleware<CanonicalHostMiddleware>();
-
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -171,6 +167,9 @@ else
 app.UseMiddleware<SecurityHeadersMiddleware>();
 // فاز ۹: دیوار آتش IP/ربات (پیش از هر کار دیگری تا درخواست مسدود هزینه‌ای نداشته باشد) – /admin/system/firewall
 app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.FirewallMiddleware>();
+// مرحلهٔ سیزدهم: یک دامنهٔ اصلی (Shop:CanonicalHost، مثلاً faratek.ir)؛ www و دامنه‌های دیگر با ۳۰۱ به https://faratek.ir می‌روند.
+// بعد از هدرهای امنیتی (پاسخ تغییر مسیر هم HSTS/CSP دارد) و دیوار آتش (ربات مخرب همان ۴۰۳ را می‌گیرد، نه تغییر مسیر).
+app.UseMiddleware<CanonicalHostMiddleware>();
 app.UseStatusCodePagesWithReExecute("/404", "?code={0}");
 app.UseResponseCompression();
 
@@ -329,13 +328,16 @@ switch (defaultData)
         break;
 }
 
-// Admin panel: default roles (once), legacy staff moved onto roles, owner account from Shop:Owner* (created once, passwordless).
+// Admin panel: default roles (once), legacy staff moved onto roles, default admins from Shop:DefaultAdmins
+// (مرحلهٔ چهاردهم: هر تعداد مدیر، هر کدام فقط یک بار و با رمز اولیه ساخته می‌شوند؛ رمز هرگز لاگ نمی‌شود).
 using (var adminScope = app.Services.CreateScope())
 {
     try
     {
-        await adminScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Admin.IAdminAccessService>()
-            .EnsureDefaultsAsync(shopOptions.OwnerPhoneNumber, shopOptions.OwnerFirstName, shopOptions.OwnerLastName);
+        var adminNotes = await adminScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Admin.IAdminAccessService>()
+            .EnsureDefaultsAsync(shopOptions.DefaultAdminAccounts());
+        foreach (var note in adminNotes)
+            app.Logger.LogInformation("Default admin: {Note}", note);
     }
     catch (Exception exception)
     {
@@ -343,8 +345,8 @@ using (var adminScope = app.Services.CreateScope())
     }
 }
 
-// مرحلهٔ سیزدهم: روی سرور واقعی، مالک بدون رمز فقط با کد پیامکی وارد می‌شود؛ اگر کلید SMS.ir نه در پنل و نه در تنظیمات سرور
-// (SmsIr:ApiKey / متغیر محیطی SmsIr__ApiKey) نباشد، کسی نمی‌تواند وارد پنل شود. با صدای بلند هشدار می‌دهیم.
+// روی سرور واقعی بدون کلید SMS.ir (نه در پنل، نه SmsIr__ApiKey) کد ورود، فراموشی رمز و تأیید دومرحله‌ای پیامکی کار نمی‌کند؛
+// مدیران پیش‌فرض با رمز وارد می‌شوند ولی هشدار بلند لازم است.
 if (app.Environment.IsProduction())
 {
     using var smsScope = app.Services.CreateScope();
@@ -352,7 +354,7 @@ if (app.Environment.IsProduction())
     {
         var sms = await smsScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Notifications.ISmsProviderService>().GetRuntimeAsync();
         if (string.IsNullOrWhiteSpace(sms.ApiKey) && string.IsNullOrWhiteSpace(app.Configuration[Fratak_Shop.Web.Infrastructure.Sms.ConfigurableSmsSender.ConfigurationKey]))
-            app.Logger.LogCritical("SMS.ir API key is not configured (admin panel or SmsIr__ApiKey): sign-in codes cannot be sent, so the passwordless owner account cannot sign in. Set SmsIr__ApiKey on the server.");
+            app.Logger.LogCritical("SMS.ir API key is not configured (admin panel or SmsIr__ApiKey): sign-in codes, password reset and SMS two-step login cannot work; only password sign-in is possible. Set SmsIr__ApiKey on the server.");
     }
     catch (Exception exception)
     {

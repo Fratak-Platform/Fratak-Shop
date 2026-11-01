@@ -162,7 +162,7 @@ contains 'content="#0B1927"'
 lacks 'YekanBakh'
 expect 200 /login
 contains '/assets/brand/mark.svg'
-contains 'brand-text-accent'
+contains 'bl-p2'
 contains 'شاپ</span>'
 # Specification filters (f-{slug}): water resistance IPX5 -> Haylou only.
 # Without a category only general filters: no brand or specification boxes.

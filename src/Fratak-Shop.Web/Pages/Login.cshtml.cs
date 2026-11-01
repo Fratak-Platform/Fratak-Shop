@@ -22,7 +22,8 @@ public class LoginModel(
     ISiteContext site,
     IPageMetaService pageMeta,
     Core.Services.Team.IStaffTotpService totp,
-    Infrastructure.Admin.SecurityEventRecorder securityEvents) : ShopPageModel
+    Infrastructure.Admin.SecurityEventRecorder securityEvents,
+    DefaultAdminPasswords defaultAdminPasswords) : ShopPageModel
 {
 
     [BindProperty]
@@ -101,6 +102,14 @@ public class LoginModel(
         }
 
         await authService.SignInAsync(user, Input.RememberMe);
+
+        // مرحلهٔ چهاردهم: مدیر پیش‌فرضی که هنوز با رمز اولیهٔ تنظیمات (مثلاً 12345678) وارد شده، اول باید رمزش را عوض کند.
+        if (defaultAdminPasswords.IsDefault(user.PhoneNumber, Input.Password))
+        {
+            ErrorMessage = "شما با رمز اولیهٔ پیش‌فرض وارد شدید. برای امنیت حساب مدیریت، همین حالا رمز عبور تازه‌ای تعیین کنید.";
+            return RedirectToPage("/Profile/Password");
+        }
+
         SuccessMessage = $"{user.FullName ?? "کاربر"} عزیز، خوش آمدید.";
 
         return RedirectToLocal(ReturnUrl, "/Index");

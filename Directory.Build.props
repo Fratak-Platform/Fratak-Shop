@@ -1,9 +1,30 @@
 <Project>
   <!--
-    تنظیمات مشترک همهٔ پروژه‌ها (مرحلهٔ سیزدهم).
-    SatelliteResourceLanguages: فقط منابع انگلیسی/فارسی بسته‌ها کپی شود، نه پوشه‌های cs/de/es/fr/… (حجم bin و خروجی publish کمتر).
+    تنظیمات مشترک همهٔ پروژه‌ها.
+    SatelliteResourceLanguages (مرحلهٔ سیزدهم): فقط منابع انگلیسی/فارسی بسته‌ها کپی شود، نه پوشه‌های cs/de/es/fr/… .
   -->
   <PropertyGroup>
     <SatelliteResourceLanguages>en;fa</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!--
+    مرحلهٔ چهاردهم – کنترل حجم پوشهٔ پروژه:
+    OnnxRuntime و SkiaSharp برای هر سیستم‌عامل و پردازنده (ویندوز x86/x64/arm64، لینوکس، مک …) فایل بومی چند ده مگابایتی دارند.
+    بدون RID همهٔ آن‌ها در bin برنامه و bin تست‌ها (و هر پیکربندی Debug/Release) کپی می‌شد: صدها مگابایت.
+    اینجا هنگام build/test/run فقط نسخهٔ همین دستگاه کپی می‌شود (مثلاً win-x64 روی ویندوز، linux-x64 روی CI)؛
+    خروجی: bin/<Configuration>/net10.0/<rid>/.
+
+    publish دست نمی‌خورد: «dotnet publish» بدون ‎-r همچنان قابل‌حمل است و با ‎-r linux-x64 / win-x64 (روش docs/DEPLOYMENT.md)
+    فقط همان سیستم‌عامل. برای build قابل‌حمل در هر حالت: ‎-p:FratakPortableBuild=true
+    (کتابخانه‌های Core/Data فایل بومی ندارند و همیشه بدون RID ساخته می‌شوند.)
+  -->
+  <PropertyGroup Condition="'$(FratakPortableBuild)' != 'true'
+                            and '$(RuntimeIdentifier)' == ''
+                            and '$(_IsPublishing)' != 'true'
+                            and '$(DeployOnBuild)' != 'true'
+                            and '$(PublishProfile)' == ''
+                            and ('$(MSBuildProjectName)' == 'Fratak-Shop.Web' or '$(MSBuildProjectName)' == 'Fratak-Shop.Tests')">
+    <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 </Project>

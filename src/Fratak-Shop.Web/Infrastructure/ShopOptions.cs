@@ -9,9 +9,9 @@ namespace Fratak_Shop.Web.Infrastructure;
 /// "Shop": {
 ///   "SeedDefaultData": true,     // دادهٔ پیش‌فرض سیستم، فقط روی پایگاه دادهٔ کاملاً تازه (یک بار برای همیشه)
 ///   "SeedDemoData": false,       // محصولات، دسته‌ها، کاربران و کدهای تخفیف ساختگی
-///   "OwnerPhoneNumber": "09013181090",
-///   "OwnerFirstName": "محمدامین",
-///   "OwnerLastName": "ناظری",
+///   "DefaultAdmins": [
+///     { "PhoneNumber": "09013181090", "FirstName": "محمدامین", "LastName": "ناظری", "Password": "12345678" }
+///   ],
 ///   "CanonicalHost": "faratek.ir"
 /// }
 /// </code>
@@ -36,23 +36,53 @@ public class ShopOptions
     public bool SeedDemoData { get; set; }
 
     /// <summary>
-    /// Mobile number of the store owner (full access to the admin panel). On the first run the owner
-    /// account is created without a password (sign-in with an SMS code; a password can be set later in
-    /// the profile). If the account already exists it is promoted to owner.
+    /// مدیران پیش‌فرض (هر تعداد). هر مورد در اولین اجرا با رمز اولیه‌اش ساخته می‌شود؛ قانون‌ها و مثال کامل:
+    /// <see cref="Core.Services.Admin.DefaultAdminAccount"/> و docs/DEPLOYMENT.md.
+    /// <para>رمز را روی سرور واقعی در فایل نگذارید؛ با متغیر محیطی بدهید: <c>Shop__DefaultAdmins__0__Password</c>
+    /// (عدد = جایگاه در فهرست، از ۰). مدیر دوم: <c>Shop__DefaultAdmins__1__PhoneNumber</c>، <c>…__1__Password</c> و …</para>
+    /// <para>نکته: فهرست‌ها در appsettings.{Environment}.json جایگاه‌به‌جایگاه با appsettings.json ادغام می‌شوند (حذف نمی‌شوند)؛
+    /// برای حذف یک مدیر پیش‌فرض او را از appsettings.json بردارید و حسابش را از پنل مسدود یا حذف کنید.</para>
     /// </summary>
-    public string? OwnerPhoneNumber { get; set; }
+    public List<DefaultAdminOptions> DefaultAdmins { get; set; } = [];
 
-    /// <summary>نام کوچک مالک برای ساخت حساب در اولین اجرا. مثال: «محمدامین».</summary>
-    public string? OwnerFirstName { get; set; }
-
-    /// <summary>نام خانوادگی مالک برای ساخت حساب در اولین اجرا. مثال: «ناظری».</summary>
-    public string? OwnerLastName { get; set; }
+    /// <summary>فهرست تنظیمات به مدل Core (موارد خالی حذف می‌شوند).</summary>
+    public IReadOnlyList<Core.Services.Admin.DefaultAdminAccount> DefaultAdminAccounts()
+        => DefaultAdmins.Where(a => a is not null && !string.IsNullOrWhiteSpace(a.PhoneNumber))
+            .Select(a => new Core.Services.Admin.DefaultAdminAccount(a.PhoneNumber, a.FirstName, a.LastName, a.Password, a.FullAccess, a.Roles))
+            .ToList();
 
     /// <summary>
     /// دامنهٔ اصلی سایت بدون https و بدون www. مثال: <c>faratek.ir</c>.
     /// <para>وقتی تنظیم باشد: درخواست به دامنهٔ دیگر (مثل www.faratek.ir) با ۳۰۱ به همین دامنه می‌رود و نقشهٔ سایت،
     /// robots.txt و لینک‌های کانونیکال همیشه با همین دامنه ساخته می‌شوند (جلوگیری از محتوای تکراری در گوگل).
-    /// localhost و آدرس IP هرگز ریدایرکت نمی‌شوند تا آزمایش روی سرور ممکن بماند. خالی = خاموش.</para>
+    /// localhost و آدرس IP هرگز ریدایرکت نمی‌شوند تا آزمایش روی سرور ممکن بماند. خالی یا «off» (هر مقدار بدون نقطه) = خاموش.</para>
     /// </summary>
     public string? CanonicalHost { get; set; }
+}
+
+/// <summary>
+/// یک مدیر پیش‌فرض در appsettings (<c>Shop:DefaultAdmins[n]</c>). معنی هر فیلد: <see cref="Core.Services.Admin.DefaultAdminAccount"/>.
+/// </summary>
+public sealed class DefaultAdminOptions
+{
+    /// <summary>موبایل، مثال «09013181090».</summary>
+    public string? PhoneNumber { get; set; }
+
+    /// <summary>نام کوچک، مثال «محمدامین».</summary>
+    public string? FirstName { get; set; }
+
+    /// <summary>نام خانوادگی، مثال «ناظری».</summary>
+    public string? LastName { get; set; }
+
+    /// <summary>رمز اولیه (۸ تا ۱۰۰ نویسه). فقط هنگام ساخت حساب (یا حساب بی‌رمز) استفاده می‌شود؛ بعد از اولین ورود عوضش کنید.</summary>
+    public string? Password { get; set; }
+
+    /// <summary>true (پیش‌فرض) = همهٔ دسترسی‌ها؛ false = فقط <see cref="Roles"/>.</summary>
+    public bool FullAccess { get; set; } = true;
+
+    /// <summary>نام نقش‌های پنل وقتی FullAccess = false. مثال: [ "پشتیبانی", "بازاریابی" ].</summary>
+    public List<string> Roles { get; set; } = [];
+
+    /// <summary>رمز در لاگ/دیباگر چاپ نشود.</summary>
+    public override string ToString() => $"DefaultAdmin {PhoneNumber} (password {(string.IsNullOrEmpty(Password) ? "none" : "***")})";
 }
