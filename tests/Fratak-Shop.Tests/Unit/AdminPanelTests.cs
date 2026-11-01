@@ -101,6 +101,21 @@ public class AdminPermissionTests
             Assert.All(item.AnyOf ?? [], p => Assert.True(AdminPermissions.IsKnown(p), $"{item.Title}: {p}"));
         }
     }
+
+    /// <summary>
+    /// مرحلهٔ ۱۴ (باگی که آزمون E2E پیدا کرد): نقش فروش «اطلاعات تأمین‌کننده» دارد ولی «مدیریت محصولات» نه؛ لینک «درون‌ریزی از سایت»
+    /// را می‌دید و به «دسترسی ندارید» می‌رسید. آیتم منو باید فقط با هر دو مجوز دیده شود (AllOf).
+    /// </summary>
+    [Fact]
+    public void Navigation_AllOf_hides_links_the_role_cannot_use()
+    {
+        var item = AdminNav.Groups.SelectMany(g => g.Items).Single(i => i.Url == "/admin/products/site-import");
+        Assert.All(item.AllOf ?? [], p => Assert.True(AdminPermissions.IsKnown(p), p));
+
+        Assert.False(item.IsVisible(Staff(AdminPermissions.ProductsSupplier, AdminPermissions.OrdersView)));
+        Assert.False(item.IsVisible(Staff(AdminPermissions.ProductsManage)));
+        Assert.True(item.IsVisible(Staff(AdminPermissions.ProductsManage, AdminPermissions.ProductsSupplier)));
+    }
 }
 
 public class AdminRegistryTests

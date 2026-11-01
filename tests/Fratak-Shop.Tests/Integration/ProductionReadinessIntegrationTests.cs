@@ -3,6 +3,7 @@ using Fratak_Shop.Core.Services.Pricing;
 using Fratak_Shop.Core.Services.Settings;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Admin;
 using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Data.Entities.Users;
 using Fratak_Shop.Data.Seeders;
@@ -105,11 +106,18 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
         var ownerPhone = "0902" + baseNumber;
         var supportPhone = "0902" + (baseNumber + 1);
         var existingPhone = "0902" + (baseNumber + 2);
+        var roleName = "پشتیبانی-آزمون-" + baseNumber; // نقش خود آزمون (دیتابیس مشترک ممکن است نقش‌های پیش‌فرض را نداشته باشد)
         await using var scope = db.Scope();
         var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
         var access = scope.ServiceProvider.GetRequiredService<IAdminAccessService>();
         try
         {
+            context.AdminRoles.Add(new AdminRole
+            {
+                Name = roleName,
+                Color = "#16a34a",
+                Permissions = [new AdminRolePermission { Permission = AdminPermissions.TicketsManage }],
+            });
             // حسابی که قبلاً با کد پیامکی (بدون رمز) ثبت‌نام کرده بود.
             context.Users.Add(new User { PhoneNumber = existingPhone, IsPhoneVerified = true, SecurityStamp = PasswordHasher.NewSecurityStamp() });
             await context.SaveChangesAsync();
@@ -118,7 +126,7 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
             await access.EnsureDefaultsAsync(
             [
                 new DefaultAdminAccount(ownerPhone, "مدیر", "یک", "first-pass-1"),
-                new DefaultAdminAccount(supportPhone, "پشتیبان", "دو", "second-pass-2", FullAccess: false, Roles: ["پشتیبانی", "نقش-ناموجود"]),
+                new DefaultAdminAccount(supportPhone, "پشتیبان", "دو", "second-pass-2", FullAccess: false, Roles: [roleName, "نقش-ناموجود"]),
                 new DefaultAdminAccount(existingPhone, "قدیمی", "سه", "third-pass-3"),
             ]);
 
@@ -132,7 +140,7 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
             var supportAccess = await access.GetAccessAsync(support.Id);
             Assert.False(supportAccess.IsOwner);
             Assert.Equal(UserRole.Customer, support.Role);
-            Assert.True(await context.UserAdminRoles.AnyAsync(m => m.UserId == support.Id && m.Role.Name == "پشتیبانی"));
+            Assert.True(await context.UserAdminRoles.AnyAsync(m => m.UserId == support.Id && m.Role.Name == roleName));
             Assert.True(PasswordHasher.Verify("second-pass-2", support.PasswordHash));
 
             Assert.Equal(UserRole.SuperAdmin, existing.Role);
@@ -142,7 +150,7 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
             // اجرای دوم با رمز دیگر: رمز موجود دست نمی‌خورد و نقش تکراری اضافه نمی‌شود.
             await access.EnsureDefaultsAsync(
             [
-                new DefaultAdminAccount(supportPhone, "پشتیبان", "دو", "changed-pass-9", FullAccess: false, Roles: ["پشتیبانی"]),
+                new DefaultAdminAccount(supportPhone, "پشتیبان", "دو", "changed-pass-9", FullAccess: false, Roles: [roleName]),
             ]);
             support = await context.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == supportPhone);
             Assert.True(PasswordHasher.Verify("second-pass-2", support.PasswordHash));
@@ -155,6 +163,7 @@ public class ProductionReadinessIntegrationTests(SqlServerFixture db)
             var ids = await context.Users.IgnoreQueryFilters().Where(u => phones.Contains(u.PhoneNumber)).Select(u => u.Id).ToListAsync();
             context.UserAdminRoles.RemoveRange(await context.UserAdminRoles.IgnoreQueryFilters().AsTracking().Where(m => ids.Contains(m.UserId)).ToListAsync());
             context.Users.RemoveRange(await context.Users.IgnoreQueryFilters().AsTracking().Where(u => ids.Contains(u.Id)).ToListAsync());
+            context.AdminRoles.RemoveRange(await context.AdminRoles.IgnoreQueryFilters().AsTracking().Where(r => r.Name == roleName).ToListAsync());
             await context.SaveChangesAsync();
         }
     }

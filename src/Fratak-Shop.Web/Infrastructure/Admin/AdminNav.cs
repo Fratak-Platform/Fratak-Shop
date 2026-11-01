@@ -3,9 +3,14 @@ using P = Fratak_Shop.Core.Services.Admin.AdminPermissions;
 
 namespace Fratak_Shop.Web.Infrastructure.Admin;
 
-public sealed record AdminNavItem(string Title, string Url, string Icon, string[]? AnyOf = null, string? BadgeKey = null, bool OwnerOnly = false)
+/// <param name="AnyOf">یکی از این مجوزها کافی است تا آیتم دیده شود.</param>
+/// <param name="AllOf">مرحلهٔ ۱۴: علاوه بر AnyOf، همهٔ این مجوزها لازم است (صفحه‌ای که بدون هر دو کاری از آن برنمی‌آید؛
+/// مثال: «درون‌ریزی از سایت» = مدیریت محصولات + اطلاعات تأمین‌کننده). بدون آن، نقش فروش لینکی می‌دید که به «دسترسی ندارید» می‌رسید.</param>
+public sealed record AdminNavItem(string Title, string Url, string Icon, string[]? AnyOf = null, string? BadgeKey = null, bool OwnerOnly = false, string[]? AllOf = null)
 {
-    public bool IsVisible(AdminAccess access) => OwnerOnly ? access.IsOwner : AnyOf is null || access.HasAny(AnyOf);
+    public bool IsVisible(AdminAccess access) => OwnerOnly
+        ? access.IsOwner
+        : (AnyOf is null || access.HasAny(AnyOf)) && (AllOf is null || AllOf.All(access.Has));
 }
 
 public sealed record AdminNavGroup(string Title, params AdminNavItem[] Items);
@@ -36,7 +41,7 @@ public static class AdminNav
             new AdminNavItem("انبار و موجودی", "/admin/products/inventory", "ChartLine", [P.ProductsView]),
             new AdminNavItem("تغییر گروهی قیمت", "/admin/products/bulk-price", "Calculator", [P.ProductsManage]),
             new AdminNavItem("ورود از اکسل", "/admin/products/import", "UploadSimple", [P.ProductsManage]),
-            new AdminNavItem("درون‌ریزی از سایت", "/admin/products/site-import", "Storefront", [P.ProductsSupplier]),
+            new AdminNavItem("درون‌ریزی از سایت", "/admin/products/site-import", "Storefront", [P.ProductsManage], AllOf: [P.ProductsManage, P.ProductsSupplier]),
             new AdminNavItem("دسته‌بندی‌ها", "/admin/manage/categories", "Stack", [P.CatalogManage]),
             new AdminNavItem("برندها", "/admin/manage/brands", "Tag", [P.CatalogManage]),
             new AdminNavItem("تأمین‌کنندگان", "/admin/manage/suppliers", "Factory", [P.SuppliersManage]),
