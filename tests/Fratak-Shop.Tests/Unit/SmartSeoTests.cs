@@ -158,7 +158,7 @@ public class SmartSeoTests
         Assert.Equal(0, SpamGuard.KeywordDensity("", "هدفون"));
     }
 
-    private static string PersianTextOf(string html) => Fratak_Shop.Core.Utilities.PersianText.HtmlToText(html);
+    private static string PersianTextOf(string html) => PersianText.HtmlToText(html);
 
     [Fact]
     public void Inspect_of_a_clean_page_is_empty()
