@@ -1,5 +1,6 @@
 using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Core.Services.Seo.Knowledge;
+using Fratak_Shop.Core.Services.Seo.Tools;
 using Fratak_Shop.Data.Entities.Pages;
 using Fratak_Shop.Data.Entities.SeoEngine;
 using Fratak_Shop.Data.Utilities.SeoManagement;

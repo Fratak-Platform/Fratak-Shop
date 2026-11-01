@@ -168,7 +168,7 @@ public sealed class SmartFacts(SmartTextRequest request)
         var name = Name(preferKeyword);
         var warranty = request.Product?.WarrantyTitle is { Length: > 0 } title
             ? PersianText.Clean(title)
-            : request.Product?.WarrantyMonths is > 0 and var months ? $"{PersianText.Digits(months.Value)} ماهه" : null;
+            : request.Product?.WarrantyMonths is > 0 and var months ? $"{PersianText.Digits(months)} ماهه" : null;
         var values = new Dictionary<string, string?>
         {
             ["{name}"] = name.Length > 0 ? name : null,
