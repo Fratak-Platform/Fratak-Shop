@@ -135,7 +135,7 @@ public static class Round5DefaultsSeeder
         {
             context.SearchSynonyms.AddRange(
                 new SearchSynonym { Terms = "هدفون, هدست, headphone, headset" },
-                new SearchSynonym { Terms = "هندزفری, ایرباد, ایرفون, earbuds, airpods, ایرپاد" },
+                new SearchSynonym { Terms = "هندزفری, ایرباد, ایرفون, earbuds, airpods, ایرپاد, هنذفری, handsfree" },
                 new SearchSynonym { Terms = "لپ تاپ, لپتاپ, نوت بوک, laptop, notebook" },
                 new SearchSynonym { Terms = "گوشی, موبایل, تلفن همراه, mobile, phone" },
                 new SearchSynonym { Terms = "ساعت هوشمند, اسمارت واچ, smartwatch, watch" },
@@ -144,7 +144,33 @@ public static class Round5DefaultsSeeder
                 new SearchSynonym { Terms = "تلویزیون, تی وی, tv" },
                 new SearchSynonym { Terms = "شیائومی, شیامی, xiaomi, mi" },
                 new SearchSynonym { Terms = "سامسونگ, samsung" },
-                new SearchSynonym { Terms = "اپل, apple, آیفون, iphone" });
+                new SearchSynonym { Terms = "اپل, apple, آیفون, iphone" },
+                // مرحلهٔ سیزدهم: پیشنهادهای کامل‌تر برای یک فروشگاه کالای دیجیتال (املای رایج، فارسی/انگلیسی، نام برندها).
+                new SearchSynonym { Terms = "شارژر, آداپتور, شارژ دیواری, charger, adapter" },
+                new SearchSynonym { Terms = "کابل, سیم شارژ, کابل شارژ, cable" },
+                new SearchSynonym { Terms = "ماوس, موس, mouse" },
+                new SearchSynonym { Terms = "کیبورد, صفحه کلید, keyboard" },
+                new SearchSynonym { Terms = "مانیتور, نمایشگر, monitor" },
+                new SearchSynonym { Terms = "تبلت, tablet, آیپد, ipad" },
+                new SearchSynonym { Terms = "کنسول, پلی استیشن, پلی‌استیشن, playstation, ps5, ps4, ایکس باکس, xbox" },
+                new SearchSynonym { Terms = "دسته بازی, گیم پد, جوی استیک, gamepad, controller" },
+                new SearchSynonym { Terms = "فلش, فلش مموری, فلش مموری usb, flash, flash memory" },
+                new SearchSynonym { Terms = "کارت حافظه, مموری کارت, رم میکرو, micro sd, memory card" },
+                new SearchSynonym { Terms = "هارد, هارد اکسترنال, هارد دیسک, hdd, ssd, external hard" },
+                new SearchSynonym { Terms = "مودم, روتر, modem, router" },
+                new SearchSynonym { Terms = "دوربین, camera, وبکم, webcam" },
+                new SearchSynonym { Terms = "مچ بند هوشمند, دستبند هوشمند, smart band, mi band" },
+                new SearchSynonym { Terms = "قاب, کاور, قاب گوشی, case, cover" },
+                new SearchSynonym { Terms = "گلس, محافظ صفحه, گلس گوشی, screen protector" },
+                new SearchSynonym { Terms = "هوآوی, هواوی, huawei, آنر, honor" },
+                new SearchSynonym { Terms = "انکر, anker" },
+                new SearchSynonym { Terms = "هایلو, haylou" },
+                new SearchSynonym { Terms = "جی بی ال, jbl" },
+                new SearchSynonym { Terms = "سونی, sony" },
+                new SearchSynonym { Terms = "لنوو, lenovo" },
+                new SearchSynonym { Terms = "ایسوس, asus" },
+                new SearchSynonym { Terms = "ال جی, lg" },
+                new SearchSynonym { Terms = "باسئوس, بیسوس, baseus" });
         }
 
         if (!await context.SearchQueryLogs.IgnoreQueryFilters().AnyAsync(cancellationToken))
@@ -152,7 +178,9 @@ public static class Round5DefaultsSeeder
             // Pinned suggestions for a fresh shop (popular searches grow from real traffic afterwards).
             var now = DateTimeOffset.UtcNow;
             context.SearchQueryLogs.AddRange(
-                Pinned("هندزفری بی سیم", now), Pinned("ساعت هوشمند", now), Pinned("لپ تاپ", now), Pinned("پاوربانک", now));
+                Pinned("هندزفری بی سیم", now), Pinned("ساعت هوشمند", now), Pinned("لپ تاپ", now), Pinned("پاوربانک", now),
+                Pinned("گوشی موبایل", now), Pinned("هدفون", now), Pinned("اسپیکر بلوتوثی", now), Pinned("شارژر", now),
+                Pinned("کابل شارژ", now), Pinned("کنسول بازی", now), Pinned("تبلت", now), Pinned("فلش مموری", now));
         }
 
         await context.SaveChangesAsync(cancellationToken);

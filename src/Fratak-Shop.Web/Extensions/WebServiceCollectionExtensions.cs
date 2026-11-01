@@ -61,6 +61,8 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Core.Services.Suppliers.ISupplierHttp, Infrastructure.Suppliers.SupplierHttp>();
         services.AddSingleton<Infrastructure.Suppliers.SupplierSyncQueue>();
         services.AddHostedService<Infrastructure.Suppliers.SupplierSyncWorker>();
+        // مرحلهٔ سیزدهم: قیمت‌گذاری خودکار محصولات درون‌ریزی‌شده بر اساس قیمت بازار.
+        services.AddHostedService<Infrastructure.Suppliers.MarketPricingWorker>();
 
         // مرحلهٔ هفتم – فاز ۶: رهگیری خودکار مرسوله‌های پستی (سامانهٔ عمومی پست + صف اجرای فوری + زمان‌بند).
         services.AddHttpClient(Infrastructure.Shipping.PostTrackingClient.ClientName, Infrastructure.Shipping.PostTrackingClient.Configure)

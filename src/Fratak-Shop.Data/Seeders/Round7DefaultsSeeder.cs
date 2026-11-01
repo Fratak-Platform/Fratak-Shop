@@ -92,6 +92,17 @@ public static class Round7DefaultsSeeder
     /// متنی که مدیر ویرایش یا حذف کرده دست نمی‌خورد.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// همگام‌سازی راهنمای پنل با نسخهٔ فعلی برنامه، در هر شروع برنامه (مرحلهٔ سیزدهم).
+    /// <para>راهنمای پنل «مستندات نرم‌افزار» است، نه دادهٔ فروشگاه: با هر نسخهٔ تازه، صفحهٔ تازه‌ای در پنل می‌آید که راهنما می‌خواهد.
+    /// ردیفی که مدیر ویرایش یا حذف کرده دست نمی‌خورد. محل صدا زدن: FratakShopBootstrapper (وقتی پایگاه داده قبلاً راه‌اندازی شده).</para>
+    /// </summary>
+    public static Task SyncHelpArticlesAsync(FratakShopDbContext context, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return SeedHelpArticlesAsync(context, cancellationToken);
+    }
+
     private static async Task SeedHelpArticlesAsync(FratakShopDbContext context, CancellationToken cancellationToken)
     {
         // اگر برای یک آدرس هم ردیف حذف‌شده و هم ردیف فعال باشد، ردیف فعال ملاک است.

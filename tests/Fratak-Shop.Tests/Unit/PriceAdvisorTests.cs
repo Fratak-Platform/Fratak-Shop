@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.Services.Pricing;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.Services.Suppliers;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -222,13 +223,14 @@ public class PriceAdvisorTests
         url.Contains("base-product/search") ? new(200, TorobSearchJson)
         : url.Contains("prk=bbb") ? new(200, TorobDetailsJson)
         : url.Contains("digikala") ? new(200, DigikalaJson)
+        : url.Contains("basalam") ? new(200, "{\"products\":[]}")
         : new(404, null, "not found");
 
     [Fact]
     public async Task Service_picks_the_matching_product_and_lists_every_shop()
     {
         var http = new FakeHttp(Respond);
-        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()));
+        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()), new ExternalSourceGate(0));
 
         var result = await service.SearchAsync("هدفون هایلو T15", CancellationToken.None);
 
@@ -249,7 +251,7 @@ public class PriceAdvisorTests
     public async Task Service_reports_torob_captcha_and_keeps_other_sources()
     {
         var http = new FakeHttp(url => url.Contains("torob") ? new SupplierHttpResponse(490, "<html>captcha</html>") : Respond(url));
-        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()));
+        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()), new ExternalSourceGate(0));
 
         var result = await service.SearchAsync("هدفون هایلو T15", CancellationToken.None);
 
@@ -261,11 +263,11 @@ public class PriceAdvisorTests
     public async Task Service_survives_broken_json_and_short_queries()
     {
         var http = new FakeHttp(_ => new SupplierHttpResponse(200, "{not json"));
-        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()));
+        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()), new ExternalSourceGate(0));
 
         var result = await service.SearchAsync("هدفون هایلو T15", CancellationToken.None);
         Assert.Empty(result.Offers);
-        Assert.Equal(2, result.Problems.Count);
+        Assert.Equal(3, result.Problems.Count); // ترب، دیجی‌کالا، باسلام
 
         var tooShort = await service.SearchAsync(" x ", CancellationToken.None);
         Assert.Empty(tooShort.Offers);
@@ -276,7 +278,7 @@ public class PriceAdvisorTests
     public async Task Successful_results_are_cached()
     {
         var http = new FakeHttp(Respond);
-        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()));
+        var service = new CompetitorPriceService(http, new MemoryCache(new MemoryCacheOptions()), new ExternalSourceGate(0));
 
         await service.SearchAsync("هدفون هایلو T15", CancellationToken.None);
         var calls = http.Urls.Count;

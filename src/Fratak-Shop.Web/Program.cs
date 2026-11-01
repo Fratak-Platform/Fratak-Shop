@@ -137,9 +137,11 @@ builder.Services.AddHsts(options =>
 });
 
 // ── Application layers ────────────────────────────────────────────────
-var connectionString = builder.Configuration["ConnectionDefault"]
-                       ?? builder.Configuration.GetConnectionString("DefaultConnection")
-                       ?? throw new InvalidOperationException("Connection string 'ConnectionDefault' is not configured.");
+// رشتهٔ اتصال روی سرور: متغیر محیطی ConnectionDefault (یا ConnectionStrings__DefaultConnection) — راهنما: docs/DEPLOYMENT.md.
+var connectionString = new[] { builder.Configuration["ConnectionDefault"], builder.Configuration.GetConnectionString("DefaultConnection") }
+                           .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                       ?? throw new InvalidOperationException(
+                           "Connection string is not configured. Set the environment variable 'ConnectionDefault' (or ConnectionStrings__DefaultConnection); see docs/DEPLOYMENT.md.");
 
 builder.Services.AddFratakShopData(connectionString);
 builder.Services.AddFratakShopCore();
@@ -150,6 +152,10 @@ var app = builder.Build();
 // ── HTTP pipeline ─────────────────────────────────────────────────────
 if (behindProxy)
     app.UseForwardedHeaders();
+
+// مرحلهٔ سیزدهم: یک دامنهٔ اصلی (Shop:CanonicalHost، مثلاً faratek.ir)؛ www و دامنه‌های دیگر با ۳۰۱ مستقیم به https://faratek.ir می‌روند
+// (پیش از HttpsRedirection تا http://www… فقط یک تغییر مسیر داشته باشد؛ بعد از ForwardedHeaders تا میزبان واقعی دیده شود).
+app.UseMiddleware<CanonicalHostMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -308,20 +314,49 @@ if (app.Environment.IsDevelopment())
 Fratak_Shop.Core.Utilities.CacheInvalidation.Wire(app.Services.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>());
 PageCachePolicy.WireEviction(app.Services.GetRequiredService<IOutputCacheStore>(), app.Logger);
 
-// ── Database: migrations, reference data and optional demo catalog ────
-await app.Services.InitializeFratakShopDataAsync();
+// ── Database: migrations, location dictionary, default data (only on a brand-new database) ────
+// Shop:SeedDefaultData = true → دادهٔ پیش‌فرض سیستم فقط بار اولی که پایگاه داده خالی است ساخته می‌شود؛
+// اجراهای بعدی هرگز چیزی را دوباره نمی‌سازند (Data/Seeders/DefaultDataSeeder.cs).
+var shopOptions = app.Services.GetRequiredService<IOptions<ShopOptions>>().Value;
+var defaultData = await app.Services.InitializeFratakShopDataAsync(shopOptions.SeedDefaultData);
+switch (defaultData)
+{
+    case Fratak_Shop.Data.Seeders.DefaultDataOutcome.Seeded:
+        app.Logger.LogInformation("New database: the default store data was created (Shop:SeedDefaultData).");
+        break;
+    case Fratak_Shop.Data.Seeders.DefaultDataOutcome.Disabled:
+        app.Logger.LogWarning("New database without default data (Shop:SeedDefaultData = false): settings, pages and menus are empty until they are created in the admin panel.");
+        break;
+}
 
-// Admin panel: default roles (once), legacy staff moved onto roles, owner from Shop:OwnerPhoneNumber.
+// Admin panel: default roles (once), legacy staff moved onto roles, owner account from Shop:Owner* (created once, passwordless).
 using (var adminScope = app.Services.CreateScope())
 {
     try
     {
         await adminScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Admin.IAdminAccessService>()
-            .EnsureDefaultsAsync(app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.OwnerPhoneNumber);
+            .EnsureDefaultsAsync(shopOptions.OwnerPhoneNumber, shopOptions.OwnerFirstName, shopOptions.OwnerLastName);
     }
     catch (Exception exception)
     {
         app.Logger.LogError(exception, "Preparing the admin roles failed");
+    }
+}
+
+// مرحلهٔ سیزدهم: روی سرور واقعی، مالک بدون رمز فقط با کد پیامکی وارد می‌شود؛ اگر کلید SMS.ir نه در پنل و نه در تنظیمات سرور
+// (SmsIr:ApiKey / متغیر محیطی SmsIr__ApiKey) نباشد، کسی نمی‌تواند وارد پنل شود. با صدای بلند هشدار می‌دهیم.
+if (app.Environment.IsProduction())
+{
+    using var smsScope = app.Services.CreateScope();
+    try
+    {
+        var sms = await smsScope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Notifications.ISmsProviderService>().GetRuntimeAsync();
+        if (string.IsNullOrWhiteSpace(sms.ApiKey) && string.IsNullOrWhiteSpace(app.Configuration[Fratak_Shop.Web.Infrastructure.Sms.ConfigurableSmsSender.ConfigurationKey]))
+            app.Logger.LogCritical("SMS.ir API key is not configured (admin panel or SmsIr__ApiKey): sign-in codes cannot be sent, so the passwordless owner account cannot sign in. Set SmsIr__ApiKey on the server.");
+    }
+    catch (Exception exception)
+    {
+        app.Logger.LogWarning(exception, "Checking the SMS configuration failed");
     }
 }
 
@@ -356,17 +391,29 @@ using (var opsScope = app.Services.CreateScope())
     }
 }
 
-if (app.Services.GetRequiredService<IOptions<ShopOptions>>().Value.SeedDemoData)
+// ── Demo data (Shop:SeedDemoData): fake catalog, demo accounts and sample coupons ────
+// فقط روی فروشگاهی که هنوز هیچ محصولی (حتی حذف‌شده) ندارد؛ پس روشن ماندن اشتباهی این گزینه روی سایت واقعی،
+// محصول یا حساب ساختگی (با رمز 123456) را قاطی دادهٔ واقعی نمی‌کند.
+if (shopOptions.SeedDemoData)
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
-    await Fratak_Shop.Web.Infrastructure.Seeders.Round5DemoSeeder.SeedAsync(
-        scope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>(),
-        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.DemoData"));
-    await Round6DemoSeeder.SeedAsync(
-        scope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>(),
-        app.Environment,
-        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.DemoData"));
+    var demoContext = scope.ServiceProvider.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>();
+    var demoLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.DemoData");
+    if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.IgnoreQueryFilters(demoContext.Products)))
+    {
+        demoLogger.LogInformation("Demo data skipped: the catalog already has products (demo data is only added to an empty shop).");
+    }
+    else
+    {
+        // نمونه‌های تبلیغاتی پیش از کاتالوگ (کدهای تخفیف نمونه فقط روی جدول خالی ساخته می‌شوند).
+        await Fratak_Shop.Data.Seeders.SampleContentSeeder.SeedAsync(demoContext);
+        await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+        await Fratak_Shop.Web.Infrastructure.Seeders.Round5DemoSeeder.SeedAsync(demoContext, demoLogger);
+        await Round6DemoSeeder.SeedAsync(demoContext, app.Environment, demoLogger);
+        if (!app.Environment.IsDevelopment())
+            demoLogger.LogWarning("Demo data was created outside Development: demo customer/staff accounts use the password 123456. Never enable Shop:SeedDemoData on the live site.");
+    }
 }
 
 app.Run();

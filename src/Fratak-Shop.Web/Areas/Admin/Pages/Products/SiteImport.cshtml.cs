@@ -33,8 +33,15 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Products;
 /// </summary>
 [AdminPermission(AdminPermissions.ProductsManage)]
 public class SiteImportModel(ISiteCatalogService catalog, IProductService products, IAdminDataService data, IUploadStore uploads,
-    IStoreSettingService storeSettings, IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<SiteImportModel> logger) : AdminPageModel
+    IStoreSettingService storeSettings, IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<SiteImportModel> logger,
+    IMarketPricingService marketPricing) : AdminPageModel
 {
+    /// <summary>روش‌های قیمت‌گذاری: ۱ = سود هدف روی قیمت مبدأ، ۲ = همان قیمت مبدأ، ۳ = بر اساس قیمت بازار (پیش‌فرض، مرحلهٔ سیزدهم).</summary>
+    public const int PriceModeTarget = 1, PriceModeSource = 2, PriceModeMarket = 3;
+
+    /// <summary>وضعیت صف قیمت‌گذاری بازار برای نمایش در صفحه.</summary>
+    public MarketPricingSummary? Market { get; private set; }
+
     /// <summary>بیشترین تعداد محصول در هر بار «ساخت» (هر محصول چند تصویر دانلود می‌کند).</summary>
     public const int MaxPerRun = 30;
 
@@ -105,9 +112,11 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
     /// <param name="selected">شمارهٔ ردیف‌های انتخاب‌شده.</param>
     /// <param name="categoryId">دستهٔ پیش‌فرض (اگر نام دستهٔ مبدأ با دسته‌ای در فروشگاه یکی بود، همان انتخاب می‌شود).</param>
     /// <param name="supplierId">تأمین‌کننده (اختیاری).</param>
-    /// <param name="priceMode">۱ = قیمت مبدأ قیمت خرید است و قیمت فروش با سود هدف تنظیمات محاسبه می‌شود؛ ۲ = قیمت مبدأ همان قیمت فروش است.</param>
+    /// <param name="priceMode">۱ = قیمت مبدأ قیمت خرید است و قیمت فروش با سود هدف تنظیمات محاسبه می‌شود؛ ۲ = قیمت مبدأ همان قیمت فروش است؛
+    /// ۳ (پیش‌فرض) = قیمت مبدأ قیمت خرید است، محصول با قیمت سود هدف ساخته می‌شود و بلافاصله در صف «قیمت‌گذاری بازار» می‌رود تا
+    /// قیمت فروش از روی قیمت رقبا (همان «پیشنهاد قیمت فروش») تنظیم شود.</param>
     /// <param name="withImages">تصاویر دانلود شوند.</param>
-    public async Task<IActionResult> OnPostImportAsync(string? token, List<int> selected, Guid? categoryId, Guid? supplierId, int priceMode = 1, bool withImages = true)
+    public async Task<IActionResult> OnPostImportAsync(string? token, List<int> selected, Guid? categoryId, Guid? supplierId, int priceMode = PriceModeMarket, bool withImages = true)
     {
         await LoadListsAsync();
         if (!CanSupplier)
@@ -140,7 +149,9 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         var categoryNames = await data.Query<Category>().Select(c => new { c.Id, c.Name }).ToListAsync();
         var brandNames = await data.Query<Brand>().Select(b => new { b.Id, b.Name }).ToListAsync();
 
-        int created = 0, failed = 0, imagesSaved = 0, imagesFailed = 0;
+        if (priceMode is not (PriceModeTarget or PriceModeSource or PriceModeMarket))
+            priceMode = PriceModeMarket;
+        int created = 0, failed = 0, imagesSaved = 0, imagesFailed = 0, queued = 0;
         foreach (var index in rows)
         {
             HttpContext.RequestAborted.ThrowIfCancellationRequested();
@@ -183,6 +194,8 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
             {
                 created++;
                 pending.Imported.Add(index);
+                if (priceMode == PriceModeMarket && command.PurchasePrice is > 0)
+                    queued += await QueueMarketPriceAsync(item.SourceUrl, command.Name, command.Price, command.PurchasePrice);
             }
             else
             {
@@ -198,6 +211,8 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         if (withImages)
             message += $" ({imagesSaved} تصویر روی سرور ذخیره شد{(imagesFailed > 0 ? $"، {imagesFailed} تصویر دانلود/خوانده نشد" : "")})";
         message += ".";
+        if (queued > 0)
+            message += $" قیمت فروش {queued} محصول در پس‌زمینه از روی قیمت بازار (ترب، دیجی‌کالا، باسلام) تنظیم می‌شود؛ نتیجه در جدول «قیمت‌گذاری بازار» همین صفحه.";
         if (failed > 0)
             message += $" {failed} محصول ساخته نشد.";
         if (skipped > 0)
@@ -218,7 +233,7 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         decimal? purchase = null;
         if (item.Price is { } sourcePrice && sourcePrice > 0)
         {
-            if (priceMode == 2)
+            if (priceMode == PriceModeSource)
                 price = sourcePrice;
             else
             {
@@ -258,6 +273,27 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
             SupplierNote = item.InStock ? "درون‌ریزی از سایت" : "درون‌ریزی از سایت – در مبدأ ناموجود بود",
             Features = features,
         };
+    }
+
+    /// <summary>
+    /// گذاشتن محصول تازه‌ساخته در صف قیمت‌گذاری بازار. شناسهٔ محصول از روی لینک منبع پیدا می‌شود (CreateProductAsync شناسه برنمی‌گرداند).
+    /// خطای صف، ساخت محصول را خراب نمی‌کند (محصول با قیمت سود هدف می‌ماند). خروجی: ۱ اگر در صف رفت.
+    /// </summary>
+    private async Task<int> QueueMarketPriceAsync(string sourceUrl, string name, decimal price, decimal? purchase)
+    {
+        try
+        {
+            var productId = await data.Query<Product>().Where(p => p.SupplierUrl == sourceUrl).Select(p => (Guid?)p.Id).FirstOrDefaultAsync();
+            if (productId is null)
+                return 0;
+            await marketPricing.EnqueueAsync(productId.Value, name, price, purchase, HttpContext.RequestAborted);
+            return 1;
+        }
+        catch (DbUpdateException exception)
+        {
+            logger.LogWarning(exception, "Queueing market price of {Url} failed", sourceUrl);
+            return 0;
+        }
     }
 
     /// <summary>
@@ -339,6 +375,7 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         Categories = categories.Select(c => (c.Id, c.Parent is null ? c.Name : $"{c.Parent} › {c.Name}")).OrderBy(c => c.Item2).ToList();
         var suppliers = await data.Query<Supplier>().Where(s => s.IsActive).OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name).Select(s => new { s.Id, s.Name }).ToListAsync();
         Suppliers = suppliers.Select(s => (s.Id, s.Name)).ToList();
+        Market = await marketPricing.SummaryAsync(15, HttpContext.RequestAborted);
     }
 
     private PendingSiteImport? Pending(string token)

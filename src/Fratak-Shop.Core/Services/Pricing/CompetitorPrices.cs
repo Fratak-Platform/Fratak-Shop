@@ -2,7 +2,12 @@ using System.Globalization;
 using System.Text.Json;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Suppliers;
+using Fratak_Shop.Core.Utilities;
+using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Products;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fratak_Shop.Core.Services.Pricing;
 
@@ -12,11 +17,15 @@ namespace Fratak_Shop.Core.Services.Pricing;
 /// <param name="Offers">قیمت فروشگاه‌ها (خام؛ پاک‌سازی و حذف پرت در <see cref="PriceAdvisor.Clean"/>).</param>
 /// <param name="Problems">مشکل هر منبع به فارسی (مثلاً «ترب: کپچا»)؛ برای اینکه کارمند بداند چرا فهرست کوتاه است.</param>
 /// <param name="MatchedTitle">عنوان کالایی که در ترب انتخاب شد (برای اطمینان از اینکه همان کالاست).</param>
-public sealed record CompetitorLookup(IReadOnlyList<CompetitorOffer> Offers, IReadOnlyList<string> Problems, string? MatchedTitle);
+/// <param name="Limited">دست‌کم یک منبع ما را محدود کرده یا در حال استراحت است (یعنی «پیدا نشد» قطعی نیست و بعداً باید دوباره امتحان کرد).</param>
+/// <param name="CachedAt">اگر قیمت‌ها از کش ماندگار آمده‌اند، زمان جست‌وجوی واقعی؛ null یعنی همین الان گرفته شد.</param>
+public sealed record CompetitorLookup(
+    IReadOnlyList<CompetitorOffer> Offers, IReadOnlyList<string> Problems, string? MatchedTitle,
+    bool Limited = false, DateTimeOffset? CachedAt = null);
 
 /// <summary>
 /// جست‌وجوی قیمت همان کالا در سایت‌های دیگر (رایگان، بدون کلید API و بدون سرویس پولی).
-/// <para>کجا استفاده می‌شود: دکمهٔ «پیشنهاد قیمت فروش» در فرم محصول پنل مدیریت.</para>
+/// <para>کجا استفاده می‌شود: دکمهٔ «پیشنهاد قیمت فروش» در فرم محصول پنل مدیریت و قیمت‌گذاری بازار «درون‌ریزی از سایت» (MarketPricingService).</para>
 /// </summary>
 public interface ICompetitorPriceService
 {
@@ -27,20 +36,123 @@ public interface ICompetitorPriceService
     Task<CompetitorLookup> SearchAsync(string query, CancellationToken cancellationToken);
 }
 
+/// <summary>قیمت‌های ذخیره‌شدهٔ یک عبارت در کش ماندگار.</summary>
+public sealed record StoredCompetitorPrices(IReadOnlyList<CompetitorOffer> Offers, string? MatchedTitle, DateTimeOffset FetchedAt);
+
 /// <summary>
-/// پیاده‌سازی با دو منبع عمومی و رایگان:
+/// کش ماندگار قیمت رقبا (جدول CompetitorPriceCaches). خطای پایگاه داده هیچ‌وقت به بیرون نمی‌رسد (کش «بهترین تلاش» است).
+/// </summary>
+public interface ICompetitorPriceStore
+{
+    Task<StoredCompetitorPrices?> GetAsync(string key, CancellationToken cancellationToken);
+
+    Task SaveAsync(string key, IReadOnlyList<CompetitorOffer> offers, string? matchedTitle, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// پیاده‌سازی کش ماندگار با یک DbContext جدا (scope مستقل) تا ذخیرهٔ کش هرگز تغییرات ذخیره‌نشدهٔ صفحهٔ صدازننده را ذخیره یا پاک نکند.
+/// </summary>
+public sealed class CompetitorPriceStore(IServiceScopeFactory scopeFactory) : ICompetitorPriceStore
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    public async Task<StoredCompetitorPrices?> GetAsync(string key, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+            var row = await context.CompetitorPriceCaches.AsNoTracking()
+                .Where(c => c.QueryKey == key)
+                .Select(c => new { c.OffersJson, c.MatchedTitle, c.FetchedAt })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (row is null)
+                return null;
+            var offers = JsonSerializer.Deserialize<List<CompetitorOffer>>(row.OffersJson, Json) ?? [];
+            return new StoredCompetitorPrices(offers.Where(o => o.Price > 0 && !string.IsNullOrWhiteSpace(o.Shop)).ToList(), row.MatchedTitle, row.FetchedAt);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    public async Task SaveAsync(string key, IReadOnlyList<CompetitorOffer> offers, string? matchedTitle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+            var row = await context.CompetitorPriceCaches.AsTracking().FirstOrDefaultAsync(c => c.QueryKey == key, cancellationToken);
+            if (row is null)
+            {
+                row = new CompetitorPriceCache { QueryKey = key };
+                context.CompetitorPriceCaches.Add(row);
+            }
+            row.OffersJson = JsonSerializer.Serialize(offers.Take(60).ToList(), Json);
+            row.OfferCount = offers.Count;
+            row.MatchedTitle = matchedTitle is { Length: > 200 } ? matchedTitle[..200] : matchedTitle;
+            row.FetchedAt = DateTimeOffset.UtcNow;
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // دو درخواست هم‌زمان برای یک عبارت (ایندکس یکتا) یا قطعی لحظه‌ای پایگاه داده: کش بعدی ذخیره می‌شود.
+        }
+    }
+}
+
+/// <summary>داوری دربارهٔ پاسخ یک منبع.</summary>
+public enum SourceVerdict
+{
+    /// <summary>پاسخ سالم (JSON).</summary>
+    Ok,
+
+    /// <summary>منبع ما را محدود کرده (کپچا/۴۹۰/۴۰۳/۴۲۹/۵۰۳)؛ باید استراحت کرد.</summary>
+    Blocked,
+
+    /// <summary>خطای موقت (شبکه، ۵۰۰، ۴۰۴، پاسخ HTML نامعلوم).</summary>
+    Failed,
+}
+
+/// <summary>
+/// پیاده‌سازی با سه منبع عمومی و رایگان:
 /// <list type="number">
 /// <item><b>ترب</b> (موتور مقایسهٔ قیمت): جست‌وجو در <c>api.torob.com/v4/base-product/search</c>، انتخاب نزدیک‌ترین کالا به نام ما،
 /// سپس فهرست همهٔ فروشندگان آن کالا از صفحهٔ جزئیات (معمولاً ۵ تا ۳۰ فروشگاه). قیمت‌ها به تومان‌اند.</item>
 /// <item><b>دیجی‌کالا</b>: جست‌وجو در <c>api.digikala.com/v1/search</c>؛ قیمت به ریال است و به تومان تبدیل می‌شود.</item>
+/// <item><b>باسلام</b>: جست‌وجو در <c>search.basalam.com</c>؛ تا ۳ فروشندهٔ مشابه (قیمت ریالی ← تومان). منبع تکمیلی است: «پیدا نشد» آن خطا حساب نمی‌شود.</item>
 /// </list>
-/// <para>درخواست‌ها از همان کلاینت امن تأمین‌کننده (<see cref="ISupplierHttp"/>: محافظ SSRF، سقف حجم و زمان) می‌روند.
-/// نتیجه ۳۰ دقیقه کش می‌شود تا کلیک‌های پشت‌سرهم باعث مسدود شدن نشوند.</para>
+/// <para><b>مقاوم در برابر محدودیت (مرحلهٔ سیزدهم)</b> — بدون دور زدن کپچا، فقط با رفتار درست:</para>
+/// <list type="bullet">
+/// <item>همهٔ درخواست‌ها از <see cref="IExternalSourceGate"/> می‌گذرند: برای هر منبع یک درخواست در لحظه، فاصلهٔ حداقل (ترب ۱٫۵ ثانیه، بقیه ۱ ثانیه)
+/// و استراحت خودکار بعد از محدود شدن (۱۰ دقیقه تا ۲ ساعت). منبعِ در حال استراحت اصلاً درخواست نمی‌گیرد تا محدودیت طولانی‌تر نشود.</item>
+/// <item>کش دو لایه: حافظه (۳۰ دقیقه) و پایگاه داده (۶ ساعت تازه). اگر منابع موقتاً محدود بودند، آخرین قیمت‌های معتبر تا ۳ روز با ذکر زمان برمی‌گردد.</item>
+/// <item>یک منبع خراب بقیه را خراب نمی‌کند؛ منابع موازی اجرا می‌شوند و هر کدام سقف ۲۰ ثانیه دارد.</item>
+/// </list>
+/// <para>درخواست‌ها از همان کلاینت امن تأمین‌کننده (<see cref="ISupplierHttp"/>: محافظ SSRF، سقف حجم و زمان، User-Agent مرورگر) می‌روند.</para>
 /// </summary>
-public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cache) : ICompetitorPriceService
+public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cache, IExternalSourceGate gate, ICompetitorPriceStore? store = null)
+    : ICompetitorPriceService
 {
-    /// <summary>بیشترین زمان انتظار برای هر منبع.</summary>
-    private static readonly TimeSpan SourceTimeout = TimeSpan.FromSeconds(15);
+    public const string Torob = "ترب";
+    public const string DigikalaSource = "دیجی‌کالا";
+    public const string Basalam = "باسلام";
+
+    /// <summary>بیشترین زمان انتظار برای هر منبع (شامل نوبت صف).</summary>
+    private static readonly TimeSpan SourceTimeout = TimeSpan.FromSeconds(20);
+
+    /// <summary>کش ماندگار تا این مدت «تازه» است و اصلاً جست‌وجوی واقعی انجام نمی‌شود.</summary>
+    public static readonly TimeSpan FreshFor = TimeSpan.FromHours(6);
+
+    /// <summary>اگر جست‌وجوی تازه ناموفق بود، قیمت‌های ذخیره‌شده تا این مدت (با ذکر زمان) قابل استفاده‌اند.</summary>
+    public static readonly TimeSpan StaleFor = TimeSpan.FromDays(3);
+
+    /// <summary>فاصلهٔ حداقل بین دو درخواست ترب (ترب به درخواست پشت‌سرهم کپچای ۴۹۰ می‌دهد).</summary>
+    public static readonly TimeSpan TorobInterval = TimeSpan.FromSeconds(1.5);
+
+    /// <summary>فاصلهٔ حداقل بین دو درخواست دیجی‌کالا و باسلام.</summary>
+    public static readonly TimeSpan DefaultInterval = TimeSpan.FromSeconds(1);
 
     public async Task<CompetitorLookup> SearchAsync(string query, CancellationToken cancellationToken)
     {
@@ -50,25 +162,83 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
         if (query.Length < 2)
             return new CompetitorLookup([], ["عبارت جست‌وجو خیلی کوتاه است."], null);
 
-        var key = "competitor-prices:" + PersianText.Normalize(query);
+        var normalized = PersianText.Normalize(query);
+        var storeKey = normalized.Length > 200 ? normalized[..200] : normalized;
+        var key = "competitor-prices:" + normalized;
         if (cache.TryGetValue(key, out CompetitorLookup? hit) && hit is not null)
             return hit;
 
-        var torob = GuardAsync("ترب", token => TorobAsync(query, token), cancellationToken);
-        var digikala = GuardAsync("دیجی‌کالا", token => DigikalaAsync(query, token), cancellationToken);
-        var results = await Task.WhenAll(torob, digikala);
+        var stored = store is null ? null : await store.GetAsync(storeKey, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        if (stored is { Offers.Count: > 0 } && now - stored.FetchedAt < FreshFor)
+        {
+            var fresh = new CompetitorLookup(stored.Offers, [], stored.MatchedTitle, CachedAt: stored.FetchedAt);
+            cache.Set(key, fresh, TimeSpan.FromMinutes(30));
+            return fresh;
+        }
+
+        var results = await Task.WhenAll(
+            GuardAsync(Torob, token => TorobAsync(query, token), cancellationToken),
+            GuardAsync(DigikalaSource, token => DigikalaAsync(query, token), cancellationToken),
+            GuardAsync(Basalam, token => BasalamAsync(query, token), cancellationToken));
 
         var offers = results.SelectMany(r => r.Offers).ToList();
         var problems = results.SelectMany(r => r.Problems).ToList();
-        var lookup = new CompetitorLookup(offers, problems, results[0].MatchedTitle);
-        // فقط نتیجهٔ موفق کش می‌شود؛ خطای موقت (مثلاً کپچای ترب) با کلیک بعدی دوباره امتحان می‌شود.
+        var limited = results.Any(r => r.Limited);
+        var matched = results.Select(r => r.MatchedTitle).FirstOrDefault(t => t is not null);
+        var lookup = new CompetitorLookup(offers, problems, matched, limited);
+
         if (offers.Count > 0)
+        {
+            // فقط نتیجهٔ موفق کش می‌شود؛ خطای موقت (مثلاً کپچای ترب) با کلیک بعدی دوباره امتحان می‌شود.
             cache.Set(key, lookup, TimeSpan.FromMinutes(30));
+            if (store is not null)
+                await store.SaveAsync(storeKey, offers, matched, cancellationToken);
+            return lookup;
+        }
+
+        if (stored is { Offers.Count: > 0 } && now - stored.FetchedAt < StaleFor)
+        {
+            var hours = Math.Max(1, (int)Math.Round((now - stored.FetchedAt).TotalHours));
+            problems.Add($"منابع الان قیمت تازه ندادند؛ آخرین قیمت‌های معتبر ({hours} ساعت پیش) نمایش داده شد.");
+            return new CompetitorLookup(stored.Offers, problems, stored.MatchedTitle, limited, stored.FetchedAt);
+        }
         return lookup;
     }
 
+    /// <summary>
+    /// داوری پاسخ: کدهای محدودیت (۴۹۰ کپچای ترب، ۴۰۳، ۴۲۹، ۵۰۳) یا صفحهٔ HTML چالش/کپچا به‌جای JSON ← محدودیت؛
+    /// پاسخ ۲۰۰ با بدنه ← سالم؛ بقیه ← خطای موقت.
+    /// <para>مثال: (490, "&lt;html&gt;captcha…") ← Blocked؛ (200, "{…}") ← Ok؛ (500, null) ← Failed.</para>
+    /// </summary>
+    public static SourceVerdict Classify(SupplierHttpResponse response)
+    {
+        if (response.Status is 490 or 403 or 429 or 503)
+            return SourceVerdict.Blocked;
+        if (response.Status is >= 200 and < 300 && response.Body is { } body)
+        {
+            var trimmed = body.TrimStart();
+            if (trimmed.StartsWith('<'))
+                return LooksLikeChallenge(trimmed) ? SourceVerdict.Blocked : SourceVerdict.Failed;
+            return SourceVerdict.Ok;
+        }
+        return SourceVerdict.Failed;
+    }
+
+    /// <summary>صفحهٔ HTML کپچا/چالش ضدربات (arCAPTCHA، Cloudflare، صفحهٔ «anomaly» داک‌داک‌گو، …). موتور سئو هم از همین استفاده می‌کند.</summary>
+    public static bool LooksLikeChallenge(string html)
+    {
+        var head = html.Length > 20_000 ? html[..20_000] : html;
+        return head.Contains("captcha", StringComparison.OrdinalIgnoreCase)
+               || head.Contains("cf-chl", StringComparison.OrdinalIgnoreCase)
+               || head.Contains("challenge-platform", StringComparison.OrdinalIgnoreCase)
+               || head.Contains("are you a robot", StringComparison.OrdinalIgnoreCase)
+               || head.Contains("anomaly-modal", StringComparison.OrdinalIgnoreCase)
+               || head.Contains("ربات نیستید", StringComparison.Ordinal);
+    }
+
     /// <summary>اجرای یک منبع با سقف زمان و تبدیل هر خطا به پیام فارسی (یک منبع خراب، بقیه را خراب نمی‌کند).</summary>
-    private static async Task<CompetitorLookup> GuardAsync(string name, Func<CancellationToken, Task<CompetitorLookup>> run, CancellationToken cancellationToken)
+    private async Task<CompetitorLookup> GuardAsync(string name, Func<CancellationToken, Task<CompetitorLookup>> run, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(SourceTimeout);
@@ -82,16 +252,46 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
         }
         catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException or KeyNotFoundException)
         {
+            gate.ReportFailure(name, "پاسخ قابل خواندن نبود");
             return new CompetitorLookup([], [$"{name}: پاسخ قابل خواندن نبود."], null);
+        }
+    }
+
+    /// <summary>
+    /// یک درخواست مؤدب: نوبت از دروازه، درخواست، داوری و گزارش به دروازه.
+    /// خروجی: پاسخ سالم یا پیام مشکل (و اینکه مشکل از نوع «محدودیت» بود یا نه).
+    /// </summary>
+    private async Task<(SupplierHttpResponse? Response, string? Problem, bool Limited)> FetchAsync(string source, string url, TimeSpan interval, CancellationToken cancellationToken)
+    {
+        using var lease = await gate.TryEnterAsync(source, interval, cancellationToken);
+        if (lease is null)
+        {
+            var minutes = gate.CoolingUntil(source) is { } until ? Math.Max(1, (int)Math.Ceiling((until - DateTimeOffset.UtcNow).TotalMinutes)) : 1;
+            return (null, $"{source}: به‌خاطر محدودیت قبلی موقتاً درخواستی فرستاده نمی‌شود (حدود {minutes} دقیقهٔ دیگر دوباره امتحان می‌شود).", true);
+        }
+
+        var response = await http.GetAsync(url, expectJson: true, cancellationToken);
+        switch (Classify(response))
+        {
+            case SourceVerdict.Ok:
+                gate.ReportSuccess(source);
+                return (response, null, false);
+            case SourceVerdict.Blocked:
+                gate.ReportBlocked(source, null, $"کد {response.Status}");
+                return (null, $"{source}: موقتاً درخواست را محدود کرده است (کپچا/محدودیت). تا رفع محدودیت، درخواستی به آن فرستاده نمی‌شود.", true);
+            default:
+                var reason = response.Status == 0 ? response.Error ?? "خطای اتصال" : "کد " + response.Status;
+                gate.ReportFailure(source, reason);
+                return (null, $"{source}: در دسترس نبود ({reason}).", false);
         }
     }
 
     private async Task<CompetitorLookup> TorobAsync(string query, CancellationToken cancellationToken)
     {
         var url = "https://api.torob.com/v4/base-product/search/?page=0&size=24&source=next_desktop&q=" + Uri.EscapeDataString(query);
-        var search = await http.GetAsync(url, expectJson: true, cancellationToken);
-        if (Problem("ترب", search) is { } problem)
-            return new CompetitorLookup([], [problem], null);
+        var (search, problem, limited) = await FetchAsync(Torob, url, TorobInterval, cancellationToken);
+        if (search is null)
+            return new CompetitorLookup([], [problem!], null, limited);
 
         var cards = CompetitorParsers.TorobSearch(search.Body!);
         var best = cards
@@ -104,10 +304,12 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
         if (best is null)
             return new CompetitorLookup([], ["ترب: کالای مشابهی پیدا نشد (نام یا مدل را دقیق‌تر بنویسید)."], null);
 
+        var detailsLimited = false;
         if (best.DetailsUrl is { } details && CompetitorParsers.IsTorobDetailsUrl(details))
         {
-            var page = await http.GetAsync(details, expectJson: true, cancellationToken);
-            if (Problem("ترب", page) is null)
+            var (page, _, pageLimited) = await FetchAsync(Torob, details, TorobInterval, cancellationToken);
+            detailsLimited = pageLimited;
+            if (page is not null)
             {
                 var offers = CompetitorParsers.TorobOffers(page.Body!, best.Title);
                 if (offers.Count > 0)
@@ -117,17 +319,17 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
 
         // جزئیات در دسترس نبود: دست‌کم ارزان‌ترین قیمت کارت جست‌وجو.
         return best.Price is > 0
-            ? new CompetitorLookup([new CompetitorOffer("ارزان‌ترین فروشگاه ترب", best.Price.Value, "ترب", best.WebUrl, best.Title)],
-                ["ترب: فهرست فروشندگان در دسترس نبود؛ فقط ارزان‌ترین قیمت آمد."], best.Title)
+            ? new CompetitorLookup([new CompetitorOffer("ارزان‌ترین فروشگاه ترب", best.Price.Value, Torob, best.WebUrl, best.Title)],
+                ["ترب: فهرست فروشندگان در دسترس نبود؛ فقط ارزان‌ترین قیمت آمد."], best.Title, detailsLimited)
             : new CompetitorLookup([], ["ترب: این کالا فعلاً فروشندهٔ موجود ندارد."], best.Title);
     }
 
     private async Task<CompetitorLookup> DigikalaAsync(string query, CancellationToken cancellationToken)
     {
         var url = "https://api.digikala.com/v1/search/?page=1&q=" + Uri.EscapeDataString(query);
-        var response = await http.GetAsync(url, expectJson: true, cancellationToken);
-        if (Problem("دیجی‌کالا", response) is { } problem)
-            return new CompetitorLookup([], [problem], null);
+        var (response, problem, limited) = await FetchAsync(DigikalaSource, url, DefaultInterval, cancellationToken);
+        if (response is null)
+            return new CompetitorLookup([], [problem!], null, limited);
 
         var best = CompetitorParsers.Digikala(response.Body!)
             .Select(p => (Item: p, Score: CompetitorParsers.TitleScore(query, p.Title)))
@@ -141,14 +343,24 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
             : new CompetitorLookup([best], [], null);
     }
 
-    /// <summary>پیام فارسی برای پاسخ ناموفق؛ null یعنی پاسخ سالم است.</summary>
-    private static string? Problem(string source, SupplierHttpResponse response)
+    private async Task<CompetitorLookup> BasalamAsync(string query, CancellationToken cancellationToken)
     {
-        if (response.Status == 490 || response.Status == 403 || response.Status == 429)
-            return $"{source}: موقتاً درخواست را محدود کرده است (کپچا/محدودیت). چند دقیقه بعد دوباره امتحان کنید.";
-        if (response.Body is null || response.Status is < 200 or >= 300)
-            return $"{source}: در دسترس نبود ({(response.Status == 0 ? response.Error ?? "خطای اتصال" : "کد " + response.Status)}).";
-        return null;
+        var url = "https://search.basalam.com/ai-engine/api/v2.0/product/search?q=" + Uri.EscapeDataString(query);
+        var (response, problem, limited) = await FetchAsync(Basalam, url, DefaultInterval, cancellationToken);
+        if (response is null)
+            return new CompetitorLookup([], [problem!], null, limited);
+
+        // تا ۳ فروشندهٔ متفاوت با بیشترین شباهت؛ «پیدا نشد» برای این منبع تکمیلی پیام نمی‌دهد.
+        var offers = CompetitorParsers.Basalam(response.Body!)
+            .Select(p => (Item: p, Score: CompetitorParsers.TitleScore(query, p.Title)))
+            .Where(x => x.Score >= CompetitorParsers.MinScore)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Item.Price)
+            .Select(x => x.Item)
+            .DistinctBy(o => o.Shop)
+            .Take(3)
+            .ToList();
+        return new CompetitorLookup(offers, [], null);
     }
 }
 
@@ -261,6 +473,33 @@ public static class CompetitorParsers
                     : id is not null ? $"https://www.digikala.com/product/dkp-{id}/" : null;
                 list.Add(new CompetitorOffer("دیجی‌کالا", Math.Round(rial / 10m), "دیجی‌کالا", link, Clip(title, 200)));
             }
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// محصولات جست‌وجوی باسلام: <c>products[].{id, name, price (ریال), vendor.name}</c> ← پیشنهاد با نام «باسلام – غرفه» و قیمت تومانی.
+    /// <para>مثال: {"products":[{"id":12,"name":"هدفون هایلو T15","price":2950000,"vendor":{"name":"غرفه صوتی"}}]} ←
+    /// («باسلام – غرفه صوتی»، ۲۹۵٬۰۰۰ تومان، https://basalam.com/p/12).</para>
+    /// </summary>
+    public static List<CompetitorOffer> Basalam(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var list = new List<CompetitorOffer>();
+        if (doc.RootElement.ValueKind != JsonValueKind.Object
+            || !doc.RootElement.TryGetProperty("products", out var products) || products.ValueKind != JsonValueKind.Array)
+            return list;
+        foreach (var p in products.EnumerateArray())
+        {
+            if (p.ValueKind != JsonValueKind.Object)
+                continue;
+            var title = Text(p, "name") ?? Text(p, "title");
+            if (string.IsNullOrWhiteSpace(title) || Money(p, "price") is not { } rial)
+                continue;
+            var vendor = p.TryGetProperty("vendor", out var v) && v.ValueKind == JsonValueKind.Object ? Clip(Text(v, "name") ?? Text(v, "title"), 60) : null;
+            var id = Text(p, "id");
+            var link = !string.IsNullOrEmpty(id) && id.All(char.IsAsciiDigit) ? $"https://basalam.com/p/{id}" : null;
+            list.Add(new CompetitorOffer(string.IsNullOrWhiteSpace(vendor) ? "باسلام" : "باسلام – " + vendor, Math.Round(rial / 10m), "باسلام", link, Clip(title, 200)));
         }
         return list;
     }

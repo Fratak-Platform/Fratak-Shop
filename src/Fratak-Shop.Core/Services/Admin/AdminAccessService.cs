@@ -35,8 +35,14 @@ public interface IAdminAccessService
     /// <summary>Grants / revokes the store-owner flag (owners only; the last owner cannot be removed).</summary>
     Task<OperationResult> SetOwnerAsync(Guid userId, bool isOwner, AdminAccess actor);
 
-    /// <summary>Creates the default roles once and moves legacy Admin / SeoManager users onto roles.</summary>
-    Task EnsureDefaultsAsync(string? ownerPhoneNumber = null);
+    /// <summary>
+    /// Creates the default roles once, moves legacy Admin / SeoManager users onto roles and bootstraps the store owner:
+    /// the configured phone number becomes the owner; if no account with that number has ever existed it is created
+    /// (passwordless – sign-in with an SMS code, the password can be set later in the profile).
+    /// <para>مثال: <c>EnsureDefaultsAsync("09013181090", "محمدامین", "ناظری")</c> در اولین اجرا حساب مالک را می‌سازد؛
+    /// در اجراهای بعدی حساب وجود دارد و دوباره ساخته نمی‌شود (حتی اگر بعداً حذف شده باشد).</para>
+    /// </summary>
+    Task EnsureDefaultsAsync(string? ownerPhoneNumber = null, string? ownerFirstName = null, string? ownerLastName = null);
 }
 
 public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache) : IAdminAccessService
@@ -294,7 +300,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         return OperationResult.Success(isOwner ? "کاربر به مالک فروشگاه تبدیل شد." : "دسترسی مالکیت برداشته شد.");
     }
 
-    public async Task EnsureDefaultsAsync(string? ownerPhoneNumber = null)
+    public async Task EnsureDefaultsAsync(string? ownerPhoneNumber = null, string? ownerFirstName = null, string? ownerLastName = null)
     {
         if (!await context.AdminRoles.IgnoreQueryFilters().AnyAsync())
         {
@@ -343,8 +349,8 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         }
 
         // Bootstrap: the configured phone number becomes the store owner (first installation).
-        var phone = ownerPhoneNumber?.Trim();
-        if (!string.IsNullOrEmpty(phone))
+        var phone = NormalizeOwnerPhone(ownerPhoneNumber);
+        if (phone is not null)
         {
             var owner = await context.Users.AsTracking().FirstOrDefaultAsync(u => u.PhoneNumber == phone);
             if (owner is not null && owner.Role != UserRole.SuperAdmin && !owner.IsBlocked)
@@ -352,8 +358,52 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
                 owner.Role = UserRole.SuperAdmin;
                 await context.SaveChangesAsync();
             }
+            else if (owner is null && !await context.Users.IgnoreQueryFilters().AnyAsync(u => u.PhoneNumber == phone))
+            {
+                // مرحلهٔ سیزدهم: اولین کاربر سیستم = مالک فروشگاه، با همهٔ دسترسی‌ها (SuperAdmin یعنی همهٔ مجوزهای پنل).
+                // بدون رمز عبور: با کد پیامکی وارد می‌شود و بعداً از «پروفایل › رمز عبور» بدون رمز فعلی، رمز تعیین می‌کند.
+                // فقط وقتی هیچ حسابی (حتی حذف‌شده) با این شماره نبوده ساخته می‌شود؛ پس هرگز دوباره ساخته نمی‌شود.
+                context.Users.Add(new User
+                {
+                    PhoneNumber = phone,
+                    FirstName = Clip(ownerFirstName),
+                    LastName = Clip(ownerLastName),
+                    Role = UserRole.SuperAdmin,
+                    IsPhoneVerified = true,
+                    SecurityStamp = PasswordHasher.NewSecurityStamp(),
+                });
+                try
+                {
+                    await context.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    // نمونهٔ دیگری از برنامه هم‌زمان همین حساب را ساخت (شمارهٔ موبایل یکتاست).
+                    context.ChangeTracker.Clear();
+                }
+            }
         }
 
         InvalidateAll();
+    }
+
+    /// <summary>
+    /// شمارهٔ مالک از تنظیمات: رقم فارسی/عربی به لاتین، حذف فاصله و خط تیره؛ فقط قالب 09xxxxxxxxx پذیرفته می‌شود.
+    /// مثال: «۰۹۰۱ ۳۱۸ ۱۰۹۰» ← «09013181090»؛ «+989013181090» ← «09013181090»؛ «123» ← null.
+    /// </summary>
+    public static string? NormalizeOwnerPhone(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var digits = new string(SearchText.NormalizeDigits(value).Where(char.IsAsciiDigit).ToArray());
+        if (digits.StartsWith("989", StringComparison.Ordinal) && digits.Length == 12)
+            digits = "0" + digits[2..];
+        return digits.Length == 11 && digits.StartsWith("09", StringComparison.Ordinal) ? digits : null;
+    }
+
+    private static string? Clip(string? value)
+    {
+        var text = value?.Trim();
+        return string.IsNullOrEmpty(text) ? null : text.Length <= 100 ? text : text[..100];
     }
 }

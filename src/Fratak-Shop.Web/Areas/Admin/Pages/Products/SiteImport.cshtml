@@ -110,9 +110,11 @@
       <div>
         <label class="a-label" for="imp-price">قیمت سایت مبدأ</label>
         <select id="imp-price" name="priceMode" class="a-select">
-          <option value="1" selected>قیمت خرید است (قیمت فروش با سود هدف تنظیمات)</option>
+          <option value="3" selected>قیمت خرید است؛ قیمت فروش بر اساس قیمت بازار (پیشنهادی)</option>
+          <option value="1">قیمت خرید است (قیمت فروش با سود هدف تنظیمات)</option>
           <option value="2">همان قیمت فروش است</option>
         </select>
+        <p class="a-help mt-1">«بر اساس قیمت بازار»: محصول با قیمت سود هدف ساخته می‌شود و در پس‌زمینه قیمت همان کالا در ترب، دیجی‌کالا و باسلام بررسی و قیمت فروش مثل دکمهٔ «پیشنهاد قیمت فروش» تنظیم می‌شود (کمی ارزان‌تر از ارزان‌ترین رقیب، ولی هرگز کمتر از کمترین سود تنظیمات).</p>
       </div>
       <label class="a-check span-all"><input type="checkbox" name="withImages" value="true" checked><input type="hidden" name="withImages" value="false"> دانلود و ذخیرهٔ تصاویر روی سرور (حداکثر @Format.Number(SiteImportModel.MaxImagesPerProduct) تصویر برای هر محصول)</label>
     </div>
@@ -158,4 +160,40 @@
       <span class="a-help">هر بار حداکثر @Format.Number(SiteImportModel.MaxPerRun) محصول ساخته می‌شود؛ بقیه را با زدن دوبارهٔ دکمه بسازید. پیش‌نمایش تا ۶۰ دقیقه معتبر است. @Format.Number(remaining) محصول باقی مانده.</span>
     </div>
   </form>
+}
+
+@if (Model.Market is { } market && (market.Recent.Count > 0 || market.Pending > 0))
+{
+  @* مرحلهٔ سیزدهم: نتیجهٔ صف قیمت‌گذاری بازار (MarketPricingService / MarketPricingWorker). *@
+  <div class="a-card mt-4">
+    <div class="a-card-head">
+      <span class="a-card-title">@Icons.Svg("ChartLine", null, 18) قیمت‌گذاری بازار</span>
+      <span class="a-muted text-xs">در صف @Format.Number(market.Pending) · اعمال‌شده @Format.Number(market.Applied) · بدون قیمت بازار @Format.Number(market.Kept) · ردشده @Format.Number(market.Skipped)</span>
+    </div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead>
+          <tr><th>محصول</th><th>وضعیت</th><th>قیمت اولیه</th><th>ارزان‌ترین رقیب</th><th>قیمت پیشنهادی</th><th>توضیح</th></tr>
+        </thead>
+        <tbody>
+          @foreach (var row in market.Recent)
+          {
+            <tr>
+              <td data-label="محصول"><a class="a-link" href="/admin/products/edit/@row.ProductId">@row.ProductName</a></td>
+              <td data-label="وضعیت">
+                @if (row.Status == Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Applied) { <span class="a-badge a-badge-green">اعمال شد</span> }
+                else if (row.Status == Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Kept) { <span class="a-badge a-badge-gray">قیمت بازار نبود</span> }
+                else if (row.Status == Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Skipped) { <span class="a-badge a-badge-yellow">دست نخورد</span> }
+                else { <span class="a-badge a-badge-sky">در صف@(row.Attempts > 0 ? $" (تلاش {row.Attempts})" : "")</span> }
+              </td>
+              <td data-label="قیمت اولیه" class="num">@Format.Price(row.InitialPrice)</td>
+              <td data-label="ارزان‌ترین رقیب" class="num">@(row.LowestPrice is { } low ? Format.Price(low) : "—")@(row.OfferCount > 0 ? $" ({row.OfferCount} قیمت)" : "")</td>
+              <td data-label="قیمت پیشنهادی" class="num">@(row.SuggestedPrice is { } sug && row.Status != Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Pending ? Format.Price(sug) : "—")</td>
+              <td data-label="توضیح" class="text-xs a-muted">@row.Note</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
 }

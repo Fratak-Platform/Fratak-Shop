@@ -376,3 +376,12 @@ src/Fratak-Shop.Web/wwwroot/uploads/blogs/
 src/Fratak-Shop.Web/wwwroot/uploads/banners/
 src/Fratak-Shop.Web/wwwroot/uploads/content/
 src/Fratak-Shop.Web/wwwroot/uploads/media/
+
+# Round 13: all runtime uploads (any area), local secrets/overrides and editor folders
+src/Fratak-Shop.Web/wwwroot/uploads/
+appsettings.*.local.json
+appsettings.Local.json
+*.env
+.env
+.idea/
+.vscode/

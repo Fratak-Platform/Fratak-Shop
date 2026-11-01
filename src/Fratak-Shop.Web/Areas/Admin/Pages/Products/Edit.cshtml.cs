@@ -354,6 +354,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             found = result.Offers;
             matched = result.MatchedTitle;
             problems.AddRange(result.Problems);
+            // مرحلهٔ سیزدهم: قیمت‌های کش ماندگار (حداکثر ۶ ساعت) تا درخواست تکراری باعث محدود شدن نشود.
+            if (result.CachedAt is { } cachedAt && result.Problems.Count == 0)
+                problems.Add($"قیمت‌ها از جست‌وجوی حدود {Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - cachedAt).TotalHours))} ساعت پیش است (هر کالا حداکثر هر ۶ ساعت یک بار دوباره جست‌وجو می‌شود تا منابع ما را محدود نکنند).");
         }
 
         var costs = Fratak_Shop.Core.Services.Pricing.PricingCosts.From(settings);

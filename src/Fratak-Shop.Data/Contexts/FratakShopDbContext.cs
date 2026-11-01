@@ -296,6 +296,10 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     // مرحلهٔ دوازدهم: تنظیمات سرویس ایمیل (SMTP).
     public DbSet<Fratak_Shop.Data.Entities.Settings.EmailProviderConfig> EmailProviderConfigs { get; set; } = null!;
 
+    // مرحلهٔ سیزدهم: کش ماندگار قیمت رقبا و صف قیمت‌گذاری بازار محصولات درون‌ریزی‌شده.
+    public DbSet<Fratak_Shop.Data.Entities.Products.CompetitorPriceCache> CompetitorPriceCaches { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Products.MarketPriceCheck> MarketPriceChecks { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

@@ -28,7 +28,9 @@ public sealed class HealthService(
     IWebHostEnvironment environment,
     ActivityTracker tracker,
     ErrorLogQueue errorQueue,
-    ISmsSender smsSender)
+    ISmsSender smsSender,
+    Microsoft.Extensions.Options.IOptions<ShopOptions> shopOptions,
+    Core.Utilities.IExternalSourceGate sourceGate)
 {
     private static readonly DateTimeOffset ProcessStarted = Process.GetCurrentProcess().StartTime.ToUniversalTime();
 
@@ -88,6 +90,21 @@ public sealed class HealthService(
                 else
                     checks.Add(new HealthCheck("درگاه پرداخت", HealthLevel.Healthy, settings.ZarinPalSandbox ? "زرین‌پال (سندباکس)" : "زرین‌پال (واقعی)"));
 
+                // مرحلهٔ سیزدهم (چک‌لیست راه‌اندازی): دادهٔ پیش‌فرض عمداً تلفن/ایمیل/آدرس ساختگی ندارد؛ یادآوری برای پر کردن.
+                if (string.IsNullOrWhiteSpace(settings.SupportPhone) && string.IsNullOrWhiteSpace(settings.SupportEmail))
+                    checks.Add(new HealthCheck("اطلاعات تماس", HealthLevel.Warning, "تلفن و ایمیل پشتیبانی فروشگاه وارد نشده است (در فوتر، تماس با ما و فاکتور نمایش داده می‌شود).",
+                        "از «تنظیمات › عمومی» تلفن، ایمیل، آدرس و ساعت کاری را وارد کنید."));
+
+                // حساب‌های دادهٔ نمونه رمز 123456 دارند؛ روی سایت واقعی باید حذف یا مسدود شوند.
+                if (environment.IsProduction())
+                {
+                    var demoPhones = Seeders.Round6DemoSeeder.DemoStaff.Select(s => s.Phone).Append(Seeders.DemoDataSeeder.DemoPhone).Append("09120000001").ToList();
+                    var demoAccounts = await context.Users.CountAsync(u => demoPhones.Contains(u.PhoneNumber) && !u.IsBlocked, cancellationToken);
+                    if (demoAccounts > 0)
+                        checks.Add(new HealthCheck("حساب‌های نمونه", HealthLevel.Warning, $"{demoAccounts} حساب دادهٔ نمونه (با رمز 123456) روی سایت واقعی فعال است.",
+                            "این حساب‌ها را از «مشتریان» و «تیم» حذف یا مسدود کنید و Shop:SeedDemoData را خاموش نگه دارید."));
+                }
+
                 var stuck = await context.PaymentTransactions.CountAsync(p =>
                     (p.Status == Data.Entities.Payments.PaymentTransactionStatus.Pending || p.Status == Data.Entities.Payments.PaymentTransactionStatus.Verifying)
                     && p.CreatedAt < DateTimeOffset.UtcNow.AddHours(-2) && p.CreatedAt > DateTimeOffset.UtcNow.AddDays(-2), cancellationToken);
@@ -142,8 +159,21 @@ public sealed class HealthService(
         if (await EmailCheckAsync(cancellationToken) is { } emailCheck)
             checks.Add(emailCheck);
 
+        // مرحلهٔ سیزدهم: منابع بیرونی قیمت رقبا و موتور سئو (ترب، دیجی‌کالا، باسلام، گوگل، بینگ، داک‌داک‌گو).
+        var sources = sourceGate.Snapshot();
+        var cooling = sources.Where(source => source.CoolingUntil is not null).ToList();
+        if (cooling.Count > 0)
+            checks.Add(new HealthCheck("منابع قیمت و سئو", HealthLevel.Warning,
+                "موقتاً محدود: " + string.Join("، ", cooling.Select(c => $"{c.Source} (حدود {Math.Max(1, (int)Math.Ceiling((c.CoolingUntil!.Value - DateTimeOffset.UtcNow).TotalMinutes))} دقیقهٔ دیگر)")),
+                "کاری لازم نیست: تا پایان استراحت به این منابع درخواستی فرستاده نمی‌شود و منابع دیگر و قیمت‌های ذخیره‌شده استفاده می‌شوند."));
+        else if (sources.Count > 0)
+            checks.Add(new HealthCheck("منابع قیمت و سئو", HealthLevel.Healthy, $"{sources.Count} منبع در دسترس؛ {sources.Sum(source => source.Requests)} درخواست از زمان روشن شدن."));
+
         if (!environment.IsProduction())
             checks.Add(new HealthCheck("محیط اجرا", HealthLevel.Warning, $"برنامه در محیط «{environment.EnvironmentName}» اجرا می‌شود."));
+        else if (Middleware.CanonicalHostMiddleware.Normalize(shopOptions.Value.CanonicalHost) is null)
+            checks.Add(new HealthCheck("دامنهٔ اصلی", HealthLevel.Warning, "دامنهٔ اصلی سایت (Shop:CanonicalHost) تنظیم نشده است؛ نسخهٔ www و بدون www هر دو جدا دیده می‌شوند.",
+                "در appsettings.Production.json مقدار Shop:CanonicalHost را دامنهٔ سایت (مثلاً faratek.ir) بگذارید."));
 
         return checks;
     }

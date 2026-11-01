@@ -29,15 +29,15 @@ public static class EngagementDefaultsSeeder
         await SeedMenusAsync(context, cancellationToken);
         await SeedPersonalHomeSectionsAsync(context, cancellationToken);
         await SeedFilterAttributesAsync(context, cancellationToken);
-        await SeedCouponsAsync(context, cancellationToken);
+        // کدهای تخفیف و اعلان‌های تبلیغاتی نمونه دیگر جزو دادهٔ پیش‌فرض نیستند (فروشگاه واقعی نباید خودبه‌خود
+        // تخفیف عمومی داشته باشد)؛ فقط با دادهٔ نمونه (Shop:SeedDemoData) می‌آیند: SampleContentSeeder.
         await SeedLoyaltyAsync(context, cancellationToken);
         await SeedNotificationTemplatesAsync(context, cancellationToken);
-        await SeedBroadcastsAsync(context, cancellationToken);
 
         // Round 4
         await BackfillRound4SettingsAsync(context, cancellationToken);
         await UpdateLoyaltyTextsAsync(context, cancellationToken);
-        await SeedShippingRatesAsync(context, cancellationToken);
+        // نرخ‌های نمونهٔ استانی (کیش، ابوموسی…) هم فقط در دادهٔ نمونه: SampleContentSeeder.
         await SeedAbandonedCartStepsAsync(context, cancellationToken);
         await SeedPageAlertsAsync(context, cancellationToken);
 
@@ -128,6 +128,9 @@ public static class EngagementDefaultsSeeder
         }
     }
 
+    /// <summary>متن پیش‌فرض نوار اطلاعیهٔ بالای سایت (بدون کد تخفیف). SampleContentSeeder فقط همین متن را با متن تخفیف نمونه عوض می‌کند.</summary>
+    internal const string DefaultAnnouncementText = "🚚 ارسال سریع به سراسر ایران | ضمانت اصالت و سلامت کالا | عضویت رایگان در باشگاه مشتریان";
+
     private const string PurchaseRuleText = "به ازای هر ۱۰ هزار تومان خرید، ۱ امتیاز (حداکثر ۲۰۰۰ امتیاز در هر سفارش) — پس از تحویل سفارش";
     private const string FirstOrderRuleText = "امتیاز ویژه اولین سفارش — پس از تحویل سفارش";
 
@@ -136,7 +139,7 @@ public static class EngagementDefaultsSeeder
     /// the base cost), Kish has its own city price and Abu Musa is blocked for every method.
     /// Runs once, when the rules table is empty and the post method exists.
     /// </summary>
-    private static async Task SeedShippingRatesAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    internal static async Task SeedShippingRatesAsync(FratakShopDbContext context, CancellationToken cancellationToken)
     {
         if (await context.ShippingRates.IgnoreQueryFilters().AnyAsync(cancellationToken))
             return;
@@ -292,8 +295,9 @@ public static class EngagementDefaultsSeeder
         settings.FooterButtonText ??= "مشاهده محصولات";
         settings.FooterButtonUrl ??= "/products";
         settings.IsAnnouncementEnabled = true;
-        settings.AnnouncementText = "🎁 ۱۰٪ تخفیف اولین خرید با کد WELCOME10 | عضویت رایگان در باشگاه مشتریان";
-        settings.AnnouncementUrl = "/club";
+        // متن پیش‌فرض بدون کد تخفیف (کد WELCOME10 فقط در دادهٔ نمونه ساخته می‌شود؛ SampleContentSeeder متن را عوض می‌کند).
+        settings.AnnouncementText = DefaultAnnouncementText;
+        settings.AnnouncementUrl = "/page/shipping";
         settings.AnnouncementColor = BrandNavy;
         settings.InvoiceNote ??= "کالای فروخته‌شده تا ۷ روز با حفظ شرایط اولیه قابل بازگشت است. از خرید شما سپاسگزاریم.";
 
@@ -408,7 +412,7 @@ public static class EngagementDefaultsSeeder
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private static async Task SeedCouponsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    internal static async Task SeedCouponsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
     {
         if (await context.Coupons.IgnoreQueryFilters().AnyAsync(cancellationToken))
             return;
@@ -550,7 +554,7 @@ public static class EngagementDefaultsSeeder
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private static async Task SeedBroadcastsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
+    internal static async Task SeedBroadcastsAsync(FratakShopDbContext context, CancellationToken cancellationToken)
     {
         if (await context.Notifications.IgnoreQueryFilters().AnyAsync(n => n.UserId == null, cancellationToken))
             return;
