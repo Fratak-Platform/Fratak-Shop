@@ -297,7 +297,7 @@ public class CompetitorReviewTests
     public async Task Other_shops_found_on_the_web_are_added_as_a_source()
     {
         static string Page(string name, string price) =>
-            $$"""<meta property="og:site_name" content="{{name}}"><script type="application/ld+json">{"@type":"Product","name":"هدفون هایلو T15","offers":{"price":"{{price}}","priceCurrency":"IRT"}}</script>""";
+            "<meta property=\"og:site_name\" content=\"" + name + "\"><script type=\"application/ld+json\">{\"@type\":\"Product\",\"name\":\"هدفون هایلو T15\",\"offers\":{\"price\":\"" + price + "\",\"priceCurrency\":\"IRT\"}}</script>";
         var web = new FakeWeb(
         [
             new SerpItem("https://torob.com/p/abc/", "ترب", null),
