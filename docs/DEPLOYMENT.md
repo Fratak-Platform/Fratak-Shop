@@ -1,7 +1,8 @@
-# راهنمای انتشار روی سرور (faratek.ir)
+# راهنمای انتشار روی سرور (shop.fratak.ir)
 
-این راهنما همهٔ کارهای لازم برای بالا آوردن فروشگاه روی هاست/سرور واقعی با دامنهٔ **faratek.ir** را به ترتیب توضیح می‌دهد.
-خلاصهٔ کار: انتشار (publish) ← تنظیم متغیرهای محیطی ← وب‌سرور (Nginx یا IIS) و گواهی SSL ← اولین اجرا ← ورود مدیر پیش‌فرض با رمز اولیه و تعویض فوری آن.
+این راهنما همهٔ کارهای لازم برای بالا آوردن فروشگاه روی هاست/سرور واقعی با دامنهٔ **shop.fratak.ir** را به ترتیب توضیح می‌دهد.
+خلاصهٔ کار: انتشار (publish) ← تنظیم متغیرهای محیطی ← وب‌سرور (IIS/Plesk یا Nginx) و گواهی SSL ← اولین اجرا ← ورود مدیر پیش‌فرض با رمز اولیه و تعویض فوری آن.
+اگر سایت روی سرور ۴۰۳، ۵۰۳ یا «دسترسی ندارید» می‌دهد، مستقیم به **بخش ۱۲ (عیب‌یابی)** بروید.
 
 ---
 
@@ -9,29 +10,37 @@
 
 | مورد | توضیح |
 |------|-------|
-| .NET 10 | روی سرور: **ASP.NET Core Runtime 10** (لینوکس) یا **Hosting Bundle 10** (ویندوز/IIS). روی سیستم توسعه: .NET SDK 10 |
-| SQL Server | نسخهٔ 2019 به بعد (Express هم کافی است). یک دیتابیس خالی و یک کاربر SQL با دسترسی `db_owner` روی همان دیتابیس |
-| دامنه و SSL | رکورد A برای `faratek.ir` و `www.faratek.ir` به IP سرور؛ گواهی SSL (Let's Encrypt رایگان یا گواهی هاست) |
+| .NET 10 | روی سرور: **ASP.NET Core Hosting Bundle 10** (ویندوز/IIS/Plesk) یا **ASP.NET Core Runtime 10** (لینوکس). روی سیستم توسعه: .NET SDK 10 |
+| SQL Server | نسخهٔ 2019 به بعد (Express هم کافی است). یک دیتابیس و یک کاربر SQL با دسترسی `db_owner` روی همان دیتابیس |
+| دامنه و SSL | رکورد A برای `shop.fratak.ir` و `www.shop.fratak.ir` به IP سرور؛ گواهی SSL برای هر دو (Let's Encrypt رایگان یا گواهی هاست) |
 | پیامک | کلید API پنل **SMS.ir** و یک قالب «کد تأیید» با پارامتر `Code` (کد ورود، فراموشی رمز و ورود دومرحله‌ای پیامکی) |
 
 ---
 
-## ۲. ساخت خروجی انتشار
+## ۲. ساخت خروجی انتشار (کم‌حجم)
 
-```bash
-# (فقط اگر کلاس Tailwind تازه اضافه کرده‌اید؛ output.css در مخزن هست)
-cd src/Fratak-Shop.Web && npm ci && npm run build:css && cd ../..
-
+```powershell
+# ویندوز (IIS / Plesk) – پیش‌فرض؛ خروجی publish\windows و فایل آمادهٔ آپلود publish\fratak-shop-windows.zip
+.\tools\deploy\publish.ps1
 # لینوکس
-dotnet publish src/Fratak-Shop.Web -c Release -r linux-x64 --self-contained false -o ./publish
-# ویندوز / IIS
-dotnet publish src/Fratak-Shop.Web -c Release -r win-x64 --self-contained false -o ./publish
+.\tools\deploy\publish.ps1 -Target linux        # یا روی لینوکس/مک: tools/deploy/publish.sh
 ```
 
-* حتماً `-r linux-x64` یا `-r win-x64` بدهید: بدون آن، کتابخانه‌های بومی همهٔ سیستم‌عامل‌ها (OnnxRuntime برای کپچای پست، SqlClient و …) در خروجی کپی می‌شوند
-  و حجم چند برابر می‌شود.
-* محتوای پوشهٔ `publish` را روی سرور (مثلاً `/var/www/faratek` یا `C:\inetpub\faratek`) کپی کنید.
-* پوشه‌های `wwwroot/uploads` و `App_Data` روی سرور **دادهٔ واقعی** هستند (تصاویر، کلیدها، پشتیبان‌ها، گزارش‌ها).
+یا در Visual Studio: راست‌کلیک روی `Fratak-Shop.Web` ← **Publish** ← پروفایل **IIS-Windows** (خروجی `publish/windows`).
+یا با خط فرمان: `dotnet publish src/Fratak-Shop.Web -c Release -o publish/windows` (روی ویندوز خودکار فقط فایل‌های ویندوز).
+
+چرا قبلاً ~۲۰۰ مگابایت بود و حالا حدود یک‌سوم است (مرحلهٔ ۱۷):
+
+* OnnxRuntime (کپچای پست) و SkiaSharp (تصویر) برای هر سیستم‌عامل و پردازنده (ویندوز x86/x64/ARM، لینوکس x64/ARM/musl/…، مک) ده‌ها مگابایت فایل بومی دارند.
+  حالا فقط فایل‌های سیستم‌عامل مقصد کپی می‌شود (`FratakPublishTarget`):
+  `windows` = win، win-x64 و win-x86 (استخر ۳۲ بیتی IIS هم کار می‌کند) · `linux` = linux-x64 و linux-musl-x64 · `all` = همه (قدیمی).
+  پیش‌فرض: همان سیستم‌عاملی که روی آن publish می‌کنید. مثال: `dotnet publish … -p:FratakPublishTarget=linux`.
+* پوشه‌های محلی `App_Data` (لاگ/کلید دستگاه توسعه) و `wwwroot/uploads` (عکس‌های آزمایشی) و فایل `appsettings.Development.json` هرگز منتشر نمی‌شوند؛
+  پس آپلود خروجی، عکس‌ها و کلیدهای واقعی سرور را هم بازنویسی نمی‌کند.
+* بعد از استقرار، «سلامت سامانه ← پردازش تصویر (SkiaSharp)» باید سبز باشد؛ اگر خروجی برای سیستم‌عامل دیگری ساخته شده باشد، بحرانی می‌شود.
+* با `-r win-x64` هم می‌شود منتشر کرد (کوچک‌تر)، ولی آن‌وقت استخر ۳۲ بیتی IIS کار نمی‌کند؛ روش بالا هر دو را دارد.
+
+* پوشه‌های `wwwroot/uploads` و `App_Data` روی سرور **دادهٔ واقعی** هستند (تصاویر، کلیدهای امنیتی، تاریخچهٔ اجرا، گزارش‌ها).
   هنگام به‌روزرسانی آن‌ها را پاک یا جایگزین نکنید و در پشتیبان‌گیری سرور بگذارید.
 
 ---
@@ -43,15 +52,23 @@ dotnet publish src/Fratak-Shop.Web -c Release -r win-x64 --self-contained false 
 
 | متغیر | لازم؟ | توضیح |
 |-------|-------|-------|
-| `ASPNETCORE_ENVIRONMENT` | بله | `Production` (فایل `appsettings.Production.json` خوانده می‌شود: دامنهٔ اصلی faratek.ir، دادهٔ نمایشی خاموش) |
-| `ConnectionDefault` | بله | رشتهٔ اتصال SQL Server. مثال: `Server=localhost;Database=FaratekShop;User Id=faratek;Password=...;TrustServerCertificate=True;MultipleActiveResultSets=true` |
+| `ASPNETCORE_ENVIRONMENT` | بله | `Production` (فایل `appsettings.Production.json` خوانده می‌شود: دامنهٔ اصلی shop.fratak.ir، دادهٔ نمایشی خاموش). روی IIS/Plesk پیش‌فرض همین است |
+| `ConnectionDefault` | بله | رشتهٔ اتصال SQL Server. مثال: `Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True;MultipleActiveResultSets=true` |
 | `SmsIr__ApiKey` | بله (تا وقتی در پنل ثبت نشده) | کلید SMS.ir. بدون آن کد ورود/فراموشی رمز فرستاده نمی‌شود و فقط ورود با رمز ممکن است (در لاگ هشدار Critical ثبت می‌شود). بعد از ورود، کلید را می‌توان در «سیستم ← پیامک» پنل ثبت کرد |
-| `Security__BehindProxy` | پشت Nginx: بله | `true` وقتی برنامه پشت Nginx/Cloudflare است (بخش ۴). **بدون آن، پشت Nginx حلقهٔ بی‌پایان تغییر مسیر به https رخ می‌دهد** چون برنامه درخواست را http می‌بیند |
-| `Security__KnownProxies__0` | اختیاری | IP پراکسی اگر روی همان سرور نیست (loopback به‌طور پیش‌فرض مورد اعتماد است) |
-| `Jwt__SigningKey` | توصیه‌شده | رشتهٔ تصادفی حداقل ۳۲ کاراکتری. اگر خالی باشد، کلید موقت ساخته می‌شود و با هر ری‌استارت توکن‌های دسترسی باطل و بی‌صدا با Refresh Token تمدید می‌شوند (کاربر خارج نمی‌شود) |
+| `Jwt__SigningKey` | توصیه‌شده | رشتهٔ تصادفی حداقل ۳۲ نویسه. خالی ← یک کلید تصادفی **یک بار** ساخته و رمزشده در `App_Data/keys/jwt-signing-key.dat` ذخیره می‌شود (با ری‌استارت و بازیافت IIS کسی بیرون نمی‌افتد). فقط اگر `App_Data` قابل نوشتن نباشد کلید موقت می‌شود و «سلامت سامانه» بحرانی نشان می‌دهد |
+| `Shop__CanonicalHost` | اختیاری | پیش‌فرض Production: `shop.fratak.ir`. فقط `www.shop.fratak.ir` (و دامنه‌های `Shop__CanonicalAliases__N`) با 301 به `https://shop.fratak.ir` می‌روند؛ دامنهٔ ناشناخته ریدایرکت نمی‌شود (فقط noindex). localhost، IP، `/health*` و `/.well-known` استثنا هستند. خاموش: `off` |
+| `Shop__CanonicalAliases__0` | اختیاری | دامنهٔ قدیمی که باید به دامنهٔ اصلی برود (مثل `old-shop.ir`) |
+| `Security__TrustedIps__0` | توصیه‌شده | IP ثابت دفتر/مالک یا بازه (`5.6.7.0/24`): هرگز با فایروال برنامه، محدودیت تعداد درخواست یا مسدودسازی خودکار رد نمی‌شود (راه برگشت بدون پنل) |
+| `Security__KnownProxies__0` | پشت پراکسی/CDN | IP پراکسی (loopback همیشه مورد اعتماد است). بدون آن، پشت CDN همهٔ کاربران یک IP دیده می‌شوند و ۴۲۹/۴۰۳ جمعی می‌گیرند؛ «سلامت سامانه ← پراکسی / CDN» هشدار می‌دهد |
+| `Security__KnownNetworks__0` | پشت CDN | بازهٔ IP شبکهٔ CDN (مثل بازه‌های اعلام‌شدهٔ ابرآروان/کلودفلر)، مثال `185.143.232.0/22` |
+| `Security__BehindProxy` | پشت Nginx با دامنهٔ متفاوت | `true` = سرآیند `X-Forwarded-Host` هم پذیرفته شود. `X-Forwarded-For/Proto` از پراکسی‌های مورد اعتماد همیشه پذیرفته می‌شود |
+| `Security__DataProtectionKeysPath` | اختیاری | محل کلیدهای DataProtection (پیش‌فرض `App_Data/keys`) |
 | `Email__Password` | اختیاری | فقط اگر رمز SMTP را نخواهید در پنل («سیستم ← ایمیل») ذخیره کنید |
 | `Shop__DefaultAdminPassword` | توصیه‌شده | رمز اولیهٔ مشترک همهٔ مدیران اصلی (پیش‌فرض `12345678`؛ بخش «مدیران اصلی» پایین‌تر). رمز جداگانهٔ هر نفر: `Shop__DefaultAdmins__0__Password` |
-| `Shop__CanonicalHost` | اختیاری | پیش‌فرض Production: `faratek.ir`. درخواست‌های `www.faratek.ir` و دامنه/زیر دامنه‌های دیگر با 301 به `https://faratek.ir` می‌روند (localhost، IP، `/health*` و `/.well-known` استثنا هستند). برای غیرفعال‌کردن `off` بدهید (مقدار بدون نقطه یعنی خاموش؛ در ویندوز متغیر محیطی خالی اصلاً وجود ندارد) |
+
+> **هشدار امنیتی:** رشتهٔ اتصال دیتابیس (با رمز) الان در `appsettings.Production.json` و `appsettings.Development.json` داخل مخزن است و
+> `appsettings.Development.json` هم به **دیتابیس واقعی** وصل است (اجرای محلی یعنی کار روی دادهٔ واقعی). پیشنهاد: رمز کاربر SQL را عوض کنید، رشته را فقط
+> در متغیر محیطی `ConnectionDefault` سرور بگذارید و برای توسعه دیتابیس جدا (LocalDB) استفاده کنید.
 
 ### دو پرچم داده (در `appsettings*.json`، بخش `Shop`)
 
@@ -64,14 +81,14 @@ dotnet publish src/Fratak-Shop.Web -c Release -r win-x64 --self-contained false 
 
 هر تعداد مدیر (مالک، شریک، …) را می‌توانید تعریف کنید. این حساب‌ها **حیاتی‌اند و همیشه باید وجود داشته باشند و دسترسی داشته باشند**:
 برنامه در **هر بار اجرا** همهٔ آن‌ها را در دیتابیس بررسی می‌کند.
-پیش‌فرض `appsettings.json`: **محمدامین ناظری – 09013181090 – رمز اولیهٔ `12345678`** با همهٔ دسترسی‌ها.
+پیش‌فرض `appsettings.json`: **محمدامین ناظری – 09913181090 (Key `owner`)** و **محمد حسن پیراینده – 09134426156 (Key `partner`)**، هر دو با همهٔ دسترسی‌ها و رمز اولیهٔ `12345678`.
 
 ```json
 "Shop": {
   "DefaultAdminPassword": "12345678",
   "DefaultAdmins": [
-    { "Key": "owner",   "PhoneNumber": "09013181090", "FirstName": "محمدامین", "LastName": "ناظری", "FullAccess": true },
-    { "Key": "partner", "PhoneNumber": "09121111111", "FirstName": "علی", "LastName": "احمدی", "FullAccess": true },
+    { "Key": "owner",   "PhoneNumber": "09913181090", "FirstName": "محمدامین", "LastName": "ناظری", "FullAccess": true },
+    { "Key": "partner", "PhoneNumber": "09134426156", "FirstName": "محمد حسن", "LastName": "پیراینده", "FullAccess": true },
     { "Key": "support", "PhoneNumber": "09122222222", "FirstName": "سارا", "LastName": "رضایی", "FullAccess": false, "Roles": [ "پشتیبانی" ] }
   ]
 }
@@ -79,7 +96,7 @@ dotnet publish src/Fratak-Shop.Web -c Release -r win-x64 --self-contained false 
 
 | فیلد | توضیح |
 |------|-------|
-| `Key` | شناسهٔ ثابت (حروف/رقم لاتین و `- _ .`، حداکثر ۵۰). **توصیه می‌شود برای هر نفر بگذارید.** حساب با همین کلید پیدا می‌شود، نه با شماره؛ خالی ← از شمارهٔ اولیه ساخته می‌شود |
+| `Key` | شناسهٔ ثابت (حروف/رقم لاتین و `- _ .`، حداکثر ۵۰). **برای هر نفر یک Key جدا بگذارید** (مثل `owner` و `partner`). حساب با همین کلید پیدا می‌شود، نه با شماره؛ خالی ← از شمارهٔ اولیه ساخته می‌شود. Key تکراری یا نامعتبر (مرحلهٔ ۱۷): آن نفر با شماره‌اش شناخته می‌شود و «سلامت سامانه ← مدیران اصلی» هشدار می‌دهد (قبلاً نفر دوم بی‌صدا نادیده می‌ماند) |
 | `PhoneNumber` | موبایل اولیه (۰۹…، ‎+98… یا رقم فارسی). نامعتبر ← آن مورد نادیده گرفته و در لاگ گزارش می‌شود |
 | `FirstName`, `LastName` | نام، فقط هنگام ساخت حساب |
 | `Password` | اختیاری؛ رمز اولیهٔ همین نفر (۸ تا ۱۰۰ نویسه). خالی ← `DefaultAdminPassword` (پیش‌فرض `12345678`). رمز کوتاه‌تر ← آن مورد ساخته نمی‌شود |
@@ -90,6 +107,9 @@ dotnet publish src/Fratak-Shop.Web -c Release -r win-x64 --self-contained false 
 
 * **حساب نیست ← ساخته می‌شود** با رمز اولیه. اگر کاربری با همان شماره از قبل هست (مثلاً با کد پیامکی ثبت‌نام کرده)، همان حساب مدیر اصلی می‌شود
   و فقط اگر اصلاً رمز نداشت، رمز اولیه می‌گیرد.
+* **شمارهٔ یک نفر را در تنظیمات عوض کردید (مرحلهٔ ۱۷) ← در اجرای بعدی اعمال می‌شود:** اگر شمارهٔ تازه حسابی ندارد، شمارهٔ همان حساب عوض می‌شود
+  (رمز و نام می‌مانند، نشست‌های قبلی بسته می‌شوند). اگر صاحب شمارهٔ تازه قبلاً ثبت‌نام کرده، همان حساب مدیر اصلی می‌شود و حساب قبلی اگر هرگز استفاده
+  نشده بود از پنل خارج می‌شود (تا با رمز عمومی کسی وارد پنل نشود). تغییر شماره از **پروفایل** (بدون تغییر تنظیمات) هرگز برگردانده نمی‌شود.
 * **حساب هست ← هیچ مشخصه‌ای به مقدار اولیه برنمی‌گردد.** کاربر می‌تواند شماره، نام و رمزش را از پروفایل عوض کند؛ چون حساب با `Key` شناخته می‌شود،
   دوباره پیدا می‌شود و حساب تازه‌ای ساخته نمی‌شود. رمز موجود **هرگز** بازنویسی نمی‌شود.
 * **همیشه با دسترسی:** اگر حساب به هر دلیل حذف (نرم) یا مسدود شده باشد، برگردانده/باز می‌شود و دسترسی مالک (یا نقش‌های تعیین‌شده) دوباره داده می‌شود.
@@ -105,61 +125,62 @@ dotnet publish src/Fratak-Shop.Web -c Release -r win-x64 --self-contained false 
   عدد = جایگاه در فهرست، از ۰). مدیر تازه را هم می‌شود با متغیر محیطی افزود: `Shop__DefaultAdmins__1__Key=partner`، `Shop__DefaultAdmins__1__PhoneNumber=...`.
 * فهرست در `appsettings.Production.json` جایگاه‌به‌جایگاه با `appsettings.json` ادغام می‌شود (جایگزین کامل نمی‌شود).
 * اگر هم‌زمان `Key` و شمارهٔ یک نفر را در تنظیمات عوض کنید، برنامه او را آدم تازه می‌بیند؛ یکی‌یکی عوض کنید.
+* نتیجهٔ بررسی مدیران در آخرین شروع برنامه در «گزارش‌های سرور» (`Default admin: …`) و مشکل‌ها در «سلامت سامانه ← مدیران اصلی (تنظیمات سرور)» دیده می‌شود.
 
 ---
 
 ## ۴. لینوکس (Ubuntu) با Nginx و systemd
 
-### سرویس systemd — `/etc/systemd/system/faratek.service`
+### سرویس systemd — `/etc/systemd/system/fratak-shop.service`
 
 ```ini
 [Unit]
-Description=Faratek Shop
+Description=Fratak Shop
 After=network.target
 
 [Service]
-WorkingDirectory=/var/www/faratek
-ExecStart=/usr/bin/dotnet /var/www/faratek/Fratak-Shop.Web.dll --urls http://127.0.0.1:5000
+WorkingDirectory=/var/www/fratak-shop
+ExecStart=/usr/bin/dotnet /var/www/fratak-shop/Fratak-Shop.Web.dll --urls http://127.0.0.1:5000
 Restart=always
 RestartSec=5
 User=www-data
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=Security__BehindProxy=true
-EnvironmentFile=/etc/faratek.env
+EnvironmentFile=/etc/fratak-shop.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-`/etc/faratek.env` (دسترسی `chmod 600`، مالک root):
+`/etc/fratak-shop.env` (دسترسی `chmod 600`، مالک root):
 
 ```ini
-ConnectionDefault=Server=localhost;Database=FaratekShop;User Id=faratek;Password=...;TrustServerCertificate=True;MultipleActiveResultSets=true
+ConnectionDefault=Server=localhost;Database=FratakShop;User Id=fratak;Password=...;TrustServerCertificate=True;MultipleActiveResultSets=true
 SmsIr__ApiKey=...
 Jwt__SigningKey=...
 ```
 
 ```bash
-sudo chown -R www-data:www-data /var/www/faratek      # App_Data و wwwroot/uploads باید قابل نوشتن باشند
-sudo systemctl daemon-reload && sudo systemctl enable --now faratek
-journalctl -u faratek -f                                # لاگ زنده
+sudo chown -R www-data:www-data /var/www/fratak-shop      # App_Data و wwwroot/uploads باید قابل نوشتن باشند
+sudo systemctl daemon-reload && sudo systemctl enable --now fratak-shop
+journalctl -u fratak-shop -f                                # لاگ زنده
 ```
 
-### Nginx — `/etc/nginx/sites-available/faratek`
+### Nginx — `/etc/nginx/sites-available/fratak-shop`
 
 ```nginx
 server {
     listen 80;
-    server_name faratek.ir www.faratek.ir;
+    server_name shop.fratak.ir www.shop.fratak.ir;
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
-    location / { return 301 https://faratek.ir$request_uri; }
+    location / { return 301 https://shop.fratak.ir$request_uri; }
 }
 
 server {
     listen 443 ssl http2;
-    server_name faratek.ir www.faratek.ir;
-    ssl_certificate     /etc/letsencrypt/live/faratek.ir/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/faratek.ir/privkey.pem;
+    server_name shop.fratak.ir www.shop.fratak.ir;
+    ssl_certificate     /etc/letsencrypt/live/shop.fratak.ir/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/shop.fratak.ir/privkey.pem;
 
     client_max_body_size 50m;          # بزرگ‌ترین آپلود پنل (کتابخانهٔ رسانه) ۴۲ مگابایت است
 
@@ -176,44 +197,60 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/faratek /etc/nginx/sites-enabled/
-sudo certbot certonly --webroot -w /var/www/certbot -d faratek.ir -d www.faratek.ir
+sudo ln -s /etc/nginx/sites-available/fratak-shop /etc/nginx/sites-enabled/
+sudo certbot certonly --webroot -w /var/www/certbot -d shop.fratak.ir -d www.shop.fratak.ir
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-> اگر Cloudflare یا CDN جلوی Nginx است، IP های آن را در `Security__KnownProxies__N` بگذارید و `ForwardLimit` را در نظر بگیرید.
+> اگر Cloudflare/ابرآروان یا CDN دیگری جلوی Nginx است، بازهٔ IP آن را در `Security__KnownNetworks__N` بگذارید (Nginx روی همان سرور خودکار مورد اعتماد است).
 
 ---
 
-## ۵. ویندوز / IIS (هاست‌های Plesk)
+## ۵. ویندوز / IIS (هاست‌های Plesk) – روش اصلی
 
-1. **ASP.NET Core Hosting Bundle 10** را نصب کنید (یا از پشتیبانی هاست بخواهید).
-2. محتوای `publish` (ساخته‌شده با `-r win-x64`) را در ریشهٔ سایت کپی کنید؛ `web.config` خودکار ساخته شده است.
-3. Application Pool: «No Managed Code»، Identity باید روی `App_Data` و `wwwroot\uploads` اجازهٔ نوشتن داشته باشد.
-4. متغیرهای محیطی را در `web.config` (بخش `<aspNetCore><environmentVariables>`) یا تنظیمات Plesk بگذارید:
+1. **ASP.NET Core Hosting Bundle 10** روی سرور نصب باشد (از پشتیبانی هاست بخواهید؛ نسخهٔ قدیمی‌تر ← خطای 500.31/502.5).
+2. **استقرار بدون قطعی:** اول فایل `tools/deploy/app_offline.htm` را در ریشهٔ سایت آپلود کنید (برنامه آزاد می‌شود و بازدیدکننده صفحهٔ «در حال به‌روزرسانی» می‌بیند)،
+   بعد محتوای `publish\windows` (یا zip آن) را جایگزین کنید و در پایان `app_offline.htm` را پاک کنید. پوشه‌های `App_Data` و `wwwroot\uploads` سرور را پاک نکنید.
+3. **تنظیمات استخر برنامه** (Plesk ← Websites & Domains ← Dedicated IIS Application Pool، یا IIS Manager ← Application Pools ← Advanced Settings):
+
+| تنظیم | مقدار | چرا |
+|-------|-------|-----|
+| .NET CLR Version | No Managed Code | ASP.NET Core |
+| Start Mode | **AlwaysRunning** | اولین بازدید بعد از بیکاری کند نباشد |
+| Idle Time-out (minutes) | **0** | پیش‌فرض ۲۰ دقیقه: برنامه خاموش و دوباره روشن می‌شود (کارهای پس‌زمینه متوقف، اولین درخواست کند) |
+| Regular Time Interval (Recycling) | **0** یا یک ساعت ثابت شبانه | بازیافت ۲۹ ساعتهٔ پیش‌فرض وسط روز |
+| Maximum Worker Processes | **1** (بدون Web Garden) | کش‌ها، محدودیت تعداد و پایش در حافظه‌اند |
+| Rapid-Fail Protection | روشن بماند | برنامه دیگر با قطعی دیتابیس از کار نمی‌افتد (بخش ۱۲) |
+| Enable 32-Bit Applications | False (توصیه) | خروجی هر دو را دارد، ولی ۶۴ بیتی حافظهٔ بیشتری دارد |
+| Identity | کاربر استخر | باید روی `App_Data` (شامل `App_Data\keys` و `App_Data\logs`) و `wwwroot\uploads` **اجازهٔ نوشتن** داشته باشد |
+
+4. **متغیرهای محیطی:** در Plesk ← ASP.NET Core Settings یا در `web.config` سرور (هرگز در مخزن):
 
 ```xml
-<aspNetCore processPath="dotnet" arguments=".\Fratak-Shop.Web.dll" hostingModel="inprocess">
+<aspNetCore processPath="dotnet" arguments=".\Fratak-Shop.Web.dll" hostingModel="inprocess" stdoutLogEnabled="false" stdoutLogFile=".\logs\stdout">
   <environmentVariables>
     <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />
     <environmentVariable name="ConnectionDefault" value="Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True;MultipleActiveResultSets=true" />
     <environmentVariable name="SmsIr__ApiKey" value="..." />
+    <environmentVariable name="Jwt__SigningKey" value="(۶۴ نویسهٔ تصادفی)" />
+    <environmentVariable name="Security__TrustedIps__0" value="(IP ثابت دفتر، اختیاری)" />
   </environmentVariables>
 </aspNetCore>
 ```
 
-* روی IIS **`Security__BehindProxy` لازم نیست** (ماژول ASP.NET Core خودش آدرس و https را درست می‌دهد).
-* SSL را در پنل هاست برای هر دو `faratek.ir` و `www.faratek.ir` فعال کنید؛ تغییر مسیر www را برنامه انجام می‌دهد.
-* `web.config` را در مخزن نگه ندارید؛ اگر رمز در آن است، فقط روی سرور باشد.
-
----
+* `web.config` با هر publish بازنویسی می‌شود؛ متغیرها را ترجیحاً در تنظیمات Plesk بگذارید یا بعد از هر آپلود دوباره اعمال کنید.
+* روی IIS **`Security__BehindProxy` لازم نیست** (ماژول ASP.NET Core خودش IP و https را درست می‌دهد). اگر جلوی سایت CDN (ابرآروان/کلودفلر) است، `Security__KnownNetworks__N` را بگذارید.
+* SSL را در Plesk برای `shop.fratak.ir` و `www.shop.fratak.ir` فعال کنید؛ تغییر مسیر www را خود برنامه انجام می‌دهد.
+* **ModSecurity (Web Application Firewall) در Plesk:** قانون‌های پیش‌فرض گاهی فرم ورود/پنل (متن فارسی، HTML ویرایشگر، کد امنیتی) را با **۴۰۳** رد می‌کنند.
+  اگر ۴۰۳ با صفحهٔ IIS/Plesk دیدید (نه صفحهٔ سایت)، Plesk ← Websites & Domains ← Web Application Firewall را روی **Detection only** بگذارید
+  یا شناسهٔ قانون را از گزارش ModSecurity پیدا و همان را خاموش کنید.
 
 ## ۶. اولین اجرا
 
 1. برنامه را اجرا کنید. Migration ها خودکار اعمال می‌شوند، دیکشنری استان/شهر و (چون دیتابیس تازه است) دادهٔ پیش‌فرض ساخته می‌شود.
    در لاگ: `New database: the default store data was created`.
-   در لاگ برای هر مدیر پیش‌فرض: `Default admin: ساخته شد 0901***1090 (مالک، همهٔ دسترسی‌ها) با رمز اولیه.`
-2. به `https://faratek.ir/login` بروید، «ورود با رمز عبور»: شمارهٔ **09013181090** و رمز **12345678** (یا رمزی که با متغیر محیطی دادید).
+   در لاگ برای هر مدیر پیش‌فرض: `Default admin: ساخته شد 0991***1090 (مالک، همهٔ دسترسی‌ها) با رمز اولیه.`
+2. به `https://shop.fratak.ir/login` بروید، «ورود با رمز عبور»: شمارهٔ **09913181090** (یا 09134426156) و رمز **12345678** (یا رمزی که با متغیر محیطی دادید).
 3. بلافاصله به «پروفایل ← رمز عبور» فرستاده می‌شوید: **رمز تازه و قوی بگذارید** (تا عوض نشود، «سلامت سیستم» هشدار می‌دهد).
    پیشنهاد جدی: در «پنل ← امنیت حساب من» (`/admin/account`) ورود دومرحله‌ای با برنامه (TOTP) را روشن کنید.
 4. در پنل `/admin`:
@@ -250,13 +287,18 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## ۸. به‌روزرسانی
 
+**ویندوز / Plesk:** `app_offline.htm` ← جایگزینی فایل‌های `publish\windows` (بدون `App_Data` و `wwwroot\uploads`) ← حذف `app_offline.htm` (بخش ۵).
+
+**لینوکس:**
+
 ```bash
-sudo systemctl stop faratek
-rsync -a --delete --exclude 'App_Data/' --exclude 'wwwroot/uploads/' --exclude 'appsettings.*.local.json' ./publish/ /var/www/faratek/
-sudo systemctl start faratek       # Migration های تازه خودکار اعمال می‌شوند
+sudo systemctl stop fratak-shop
+rsync -a --delete --exclude 'App_Data/' --exclude 'wwwroot/uploads/' --exclude 'appsettings.*.local.json' ./publish/linux/ /var/www/fratak-shop/
+sudo systemctl start fratak-shop       # Migration های تازه خودکار اعمال می‌شوند
 ```
 
 پیش از هر به‌روزرسانی از دیتابیس پشتیبان بگیرید («سیستم ← پشتیبان‌گیری» یا ابزار SQL Server).
+Migration ها هنگام شروع اعمال می‌شوند؛ اگر دیتابیس لحظه‌ای در دسترس نباشد، برنامه صفحهٔ «در حال آماده‌سازی» نشان می‌دهد و خودکار دوباره تلاش می‌کند.
 
 ---
 
@@ -284,7 +326,7 @@ pwsh tools/clean.ps1         # ویندوز (‎-KeepNode، ‎-Report فقط گ
 
 * **فقط کتابخانه‌های بومی همین دستگاه:** build/test/run برنامه و تست‌ها با RID همین سیستم (`win-x64` روی ویندوز، `linux-x64` روی CI) انجام می‌شود؛
   خروجی در `bin/<Configuration>/net10.0/<rid>/`. فایل‌های بومی ده‌ها مگابایتی لینوکس/مک/ARM دیگر روی ویندوز کپی نمی‌شوند.
-  `dotnet publish` دست نمی‌خورد (بدون ‎`-r` قابل‌حمل، با ‎`-r linux-x64` فقط لینوکس). build قابل‌حمل: ‎`-p:FratakPortableBuild=true`.
+  build قابل‌حمل: ‎`-p:FratakPortableBuild=true`. حجم خروجی publish در بخش ۲ (مرحلهٔ ۱۷: فقط سیستم‌عامل مقصد).
 * **ابزار EF (`Microsoft.EntityFrameworkCore.Tools`) به پروژهٔ Data منتقل شد**؛ Roslyn و BuildHost دیگر در bin برنامه و تست‌ها نیستند.
   ساخت Migration: `dotnet ef migrations add Name --project src/Fratak-Shop.Data --startup-project src/Fratak-Shop.Data`
   (در Package Manager Console ویژوال استودیو: `Add-Migration Name -Project Fratak-Shop.Data -StartupProject Fratak-Shop.Data`).
@@ -295,13 +337,15 @@ pwsh tools/clean.ps1         # ویندوز (‎-KeepNode، ‎-Report فقط گ
 
 ## ۱۰. چک‌لیست نهایی پیش از اعلام عمومی
 
-- [ ] `https://faratek.ir` باز می‌شود؛ `http://` و `www` با یک 301 به `https://faratek.ir` می‌روند.
+- [ ] `https://shop.fratak.ir` باز می‌شود؛ `http://` و `www.shop.fratak.ir` با یک 301 به `https://shop.fratak.ir` می‌روند.
 - [ ] ورود مدیر پیش‌فرض با رمز اولیه، **تعویض رمز** و روشن کردن TOTP؛ هشدار «رمز مدیران پیش‌فرض» در «سلامت سیستم» نیست.
 - [ ] زرین‌پال: Sandbox خاموش، یک پرداخت واقعی کوچک و بازگشت موفق.
 - [ ] `Shop:SeedDemoData = false` و هیچ حساب نمایشی در «سلامت سیستم» گزارش نمی‌شود.
 - [ ] پشتیبان‌گیری خودکار روشن و یک بازگردانی آزمایشی انجام شده.
 - [ ] `App_Data` و `wwwroot/uploads` در پشتیبان سرور هستند.
-- [ ] `/robots.txt` و `/sitemap.xml` آدرس‌های `https://faratek.ir` را نشان می‌دهند (اگر `http://` دیدید، `Security__BehindProxy` پشت Nginx تنظیم نشده است).
+- [ ] «سلامت سامانه»: کلید نشست‌های ورود «پایدار» یا «از تنظیمات»، دامنهٔ اصلی سبز، مدیران اصلی بدون هشدار، پردازش تصویر سبز.
+- [ ] استخر IIS: Idle Time-out = 0، AlwaysRunning، یک Worker Process (بخش ۵).
+- [ ] `/robots.txt` و `/sitemap.xml` آدرس‌های `https://shop.fratak.ir` را نشان می‌دهند (اگر `http://` دیدید، `Security__BehindProxy` پشت Nginx تنظیم نشده است).
 
 ---
 
@@ -315,3 +359,24 @@ pwsh tools/clean.ps1         # ویندوز (‎-KeepNode، ‎-Report فقط گ
   وضعیتش در «محتوا و سئو ← جدول دانش سئو» (`/admin/seo/knowledge`) دیده و مدیریت می‌شود.
 * دکمه‌های «سئوی هوشمند» و «پیشنهاد هوشمند» فقط برای کارمندان دارای یکی از مجوزهای محصولات، کاتالوگ، مقاله، محتوا یا سئو نمایش داده می‌شوند
   و هیچ چیز را خودکار ذخیره نمی‌کنند. محدودیت: ۱۲ سئوی هوشمند و ۶۰ پیشنهاد متن در دقیقه برای هر کارمند.
+
+---
+
+## ۱۲. عیب‌یابی ۴۰۳ / ۵۰۳ / «دسترسی ندارید» (مرحلهٔ ۱۷)
+
+اول **«فنی ← درخواست‌های ردشده»** (`/admin/system/access`) را ببینید: هر ردی که خود برنامه انجام داده با زمان، مسیر، IP و دلیل دقیق آنجاست.
+اگر خطایی که کاربر دیده آنجا نیست، از بیرون برنامه آمده است.
+
+| نشانه | علت محتمل | راه‌حل |
+|-------|-----------|--------|
+| ۴۰۳ با متن «۴۰۳ – دسترسی شما به این سایت محدود شده است» + IP و کد `FW-…` | فایروال خود برنامه (قانون IP/ربات یا مسدودسازی خودکار بعد از رمز اشتباه) | «فنی ← فایروال» قانون همان کد را بردارید؛ IP ثابت دفتر را در `Security__TrustedIps__0` بگذارید. IPهایی که کارکنان در ۳۰ روز اخیر از آن‌ها وارد شده‌اند دیگر خودکار مسدود نمی‌شوند |
+| ۴۰۳ با صفحهٔ IIS/Plesk | ModSecurity / Web Application Firewall پلسک یا IP Restrictions | بخش ۵ (Detection only یا خاموش کردن همان قانون) |
+| بعد از ورود دوباره به صفحهٔ ورود یا «دسترسی ندارید» | کلید امضای توکن‌ها ناپایدار بود (پیش از مرحلهٔ ۱۷: هر بازیافت IIS همه را بیرون می‌انداخت) | حالا کلید در `App_Data/keys` پایدار است و توکن نامعتبر بی‌صدا تمدید می‌شود؛ «سلامت سامانه ← کلید نشست‌های ورود» باید سبز باشد |
+| کل سایت به دامنهٔ دیگری می‌رود | `Shop:CanonicalHost` اشتباه (مثلاً `faratek.ir`) | `shop.fratak.ir` بگذارید؛ «سلامت سامانه ← دامنهٔ اصلی» اشتباه را بحرانی نشان می‌دهد. 301 قدیمی در مرورگر: کش مرورگر را پاک کنید (ریدایرکت‌های جدید فقط یک ساعت کش می‌شوند) |
+| مدیر دوم «دسترسی ندارید» | Key تکراری در `Shop:DefaultAdmins` | هر نفر Key جدا؛ حالا حتی با Key تکراری هم ساخته می‌شود و هشدار می‌گیرد |
+| ۵۰۳ «Service Unavailable» ساده که فقط با ری‌استارت درست می‌شد | قطعی لحظه‌ای دیتابیس هنگام شروع ← خطای شروع برنامه ← Rapid-Fail استخر IIS | حالا برنامه با قطعی دیتابیس از کار نمی‌افتد: صفحهٔ «در حال آماده‌سازی» (۵۰۳ با Retry-After) و تلاش خودکار تا وصل شدن. اگر استخر از قبل متوقف است: Plesk ← Application Pool ← Start |
+| ۴۲۹ برای کاربران عادی | همه پشت یک IP (CDN/پراکسی تنظیم‌نشده) | `Security__KnownNetworks__N`؛ «سلامت سامانه ← پراکسی / CDN» |
+| برنامه چند بار در روز ری‌استارت می‌شود | بیکاری/بازیافت استخر IIS یا کمبود حافظه | «درخواست‌های ردشده ← روشن/خاموش شدن برنامه»؛ تنظیمات بخش ۵ |
+| 500.30 / 502.5 هنگام شروع | Hosting Bundle قدیمی یا فایل ناقص | در `web.config` موقتاً `stdoutLogEnabled="true"` و پوشهٔ `logs` را ببینید |
+
+پایش بیرونی (UptimeRobot و …): `https://shop.fratak.ir/healthz` (۲۰۰ = سالم؛ در حال آماده‌سازی: ۵۰۳ با `"status":"starting"`).

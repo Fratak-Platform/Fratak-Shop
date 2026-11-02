@@ -49,6 +49,17 @@ public sealed class RingBuffer<T>
         }
     }
 
+    /// <summary>خالی کردن (مرحلهٔ هفدهم؛ برای آزمون‌ها).</summary>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            Array.Clear(_items);
+            _next = 0;
+            _count = 0;
+        }
+    }
+
     /// <summary>کپی محتوا، تازه‌ترین اول.</summary>
     public List<T> Snapshot()
     {

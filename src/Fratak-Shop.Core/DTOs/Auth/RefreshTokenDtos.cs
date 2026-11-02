@@ -30,6 +30,19 @@ public class RefreshRotationResult
     public IssuedRefreshToken? Token { get; set; }
     public RefreshFailure Failure { get; set; }
     public bool Succeeded => Token is not null;
+
+    /// <summary>
+    /// مرحلهٔ هفدهم – فقط برای <see cref="RefreshFailure.Concurrent"/>: نشست هنوز معتبر است و درخواست موازی همین مرورگر
+    /// چرخش را انجام داده؛ این مشخصات برای صدور یک توکن دسترسی کوتاه برای همین درخواست است (بی آنکه توکن تازه‌سازی دوباره
+    /// بچرخد). بدون آن، درخواست‌های موازی هنگام تازه‌سازی «مهمان» حساب می‌شدند و کاربر وسط کار به صفحهٔ ورود می‌رفت.
+    /// </summary>
+    public Guid? ConcurrentUserId { get; set; }
+
+    /// <summary>نشست (خانوادهٔ توکن) برای <see cref="ConcurrentUserId"/>.</summary>
+    public Guid? ConcurrentFamilyId { get; set; }
+
+    /// <summary>«مرا به خاطر بسپار» بودن نشست برای <see cref="ConcurrentUserId"/>.</summary>
+    public bool ConcurrentPersistent { get; set; }
 }
 
 /// <summary>An active login (one refresh-token family) shown under "دستگاه‌های فعال".</summary>

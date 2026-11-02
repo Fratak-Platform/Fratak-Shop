@@ -22,27 +22,42 @@ namespace Fratak_Shop.Web.Infrastructure.Ops;
 /// </summary>
 public sealed class FirewallMiddleware(RequestDelegate next)
 {
-    private static readonly byte[] Body = Encoding.UTF8.GetBytes("403 – دسترسی شما به این سایت محدود شده است.");
-
     public async Task InvokeAsync(HttpContext http)
     {
         var snapshot = FirewallState.Current;
-        if (!snapshot.IsEmpty)
+        // مرحلهٔ هفدهم: IPهای مورد اعتماد تنظیمات سرور (Security:TrustedIps) هرگز رد نمی‌شوند.
+        if (!snapshot.IsEmpty && !FirewallState.IsTrusted(http.Connection.RemoteIpAddress))
         {
             var decision = snapshot.Check(http.Connection.RemoteIpAddress, http.Request.Headers.UserAgent.ToString(), DateTimeOffset.UtcNow);
             if (decision.Blocked)
             {
                 if (decision.RuleId is { } id)
                     FirewallState.CountHit(id);
+                var reference = FirewallReference(decision.RuleId);
+                RequestMonitor.Record(http, RequestMonitor.Kind.Firewall, $"{(decision.Reason == "bot" ? "قانون ربات" : "قانون IP")} {reference}");
+                var body = Encoding.UTF8.GetBytes(BlockedText(http.Connection.RemoteIpAddress, reference));
                 http.Response.StatusCode = StatusCodes.Status403Forbidden;
                 http.Response.ContentType = "text/plain; charset=utf-8";
                 http.Response.Headers.CacheControl = "no-store";
-                http.Response.ContentLength = Body.Length;
-                await http.Response.Body.WriteAsync(Body, http.RequestAborted);
+                http.Response.ContentLength = body.Length;
+                await http.Response.Body.WriteAsync(body, http.RequestAborted);
                 return;
             }
         }
         await next(http);
+    }
+
+    /// <summary>کد کوتاه قانون برای پیدا کردنش در پنل. مثال: Guid «3f2a…» ← «FW-3F2A9C1B».</summary>
+    public static string FirewallReference(Guid? ruleId) => ruleId is { } id ? "FW-" + id.ToString("N")[..8].ToUpperInvariant() : "FW-?";
+
+    /// <summary>
+    /// متن پاسخ ۴۰۳ دیوار آتش: علاوه بر پیام، IP بازدیدکننده و کد قانون تا مدیر سایت بتواند در «فنی ← فایروال» یا
+    /// «درخواست‌های ردشده» پیدایش کند. مثال: «… IP شما: 5.6.7.8 – کد: FW-3F2A9C1B».
+    /// </summary>
+    public static string BlockedText(IPAddress? ip, string reference)
+    {
+        var address = ip is null ? "-" : (ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip).ToString();
+        return $"403 – دسترسی شما به این سایت محدود شده است.\nاگر فکر می‌کنید اشتباه شده، این دو مورد را برای پشتیبانی فروشگاه بفرستید:\nIP شما: {address} – کد: {reference}";
     }
 }
 
@@ -72,6 +87,7 @@ public sealed class MaintenanceMiddleware(RequestDelegate next)
             return;
         }
 
+        RequestMonitor.Record(http, RequestMonitor.Kind.Maintenance);
         http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         http.Response.Headers.RetryAfter = (Math.Clamp(settings.MaintenanceRetryMinutes, 5, 1440) * 60).ToString(System.Globalization.CultureInfo.InvariantCulture);
         http.Response.Headers.CacheControl = "no-store";

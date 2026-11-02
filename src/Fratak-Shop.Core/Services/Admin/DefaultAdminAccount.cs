@@ -65,6 +65,74 @@ public sealed record DefaultAdminAccount(
         return phone is null ? null : "phone:" + phone;
     }
 
+    /// <summary>
+    /// کلید پشتیبان بر اساس شمارهٔ تنظیمات (بدون توجه به Key). مثال: «0991 318 1090» ← «phone:09913181090»؛ شمارهٔ نامعتبر ← null.
+    /// <para>استفاده: وقتی Key تکراری یا نامعتبر است (<see cref="Resolve"/>)، این مدیر با شماره‌اش شناخته می‌شود تا نادیده نماند.</para>
+    /// </summary>
+    public string? PhoneKey()
+    {
+        var phone = AdminAccessService.NormalizeOwnerPhone(PhoneNumber);
+        return phone is null ? null : "phone:" + phone;
+    }
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: کلید نهایی هر مدیر فهرست تنظیمات، با رفع تداخل‌ها؛ یک منبع واحد برای AdminAccessService و
+    /// DefaultAdminPasswords (تا هر دو یک حساب را با یک کلید ببینند).
+    /// <para>قانون‌ها به ترتیب:</para>
+    /// <list type="bullet">
+    /// <item>Key معتبر و یکتا ← «key:…».</item>
+    /// <item>Key تکراری (مثلاً دو مدیر هر دو با «owner») یا نامعتبر (مثلاً «مالک») ← به‌جای نادیده گرفتن، کلید شماره
+    /// («phone:…») با یک هشدار؛ پس مدیر دوم هم ساخته می‌شود و دسترسی می‌گیرد.</item>
+    /// <item>شمارهٔ نامعتبر یا کلید شمارهٔ تکراری (یک شماره دو بار در فهرست) ← <see cref="ResolvedDefaultAdmin.Key"/> = null
+    /// و یک یادداشت «نادیده».</item>
+    /// </list>
+    /// <para>مثال: [owner/09913181090، owner/09134426156] ← [«key:owner»، «phone:09134426156» + هشدار «Key تکراری»].</para>
+    /// </summary>
+    public static IReadOnlyList<ResolvedDefaultAdmin> Resolve(IEnumerable<DefaultAdminAccount?>? admins)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        var phones = new HashSet<string>(StringComparer.Ordinal);
+        var result = new List<ResolvedDefaultAdmin>();
+        foreach (var admin in admins ?? [])
+        {
+            if (admin is null)
+                continue;
+            var phone = AdminAccessService.NormalizeOwnerPhone(admin.PhoneNumber);
+            if (phone is null)
+            {
+                result.Add(new ResolvedDefaultAdmin(admin, null, "نادیده (شمارهٔ موبایل نامعتبر در Shop:DefaultAdmins)."));
+                continue;
+            }
+
+            var masked = Mask(phone);
+            if (!phones.Add(phone))
+            {
+                // یک شماره دو بار در فهرست (مثلاً «09134426156» و «0913 442 6156»): مورد دوم یک حساب دیگر نمی‌سازد.
+                result.Add(new ResolvedDefaultAdmin(admin, null, $"نادیده {masked}: این شماره دو بار در Shop:DefaultAdmins آمده است؛ مورد تکراری را حذف کنید."));
+                continue;
+            }
+
+            var key = admin.StableKey();
+            if (key is not null && used.Add(key))
+            {
+                result.Add(new ResolvedDefaultAdmin(admin, key, null));
+                continue;
+            }
+
+            var reason = key is null
+                ? $"Key «{admin.Key?.Trim()}» نامعتبر است (فقط حروف و رقم لاتین، - _ . و حداکثر {MaxKeyLength} نویسه)"
+                : $"Key «{admin.Key?.Trim() ?? phone}» در Shop:DefaultAdmins تکراری است";
+            var fallback = admin.PhoneKey();
+            if (fallback is not null && fallback != key && used.Add(fallback))
+                result.Add(new ResolvedDefaultAdmin(admin, fallback,
+                    $"هشدار {masked}: {reason}؛ این مدیر با شماره‌اش شناخته شد. برای هر مدیر یک Key جدا (مثل owner و partner) بگذارید."));
+            else
+                result.Add(new ResolvedDefaultAdmin(admin, null, $"نادیده {masked}: {reason} و این شماره هم دو بار در فهرست آمده است."));
+        }
+
+        return result;
+    }
+
     /// <summary>کوتاه‌ترین رمز اولیهٔ مجاز (هم‌اندازهٔ قانون رمز در پروفایل یا سخت‌گیرتر).</summary>
     public const int MinPasswordLength = 8;
 
@@ -84,3 +152,11 @@ public sealed record DefaultAdminAccount(
     public override string ToString()
         => $"DefaultAdminAccount {{ Key = {Key}, PhoneNumber = {PhoneNumber}, FullAccess = {FullAccess}, Password = {(string.IsNullOrEmpty(Password) ? "(none)" : "***")} }}";
 }
+
+/// <summary>
+/// نتیجهٔ <see cref="DefaultAdminAccount.Resolve"/> برای یک مدیر فهرست تنظیمات.
+/// </summary>
+/// <param name="Admin">همان مورد تنظیمات.</param>
+/// <param name="Key">کلید نهایی (ستون Users.SystemAdminKey)؛ null = این مورد نادیده گرفته می‌شود.</param>
+/// <param name="Note">هشدار یا دلیل نادیده گرفتن (بدون رمز، شماره پوشیده) برای لاگ و صفحهٔ سلامت؛ null = بدون مشکل.</param>
+public sealed record ResolvedDefaultAdmin(DefaultAdminAccount Admin, string? Key, string? Note);

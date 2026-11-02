@@ -120,7 +120,31 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Publish web app
-        run: dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out
+        run: dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out -p:FratakPublishTarget=linux
+
+      # Round 17: the publish output only carries the target OS native files and never local data.
+      - name: Check publish output (size and contents)
+        run: |
+          set -euo pipefail
+          dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out-win -p:FratakPublishTarget=windows --no-restore > publish-win.log 2>&1 || { cat publish-win.log; exit 1; }
+          check() {
+            dir="$1"; shift
+            for bad in "$@"; do
+              if [ -e "$dir/$bad" ]; then echo "::error::$dir must not contain $bad"; exit 1; fi
+            done
+          }
+          check out runtimes/win-x64 runtimes/win-arm64 runtimes/osx-arm64 runtimes/linux-arm64 App_Data appsettings.Development.json wwwroot/uploads
+          check out-win runtimes/linux-x64 runtimes/linux-arm64 runtimes/osx-arm64 runtimes/win-arm64 runtimes/unix App_Data appsettings.Development.json wwwroot/uploads
+          ls out/runtimes || true
+          ls out-win/runtimes || true
+          test -n "$(find out-win/runtimes/win-x64 -iname 'libSkiaSharp.dll' | head -1)" || { echo "::error::windows publish lacks libSkiaSharp.dll"; exit 1; }
+          test -n "$(find out-win/runtimes/win-x64 -iname 'onnxruntime.dll' | head -1)" || { echo "::error::windows publish lacks onnxruntime.dll"; exit 1; }
+          test -n "$(find out/runtimes -iname 'libSkiaSharp.so' | head -1)" || { echo "::error::linux publish lacks libSkiaSharp.so"; exit 1; }
+          linux_mb=$(du -sm out | cut -f1)
+          win_mb=$(du -sm out-win | cut -f1)
+          echo "::notice::Publish size: linux ${linux_mb} MB, windows ${win_mb} MB"
+          if [ "$win_mb" -gt 140 ] || [ "$linux_mb" -gt 140 ]; then echo "::error::publish output is larger than 140 MB"; exit 1; fi
+          rm -rf out-win
 
       - name: Run app and request pages
         env:

@@ -54,7 +54,7 @@ public sealed record CompetitorOffer(string Shop, decimal Price, string Source, 
 /// <param name="Query">نام کالای ما؛ اگر باشد عنوان هر پیشنهاد با آن سنجیده می‌شود (کالای دیگر/لوازم جانبی/مدل دیگر کنار می‌رود).</param>
 /// <param name="Excluded">شناسهٔ پیشنهادهایی که کارمند با دکمهٔ «حذف» فقط برای <b>همین</b> محاسبه کنار گذاشت (ذخیره نمی‌شود).</param>
 /// <param name="Included">شناسهٔ پیشنهادهایی که سیستم کنار گذاشته بود ولی کارمند گفت «حساب کن».</param>
-/// <param name="OwnShops">نام یا دامنهٔ فروشگاه خودمان (مثل «فراتک» یا «faratek.ir»)؛ قیمت خودمان رقیب حساب نمی‌شود.</param>
+/// <param name="OwnShops">نام یا دامنهٔ فروشگاه خودمان (مثل «فراتک» یا «shop.fratak.ir»)؛ قیمت خودمان رقیب حساب نمی‌شود.</param>
 public sealed record OfferReviewOptions(
     string? Query = null,
     IReadOnlyCollection<string>? Excluded = null,
@@ -421,7 +421,7 @@ public static class PriceAdvisor
     public static decimal RoundDown(decimal value, decimal step)
         => step <= 1 ? Math.Floor(value) : Math.Floor(value / step) * step;
 
-    /// <summary>دامنهٔ یک لینک بدون www. مثال: «https://www.Faratek.ir/p/1» ← «faratek.ir»؛ لینک نامعتبر ← null.</summary>
+    /// <summary>دامنهٔ یک لینک بدون www. مثال: «https://www.Fratak.ir/p/1» ← «fratak.ir»؛ لینک نامعتبر ← null.</summary>
     public static string? HostOf(string? url)
     {
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)

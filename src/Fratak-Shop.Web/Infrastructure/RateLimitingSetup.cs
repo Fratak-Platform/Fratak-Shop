@@ -24,6 +24,8 @@ public static class RateLimitingSetup
             options.OnRejected = async (context, token) =>
             {
                 var response = context.HttpContext.Response;
+                // مرحلهٔ هفدهم: ثبت در «درخواست‌های ردشده» تا معلوم شود کدام مسیر و IP به سقف خورده است.
+                Ops.RequestMonitor.Record(context.HttpContext, Ops.RequestMonitor.Kind.RateLimited, PolicyName(context.HttpContext));
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
                     response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
 
@@ -45,9 +47,28 @@ public static class RateLimitingSetup
         return services;
     }
 
+    /// <summary>
+    /// نام سهمیه‌ای که این درخواست به آن خورده (برای پایش). مثال: POST /login ← «ورود/ثبت‌نام: ۱۰ در دقیقه».
+    /// </summary>
+    public static string PolicyName(HttpContext context)
+    {
+        var request = context.Request;
+        var path = request.Path;
+        if (HttpMethods.IsPost(request.Method) && CredentialPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)))
+            return "ورود/ثبت‌نام: ۱۰ درخواست در دقیقه برای هر IP";
+        if (path.StartsWithSegments("/api/search", StringComparison.OrdinalIgnoreCase))
+            return "جست‌وجو: ۱۲۰ در دقیقه";
+        if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+            return "API: سهمیهٔ دقیقه‌ای هر IP";
+        return HttpMethods.IsPost(request.Method) ? "ارسال فرم: سهمیهٔ دقیقه‌ای هر IP" : "سهمیهٔ دقیقه‌ای هر IP";
+    }
+
     private static RateLimitPartition<string> Partition(HttpContext context)
     {
         var ip = context.Connection.RemoteIpAddress ?? IPAddress.None;
+        // مرحلهٔ هفدهم: IP مورد اعتماد تنظیمات سرور (Security:TrustedIps، مثلاً دفتر) محدودیت تعداد ندارد.
+        if (Fratak_Shop.Core.Services.Ops.FirewallState.IsTrusted(context.Connection.RemoteIpAddress))
+            return RateLimitPartition.GetNoLimiter("trusted");
         var key = ip.ToString();
         var request = context.Request;
         var path = request.Path;

@@ -200,6 +200,34 @@ public static class FirewallState
 
     public static FirewallSnapshot Current => Volatile.Read(ref _current);
 
+    private static IReadOnlyList<IpRange> _trusted = [];
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: IPهای مورد اعتماد از تنظیمات سرور (<c>Security:TrustedIps</c>، مثلاً IP ثابت دفتر یا خود سرور).
+    /// این‌ها هرگز با دیوار آتش رد نمی‌شوند، هرگز خودکار مسدود نمی‌شوند و محدودیت تعداد درخواست ندارند.
+    /// چرا در تنظیمات و نه فقط در پنل: اگر مالک به اشتباه یا با مسدودسازی خودکار از سایت بیرون بماند، بدون پنل هم راه برگشت دارد.
+    /// </summary>
+    public static IReadOnlyList<IpRange> Trusted => Volatile.Read(ref _trusted);
+
+    /// <summary>ثبت IPهای مورد اعتماد (Program.cs در شروع برنامه).</summary>
+    public static void SetTrusted(IReadOnlyList<IpRange> ranges) => Volatile.Write(ref _trusted, ranges);
+
+    /// <summary>آیا این IP در فهرست مورد اعتماد تنظیمات است؟ مثال: TrustedIps = «5.6.7.0/24» و IP «5.6.7.9» ← true.</summary>
+    public static bool IsTrusted(IPAddress? ip) => IsTrusted(ip, Trusted);
+
+    /// <summary>نسخهٔ خالص (تست‌پذیر) با فهرست داده‌شده.</summary>
+    public static bool IsTrusted(IPAddress? ip, IReadOnlyList<IpRange> trusted)
+    {
+        if (ip is null)
+            return false;
+        foreach (var range in trusted)
+        {
+            if (range.Contains(ip))
+                return true;
+        }
+        return false;
+    }
+
     public static void Set(FirewallSnapshot snapshot) => Volatile.Write(ref _current, snapshot);
 
     public static void CountHit(Guid ruleId) => _hits.AddOrUpdate(ruleId, 1, (_, n) => n + 1);
@@ -415,6 +443,7 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
 
         var snapshot = await ReloadAsync(cancellationToken);
         var allows = snapshot.Allows.Select(a => a.Range).ToList();
+        var staffIps = await StaffIpsAsync(now, cancellationToken);
         // قانون‌های موجود (حتی منقضی‌شده‌هایی که هنوز پاک نشده‌اند) به‌خاطر ایندکس یکتای Value؛ منقضی‌ها تمدید می‌شوند.
         // بدون ردیابی خوانده می‌شود تا مقدار واقعی دیتابیس دیده شود (نه نسخهٔ قدیمی‌ای که همین DbContext قبلاً ردیابی کرده).
         var existing = (await context.IpRules.AsNoTracking().ToListAsync(cancellationToken)).ToDictionary(r => r.Value, StringComparer.OrdinalIgnoreCase);
@@ -426,7 +455,9 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
                 continue;
             var ip = IPAddress.Parse(range.Text);
             // IP مجاز یا IP خود سرور/شبکهٔ داخلی (پراکسی معکوس) هرگز خودکار بسته نمی‌شود.
-            if (IPAddress.IsLoopback(ip) || IsPrivate(ip) || IpList.Contains(allows, ip))
+            // مرحلهٔ هفدهم: IPهای مورد اعتماد تنظیمات و IPهایی که کارکنان در ۳۰ روز اخیر از آن‌ها موفق وارد شده‌اند (دفتر، خانهٔ مالک)
+            // هم خودکار بسته نمی‌شوند؛ چند بار اشتباه زدن رمز نباید مالک را از سایت بیرون بیندازد.
+            if (IPAddress.IsLoopback(ip) || IsPrivate(ip) || IpList.Contains(allows, ip) || FirewallState.IsTrusted(ip) || staffIps.Contains(range.Text))
                 continue;
             var reason = $"مسدودسازی خودکار: {PersianNumbers.Digits(candidate.Count)} ورود ناموفق در یک ساعت";
             if (existing.TryGetValue(range.Text, out var rule))
@@ -510,6 +541,30 @@ public sealed class FirewallService(FratakShopDbContext context, ILogger<Firewal
             // سرور دیگری هم‌زمان اضافه کرد.
             context.ChangeTracker.Clear();
         }
+    }
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: IPهایی که کارکنان (مالک یا دارای نقش پنل) در ۳۰ روز اخیر از آن‌ها با موفقیت وارد شده‌اند (شکل استاندارد IpRange).
+    /// </summary>
+    private async Task<HashSet<string>> StaffIpsAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var since = now.AddDays(-30);
+        const Fratak_Shop.Data.Entities.Users.UserRole owner = Fratak_Shop.Data.Entities.Users.UserRole.SuperAdmin;
+        var ips = await context.SecurityLogs.AsNoTracking()
+            .Where(l => l.Type == SecurityEventType.LoginSucceeded && l.CreatedAt >= since && l.IpAddress != null && l.UserId != null
+                        && (context.Users.Any(u => u.Id == l.UserId && u.Role == owner)
+                            || context.UserAdminRoles.Any(m => m.UserId == l.UserId)))
+            .Select(l => l.IpAddress!)
+            .Distinct()
+            .Take(500)
+            .ToListAsync(cancellationToken);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ip in ips)
+        {
+            if (IpRange.TryParse(ip, out var range))
+                set.Add(range.Text);
+        }
+        return set;
     }
 
     /// <summary>شبکه‌های خصوصی (10/8، 172.16/12، 192.168/16، fc00::/7) که معمولاً پراکسی یا شبکهٔ داخلی‌اند.</summary>

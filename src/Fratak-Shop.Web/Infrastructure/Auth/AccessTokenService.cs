@@ -14,6 +14,12 @@ public interface IAccessTokenService
 
     /// <summary>Expiry of a token without validating it (used to refresh shortly before it expires).</summary>
     DateTimeOffset? ReadExpiry(string token);
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: امضا، صادرکننده و زمان توکن درست است؟ (بدون بررسی مهر امنیتی کاربر). مثال: توکنی که با کلید قبلی امضا
+    /// شده (پیش از بازیافت برنامه با کلید موقت) ← false، تا میان‌افزار تازه‌سازی به‌جای «مهمان» کردن کاربر، توکن تازه بدهد.
+    /// </summary>
+    Task<bool> IsValidAsync(string token);
 }
 
 public class AccessTokenService(IOptions<JwtOptions> options, JwtSigningKeyProvider keyProvider) : IAccessTokenService
@@ -67,6 +73,21 @@ public class AccessTokenService(IOptions<JwtOptions> options, JwtSigningKeyProvi
         catch (Exception exception) when (exception is ArgumentException or SecurityTokenMalformedException)
         {
             return null;
+        }
+    }
+
+    public async Task<bool> IsValidAsync(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 4096)
+            return false;
+        try
+        {
+            var result = await Handler.ValidateTokenAsync(token, ValidationParameters(options.Value, keyProvider.Key));
+            return result.IsValid;
+        }
+        catch (Exception exception) when (exception is ArgumentException or SecurityTokenException)
+        {
+            return false;
         }
     }
 

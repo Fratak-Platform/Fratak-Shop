@@ -66,7 +66,7 @@ public class RefreshTokenService(FratakShopDbContext context) : IRefreshTokenSer
             if (current.RevokedReason == RotatedReason)
             {
                 if (now - current.RevokedAt.Value <= ConcurrencyGrace)
-                    return new RefreshRotationResult { Failure = RefreshFailure.Concurrent };
+                    return await ConcurrentAsync(current.UserId, current.FamilyId, current.IsPersistent);
 
                 // A replaced token came back: it was copied. Kill the whole session.
                 await RevokeFamilyAsync(current.FamilyId, "reuse-detected", now);
@@ -99,7 +99,7 @@ public class RefreshTokenService(FratakShopDbContext context) : IRefreshTokenSer
         if (claimed == 0)
         {
             await transaction.RollbackAsync();
-            return new RefreshRotationResult { Failure = RefreshFailure.Concurrent };
+            return await ConcurrentAsync(current.UserId, current.FamilyId, current.IsPersistent);
         }
 
         // Persistent sessions slide; browser-session logins keep their original end.
@@ -112,6 +112,21 @@ public class RefreshTokenService(FratakShopDbContext context) : IRefreshTokenSer
 
         await transaction.CommitAsync();
         return new RefreshRotationResult { Token = issued };
+    }
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: نتیجهٔ «هم‌زمان» با مشخصات نشست، فقط اگر نشست هنوز زنده است (توکن فعالی در همان خانواده هست و کاربر
+    /// مسدود/حذف نشده). مثال: صفحه و سه درخواست fetch هم‌زمان با یک توکن منقضی ← اولی می‌چرخاند، بقیه همین را می‌گیرند و
+    /// با توکن دسترسی کوتاه ادامه می‌دهند. اگر بین این دو کاربر خارج شده باشد ← Invalid (هیچ دسترسی‌ای داده نمی‌شود).
+    /// </summary>
+    private async Task<RefreshRotationResult> ConcurrentAsync(Guid userId, Guid familyId, bool persistent)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var alive = await context.UserRefreshTokens.AnyAsync(t => t.FamilyId == familyId && t.RevokedAt == null && t.ExpiresAt > now)
+                    && await context.Users.AnyAsync(u => u.Id == userId && !u.IsBlocked);
+        return alive
+            ? new RefreshRotationResult { Failure = RefreshFailure.Concurrent, ConcurrentUserId = userId, ConcurrentFamilyId = familyId, ConcurrentPersistent = persistent }
+            : new RefreshRotationResult { Failure = RefreshFailure.Invalid };
     }
 
     public async Task RevokeAsync(string token, string reason)

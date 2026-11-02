@@ -94,7 +94,7 @@ public sealed class ProductCompetitorService(
 
     /// <summary>
     /// نام‌هایی که «فروشگاه خودمان» حساب می‌شوند: نام فروشگاه در تنظیمات + نام‌ها/دامنه‌های اضافه (مثلاً دامنهٔ اصلی سایت).
-    /// مثال: («فراتک»، ["faratek.ir"]) ← ["فراتک", "faratek.ir"].
+    /// مثال: («فراتک»، ["shop.fratak.ir"]) ← ["فراتک", "shop.fratak.ir"].
     /// </summary>
     public static IReadOnlyCollection<string> OwnShops(StoreSettingDto store, params string?[] extra)
         => new[] { store.SiteName }.Concat(extra).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()).Distinct().ToList();

@@ -13,7 +13,7 @@ namespace Fratak_Shop.Web.Infrastructure;
 ///   "DefaultAdmins": [
 ///     { "Key": "owner", "PhoneNumber": "09013181090", "FirstName": "محمدامین", "LastName": "ناظری" }
 ///   ],
-///   "CanonicalHost": "faratek.ir"
+///   "CanonicalHost": "shop.fratak.ir"
 /// }
 /// </code>
 /// </summary>
@@ -61,12 +61,19 @@ public class ShopOptions
             .ToList();
 
     /// <summary>
-    /// دامنهٔ اصلی سایت بدون https و بدون www. مثال: <c>faratek.ir</c>.
-    /// <para>وقتی تنظیم باشد: درخواست به دامنهٔ دیگر (مثل www.faratek.ir) با ۳۰۱ به همین دامنه می‌رود و نقشهٔ سایت،
+    /// دامنهٔ اصلی سایت بدون https. مثال: <c>shop.fratak.ir</c> (دامنهٔ واقعی فروشگاه).
+    /// <para>وقتی تنظیم باشد: نسخهٔ www همین دامنه (و دامنه‌های <see cref="CanonicalAliases"/>) با ۳۰۱ به همین دامنه می‌رود و نقشهٔ سایت،
     /// robots.txt و لینک‌های کانونیکال همیشه با همین دامنه ساخته می‌شوند (جلوگیری از محتوای تکراری در گوگل).
     /// localhost و آدرس IP هرگز ریدایرکت نمی‌شوند تا آزمایش روی سرور ممکن بماند. خالی یا «off» (هر مقدار بدون نقطه) = خاموش.</para>
     /// </summary>
     public string? CanonicalHost { get; set; }
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: دامنه‌های دیگری که باید با ۳۰۱ به <see cref="CanonicalHost"/> بروند (مثلاً دامنهٔ قدیمی). نسخهٔ www دامنهٔ
+    /// اصلی خودکار ریدایرکت می‌شود و لازم نیست اینجا بیاید. هر دامنهٔ دیگری که اینجا نباشد ریدایرکت نمی‌شود.
+    /// مثال: <c>"CanonicalAliases": [ "old-shop.ir", "www.old-shop.ir" ]</c>؛ متغیر محیطی: <c>Shop__CanonicalAliases__0</c>.
+    /// </summary>
+    public List<string> CanonicalAliases { get; set; } = [];
 }
 
 /// <summary>

@@ -26,16 +26,17 @@ public sealed class DefaultAdminPasswords
 
     public DefaultAdminPasswords(IOptions<ShopOptions> options)
     {
-        foreach (var admin in options.Value.DefaultAdminAccounts())
+        // مرحلهٔ هفدهم: کلیدها دقیقاً مثل AdminAccessService (با رفع Key تکراری/نامعتبر) ساخته می‌شوند.
+        foreach (var resolved in DefaultAdminAccount.Resolve(options.Value.DefaultAdminAccounts()))
         {
+            var admin = resolved.Admin;
             var phone = AdminAccessService.NormalizeOwnerPhone(admin.PhoneNumber);
-            if (phone is null || !DefaultAdminAccount.IsValidPassword(admin.Password))
+            if (phone is null || resolved.Key is null || !DefaultAdminAccount.IsValidPassword(admin.Password))
                 continue;
             var bytes = Encoding.UTF8.GetBytes(admin.Password!);
             _passwords[phone] = bytes;
             // مرحلهٔ پانزدهم: با کلید ثابت هم نگه می‌داریم تا اگر مدیر شماره‌اش را عوض کرد، هشدار «رمز اولیه» باز هم درست باشد.
-            if (admin.StableKey() is { } key)
-                _byKey[key] = bytes;
+            _byKey[resolved.Key] = bytes;
         }
     }
 

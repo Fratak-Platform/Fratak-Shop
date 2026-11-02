@@ -120,6 +120,16 @@ public class User : BaseEntity
     [MaxLength(80)]
     public string? SystemAdminKey { get; set; }
 
+    /// <summary>
+    /// مرحلهٔ هفدهم: آخرین شمارهٔ موبایلی که برای این مدیر اصلی در تنظیمات سرور (<c>Shop:DefaultAdmins</c>) آمده و اعمال شده.
+    /// <para>چرا: باید فرق «مدیر شماره‌اش را از پنل عوض کرده» (دست نمی‌زنیم) و «صاحب سرور شمارهٔ داخل تنظیمات را اصلاح کرده»
+    /// (باید اعمال شود) را بفهمیم. اگر شمارهٔ تنظیمات با این ستون فرق کند یعنی تنظیمات عوض شده است.</para>
+    /// <para>مثال: ستون «09013181090» و تنظیمات «09913181090» ← شمارهٔ حساب طبق تنظیمات اصلاح می‌شود (یا اگر صاحب شمارهٔ تازه
+    /// قبلاً ثبت‌نام کرده، همان حساب مدیر اصلی می‌شود). null = کاربر عادی. استفاده: AdminAccessService.EnsureDefaultsAsync.</para>
+    /// </summary>
+    [MaxLength(20)]
+    public string? SystemAdminPhone { get; set; }
+
     /// <summary>Internal note of the staff about this customer.</summary>
     [MaxLength(2000)]
     public string? AdminNote { get; set; }

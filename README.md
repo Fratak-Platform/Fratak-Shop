@@ -115,7 +115,7 @@ tests/
 
 ## اجرا
 
-پیش‌نیاز: .NET SDK 10 و SQL Server. راهنمای کامل انتشار روی سرور (faratek.ir، Nginx/IIS، متغیرهای محیطی): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+پیش‌نیاز: .NET SDK 10 و SQL Server. راهنمای کامل انتشار روی سرور (shop.fratak.ir، IIS/Plesk یا Nginx، متغیرهای محیطی، عیب‌یابی ۴۰۳/۵۰۳): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ```bash
 # رشته اتصال توسعه در src/Fratak-Shop.Web/appsettings.Development.json (کلید ConnectionDefault)؛ روی سرور متغیر محیطی ConnectionDefault
@@ -128,7 +128,7 @@ dotnet run --project src/Fratak-Shop.Web
   جست‌وجوهای پیشنهادی، قالب اعلان‌ها، نقش‌ها، …) **فقط روی دیتابیس کاملاً تازه** ساخته می‌شود و در اجراهای بعدی هرگز دوباره ساخته نمی‌شود.
 * `SeedDemoData` (توسعه `true`، Production `false`): دادهٔ نمایشی (دسته‌بندی، برند، محصول، بنر، مقاله، کد تخفیف و یک سفارش نمونه) و کاربران نمونه.
 
-مدیر اصلی (`Shop:DefaultAdmins`، پیش‌فرض **09013181090 – محمدامین ناظری – رمز اولیهٔ `12345678`**، کلید `owner`) با همهٔ دسترسی‌ها ساخته می‌شود؛
+مدیران اصلی (`Shop:DefaultAdmins`، پیش‌فرض **09913181090 – محمدامین ناظری** با کلید `owner` و **09134426156 – محمد حسن پیراینده** با کلید `partner`، رمز اولیهٔ `12345678`) با همهٔ دسترسی‌ها ساخته می‌شوند؛
 بعد از اولین ورود به «پروفایل ← رمز عبور» فرستاده می‌شود تا رمز را عوض کند. رمز موجود هرگز بازنویسی نمی‌شود؛ حذف، مسدودسازی و برداشتن مالکیت مدیران اصلی در پنل ممنوع است
 و اگر به هر دلیل حذف یا مسدود شده باشند، در اجرای بعدی برگردانده می‌شوند.
 
@@ -140,6 +140,9 @@ dotnet run --project src/Fratak-Shop.Web
 
 پاک‌سازی فایل‌های ساختنی (bin/obj/node_modules/.vs): `tools/clean.sh` یا `tools/clean.ps1` (گزارش حجم بدون پاک کردن: `--report` / `-Report`).
 از مرحلهٔ ۱۴ فقط کتابخانه‌های بومی همین سیستم‌عامل در bin کپی می‌شوند و ابزار EF در پروژهٔ Data است (حجم bin چند برابر کمتر).
+
+انتشار کم‌حجم برای سرور (مرحلهٔ ۱۷؛ فقط فایل‌های بومی سیستم‌عامل مقصد، بدون `App_Data`/`wwwroot/uploads`/`appsettings.Development.json`):
+`tools/deploy/publish.ps1` (ویندوز/IIS/Plesk، خروجی و zip در `publish/`)، `tools/deploy/publish.sh linux`، یا پروفایل Visual Studio «IIS-Windows».
 
 ## تنظیمات
 
@@ -184,12 +187,13 @@ dotnet run --project src/Fratak-Shop.Web
 | `Shop:SeedDefaultData` | `true`: دادهٔ پیش‌فرض سیستم فقط روی دیتابیس تازه (یک بار برای همیشه) |
 | `Shop:SeedDemoData` | `true`: کاتالوگ نمایشی و کاربران نمونه. روی سرور واقعی `false` بماند |
 | `Shop:DefaultAdmins[]` (`Key`, `PhoneNumber`, `FirstName`, `LastName`, `Password`, `FullAccess`, `Roles`) | مدیران اصلی، هر تعداد؛ در هر اجرا بررسی و در صورت نبودن با رمز اولیه (Argon2id) ساخته می‌شوند. رمز اولیهٔ مشترک: `Shop:DefaultAdminPassword` (روی سرور `Shop__DefaultAdminPassword`) |
-| `Shop:CanonicalHost` | دامنهٔ اصلی (Production: `faratek.ir`)؛ www و دامنه‌های دیگر با 301 به آن می‌روند |
+| `Shop:CanonicalHost`, `Shop:CanonicalAliases` | دامنهٔ اصلی (Production: `shop.fratak.ir`)؛ فقط نسخهٔ www همان دامنه و دامنه‌های `CanonicalAliases` با 301 به آن می‌روند |
 | `ConnectionDefault` | رشتهٔ اتصال SQL Server (روی سرور با متغیر محیطی) |
 | `SmsIr:ApiKey` | کلید SMS.ir اگر هنوز در پنل ثبت نشده (کد ورود، فراموشی رمز، ورود دومرحله‌ای) |
-| `Jwt:SigningKey` | کلید امضای توکن (حداقل ۳۲ کاراکتر؛ **در Production حتماً از متغیر محیطی/Secret تنظیم شود**) |
+| `Jwt:SigningKey` | کلید امضای توکن (حداقل ۳۲ کاراکتر؛ توصیه: متغیر محیطی `Jwt__SigningKey`). خالی ← کلید پایدار رمزشده در `App_Data/keys` (با ری‌استارت کسی بیرون نمی‌افتد) |
 | `Jwt:AccessTokenMinutes`, `Jwt:RefreshTokenDays`, `Jwt:SessionRefreshTokenHours` | عمر توکن‌ها |
-| `Security:BehindProxy`, `Security:KnownProxies` | `true` فقط وقتی برنامه پشت Nginx/IIS/Cloudflare است: هدرهای `X-Forwarded-For/Proto` فقط از آدرس‌های `KnownProxies` پذیرفته می‌شوند تا IP واقعی کاربر (برای محدودیت درخواست و نشست‌ها) و https بودن درخواست (لینک‌های مطلق، کوکی Secure، بازگشت زرین‌پال) درست تشخیص داده شود. بدون پراکسی `false` بماند تا کسی نتواند با هدر جعلی IP خود را عوض کند |
+| `Security:KnownProxies`, `Security:KnownNetworks`, `Security:BehindProxy` | سرآیندهای `X-Forwarded-For/Proto` فقط از loopback، IPهای `KnownProxies` و بازه‌های `KnownNetworks` (مثلاً شبکهٔ CDN) پذیرفته می‌شوند تا IP واقعی کاربر و https درست تشخیص داده شود و کسی نتواند IP خود را جعل کند. `BehindProxy = true` سرآیند `X-Forwarded-Host` را هم می‌پذیرد |
+| `Security:TrustedIps` | IP/بازهٔ مورد اعتماد (دفتر/مالک): هرگز با فایروال، محدودیت تعداد یا مسدودسازی خودکار رد نمی‌شود |
 
 ## احراز هویت
 

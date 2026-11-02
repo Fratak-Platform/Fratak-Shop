@@ -364,17 +364,15 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
         var notes = new List<string>();
         var configuredKeys = new HashSet<string>(StringComparer.Ordinal);
         var entries = new List<(DefaultAdminAccount Admin, string? Key)>();
-        foreach (var admin in defaultAdmins ?? Array.Empty<DefaultAdminAccount>())
+        // مرحلهٔ هفدهم: Key تکراری/نامعتبر دیگر باعث نادیده ماندن مدیر نمی‌شود (کلید شماره + هشدار) – DefaultAdminAccount.Resolve.
+        foreach (var resolved in DefaultAdminAccount.Resolve(defaultAdmins))
         {
-            if (admin is null)
+            if (resolved.Note is not null)
+                notes.Add(resolved.Note);
+            if (resolved.Key is null)
                 continue;
-            var key = admin.StableKey();
-            if (key is not null && !configuredKeys.Add(key))
-            {
-                notes.Add("نادیده: کلید/شمارهٔ تکراری در Shop:DefaultAdmins (" + Describe(admin) + ").");
-                continue;
-            }
-            entries.Add((admin, key));
+            configuredKeys.Add(resolved.Key);
+            entries.Add((resolved.Admin, resolved.Key));
         }
 
         foreach (var (admin, key) in entries)
@@ -403,6 +401,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
             foreach (var user in released)
             {
                 user.SystemAdminKey = null;
+                user.SystemAdminPhone = null;
                 notes.Add("دیگر در تنظیمات نیست؛ حفاظت مدیر اصلی برداشته شد: " + DefaultAdminAccount.Mask(user.PhoneNumber));
             }
             if (released.Count > 0)
@@ -460,9 +459,24 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
             .OrderBy(u => u.IsDeleted).ThenBy(u => u.CreatedAt)
             .FirstOrDefaultAsync();
 
+        var firstLink = false;
+
+        // ۱-ب) مرحلهٔ هفدهم: صاحب سرور شمارهٔ این مدیر را در تنظیمات عوض کرده (مثلاً 09013181090 ← 09913181090)؟
+        // SystemAdminPhone = آخرین شمارهٔ تنظیماتِ اعمال‌شده. فرق داشتن یعنی تنظیمات عوض شده (نه اینکه کاربر از پنل عوضش کرده).
+        if (user is not null && (user.SystemAdminPhone ?? user.PhoneNumber) != phone)
+        {
+            var moved = await ApplyConfiguredPhoneAsync(user, key, phone, masked, admin.Password, configuredKeys, changes);
+            if (moved.Error is not null)
+                return moved.Error;
+            if (moved.Replacement is not null)
+            {
+                user = moved.Replacement;
+                firstLink = true;
+            }
+        }
+
         // ۲) هنوز کلید نخورده (نسخهٔ قبلی برنامه یا اولین اجرا): حسابِ همین شماره که مدیر اصلی دیگری در تنظیمات فعلی نیست.
         // مثال: Key تازه برای مالک گذاشته شد ← حسابش که کلید قدیمی «phone:…» داشت با کلید تازه ادامه می‌دهد.
-        var firstLink = false;
         if (user is null)
         {
             var keys = configuredKeys.ToList();
@@ -494,6 +508,7 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
                 IsPhoneVerified = true,
                 SecurityStamp = PasswordHasher.NewSecurityStamp(),
                 SystemAdminKey = key,
+                SystemAdminPhone = phone,
             };
             context.Users.Add(created);
             foreach (var roleId in roleIds)
@@ -501,6 +516,10 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
             await context.SaveChangesAsync();
             return $"ساخته شد {masked}{(admin.FullAccess ? " (مالک، همهٔ دسترسی‌ها)" : $" ({roleIds.Count} نقش)")}{(hasPassword ? " با رمز اولیه" : " بدون رمز")}{unknownNote}.";
         }
+
+        // شمارهٔ تنظیمات که از این به بعد «اعمال‌شده» حساب می‌شود (تغییر بعدی شماره از پنل دیگر برگردانده نمی‌شود).
+        if (user.SystemAdminPhone != phone)
+            user.SystemAdminPhone = phone;
 
         var current = DefaultAdminAccount.Mask(user.PhoneNumber);
 
@@ -549,6 +568,73 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
             return $"بدون تغییر {current}{unknownNote}.";
         await context.SaveChangesAsync();
         return $"به‌روز شد {current}: {string.Join("، ", changes.Distinct())}{unknownNote}.";
+    }
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: اعمال شمارهٔ تازهٔ تنظیمات برای مدیر اصلی‌ای که با کلید پیدا شده ولی شمارهٔ تنظیماتش عوض شده است.
+    /// <para>سه حالت:</para>
+    /// <list type="bullet">
+    /// <item>هیچ حساب فعالی شمارهٔ تازه را ندارد ← شمارهٔ همین حساب عوض می‌شود (رمز و نام می‌مانند) و نشست‌های قبلی بسته می‌شوند.</item>
+    /// <item>صاحب شمارهٔ تازه قبلاً ثبت‌نام کرده (مثلاً با کد پیامکی) ← همان حساب مدیر اصلی می‌شود. حساب قدیمی اگر هرگز استفاده
+    /// نشده یا هنوز رمز اولیه را دارد (یعنی حسابی که برای شمارهٔ اشتباه ساخته شده بود) دسترسی پنلش را از دست می‌دهد تا با رمز
+    /// عمومی ۱۲۳۴۵۶۷۸ کسی وارد پنل نشود؛ وگرنه فقط حفاظت «مدیر اصلی» از آن برداشته می‌شود و از پنل مدیریت می‌شود.</item>
+    /// <item>شمارهٔ تازه مال مدیر اصلی دیگری در همین تنظیمات است ← تغییری نمی‌دهد و خطا برمی‌گرداند.</item>
+    /// </list>
+    /// <para>مثال: کلید «key:owner» با حساب 09013181090؛ تنظیمات حالا 09913181090 ← اگر 09913181090 حساب ندارد، شمارهٔ حساب
+    /// 09913181090 می‌شود و مالک با همان رمز قبلی و شمارهٔ درست وارد می‌شود.</para>
+    /// </summary>
+    private async Task<(User? Replacement, string? Error)> ApplyConfiguredPhoneAsync(
+        User user, string key, string phone, string masked, string? initialPassword, IReadOnlySet<string> configuredKeys, List<string> changes)
+    {
+        if (user.PhoneNumber == phone)
+        {
+            user.SystemAdminPhone = phone;
+            return (null, null);
+        }
+
+        var owner = await context.Users.AsTracking()
+            .Where(u => u.PhoneNumber == phone && u.Id != user.Id)
+            .FirstOrDefaultAsync();
+
+        if (owner is null)
+        {
+            var oldMasked = DefaultAdminAccount.Mask(user.PhoneNumber);
+            user.PhoneNumber = phone;
+            user.SystemAdminPhone = phone;
+            user.IsPhoneVerified = true;
+            user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+            changes.Add($"شماره طبق تنظیمات از {oldMasked} به {masked} اصلاح شد");
+            return (null, null);
+        }
+
+        if (owner.SystemAdminKey is not null && configuredKeys.Contains(owner.SystemAdminKey))
+            return (null, $"تداخل {masked}: این شماره مال مدیر اصلی دیگری در Shop:DefaultAdmins است؛ شماره‌ها را در تنظیمات بررسی کنید.");
+
+        // صاحب واقعی شمارهٔ تازه حساب دارد: کلید به حساب او منتقل می‌شود (کلید یکتاست؛ اول از حساب قدیمی برداشته و ذخیره می‌شود).
+        var oldPhone = DefaultAdminAccount.Mask(user.PhoneNumber);
+        var neverUsed = user.LastLoginAt is null
+                        || (!string.IsNullOrEmpty(initialPassword) && !string.IsNullOrEmpty(user.PasswordHash)
+                            && PasswordHasher.Verify(initialPassword, user.PasswordHash));
+        user.SystemAdminKey = null;
+        user.SystemAdminPhone = null;
+        if (neverUsed)
+        {
+            user.Role = UserRole.Customer;
+            user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+            var memberships = await context.UserAdminRoles.AsTracking().Where(m => m.UserId == user.Id).ToListAsync();
+            context.UserAdminRoles.RemoveRange(memberships);
+            changes.Add($"حساب قبلی {oldPhone} (ساخته‌شده برای شمارهٔ قبلی تنظیمات و استفاده‌نشده) از پنل خارج شد");
+        }
+        else
+        {
+            changes.Add($"حفاظت مدیر اصلی از حساب قبلی {oldPhone} برداشته شد (دسترسی‌هایش از پنل قابل مدیریت است)");
+        }
+        await context.SaveChangesAsync();
+
+        owner.SystemAdminKey = key;
+        owner.SystemAdminPhone = phone;
+        changes.Add($"حساب موجود {masked} مدیر اصلی شد");
+        return (owner, null);
     }
 
     /// <summary>

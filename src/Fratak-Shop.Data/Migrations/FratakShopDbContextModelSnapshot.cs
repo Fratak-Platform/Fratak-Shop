@@ -8482,6 +8482,10 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
+                    b.Property<string>("SystemAdminPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTimeOffset?>("TotpEnabledAt")
                         .HasColumnType("datetimeoffset");
 

@@ -31,7 +31,9 @@ public sealed class HealthService(
     ISmsSender smsSender,
     Microsoft.Extensions.Options.IOptions<ShopOptions> shopOptions,
     Core.Utilities.IExternalSourceGate sourceGate,
-    Auth.DefaultAdminPasswords defaultAdminPasswords)
+    Auth.DefaultAdminPasswords defaultAdminPasswords,
+    Auth.JwtSigningKeyProvider jwtKeys,
+    IConfiguration configuration)
 {
     private static readonly DateTimeOffset ProcessStarted = Process.GetCurrentProcess().StartTime.ToUniversalTime();
 
@@ -139,6 +141,9 @@ public sealed class HealthService(
         checks.Add(CheckDisk());
         checks.Add(CheckWritable("پوشه داده‌های خصوصی", Path.Combine(environment.ContentRootPath, "App_Data")));
         checks.Add(CheckWritable("پوشه آپلودها", Path.Combine(environment.WebRootPath, "uploads")));
+        // مرحلهٔ هفدهم: پوشهٔ کلیدهای DataProtection (توکن فرم‌ها، کلید نشست‌ها): اگر نوشتنی نباشد بعد از هر ری‌استارت فرم‌ها خطا می‌دهند.
+        checks.Add(CheckWritable("پوشه کلیدهای امنیتی", configuration["Security:DataProtectionKeysPath"] is { Length: > 0 } keysPath
+            ? keysPath : Path.Combine(environment.ContentRootPath, "App_Data", "keys")));
 
         foreach (var job in JobMonitor.All)
         {
@@ -190,9 +195,25 @@ public sealed class HealthService(
 
         if (!environment.IsProduction())
             checks.Add(new HealthCheck("محیط اجرا", HealthLevel.Warning, $"برنامه در محیط «{environment.EnvironmentName}» اجرا می‌شود."));
-        else if (Middleware.CanonicalHostMiddleware.Normalize(shopOptions.Value.CanonicalHost) is null)
-            checks.Add(new HealthCheck("دامنهٔ اصلی", HealthLevel.Warning, "دامنهٔ اصلی سایت (Shop:CanonicalHost) تنظیم نشده است؛ نسخهٔ www و بدون www هر دو جدا دیده می‌شوند.",
-                "در appsettings.Production.json مقدار Shop:CanonicalHost را دامنهٔ سایت (مثلاً faratek.ir) بگذارید."));
+
+        // ── مرحلهٔ هفدهم: آمادگی سرور واقعی (علت‌های ۴۰۳/۵۰۳/خروج ناگهانی) – ProductionDiagnostics ──
+        checks.Add(ProductionDiagnostics.SigningKey(jwtKeys.Source, jwtKeys.Problem));
+        if (ProductionDiagnostics.CanonicalHost(shopOptions.Value.CanonicalHost, Middleware.CanonicalHostMiddleware.SeenHosts,
+                shopOptions.Value.CanonicalAliases ?? [], environment.IsProduction()) is { } canonical)
+            checks.Add(canonical);
+        if (ProductionDiagnostics.Proxy(Ops.RequestMonitor.ForwardedUntrusted, Ops.RequestMonitor.UntrustedProxies()) is { } proxy)
+            checks.Add(proxy);
+        checks.Add(ProductionDiagnostics.DefaultAdmins(DefaultAdminStartupReport.Notes, DefaultAdminStartupReport.Problems));
+        checks.Add(ProductionDiagnostics.Lifecycle(Ops.AppLifecycle.StartsWithin(TimeSpan.FromHours(24)), Ops.AppLifecycle.UncleanWithin(TimeSpan.FromHours(24))));
+        checks.Add(ProductionDiagnostics.Rejections(Ops.RequestMonitor.LastMinutes(60), Ops.RequestMonitor.LostSessionsLastHour()));
+        if (Ops.StartupGate.Attempts > 1)
+            checks.Add(new HealthCheck("اتصال پایگاه داده هنگام شروع", HealthLevel.Warning,
+                $"آماده‌سازی پایگاه داده در این اجرا {Ops.StartupGate.Attempts} تلاش لازم داشت" + (Ops.StartupGate.LastError is { } startupError ? " (آخرین خطا: " + startupError + ")." : "."),
+                "پایداری شبکه تا SQL Server (185.191.78.226) را بررسی کنید؛ برنامه خودش دوباره تلاش می‌کند و از کار نمی‌افتد."));
+        checks.AddRange(ProductionDiagnostics.Natives(NativeLibraries.Skia, NativeLibraries.Onnx));
+        if (!Environment.Is64BitProcess && environment.IsProduction())
+            checks.Add(new HealthCheck("پروسهٔ ۳۲ بیتی", HealthLevel.Warning, "برنامه در پروسهٔ ۳۲ بیتی اجرا می‌شود (حداکثر حافظه کم است).",
+                "در Plesk/IIS گزینهٔ «Enable 32-Bit Applications» استخر برنامه را خاموش کنید."));
 
         return checks;
     }

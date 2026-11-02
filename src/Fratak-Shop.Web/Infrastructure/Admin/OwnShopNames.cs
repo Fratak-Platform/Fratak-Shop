@@ -7,7 +7,7 @@ namespace Fratak_Shop.Web.Infrastructure.Admin;
 /// <summary>
 /// نام‌ها و دامنه‌هایی که «فروشگاه خودمان» حساب می‌شوند تا قیمت خودمان در فهرست رقبا رقیب حساب نشود (مرحلهٔ پانزدهم).
 /// <para>منابع: نام فروشگاه در تنظیمات، دامنهٔ اصلی (Shop:CanonicalHost) و دامنهٔ همین درخواست.
-/// localhost و آدرس IP نادیده گرفته می‌شوند. مثال: («فراتک»، faratek.ir، www.faratek.ir) ← ["فراتک", "faratek.ir"].</para>
+/// localhost و آدرس IP نادیده گرفته می‌شوند. مثال: («فراتک»، shop.fratak.ir، www.shop.fratak.ir) ← ["فراتک", "shop.fratak.ir"].</para>
 /// <para>استفاده: دیالوگ «پیشنهاد قیمت فروش» و دکمهٔ «بررسی دوباره» قیمت رقبا در پنل مدیریت.</para>
 /// </summary>
 public static class OwnShopNames

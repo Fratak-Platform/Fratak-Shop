@@ -23,10 +23,11 @@ public class TokenRefreshMiddleware(RequestDelegate next, ILogger<TokenRefreshMi
         IUserService userService,
         IOptions<JwtOptions> jwtOptions)
     {
-        if (ShouldRefresh(context, accessTokens, out var refreshToken))
+        var refreshToken = await RefreshTokenToUseAsync(context, accessTokens);
+        if (refreshToken is not null)
         {
             var jwt = jwtOptions.Value;
-            var rotation = await refreshTokens.RotateAsync(refreshToken!, jwt.PersistentRefreshLifetime,
+            var rotation = await refreshTokens.RotateAsync(refreshToken, jwt.PersistentRefreshLifetime,
                 ClientInfo.IpAddress(context), ClientInfo.UserAgent(context));
 
             if (rotation.Succeeded)
@@ -53,32 +54,48 @@ public class TokenRefreshMiddleware(RequestDelegate next, ILogger<TokenRefreshMi
 
                 AuthCookies.Clear(context);
             }
-            // Concurrent: a parallel request of the same browser already rotated it; that
-            // response carries the new cookies, this one continues with what it has.
+            else if (rotation.Failure == RefreshFailure.Concurrent && rotation.ConcurrentUserId is { } userId)
+            {
+                // Concurrent: a parallel request of the same browser already rotated it and its
+                // response carries the new refresh cookie. مرحلهٔ هفدهم: این درخواست هم «مهمان» نمی‌ماند؛ یک توکن دسترسی
+                // برای همین نشست می‌گیرد (کوکی تازه‌سازی دست نمی‌خورد). قبلاً این درخواست‌ها به صفحهٔ ورود/«دسترسی ندارید» می‌رفتند.
+                var user = await userService.GetUserByIdAsync(userId);
+                var stamp = user is null ? null : await userService.GetSecurityStampAsync(user.Id);
+                if (user is not null && stamp is not null)
+                    AuthCookies.WriteAccess(context, accessTokens.Create(user, stamp, rotation.ConcurrentFamilyId!.Value, rotation.ConcurrentPersistent));
+            }
         }
 
         await next(context);
     }
 
-    private static bool ShouldRefresh(HttpContext context, IAccessTokenService accessTokens, out string? refreshToken)
+    /// <summary>
+    /// کوکی تازه‌سازی، اگر این درخواست باید توکن تازه بگیرد؛ وگرنه null.
+    /// <para>تازه‌سازی وقتی: توکن دسترسی نیست، کمتر از یک دقیقه عمر دارد، یا (مرحلهٔ هفدهم) امضایش معتبر نیست؛ مثلاً
+    /// توکنی که پیش از بازیافت برنامه با کلید دیگری امضا شده بود. قبلاً فقط تاریخ انقضا خوانده می‌شد و چنین توکنی تا ۱۰ دقیقه
+    /// کاربر را «مهمان» نگه می‌داشت (رفتن به صفحهٔ ورود و «دسترسی ندارید» وسط کار).</para>
+    /// </summary>
+    private static async Task<string?> RefreshTokenToUseAsync(HttpContext context, IAccessTokenService accessTokens)
     {
-        refreshToken = null;
         var request = context.Request;
 
         if (request.Headers.Authorization.Count > 0)
-            return false;
+            return null;
 
         if (request.Path.StartsWithSegments("/api/auth"))
-            return false;
+            return null;
 
-        if (!request.Cookies.TryGetValue(AuthCookies.RefreshCookie, out refreshToken)
+        if (!request.Cookies.TryGetValue(AuthCookies.RefreshCookie, out var refreshToken)
             || string.IsNullOrEmpty(refreshToken) || refreshToken.Length > 512)
-            return false;
+            return null;
 
         if (!request.Cookies.TryGetValue(AuthCookies.AccessCookie, out var access) || string.IsNullOrEmpty(access))
-            return true;
+            return refreshToken;
 
         var expiry = accessTokens.ReadExpiry(access);
-        return expiry is null || expiry.Value - DateTimeOffset.UtcNow < RefreshWindow;
+        if (expiry is null || expiry.Value - DateTimeOffset.UtcNow < RefreshWindow)
+            return refreshToken;
+
+        return await accessTokens.IsValidAsync(access) ? null : refreshToken;
     }
 }

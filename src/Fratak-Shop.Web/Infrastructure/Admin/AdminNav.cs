@@ -101,6 +101,8 @@ public static class AdminNav
         new("فنی",
             new AdminNavItem("سلامت سامانه", "/admin/system", "Pulse", [P.MonitoringView]),
             new AdminNavItem("کاربران آنلاین", "/admin/system/live", "Monitor", [P.MonitoringView]),
+            // مرحلهٔ هفدهم: علت هر ۴۰۳/۴۲۹/۵۰۳/«دسترسی ندارید» و تاریخچهٔ روشن/خاموش شدن برنامه.
+            new AdminNavItem("درخواست‌های ردشده", "/admin/system/access", "Prohibit", [P.MonitoringView]),
             new AdminNavItem("خطاها", "/admin/system/errors", "Bug", [P.MonitoringView], "errors"),
             new AdminNavItem("گزارش فعالیت", "/admin/system/audit", "ClockCounterClockwise", [P.AuditView]),
             new AdminNavItem("رویدادهای امنیتی", "/admin/system/security", "ShieldCheck", [P.AuditView, P.MonitoringView]),

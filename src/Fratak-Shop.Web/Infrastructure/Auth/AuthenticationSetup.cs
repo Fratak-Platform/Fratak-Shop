@@ -92,6 +92,10 @@ public static class AuthenticationSetup
             return Task.CompletedTask;
 
         context.HandleResponse();
+        // مرحلهٔ هفدهم: «رفتن به صفحهٔ ورود» پایش می‌شود؛ اگر مرورگر کوکی نشست داشت ولی توکنش پذیرفته نشد (دلیل در Detail)،
+        // یعنی نشست گم شده است – صفحهٔ «درخواست‌های ردشده» این را جدا می‌شمارد.
+        Ops.RequestMonitor.Record(context.HttpContext, Ops.RequestMonitor.Kind.LoginRedirect,
+            context.AuthenticateFailure is { } failure ? "توکن پذیرفته نشد: " + failure.GetType().Name : null);
         var returnUrl = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
         context.Response.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
         return Task.CompletedTask;
@@ -99,6 +103,7 @@ public static class AuthenticationSetup
 
     private static Task OnForbidden(ForbiddenContext context)
     {
+        Ops.RequestMonitor.Record(context.HttpContext, Ops.RequestMonitor.Kind.Forbidden);
         if (!IsApiRequest(context.Request))
             context.Response.Redirect("/");
 

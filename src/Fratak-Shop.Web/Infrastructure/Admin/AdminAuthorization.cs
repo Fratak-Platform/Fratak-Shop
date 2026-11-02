@@ -58,6 +58,8 @@ public sealed class AdminPageFilter(
         var access = await accessService.GetAccessAsync(userId.Value);
         if (!access.IsStaff)
         {
+            // مرحلهٔ هفدهم: در «درخواست‌های ردشده» دیده شود (مثلاً مدیری که با شمارهٔ دیگری وارد شده و کارمند نیست).
+            Ops.RequestMonitor.Record(http, Ops.RequestMonitor.Kind.NotStaff, "حساب واردشده کارمند نیست: " + Core.Services.Admin.MonitoringService.Mask(access.PhoneNumber));
             context.Result = new NotFoundResult();
             return;
         }
@@ -71,6 +73,7 @@ public sealed class AdminPageFilter(
         if (!isDeniedPage && !IsAllowed(access, pageType, method, out var missing))
         {
             logger.LogInformation("Admin access denied: {User} → {Path} (needs {Permission})", userId, http.Request.Path, missing);
+            Ops.RequestMonitor.Record(http, Ops.RequestMonitor.Kind.AdminDenied, $"{Core.Services.Admin.MonitoringService.Mask(access.PhoneNumber)} نیاز به «{missing}»");
             try
             {
                 await monitoring.LogSecurityAsync(SecurityEventType.AdminAccessDenied, userId, Core.Services.Admin.MonitoringService.Mask(access.PhoneNumber),

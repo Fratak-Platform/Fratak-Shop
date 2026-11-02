@@ -185,6 +185,8 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
+# Round 17: the shared IIS publish profile (no secrets) is part of the repository
+!src/Fratak-Shop.Web/Properties/PublishProfiles/IIS-Windows.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to

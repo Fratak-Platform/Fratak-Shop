@@ -79,7 +79,7 @@ public sealed class ShopApp : IAsyncLifetime
         // می‌شود (UseSetting هم برای اطمینان پایین‌تر تنظیم شده است).
         Environment.SetEnvironmentVariable("ConnectionDefault", connection);
         Environment.SetEnvironmentVariable("Shop__SeedDemoData", "true");
-        // نشانی آزمون‌ها https://fratak.test است؛ تغییر مسیر به دامنهٔ اصلی Production (faratek.ir) خاموش ("off" = خاموش؛
+        // نشانی آزمون‌ها https://fratak.test است؛ تغییر مسیر به دامنهٔ اصلی Production (shop.fratak.ir) خاموش ("off" = خاموش؛
         // مقدار خالی متغیر محیطی در ویندوز یعنی حذف متغیر). آزمون‌های خود تغییر مسیر: Unit/ProductionReadinessTests.
         Environment.SetEnvironmentVariable("Shop__CanonicalHost", "off");
         Environment.SetEnvironmentVariable("Jwt__SigningKey", SigningKey);

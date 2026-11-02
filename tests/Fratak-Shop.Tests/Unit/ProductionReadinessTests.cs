@@ -10,7 +10,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Fratak_Shop.Tests.Unit;
 
 /// <summary>
-/// تست‌های مرحلهٔ سیزدهم (آمادگی انتشار روی faratek.ir):
+/// تست‌های مرحلهٔ سیزدهم (آمادگی انتشار روی سرور واقعی):
 /// دروازهٔ مؤدب منابع بیرونی (فاصله، استراحت دوبرابرشونده، Retry-After)، داوری پاسخ منابع و تشخیص کپچا،
 /// منبع باسلام، کش ماندگار قیمت رقبا (تازه/کهنه)، تصمیم قیمت‌گذاری بازار درون‌ریزی،
 /// تغییر مسیر به دامنهٔ اصلی و نرمال‌سازی شمارهٔ مالک.
@@ -282,24 +282,46 @@ public class ProductionReadinessTests
     public void Market_retry_delay_grows_and_is_capped(int attempts, int minutes)
         => Assert.Equal(TimeSpan.FromMinutes(minutes), MarketPricingService.RetryDelay(attempts));
 
-    // ── دامنهٔ اصلی ──
+    // ── دامنهٔ اصلی (مرحلهٔ هفدهم: فقط www همان دامنه و aliases؛ دامنهٔ ناشناخته هرگز به دامنهٔ اصلی ریدایرکت نمی‌شود) ──
 
     [Theory]
-    [InlineData("www.faratek.ir", "/", true)]
-    [InlineData("shop.hosting-temp.ir", "/product/x", true)]
+    [InlineData("www.shop.fratak.ir", "/", true)]
+    [InlineData("WWW.SHOP.FRATAK.IR", "/product/x", true)]
+    [InlineData("shop.fratak.ir", "/", false)]
+    [InlineData("SHOP.FRATAK.IR", "/", false)]
+    [InlineData("fratak.ir", "/", false)]
+    [InlineData("www.fratak.ir", "/", false)]
     [InlineData("faratek.ir", "/", false)]
-    [InlineData("FARATEK.IR", "/", false)]
+    [InlineData("shop.hosting-temp.ir", "/product/x", false)]
     [InlineData("localhost", "/", false)]
     [InlineData("app.localhost", "/", false)]
     [InlineData("127.0.0.1", "/", false)]
     [InlineData("[::1]", "/", false)]
     [InlineData("185.10.20.30", "/", false)]
-    [InlineData("www.faratek.ir", "/health", false)]
-    [InlineData("www.faratek.ir", "/healthz", false)]
-    [InlineData("www.faratek.ir", "/.well-known/acme-challenge/abc", false)]
+    [InlineData("www.shop.fratak.ir", "/health", false)]
+    [InlineData("www.shop.fratak.ir", "/healthz", false)]
+    [InlineData("www.shop.fratak.ir", "/.well-known/acme-challenge/abc", false)]
     [InlineData("", "/", false)]
     public void Canonical_host_redirect_rules(string host, string path, bool expected)
-        => Assert.Equal(expected, CanonicalHostMiddleware.ShouldRedirect("faratek.ir", host, new PathString(path)));
+        => Assert.Equal(expected, CanonicalHostMiddleware.ShouldRedirect("shop.fratak.ir", host, new PathString(path)));
+
+    [Theory]
+    [InlineData("old-shop.ir", true)]
+    [InlineData("OLD-SHOP.IR", true)]
+    [InlineData("other.ir", false)]
+    public void Canonical_host_redirects_configured_aliases(string host, bool expected)
+        => Assert.Equal(expected, CanonicalHostMiddleware.ShouldRedirect("shop.fratak.ir", host, new PathString("/"), ["old-shop.ir"]));
+
+    [Fact]
+    public void Canonical_www_twin_works_both_ways()
+    {
+        Assert.True(CanonicalHostMiddleware.IsWwwTwin("shop.fratak.ir", "www.shop.fratak.ir"));
+        Assert.True(CanonicalHostMiddleware.IsWwwTwin("www.fratak.ir", "fratak.ir"));
+        Assert.False(CanonicalHostMiddleware.IsWwwTwin("shop.fratak.ir", "fratak.ir"));
+        Assert.True(CanonicalHostMiddleware.IsForeign("shop.fratak.ir", "x.plesk.page", []));
+        Assert.False(CanonicalHostMiddleware.IsForeign("shop.fratak.ir", "localhost", []));
+        Assert.False(CanonicalHostMiddleware.IsForeign("shop.fratak.ir", "old.ir", ["old.ir"]));
+    }
 
     [Theory]
     [InlineData("faratek.ir", "faratek.ir")]
@@ -333,15 +355,16 @@ public class ProductionReadinessTests
         => Assert.Equal(expected, AdminAccessService.NormalizeOwnerPhone(value));
 
     [Theory]
-    [InlineData("GET", "www.faratek.ir", "/product/x", "?a=1", 301, "https://faratek.ir/product/x?a=1")]
-    [InlineData("POST", "www.faratek.ir", "/login", "", 308, "https://faratek.ir/login")]
-    [InlineData("GET", "faratek.ir", "/", "", 200, null)]
+    [InlineData("GET", "www.shop.fratak.ir", "/product/x", "?a=1", 301, "https://shop.fratak.ir/product/x?a=1")]
+    [InlineData("POST", "www.shop.fratak.ir", "/login", "", 308, "https://shop.fratak.ir/login")]
+    [InlineData("GET", "shop.fratak.ir", "/", "", 200, null)]
     [InlineData("GET", "localhost", "/", "", 200, null)]
-    public async Task Canonical_host_middleware_redirects_only_foreign_hosts(string method, string host, string path, string query, int status, string? location)
+    [InlineData("GET", "shop-temp.plesk.page", "/login", "", 200, null)]
+    public async Task Canonical_host_middleware_redirects_only_the_www_twin(string method, string host, string path, string query, int status, string? location)
     {
         var called = false;
         var middleware = new CanonicalHostMiddleware(_ => { called = true; return Task.CompletedTask; },
-            Microsoft.Extensions.Options.Options.Create(new Fratak_Shop.Web.Infrastructure.ShopOptions { CanonicalHost = "faratek.ir" }));
+            Microsoft.Extensions.Options.Options.Create(new Fratak_Shop.Web.Infrastructure.ShopOptions { CanonicalHost = "shop.fratak.ir" }));
         var context = new DefaultHttpContext();
         context.Request.Method = method;
         context.Request.Host = new HostString(host);
@@ -353,7 +376,13 @@ public class ProductionReadinessTests
         Assert.Equal(status, context.Response.StatusCode);
         Assert.Equal(location is null, called);
         if (location is not null)
+        {
             Assert.Equal(location, context.Response.Headers.Location.ToString());
+            // ۳۰۱ بدون سرآیند کش برای همیشه در مرورگر می‌ماند؛ یک ساعت یعنی اشتباه تنظیمات زود اصلاح می‌شود.
+            Assert.Equal("public, max-age=3600", context.Response.Headers.CacheControl.ToString());
+        }
+        if (host.EndsWith(".plesk.page", StringComparison.Ordinal))
+            Assert.Equal("noindex, nofollow", context.Response.Headers["X-Robots-Tag"].ToString());
     }
 
     [Theory]
