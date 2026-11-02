@@ -22,8 +22,30 @@ public static class MediaEndpoints
     private const long MaxSourceBytes = 20 * 1024 * 1024;
     private const long MaxSourcePixels = 40_000_000;
 
+    /// <summary>
+    /// مرحلهٔ هفدهم: سقف پیکسل در پروسهٔ ۳۲ بیتی (استخر IIS با «Enable 32-Bit Applications») کمتر است، چون کل فضای حافظهٔ
+    /// پروسه حدود ۲ تا ۴ گیگابایت است. مثال: عکس ۲۴ مگاپیکسلی در پروسهٔ ۳۲ بیتی ← بدون تغییر اندازه، همان اصل فرستاده می‌شود.
+    /// </summary>
+    public static long PixelLimit => Environment.Is64BitProcess ? MaxSourcePixels : 16_000_000;
+
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
-    private static readonly SemaphoreSlim Workers = new(Math.Max(1, Environment.ProcessorCount / 2));
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: حداکثر ۲ تغییر اندازهٔ هم‌زمان (قبلاً نصف هسته‌های سرور؛ روی سرور اشتراکی ۱۶ تا ۳۲ هسته‌ای یعنی ۸ تا ۱۶
+    /// عکس بزرگ هم‌زمان در حافظه). باز کردن صفحه‌ای با ده‌ها عکسِ تازه دیگر حافظهٔ استخر را پر نمی‌کند؛ کمبود حافظه در
+    /// کتابخانهٔ بومی SkiaSharp پروسه را بی‌خبر می‌بندد و چند بار تکرارش IIS را به خاموش کردن استخر (HTTP Error 503) می‌کشاند.
+    /// </summary>
+    private static readonly SemaphoreSlim Workers = new(Math.Clamp(Environment.ProcessorCount / 2, 1, 2));
+
+    /// <summary>
+    /// حافظهٔ دستگاه/استخر تحت فشار است؟ (GC سقف حافظهٔ استخر IIS و Job Object را هم می‌بیند.) در این حالت عکس بدون تغییر
+    /// اندازه فرستاده می‌شود تا تغییر اندازه باعث کمبود حافظه نشود.
+    /// </summary>
+    public static bool MemoryIsTight()
+    {
+        var info = GC.GetGCMemoryInfo();
+        return info.HighMemoryLoadThresholdBytes > 0 && info.MemoryLoadBytes >= info.HighMemoryLoadThresholdBytes;
+    }
 
     public static bool IsOptimizable(string? url)
     {
@@ -60,7 +82,7 @@ public static class MediaEndpoints
             http.Response.Headers.Vary = "Accept";
 
             var originalType = ContentType(info.Extension);
-            if (!settings.IsImageOptimizationEnabled || info.Length > MaxSourceBytes)
+            if (!settings.IsImageOptimizationEnabled || info.Length > MaxSourceBytes || MemoryIsTight())
                 return Results.File(source, originalType, lastModified: info.LastWriteTimeUtc, enableRangeProcessing: false);
 
             var acceptsWebp = http.Request.Headers.Accept.ToString().Contains("image/webp", StringComparison.OrdinalIgnoreCase);
@@ -84,7 +106,9 @@ public static class MediaEndpoints
                 {
                     if (!File.Exists(cached))
                     {
-                        await Workers.WaitAsync(http.RequestAborted);
+                        // صف شلوغ است (صفحهٔ پر از عکس تازه)؟ بعد از ۱۰ ثانیه همان اصل عکس فرستاده می‌شود تا درخواست معطل نماند.
+                        if (!await Workers.WaitAsync(TimeSpan.FromSeconds(10), http.RequestAborted))
+                            return Results.File(source, originalType, lastModified: info.LastWriteTimeUtc);
                         try
                         {
                             var bytes = Resize(source, width, format, quality);
@@ -118,18 +142,61 @@ public static class MediaEndpoints
         });
     }
 
-    /// <summary>Decodes, downsizes (never upsizes) and re-encodes without metadata. Null = can't handle.</summary>
-    internal static byte[]? Resize(string source, int width, SKEncodedImageFormat format, int quality)
+    /// <summary>
+    /// Decodes, downsizes (never upsizes) and re-encodes without metadata. Null = can't handle (the original is served).
+    /// <para>مرحلهٔ هفدهم: هیچ خطایی بیرون نمی‌رود (عکس خراب/عجیب فقط یعنی «اصل عکس را بفرست»).</para>
+    /// </summary>
+    public static byte[]? Resize(string source, int width, SKEncodedImageFormat format, int quality)
+    {
+        try
+        {
+            return ResizeCore(source, width, format, quality);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// اندازهٔ رمزگشایی: اگر عکس خیلی بزرگ‌تر از عرض خواسته است، رمزگشا خودش آن را کوچک‌تر باز می‌کند (JPEG تا ۱/۸، WebP هر
+    /// اندازه) و حافظهٔ لازم ۴ تا ۶۴ برابر کم می‌شود. مثال: عکس ۶۰۰۰×۴۰۰۰ برای عرض ۴۸۰ ← باز شدن در ۷۵۰×۵۰۰ (۱/۸) به جای ۹۶ مگابایت،
+    /// حدود ۱٫۵ مگابایت. نتیجه هرگز از عرض خواسته کوچک‌تر نمی‌شود (کیفیت حفظ می‌شود). null = همان اندازهٔ اصلی.
+    /// </summary>
+    public static SKSizeI? DecodeSize(SKCodec codec, int width)
+    {
+        var info = codec.Info;
+        var swap = codec.EncodedOrigin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom;
+        var displayWidth = swap ? info.Height : info.Width;
+        if (displayWidth <= width)
+            return null;
+        var scaled = codec.GetScaledDimensions((float)width / displayWidth);
+        var scaledWidth = swap ? scaled.Height : scaled.Width;
+        if (scaled.Width <= 0 || scaled.Height <= 0 || scaledWidth < width || (scaled.Width == info.Width && scaled.Height == info.Height))
+            return null;
+        return scaled;
+    }
+
+    private static byte[]? ResizeCore(string source, int width, SKEncodedImageFormat format, int quality)
     {
         using var codec = SKCodec.Create(source);
         if (codec is null)
             return null;
 
         var info = codec.Info;
-        if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxSourcePixels)
+        if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > PixelLimit)
             return null;
 
-        using var original = SKBitmap.Decode(codec);
+        SKBitmap? scaledDecode = null;
+        if (DecodeSize(codec, width) is { } size)
+        {
+            var target = info.WithSize(size.Width, size.Height);
+            if (target.AlphaType == SKAlphaType.Unpremul)
+                target.AlphaType = SKAlphaType.Premul;
+            scaledDecode = SKBitmap.Decode(codec, target);
+        }
+
+        using var original = scaledDecode ?? SKBitmap.Decode(codec);
         if (original is null)
             return null;
 

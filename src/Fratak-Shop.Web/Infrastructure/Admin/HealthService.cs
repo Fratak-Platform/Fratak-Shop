@@ -205,6 +205,9 @@ public sealed class HealthService(
             checks.Add(proxy);
         checks.Add(ProductionDiagnostics.DefaultAdmins(DefaultAdminStartupReport.Notes, DefaultAdminStartupReport.Problems));
         checks.Add(ProductionDiagnostics.Lifecycle(Ops.AppLifecycle.StartsWithin(TimeSpan.FromHours(24)), Ops.AppLifecycle.UncleanWithin(TimeSpan.FromHours(24))));
+        var (windowsEvents, windowsProblem) = await Ops.WindowsEvents.RecentAsync(environment.ContentRootPath, cancellationToken);
+        if (ProductionDiagnostics.WindowsCrashes(OperatingSystem.IsWindows(), windowsEvents, windowsProblem, DateTimeOffset.UtcNow) is { } windowsCheck)
+            checks.Add(windowsCheck);
         checks.Add(ProductionDiagnostics.Rejections(Ops.RequestMonitor.LastMinutes(60), Ops.RequestMonitor.LostSessionsLastHour()));
         if (Ops.StartupGate.Attempts > 1)
             checks.Add(new HealthCheck("اتصال پایگاه داده هنگام شروع", HealthLevel.Warning,

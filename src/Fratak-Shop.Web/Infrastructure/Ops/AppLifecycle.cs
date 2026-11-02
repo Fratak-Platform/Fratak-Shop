@@ -9,7 +9,11 @@ namespace Fratak_Shop.Web.Infrastructure.Ops;
 /// <param name="ProcessId">شمارهٔ پروسه (برای تشخیص «هنوز زنده است؟» هنگام بازیافت هم‌پوشان IIS).</param>
 /// <param name="Version">نسخهٔ برنامه.</param>
 /// <param name="Crash">اگر برنامه با استثنای مدیریت‌نشده از کار افتاد، نوع و پیام کوتاهش؛ وگرنه null.</param>
-public sealed record LifecycleRun(DateTimeOffset StartedAt, DateTimeOffset? StoppedAt, int ProcessId, string Version, string? Crash);
+/// <param name="LastSeenAt">آخرین «نبض» این اجرا (هر دقیقه). برای اجرای ناگهانی‌تمام‌شده یعنی «تقریباً کی بسته شد».</param>
+/// <param name="MemoryMb">حافظهٔ خصوصی پروسه (Private Bytes؛ همان چیزی که سقف حافظهٔ استخر IIS می‌سنجد) در آخرین نبض.</param>
+/// <param name="PeakMemoryMb">بیشترین حافظهٔ خصوصی دیده‌شده در این اجرا. اگر توقف ناگهانی با حافظهٔ نزدیک سقف استخر بوده، علت کمبود حافظه است.</param>
+public sealed record LifecycleRun(DateTimeOffset StartedAt, DateTimeOffset? StoppedAt, int ProcessId, string Version, string? Crash,
+    DateTimeOffset? LastSeenAt = null, int? MemoryMb = null, int? PeakMemoryMb = null);
 
 /// <summary>
 /// تاریخچهٔ روشن/خاموش شدن برنامه (مرحلهٔ هفدهم) در فایل <c>App_Data/logs/lifecycle.json</c> (۱۰۰ اجرای آخر).
@@ -27,6 +31,7 @@ public static class AppLifecycle
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
     private static string? _file;
     private static LifecycleRun? _current;
+    private static Timer? _heartbeat;
 
     /// <summary>اجرای فعلی (null پیش از Start).</summary>
     public static LifecycleRun? Current => _current;
@@ -47,6 +52,40 @@ public static class AppLifecycle
                 runs.RemoveAll(r => r.ProcessId == run.ProcessId && r.StartedAt == run.StartedAt);
                 runs.Add(run);
             });
+        }
+
+        // نبض هر دقیقه: زمان و حافظه ثبت می‌شود تا اگر پروسه بی‌خبر بسته شد (کمبود حافظه، خطای کتابخانهٔ بومی، کشته شدن
+        // به‌خاطر سقف CPU)، معلوم باشد آخرین بار کی و با چه حافظه‌ای زنده بود.
+        _heartbeat ??= new Timer(_ => Heartbeat(), null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
+    }
+
+    /// <summary>
+    /// ثبت نبض (زمان + حافظهٔ خصوصی فعلی و بیشینه). هرگز خطا نمی‌دهد؛ خطای callback تایمر پروسه را می‌بندد، پس همه‌چیز گرفته می‌شود.
+    /// </summary>
+    public static void Heartbeat()
+    {
+        try
+        {
+            int memory;
+            using (var process = Process.GetCurrentProcess())
+                memory = (int)Math.Min(int.MaxValue, process.PrivateMemorySize64 / (1024 * 1024));
+            lock (Gate)
+            {
+                if (_current is not { StoppedAt: null } current)
+                    return;
+                var updated = current with
+                {
+                    LastSeenAt = DateTimeOffset.UtcNow,
+                    MemoryMb = memory,
+                    PeakMemoryMb = Math.Max(memory, current.PeakMemoryMb ?? 0),
+                };
+                _current = updated;
+                Update(runs => Replace(runs, updated));
+            }
+        }
+        catch
+        {
+            // پایش هرگز نباید برنامه را ببندد.
         }
     }
 
@@ -74,6 +113,33 @@ public static class AppLifecycle
             var crashed = current with { Crash = text.Length <= 500 ? text : text[..500] };
             _current = crashed;
             Update(runs => Replace(runs, crashed));
+            WriteCrashDetails(exception);
+        }
+    }
+
+    /// <summary>
+    /// متن کامل خطای مرگبار (با Stack trace) مستقیم در فایل روزانهٔ App_Data/logs/fratak-….log نوشته می‌شود؛ صف لاگ معمولی
+    /// پیش از بسته شدن پروسه فرصت نوشتن ندارد. در صفحهٔ «گزارش‌های سرور» دیده می‌شود.
+    /// </summary>
+    private static void WriteCrashDetails(Exception? exception)
+    {
+        try
+        {
+            if (_file is null || exception is null)
+                return;
+            var now = DateTimeOffset.UtcNow;
+            var text = exception.ToString();
+            if (text.Length > 8000)
+                text = text[..8000];
+            var indented = text.Replace("\n", "\n    ");
+            var stamp = now.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+            File.AppendAllText(Path.Combine(Path.GetDirectoryName(_file)!, LogStore.FileNameFor(now)),
+                $"{stamp}Z CRITICAL Fratak.Crash | برنامه با خطای مدیریت‌نشده بسته شد{Environment.NewLine}    {indented}{Environment.NewLine}",
+                System.Text.Encoding.UTF8);
+        }
+        catch
+        {
+            // در حال بسته شدن هستیم؛ کاری از دست برنمی‌آید.
         }
     }
 
