@@ -1,18 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Fratak_Shop.Web</RootNamespace>
-    <!--
-      مرحلهٔ هفدهم (پایداری روی هاست اشتراکی Plesk/IIS): جمع‌آوری حافظهٔ «Workstation» هم‌زمان به جای «Server».
-      حالت Server برای هر هستهٔ پردازندهٔ سرور یک بخش حافظهٔ جدا می‌سازد؛ روی سرور اشتراکی پرهسته (و به‌خصوص استخر ۳۲ بیتی)
-      مصرف حافظه چند برابر می‌شود و به سقف حافظهٔ استخر می‌رسد (بازیافت یا توقف برنامه). برای یک فروشگاه، حالت Workstation
-      هم سریع است و هم حافظهٔ خیلی کمتری می‌گیرد. محل اثر: فایل Fratak-Shop.Web.runtimeconfig.json خروجی.
-    -->
-    <ServerGarbageCollection>false</ServerGarbageCollection>
-    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

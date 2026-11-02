@@ -15,7 +15,7 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.SystemPages;
 /// <para>داده‌ها در حافظه‌اند (RequestMonitor) و با ری‌استارت پاک می‌شوند؛ تاریخچهٔ اجراها در App_Data/logs/lifecycle.json می‌ماند.</para>
 /// </summary>
 [AdminPermission(AdminPermissions.MonitoringView)]
-public class AccessModel(Fratak_Shop.Web.Infrastructure.Auth.JwtSigningKeyProvider jwtKeys, IWebHostEnvironment environment) : AdminPageModel
+public class AccessModel(Fratak_Shop.Web.Infrastructure.Auth.JwtSigningKeyProvider jwtKeys) : AdminPageModel
 {
     /// <summary>فیلتر نوع (نام enum، مثلاً «Firewall»)؛ خالی = همه.</summary>
     [BindProperty(SupportsGet = true, Name = "kind")]
@@ -33,16 +33,8 @@ public class AccessModel(Fratak_Shop.Web.Infrastructure.Auth.JwtSigningKeyProvid
     public string? KeyProblem => jwtKeys.Problem;
     public string MyIp { get; private set; } = "-";
 
-    /// <summary>رویدادهای ویندوز ۳ روز اخیر همین سایت (علت واقعی توقف‌ها و خاموش شدن استخر IIS).</summary>
-    public IReadOnlyList<WindowsEvent> WinEvents { get; private set; } = [];
-
-    /// <summary>اگر گزارش ویندوز خوانده نشد، دلیلش (مثلاً نداشتن اجازه روی هاست اشتراکی)؛ وگرنه null.</summary>
-    public string? WinProblem { get; private set; }
-
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public void OnGet()
     {
-        (WinEvents, WinProblem) = await WindowsEvents.RecentAsync(environment.ContentRootPath, cancellationToken);
-
         SelectedKind = Enum.TryParse<RequestMonitor.Kind>(KindFilter, true, out var kind) && Enum.IsDefined(kind) ? kind : null;
         Totals = RequestMonitor.TotalsByKind();
         LastHour = RequestMonitor.LastMinutes(60);
@@ -64,11 +56,6 @@ public class AccessModel(Fratak_Shop.Web.Infrastructure.Auth.JwtSigningKeyProvid
         RequestMonitor.Kind.AdminDenied or RequestMonitor.Kind.NotStaff => "a-badge-blue",
         _ => "a-badge-gray",
     };
-
-    /// <summary>حافظهٔ یک اجرا. مثال: «۴۱۲ / بیشینه ۸۹۰ MB»؛ بدون نبض ثبت‌شده ← «-».</summary>
-    public static string Memory(LifecycleRun run) => run.MemoryMb is { } memory
-        ? $"{Format.Number(memory)} / بیشینه {Format.Number(run.PeakMemoryMb ?? memory)} MB"
-        : "-";
 
     /// <summary>مدت یک اجرا به زبان ساده. مثال: ۳ ساعت و ۵ دقیقه.</summary>
     public static string Duration(LifecycleRun run)

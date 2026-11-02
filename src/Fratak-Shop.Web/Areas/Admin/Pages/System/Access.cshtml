@@ -120,7 +120,7 @@
   <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Clock", null, 18) روشن/خاموش شدن برنامه</span><span class="a-muted text-xs a-ltr">App_Data/logs/lifecycle.json</span></div>
   <div class="a-table-wrap">
     <table class="a-table a-table-cards a-table-compact">
-      <thead><tr><th>روشن شدن</th><th>مدت</th><th>پایان</th><th>حافظه</th><th>نسخه / پروسه</th></tr></thead>
+      <thead><tr><th>روشن شدن</th><th>مدت</th><th>پایان</th><th>نسخه / پروسه</th></tr></thead>
       <tbody>
         @foreach (var run in Model.Runs)
         {
@@ -133,11 +133,10 @@
             <td data-label="پایان" class="text-xs">
               @if (current) { <span class="a-badge a-badge-green">در حال اجرا</span> }
               else if (run.Crash is not null) { <span class="a-badge a-badge-red">خطای مرگبار</span><div class="a-ltr text-right mt-1 break-all">@run.Crash</div> }
-              else if (unclean) { <span class="a-badge a-badge-yellow">توقف ناگهانی</span> if (run.LastSeenAt.HasValue) { <span class="a-muted">آخرین نبض: @Format.DateTime(run.LastSeenAt)</span> } }
+              else if (unclean) { <span class="a-badge a-badge-yellow">توقف ناگهانی</span> }
               else if (run.StoppedAt.HasValue) { <span class="a-badge a-badge-gray">خاموش عادی</span> <span class="a-muted">@Format.DateTime(run.StoppedAt)</span> }
               else { <span class="a-badge a-badge-blue">هم‌زمان (بازیافت IIS)</span> }
             </td>
-            <td data-label="حافظه" class="text-xs nowrap">@AccessModel.Memory(run)</td>
             <td data-label="نسخه / پروسه" class="a-ltr text-xs">@run.Version · #@run.ProcessId</td>
           </tr>
         }
@@ -146,40 +145,6 @@
     @if (Model.Runs.Count == 0) { <div class="a-empty">تاریخچه‌ای ثبت نشده است (پوشهٔ App_Data/logs قابل نوشتن نیست؟).</div> }
   </div>
   <div class="a-card-body text-xs a-muted">«خاموش عادی» با بازیافت زمان‌بندی‌شده یا بیکاری استخر IIS هم پیش می‌آید؛ بیش از چند بار در روز یعنی تنظیمات استخر برنامه را طبق docs/DEPLOYMENT.md درست کنید (Idle Time-out = 0، Start Mode = AlwaysRunning). «توقف ناگهانی» یعنی پروسه بدون خاموشی عادی بسته شده (کمبود حافظه، کشته شدن پروسه، خطای بومی).</div>
-</div>
-
-<div class="a-card mb-4">
-  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Bug", null, 18) علت توقف‌ها از گزارش ویندوز (۳ روز اخیر)</span><span class="a-muted text-xs a-ltr">Event Log: WAS · Application Error · .NET Runtime · ANCM</span></div>
-  @if (Model.WinProblem is not null) { <div class="a-alert a-alert-warn m-4 text-sm">@Model.WinProblem</div> }
-  @if (Model.WinEvents.Count > 0)
-  {
-    <div class="a-table-wrap">
-      <table class="a-table a-table-cards a-table-compact">
-        <thead><tr><th>زمان</th><th>رویداد</th><th>توضیح</th></tr></thead>
-        <tbody>
-          @foreach (var item in Model.WinEvents)
-          {
-            <tr>
-              <td data-label="زمان" class="nowrap text-xs">@Format.DateTime(item.At)</td>
-              <td data-label="رویداد" class="text-xs">
-                <span class="a-badge @(item.Severe ? "a-badge-red" : "a-badge-gray")">@item.Title</span>
-                <div class="a-muted a-ltr text-right mt-1">@item.Source · @item.Id</div>
-              </td>
-              <td data-label="توضیح" class="text-xs leading-6">
-                @item.Explanation
-                <details class="mt-1"><summary class="a-muted">متن اصلی رویداد</summary><pre class="a-ltr text-left whitespace-pre-wrap break-all">@item.Message</pre></details>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
-  else if (Model.WinProblem is null)
-  {
-    <div class="a-empty">@(OperatingSystem.IsWindows() ? "در ۳ روز اخیر رویداد توقف یا خطای مرگباری برای این سایت در گزارش ویندوز نیست." : "این بخش فقط روی سرور ویندوز/IIS کار می‌کند.")</div>
-  }
-  <div class="a-card-body text-xs a-muted">اگر «HTTP Error 503» انگلیسی دیدید یا Plesk گفت استخر برنامه «not stopped through Plesk» است، علت دقیق اینجاست: ردیف «Rapid-Fail» یعنی IIS بعد از چند بار بسته شدن پشت سر هم استخر را خاموش کرده و ردیف‌های قبل از آن می‌گویند چرا برنامه بسته می‌شد. ستون «حافظه» در جدول بالا هم نشان می‌دهد پیش از توقف حافظه نزدیک سقف استخر بوده یا نه.</div>
 </div>
 
 <div class="a-card">

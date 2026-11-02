@@ -154,28 +154,6 @@ public static class ProductionDiagnostics
         return new HealthCheck(Name, HealthLevel.Healthy, $"{starts} بار روشن شدن در ۲۴ ساعت اخیر؛ بدون توقف ناگهانی.");
     }
 
-    /// <summary>
-    /// «علت توقف‌ها (گزارش ویندوز)»: اگر در ۲۴ ساعت اخیر رویداد جدی (بسته شدن پروسه، Rapid-Fail، Ping) برای همین سایت ثبت شده،
-    /// هشدار با عنوان آخرین رویداد. null = روی ویندوز نیستیم (چیزی برای گفتن نیست). عمداً «هشدار» است نه «بحرانی»: اگر این
-    /// بررسی اجرا می‌شود یعنی برنامه دوباره بالاست و /healthz نباید به‌خاطر رویداد گذشته ۵۰۳ بدهد.
-    /// مثال: رویداد ۵۰۰۲ دو ساعت پیش ← هشدار «IIS استخر برنامه را خاموش کرد (Rapid-Fail)…».
-    /// </summary>
-    public static HealthCheck? WindowsCrashes(bool isWindows, IReadOnlyList<WindowsEvent> events, string? problem, DateTimeOffset now)
-    {
-        const string Name = "علت توقف‌ها (گزارش ویندوز)";
-        if (!isWindows)
-            return null;
-        var severe = events.Where(e => e.Severe && now - e.At <= TimeSpan.FromHours(24)).OrderByDescending(e => e.At).ToList();
-        if (severe.Count > 0)
-            return new HealthCheck(Name, HealthLevel.Warning,
-                $"در ۲۴ ساعت اخیر {severe.Count} رویداد جدی برای این سایت ثبت شده؛ آخرین: «{severe[0].Title}» ({Helpers.Format.DateTime(severe[0].At)}).",
-                "«فنی ← درخواست‌های ردشده و پایداری» بخش «علت توقف‌ها از گزارش ویندوز» را ببینید؛ توضیح و راه‌حل هر رویداد همان‌جاست.");
-        if (problem is not null)
-            return new HealthCheck(Name, HealthLevel.Healthy, problem,
-                "بدون این گزارش هم تاریخچهٔ روشن/خاموش شدن و حافظهٔ هر اجرا ثبت می‌شود؛ علت دقیق توقف را می‌توان از پشتیبانی هاست پرسید.");
-        return new HealthCheck(Name, HealthLevel.Healthy, "در ۲۴ ساعت اخیر بسته شدن ناگهانی یا خاموش شدن استخر برای این سایت ثبت نشده است.");
-    }
-
     /// <summary>خلاصهٔ درخواست‌های ردشده یک ساعت اخیر با هشدار برای «گم شدن نشست» و «۴۲۹ زیاد».</summary>
     public static HealthCheck Rejections(IReadOnlyDictionary<RequestMonitor.Kind, int> lastHour, int lostSessions)
     {
