@@ -480,6 +480,21 @@ public class Round17ProductionTests
                                                              && (string?)c.Attribute("CopyToPublishDirectory") == "Never");
     }
 
+    // ═══ آزمون‌ها هرگز به پایگاه دادهٔ واقعی وصل نمی‌شوند ═══
+
+    [Theory]
+    [InlineData(@"Server=.;User Id=sa;Password=1", true)]
+    [InlineData(@"Server=(local);Integrated Security=True", true)]
+    [InlineData(@"Server=localhost,1433;User Id=sa;Password=1", true)]
+    [InlineData(@"Server=tcp:127.0.0.1,1433;User Id=sa;Password=1", true)]
+    [InlineData(@"Server=.\SQLEXPRESS;Integrated Security=True", true)]
+    [InlineData(@"Server=(localdb)\MSSQLLocalDB;Integrated Security=True", true)]
+    [InlineData(@"Server=185.191.78.226,2019;Database=shop;User Id=u;Password=p", false)]
+    [InlineData(@"Server=db.example.com;User Id=u;Password=p", false)]
+    [InlineData(@"not a connection string", false)]
+    public void Test_sql_discovery_only_uses_local_servers(string connection, bool local)
+        => Assert.Equal(local, TestSql.IsLocalServer(connection));
+
     private static string TempFolder()
     {
         var folder = Path.Combine(Path.GetTempPath(), "fratak-r17-" + Guid.NewGuid().ToString("N"));

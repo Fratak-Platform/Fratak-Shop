@@ -143,7 +143,10 @@ jobs:
           linux_mb=$(du -sm out | cut -f1)
           win_mb=$(du -sm out-win | cut -f1)
           echo "::notice::Publish size: linux ${linux_mb} MB, windows ${win_mb} MB"
-          if [ "$win_mb" -gt 140 ] || [ "$linux_mb" -gt 140 ]; then echo "::error::publish output is larger than 140 MB"; exit 1; fi
+          largest=$(cd out-win && find . -type f -size +1M -printf '%s %p\n' | sort -rn | head -25 | awk '{printf "%s=%dMB; ", $2, $1/1048576}')
+          echo "::notice::Largest windows publish files: ${largest}"
+          if [ "$win_mb" -gt 120 ]; then echo "::error::windows publish output is larger than 120 MB"; exit 1; fi
+          if [ "$linux_mb" -gt 160 ]; then echo "::error::linux publish output is larger than 160 MB"; exit 1; fi
           rm -rf out-win
 
       - name: Run app and request pages

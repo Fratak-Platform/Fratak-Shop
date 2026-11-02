@@ -11,7 +11,8 @@ namespace Fratak_Shop.Tests;
 /// <list type="number">
 /// <item>متغیر محیطی <c>FRATAK_TEST_SQL</c> (در CI). اگر تنظیم شده باشد فقط همین استفاده می‌شود؛ خرابی‌اش باید دیده شود.</item>
 /// <item>رشتهٔ اتصال خود برنامه: <c>ConnectionDefault</c> در <c>appsettings.Development.json</c> و <c>appsettings.json</c>
-/// پروژهٔ وب (همان سروری که برنامه با آن اجرا می‌شود، مثلاً <c>Server=.;User Id=sa;...</c>).</item>
+/// پروژهٔ وب (همان سروری که برنامه با آن اجرا می‌شود، مثلاً <c>Server=.;User Id=sa;...</c>) – <b>فقط اگر سرور روی همین
+/// دستگاه باشد</b>؛ سرور راه‌دور (مثلاً پایگاه دادهٔ واقعی سایت) هرگز خودکار استفاده نمی‌شود.</item>
 /// <item>روی ویندوز: <c>(localdb)\MSSQLLocalDB</c> و نمونهٔ پیش‌فرض محلی با احراز هویت ویندوز.</item>
 /// </list>
 /// نام پایگاه داده همیشه حذف می‌شود: هر کلاس آزمون پایگاه دادهٔ موقت خودش را (FratakTests_… / FratakE2E_…) می‌سازد و
@@ -51,6 +52,14 @@ public static class TestSql
             catch (ArgumentException)
             {
                 continue; // رشتهٔ اتصال خراب در appsettings
+            }
+
+            if (!IsLocalServer(server))
+            {
+                // مرحلهٔ هفدهم: رشتهٔ اتصال appsettings ممکن است به سرور واقعی (Production) اشاره کند؛ آزمون‌ها پایگاه دادهٔ
+                // موقت می‌سازند و پاک می‌کنند، پس هرگز به سرور راه‌دور وصل نمی‌شوند (فقط با FRATAK_TEST_SQL صریح).
+                tried.Add($"{Describe(server)} → سرور راه‌دور است؛ برای امنیت دادهٔ واقعی استفاده نشد");
+                continue;
             }
 
             var problem = Probe(server);
@@ -119,6 +128,33 @@ public static class TestSql
             // فایل تنظیمات خوانا نیست؛ نامزد بعدی.
         }
         return null;
+    }
+
+    /// <summary>
+    /// سرور روی همین دستگاه است؟ مثال: «.»، «(local)»، «localhost,1433»، «.\SQLEXPRESS»، «(localdb)\MSSQLLocalDB»، «127.0.0.1» ← true؛
+    /// «185.191.78.226,2019» یا «db.example.com» ← false.
+    /// </summary>
+    public static bool IsLocalServer(string connection)
+    {
+        string source;
+        try
+        {
+            source = new SqlConnectionStringBuilder(connection).DataSource.Trim();
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        if (source.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase))
+            return true;
+        foreach (var prefix in new[] { "tcp:", "np:", "lpc:" })
+            if (source.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                source = source[prefix.Length..];
+        var host = source.Split(',', '\\')[0].Trim();
+        return host is "." or "(local)" or "127.0.0.1" or "::1" or "[::1]"
+               || host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+               || host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string WithoutDatabase(string connection)

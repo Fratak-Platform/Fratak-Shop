@@ -181,3 +181,6 @@ dotnet test --filter "Category=Security"      # فقط شبیه‌سازی حم�
 * **CI:** کار «Smoke test» علاوه بر انتشار لینوکس، یک انتشار ویندوز هم می‌سازد و بررسی می‌کند فایل‌های بومی سیستم‌عامل‌های دیگر، `App_Data`،
   `wwwroot/uploads` و `appsettings.Development.json` در خروجی نباشند و حجم از سقف تعیین‌شده بیشتر نشود.
 * وضعیت‌های سراسری (`StartupGate.IsReady`، `FirewallState.Trusted`) در آزمون‌ها تغییر داده نمی‌شوند تا آزمون‌های سرتاسری موازی تحت تأثیر قرار نگیرند.
+* **ایمنی دادهٔ واقعی:** پیدا کردن خودکار SQL Server (`TestSql`) از `ConnectionDefault` فایل‌های appsettings فقط وقتی استفاده می‌کند که
+  سرور روی همین دستگاه باشد (`.`، `localhost`، `(localdb)`، …). اگر appsettings.Development.json به سرور واقعی سایت اشاره کند، آزمون‌ها
+  سراغ LocalDB می‌روند و هرگز روی سرور راه‌دور پایگاه داده نمی‌سازند/پاک نمی‌کنند؛ برای سرور دیگر `FRATAK_TEST_SQL` را صریحاً بگذارید.
