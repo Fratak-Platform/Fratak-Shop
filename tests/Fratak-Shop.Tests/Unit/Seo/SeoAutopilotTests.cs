@@ -220,12 +220,12 @@ public class SeoAutopilotTests
         const string hex = "0123456789abcdef0123456789abcdef";
         var map = new Dictionary<string, string> { [hex + ".jpg"] = hex + ".webp", ["/assets/image/blog/1.jpg"] = "/assets/image/blog/1.webp" };
 
-        var output = SeoMaintenance.Replace($"<img src=\"/uploads/media/{hex}.jpg\"><img src=\"/assets/image/blog/1.jpg\"><img src=\"/x/1.png\">", map);
+        var output = SeoMaintenanceService.Replace($"<img src=\"/uploads/media/{hex}.jpg\"><img src=\"/assets/image/blog/1.jpg\"><img src=\"/x/1.png\">", map);
 
         Assert.Contains(hex + ".webp", output, StringComparison.Ordinal);
         Assert.Contains("/assets/image/blog/1.webp", output, StringComparison.Ordinal);
         Assert.Contains("/x/1.png", output, StringComparison.Ordinal); // نام کوتاه عمومی هرگز عوض نمی‌شود
-        Assert.Equal("", SeoMaintenance.Replace("", map));
+        Assert.Equal("", SeoMaintenanceService.Replace("", map));
     }
 
     // ── مدل CTR و آزمون عنوان ────────────────────────────────────────────
@@ -273,10 +273,10 @@ public class SeoAutopilotTests
     [Trait("Area", "Landings")]
     public void Price_landings_need_enough_products_below_a_round_price()
     {
-        Assert.Empty(SeoLandings.Build([100_000m, 200_000m], "mobile", "گوشی"));
+        Assert.Empty(SeoLandingService.Build([100_000m, 200_000m], "mobile", "گوشی"));
 
         var prices = new List<decimal> { 150_000, 250_000, 280_000, 400_000, 450_000, 900_000, 1_200_000, 1_800_000, 2_500_000, 4_000_000, 6_000_000, 9_000_000 };
-        var links = SeoLandings.Build(prices, "mobile", "گوشی");
+        var links = SeoLandingService.Build(prices, "mobile", "گوشی");
 
         Assert.NotEmpty(links);
         Assert.All(links, l => Assert.StartsWith("/category/mobile?maxPrice=", l.Url, StringComparison.Ordinal));
