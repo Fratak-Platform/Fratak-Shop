@@ -71,11 +71,11 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
         // ── Brands ────────────────────────────────────────────────────
         var brands = new Dictionary<string, Brand>
         {
-            ["xiaomi"] = new() { Name = "شیائومی", EnglishName = "Xiaomi", Slug = "xiaomi", LogoName = Img + "brands/1.png", DisplayOrder = 1 },
-            ["samsung"] = new() { Name = "سامسونگ", EnglishName = "Samsung", Slug = "samsung", LogoName = Img + "brands/2.png", DisplayOrder = 2 },
-            ["apple"] = new() { Name = "اپل", EnglishName = "Apple", Slug = "apple", LogoName = Img + "brands/3.png", DisplayOrder = 3 },
-            ["nokia"] = new() { Name = "نوکیا", EnglishName = "Nokia", Slug = "nokia", LogoName = Img + "brands/4.png", DisplayOrder = 4 },
-            ["honor"] = new() { Name = "آنر", EnglishName = "Honor", Slug = "honor", LogoName = Img + "brands/5.jpg", DisplayOrder = 5 },
+            ["xiaomi"] = new() { Name = "شیائومی", EnglishName = "Xiaomi", Slug = "xiaomi", LogoName = Img + "brands/1.webp", DisplayOrder = 1 },
+            ["samsung"] = new() { Name = "سامسونگ", EnglishName = "Samsung", Slug = "samsung", LogoName = Img + "brands/2.webp", DisplayOrder = 2 },
+            ["apple"] = new() { Name = "اپل", EnglishName = "Apple", Slug = "apple", LogoName = Img + "brands/3.webp", DisplayOrder = 3 },
+            ["nokia"] = new() { Name = "نوکیا", EnglishName = "Nokia", Slug = "nokia", LogoName = Img + "brands/4.webp", DisplayOrder = 4 },
+            ["honor"] = new() { Name = "آنر", EnglishName = "Honor", Slug = "honor", LogoName = Img + "brands/5.webp", DisplayOrder = 5 },
         };
 
         context.Brands.AddRange(brands.Values);
@@ -169,7 +169,7 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
             context.Banners.Add(new Banner
             {
                 Title = $"اسلاید {i}",
-                ImageName = Img + (i == 2 ? "heroSlider/2.gif" : $"heroSlider/{i}.webp"),
+                ImageName = Img + $"heroSlider/{i}.webp",
                 ImageAlt = "پیشنهادهای ویژه",
                 LinkUrl = "/search?discounted=true",
                 Position = BannerPosition.HeroSlider,
@@ -290,13 +290,13 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
 
         var posts = new[]
         {
-            ("۷ ترفند برای افزایش طول عمر هدفون", "headphone-life-tips", "blog/1.jpg", blogCategory,
+            ("۷ ترفند برای افزایش طول عمر هدفون", "headphone-life-tips", "blog/1.webp", blogCategory,
                 "اگر از جمله کاربرانی هستید که هدفون‌های شما بعد از حدود یک یا دو سال استفاده خراب می‌شوند، این مقاله برای شماست."),
-            ("راهنمای خرید ساعت هوشمند در سال جدید", "smart-watch-buying-guide", "blog/2.jpg", blogCategory,
+            ("راهنمای خرید ساعت هوشمند در سال جدید", "smart-watch-buying-guide", "blog/2.webp", blogCategory,
                 "پیش از خرید ساعت هوشمند باید به عمر باتری، سازگاری با گوشی و سنسورهای سلامت توجه کنید."),
-            ("چطور لپ تاپ مناسب کار و دانشگاه انتخاب کنیم؟", "choose-laptop-for-work", "blog/3.jpg", blogCategory,
+            ("چطور لپ تاپ مناسب کار و دانشگاه انتخاب کنیم؟", "choose-laptop-for-work", "blog/3.webp", blogCategory,
                 "پردازنده، حافظه و وزن سه فاکتور اصلی در انتخاب لپ تاپ اداری و دانشجویی هستند."),
-            ("نسل جدید کنسول‌های بازی؛ چه انتظاری داشته باشیم؟", "next-gen-consoles", "blog/4.jpg", newsCategory,
+            ("نسل جدید کنسول‌های بازی؛ چه انتظاری داشته باشیم؟", "next-gen-consoles", "blog/4.webp", newsCategory,
                 "کنسول‌های نسل بعد با تمرکز بر رهگیری پرتو و بارگذاری سریع، تجربه بازی را متحول می‌کنند."),
         };
 

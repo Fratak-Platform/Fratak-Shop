@@ -23,8 +23,14 @@ public class SearchModel(
     IBrandService brandService,
     IProductFilterService filterService,
     Fratak_Shop.Core.Services.Searches.ISearchInsightsService insights,
-    IPageMetaService pageMeta) : ShopPageModel
+    IPageMetaService pageMeta,
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLandingService landings) : ShopPageModel
 {
+    /// <summary>
+    /// لینک‌های «خرید {دسته} زیر X تومان» از قیمت واقعی محصولات موجود دسته (فقط صفحهٔ اول دستهٔ بدون فیلتر).
+    /// </summary>
+    public IReadOnlyList<Fratak_Shop.Core.Services.Seo.Autopilot.SeoLandingLink> PriceLandings { get; private set; } = [];
+
     /// <summary>Spelling suggestion when a text search found nothing.</summary>
     public string? DidYouMean { get; private set; }
 
@@ -227,6 +233,8 @@ public class SearchModel(
             pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"), (Category.Name, $"/category/{Category.Slug}"));
             AddItemList();
             ListingDescriptionHtml = DescriptionHtml(Category.Description);
+            if (PageNumber <= 1 && !MinPrice.HasValue && !MaxPrice.HasValue && BrandSlugs.Count == 0 && SelectedSpecifications.Count == 0)
+                PriceLandings = await landings.PriceLandingsAsync(Category.Id, Category.Slug, Category.Name);
         }
         else if (SingleBrand is not null)
         {

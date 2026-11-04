@@ -20,13 +20,13 @@
         }
       </div>
     }
-    <!-- header -->
+    @* header *@
     <div class="flex items-center justify-between pt-2 pb-4 gap-y-5 flex-wrap lg:flex-nowrap">
-      <!-- btn menu mobile -->
+      @* btn menu mobile *@
       <button type="button" class="md:hidden mr-3 md:mr-5" data-ui="nav-open" aria-label="باز کردن منو" aria-controls="navbarMobile">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#000000" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
       </button>
-      <!-- navbar moblie -->
+      @* navbar moblie *@
       <div class="flex fixed w-full h-[100dvh] z-50 -right-full top-0 transition-all ease-out duration-500 md:hidden" id="navbarMobile">
         <nav class="bg-white w-9/12 h-full py-5 drop-shadow-2xl max-w-md overflow-y-auto overscroll-contain" aria-label="منوی اصلی">
           <div class="mx-auto mb-5">
@@ -85,7 +85,7 @@
         <div class="bg-white/30 w-3/12 sm:w-5/12 backdrop-blur-sm" data-ui="nav-close" aria-hidden="true">
         </div>
       </div>
-      <!-- fixed navbar mobile -->
+      @* fixed navbar mobile *@
       <div class="bg-white shadow-lg rounded-2xl fixed bottom-1 w-full border flex md:hidden">
         <div class="flex-1 group">
             <a asp-page="/Profile/Index" class="flex items-end justify-center text-center mx-auto px-1 pt-2 w-full text-gray-400 group-hover:text-sky-600">
@@ -149,22 +149,22 @@
             </button>
         </div>
       </div>
-      <!-- logo -->
+      @* logo *@
       <div class="mr-0 md:mr-5">
         <a asp-page="/Index" aria-label="@siteName">
           @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Header))
         </a>
       </div>
-      <!-- search input -->
+      @* search input *@
       <div class="md:w-5/12 lg:w-4/12 hidden md:block">
         <form method="get" action="/search" role="search" data-search-suggest class="items-center rounded-xl p-3 justify-between flex bg-gray-100 relative">
           <input class="text-base text-gray-700 flex-grow outline-none bg-gray-100" type="search" name="q" value="@Model.SearchQuery" aria-label="جستجو" placeholder="نام محصول را وارد کنید" autocomplete="off" maxlength="100" />
           <button type="submit" aria-label="جستجو" class="absolute left-1 bg-sky-500 hover:bg-sky-600 transition rounded-xl h-10 w-10 p-1">
-            <img class="" src="~/assets/image/search.png" alt="جستجو">
+            <img class="" src="~/assets/image/search.webp" alt="جستجو">
           </button>
         </form>
       </div>
-      <!-- buttonn -->
+      @* buttonn *@
       <div class="flex items-center justify-center gap-x-3 ml-3 md:ml-5">
         @if (Site.Settings.IsDarkModeEnabled)
         {
@@ -174,10 +174,10 @@
             <span class="ti ti-system">@Icons.Svg("CircleHalf", null, 24)</span>
           </button>
         }
-        <!-- card -->
+        @* card *@
         <div class="flex items-center hover:bg-sky-100 p-2 rounded-lg">
           <button type="button" class="relative" aria-label="سبد خرید" data-ui="cart-open" aria-controls="cardHeader">
-            <img class="w-10" src="~/assets/image/Cart.png" alt="" width="40" height="40">
+            <img class="w-10" src="~/assets/image/Cart.webp" alt="" width="40" height="40">
             @if (Model.CartCount > 0)
             {
             <span class="absolute -right-3 -top-3 flex h-5 w-5 drop-shadow-lg items-center justify-center rounded-full bg-sky-500 text-sm font-semibold text-white">
@@ -188,7 +188,7 @@
           <div class="fixed inset-0 z-50 hidden" id="cardHeader" role="dialog" aria-modal="true" aria-label="سبد خرید">
             <div data-ui="cart-close" class="absolute inset-0 bg-gray-600/50" aria-hidden="true"></div>
             <div class="absolute inset-y-0 left-0 flex flex-col w-[22rem] max-w-full sm:w-[400px] h-[100dvh] bg-white shadow-lg">
-              <!-- Head -->
+              @* Head *@
               <div class="shrink-0 flex items-center justify-between p-4 pb-2 border-b mx-5 bg-white">
                 <div class="text-zinc-500">
                   @Model.CartCount کالا
@@ -197,7 +197,7 @@
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
                 </button>
               </div>
-              <!-- Items: only this list scrolls, and only when it doesn't fit -->
+              @* Items: only this list scrolls, and only when it doesn't fit *@
               <ul class="main-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-gray-100 px-5 pl-2">
                     @if (cartItems.Count == 0)
                     {
@@ -209,18 +209,18 @@
                     {
                     <li>
                       <div class="flex gap-x-2 py-4">
-                        <!-- Product -->
+                        @* Product *@
                         <div class="relative min-w-fit">
                           <a href="/product/@item.ProductSlug">
                             <img alt="@item.ImageAlt" class="h-[96px] w-[96px] object-contain" src="@ImageHelper.Sized(ImageHelper.Product(item.ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" loading="lazy" width="96" height="96">
                           </a>
                         </div>
                         <div class="w-full space-y-1.5">
-                          <!-- Title -->
+                          @* Title *@
                           <a class="line-clamp-2 h-12 text-zinc-700" href="/product/@item.ProductSlug">
                             @item.ProductName
                           </a>
-                          <!-- Attribute -->
+                          @* Attribute *@
                           @if (item.HasDiscount)
                           {
                             <div class="flex items-center gap-x-2 text-xs text-red-500">
@@ -234,12 +234,12 @@
                             </div>
                           </div>
                           <div class="flex items-center justify-between gap-x-2">
-                            <!-- Price -->
+                            @* Price *@
                             <div class="text-gray-700">
                               <span class="text-lg font-bold">@Format.Price(item.TotalAmount)</span>
                               <span class="text-sm">تومان</span>
                             </div>
-                            <!-- Quantity -->
+                            @* Quantity *@
                             <div class="flex h-10 w-24 items-center justify-between rounded-lg border border-gray-100 px-2 py-1">
                               <form method="post" asp-page="/Cart" asp-page-handler="Update" class="flex">
                                 <input type="hidden" name="productId" value="@item.ProductId" />
@@ -265,7 +265,7 @@
                     </li>
                     }
               </ul>
-              <!-- Down Price -->
+              @* Down Price *@
               <div class="shrink-0 flex items-center justify-between border-t border-gray-100 p-5 bg-white">
                 <div class="flex flex-col items-center gap-y-1">
                   <div class="text-sm text-zinc-600">
@@ -415,7 +415,7 @@
         }
       </div>
     </div>
-    <!-- menus: the mega menu is positioned against this bar, so it spans the full header width -->
+    @* menus: the mega menu is positioned against this bar, so it spans the full header width *@
     <nav class="hidden md:block pb-2 relative" aria-label="منوی اصلی">
       <ul class="flex flex-wrap gap-x-3 xl:gap-x-5 px-3 md:px-5">
         @foreach (var menuItem in Model.MainMenu)
@@ -428,7 +428,7 @@
                 @menuItem.Title
                 @Icons.Svg("CaretDown", "group-hover:rotate-180 transition-transform duration-300 fill-zinc-600", 12)
               </a>
-              <!-- -mt-2 + pt-2 bridge the bar padding so the pointer never "falls" into a gap -->
+              @* -mt-2 + pt-2 bridge the bar padding so the pointer never "falls" into a gap *@
               <div class="absolute inset-x-0 top-full -mt-2 pt-2 z-50 hidden group-hover:block group-focus-within:block">
                 <div class="mx-3 md:mx-5 flex gap-6 rounded-b-2xl border bg-white p-5 lg:p-6 shadow-xl max-h-[70vh] overflow-y-auto">
                   <div class="grid flex-1 grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-5 gap-y-6">

@@ -14,7 +14,7 @@
       <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-6">
         <h1 class="text-zinc-800 text-lg font-semibold">کیف پول</h1>
 
-        <!-- balance -->
+        @* balance *@
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div class="col-span-2 lg:col-span-1 rounded-xl bg-gradient-to-bl from-sky-500 to-sky-700 p-4 text-white">
             <div class="flex items-center gap-x-2 text-sm opacity-90">@Icons.Svg("Wallet", "fill-white", 20) موجودی کل</div>
@@ -55,7 +55,7 @@
         <div class="grid gap-4 lg:grid-cols-2">
           @if (settings.CanTopUpWallet)
           {
-            <!-- top up -->
+            @* top up *@
             <section class="@card">
               <h2 class="mb-3 font-semibold text-zinc-700">افزایش موجودی</h2>
               <form method="post" asp-page-handler="TopUp" class="space-y-3">
@@ -76,7 +76,7 @@
 
           @if (settings.CanWithdraw)
           {
-            <!-- withdrawal -->
+            @* withdrawal *@
             <section class="@card">
               <h2 class="mb-3 font-semibold text-zinc-700">درخواست برداشت وجه</h2>
               @if (Model.HasPendingWithdrawal)

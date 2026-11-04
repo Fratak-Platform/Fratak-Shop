@@ -32,7 +32,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Data.Contexts;
 
-public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) : DbContext(options)
+public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users { get; set; } = null!;
 
@@ -337,9 +337,11 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     {
         var changed = BeforeSave();
         var added = CollectAdded();
+        var seoChanges = CollectSeoChanges();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         DataChangeNotifier.Publish(changed);
         DataChangeNotifier.PublishAdded(added);
+        SeoChangeFeed.Publish(seoChanges);
         return result;
     }
 
@@ -347,9 +349,11 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     {
         var changed = BeforeSave();
         var added = CollectAdded();
+        var seoChanges = CollectSeoChanges();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         DataChangeNotifier.Publish(changed);
         DataChangeNotifier.PublishAdded(added);
+        SeoChangeFeed.Publish(seoChanges);
         return result;
     }
 
@@ -367,6 +371,8 @@ public class FratakShopDbContext(DbContextOptions<FratakShopDbContext> options) 
     {
         TrackPriceChanges();
         TrackStockChanges();
+        // دور سئوی خودکار: نامک انگلیسی و ریدایرکت‌های خودکار (پیش از تاریخ‌ها تا ریدایرکت‌های تازه هم شناسه بگیرند).
+        ApplySeoRules();
         ApplyAuditDates();
 
         return ChangeTracker.Entries()

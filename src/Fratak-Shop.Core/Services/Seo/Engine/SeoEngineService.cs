@@ -115,6 +115,12 @@ public interface ISeoEngineService
     /// تا کاربر در همان صفحه انتخاب کند و خودش ذخیره بزند.
     /// </summary>
     Task<SeoDraft> DraftAsync(SeoDraftInput input, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// بررسی زندهٔ ویرایشگر (دور سئوی خودکار، موارد ۲۱ تا ۳۵): نمره، چک‌لیست، تراکم، تیترها، لینک داخلی، متن ماشینی،
+    /// خطر جریمه و مانع انتشار؛ بدون جست‌وجوی اینترنتی و بدون ذخیره.
+    /// </summary>
+    Task<SeoLiveReport> LiveAsync(SeoDraftInput input, IReadOnlyList<Autopilot.LinkTarget>? linkTargets, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="ISeoEngineService"/>

@@ -78,14 +78,14 @@
               </div>
             }
           </div>
-          <!-- edit address modal -->
+          @* edit address modal *@
           <div class="max-w-2xl mx-auto relative">
-            <!-- Main modal -->
+            @* Main modal *@
             <div id="showEditAddress" data-modal data-open="@(Model.OpenModal ? "true" : "false")" class="overflow-x-hidden overflow-y-auto z-50 fixed h-modal h-full inset-0 justify-center items-center hidden">
                 <div data-ui="modal-close" data-arg="showEditAddress" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
                 </div>
                 <div class="relative w-12/12 sm:w-10/12 lg:w-6/12 px-4 h-auto mb-4 z-50 mt-5 md:mt-10 mx-auto">
-                  <!-- Modal content -->
+                  @* Modal content *@
                   <div class="bg-white rounded-lg shadow-lg relative overflow-y-visible">
                       <div class="flex justify-between items-center p-4 border-b">
                         <h3 class="text-gray-700">@(Model.Address.Id.HasValue ? "ویرایش آدرس" : "افزودن آدرس جدید")</h3>

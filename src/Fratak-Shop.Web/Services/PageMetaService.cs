@@ -74,6 +74,12 @@ public static class PageMetaKeys
     /// <summary>Automatic JSON-LD blocks (<c>List&lt;string&gt;</c>).</summary>
     public const string JsonLdBlocks = "JsonLdBlocks";
 
+    /// <summary>
+    /// متاتگ‌های اختصاصی ترب در صفحهٔ محصول (product_id، product_name، product_price، product_old_price، availability)
+    /// – <c>IReadOnlyList&lt;KeyValuePair&lt;string, string&gt;&gt;</c>؛ _MetaTags آن‌ها را چاپ می‌کند.
+    /// </summary>
+    public const string ProductMeta = "ProductMeta";
+
     public const string PrevPage = "PrevPage";
     public const string NextPage = "NextPage";
     /// <summary>The <see cref="Fratak_Shop.Data.Entities.Pages.SitePage"/> of the request (page alerts).</summary>
@@ -129,7 +135,10 @@ public class PageMetaService(
         viewData[PageMetaKeys.Robots] = BuildRobots(seo);
         viewData[PageMetaKeys.OgTitle] = string.IsNullOrWhiteSpace(seo?.OgTitle) ? (site.IsLoaded ? site.Title(title) : title) : seo!.OgTitle;
         viewData[PageMetaKeys.OgDescription] = string.IsNullOrWhiteSpace(seo?.OgDescription) ? description : seo!.OgDescription;
-        viewData[PageMetaKeys.OgImage] = AbsoluteUrl(imageUrl ?? settings?.DefaultOgImageUrl ?? Fratak_Shop.Web.Infrastructure.BrandIdentity.OgImage);
+        // دور سئوی خودکار: تصویر صفحه در کادر استاندارد ۱۲۰۰×۶۳۰ (بدون بریده شدن در تلگرام/واتس‌اپ) – OgImageRenderer.
+        viewData[PageMetaKeys.OgImage] = AbsoluteUrl(imageUrl is not null
+            ? Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Url(imageUrl)
+            : settings?.DefaultOgImageUrl ?? Fratak_Shop.Web.Infrastructure.BrandIdentity.OgImage);
         viewData[PageMetaKeys.OgType] = string.IsNullOrWhiteSpace(seo?.OgType) ? ogType : seo!.OgType;
         viewData[PageMetaKeys.JsonLd] = SafeJsonLd(seo?.StructuredDataJsonLd);
         ApplyFaq(viewData, seo?.FaqJson);

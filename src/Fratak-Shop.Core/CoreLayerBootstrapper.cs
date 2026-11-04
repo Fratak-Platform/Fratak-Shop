@@ -133,6 +133,18 @@ public static class CoreLayerBootstrapper
         services.AddSingleton<Services.Seo.Knowledge.SeoKnowledgeCache>();
         services.AddSingleton<Services.Seo.Knowledge.ISeoKnowledgeService, Services.Seo.Knowledge.SeoKnowledgeService>();
         services.AddScoped<Services.Seo.Smart.ISmartTextService, Services.Seo.Smart.SmartTextService>();
+        // دور سئوی خودکار (۲۱۰ ایده): خلبان خودکار، خزندهٔ داخلی، لینک داخلی، نگهداری (نامک انگلیسی/WebP)، گزارش، فرودها و API ترب.
+        // پیاده‌سازی‌های شبکه‌ای (خزش، IndexNow) و دامنهٔ عمومی را لایهٔ Web جایگزین می‌کند.
+        services.TryAddSingleton<Services.Seo.Autopilot.ISeoHost, Services.Seo.Autopilot.UnknownSeoHost>();
+        services.TryAddSingleton<Services.Seo.Autopilot.ISeoPinger, Services.Seo.Autopilot.NullSeoPinger>();
+        services.TryAddSingleton<Services.Seo.Autopilot.ISeoPageFetcher, Services.Seo.Autopilot.OfflineSeoPageFetcher>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoAutopilotService, Services.Seo.Autopilot.SeoAutopilotService>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoCrawlService, Services.Seo.Autopilot.SeoCrawlService>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoLinkTargetProvider, Services.Seo.Autopilot.SeoLinkTargetProvider>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoMaintenanceService, Services.Seo.Autopilot.SeoMaintenanceService>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoReportService, Services.Seo.Autopilot.SeoReportService>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoLandingService, Services.Seo.Autopilot.SeoLandingService>();
+        services.AddScoped<Services.Seo.Feeds.ITorobFeedService, Services.Seo.Feeds.TorobFeedService>();
 
         // فاز ۸ب: یابندهٔ لینک شکسته، ویرایش گروهی سئو و Search Console. پیش‌فرض‌های «آفلاین» (بدون شبکه) را
         // لایهٔ Web با SeoLinkProbe و SearchConsoleHttp جایگزین می‌کند.

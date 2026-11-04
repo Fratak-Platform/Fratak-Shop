@@ -379,16 +379,17 @@ public static class SlugAdvisor
         var english = !string.IsNullOrWhiteSpace(subject.EnglishName) ? subject.EnglishName
             : PersianText.PersianRatio(keywordText) < 0.5 && keywordText.Length > 0 ? keywordText : null;
 
-        var preferLatin = PreferLatin(insight, keywordText);
-        var source = preferLatin && english is not null
-            ? english
-            : keywordText.Length > 0 ? keywordText : KeywordPlanner.ShortName(subject.Name);
+        // دور سئوی خودکار: همهٔ نامک‌ها انگلیسی‌اند؛ نام انگلیسی ثبت‌شده بهترین منبع است، وگرنه کلمهٔ کلیدی ترجمه/آوانویسی می‌شود.
+        var preferLatin = true;
+        var source = english ?? (keywordText.Length > 0 ? keywordText : KeywordPlanner.ShortName(subject.Name));
         var proposed = Limit(source.ToSlug());
         if (proposed.Length < 3 || string.Equals(proposed, current, StringComparison.OrdinalIgnoreCase))
             return null;
 
         var problems = new List<string>();
         var currentIsLatin = PersianText.PersianRatio(current) < 0.5;
+        if (!Fratak_Shop.Data.Utilities.EnglishSlug.IsEnglish(current))
+            problems.Add("نامک فعلی انگلیسیِ تمیز نیست");
         if (current.Length > SeoLimits.SlugMaxLength)
             problems.Add($"نامک فعلی بلند است ({PersianText.Digits(current.Length)} نویسه)");
         if (System.Text.RegularExpressions.Regex.IsMatch(current, @"(^|-)([0-9a-f]{10,}|[0-9]{8,})(-|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
@@ -403,8 +404,8 @@ public static class SlugAdvisor
                 problems.Add("نامک فعلی کلمهٔ کلیدی را ندارد");
         }
         var strongCompetitorSignal = insight is { SampleTitles.Count: >= 3 } && (insight.LatinSlugRatio >= 0.7 || insight.LatinSlugRatio <= 0.3);
-        if (strongCompetitorSignal && young && currentIsLatin != (preferLatin && english is not null))
-            problems.Add(preferLatin ? "بیشتر صفحه‌های برتر نامک انگلیسی دارند" : "بیشتر صفحه‌های برتر نامک فارسی دارند");
+        if (strongCompetitorSignal && young && !currentIsLatin && preferLatin)
+            problems.Add("بیشتر صفحه‌های برتر نامک انگلیسی دارند");
 
         if (problems.Count == 0)
             return null;
@@ -430,10 +431,9 @@ public static class SlugAdvisor
         var keywordText = PersianText.Clean(keyword);
         var english = !string.IsNullOrWhiteSpace(subject.EnglishName) ? subject.EnglishName
             : PersianText.PersianRatio(keywordText) < 0.5 && keywordText.Length > 0 ? keywordText : null;
-        var preferLatin = PreferLatin(insight, keywordText);
-        var source = preferLatin && english is not null
-            ? english
-            : keywordText.Length > 0 ? keywordText : KeywordPlanner.ShortName(subject.Name);
+        // دور سئوی خودکار: نامک همیشه انگلیسی (نام انگلیسی، وگرنه ترجمه/آوانویسی کلمهٔ کلیدی).
+        var preferLatin = english is not null;
+        var source = english ?? (keywordText.Length > 0 ? keywordText : KeywordPlanner.ShortName(subject.Name));
         var proposed = Limit(source.ToSlug());
         if (proposed.Length < 3)
             return null;

@@ -52,7 +52,7 @@
   <partial name="_Footer" />
   <partial name="_PwaInstallPrompt" />
 
-  <!-- main javaScript code -->
+  @* main javaScript code *@
   <script src="~/assets/js/modal.js" asp-append-version="true"></script>
   <script src="~/assets/js/lightbox.js" asp-append-version="true"></script>
   @if (Fratak_Shop.Web.Infrastructure.Ops.MaintenanceMiddleware.IsBypassed(Context))
@@ -64,6 +64,8 @@
   <script src="~/assets/js/shop.js" asp-append-version="true"></script>
   <script src="~/assets/js/fa-inputs.js" asp-append-version="true"></script>
   <script src="~/assets/js/engagement.js" asp-append-version="true"></script>
+  @* دور سئوی خودکار: سنجش سرعت واقعی کاربران (بدون کوکی) – خاموش‌شدنی از «پنل ← سئو ← سئوی خودکار». *@
+  <script src="~/assets/js/rum.js" asp-append-version="true" defer></script>
   @if (liveEnabled)
   {
     @* اعلان زنده فقط برای کاربر واردشده (صفحه‌های کاربر واردشده هرگز کش نمی‌شوند). *@

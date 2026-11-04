@@ -91,7 +91,8 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
                 continue;
             }
 
-            var image = ImageSanitizer.Sanitize(bytes, out var error);
+            // دور سئوی خودکار: هر تصویر (JPG، PNG، GIF، BMP) بعد از پاک‌سازی به WebP تبدیل می‌شود.
+            var image = Infrastructure.Media.WebPEncoder.FromUpload(bytes, out var error, logger);
             if (image is null)
                 return ([], area.AllowPdf ? "فقط تصویر (JPG، PNG، WebP) یا فایل PDF قابل ارسال است." : error ?? "فایل تصویر معتبر نیست.");
 

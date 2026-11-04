@@ -21,7 +21,7 @@
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6" data-product-view="@p.Id">
     <div class="bg-white border rounded-xl shadow-lg p-4">
       <div class="flex flex-col lg:flex-row gap-8">
-        <!-- photo -->
+        @* photo *@
         <div class="lg:w-4/12">
             <div class="flex gap-x-4 mb-3">
               <form method="post" asp-page="/Profile/Favorites" asp-page-handler="Toggle" class="relative">
@@ -71,14 +71,14 @@
               </div>
             }
             @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.BelowMainImage })
-            <!-- product images modal -->
+            @* product images modal *@
             <div class="max-w-2xl mx-auto relative">
-              <!-- Main modal -->
+              @* Main modal *@
               <div id="showImagesModal" data-modal class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
                 <div data-ui="modal-close" data-arg="showImagesModal" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
                 </div>
                 <div class="relative w-12/12 sm:w-10/12 lg:w-full lg:max-w-[1600px] px-2 mb-4 z-50 mt-2 lg:mt-2 mx-auto">
-                  <!-- Modal content -->
+                  @* Modal content *@
                   <div class="bg-white rounded-lg shadow-lg relative">
                       <div class="flex justify-between items-center p-4 border-b">
                         <h3 class="text-gray-800 font-semibold">
@@ -116,7 +116,7 @@
             </div>
             </div>
         </div>
-        <!-- info -->
+        @* info *@
         <div class="lg:w-5/12">
           <nav class="mb-7 text-sm flex items-center flex-wrap gap-x-2 opacity-90" aria-label="breadcrumb">
             <a asp-page="/Index" class="text-zinc-800 hover:text-sky-500 transition">
@@ -194,7 +194,7 @@
             درخواست مرجوع کردن کالا با دلیل "انصراف از خرید" تنها در صورتی قابل تایید است که کالا در شرایط اولیه باشد (در صورت پلمپ بودن، کالا نباید باز شده باشد).
           </div>
         </div>
-        <!-- buy -->
+        @* buy *@
         <div class="lg:w-3/12">
           <div class="mt-8 mb-8 space-y-2 text-sm">
             @if (!string.IsNullOrWhiteSpace(p.BrandName))
@@ -334,7 +334,7 @@
             معرفی محصول
           </span>
           <div class="prose-content mt-5 text-zinc-600 text-sm leading-8">
-            @Html.Raw(p.Description)
+            @Html.Raw(Model.DescriptionHtml)
           </div>
         </div>
       }

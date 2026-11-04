@@ -249,7 +249,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             return await FailAsync("عنوان هر مشخصه باید یکتا باشد.");
         }
 
-        var slug = string.IsNullOrWhiteSpace(Input.Slug) ? Slugify(Input.EnglishName ?? Input.Name) : Slugify(Input.Slug);
+        var slug = string.IsNullOrWhiteSpace(Input.Slug) ? Fratak_Shop.Data.Utilities.EnglishSlug.Prefer(Input.Name, Input.EnglishName) : Slugify(Input.Slug);
         var sku = string.IsNullOrWhiteSpace(Input.SKU) ? "FR-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant() : Input.SKU.Trim();
         var description = Input.Description.SanitizeOrNull();
 
@@ -604,11 +604,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     }
 
     /// <summary>URL slug: lower-case, Persian letters and digits kept, everything else → '-'.</summary>
-    public static string Slugify(string value)
-    {
-        var text = SearchText.NormalizeDigits(value.Trim().ToLowerInvariant());
-        var chars = text.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
-        var slug = string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
-        return slug.Length > 200 ? slug[..200].Trim('-') : slug;
-    }
+    /// <summary>
+    /// نامک همیشه انگلیسی (دور سئوی خودکار): متن فارسی ترجمه/آوانویسی می‌شود.
+    /// مثال: «هدفون بی‌سیم سونی» ← «wireless-headphones-sony». منطق: Data/Utilities/EnglishSlug.cs.
+    /// </summary>
+    public static string Slugify(string value) => Fratak_Shop.Data.Utilities.EnglishSlug.From(value, 200);
 }

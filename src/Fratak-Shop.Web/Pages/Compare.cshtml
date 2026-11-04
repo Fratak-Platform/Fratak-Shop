@@ -27,7 +27,7 @@
           </form>
         </div>
       }
-      <!-- products -->
+      @* products *@
       <div class="grid grid-cols-2 lg:grid-cols-4 border-b pb-4 gap-y-6">
         @foreach (var product in Model.Products)
         {
@@ -60,18 +60,18 @@
         @if (Model.CanAddMore)
         {
         <div class="justify-center items-center flex min-h-40">
-          <!-- btn select modal -->
+          @* btn select modal *@
           <button type="button" data-ui="modal-open" data-arg="showSelectP" class="block mx-auto border-2 border-dashed border-zinc-300 text-zinc-600 hover:text-zinc-700 px-8 py-3 rounded-lg hover:bg-gray-100 transition">
             @(Model.Products.Count == 0 ? "انتخاب کالا برای مقایسه" : "افزودن کالا")
           </button>
-          <!-- select modal -->
+          @* select modal *@
           <div class="max-w-2xl mx-auto relative">
-              <!-- Main modal -->
+              @* Main modal *@
               <div id="showSelectP" data-modal data-open="@(openModal ? "true" : "false")" class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
                 <div data-ui="modal-close" data-arg="showSelectP" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
                 </div>
                 <div class="relative w-12/12 sm:w-10/12 lg:w-7/12 px-4 h-screen mb-4 z-50 mt-10 mx-auto">
-                  <!-- Modal content -->
+                  @* Modal content *@
                   <div class="bg-white rounded-lg shadow-lg relative overflow-y-visible">
                       <div class="flex justify-between items-center p-4 border-b">
                         <h3 class="text-gray-700">انتخاب کالا برای مقایسه</h3>

@@ -64,7 +64,7 @@
               <img src="@ImageHelper.Product(item.ProductImageName)" alt="@item.ProductName" loading="lazy">
             </div>
             <div class="mr-2 md:mr-5 w-full">
-              <!-- title -->
+              @* title *@
               @if (!string.IsNullOrWhiteSpace(item.ProductSlug))
               {
                 <a href="/product/@item.ProductSlug" class="text-xs sm:text-sm text-zinc-700 hover:text-sky-600">@item.ProductName</a>
@@ -92,7 +92,7 @@
                     <span>تخفیف: @Format.Toman(item.DiscountAmount)</span>
                   </div>
                 }
-                <!-- price -->
+                @* price *@
                 <div class="text-gray-700 pt-4">
                   <span class="text-xl font-bold">@Format.Price(item.TotalAmount)</span>
                   <span class="text-sm">تومان</span>
@@ -101,7 +101,7 @@
             </div>
           </div>
           }
-          <!-- details -->
+          @* details *@
           <div class="px-2 sm:px-6 py-3 rounded-xl border mx-auto my-5 max-w-md print:max-w-full">
             <partial name="_OrderReceipt" model="order" />
             <div class="flex gap-x-3 justify-between items-start text-zinc-800 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">

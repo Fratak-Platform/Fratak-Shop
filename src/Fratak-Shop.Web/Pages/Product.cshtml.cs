@@ -31,8 +31,12 @@ public class ProductModel(
     IProductVideoService videoService,
     IProductAlertService alertService,
     ICommentEngagementService engagement,
-    ISiteContext site) : ShopPageModel
+    ISiteContext site,
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLinkTargetProvider linkTargets) : ShopPageModel
 {
+    /// <summary>توضیح محصول برای نمایش: پاک‌سازی‌شده + لینک داخلی خودکار هنگام نمایش (متن ذخیره‌شده دست نمی‌خورد).</summary>
+    public string DescriptionHtml { get; private set; } = string.Empty;
+
     public List<ProductVideoDto> Videos { get; private set; } = [];
 
     /// <summary>«خبرم کن» subscriptions of the signed-in customer (guests: none).</summary>
@@ -55,6 +59,9 @@ public class ProductModel(
 
     /// <summary>Fastest delivery of the active shipping methods (days, 0 = same day).</summary>
     public int? MinDeliveryDays { get; private set; }
+
+    /// <summary>بیشترین زمان ارسال روش‌های فعال (روز) – برای اسکیمای shippingDetails.</summary>
+    public int? MaxDeliveryDays { get; private set; }
 
     /// <summary>Lowest free-shipping threshold of the active methods (null = no free shipping).</summary>
     public decimal? FreeShippingFrom { get; private set; }
@@ -196,11 +203,18 @@ public class ProductModel(
             return false;
 
         Product = product;
+        if (!string.IsNullOrWhiteSpace(product.Description))
+        {
+            var (targets, maxLinks) = await linkTargets.ForRenderAsync(HttpContext.RequestAborted);
+            DescriptionHtml = Fratak_Shop.Core.Services.Seo.Autopilot.InternalLinker.Link(Fratak_Shop.Core.Utilities.XssSecurity.SanitizeText(product.Description),
+                Request.Path.Value ?? "/", targets, maxLinks);
+        }
 
         var methods = await shippingService.GetActiveMethodsAsync(HttpContext.RequestAborted);
         if (methods.Count > 0)
         {
             MinDeliveryDays = methods.Min(m => m.MinDeliveryDays);
+            MaxDeliveryDays = Math.Max(MinDeliveryDays.Value, methods.Max(m => m.MaxDeliveryDays));
             var thresholds = methods
                 .Select(m => m.FreeShippingThreshold ?? site.Settings.FreeShippingThreshold)
                 .Where(t => t > 0)
@@ -248,12 +262,32 @@ public class ProductModel(
             ImageHelper.Product(image), "product");
 
         ViewData[PageMetaKeys.JsonLd] ??= BuildJsonLd(product);
+        ViewData[PageMetaKeys.ProductMeta] = TorobMeta(product);
         var crumbs = new List<(string Name, string? Path)>();
         if (!string.IsNullOrWhiteSpace(product.CategoryName) && !string.IsNullOrWhiteSpace(product.CategorySlug))
             crumbs.Add((product.CategoryName, "/category/" + product.CategorySlug));
         crumbs.Add((product.Name, null));
         pageMeta.AddBreadcrumbs(ViewData, crumbs.ToArray());
         return true;
+    }
+
+    /// <summary>
+    /// متاتگ‌های رسمی ترب برای خزش صفحه (مستند ترب). شناسه همان page_unique در API ترب است تا یک محصول دو بار ثبت نشود.
+    /// قیمت به تومان؛ ناموجود ← قیمت ۰ و availability=outofstock.
+    /// </summary>
+    public static List<KeyValuePair<string, string>> TorobMeta(ProductDto product)
+    {
+        var available = product.IsInStock;
+        var meta = new List<KeyValuePair<string, string>>
+        {
+            new("product_id", product.Id.ToString("N")),
+            new("product_name", product.Name),
+            new("product_price", available ? ((long)decimal.Round(product.FinalPrice)).ToString(System.Globalization.CultureInfo.InvariantCulture) : "0"),
+            new("availability", available ? "instock" : "outofstock"),
+        };
+        if (available && product.HasActiveDiscount)
+            meta.Add(new("product_old_price", ((long)decimal.Round(product.Price)).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        return meta;
     }
 
     private string BuildJsonLd(ProductDto product)
@@ -280,6 +314,24 @@ public class ProductModel(
             ["availability"] = product.IsInStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             ["seller"] = new Dictionary<string, object> { ["@type"] = "Organization", ["name"] = settings.SiteName },
         };
+
+        // دور سئوی خودکار (اسکیمای محصول): جزئیات ارسال فقط وقتی هزینه قطعی است (ارسال رایگان برای این قیمت)؛
+        // هزینهٔ وابسته به شهر را حدس نمی‌زنیم (دادهٔ نادرست در اسکیما = خطر اقدام دستی گوگل).
+        if (MinDeliveryDays is { } minDays && MaxDeliveryDays is { } maxDays && FreeShippingFrom is { } freeFrom && product.FinalPrice >= freeFrom)
+        {
+            offer["shippingDetails"] = new Dictionary<string, object>
+            {
+                ["@type"] = "OfferShippingDetails",
+                ["shippingRate"] = new Dictionary<string, object> { ["@type"] = "MonetaryAmount", ["value"] = 0, ["currency"] = "IRR" },
+                ["shippingDestination"] = new Dictionary<string, object> { ["@type"] = "DefinedRegion", ["addressCountry"] = "IR" },
+                ["deliveryTime"] = new Dictionary<string, object>
+                {
+                    ["@type"] = "ShippingDeliveryTime",
+                    ["handlingTime"] = new Dictionary<string, object> { ["@type"] = "QuantitativeValue", ["minValue"] = 0, ["maxValue"] = 1, ["unitCode"] = "DAY" },
+                    ["transitTime"] = new Dictionary<string, object> { ["@type"] = "QuantitativeValue", ["minValue"] = minDays, ["maxValue"] = maxDays, ["unitCode"] = "DAY" },
+                },
+            };
+        }
 
         if (settings.IsReturnEnabled && settings.ReturnWindowDays > 0)
         {

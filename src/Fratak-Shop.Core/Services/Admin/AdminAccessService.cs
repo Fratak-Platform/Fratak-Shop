@@ -332,6 +332,26 @@ public class AdminAccessService(FratakShopDbContext context, IMemoryCache cache)
             await context.SaveChangesAsync();
         }
 
+        // نقش‌های پیش‌فرضی که بعداً اضافه شده‌اند (مثلاً «مشاور سئو») روی سایت‌های موجود هم ساخته می‌شوند؛
+        // اگر مدیر قبلاً نقشی با همین نام ساخته یا حذف کرده باشد دست نمی‌خورد.
+        foreach (var lateName in AdminPermissions.LateDefaultRoles)
+        {
+            if (await context.AdminRoles.IgnoreQueryFilters().AnyAsync(r => r.Name == lateName))
+                continue;
+            var late = AdminPermissions.DefaultRoles.FirstOrDefault(r => r.Name == lateName);
+            if (late.Name is null)
+                continue;
+            context.AdminRoles.Add(new AdminRole
+            {
+                Name = late.Name,
+                Description = late.Description,
+                Color = late.Color,
+                IsSystem = true,
+                Permissions = late.Permissions.Select(p => new AdminRolePermission { Permission = p }).ToList(),
+            });
+            await context.SaveChangesAsync();
+        }
+
         // New permissions added to the catalog later are granted to the full-access default role.
         var fullRole = await context.AdminRoles.AsTracking().Include(r => r.Permissions)
             .FirstOrDefaultAsync(r => r.IsSystem && r.Name == AdminPermissions.DefaultRoles[0].Name);

@@ -41,8 +41,67 @@ public static class MediaEndpoints
                && !value.Contains("..");
     }
 
+    /// <summary>اندازه‌های مجاز آیکون PNG لحظه‌ای (iOS، ایمیل، PWA).</summary>
+    public static readonly int[] IconSizes = [32, 48, 64, 96, 128, 144, 152, 167, 180, 192, 256, 512];
+
+    /// <summary>
+    /// آدرس PNG برای تصویر WebP در جاهایی که WebP پشتیبانی نمی‌شود (آیکون خانهٔ آیفون، لوگوی ایمیل در Outlook).
+    /// غیر WebP یا بیرونی ← همان آدرس. مثال: <c>RasterIcon("/uploads/media/a.webp", 180)</c> ← «/media/icon/180/uploads/media/a.webp».
+    /// </summary>
+    public static string RasterIcon(string url, int size)
+    {
+        if (!IsOptimizable(url) || !url.Split('?', '#')[0].EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+            return url;
+        var fit = IconSizes.FirstOrDefault(s => s >= size, IconSizes[^1]);
+        return $"/media/icon/{fit}/{url.Split('?', '#')[0].TrimStart('/')}";
+    }
+
     public static void MapMediaEndpoints(this IEndpointRouteBuilder app)
     {
+        // دور سئوی خودکار: همهٔ تصویرها WebP اند؛ این مسیر برای iOS/ایمیل یک PNG مربعی (کش روی دیسک) می‌سازد.
+        app.MapMethods("/media/icon/{size:int}/{**path}", [HttpMethods.Get, HttpMethods.Head], async (int size, string path, HttpContext http,
+            IWebHostEnvironment environment) =>
+        {
+            if (Array.IndexOf(IconSizes, size) < 0 || !IsOptimizable("/" + path))
+                return Results.NotFound();
+            var webRoot = Path.GetFullPath(environment.WebRootPath);
+            var source = Path.GetFullPath(Path.Combine(webRoot, path.Replace('/', Path.DirectorySeparatorChar)));
+            if (!source.StartsWith(webRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) || !File.Exists(source))
+                return Results.NotFound();
+            var info = new FileInfo(source);
+            if (info.Length > MaxSourceBytes)
+                return Results.NotFound();
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                $"icon|{path.ToLowerInvariant()}|{size}|{info.LastWriteTimeUtc.Ticks}|{info.Length}")))[..32].ToLowerInvariant();
+            var cacheDir = Path.Combine(environment.ContentRootPath, "App_Data", "media-cache", key[..2]);
+            var cached = Path.Combine(cacheDir, key + ".png");
+            http.Response.Headers.CacheControl = "public, max-age=604800";
+            if (!File.Exists(cached))
+            {
+                await Workers.WaitAsync(http.RequestAborted);
+                try
+                {
+                    var png = WebPEncoder.ToPng(await File.ReadAllBytesAsync(source, http.RequestAborted), size);
+                    if (png is null)
+                        return Results.NotFound();
+                    Directory.CreateDirectory(cacheDir);
+                    var temp = cached + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    await File.WriteAllBytesAsync(temp, png, http.RequestAborted);
+                    File.Move(temp, cached, overwrite: true);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    return Results.NotFound();
+                }
+                finally
+                {
+                    Workers.Release();
+                }
+            }
+
+            return Results.File(cached, "image/png", lastModified: info.LastWriteTimeUtc, entityTag: new EntityTagHeaderValue($"\"{key}\""));
+        });
+
         app.MapMethods("/media/{width:int}/{**path}", [HttpMethods.Get, HttpMethods.Head], async (int width, string path, HttpContext http,
             IWebHostEnvironment environment, IStoreSettingService settingService, ILoggerFactory loggerFactory) =>
         {
@@ -157,7 +216,8 @@ public static class MediaEndpoints
         }
     }
 
-    private static SKBitmap? Orient(SKBitmap bitmap, SKEncodedOrigin origin)
+    /// <summary>اعمال جهت EXIF (عکس موبایل). جهت عادی ← null. استفاده: Resize و WebPEncoder.</summary>
+    internal static SKBitmap? Orient(SKBitmap bitmap, SKEncodedOrigin origin)
     {
         if (origin is SKEncodedOrigin.TopLeft or SKEncodedOrigin.Default)
             return null;

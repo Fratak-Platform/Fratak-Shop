@@ -102,7 +102,8 @@ public static class BrandLockupHtml
         if (!view.Visible)
             return string.Empty;
 
-        var iconUrl = Absolute(view.IconUrl, baseUrl);
+        // برخی برنامه‌های ایمیل (Outlook) WebP نشان نمی‌دهند؛ لوگوی WebP از مسیر PNG لحظه‌ای فرستاده می‌شود.
+        var iconUrl = Absolute(Media.MediaEndpoints.RasterIcon(view.IconUrl, Math.Min(512, Math.Max(64, view.IconHeight * 2))), baseUrl);
         var width = view.IconWidth(view.IconHeight);
         var icon = view.ShowIcon
             ? $"<img src=\"{Enc(iconUrl)}\" alt=\"{Enc(view.ShowText ? "" : view.FullText)}\" height=\"{view.IconHeight}\"{(width is { } w ? $" width=\"{w}\"" : "")} style=\"display:block;height:{view.IconHeight}px;width:auto;border:0;outline:none\">"

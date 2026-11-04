@@ -18,7 +18,7 @@
     @if (Model.IsEmpty)
     {
       <div class="text-center text-xl md:text-2xl text-zinc-600 font-semibold">
-        <img class="mx-auto w-40 mb-6 opacity-90" src="~/assets/image/Cart.png" alt="">
+        <img class="mx-auto w-40 mb-6 opacity-90" src="~/assets/image/Cart.webp" alt="">
         سبد خرید خالی است!
         <a href="/search?sort=BestSelling" class="text-gray-50 mx-auto w-fit mb-2 block px-6 md:px-8 py-2 mt-5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-600 hover:opacity-80 transition">
           محصولات پرطرفدار
@@ -65,7 +65,7 @@
               }
             </div>
             <div class="mr-2 md:mr-5 w-full">
-              <!-- title -->
+              @* title *@
               <div class="flex items-start justify-between gap-x-3">
                 <a href="/product/@item.ProductSlug" class="text-xl text-zinc-700">
                   @(item.ProductName ?? "این محصول دیگر موجود نیست")
@@ -103,7 +103,7 @@
                     <span>تخفیف: @Format.Toman(item.DiscountAmount)</span>
                   </div>
                 }
-                <!-- price -->
+                @* price *@
                 <div class="text-gray-700 pt-4">
                   @if (item.HasDiscount)
                   {

@@ -31,7 +31,7 @@
         </p>
 
         <div class="grid gap-5 lg:grid-cols-2">
-          <!-- redeem -->
+          @* redeem *@
           <section class="@card" id="redeem">
             <h2 class="mb-3 flex items-center gap-x-2 font-semibold text-zinc-700">@Icons.Svg("Ticket", "fill-sky-500", 20) استفاده از کارت هدیه</h2>
             @if (Model.ActiveForm == "redeem")
@@ -53,7 +53,7 @@
             </form>
           </section>
 
-          <!-- buy -->
+          @* buy *@
           <section class="@card" id="buy">
             <h2 class="mb-3 flex items-center gap-x-2 font-semibold text-zinc-700">@Icons.Svg("Gift", "fill-rose-500", 20) خرید کارت هدیه</h2>
             @if (Model.ActiveForm == "buy")
@@ -96,7 +96,7 @@
           </section>
         </div>
 
-        <!-- purchased -->
+        @* purchased *@
         <section>
           <h2 class="mb-3 font-semibold text-zinc-700">کارت‌های خریداری‌شده</h2>
           @if (Model.Purchased.Count == 0)

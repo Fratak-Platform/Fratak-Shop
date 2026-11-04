@@ -12,7 +12,7 @@
             <form method="get" action="/search" id="filterForm">
               <input type="hidden" name="q" value="@Model.Query" />
               <input type="hidden" name="sort" value="@Model.Sort" />
-              <!-- title -->
+              @* title *@
               <div class="mb-6 flex items-center justify-between">
                 <h3 class="text-zinc-700 font-semibold text-lg">
                   فیلتر ها
@@ -22,7 +22,7 @@
                 </a>
               </div>
               <ul class="space-y-2">
-                <!-- category -->
+                @* category *@
                 <li>
                   <details class="group border rounded-md" open>
                     <summary class="flex cursor-pointer items-center justify-between rounded-lg py-4 px-2 text-zinc-700">
@@ -67,7 +67,7 @@
                     </div>
                   </details>
                 </li>
-                <!-- brand (category specific; hidden on /brand/{slug}) -->
+                @* brand (category specific; hidden on /brand/{slug}) *@
                 @if (Model.IsBrandPage)
                 {
                   foreach (var slug in Model.BrandSlugs)
@@ -117,7 +117,7 @@
                   </details>
                 </li>
                 }
-                <!-- specifications (admin managed: ProductFilterAttribute) -->
+                @* specifications (admin managed: ProductFilterAttribute) *@
                 @foreach (var facet in Model.Facets)
                 {
                   var listId = $"facet-{facet.Slug}";
@@ -169,7 +169,7 @@
                     <span>برای فیلتر بر اساس برند و مشخصات فنی، ابتدا یک دسته‌بندی را انتخاب کنید.</span>
                   </li>
                 }
-                <!-- price -->
+                @* price *@
                 <li>
                   <details class="group border rounded-md">
                     <summary class="flex cursor-pointer items-center justify-between rounded-lg py-4 px-2 text-zinc-700">
@@ -191,7 +191,7 @@
                     </div>
                   </details>
                 </li>
-                <!-- available -->
+                @* available *@
                 <li>
                   <label class="flex cursor-pointer items-center justify-between py-5 px-2" for="onlyAvailableDesktop">
                     <div class="text-zinc-700 font-semibold">
@@ -203,7 +203,7 @@
                     </div>
                   </label>
                 </li>
-                <!-- special -->
+                @* special *@
                 <li>
                   <label class="flex cursor-pointer items-center justify-between pt-5 px-2" for="onlySpecialDesktop">
                     <div class="text-zinc-700 font-semibold">
@@ -249,7 +249,7 @@
         @if (Model.Result.Data.Count == 0)
         {
           <div class="bg-white border rounded-xl p-10 text-center">
-            <img class="mx-auto w-40 opacity-80" src="~/assets/image/search.png" alt="">
+            <img class="mx-auto w-40 opacity-80" src="~/assets/image/search.webp" alt="">
             <p class="mt-5 text-zinc-600">محصولی با این مشخصات پیدا نشد.</p>
             @if (Model.DidYouMean is { } suggestion)
             {
@@ -288,6 +288,18 @@
           }
         </div>
         <partial name="_Pagination" model="Model.Pager" />
+        @if (Model.PriceLandings.Count > 0)
+        {
+          <nav class="bg-white border rounded-xl p-4 mt-6 text-sm" aria-label="خرید بر اساس بودجه">
+            <p class="font-bold mb-3">خرید بر اساس بودجه</p>
+            <div class="flex flex-wrap gap-2">
+              @foreach (var landing in Model.PriceLandings)
+              {
+                <a href="@landing.Url" class="border rounded-full px-3 py-1 hover:border-sky-400">@landing.Label <span class="text-gray-500">(@Fratak_Shop.Web.Helpers.Format.Number(landing.Count))</span></a>
+              }
+            </div>
+          </nav>
+        }
         @if (Model.ListingDescriptionHtml is not null)
         {
           <section class="prose-content bg-white border rounded-xl p-4 md:p-8 mt-8 text-sm" aria-label="معرفی">

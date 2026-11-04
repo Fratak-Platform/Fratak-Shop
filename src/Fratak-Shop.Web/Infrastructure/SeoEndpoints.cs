@@ -22,6 +22,8 @@ public static class SeoEndpoints
             {
                 await writer.WriteStartDocumentAsync();
                 writer.WriteStartElement("urlset", "http://www.sitemaps.org/schemas/sitemap/0.9");
+                // دور سئوی خودکار: تصویرهای هر صفحه (گوگل تصاویر) – فضای نام رسمی image sitemap.
+                writer.WriteAttributeString("xmlns", "image", null, ImageNamespace);
                 foreach (var entry in entries)
                 {
                     writer.WriteStartElement("url");
@@ -30,6 +32,12 @@ public static class SeoEndpoints
                         writer.WriteElementString("lastmod", modified.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
                     writer.WriteElementString("changefreq", entry.ChangeFrequency);
                     writer.WriteElementString("priority", entry.Priority.ToString("0.0", CultureInfo.InvariantCulture));
+                    foreach (var image in entry.Images ?? [])
+                    {
+                        writer.WriteStartElement("image", "image", ImageNamespace);
+                        writer.WriteElementString("image", "loc", ImageNamespace, image.StartsWith('/') ? baseUrl + EncodeImage(image) : image);
+                        writer.WriteEndElement();
+                    }
                     writer.WriteEndElement();
                 }
                 writer.WriteEndElement();
@@ -64,6 +72,11 @@ public static class SeoEndpoints
 
         return app;
     }
+
+    public const string ImageNamespace = "http://www.google.com/schemas/sitemap-image/1.1";
+
+    /// <summary>آدرس تصویر از قبل escape شده (ImageHelper)؛ فقط فاصله و نویسه‌های غیر ASCII باقی‌مانده کد می‌شوند.</summary>
+    private static string EncodeImage(string path) => EncodePath(Uri.UnescapeDataString(path));
 
     private static string BaseUrl(HttpRequest request) => $"{request.Scheme}://{request.Host}{request.PathBase}";
 

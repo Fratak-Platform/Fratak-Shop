@@ -14,8 +14,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace Fratak_Shop.Web.Pages;
 
 [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
-public class BlogPostModel(IPostService postService, ICommentService commentService, IPageMetaService pageMeta, ISiteContext site) : ShopPageModel
+public class BlogPostModel(IPostService postService, ICommentService commentService, IPageMetaService pageMeta, ISiteContext site,
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLinkTargetProvider linkTargets) : ShopPageModel
 {
+    /// <summary>متن مقاله برای نمایش: پاک‌سازی‌شده + لینک داخلی خودکار هنگام نمایش (متن ذخیره‌شده دست نمی‌خورد).</summary>
+    public string BodyHtml { get; private set; } = string.Empty;
+
     public PostDto Post { get; private set; } = null!;
     public List<CommentDto> Comments { get; private set; } = [];
     public List<BlogPostFilterData> LatestPosts { get; private set; } = [];
@@ -32,6 +36,9 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
             return NotFound();
 
         Post = post;
+        var (targets, maxLinks) = await linkTargets.ForRenderAsync(HttpContext.RequestAborted);
+        BodyHtml = Fratak_Shop.Core.Services.Seo.Autopilot.InternalLinker.Link(Fratak_Shop.Core.Utilities.XssSecurity.SanitizeText(post.Content ?? string.Empty),
+            Request.Path.Value ?? "/", targets, maxLinks);
         Comments = await commentService.GetCommentsByPostAsync(post.Id, onlyApproved: true);
         LatestPosts = await postService.GetLatestPostsAsync(5, post.Id);
 

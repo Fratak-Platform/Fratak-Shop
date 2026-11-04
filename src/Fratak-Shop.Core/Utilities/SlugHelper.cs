@@ -1,47 +1,16 @@
-using System.Text;
+using Fratak_Shop.Data.Utilities;
 
 namespace Fratak_Shop.Core.Utilities;
 
 public static class SlugHelper
 {
     /// <summary>
-    /// URL friendly slug that keeps Persian letters: "درباره ما!" → "درباره-ما",
-    /// "About Us" → "about-us". Only letters, digits and single dashes remain.
+    /// نامک (Slug) تمیز و همیشه انگلیسی برای آدرس صفحه‌ها.
+    /// <para>دور سئوی خودکار: قبلاً حروف فارسی در نامک می‌ماند («درباره-ما»)؛ حالا متن فارسی ترجمه/آوانویسی می‌شود
+    /// (منطق کامل و واژه‌نامه: <see cref="EnglishSlug"/> در لایهٔ Data، تا قانون ذخیرهٔ DbContext هم از همان استفاده کند).</para>
+    /// مثال: <c>"درباره ما!".ToSlug()</c> ← <c>"about-us"</c>، <c>"About Us".ToSlug()</c> ← <c>"about-us"</c>،
+    /// <c>"گوشی سامسونگ ۱۲۸".ToSlug()</c> ← <c>"phone-samsung-128"</c>. فقط a-z، 0-9 و خط تیرهٔ تکی می‌ماند.
+    /// <para>محل استفاده: سرویس صفحه‌های محتوا و سؤالات متداول، برنامه‌ریز کلمهٔ کلیدی موتور سئو.</para>
     /// </summary>
-    public static string ToSlug(this string? value, int maxLength = 200)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        var builder = new StringBuilder(value.Length);
-        var lastWasDash = false;
-
-        foreach (var raw in value.Trim().ToLowerInvariant())
-        {
-            var ch = raw switch
-            {
-                'ي' => 'ی',
-                'ك' => 'ک',
-                >= '۰' and <= '۹' => (char)('0' + (raw - '۰')),
-                >= '٠' and <= '٩' => (char)('0' + (raw - '٠')),
-                _ => raw,
-            };
-
-            if (char.IsLetterOrDigit(ch))
-            {
-                builder.Append(ch);
-                lastWasDash = false;
-            }
-            else if (!lastWasDash && builder.Length > 0)
-            {
-                builder.Append('-');
-                lastWasDash = true;
-            }
-
-            if (builder.Length >= maxLength)
-                break;
-        }
-
-        return builder.ToString().Trim('-');
-    }
+    public static string ToSlug(this string? value, int maxLength = 200) => EnglishSlug.From(value, maxLength);
 }

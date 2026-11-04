@@ -249,6 +249,8 @@ public sealed record PwaIconSet(string Icon512, string Icon192, string? Maskable
         // آیکون maskable برند فقط وقتی معنا دارد که آیکون اصلی هم برند باشد؛ وگرنه نشان دو اپ متفاوت دیده می‌شود.
         var mask = maskable ?? (custom is null && small is null ? BrandIdentity.AppIconMaskable512 : null);
         var mask192 = maskable is null && mask is not null ? BrandIdentity.AppIconMaskable192 : null;
-        return new PwaIconSet(main, small ?? main, mask, mask192, apple ?? custom ?? small ?? BrandIdentity.AppleTouchIcon, false, background);
+        // آیفون آیکون WebP را نمی‌شناسد: نسخهٔ PNG لحظه‌ای (/media/icon/180/…) جایگزین می‌شود. PNG/SVG همان می‌ماند.
+        return new PwaIconSet(main, small ?? main, mask, mask192,
+            Media.MediaEndpoints.RasterIcon(apple ?? custom ?? small ?? BrandIdentity.AppleTouchIcon, 180), false, background);
     }
 }

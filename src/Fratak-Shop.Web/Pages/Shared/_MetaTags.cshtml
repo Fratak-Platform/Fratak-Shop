@@ -12,10 +12,8 @@
 {
   <meta name="description" content="@Meta(PageMetaKeys.Description)">
 }
-@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Keywords)))
-{
-  <meta name="keywords" content="@Meta(PageMetaKeys.Keywords)">
-}
+@* دور سئوی خودکار: متای keywords چاپ نمی‌شود – گوگل آن را نادیده می‌گیرد، بینگ پرشدنش را نشانهٔ اسپم می‌داند و رقبا
+   کلمه‌های هدف سایت را از آن می‌خوانند. کلمه‌ها همچنان در موتور سئو (تحلیل، لینک داخلی، گزارش) استفاده می‌شوند. *@
   <meta name="robots" content="@robots">
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
 {
@@ -53,6 +51,13 @@
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgImage)))
 {
   <meta property="og:image" content="@Meta(PageMetaKeys.OgImage)">
+  if (Meta(PageMetaKeys.OgImage)!.Contains("/media/og/", StringComparison.Ordinal))
+  {
+  <meta property="og:image:type" content="image/webp">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  }
+  <meta property="og:image:alt" content="@(Meta(PageMetaKeys.OgTitle) ?? Site.Title(title))">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="@Meta(PageMetaKeys.OgImage)">
 }
@@ -60,6 +65,13 @@
 @if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgDescription)))
 {
   <meta name="twitter:description" content="@Meta(PageMetaKeys.OgDescription)">
+}
+@if (ViewData[PageMetaKeys.ProductMeta] is List<KeyValuePair<string, string>> productMeta)
+{
+  foreach (var pair in productMeta)
+  {
+  <meta name="@pair.Key" content="@pair.Value">
+  }
 }
 @* "!" opts the elements out of tag helpers so the type attribute is not re-encoded.
    JSON is serialized with <, >, & escaped, so it can never close the script element. *@

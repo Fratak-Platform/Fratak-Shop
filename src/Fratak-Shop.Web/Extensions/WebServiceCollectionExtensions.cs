@@ -93,6 +93,23 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.SeoEngine.SeoToolsQueue>();
         services.AddHostedService<Infrastructure.SeoEngine.SeoToolsWorker>();
 
+        // دور سئوی خودکار: دامنهٔ اصلی، خزندهٔ داخلی، IndexNow، سیگنال ربات/سرعت، تبدیل تصویرهای قدیمی به WebP و کارگر خلبان.
+        // (AddSingleton بعد از TryAdd لایهٔ Core، نسخه‌های «آفلاین» پیش‌فرض را جایگزین می‌کند.)
+        services.AddSingleton<Infrastructure.Seo.SeoHost>();
+        services.AddSingleton<Core.Services.Seo.Autopilot.ISeoHost>(sp => sp.GetRequiredService<Infrastructure.Seo.SeoHost>());
+        services.AddHttpClient(Infrastructure.Seo.SeoPageFetcher.ClientName, Infrastructure.Seo.SeoPageFetcher.Configure)
+            .ConfigurePrimaryHttpMessageHandler(Infrastructure.Seo.SeoPageFetcher.CreateHandler)
+            .RemoveAllLoggers();
+        services.AddSingleton<Core.Services.Seo.Autopilot.ISeoPageFetcher, Infrastructure.Seo.SeoPageFetcher>();
+        services.AddHttpClient(Infrastructure.Seo.IndexNowPinger.ClientName, Infrastructure.Seo.IndexNowPinger.Configure).RemoveAllLoggers();
+        services.AddSingleton<Core.Services.Seo.Autopilot.ISeoPinger, Infrastructure.Seo.IndexNowPinger>();
+        services.AddSingleton<Infrastructure.Seo.SeoSignalBuffer>();
+        services.AddSingleton<Infrastructure.Seo.SeoSignalWriter>();
+        services.AddSingleton<Infrastructure.Seo.SeoAutopilotQueue>();
+        services.AddSingleton<Infrastructure.Media.LegacyImageConverter>();
+        services.AddSingleton<Infrastructure.Seo.OgImageRenderer>();
+        services.AddHostedService<Infrastructure.Seo.SeoAutopilotWorker>();
+
         // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.
         // RemoveAllLoggers: آدرس API ربات توکن را در خود دارد؛ لاگ پیش‌فرض HttpClient نباید آن را ثبت کند.
         services.AddHttpClient(Infrastructure.Insights.ReportDelivery.BotClientName, Infrastructure.Insights.ReportDelivery.Configure)

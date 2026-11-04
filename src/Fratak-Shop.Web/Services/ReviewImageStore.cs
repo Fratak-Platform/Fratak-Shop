@@ -46,7 +46,8 @@ public class ReviewImageStore(IWebHostEnvironment environment, ILogger<ReviewIma
             using var buffer = new MemoryStream((int)file.Length);
             await stream.CopyToAsync(buffer, cancellationToken);
 
-            var image = ImageSanitizer.Sanitize(buffer.ToArray(), out var error);
+            // دور سئوی خودکار: عکس دیدگاه هم WebP ذخیره می‌شود (حجم کمتر، صفحهٔ محصول سریع‌تر).
+            var image = Infrastructure.Media.WebPEncoder.FromUpload(buffer.ToArray(), out var error, logger);
             if (image is null)
                 return ([], error ?? "فایل تصویر معتبر نیست.");
 

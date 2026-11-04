@@ -169,7 +169,7 @@ public static class StoreDefaultsSeeder
                 </ul>
                 <h2>ماموریت ما</h2>
                 <p>ماموریت ما ساده است: خریدی آسان، شفاف و بدون دغدغه. اگر پیشنهاد یا انتقادی دارید، از طریق صفحه تماس با ما در ارتباط باشید؛ نظر شما برای ما بسیار ارزشمند است.</p>
-                """, "/assets/image/about/image-1.jpg"),
+                """, "/assets/image/about/image-1.webp"),
             Page("rules", "قوانین و مقررات", SitePage.Terms, 2,
                 "قوانین و مقررات استفاده از فروشگاه، ثبت سفارش، پرداخت، ارسال و بازگشت کالا.",
                 """
@@ -409,8 +409,8 @@ public static class StoreDefaultsSeeder
             return;
 
         context.TrustBadges.AddRange(
-            new TrustBadge { Title = "نماد اعتماد الکترونیکی", ImageUrl = "/assets/image/service/symbol-01.png", DisplayOrder = 1 },
-            new TrustBadge { Title = "نشان ملی ثبت رسانه‌های دیجیتال", ImageUrl = "/assets/image/service/symbol-02.png", DisplayOrder = 2 });
+            new TrustBadge { Title = "نماد اعتماد الکترونیکی", ImageUrl = "/assets/image/service/symbol-01.webp", DisplayOrder = 1 },
+            new TrustBadge { Title = "نشان ملی ثبت رسانه‌های دیجیتال", ImageUrl = "/assets/image/service/symbol-02.webp", DisplayOrder = 2 });
 
         await context.SaveChangesAsync(cancellationToken);
     }

@@ -60,9 +60,10 @@ public class SlugHelperTests
 {
     [Theory]
     [InlineData("Hello World!", "hello-world")]
-    [InlineData("گوشی  سامسونگ ۱۲۸", "گوشی-سامسونگ-128")]
+    [InlineData("گوشی  سامسونگ ۱۲۸", "phone-samsung-128")]
     [InlineData("--abc--", "abc")]
-    [InlineData("علي و كتاب", "علی-و-کتاب")]
+    [InlineData("علي و كتاب", "ali-book")]
+    [InlineData("درباره ما", "about-us")]
     [InlineData("A/B\\C?D", "a-b-c-d")]
     [InlineData(null, "")]
     [InlineData("   ", "")]

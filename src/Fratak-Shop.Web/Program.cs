@@ -227,6 +227,8 @@ app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.FirewallMiddleware>();
 app.UseMiddleware<CanonicalHostMiddleware>();
 app.UseStatusCodePagesWithReExecute("/404", "?code={0}");
 app.UseResponseCompression();
+// دور سئوی خودکار: آدرس قدیمی JPG/PNG تصویری که WebP شده ← ۳۰۱ به نسخهٔ WebP (پیش از فایل‌های ایستا).
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Media.LegacyImageRedirectMiddleware>();
 
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -257,6 +259,8 @@ app.UseStaticFiles(new StaticFileOptions
     },
 });
 
+// دور سئوی خودکار: ثبت بازدید ربات‌های موتور جست‌وجو (فقط صفحه‌ها؛ برای مرورگر معمولی بی‌هزینه).
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Seo.BotLogMiddleware>();
 app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Admin.ActivityTrackingMiddleware>();
 app.UseMiddleware<CanonicalUrlMiddleware>();
 app.UseRouting();
@@ -277,10 +281,12 @@ app.MapRazorPages();
 app.MapHub<Fratak_Shop.Web.Infrastructure.Realtime.LiveHub>(Fratak_Shop.Web.Infrastructure.Realtime.LiveHub.Path);
 app.MapAuthApi();
 app.MapSeoEndpoints();
+Fratak_Shop.Web.Infrastructure.Seo.SeoFeedEndpoints.MapSeoAutopilotEndpoints(app);
 app.MapPwaEndpoints();
 app.MapStorefrontApi();
 Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoints(app);
 app.MapMediaEndpoints();
+Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Map(app);
 
 // Uptime monitors: database reachability only (details are in the admin panel).
 app.MapGet("/health", async (HttpContext http, Fratak_Shop.Web.Infrastructure.Admin.HealthService health, CancellationToken cancellationToken) =>

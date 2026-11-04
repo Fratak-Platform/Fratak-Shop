@@ -65,6 +65,12 @@ public static class AdminPermissions
 
     public const string SeoManage = "seo.manage";
 
+    /// <summary>
+    /// مشاهدهٔ فقط‌خواندنی گزارش‌های سئوی خودکار (داشبورد، کارهای سئو، تاریخچه، ربات‌ها و سرعت) – برای «مشاور سئو».
+    /// هر تغییری (برگرداندن، تنظیمات، اجرای دستی) همچنان «ابزارهای سئو» می‌خواهد.
+    /// </summary>
+    public const string SeoView = "seo.view";
+
     public const string ShippingManage = "shipping.manage";
     public const string SettingsManage = "settings.manage";
 
@@ -119,6 +125,7 @@ public static class AdminPermissions
         new(ContentManage, "محتوا", "صفحات، منوها، صفحه اصلی و سؤالات متداول"),
 
         new(SeoManage, "سئو", "ابزارهای سئو", "سئوی صفحات، ریدایرکت‌ها، خطاهای ۴۰۴، ممیزی، مترادف‌ها و robots"),
+        new(SeoView, "سئو", "مشاهدهٔ گزارش‌های سئو", "داشبورد سئوی خودکار، کارهای سئو، تاریخچهٔ تغییرها، ربات‌ها و سرعت (فقط خواندنی)"),
 
         new(ShippingManage, "تنظیمات", "روش‌ها و تعرفه‌های ارسال"),
         new(SettingsManage, "تنظیمات", "تنظیمات فروشگاه"),
@@ -127,6 +134,12 @@ public static class AdminPermissions
         new(AuditView, "فنی", "گزارش فعالیت کارکنان و رویدادهای امنیتی"),
         new(SystemManage, "فنی", "عملیات فنی", "پاک‌کردن کش، حل‌شدن خطاها و پاک‌سازی گزارش‌ها"),
     ];
+
+    /// <summary>
+    /// نقش‌هایی که بعد از نسخهٔ اول اضافه شده‌اند: روی سایت‌های موجود هم یک بار ساخته می‌شوند (اگر نقشی با همین نام – حتی
+    /// حذف‌شده – نباشد). مثال: «مشاور سئو» (دور سئوی خودکار).
+    /// </summary>
+    public static readonly IReadOnlyList<string> LateDefaultRoles = ["مشاور سئو"];
 
     private static readonly HashSet<string> Keys = All.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);
 
@@ -148,6 +161,7 @@ public static class AdminPermissions
             [Dashboard, MarketingManage, GiftCardsManage, LoyaltyManage, NotificationsSend, ProductsView, CustomersView, ReportsView]),
         ("کارشناس سئو", "سئوی صفحات و محتوا، ریدایرکت‌ها و آمار جست‌وجو", "#059669",
             [Dashboard, SeoManage, ContentManage, BlogPublish, BlogWrite, ProductsView, CatalogManage]),
+        ("مشاور سئو", "مشاهدهٔ گزارش‌ها، کارها و تاریخچهٔ سئوی خودکار بدون امکان تغییر", "#0d9488", [Dashboard, SeoView]),
         ("نویسنده محتوا", "نوشتن مقاله و ارسال برای بررسی", "#9333ea", [BlogWrite]),
         ("سردبیر محتوا", "انتشار مقاله‌ها و مدیریت صفحات محتوایی", "#c026d3", [BlogWrite, BlogPublish, ContentManage]),
         ("پشتیبانی فنی", "مانیتورینگ، خطاها، گزارش فعالیت و عملیات فنی", "#475569",
