@@ -280,7 +280,7 @@ public class SeoAutopilotTests
 
         Assert.NotEmpty(links);
         Assert.All(links, l => Assert.StartsWith("/category/mobile?maxPrice=", l.Url, StringComparison.Ordinal));
-        Assert.All(links, l => Assert.StartsWith("خرید گوشی زیر", l.Title, StringComparison.Ordinal));
+        Assert.All(links, l => Assert.StartsWith("خرید گوشی زیر", l.Label, StringComparison.Ordinal));
     }
 
     // ── فید ترب و XML ───────────────────────────────────────────────────
