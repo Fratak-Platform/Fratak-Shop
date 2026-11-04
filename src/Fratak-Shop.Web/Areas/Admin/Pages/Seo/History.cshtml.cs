@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Fratak_Shop.Core.DTOs.Admin;
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Seo.Autopilot;
@@ -61,18 +63,18 @@ public class HistoryModel(ISeoReportService reports, ISeoAutopilotService autopi
             var map = new Dictionary<string, string?>(StringComparer.Ordinal);
             try
             {
-                using var document = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
-                if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
                     return map;
                 foreach (var property in document.RootElement.EnumerateObject())
                     map[property.Name] = property.Value.ValueKind switch
                     {
-                        System.Text.Json.JsonValueKind.Null => null,
-                        System.Text.Json.JsonValueKind.String => property.Value.GetString(),
+                        JsonValueKind.Null => null,
+                        JsonValueKind.String => property.Value.GetString(),
                         _ => property.Value.GetRawText(),
                     };
             }
-            catch (System.Text.Json.JsonException)
+            catch (JsonException)
             {
                 // دادهٔ خراب: فقط چیزی نمایش داده نمی‌شود.
             }
@@ -84,7 +86,7 @@ public class HistoryModel(ISeoReportService reports, ISeoAutopilotService autopi
         {
             if (value is null)
                 return null;
-            var plain = System.Text.RegularExpressions.Regex.Replace(value, "<[^>]+>", " ", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(100)).Trim();
+            var plain = Regex.Replace(value, "<[^>]+>", " ", RegexOptions.None, TimeSpan.FromMilliseconds(100)).Trim();
             return plain.Length > 200 ? plain[..200] + "…" : plain;
         }
     }

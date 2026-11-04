@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Fratak_Shop.Core.Services.Admin;
+using Fratak_Shop.Core.Services.Seo.Autopilot;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Seo.Smart;
 using Fratak_Shop.Data.Entities.Pages;
@@ -21,9 +22,12 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Seo;
 /// </summary>
 [AdminPermission(AdminPermissions.ProductsManage, AdminPermissions.CatalogManage, AdminPermissions.BlogWrite,
     AdminPermissions.ContentManage, AdminPermissions.SeoManage)]
-public class SmartModel(ISeoEngineService engine, ISmartTextService smart, IMemoryCache cache, ILogger<SmartModel> logger) : AdminPageModel
+public class SmartModel(ISeoEngineService engine, ISmartTextService smart, ISeoLinkTargetProvider linkTargets, IMemoryCache cache, ILogger<SmartModel> logger) : AdminPageModel
 {
     public const int DraftsPerMinute = 12;
+
+    /// <summary>بررسی زنده با هر تایپ (با ۱ ثانیه مکث) صدا زده می‌شود؛ بدون جست‌وجوی اینترنتی و سبک است.</summary>
+    public const int LivePerMinute = 90;
     public const int TextsPerMinute = 60;
     public const int MaxText = 200_000;
 
@@ -164,6 +168,82 @@ public class SmartModel(ISeoEngineService engine, ISmartTextService smart, IMemo
         {
             logger.LogWarning(ex, "Smart text suggestion failed for {Purpose}", form.Purpose);
             return Fail("ساخت پیشنهاد ممکن نشد؛ دوباره امتحان کنید.");
+        }
+    }
+
+    /// <summary>
+    /// بررسی زندهٔ سئو هنگام تایپ (دور سئوی خودکار، موارد ۱ تا ۱۸ پیشنهاد سئو) – seo-live.js صدا می‌زند؛ هیچ چیز ذخیره نمی‌شود.
+    /// پاسخ JSON: { ok, score, checks[], words, keywordCount, density, titleLength, metaLength, titleSuffix, headings[], headingIssues[],
+    /// links[{phrase,url}], naturalScore, patterns[], risks[], thin, blockers[] }.
+    /// <para>blockers = مواردی که پیش از انتشار با پنجرهٔ تأیید (FratakModal) به کاربر یادآوری می‌شوند؛ انتشار را قفل نمی‌کنند.</para>
+    /// </summary>
+    public async Task<IActionResult> OnPostLiveAsync([FromForm] SmartDraftForm form)
+    {
+        if (!Enum.IsDefined(form.Kind) || form.Kind == SeoEntityKind.None)
+            return Fail("نوع صفحه نامعتبر است.");
+        if (!CanEdit(form.Kind))
+            return Fail("دسترسی سئوی این نوع صفحه را ندارید.", 403);
+        if (!Allow("live", LivePerMinute))
+            return Fail("درخواست‌ها زیاد است.", 429);
+
+        SeoEngineHost.Current = Request.Host.Host;
+        try
+        {
+            var ct = HttpContext.RequestAborted;
+            var targets = await linkTargets.GetAsync(ct);
+            var report = await engine.LiveAsync(new SeoDraftInput
+            {
+                Kind = form.Kind,
+                Id = form.Id,
+                Page = form.Page is { } page && Enum.IsDefined(page) ? page : null,
+                Name = Limit(form.Name, 300),
+                EnglishName = Limit(form.EnglishName, 300),
+                Slug = Limit(form.Slug, 300),
+                ShortText = Limit(form.ShortText, 4000),
+                BodyHtml = Limit(form.Body, MaxText),
+                CategoryId = form.CategoryId,
+                BrandId = form.BrandId,
+                WarrantyTitle = Limit(form.WarrantyTitle, 200),
+                WarrantyMonths = form.WarrantyMonths is >= 0 and <= 240 ? form.WarrantyMonths : null,
+                SeoTitle = Limit(form.SeoTitle, 300),
+                MetaDescription = Limit(form.MetaDescription, 600),
+                FocusKeyword = Limit(form.FocusKeyword, 200),
+                Research = false,
+            }, targets, ct);
+
+            return new JsonResult(new
+            {
+                ok = report.Errors.Count == 0,
+                message = report.Errors.FirstOrDefault(),
+                score = report.Score,
+                checks = report.Checks.Where(c => c.Level != SeoCheckLevel.Good)
+                    .OrderByDescending(c => c.Level == SeoCheckLevel.Bad).ThenByDescending(c => c.Weight)
+                    .Select(c => new { id = c.Id, level = c.Level.ToString().ToLowerInvariant(), message = c.Message }),
+                passed = report.Checks.Count(c => c.Level == SeoCheckLevel.Good),
+                words = report.Words,
+                keywordCount = report.KeywordCount,
+                density = report.Density,
+                titleLength = report.TitleLength,
+                metaLength = report.MetaLength,
+                titleSuffix = report.TitleSuffixLength,
+                headings = report.Headings.Take(40).Select(h => new { level = h.Level, text = h.Text }),
+                headingIssues = report.HeadingIssues,
+                links = report.Links.Select(l => new { phrase = l.Phrase, url = l.Url }),
+                naturalScore = report.NaturalScore,
+                patterns = report.Patterns.Select(p => new { phrase = p.Phrase, hint = p.Hint }),
+                risks = report.Risks.Select(r => new { message = r.Message, blocking = r.Blocking }),
+                thin = report.Thin,
+                blockers = report.Blockers,
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            return Fail("درخواست لغو شد.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Live SEO check failed for {Kind} {Id}", form.Kind, form.Id);
+            return Fail("بررسی زنده ممکن نشد.");
         }
     }
 

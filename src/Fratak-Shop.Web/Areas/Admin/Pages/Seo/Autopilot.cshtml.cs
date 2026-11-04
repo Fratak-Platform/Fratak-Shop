@@ -1,3 +1,4 @@
+using System.Globalization;
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Seo.Autopilot;
 using Fratak_Shop.Web.Infrastructure.Admin;
@@ -126,8 +127,8 @@ public class AutopilotModel(
     /// <summary>نمایش مقدار معیار سرعت. مثال: ("LCP", 2140) ← «۲٫۱ ثانیه»؛ ("CLS", 0.05) ← «0.05».</summary>
     public static string VitalValue(string metric, double value) => metric switch
     {
-        "CLS" => value.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
-        "LCP" or "FCP" when value >= 1000 => (value / 1000).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " ثانیه",
+        "CLS" => value.ToString("0.000", CultureInfo.InvariantCulture),
+        "LCP" or "FCP" when value >= 1000 => (value / 1000).ToString("0.0", CultureInfo.InvariantCulture) + " ثانیه",
         _ => Fratak_Shop.Web.Helpers.Format.Number((long)Math.Round(value)) + " میلی‌ثانیه",
     };
 }

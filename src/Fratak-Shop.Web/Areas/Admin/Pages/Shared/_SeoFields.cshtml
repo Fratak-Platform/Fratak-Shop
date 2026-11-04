@@ -15,6 +15,16 @@
   <div class="a-seo-title" data-seo-preview-title>@s.Title</div>
   <div class="a-seo-desc" data-seo-preview-desc>@s.MetaDescription</div>
 </div>
+@* دور سئوی خودکار: بررسی زنده هنگام تایپ (seo-live.js) – نمره، چک‌لیست، تراکم کلمه، تیترها، پیشنهاد لینک داخلی،
+   متن ماشینی، خطر جریمه و یادآوری پیش از انتشار. فقط وقتی فرم data-smart-context دارد نمایش داده می‌شود. *@
+<div class="a-smart-section mb-4" data-seo-live data-title="#@id-title" data-desc="#@id-desc" data-focus="#@id-focus" hidden>
+  <div class="flex items-center gap-2 mb-2">
+    <b class="text-sm">بررسی زندهٔ سئو</b>
+    <span class="a-badge a-badge-gray" data-seo-live-score>…</span>
+    <span class="a-muted text-xs" data-seo-live-status>با تایپ شما به‌روز می‌شود.</span>
+  </div>
+  <div data-seo-live-body></div>
+</div>
 <div class="a-form-grid cols-2">
   <div class="a-field span-all">
     <label class="a-label" for="@id-title">عنوان سئو (Title)</label>
