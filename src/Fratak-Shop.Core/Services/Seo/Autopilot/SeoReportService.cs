@@ -90,8 +90,11 @@ public interface ISeoReportService
     Task<SeoSignalsView> SignalsAsync(int days, CancellationToken cancellationToken = default);
 }
 
-/// <summary>فیلتر فهرست کارهای سئو. Status=null یعنی همهٔ وضعیت‌ها؛ پیش‌فرض صفحه فقط «باز»ها را نشان می‌دهد.</summary>
-public sealed record SeoTaskQuery(SeoTaskStatus? Status, SeoTaskSeverity? Severity, string? Search, int Page, int Take = 30);
+/// <summary>
+/// فیلتر فهرست کارهای سئو. Statuses خالی/null یعنی همهٔ وضعیت‌ها.
+/// مثال «حل‌شده‌ها»: <c>new SeoTaskQuery([SeoTaskStatus.Fixed, SeoTaskStatus.AutoFixed], null, null, 1)</c>.
+/// </summary>
+public sealed record SeoTaskQuery(SeoTaskStatus[]? Statuses, SeoTaskSeverity? Severity, string? Search, int Page, int Take = 30);
 
 /// <summary>یک مسیر در گزارش ربات‌ها. مثال: ("Googlebot", "/product/x", 200, 14, 14, 0, 120).</summary>
 public sealed record SeoBotPathRow(string Bot, string Path, int Status, int Hits, int Verified, int Fake, double AverageMs);
@@ -228,8 +231,8 @@ public sealed class SeoReportService(
     {
         var take = Math.Clamp(query.Take, 5, 100);
         var tasks = context.SeoTasks.AsNoTracking();
-        if (query.Status is { } status)
-            tasks = tasks.Where(t => t.Status == status);
+        if (query.Statuses is { Length: > 0 } statuses)
+            tasks = tasks.Where(t => statuses.Contains(t.Status));
         if (query.Severity is { } severity)
             tasks = tasks.Where(t => t.Severity == severity);
         if (!string.IsNullOrWhiteSpace(query.Search))

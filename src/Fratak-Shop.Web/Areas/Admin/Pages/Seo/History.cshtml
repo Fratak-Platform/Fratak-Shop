@@ -1,0 +1,112 @@
+@page "/admin/seo/history"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.HistoryModel
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Areas.Admin.Pages.Seo
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  تاریخچهٔ سئو: فهرست تغییرها (منبع، صفحه، خلاصه، قبل/بعد، زمان، انجام‌دهنده) + «برگرداندن».
+  پایین: آزمون‌های عنوان (عنوان قدیم/جدید، CTR پایه/نتیجه، وضعیت).
+*@
+@{
+    ViewData["Title"] = "تاریخچهٔ سئو";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تاریخچهٔ سئو</h2>
+    <p class="a-muted text-sm mt-1">همهٔ تغییرهای سئوی خودکار با مقدار قبل و بعد. اگر تغییری را نپسندیدید، «برگرداندن» را بزنید؛ سیستم آن فیلد را تا مدتی دوباره بازنویسی نمی‌کند.</p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/seo/autopilot">@Icons.Svg("Gauge", null, 18) داشبورد سئوی خودکار</a></div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <form method="get" class="a-filters">
+      <div>
+        <label class="a-label" for="f-q">جست‌وجو</label>
+        <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام صفحه، آدرس یا خلاصه">
+      </div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+    </form>
+  </div>
+
+  @if (Model.Revisions.Items.Count == 0)
+  {
+    <div class="a-empty">هنوز تغییری ثبت نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>صفحه</th><th>تغییر</th><th>زمان</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var revision in Model.Revisions.Items)
+          {
+            <tr>
+              <td data-label="صفحه">
+                <a class="a-link" href="@SeoEngineUi.PublicUrl(revision.Path)" target="_blank" rel="noopener">@revision.PageTitle</a>
+                <div class="a-muted text-xs"><span class="a-badge a-badge-gray">@AutopilotModel.SourceTitle(revision.Source)</span> <span class="a-ltr">@revision.Path</span></div>
+              </td>
+              <td data-label="تغییر" style="max-width:560px">
+                <div class="text-sm">@revision.Summary</div>
+                @foreach (var (field, before, after) in HistoryModel.Diff(revision.BeforeJson, revision.AfterJson))
+                {
+                  <div class="a-diff text-xs mt-1">
+                    <b>@field</b>
+                    <div class="a-diff-old">@(before ?? "(خالی)")</div>
+                    <div class="a-diff-new">@(after ?? "(خالی)")</div>
+                  </div>
+                }
+              </td>
+              <td data-label="زمان" class="text-xs nowrap">
+                <div>@AdminUi.Ago(revision.CreatedAt)</div>
+                <div class="a-muted">@(revision.ByName ?? "سئوی خودکار")</div>
+                @if (revision.RevertedAt is { } reverted) { <div class="a-badge a-badge-yellow">برگردانده شد @AdminUi.Ago(reverted)</div> }
+              </td>
+              <td data-label="">
+                @if (Model.CanManage && revision.RevertedAt is null && revision.Source != SeoRevisionSource.Rollback)
+                {
+                  <form method="post" asp-page-handler="Rollback" data-confirm="مقدارهای قبلی این صفحه برگردانده شوند؟">
+                    <input type="hidden" name="id" value="@revision.Id">
+                    <button type="submit" class="a-btn a-btn-xs a-btn-light">برگرداندن</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <partial name="_AdminPager" model="Model.Pager" />
+  }
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Sparkle", null, 18) آزمون‌های عنوان</h3></div>
+  <div class="a-card-body">
+    <p class="a-muted text-xs mb-2">برای صفحه‌های پرنمایش و کم‌کلیک، عنوان تازه چند هفته آزمایش می‌شود؛ اگر نرخ کلیک بهتر نشد، عنوان قبلی خودکار برمی‌گردد.</p>
+    @if (Model.Tests.Count == 0)
+    {
+      <div class="a-empty">هنوز آزمونی انجام نشده (به دادهٔ Search Console نیاز است).</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-compact">
+          <thead><tr><th>صفحه</th><th>عنوان قبلی ← تازه</th><th>CTR پایه ← نتیجه</th><th>وضعیت</th></tr></thead>
+          <tbody>
+            @foreach (var test in Model.Tests)
+            {
+              <tr>
+                <td class="a-ltr text-xs break-all">@test.Path</td>
+                <td class="text-xs"><div class="a-diff-old">@test.OldTitle</div><div class="a-diff-new">@test.NewTitle</div></td>
+                <td class="text-xs nowrap">@((test.BaselineCtr * 100).ToString("0.0"))٪ ← @(test.ResultCtr is { } ctr ? (ctr * 100).ToString("0.0") + "٪" : "…")</td>
+                <td><span class="a-badge @HistoryModel.TestBadge(test.Status)">@HistoryModel.TestStatus(test.Status)</span><div class="a-muted text-xs">@AdminUi.Ago(test.StartedAt)</div></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

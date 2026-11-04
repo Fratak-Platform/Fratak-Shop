@@ -97,10 +97,10 @@ public sealed class SeoCrawlService(FratakShopDbContext context, ISeoPageFetcher
                     InSitemap = sitemap.Contains(path),
                 };
                 PageAudit? audit = null;
-                if (response.Status is >= 300 and < 400 && NormalizePath(response.Location) is { } target)
+                if (response.Status is >= 300 and < 400 && NormalizePath(response.Location) is { } redirectTarget)
                 {
-                    page.Canonical = Cut(target, 500);
-                    Enqueue(target, d); // ریدایرکت عمق اضافه نمی‌کند
+                    page.Canonical = Cut(redirectTarget, 500);
+                    Enqueue(redirectTarget, d); // ریدایرکت عمق اضافه نمی‌کند
                 }
                 else if (response.Status == 200 && response.Html is not null)
                 {

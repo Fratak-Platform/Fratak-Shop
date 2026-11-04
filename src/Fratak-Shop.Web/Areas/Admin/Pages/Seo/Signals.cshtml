@@ -1,0 +1,122 @@
+@page "/admin/seo/signals"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.SignalsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Seo
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  ربات‌ها و سرعت: خلاصهٔ ربات‌ها، مسیرهای پربازدید و خطادار ربات‌ها، سرعت واقعی کاربران به تفکیک نوع صفحه و دستگاه.
+*@
+@{
+    ViewData["Title"] = "ربات‌ها و سرعت";
+    var v = Model.View;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>ربات‌ها و سرعت</h2>
+    <p class="a-muted text-sm mt-1">
+      رفتار ربات‌های گوگل و بینگ روی سایت (بدون نیاز به دسترسی سرچ کنسول) و سرعت واقعی‌ای که خریدارها تجربه می‌کنند.
+      ربات «جعلی» یعنی خودش را گوگل معرفی کرده ولی آدرسش متعلق به گوگل نیست.
+    </p>
+  </div>
+  <nav class="a-tabs" aria-label="بازه">
+    <a class="a-tab @(Model.Days == 7 ? "is-active" : "")" href="?days=7">۷ روز</a>
+    <a class="a-tab @(Model.Days == 28 ? "is-active" : "")" href="?days=28">۲۸ روز</a>
+  </nav>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Bug", null, 18) ربات‌های موتور جست‌وجو</h3></div>
+  @if (v.Bots.Count == 0)
+  {
+    <div class="a-empty">هنوز بازدید رباتی ثبت نشده (ثبت هر چند دقیقه یک بار انجام می‌شود).</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>ربات</th><th>بازدید</th><th>تأییدشده</th><th>جعلی</th><th>خطا</th><th>میانگین پاسخ</th></tr></thead>
+        <tbody>
+          @foreach (var bot in v.Bots)
+          {
+            <tr>
+              <td>@bot.Bot</td>
+              <td>@Format.Number(bot.Hits)</td>
+              <td>@Format.Number(bot.Verified)</td>
+              <td class="@(bot.Fake > 0 ? "a-down" : "")">@Format.Number(bot.Fake)</td>
+              <td class="@(bot.Errors > 0 ? "a-down" : "")">@Format.Number(bot.Errors)</td>
+              <td>@Format.Number((long)bot.AverageMs) میلی‌ثانیه</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<div class="a-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px">
+  @foreach (var (title, rows, empty) in new[] { ("پربازدیدترین مسیرها برای ربات‌ها", v.TopPaths, "داده‌ای نیست."), ("مسیرهایی که ربات‌ها خطا دیدند", v.ErrorPaths, "ربات‌ها خطایی ندیده‌اند 🎉") })
+  {
+    <div class="a-card">
+      <div class="a-card-head"><h3 class="a-card-title">@title</h3></div>
+      @if (rows.Count == 0)
+      {
+        <div class="a-empty">@empty</div>
+      }
+      else
+      {
+        <div class="a-table-wrap">
+          <table class="a-table a-table-compact">
+            <thead><tr><th>مسیر</th><th>ربات</th><th>وضعیت</th><th>بازدید</th></tr></thead>
+            <tbody>
+              @foreach (var row in rows)
+              {
+                <tr>
+                  <td class="a-ltr text-xs break-all"><a class="a-link" href="@SeoEngineUi.PublicUrl(row.Path)" target="_blank" rel="noopener">@row.Path</a></td>
+                  <td class="text-xs">@row.Bot</td>
+                  <td><span class="a-badge @(row.Status >= 500 ? "a-badge-red" : row.Status >= 400 ? "a-badge-yellow" : "a-badge-green")">@row.Status</span></td>
+                  <td>@Format.Number(row.Hits)</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gauge", null, 18) سرعت واقعی کاربران (صدک ۷۵)</h3></div>
+  <div class="a-card-body">
+    <p class="a-muted text-xs mb-2">
+      معیار گوگل: LCP (نمایش محتوای اصلی) خوب ≤ ۲٫۵ ثانیه، INP (پاسخ به کلیک) خوب ≤ ۲۰۰ میلی‌ثانیه، CLS (جابه‌جایی صفحه) خوب ≤ ۰٫۱.
+      این اعداد از مرورگر خود بازدیدکننده‌ها (بدون کوکی) جمع می‌شود.
+    </p>
+  </div>
+  @if (v.Vitals.Count == 0)
+  {
+    <div class="a-empty">هنوز داده‌ای جمع نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>نوع صفحه</th><th>دستگاه</th><th>معیار</th><th>مقدار</th><th>نمونه</th><th>وضعیت</th></tr></thead>
+        <tbody>
+          @foreach (var vital in v.Vitals)
+          {
+            var (rating, badge) = AutopilotModel.VitalRating(vital.Rating);
+            <tr>
+              <td>@SignalsModel.PageTypeTitle(vital.PageType)</td>
+              <td>@(vital.Device == "mobile" ? "موبایل" : "دسکتاپ")</td>
+              <td class="a-ltr">@vital.Metric</td>
+              <td>@AutopilotModel.VitalValue(vital.Metric, vital.P75)</td>
+              <td>@Format.Number(vital.Samples)</td>
+              <td><span class="a-badge @badge">@rating</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
