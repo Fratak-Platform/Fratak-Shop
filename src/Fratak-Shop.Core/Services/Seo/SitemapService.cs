@@ -109,7 +109,8 @@ public class SitemapService(FratakShopDbContext context, IMemoryCache cache) : I
         if (string.IsNullOrWhiteSpace(canonical))
             return false;
         var value = canonical.Trim();
-        var target = Uri.TryCreate(value, UriKind.Absolute, out var absolute) ? absolute.AbsolutePath : value.Split('?', '#')[0];
+        // فقط http(s) آدرس مطلق است؛ روی لینوکس «/product/a» هم Uri مطلق (file://) حساب می‌شود و کوئری‌اش جدا نمی‌شود.
+        var target = Uri.TryCreate(value, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https" ? absolute.AbsolutePath : value.Split('?', '#')[0];
         static string Clean(string p) => Uri.UnescapeDataString(p).TrimEnd('/').ToLowerInvariant();
         return Clean(target) != Clean(path);
     }

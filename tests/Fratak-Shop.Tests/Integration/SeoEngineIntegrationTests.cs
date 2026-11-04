@@ -155,6 +155,8 @@ public class SeoEngineIntegrationTests(SqlServerFixture db)
         var suggestionId = await GenerateAsync(productId);
         var proposal = SeoProposal.FromJson((await SuggestionAsync(suggestionId)).ProposalJson);
         Assert.False(string.IsNullOrWhiteSpace(proposal.Slug), "expected a slug proposal for a meaningless slug on a new product");
+        Assert.True(Fratak_Shop.Data.Utilities.EnglishSlug.IsEnglish(proposal.Slug), proposal.Slug); // دور سئوی خودکار: نامک فقط انگلیسی
+        Assert.DoesNotContain(oldSlug[5..], proposal.Slug!, StringComparison.OrdinalIgnoreCase); // کد هگز بی‌معنی تکرار نمی‌شود
 
         await using (var scope = db.Scope())
             Assert.Equal(EnOperationResultStatus.Success, (await Engine(scope).ApproveAsync(suggestionId, SeoFields.Slug, null, "تست")).Status);

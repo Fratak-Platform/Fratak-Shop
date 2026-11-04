@@ -71,7 +71,7 @@ public class SeoAutopilotTests
         Assert.Equal("case", EnglishSlug.Unique("case", _ => false));
         Assert.Equal("case-2", EnglishSlug.Unique("case", s => s == "case"));
         Assert.Equal("case-3", EnglishSlug.Unique("case", s => s is "case" or "case-2"));
-        var longSlug = EnglishSlug.Unique(new string('a', 50), s => s.Length == 50, maxLength: 50);
+        var longSlug = EnglishSlug.Unique(new string('a', 50), s => s == new string('a', 50), maxLength: 50);
         Assert.True(longSlug.Length <= 50);
         Assert.EndsWith("-2", longSlug, StringComparison.Ordinal);
     }

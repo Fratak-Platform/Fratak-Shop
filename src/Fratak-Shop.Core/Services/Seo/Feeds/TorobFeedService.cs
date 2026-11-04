@@ -287,7 +287,7 @@ public sealed class TorobFeedService(FratakShopDbContext context) : ITorobFeedSe
     /// <summary>نامک محصول از آدرس صفحه (مطلق یا نسبی). مثال: «https://shop.fratak.ir/product/a55?x=1» ← «a55».</summary>
     public static string? SlugFromUrl(string url)
     {
-        var path = Uri.TryCreate(url, UriKind.Absolute, out var absolute) ? absolute.AbsolutePath : url.Split('?', '#')[0];
+        var path = Uri.TryCreate(url, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https" ? absolute.AbsolutePath : url.Split('?', '#')[0];
         const string prefix = "/product/";
         if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             return null;

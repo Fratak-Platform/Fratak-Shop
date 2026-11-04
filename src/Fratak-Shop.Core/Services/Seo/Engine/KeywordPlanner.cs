@@ -462,7 +462,10 @@ public static class SlugAdvisor
     /// <summary>حداکثر ۶ واژه و ۷۵ نویسه.</summary>
     private static string Limit(string slug)
     {
-        var parts = slug.Split('-', StringSplitOptions.RemoveEmptyEntries).Take(6).ToList();
+        // تکه‌های بی‌معنی (کد هگز ۱۰+ یا عدد ۸+ رقمی، مثل «3fa2b1c4d5») در نامک پیشنهادی نمی‌آیند؛ کد مدل کوتاه (wh-1000xm5) می‌ماند.
+        var parts = slug.Split('-', StringSplitOptions.RemoveEmptyEntries)
+            .Where(p => !System.Text.RegularExpressions.Regex.IsMatch(p, "^(?:[0-9a-f]{10,}|[0-9]{8,})$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            .Take(6).ToList();
         var result = string.Join('-', parts);
         while (result.Length > SeoLimits.SlugMaxLength && parts.Count > 2)
         {

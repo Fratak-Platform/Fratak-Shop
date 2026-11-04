@@ -317,7 +317,8 @@ public sealed class SeoCrawlService(FratakShopDbContext context, ISeoPageFetcher
         if (string.IsNullOrWhiteSpace(href))
             return null;
         var value = href.Trim();
-        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
+        // مسیر «/…» مستقیم بررسی می‌شود: روی لینوکس Uri آن را file:// مطلق می‌داند.
+        if (!value.StartsWith('/') && Uri.TryCreate(value, UriKind.Absolute, out var absolute))
         {
             if (absolute.Scheme is not ("http" or "https"))
                 return null;
