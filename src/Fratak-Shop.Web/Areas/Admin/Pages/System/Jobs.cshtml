@@ -38,7 +38,7 @@
               @if (j.IsFailing && j.LastError is not null) { <div class="text-xs text-red-600 mt-1 a-ltr text-right break-all">@j.LastError</div> }
               @if (isPaused && setting?.PausedAt is { } pausedAt) { <div class="a-muted text-xs mt-1">متوقف‌شده توسط @(setting.PausedBy ?? "-") · @AdminUi.Ago(pausedAt)</div> }
             </td>
-            <td data-label="وضعیت"><span class="a-badge @statusCss">@statusText</span>@if (isPaused && j.Skips > 0) { <div class="a-muted text-xs mt-1">@Format.Number(j.Skips) نوبت رد شد</div> }</td>
+            <td data-label="وضعیت"><span class="a-badge @statusCss">@statusText</span>@if (j.WaitReason is not null) { <div class="a-muted text-xs mt-1">@j.WaitReason</div> }@if (isPaused && j.Skips > 0) { <div class="a-muted text-xs mt-1">@Format.Number(j.Skips) نوبت رد شد</div> }</td>
             <td data-label="آخرین اجرای موفق" class="text-xs nowrap">@(j.LastSucceededAt is { } s ? AdminUi.Ago(s) : "-")</td>
             <td data-label="فاصلهٔ مورد انتظار" class="text-xs">@(j.ExpectedInterval.TotalDays > 365 ? "پیوسته (صف)" : AdminUi.Duration(j.ExpectedInterval))</td>
             <td data-label="اجرا / خطا" class="num">@Format.Number(j.Runs) / <span class="@(j.Failures > 0 ? "text-red-600" : "")">@Format.Number(j.Failures)</span></td>

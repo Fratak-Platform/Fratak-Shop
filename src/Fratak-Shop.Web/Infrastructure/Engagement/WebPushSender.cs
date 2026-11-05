@@ -38,7 +38,7 @@ public sealed class WebPushDispatcher(
     public const string HttpClientName = "webpush";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    private const string JobName = "ارسال اعلان وب (Push)";
+    public const string JobName = "ارسال اعلان وب (Push)";
 
     /// <summary>
     /// نتیجهٔ آخرین تلاش ارسال (برای عیب‌یابی در صفحهٔ «اعلان‌ها» و «سیستم»).

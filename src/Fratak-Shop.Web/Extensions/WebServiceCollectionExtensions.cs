@@ -55,6 +55,21 @@ public static class WebServiceCollectionExtensions
 
         services.AddHostedService<OrderMaintenanceService>();
 
+        // دور نوزدهم (A1، A10، A13، A25، A26): مدیر منابع – نمونه‌بردار حافظه/CPU و واکنش به فشار، تاریخچهٔ منابع،
+        // «آخرین نسخهٔ سالم» صفحه‌ها روی دیسک و گرم کردن برنامه بعد از روشن شدن (Infrastructure/Ops).
+        services.AddSingleton<Infrastructure.Ops.ResourceHistory>();
+        services.AddSingleton(sp =>
+        {
+            var environment = sp.GetRequiredService<IWebHostEnvironment>();
+            var options = sp.GetService<Infrastructure.Ops.ResourceOptions>() ?? new Infrastructure.Ops.ResourceOptions();
+            var budget = sp.GetService<Infrastructure.Ops.ResourceBudget>() ?? Infrastructure.Ops.ResourceBudget.From(options);
+            return new Infrastructure.Ops.PageSnapshotStore(
+                Path.Combine(environment.ContentRootPath, "App_Data", "page-snapshots"),
+                budget.SnapshotFiles, TimeSpan.FromMinutes(10), options.PageSnapshots);
+        });
+        services.AddHostedService<Infrastructure.Ops.ResourceMonitorService>();
+        services.AddHostedService<Infrastructure.Ops.WarmupService>();
+
         // مرحلهٔ هفتم – فاز ۵: بررسی خودکار لینک تأمین‌کننده (HttpClient با محافظ SSRF + صف اجرای فوری + زمان‌بند).
         services.AddHttpClient(Infrastructure.Suppliers.SupplierHttp.ClientName, Infrastructure.Suppliers.SupplierHttp.Configure)
             .ConfigurePrimaryHttpMessageHandler(Infrastructure.Suppliers.SupplierHttp.CreateHandler);

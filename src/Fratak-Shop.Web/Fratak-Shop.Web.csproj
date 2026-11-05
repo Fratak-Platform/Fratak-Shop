@@ -7,6 +7,21 @@
     <RootNamespace>Fratak_Shop.Web</RootNamespace>
   </PropertyGroup>
 
+  <!--
+    دور نوزدهم (A4): تنظیم جمع‌آورندهٔ حافظه (GC) برای هاست اشتراکی.
+    پیش‌فرض ASP.NET Core «Server GC» است: برای هر هستهٔ CPU یک هیپ جدا ← روی هاست چندهسته‌ای حتی بدون بازدید صدها مگابایت حافظه
+    و نزدیک شدن به سقف استخر برنامه. «Workstation GC» غیرهم‌زمان + ConserveMemory کمترین حافظه را می‌گیرد (برای فروشگاه کافی است).
+    روی سرور اختصاصی قوی می‌توان با متغیر محیطی DOTNET_gcServer=1 دوباره Server GC را روشن کرد (docs/PERFORMANCE.md).
+  -->
+  <PropertyGroup>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="MailKit" Version="4.18.1" />

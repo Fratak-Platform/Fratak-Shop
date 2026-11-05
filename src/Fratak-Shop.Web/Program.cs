@@ -31,6 +31,15 @@ System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.Culture
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+var startupWatch = System.Diagnostics.Stopwatch.StartNew();
+
+// دور نوزدهم (A12): پروفایل منابع میزبان (Shop:Resources:Profile = Low/Normal/High؛ پیش‌فرض Low برای هاست اشتراکی ضعیف).
+// بودجهٔ کش صفحه، استخر اتصال/DbContext، سقف درخواست هم‌زمان و دورهٔ آرام شروع از همین می‌آید – Infrastructure/Ops/ResourceGovernor.cs
+var resourceOptions = builder.Configuration.GetSection(Fratak_Shop.Web.Infrastructure.Ops.ResourceOptions.Section)
+                          .Get<Fratak_Shop.Web.Infrastructure.Ops.ResourceOptions>() ?? new Fratak_Shop.Web.Infrastructure.Ops.ResourceOptions();
+var resourceBudget = Fratak_Shop.Web.Infrastructure.Ops.ResourceBudget.From(resourceOptions);
+builder.Services.AddSingleton(resourceOptions);
+builder.Services.AddSingleton(resourceBudget);
 
 // مرحلهٔ هفدهم: خطای یک کار پس‌زمینه هرگز کل برنامه را متوقف نکند (پیش‌فرض دات‌نت «توقف میزبان» است؛ روی IIS یعنی
 // خاموش شدن پروسه، چند بار تکرار ← توقف استخر برنامه و ۵۰۳ تا ری‌استارت دستی). خطا در «گزارش‌های سرور» و «کارهای پس‌زمینه» دیده می‌شود.
@@ -95,7 +104,8 @@ builder.Services.AddDataProtection()
 // Page cache of public pages for anonymous visitors (see PageCachePolicy).
 builder.Services.AddOutputCache(options =>
 {
-    options.SizeLimit = 256L * 1024 * 1024;
+    // دور نوزدهم (A5): سقف کش به اندازهٔ پروفایل (Low = ۴۸ مگ) تا کش خودش حافظهٔ استخر را پر نکند.
+    options.SizeLimit = resourceBudget.OutputCacheMb * 1024L * 1024;
     options.MaximumBodySize = 4L * 1024 * 1024;
     options.AddPolicy(PageCachePolicy.Name, new PageCachePolicy());
 });
@@ -163,11 +173,19 @@ var connectionString = new[] { builder.Configuration["ConnectionDefault"], build
                        ?? throw new InvalidOperationException(
                            "Connection string is not configured. Set the environment variable 'ConnectionDefault' (or ConnectionStrings__DefaultConnection); see docs/DEPLOYMENT.md.");
 
-builder.Services.AddFratakShopData(connectionString);
+// دور نوزدهم (A16): سقف استخر اتصال SQL و استخر DbContext به اندازهٔ پروفایل منابع.
+builder.Services.AddFratakShopData(
+    FratakShopBootstrapper.WithPoolLimit(connectionString, resourceBudget.SqlMaxPoolSize),
+    resourceOptions.DbContextPooling ? resourceBudget.DbContextPoolSize : 0);
+// دور نوزدهم (A20): مهلت کوتاه‌تر و قطع‌کن مدار برای همهٔ سرویس‌های بیرونی (پیش از ثبت کلاینت‌ها).
+Fratak_Shop.Web.Infrastructure.Http.CircuitBreakerSetup.AddShopHttpResilience(builder.Services);
 builder.Services.AddFratakShopCore();
 builder.Services.AddFratakShopWeb(builder.Configuration);
 
 var app = builder.Build();
+
+// دور نوزدهم (A8–A10): مدیر منابع سراسری (نوبت کارهای پس‌زمینه، دورهٔ آرام شروع، صف درخواست‌ها).
+Fratak_Shop.Web.Infrastructure.Ops.ResourceGovernor.Configure(resourceOptions, app.Lifetime.ApplicationStopping);
 
 // ── Lifecycle & crash diagnostics (مرحلهٔ هفدهم) ──────────────────────
 // تاریخچهٔ روشن/خاموش شدن و خطای مرگبار در App_Data/logs/lifecycle.json (صفحهٔ سلامت: «روشن/خاموش شدن برنامه»).
@@ -230,6 +248,8 @@ app.UseResponseCompression();
 // دور سئوی خودکار: آدرس قدیمی JPG/PNG تصویری که WebP شده ← ۳۰۱ به نسخهٔ WebP (پیش از فایل‌های ایستا).
 app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Media.LegacyImageRedirectMiddleware>();
 
+// دور نوزدهم (A17): فایل‌های پیش‌فشرده (.br/.gz کنار فایل اصلی، ساخته‌شده در انتشار) بدون فشرده‌سازی دوباره در هر درخواست.
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.PrecompressedStaticFilesMiddleware>();
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = context =>
@@ -259,6 +279,11 @@ app.UseStaticFiles(new StaticFileOptions
     },
 });
 
+// دور نوزدهم (A18/A19): صف ورودی (سقف درخواست هم‌زمان مهمان + نسخهٔ ذخیره‌شده هنگام شلوغی) و آهسته کردن ربات‌های پرمصرف.
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.LoadSheddingMiddleware>();
+// دور نوزدهم (A14): شمارش پرس‌وجوهای هر درخواست (آمار «سنگین‌ترین صفحه‌ها» و سرآیند آزمون‌ها).
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.QueryMetricsMiddleware>();
+
 // دور سئوی خودکار: ثبت بازدید ربات‌های موتور جست‌وجو (فقط صفحه‌ها؛ برای مرورگر معمولی بی‌هزینه).
 app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Seo.BotLogMiddleware>();
 app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Admin.ActivityTrackingMiddleware>();
@@ -274,6 +299,8 @@ app.UseAuthorization();
 app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.MaintenanceMiddleware>();
 app.UseMiddleware<SeoRedirectMiddleware>();
 app.UseReferralCapture();
+// دور نوزدهم (A13): «آخرین نسخهٔ سالم» صفحه‌های عمومی مهمان روی دیسک؛ هنگام خطای ساخت صفحه به‌جای صفحهٔ خطا نشان داده می‌شود.
+app.UseMiddleware<Fratak_Shop.Web.Infrastructure.Ops.PageSnapshotMiddleware>();
 app.UseOutputCache();
 
 app.MapRazorPages();
@@ -380,7 +407,9 @@ PageCachePolicy.WireEviction(app.Services.GetRequiredService<IOutputCacheStore>(
 // بلکه صفحهٔ «در حال آماده‌سازی» نشان می‌دهد و در پس‌زمینه تلاش می‌کند تا خودکار باز شود (Infrastructure/Ops/StartupGate.cs).
 // همهٔ مرحله‌ها تکرارپذیرند (مهاجرت‌ها و دادهٔ پیش‌فرض فقط کار انجام‌نشده را انجام می‌دهند).
 var shopOptions = app.Services.GetRequiredService<IOptions<ShopOptions>>().Value;
-if (!await Fratak_Shop.Web.Infrastructure.Ops.StartupGate.TryRunAsync(InitializeDatabaseAsync, app.Logger, TimeSpan.FromSeconds(40), app.Lifetime.ApplicationStopping))
+if (await Fratak_Shop.Web.Infrastructure.Ops.StartupGate.TryRunAsync(InitializeDatabaseAsync, app.Logger, TimeSpan.FromSeconds(40), app.Lifetime.ApplicationStopping))
+    Fratak_Shop.Web.Infrastructure.Ops.AppLifecycle.MarkReady(startupWatch.Elapsed); // دور نوزدهم (A3): مدت آماده شدن در «منابع سرور»
+else
     Fratak_Shop.Web.Infrastructure.Ops.StartupGate.RetryInBackground(InitializeDatabaseAsync, app.Logger, app.Lifetime.ApplicationStopping);
 
 app.Run();
@@ -390,7 +419,10 @@ async Task InitializeDatabaseAsync()
     // ── Database: migrations, location dictionary, default data (only on a brand-new database) ────
     // Shop:SeedDefaultData = true → دادهٔ پیش‌فرض سیستم فقط بار اولی که پایگاه داده خالی است ساخته می‌شود؛
     // اجراهای بعدی هرگز چیزی را دوباره نمی‌سازند (Data/Seeders/DefaultDataSeeder.cs).
-    var defaultData = await app.Services.InitializeFratakShopDataAsync(shopOptions.SeedDefaultData);
+    // دور نوزدهم (A23): فهرست شهرها و راهنمای پنل فقط وقتی نسخهٔ برنامه یا پایگاه داده عوض شده باشد دوباره بررسی می‌شوند
+    // (فایل نشانهٔ App_Data/startup-sync.txt)؛ ری‌استارت‌های معمولی سبک‌ترند.
+    var defaultData = await app.Services.InitializeFratakShopDataAsync(shopOptions.SeedDefaultData,
+        Path.Combine(app.Environment.ContentRootPath, "App_Data", "startup-sync.txt"));
     switch (defaultData)
     {
         case Fratak_Shop.Data.Seeders.DefaultDataOutcome.Seeded:

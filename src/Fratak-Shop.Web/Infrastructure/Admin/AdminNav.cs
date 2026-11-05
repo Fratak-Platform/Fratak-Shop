@@ -114,6 +114,7 @@ public static class AdminNav
             // مرحلهٔ هفتم – فاز ۹: ابزارهای فنی.
             new AdminNavItem("پشتیبان‌گیری", "/admin/system/backups", "Database", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("کارهای پس‌زمینه", "/admin/system/jobs", "ArrowsClockwise", [P.MonitoringView, P.SystemManage]),
+            new AdminNavItem("منابع سرور", "/admin/system/resources", "Gauge", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("فایروال", "/admin/system/firewall", "Prohibit", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("هشدارها", "/admin/system/alerts", "BellRinging", [P.MonitoringView, P.SystemManage]),
             // دور هشتم: تنظیم و آزمون سرویس پیامک (SMS.ir).

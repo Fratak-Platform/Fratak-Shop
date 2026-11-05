@@ -141,6 +141,9 @@ public sealed class OnnxCaptchaSolver : IPostCaptchaSolver, IDisposable
                 IntraOpNumThreads = 1,
                 InterOpNumThreads = 1,
                 GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+                // دور نوزدهم (A7): «آرنای حافظه» OnnxRuntime حافظهٔ گرفته‌شده را هرگز پس نمی‌دهد؛ برای مدل ۱ مگابایتی لازم نیست.
+                EnableCpuMemArena = false,
+                EnableMemoryPattern = false,
             };
             return new InferenceSession(ModelPath, options);
         }

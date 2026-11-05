@@ -9,7 +9,10 @@ namespace Fratak_Shop.Web.Infrastructure.Ops;
 /// <param name="ProcessId">شمارهٔ پروسه (برای تشخیص «هنوز زنده است؟» هنگام بازیافت هم‌پوشان IIS).</param>
 /// <param name="Version">نسخهٔ برنامه.</param>
 /// <param name="Crash">اگر برنامه با استثنای مدیریت‌نشده از کار افتاد، نوع و پیام کوتاهش؛ وگرنه null.</param>
-public sealed record LifecycleRun(DateTimeOffset StartedAt, DateTimeOffset? StoppedAt, int ProcessId, string Version, string? Crash);
+/// <param name="Reason">دور نوزدهم (A2): دلیل خاموش شدن اگر خود برنامه تصمیم گرفته باشد. مثال: «ری‌استارت کنترل‌شده: حافظه ۹۷۰ از ۱۰۲۴ مگابایت».</param>
+/// <param name="StartupMs">دور نوزدهم (A3): چند میلی‌ثانیه طول کشید تا برنامه آمادهٔ پاسخ شود (آماده‌سازی پایگاه داده و داده‌های پیش‌فرض).</param>
+public sealed record LifecycleRun(DateTimeOffset StartedAt, DateTimeOffset? StoppedAt, int ProcessId, string Version, string? Crash,
+    string? Reason = null, double? StartupMs = null);
 
 /// <summary>
 /// تاریخچهٔ روشن/خاموش شدن برنامه (مرحلهٔ هفدهم) در فایل <c>App_Data/logs/lifecycle.json</c> (۱۰۰ اجرای آخر).
@@ -50,6 +53,29 @@ public static class AppLifecycle
         }
     }
 
+    private static string? _stopReason;
+
+    /// <summary>
+    /// دور نوزدهم (A2): ثبت دلیل خاموش شدنی که خود برنامه آغاز می‌کند (پیش از StopApplication).
+    /// مثال: <c>AppLifecycle.SetStopReason("ری‌استارت کنترل‌شده: …")</c> در ResourceMonitorService.
+    /// </summary>
+    public static void SetStopReason(string reason) => _stopReason = reason.Length <= 300 ? reason : reason[..300];
+
+    /// <summary>
+    /// دور نوزدهم (A3): ثبت مدت آماده شدن برنامه. مثال: <c>AppLifecycle.MarkReady(stopwatch.Elapsed)</c> در Program.cs.
+    /// </summary>
+    public static void MarkReady(TimeSpan elapsed)
+    {
+        lock (Gate)
+        {
+            if (_current is not { } current)
+                return;
+            var ready = current with { StartupMs = Math.Round(elapsed.TotalMilliseconds) };
+            _current = ready;
+            Update(runs => Replace(runs, ready));
+        }
+    }
+
     /// <summary>ثبت خاموش شدن عادی (ApplicationStopping).</summary>
     public static void Stopping()
     {
@@ -57,7 +83,7 @@ public static class AppLifecycle
         {
             if (_current is not { } current)
                 return;
-            var stopped = current with { StoppedAt = DateTimeOffset.UtcNow };
+            var stopped = current with { StoppedAt = DateTimeOffset.UtcNow, Reason = _stopReason ?? current.Reason };
             _current = stopped;
             Update(runs => Replace(runs, stopped));
         }

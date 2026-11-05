@@ -46,6 +46,15 @@ public static class RequestMonitor
 
         /// <summary>۴۰۳ مجوز (Authorization) در API یا صفحه.</summary>
         Forbidden = 8,
+
+        /// <summary>دور نوزدهم (A19): سرور خیلی شلوغ بود و درخواست در صف جا نشد (۵۰۳ کوتاه با Retry-After).</summary>
+        Overloaded = 9,
+
+        /// <summary>دور نوزدهم (A13): به‌جای خطا یا صفحهٔ «شلوغ/آماده‌سازی»، آخرین نسخهٔ سالم صفحه (۲۰۰) نشان داده شد.</summary>
+        Snapshot = 10,
+
+        /// <summary>دور نوزدهم (A18): ربات پرمصرف سئو/هوش مصنوعی آهسته شد (۴۲۹).</summary>
+        CrawlerThrottled = 11,
     }
 
     /// <summary>یک رویداد ردشده.</summary>
@@ -76,6 +85,9 @@ public static class RequestMonitor
         Kind.LoginRedirect => "ارجاع به صفحهٔ ورود",
         Kind.Antiforgery => "توکن فرم نامعتبر (۴۰۰)",
         Kind.Forbidden => "عدم مجوز (۴۰۳)",
+        Kind.Overloaded => "شلوغی بیش از ظرفیت (۵۰۳)",
+        Kind.Snapshot => "نمایش نسخهٔ ذخیره‌شدهٔ صفحه (۲۰۰)",
+        Kind.CrawlerThrottled => "ربات پرمصرف آهسته شد (۴۲۹)",
         _ => kind.ToString(),
     };
 

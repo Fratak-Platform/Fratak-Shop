@@ -165,6 +165,13 @@ public sealed class StartupGateMiddleware(RequestDelegate next)
             return;
         }
 
+        // دور نوزدهم (A13): تا آماده شدن برنامه، صفحهٔ عمومی مهمان از «آخرین نسخهٔ سالم» نشان داده می‌شود (۲۰۰، نه ۵۰۳).
+        if (http.RequestServices.GetService<PageSnapshotStore>() is { } snapshots && await snapshots.TryServeAsync(http, "starting"))
+        {
+            RequestMonitor.Record(http, RequestMonitor.Kind.Snapshot, "در حال آماده‌سازی", StatusCodes.Status200OK);
+            return;
+        }
+
         RequestMonitor.Record(http, RequestMonitor.Kind.Starting, StartupGate.LastError);
         http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         http.Response.Headers.RetryAfter = "30";

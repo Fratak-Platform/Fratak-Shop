@@ -27,7 +27,7 @@ namespace Fratak_Shop.Web.Infrastructure.Realtime;
 /// </summary>
 public sealed class StaffAlertDispatcher(IServiceScopeFactory scopeFactory, ILogger<StaffAlertDispatcher> logger) : BackgroundService
 {
-    private const string JobName = "اعلان زندهٔ کارکنان";
+    public const string JobName = "اعلان زندهٔ کارکنان";
 
     /// <summary>صف محدود: در شرایط سیل درخواست، قدیمی‌ترین‌ها حذف می‌شوند تا حافظه پر نشود.</summary>
     private readonly Channel<PendingAlert> _queue = Channel.CreateBounded<PendingAlert>(new BoundedChannelOptions(1000)

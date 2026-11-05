@@ -39,6 +39,58 @@ public static class WebPEncoder
     /// </summary>
     public static SanitizedImage? ToWebP(byte[] data, ILogger? logger = null, bool tryLossless = false)
     {
+        // دور نوزدهم (A6): پردازش تصویر حافظهٔ زیادی می‌گیرد (عکس ۱۲ مگاپیکسلی باز شده ≈ ۴۸ مگابایت)؛ روی هاست ضعیف فقط یکی‌یکی.
+        if (!Gate.Wait(TimeSpan.FromMinutes(2)))
+        {
+            logger?.LogWarning("WebP conversion skipped: the image gate stayed busy");
+            return null;
+        }
+        try
+        {
+            return ConvertCore(data, logger, tryLossless);
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
+    private static SemaphoreSlim? _gate;
+
+    /// <summary>
+    /// دور نوزدهم (A6): «یک تصویر در هر لحظه» (پروفایل قوی: دو تا). همهٔ تبدیل‌های WebP از این دروازه می‌گذرند تا چند آپلود یا کار
+    /// شبانهٔ هم‌زمان حافظه را از سقف استخر رد نکنند.
+    /// </summary>
+    public static SemaphoreSlim Gate => _gate ??= new SemaphoreSlim(Ops.ResourceGovernor.Current.Budget.Profile == Ops.ResourceProfile.High ? 2 : 1);
+
+    /// <summary>
+    /// دور نوزدهم (A6): باز کردن کوچک‌شدهٔ عکس‌های خیلی بزرگ. JPEG را می‌توان مستقیم با ۱/۲، ۱/۴ یا ۱/۸ اندازه باز کرد (بدون ساختن
+    /// نسخهٔ کامل در حافظه). اگر نسخهٔ کوچک‌شده هنوز دست‌کم <see cref="MaxSide"/> باشد همان استفاده می‌شود؛ وگرنه باز کردن کامل.
+    /// مثال: عکس ۶۰۰۰×۴۰۰۰ ← باز شدن در ۳۰۰۰×۲۰۰۰ (یک‌چهارم حافظه) و بعد کوچک شدن دقیق به ۲۵۶۰.
+    /// </summary>
+    private static SKBitmap? DecodeScaled(SKCodec codec)
+    {
+        var info = codec.Info;
+        var longest = Math.Max(info.Width, info.Height);
+        if (longest > MaxSide)
+        {
+            var dims = codec.GetScaledDimensions(MaxSide / (float)longest);
+            if (dims.Width > 0 && dims.Width < info.Width && Math.Max(dims.Width, dims.Height) >= MaxSide)
+            {
+                var scaledInfo = new SKImageInfo(dims.Width, dims.Height, SKImageInfo.PlatformColorType,
+                    info.AlphaType == SKAlphaType.Opaque ? SKAlphaType.Opaque : SKAlphaType.Premul);
+                var bitmap = new SKBitmap(scaledInfo);
+                var result = codec.GetPixels(scaledInfo, bitmap.GetPixels());
+                if (result is SKCodecResult.Success or SKCodecResult.IncompleteInput)
+                    return bitmap;
+                bitmap.Dispose();
+            }
+        }
+        return SKBitmap.Decode(codec);
+    }
+
+    private static SanitizedImage? ConvertCore(byte[] data, ILogger? logger, bool tryLossless)
+    {
         try
         {
             using var stream = new SKMemoryStream(data);
@@ -50,7 +102,7 @@ public static class WebPEncoder
                 return null;
             var lossless = tryLossless || codec.EncodedFormat == SKEncodedImageFormat.Png;
 
-            using var decoded = SKBitmap.Decode(codec);
+            using var decoded = DecodeScaled(codec);
             if (decoded is null)
                 return null;
             using var oriented = MediaEndpoints.Orient(decoded, codec.EncodedOrigin);

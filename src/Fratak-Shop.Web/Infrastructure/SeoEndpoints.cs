@@ -51,7 +51,19 @@ public static class SeoEndpoints
         app.MapGet("/robots.txt", async (HttpContext http, IStoreSettingService settingService, CancellationToken ct) =>
         {
             var settings = await settingService.GetAsync(ct);
-            var builder = new StringBuilder().AppendLine("User-agent: *");
+            var builder = new StringBuilder();
+
+            // دور نوزدهم (A18): ربات‌های پرمصرف سئو/داده‌کاوی (Ahrefs، Semrush، …) با Crawl-delay آهسته‌تر می‌خزند. گروه جدا باید
+            // همهٔ Disallowها را هم تکرار کند (رباتی که گروه خودش را پیدا کند گروه * را نمی‌خواند). گوگل و بینگ در این گروه نیستند.
+            // LoadSheddingMiddleware همین ربات‌ها را در عمل هم محدود می‌کند (برای ربات‌هایی که Crawl-delay را رعایت نمی‌کنند).
+            foreach (var bot in Fratak_Shop.Web.Infrastructure.Ops.HeavyCrawlers.RobotsNames)
+                builder.Append("User-agent: ").AppendLine(bot);
+            builder.AppendLine("Crawl-delay: 10");
+            foreach (var prefix in Fratak_Shop.Web.Services.PrivatePaths.Prefixes)
+                builder.Append("Disallow: ").AppendLine(prefix);
+            builder.AppendLine("Allow: /").AppendLine();
+
+            builder.AppendLine("User-agent: *");
             foreach (var prefix in Fratak_Shop.Web.Services.PrivatePaths.Prefixes)
                 builder.Append("Disallow: ").AppendLine(prefix);
             builder.AppendLine("Allow: /");

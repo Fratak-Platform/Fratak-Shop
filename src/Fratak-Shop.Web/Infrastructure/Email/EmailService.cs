@@ -291,7 +291,7 @@ public sealed class EmailDelivery(IServiceScopeFactory scopes, IWebHostEnvironme
 /// </summary>
 public sealed class EmailDispatcher(EmailQueue queue, EmailDelivery delivery, ILogger<EmailDispatcher> logger) : BackgroundService
 {
-    private const string JobName = "ارسال ایمیل";
+    public const string JobName = "ارسال ایمیل";
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(30);
     private readonly Queue<DateTimeOffset> _recent = new();
 

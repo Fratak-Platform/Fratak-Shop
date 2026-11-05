@@ -183,6 +183,53 @@ jobs:
           } > body.md
           gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@body.md > /dev/null
 
+  # دور نوزدهم (A29): آزمون بار روی هاست ضعیف شبیه‌سازی‌شده – برنامهٔ منتشرشده با سقف ۵۱۲ مگابایت حافظه و نیم هستهٔ CPU،
+  # ۱۰۰۰ کاربر هم‌زمان k6؛ شرط قبولی: صفر پاسخ ۵xx، صفر خطای اتصال، کانتینر زنده (tools/load/run-load-test.sh).
+  load:
+    name: Load test (512 MB, 0.5 CPU, 1000 users)
+    needs: build
+    if: needs.build.outputs.ok == 'true' && needs.build.outputs.migration != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Load_Test_Passw0rd!"
+        ports:
+          - 1433:1433
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish web app
+        run: dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out -p:FratakPublishTarget=linux
+
+      - name: Pull images
+        run: |
+          docker pull -q mcr.microsoft.com/dotnet/aspnet:10.0
+          docker pull -q grafana/k6
+
+      - name: Run load test
+        run: bash tools/load/run-load-test.sh out "Server=localhost,1433;Database=FratakShopLoad;User Id=sa;Password=Load_Test_Passw0rd!;TrustServerCertificate=True;MultipleActiveResultSets=true"
+
+      - name: Report load test results
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### Load test (512 MB, 0.5 CPU, 1000 users)"
+            echo '```'; tail -c 12000 k6.txt 2>/dev/null; echo '```'
+            echo "#### App log (errors)"
+            echo '```'; grep -E -A12 "fail:|crit:|Unhandled|Exception|OutOfMemory" app-load.log 2>/dev/null | head -c 15000; echo '```'
+          } > body.md
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@body.md > /dev/null
+
   tests:
     name: Tests (unit + SQL Server integration)
     needs: build

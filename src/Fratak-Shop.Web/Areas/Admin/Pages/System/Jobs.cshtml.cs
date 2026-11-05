@@ -32,6 +32,9 @@ public class JobsModel(IBackgroundJobControl control, IMonitoringService monitor
             return ("متوقف", "a-badge-yellow");
         if (job.IsFailing)
             return ("ناموفق", "a-badge-red");
+        // دور نوزدهم: کار منتظر نوبت مدیر منابع (دورهٔ آرام شروع، فشار منابع یا کار سنگین دیگر).
+        if (job.WaitReason is not null)
+            return ("در انتظار نوبت", "a-badge-blue");
         if (job.LastStartedAt is null)
             return ("هنوز اجرا نشده", "a-badge-gray");
         if (job.LastSucceededAt is { } ok && DateTimeOffset.UtcNow - ok > job.ExpectedInterval * 3)

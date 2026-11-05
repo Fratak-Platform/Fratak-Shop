@@ -37,6 +37,17 @@ public sealed class JobState
     /// (موتور سئو، ابزارهای سئو، رهگیری پست، بررسی تأمین‌کننده و …) این را با JobMonitor.SetRunNow پر می‌کنند.
     /// </summary>
     public Func<string, bool>? RunNow { get; set; }
+
+    // ── دور نوزدهم: مدیر منابع (Infrastructure/Ops/ResourceGovernor.cs) ──
+
+    /// <summary>وزن کار (حیاتی/سبک/سنگین) – از JobWeights.Of.</summary>
+    public Ops.JobWeight Weight => Ops.JobWeights.Of(Name);
+
+    /// <summary>از کی منتظر نوبت است (دورهٔ آرام شروع، فشار منابع یا کار سنگین دیگر)؛ null یعنی منتظر نیست.</summary>
+    public DateTimeOffset? WaitingSince { get; set; }
+
+    /// <summary>دلیل انتظار به فارسی. مثال: «دورهٔ آرام بعد از روشن شدن».</summary>
+    public string? WaitReason { get; set; }
 }
 
 /// <summary>
@@ -105,6 +116,18 @@ public static class JobMonitor
         if (ShouldSkip(name))
             return default!;
         var state = States.GetOrAdd(name, n => new JobState { Name = n });
+
+        // دور نوزدهم: نوبت گرفتن از مدیر منابع. کار حیاتی بی‌درنگ؛ کار سنگین بعد از دورهٔ آرام شروع، یکی‌یکی و وقتی فشار پایین است.
+        // وضعیت «در انتظار» در صفحه‌های «کارهای پس‌زمینه» و «منابع سرور» دیده می‌شود.
+        using var lease = await Ops.ResourceGovernor.Current.EnterAsync(name, Ops.JobWeights.Of(name), reason =>
+        {
+            lock (state)
+            {
+                state.WaitReason = reason;
+                state.WaitingSince = reason is null ? null : state.WaitingSince ?? DateTimeOffset.UtcNow;
+            }
+        });
+
         var started = DateTimeOffset.UtcNow;
         lock (state)
         {
