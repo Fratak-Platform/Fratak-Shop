@@ -44,24 +44,6 @@ for path in / /product/xiaomi-redmi-watch-3-active /product/sony-playstation-5 /
 done
 sleep 3
 
-# فقط عیب‌یابی (GCDUMP=1): ترکیب هیپ GC پس از گرم شدن (بزرگ‌ترین نوع‌ها) ← gcdump-idle.txt
-if [ "${GCDUMP:-0}" = "1" ]; then
-  dotnet tool install --tool-path /tmp/gcdump-tool dotnet-gcdump > /dev/null 2>&1 || true
-  gcdump_dll=$(find /tmp/gcdump-tool -name dotnet-gcdump.dll 2>/dev/null | head -1)
-  if [ -n "$gcdump_dll" ]; then
-    docker cp "$(dirname "$gcdump_dll")" fratak-load:/gcdump > /dev/null 2>&1 || true
-    if docker exec -e DOTNET_ROLL_FORWARD=Major fratak-load dotnet /gcdump/dotnet-gcdump.dll collect -p 1 -o /tmp/idle.gcdump > gcdump-collect.log 2>&1; then
-      docker cp fratak-load:/tmp/idle.gcdump idle.gcdump > /dev/null 2>&1
-      DOTNET_ROLL_FORWARD=Major dotnet "$gcdump_dll" report idle.gcdump 2>&1 | head -n 60 > gcdump-idle.txt || true
-    else
-      cp gcdump-collect.log gcdump-idle.txt
-    fi
-    docker exec fratak-load rm -f /tmp/idle.gcdump > /dev/null 2>&1 || true
-    echo "== GC heap (idle, largest types)"; cat gcdump-idle.txt || true
-    sleep 3
-  fi
-fi
-
 # نمونه‌برداری منابع کانتینر هر ۳ ثانیه (حافظهٔ واقعی، تعداد رشته‌ها، CPU) ← resources.log؛ اگر برنامه مرد، آخرین سطرها علت را نشان می‌دهند.
 (
   while docker inspect -f '{{.State.Running}}' fratak-load 2>/dev/null | grep -q true; do

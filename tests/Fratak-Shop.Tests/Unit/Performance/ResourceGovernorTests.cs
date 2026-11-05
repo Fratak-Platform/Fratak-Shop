@@ -813,11 +813,11 @@ public class ResourceGovernorTests
         Assert.Equal(expected, MemoryLimits.ParseLimit(text));
 
     [Fact]
-    public void Gc_heap_gets_sixty_percent_of_the_process_limit_but_never_too_little()
+    public void Gc_heap_gets_half_of_the_process_limit_but_never_too_little()
     {
-        Assert.Equal((long)(512 * 0.6 * 1024 * 1024), MemoryLimits.HeapLimitFor(512));
-        Assert.Equal((long)(1024 * 0.6 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
-        Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(128));
+        Assert.Equal(256L * 1024 * 1024, MemoryLimits.HeapLimitFor(512));
+        Assert.Equal(512L * 1024 * 1024, MemoryLimits.HeapLimitFor(1024));
+        Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(200));
         Assert.Null(MemoryLimits.HeapLimitFor(0));
     }
 

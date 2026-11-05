@@ -18,7 +18,7 @@
 | شروع سبک | فهرست شهرها و راهنمای پنل فقط وقتی نسخه یا پایگاه داده عوض شده باشد (`App_Data/startup-sync.txt`)؛ گرم کردن کش‌ها بلافاصله بعد از آماده شدن | `FratakShopBootstrapper.cs`، `Ops/WarmupService.cs` |
 | فایل‌های ایستا | CSS/JS با Brotli/Gzip فقط یک بار فشرده و در حافظه نگه داشته می‌شوند (سقف ۱۶ مگ)؛ با `?v=` کش یک‌ساله | `Ops/PrecompressedStatic.cs` |
 | تصویر | تبدیل WebP یکی‌یکی (صف)، باز کردن کوچک‌شدهٔ عکس‌های خیلی بزرگ؛ در پنل، عکس پیش از آپلود در خود مرورگر WebP و کوچک می‌شود | `Media/WebPEncoder.cs`، `wwwroot/assets/js/upload-webp.js` |
-| حافظهٔ GC | Workstation GC غیرهم‌زمان + `ConserveMemory=5`؛ سقف هیپ = ۶۰٪ سقف برنامه؛ یک پاک‌سازی کامل یک دقیقه بعد از شروع | `Fratak-Shop.Web.csproj`، `MemoryLimits` در `ResourceGovernor.cs` |
+| حافظهٔ GC | Workstation GC غیرهم‌زمان + `ConserveMemory=5`؛ سقف هیپ = ۵۰٪ سقف برنامه؛ یک پاک‌سازی کامل یک دقیقه بعد از شروع | `Fratak-Shop.Web.csproj`، `MemoryLimits` در `ResourceGovernor.cs` |
 | اتصال زنده | روی پروفایل Low فقط کارکنان اتصال SignalR دارند (هر اتصال یک درخواست باز است) | `Pages/Shared/_Layout.cshtml` |
 | گزارش | پنل ← فنی ← **منابع سرور**: فشار، حافظه، صف، کارهای منتظر، قطع‌کن‌ها، سنگین‌ترین صفحه‌ها، تاریخچهٔ روشن/خاموش شدن با دلیل | `Areas/Admin/Pages/System/Resources.cshtml` |
 
@@ -58,7 +58,7 @@
 | `Shop__Resources__MemoryLimitMb` | سقف حافظهٔ استخر به مگابایت (اگر هاست گفته، مثلاً `900`)؛ ۰ = خودکار |
 | `Shop__Resources__MaxConcurrentRequests` | سقف دستی درخواست هم‌زمان مهمان؛ ۰ = از پروفایل |
 | `Shop__Resources__StartupQuietMinutes` | دورهٔ آرام بعد از روشن شدن؛ ۱- = از پروفایل |
-| `Shop__Resources__LimitGcHeap` | سقف هیپ GC = ۶۰٪ سقف حافظهٔ برنامه (پیش‌فرض `true`)؛ جا برای حافظهٔ غیرمدیریت‌شده می‌ماند و پروسه به سقف نمی‌خورد |
+| `Shop__Resources__LimitGcHeap` | سقف هیپ GC = ۵۰٪ سقف حافظهٔ برنامه (پیش‌فرض `true`)؛ جا برای حافظهٔ غیرمدیریت‌شده می‌ماند و پروسه به سقف نمی‌خورد |
 | `Shop__Resources__SelfRestart` | ری‌استارت کنترل‌شده در خط قرمز حافظه (`true`/`false`) |
 | `Shop__Diagnostics__QueryHeader` | فقط عیب‌یابی: سرآیند `X-Db-Queries` (روی سایت واقعی خاموش بماند) |
 

@@ -186,7 +186,7 @@ var app = builder.Build();
 
 // دور نوزدهم (A8–A10): مدیر منابع سراسری (نوبت کارهای پس‌زمینه، دورهٔ آرام شروع، صف درخواست‌ها).
 Fratak_Shop.Web.Infrastructure.Ops.ResourceGovernor.Configure(resourceOptions, app.Lifetime.ApplicationStopping);
-// دور نوزدهم (A4): خواندن سقف واقعی حافظه؛ سقف هیپ GC (۶۰٪) را ResourceMonitorService بعد از شروع اعمال می‌کند (MemoryLimits).
+// دور نوزدهم (A4): خواندن سقف واقعی حافظه؛ سقف هیپ GC (۵۰٪) را ResourceMonitorService بعد از شروع اعمال می‌کند (MemoryLimits).
 Fratak_Shop.Web.Infrastructure.Ops.MemoryLimits.Detect();
 
 // ── Lifecycle & crash diagnostics (مرحلهٔ هفدهم) ──────────────────────
