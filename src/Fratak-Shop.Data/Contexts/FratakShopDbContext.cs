@@ -311,11 +311,9 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
-        base.OnConfiguring(optionsBuilder);
-    }
+    // دور نوزدهم (A16): رفتار پیش‌فرض «بدون رهگیری تغییرات» (NoTracking) حالا در ثبت DbContext تنظیم می‌شود
+    // (FratakShopBootstrapper.AddFratakShopData)، نه در OnConfiguring؛ EF Core با «استخر DbContext» تغییر گزینه‌ها در
+    // OnConfiguring را نمی‌پذیرد. هر کد تازه‌ای که DbContext می‌سازد باید UseQueryTrackingBehavior(NoTracking) را خودش بدهد.
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

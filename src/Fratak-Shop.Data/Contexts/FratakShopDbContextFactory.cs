@@ -23,6 +23,7 @@ public class FratakShopDbContextFactory : IDesignTimeDbContextFactory<FratakShop
 
         var options = new DbContextOptionsBuilder<FratakShopDbContext>()
             .UseSqlServer(connectionString)
+            .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
             .Options;
 
         return new FratakShopDbContext(options);
