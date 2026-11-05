@@ -190,7 +190,9 @@ public sealed class ResourceMonitorService(
             history.Note($"فشرده‌سازی کش حافظه ({percent:P0})");
         }
 
-        if (level == PressureLevel.Critical && sample.MemoryRatio >= 0.92 && now - _lastCollect > TimeSpan.FromMinutes(2))
+        // حافظه بالای ۸۲٪ سقف: جمع‌آوری کامل و پس دادن حافظهٔ آزاد GC به سیستم (حداکثر هر ۲ دقیقه). GC خودش حافظهٔ آزادشده را
+        // مدتی نگه می‌دارد؛ روی هاست کم‌حافظه همین «نگه‌داشته» می‌تواند پروسه را به سقف برساند.
+        if (sample.MemoryRatio >= 0.82 && now - _lastCollect > TimeSpan.FromMinutes(2))
         {
             GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
             _lastCollect = now;

@@ -719,7 +719,7 @@ public class ResourceGovernorTests
                 ctx.Response.StatusCode = 200;
             }, store) { LastResortWait = TimeSpan.FromSeconds(30) };
 
-            var running = Enumerable.Range(0, 4).Select(i => middleware.HandleAsync(Http("/slow" + i), governor)).ToList();
+            var running = Enumerable.Range(0, 4).Select(i => middleware.HandleAsync(Http("/slow/" + i), governor)).ToList();
             await Task.Delay(50);
 
             // صف عادی (۴ ثانیه) تمام می‌شود، ولی چون نسخهٔ ذخیره‌شده نیست صبر ادامه دارد؛ با آزاد شدن جا صفحه ساخته می‌شود.
@@ -819,6 +819,14 @@ public class ResourceGovernorTests
         Assert.Equal((long)(1024 * 0.6 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
         Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(128));
         Assert.Null(MemoryLimits.HeapLimitFor(0));
+    }
+
+    [Fact]
+    public void Linux_memory_counts_anonymous_and_shared_but_not_file_pages()
+    {
+        Assert.Equal(3L * 1024, ProcessMeter.SumAnonymous(["VmRSS: 900 kB", "RssAnon: 2 kB", "RssFile: 500 kB", "RssShmem: 1 kB"]));
+        Assert.Equal(2L * 1024, ProcessMeter.SumAnonymous(["RssAnon: 2 kB"]));
+        Assert.Null(ProcessMeter.SumAnonymous(["VmRSS: 900 kB"]));
     }
 
     [Theory]

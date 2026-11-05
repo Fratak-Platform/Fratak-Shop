@@ -16,7 +16,8 @@
   <PropertyGroup>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
-    <TieredPGO>true</TieredPGO>
+    <!-- PGO پویا هر متد پرکاربرد را سه بار کامپایل می‌کند (عادی، نمونه‌بردار، بهینه) ← حافظهٔ کد و CPU بیشتر؛ روی هاست ضعیف خاموش. -->
+    <TieredPGO>false</TieredPGO>
   </PropertyGroup>
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />

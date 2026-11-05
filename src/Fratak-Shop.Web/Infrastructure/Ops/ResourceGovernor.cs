@@ -567,21 +567,34 @@ public sealed class ProcessMeter
     }
 
     /// <summary>
-    /// حافظهٔ ناشناس پروسه در لینوکس (سطر RssAnon در /proc/self/status، به بایت). مثال: «RssAnon: 204800 kB» → 209715200.
-    /// اگر خوانده نشد null (آنگاه WorkingSet به کار می‌رود).
+    /// حافظهٔ پس‌نگرفتنی پروسه در لینوکس = RssAnon + RssShmem از /proc/self/status (بایت).
+    /// مثال: «RssAnon: 204800 kB» و «RssShmem: 102400 kB» → ۳۰۰ مگ. اگر خوانده نشد null (آنگاه WorkingSet به کار می‌رود).
     /// </summary>
     public static long? LinuxAnonymousBytes()
     {
         try
         {
-            foreach (var line in File.ReadLines("/proc/self/status"))
-                if (line.StartsWith("RssAnon:", StringComparison.Ordinal))
-                    return ParseKb(line);
+            return SumAnonymous(File.ReadLines("/proc/self/status"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
         }
         return null;
+    }
+
+    /// <summary>جمع سطرهای RssAnon و RssShmem؛ اگر RssAnon نبود null. مثال: ["RssAnon: 2 kB","RssShmem: 1 kB"] → 3072.</summary>
+    public static long? SumAnonymous(IEnumerable<string> statusLines)
+    {
+        long? anon = null;
+        long shmem = 0;
+        foreach (var line in statusLines)
+        {
+            if (line.StartsWith("RssAnon:", StringComparison.Ordinal))
+                anon = ParseKb(line);
+            else if (line.StartsWith("RssShmem:", StringComparison.Ordinal))
+                shmem = ParseKb(line) ?? 0;
+        }
+        return anon is { } value ? value + shmem : null;
     }
 
     /// <summary>مثال: <c>ParseKb("RssAnon:\t  2048 kB")</c> → 2097152؛ متن نامعتبر → null.</summary>
@@ -605,8 +618,9 @@ public sealed class ProcessMeter
         _lastCpu = cpu;
         _lastAt = now;
 
-        // ویندوز/IIS سقف را با Private Bytes می‌سنجد؛ لینوکس با حافظهٔ ناشناس (RssAnon) – RSS کامل صفحه‌های نگاشت‌شدهٔ
-        // فایل‌های DLL را هم می‌شمارد که سیستم هر وقت لازم شد پس می‌گیرد و جزو سقف واقعی نیست.
+        // ویندوز/IIS سقف را با Private Bytes می‌سنجد؛ لینوکس با حافظهٔ ناشناس + اشتراکی (RssAnon + RssShmem؛ کد JIT‌شده با
+        // W^X در حافظهٔ اشتراکی است و پس گرفته نمی‌شود). RSS کامل صفحه‌های نگاشت‌شدهٔ DLLها را هم می‌شمارد که سیستم هر وقت لازم
+        // شد پس می‌گیرد و جزو سقف واقعی نیست.
         var memoryBytes = OperatingSystem.IsWindows() ? _process.PrivateMemorySize64 : LinuxAnonymousBytes() ?? _process.WorkingSet64;
         var gc = GC.GetGCMemoryInfo();
         return new ResourceSample(
