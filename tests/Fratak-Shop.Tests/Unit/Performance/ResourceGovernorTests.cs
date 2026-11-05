@@ -842,6 +842,17 @@ public class ResourceGovernorTests
         Assert.Equal(expected, ProcessMeter.ParseKb(line));
 
     [Fact]
+    public void A_gc_heap_close_to_its_cap_counts_as_critical_memory()
+    {
+        const long cap = 282L * 1024 * 1024;
+        // نمونه: حافظهٔ پروسه ۴۰۰ از ۱۰۰۰ (عادی)؛ هیپ = نصف حافظه (طبق Sample) = ۲۰۰ مگ.
+        Assert.False(LoadSheddingMiddleware.MemoryIsCritical(Sample(400, 1000), cap));
+        Assert.True(LoadSheddingMiddleware.MemoryIsCritical(Sample(500, 1000), cap)); // هیپ ۲۵۰ ≥ ۸۵٪ × ۲۸۲
+        Assert.False(LoadSheddingMiddleware.MemoryIsCritical(Sample(500, 1000), null)); // بدون سقف هیپ
+        Assert.True(LoadSheddingMiddleware.MemoryIsCritical(Sample(950, 1000), null));  // حافظهٔ پروسه ۹۵٪
+    }
+
+    [Fact]
     public async Task When_memory_is_critical_pages_with_a_snapshot_are_not_rebuilt()
     {
         var dir = TempDir();

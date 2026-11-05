@@ -70,6 +70,14 @@ peak_mem=$(cat /sys/fs/cgroup/system.slice/docker-$(docker inspect -f '{{.Id}}' 
 echo "::notice::Load test: container running=$running, OOMKilled=$oom, peak memory bytes=$peak_mem, k6 exit=$k6_status"
 docker logs fratak-load > app-load.log 2>&1 || true
 
+# خلاصه به‌صورت annotation (در API گیت‌هاب هم خواندنی است، حتی وقتی گزارش کامل در دسترس نیست).
+summary=$(grep -E "server_errors\.|connection_errors\.|snapshot_responses|http_reqs\." k6.txt | tr -s ' .' ' ' | tr '\n' ';')
+errors5xx=$(grep -o "5xx [0-9]* [^ ]*" k6.txt | sort | uniq -c | sort -rn | head -n 8 | tr -s ' ' | tr '\n' ';')
+exceptions=$(grep -oE "System\.[A-Za-z.]*Exception" app-load.log | sort | uniq -c | sort -rn | head -n 5 | tr -s ' ' | tr '\n' ';')
+pressure=$(grep -E "Resources: level" app-load.log | tail -n 2 | tr -s ' ' | tr '\n' ';')
+echo "::notice title=k6 summary::$summary 5xx: ${errors5xx:-none} exceptions: ${exceptions:-none}"
+echo "::notice title=pressure::${pressure:-n/a}"
+
 if [ "$running" != "true" ]; then echo "::error::the app died during the load test (OOMKilled=$oom)"; exit 1; fi
 if [ "$k6_status" != "0" ]; then echo "::error::load test thresholds failed (5xx or connection errors)"; exit 1; fi
 echo "Load test passed: zero 5xx with 512 MB / 0.5 CPU."

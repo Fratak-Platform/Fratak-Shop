@@ -225,10 +225,20 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
     }
 
     /// <summary>
-    /// حافظه در خط قرمز است؟ مثال: آخرین نمونه ۳۶۰ از ۳۸۴ مگ (۹۴٪) و سطح فشار «بحرانی» → true؛ صف پر ولی حافظه ۵۰٪ → false.
+    /// حافظه در خط قرمز است؟ دو حالت:
+    /// <list type="bullet">
+    /// <item>حافظهٔ پروسه ۹۲٪ سقف یا بیشتر. مثال: ۴۸۰ از ۵۱۲ مگ → true؛ صف پر ولی حافظه ۵۰٪ → false.</item>
+    /// <item>هیپ GC به ۸۵٪ سقف هیپ (<see cref="MemoryLimits.AppliedHeapLimitBytes"/>) رسیده؛ ساختن صفحهٔ تازه ممکن است
+    /// OutOfMemoryException (خطای ۵۰۰) بدهد. مثال: هیپ ۲۵۰ از سقف ۲۸۲ مگ → true.</item>
+    /// </list>
     /// </summary>
     public static bool MemoryIsCritical(ResourceGovernor governor) =>
-        governor.Pressure == PressureLevel.Critical && governor.LastSample.MemoryRatio >= 0.92;
+        MemoryIsCritical(governor.LastSample, MemoryLimits.AppliedHeapLimitBytes);
+
+    /// <summary>نسخهٔ خالص و آزمون‌پذیر. مثال: <c>MemoryIsCritical(sample(heap: 250), 282 مگ)</c> → true.</summary>
+    public static bool MemoryIsCritical(ResourceSample sample, long? heapLimitBytes) =>
+        sample.MemoryRatio >= 0.92
+        || (heapLimitBytes is { } cap && cap > 0 && sample.GcHeapMb * 1024 * 1024 >= cap * 0.85);
 
     private async Task RejectAsync(HttpContext http)
     {
