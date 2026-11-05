@@ -559,6 +559,34 @@ public sealed class ProcessMeter
         _lastAt = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>
+    /// حافظهٔ ناشناس پروسه در لینوکس (سطر RssAnon در /proc/self/status، به بایت). مثال: «RssAnon: 204800 kB» → 209715200.
+    /// اگر خوانده نشد null (آنگاه WorkingSet به کار می‌رود).
+    /// </summary>
+    public static long? LinuxAnonymousBytes()
+    {
+        try
+        {
+            foreach (var line in File.ReadLines("/proc/self/status"))
+                if (line.StartsWith("RssAnon:", StringComparison.Ordinal))
+                    return ParseKb(line);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+        return null;
+    }
+
+    /// <summary>مثال: <c>ParseKb("RssAnon:\t  2048 kB")</c> → 2097152؛ متن نامعتبر → null.</summary>
+    public static long? ParseKb(string line)
+    {
+        var colon = line.IndexOf(':');
+        if (colon < 0)
+            return null;
+        var digits = new string(line[(colon + 1)..].Where(char.IsAsciiDigit).ToArray());
+        return long.TryParse(digits, out var kb) ? kb * 1024 : null;
+    }
+
     /// <summary>نمونهٔ تازه از وضعیت پروسه و ThreadPool.</summary>
     public ResourceSample Measure(ResourceGovernor governor)
     {
@@ -570,8 +598,9 @@ public sealed class ProcessMeter
         _lastCpu = cpu;
         _lastAt = now;
 
-        // ویندوز/IIS سقف را با Private Bytes می‌سنجد؛ لینوکس با RSS.
-        var memoryBytes = OperatingSystem.IsWindows() ? _process.PrivateMemorySize64 : _process.WorkingSet64;
+        // ویندوز/IIS سقف را با Private Bytes می‌سنجد؛ لینوکس با حافظهٔ ناشناس (RssAnon) – RSS کامل صفحه‌های نگاشت‌شدهٔ
+        // فایل‌های DLL را هم می‌شمارد که سیستم هر وقت لازم شد پس می‌گیرد و جزو سقف واقعی نیست.
+        var memoryBytes = OperatingSystem.IsWindows() ? _process.PrivateMemorySize64 : LinuxAnonymousBytes() ?? _process.WorkingSet64;
         var gc = GC.GetGCMemoryInfo();
         return new ResourceSample(
             now,

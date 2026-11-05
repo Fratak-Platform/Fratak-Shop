@@ -20,6 +20,7 @@ docker run -d --name fratak-load --network host \
   -e ASPNETCORE_ENVIRONMENT=Development \
   -e ASPNETCORE_URLS="$BASE" \
   -e DOTNET_gcServer=0 \
+  -e Shop__Diagnostics__ResourceLog=true \
   -e Logging__LogLevel__Default=Warning \
   -e Logging__LogLevel__Fratak_Shop=Information \
   mcr.microsoft.com/dotnet/aspnet:10.0 dotnet Fratak-Shop.Web.dll > /dev/null

@@ -764,6 +764,14 @@ public class ResourceGovernorTests
         }
     }
 
+    [Theory]
+    [InlineData("RssAnon:\t  2048 kB", 2048L * 1024)]
+    [InlineData("RssAnon: 0 kB", 0L)]
+    [InlineData("RssAnon:", null)]
+    [InlineData("garbage", null)]
+    public void Linux_anonymous_memory_lines_are_parsed_safely(string line, long? expected) =>
+        Assert.Equal(expected, ProcessMeter.ParseKb(line));
+
     [Fact]
     public async Task When_memory_is_critical_pages_with_a_snapshot_are_not_rebuilt()
     {

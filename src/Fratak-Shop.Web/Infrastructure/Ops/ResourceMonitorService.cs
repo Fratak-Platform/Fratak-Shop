@@ -107,14 +107,22 @@ public sealed class ResourceMonitorService(
     ResourceHistory history,
     IHostApplicationLifetime lifetime,
     IWebHostEnvironment environment,
+    IConfiguration configuration,
     ILogger<ResourceMonitorService> logger) : BackgroundService
 {
     public static readonly TimeSpan Interval = TimeSpan.FromSeconds(5);
+
+    /// <summary>چند نمونه (۵ ثانیه‌ای) بعد از آماده شدن، پاک‌سازی یک‌بارهٔ حافظه انجام شود (۱۲ = یک دقیقه).</summary>
+    public const int StartupCollectTicks = 12;
+
+    private readonly bool _diagnosticLog = configuration.GetValue<bool>("Shop:Diagnostics:ResourceLog");
 
     private DateTimeOffset _lastCompact = DateTimeOffset.MinValue;
     private DateTimeOffset _lastCollect = DateTimeOffset.MinValue;
     private DateTimeOffset? _redSince;
     private PressureLevel _lastLevel;
+    private int _readyTicks;
+    private DateTimeOffset _lastDiagnostic = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -153,6 +161,25 @@ public sealed class ResourceMonitorService(
             if (level >= PressureLevel.High || _lastLevel >= PressureLevel.High)
                 history.Note($"سطح فشار: {Title(_lastLevel)} ← {Title(level)} (حافظه {sample.MemoryMb:0} از {sample.LimitMb:0} مگابایت، درخواست هم‌زمان {sample.ActiveRequests})");
             _lastLevel = level;
+        }
+
+        // یک بار، حدود یک دقیقه بعد از آماده شدن (بعد از مهاجرت، داده‌های اولیه و گرم کردن): جمع‌آوری کامل و پس دادن حافظهٔ
+        // آزادشده به سیستم. زباله‌های شروع (مدل EF، فهرست شهرها، …) وگرنه تا مدت‌ها حافظهٔ استخر را اشغال نگه می‌دارند.
+        if (_readyTicks <= StartupCollectTicks && StartupGate.IsReady && ++_readyTicks == StartupCollectTicks)
+        {
+            GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+            history.Note("پاک‌سازی حافظهٔ بعد از شروع برنامه");
+        }
+
+        // فقط عیب‌یابی (Shop:Diagnostics:ResourceLog، مثلاً در آزمون بار): هر ۱۵ ثانیه یک سطر با جزئیات حافظه در گزارش.
+        if (_diagnosticLog && now - _lastDiagnostic >= TimeSpan.FromSeconds(15))
+        {
+            _lastDiagnostic = now;
+            var gc = GC.GetGCMemoryInfo();
+            logger.LogInformation(
+                "Resources: level={Level} memory={Memory:0}MB limit={Limit:0}MB heap={Heap:0}MB committed={Committed:0}MB fragmented={Fragmented:0}MB gen2={Gen2} threads={Threads} pending={Pending} active={Active} queued={Queued}",
+                level, sample.MemoryMb, sample.LimitMb, gc.HeapSizeBytes / 1048576d, gc.TotalCommittedBytes / 1048576d,
+                gc.FragmentedBytes / 1048576d, GC.CollectionCount(2), sample.Threads, sample.PendingWorkItems, sample.ActiveRequests, sample.QueuedRequests);
         }
 
         if (level >= PressureLevel.High && now - _lastCompact > TimeSpan.FromMinutes(1) && memoryCache is MemoryCache cache)
