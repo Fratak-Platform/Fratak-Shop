@@ -52,8 +52,12 @@ export default function () {
   const response = http.get(BASE + path, { tags: { page: path.split('?')[0] }, timeout: '60s' });
   if (response.status === 0)
     connectionErrors.add(1, { page: path });
-  else if (response.status >= 500)
+  else if (response.status >= 500) {
     serverErrors.add(1, { page: path, status: String(response.status) });
+    // چند نمونه برای عیب‌یابی (نه همه، تا خروجی شلوغ نشود).
+    if (__VU % 50 === 0)
+      console.error(`5xx ${response.status} ${path} retry-after=${response.headers['Retry-After'] || '-'} ${response.timings.duration.toFixed(0)}ms`);
+  }
   if (response.headers['X-Fratak-Snapshot'])
     snapshots.add(1);
   check(response, { 'no 5xx': (r) => r.status > 0 && r.status < 500 });

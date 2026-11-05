@@ -96,6 +96,12 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
         <body><div><h1>فروشگاه کمی شلوغ است</h1><p>درخواست شما در صف است و این صفحه تا چند ثانیهٔ دیگر خودکار دوباره باز می‌شود.</p></div></body></html>
         """);
 
+    /// <summary>
+    /// انتظار آخر برای صفحه‌ای که نسخهٔ ذخیره‌شده ندارد (پیش‌فرض ۲۰ ثانیه). مثال: صف پر است و «/search?q=…» نسخهٔ ذخیره‌شده
+    /// ندارد → به‌جای ۵۰۳ فوری تا ۲۰ ثانیهٔ دیگر برای یک جای خالی صبر می‌کند (درخواست منتظر تقریباً حافظه‌ای نمی‌گیرد).
+    /// </summary>
+    public TimeSpan LastResortWait { get; set; } = TimeSpan.FromSeconds(20);
+
     public Task InvokeAsync(HttpContext http) => HandleAsync(http, ResourceGovernor.Current);
 
     /// <summary>پردازش یک درخواست با مدیر منابع مشخص (آزمون‌ها مدیر مستقل خودشان را می‌دهند).</summary>
@@ -171,6 +177,31 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
                 }
             }
             governor.DecrementQueued();
+
+            if (!acquired)
+            {
+                // نسخهٔ ذخیره‌شده هست → همان (۲۰۰، فوری).
+                if (await snapshots.TryServeAsync(http, "busy"))
+                {
+                    RequestMonitor.Record(http, RequestMonitor.Kind.Snapshot, "شلوغی بیش از ظرفیت", StatusCodes.Status200OK);
+                    return;
+                }
+
+                // نسخهٔ ذخیره‌شده نیست → آخرین فرصت: کمی بیشتر صبر برای جای خالی، به‌جای ۵۰۳.
+                governor.IncrementQueued();
+                try
+                {
+                    acquired = await slots.WaitAsync(LastResortWait, http.RequestAborted);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                finally
+                {
+                    governor.DecrementQueued();
+                }
+            }
 
             if (acquired)
             {

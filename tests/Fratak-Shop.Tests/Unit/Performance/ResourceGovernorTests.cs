@@ -675,7 +675,7 @@ public class ResourceGovernorTests
             var governor = new ResourceGovernor(new ResourceOptions { MaxConcurrentRequests = 4, StartupQuietMinutes = 0 }, DateTimeOffset.UtcNow, default);
             var store = new PageSnapshotStore(dir, 100, TimeSpan.FromMinutes(10));
             var release = new TaskCompletionSource();
-            var middleware = new LoadSheddingMiddleware(async _ => await release.Task, store);
+            var middleware = new LoadSheddingMiddleware(async _ => await release.Task, store) { LastResortWait = TimeSpan.FromMilliseconds(500) };
 
             // ۴ درخواست ظرفیت را پر می‌کنند
             var running = Enumerable.Range(0, 4).Select(i => middleware.HandleAsync(Http("/p" + i), governor)).ToList();
@@ -695,6 +695,45 @@ public class ResourceGovernorTests
             await Task.WhenAll(running);
             Assert.Equal(0, governor.ActiveRequests);
             Assert.Equal(0, governor.QueuedRequests);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task A_page_without_a_snapshot_waits_a_little_longer_instead_of_getting_503()
+    {
+        var dir = TempDir();
+        try
+        {
+            var governor = new ResourceGovernor(new ResourceOptions { MaxConcurrentRequests = 4, StartupQuietMinutes = 0 }, DateTimeOffset.UtcNow, default);
+            var store = new PageSnapshotStore(dir, 100, TimeSpan.FromMinutes(10));
+            var release = new TaskCompletionSource();
+            var middleware = new LoadSheddingMiddleware(async ctx =>
+            {
+                if (ctx.Request.Path.StartsWithSegments("/slow"))
+                    await release.Task;
+                ctx.Response.StatusCode = 200;
+            }, store) { LastResortWait = TimeSpan.FromSeconds(30) };
+
+            var running = Enumerable.Range(0, 4).Select(i => middleware.HandleAsync(Http("/slow" + i), governor)).ToList();
+            await Task.Delay(50);
+
+            // صف عادی (۴ ثانیه) تمام می‌شود، ولی چون نسخهٔ ذخیره‌شده نیست صبر ادامه دارد؛ با آزاد شدن جا صفحه ساخته می‌شود.
+            var patient = Http("/search", "?q=x");
+            var waiting = middleware.HandleAsync(patient, governor);
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            Assert.False(waiting.IsCompleted);
+            release.SetResult();
+            await waiting;
+            await Task.WhenAll(running);
+
+            Assert.Equal(200, patient.Response.StatusCode);
+            Assert.Equal(0, governor.QueuedRequests);
+            Assert.Equal(0, governor.ActiveRequests);
         }
         finally
         {

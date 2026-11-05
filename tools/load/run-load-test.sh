@@ -47,7 +47,7 @@ sleep 3
 # نمونه‌برداری منابع کانتینر هر ۳ ثانیه (حافظهٔ واقعی، تعداد رشته‌ها، CPU) ← resources.log؛ اگر برنامه مرد، آخرین سطرها علت را نشان می‌دهند.
 (
   while docker inspect -f '{{.State.Running}}' fratak-load 2>/dev/null | grep -q true; do
-    status=$(docker exec fratak-load sh -c 'grep -E "^(VmRSS|VmHWM|Threads):" /proc/1/status | tr -s " \t" " " | tr "\n" " "' 2>/dev/null)
+    status=$(docker exec fratak-load sh -c 'grep -E "^(RssAnon|RssFile|RssShmem|Threads):" /proc/1/status | tr -s " \t" " " | tr "\n" " "; grep -E "^(anon|file|shmem|kernel|sock|file_mapped|file_dirty) " /sys/fs/cgroup/memory.stat 2>/dev/null | awk "{printf \"%s=%dM \", \$1, \$2/1048576}"' 2>/dev/null)
     stats=$(docker stats --no-stream --format '{{.MemUsage}} cpu={{.CPUPerc}}' fratak-load 2>/dev/null)
     echo "$(date +%H:%M:%S) $stats $status"
     sleep 3
