@@ -133,6 +133,14 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
                 return;
             }
 
+            // حافظه در خط قرمز (۹۲٪ سقف یا بیشتر): ساختن صفحهٔ تازه حافظه می‌خواهد؛ اگر نسخهٔ ذخیره‌شدهٔ همین صفحه هست همان
+            // داده می‌شود (۲۰۰) تا برنامه به سقف حافظه نخورد و کشته نشود. صفحهٔ بدون نسخهٔ ذخیره‌شده عادی ساخته می‌شود.
+            if (MemoryIsCritical(governor) && await snapshots.TryServeAsync(http, "memory"))
+            {
+                RequestMonitor.Record(http, RequestMonitor.Kind.Snapshot, "حافظهٔ سرور در خط قرمز", StatusCodes.Status200OK);
+                return;
+            }
+
             var slots = governor.RequestSlots;
             if (slots.Wait(0))
             {
@@ -184,6 +192,12 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
             governor.DecrementActive();
         }
     }
+
+    /// <summary>
+    /// حافظه در خط قرمز است؟ مثال: آخرین نمونه ۳۶۰ از ۳۸۴ مگ (۹۴٪) و سطح فشار «بحرانی» → true؛ صف پر ولی حافظه ۵۰٪ → false.
+    /// </summary>
+    public static bool MemoryIsCritical(ResourceGovernor governor) =>
+        governor.Pressure == PressureLevel.Critical && governor.LastSample.MemoryRatio >= 0.92;
 
     private async Task RejectAsync(HttpContext http)
     {

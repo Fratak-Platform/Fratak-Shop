@@ -43,11 +43,25 @@ for path in / /product/xiaomi-redmi-watch-3-active /product/sony-playstation-5 /
 done
 sleep 3
 
+# نمونه‌برداری منابع کانتینر هر ۳ ثانیه (حافظهٔ واقعی، تعداد رشته‌ها، CPU) ← resources.log؛ اگر برنامه مرد، آخرین سطرها علت را نشان می‌دهند.
+(
+  while docker inspect -f '{{.State.Running}}' fratak-load 2>/dev/null | grep -q true; do
+    status=$(docker exec fratak-load sh -c 'grep -E "^(VmRSS|VmHWM|Threads):" /proc/1/status | tr -s " \t" " " | tr "\n" " "' 2>/dev/null)
+    stats=$(docker stats --no-stream --format '{{.MemUsage}} cpu={{.CPUPerc}}' fratak-load 2>/dev/null)
+    echo "$(date +%H:%M:%S) $stats $status"
+    sleep 3
+  done
+) > resources.log 2>&1 &
+sampler=$!
+echo "Baseline after warm-up: $(docker stats --no-stream --format '{{.MemUsage}}' fratak-load)"
+
 set +e
 docker run --rm --network host -v "$HERE:/scripts" -e BASE="$BASE" -e PEAK="${PEAK:-1000}" \
   grafana/k6 run /scripts/storefront.js 2>&1 | tee k6.txt
 k6_status=${PIPESTATUS[0]}
 set -e
+kill "$sampler" > /dev/null 2>&1 || true
+echo "== Resource samples (every 3 s; last 40)"; tail -n 40 resources.log || true
 
 running=$(docker inspect -f '{{.State.Running}}' fratak-load 2>/dev/null || echo false)
 oom=$(docker inspect -f '{{.State.OOMKilled}}' fratak-load 2>/dev/null || echo unknown)

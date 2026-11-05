@@ -765,6 +765,52 @@ public class ResourceGovernorTests
     }
 
     [Fact]
+    public async Task When_memory_is_critical_pages_with_a_snapshot_are_not_rebuilt()
+    {
+        var dir = TempDir();
+        try
+        {
+            var governor = new ResourceGovernor(new ResourceOptions { StartupQuietMinutes = 0 }, DateTimeOffset.UtcNow, default);
+            governor.Update(Sample(950, 1000));
+            Assert.True(LoadSheddingMiddleware.MemoryIsCritical(governor));
+
+            var store = new PageSnapshotStore(dir, 100, TimeSpan.FromMinutes(10));
+            await store.SaveAsync(PageSnapshotStore.Key("/blog", null), "<html>بلاگ</html>"u8.ToArray());
+            var built = 0;
+            var middleware = new LoadSheddingMiddleware(ctx =>
+            {
+                Interlocked.Increment(ref built);
+                ctx.Response.StatusCode = 200;
+                return Task.CompletedTask;
+            }, store);
+
+            var cached = Http("/blog");
+            await middleware.HandleAsync(cached, governor);
+            Assert.Equal(200, cached.Response.StatusCode);
+            Assert.Equal("memory", cached.Response.Headers[PageSnapshotStore.Header].ToString());
+            Assert.Equal(0, built);
+
+            // صفحه‌ای که نسخهٔ ذخیره‌شده ندارد باز هم ساخته می‌شود (نه ۵۰۳).
+            var fresh = Http("/faq");
+            await middleware.HandleAsync(fresh, governor);
+            Assert.Equal(200, fresh.Response.StatusCode);
+            Assert.Equal(1, built);
+
+            // حافظهٔ عادی ← صفحه طبق معمول ساخته می‌شود.
+            governor.Update(Sample(300, 1000));
+            Assert.False(LoadSheddingMiddleware.MemoryIsCritical(governor));
+            var normal = Http("/blog");
+            await middleware.HandleAsync(normal, governor);
+            Assert.Equal(2, built);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public async Task Purchases_logins_and_signed_in_users_are_never_queued()
     {
         var governor = new ResourceGovernor(new ResourceOptions { MaxConcurrentRequests = 4, StartupQuietMinutes = 0 }, DateTimeOffset.UtcNow, default);

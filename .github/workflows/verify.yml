@@ -224,7 +224,11 @@ jobs:
         run: |
           {
             echo "### Load test (512 MB, 0.5 CPU, 1000 users)"
-            echo '```'; tail -c 12000 k6.txt 2>/dev/null; echo '```'
+            echo '```'; grep -v "level=warning" k6.txt 2>/dev/null | tail -c 9000; echo '```'
+            echo "#### Resource samples (every 3 s)"
+            echo '```'; { head -n 5 resources.log; echo ...; tail -n 60 resources.log; } 2>/dev/null; echo '```'
+            echo "#### App log (resource events)"
+            echo '```'; grep -iE "resource|pressure|restart|snapshot|shed" app-load.log 2>/dev/null | tail -n 40; echo '```'
             echo "#### App log (errors)"
             echo '```'; grep -E -A12 "fail:|crit:|Unhandled|Exception|OutOfMemory" app-load.log 2>/dev/null | head -c 15000; echo '```'
           } > body.md
