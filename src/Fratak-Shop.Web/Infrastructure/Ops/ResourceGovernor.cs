@@ -105,6 +105,12 @@ public sealed class ResourceOptions
 
     /// <summary>استخر DbContext (A16). پیش‌فرض روشن؛ فقط برای عیب‌یابی خاموش کنید.</summary>
     public bool DbContextPooling { get; set; } = true;
+
+    /// <summary>
+    /// سقف هیپ GC = ۶۰٪ سقف حافظهٔ برنامه (A4، <see cref="MemoryLimits"/>). پیش‌فرض روشن: GC پیش از رسیدن به سقف استخر/کانتینر
+    /// جمع‌آوری می‌کند و جا برای حافظهٔ غیرمدیریت‌شده می‌ماند. پروفایل High بدون سقف دستی اثری ندارد.
+    /// </summary>
+    public bool LimitGcHeap { get; set; } = true;
 }
 
 /// <summary>
@@ -142,7 +148,8 @@ public sealed record ResourceBudget(
     {
         ResourceProfile.High => new(profile, 0, 256, 256, 512, TimeSpan.FromSeconds(5), 2, TimeSpan.FromMinutes(2), 128, 200, true, 5000),
         ResourceProfile.Normal => new(profile, 2048, 128, 96, 192, TimeSpan.FromSeconds(5), 1, TimeSpan.FromMinutes(5), 64, 100, true, 3000),
-        _ => new(ResourceProfile.Low, 1024, 48, 32, 64, TimeSpan.FromSeconds(4), 1, TimeSpan.FromMinutes(10), 32, 40, false, 1500),
+        // Low: ۱۶ صفحهٔ هم‌زمان کافی است (روی نیم هستهٔ CPU بیشتر فقط حافظه می‌خورد و سریع‌تر نمی‌شود) + صف ۴۸ تایی.
+        _ => new(ResourceProfile.Low, 1024, 48, 16, 48, TimeSpan.FromSeconds(4), 1, TimeSpan.FromMinutes(10), 32, 40, false, 1500),
     };
 
     /// <summary>
@@ -605,12 +612,95 @@ public sealed class ProcessMeter
         return new ResourceSample(
             now,
             memoryBytes / 1024d / 1024d,
-            governor.EffectiveMemoryLimitMb(gc.TotalAvailableMemoryBytes),
+            governor.EffectiveMemoryLimitMb(MemoryLimits.SystemAvailableBytes ?? gc.TotalAvailableMemoryBytes),
             GC.GetTotalMemory(false) / 1024d / 1024d,
             Math.Clamp(cpuRatio, 0, 1),
             ThreadPool.PendingWorkItemCount,
             governor.ActiveRequests,
             governor.QueuedRequests,
             ThreadPool.ThreadCount);
+    }
+}
+
+/// <summary>
+/// سقف واقعی حافظه و تنظیم سقف هیپ GC (دور نوزدهم، A4).
+/// <para>
+/// مشکل: GC به‌طور پیش‌فرض تا ۷۵٪ حافظهٔ کانتینر/سیستم را برای هیپ خودش مجاز می‌داند. ولی برنامه حافظهٔ دیگری هم دارد (کد نگاشت‌شدهٔ
+/// DLLها، ICU، بافرهای شبکه، SqlClient)؛ روی هاست ۵۱۲ مگی این جمع از سقف می‌گذرد و سیستم‌عامل پروسه را می‌کشد (۵۰۳).
+/// راه‌حل: هنگام شروع، سقف هیپ = ۶۰٪ سقف برنامه (کمینهٔ سقف کانتینر/سیستم، سقف پروفایل یا مقدار دستی) با GC.RefreshMemoryLimit.
+/// </para>
+/// <para>مثال: کانتینر ۵۱۲ مگ + Low → سقف برنامه ۵۱۲ → هیپ ۳۰۷ مگ. IIS روی سرور ۸ گیگ + Low → سقف ۱۰۲۴ → هیپ ۶۱۴ مگ.</para>
+/// <para>استفاده: Program.cs بلافاصله بعد از ResourceGovernor.Configure؛ ProcessMeter سقف مؤثر را از SystemAvailableBytes می‌خواند.</para>
+/// </summary>
+public static class MemoryLimits
+{
+    /// <summary>سهم هیپ GC از سقف برنامه.</summary>
+    public const double HeapShare = 0.6;
+
+    /// <summary>کمترین سقف هیپ (کمتر از این برنامه حتی بالا نمی‌آید).</summary>
+    public const long MinHeapBytes = 160L * 1024 * 1024;
+
+    /// <summary>حافظهٔ در دسترس سیستم/کانتینر پیش از تنظیم سقف هیپ (بایت)؛ null = هنوز خوانده نشده.</summary>
+    public static long? SystemAvailableBytes { get; private set; }
+
+    /// <summary>سقف هیپی که اعمال شد (بایت) یا null (صفحهٔ منابع).</summary>
+    public static long? AppliedHeapLimitBytes { get; private set; }
+
+    /// <summary>
+    /// سقف حافظهٔ cgroup لینوکس (کانتینر/هاست با محدودیت)، یا null. مثال: محتوای memory.max = «536870912» → 536870912؛ «max» → null.
+    /// </summary>
+    public static long? ContainerLimitBytes()
+    {
+        if (!OperatingSystem.IsLinux())
+            return null;
+        foreach (var file in new[] { "/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes" })
+        {
+            try
+            {
+                if (File.Exists(file) && ParseLimit(File.ReadAllText(file)) is { } limit)
+                    return limit;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+        return null;
+    }
+
+    /// <summary>متن فایل سقف cgroup → بایت. مثال: «536870912\n» → 536870912؛ «max» یا عدد نجومی (بدون سقف) → null.</summary>
+    public static long? ParseLimit(string? text) =>
+        long.TryParse(text?.Trim(), out var value) && value > 0 && value < (1L << 50) ? value : null;
+
+    /// <summary>
+    /// سقف هیپ پیشنهادی (بایت) یا null. مثال: <c>HeapLimitFor(512)</c> → ۳۰۷ مگ؛ <c>HeapLimitFor(0)</c> → null (بدون سقف).
+    /// </summary>
+    public static long? HeapLimitFor(double processLimitMb) =>
+        processLimitMb > 0 ? Math.Max(MinHeapBytes, (long)(processLimitMb * HeapShare * 1024 * 1024)) : null;
+
+    /// <summary>
+    /// خواندن سقف واقعی و (اگر روشن باشد) پایین آوردن سقف هیپ GC. هرگز سقف را بالا نمی‌برد و هرگز استثنا بیرون نمی‌دهد.
+    /// خروجی: متن کوتاه برای گزارش شروع. مثال: «heap limit 307 MB (process 512 MB)».
+    /// </summary>
+    public static string Apply(ResourceGovernor governor)
+    {
+        var gcAvailable = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+        SystemAvailableBytes = ContainerLimitBytes() ?? (gcAvailable > 0 ? gcAvailable : null);
+        var processLimitMb = governor.EffectiveMemoryLimitMb(SystemAvailableBytes ?? 0);
+        if (!governor.Options.LimitGcHeap || governor.IsUnlimited || HeapLimitFor(processLimitMb) is not { } heapLimit)
+            return $"GC heap not limited (process limit {processLimitMb:0} MB)";
+        if (gcAvailable > 0 && gcAvailable <= heapLimit)
+            return $"GC heap already within {gcAvailable / 1048576:0} MB (process limit {processLimitMb:0} MB)";
+        try
+        {
+            AppContext.SetData("GCHeapHardLimit", (ulong)heapLimit);
+            GC.RefreshMemoryLimit();
+            AppliedHeapLimitBytes = heapLimit;
+            return $"GC heap limit {heapLimit / 1048576:0} MB (process limit {processLimitMb:0} MB)";
+        }
+        catch (Exception exception)
+        {
+            // مثلاً حافظهٔ فعلی از سقف تازه بیشتر است: برنامه با تنظیم پیش‌فرض ادامه می‌دهد.
+            return $"GC heap limit not applied: {exception.GetType().Name}";
+        }
     }
 }

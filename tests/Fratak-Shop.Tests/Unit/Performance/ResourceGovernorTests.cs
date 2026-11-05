@@ -99,7 +99,7 @@ public class ResourceGovernorTests
     [InlineData(100, 0.1, 0, 0, 64, PressureLevel.Critical)]
     public void Pressure_levels_follow_the_documented_thresholds(double memoryMb, double cpu, long pending, int active, int queued, PressureLevel expected)
     {
-        var budget = ResourceBudget.For(ResourceProfile.Low); // سقف هم‌زمان ۳۲، صف ۶۴
+        var budget = ResourceBudget.For(ResourceProfile.Low); // سقف هم‌زمان ۱۶، صف ۴۸
         Assert.Equal(expected, ResourceGovernor.Evaluate(Sample(memoryMb, 1000, cpu, pending, active, queued), budget));
     }
 
@@ -762,6 +762,24 @@ public class ResourceGovernorTests
             if (Directory.Exists(dir))
                 Directory.Delete(dir, true);
         }
+    }
+
+    [Theory]
+    [InlineData("536870912\n", 536870912L)]
+    [InlineData("max", null)]
+    [InlineData("9223372036854771712", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void Container_memory_limits_are_read_safely(string? text, long? expected) =>
+        Assert.Equal(expected, MemoryLimits.ParseLimit(text));
+
+    [Fact]
+    public void Gc_heap_gets_sixty_percent_of_the_process_limit_but_never_too_little()
+    {
+        Assert.Equal((long)(512 * 0.6 * 1024 * 1024), MemoryLimits.HeapLimitFor(512));
+        Assert.Equal((long)(1024 * 0.6 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
+        Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(128));
+        Assert.Null(MemoryLimits.HeapLimitFor(0));
     }
 
     [Theory]

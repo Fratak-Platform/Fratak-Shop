@@ -84,6 +84,8 @@ public sealed class ShopApp : IAsyncLifetime
         Environment.SetEnvironmentVariable("Shop__CanonicalHost", "off");
         // دور نوزدهم: دورهٔ آرام شروع (کار سنگین تا ۱۰ دقیقه اجرا نمی‌شود) در آزمون‌ها صفر؛ سرآیند X-Db-Queries روشن (بودجهٔ پرس‌وجو).
         Environment.SetEnvironmentVariable("Shop__Resources__StartupQuietMinutes", "0");
+        // سقف هیپ GC کل پروسهٔ آزمون را محدود می‌کرد (همهٔ آزمون‌ها در یک پروسه‌اند) ← در آزمون خاموش.
+        Environment.SetEnvironmentVariable("Shop__Resources__LimitGcHeap", "false");
         Environment.SetEnvironmentVariable("Shop__Diagnostics__QueryHeader", "true");
         Environment.SetEnvironmentVariable("Jwt__SigningKey", SigningKey);
         Environment.SetEnvironmentVariable("Security__DataProtectionKeysPath", _keysPath);
@@ -228,6 +230,7 @@ public sealed class ShopApp : IAsyncLifetime
             builder.UseSetting("https_port", "443");
             // دور نوزدهم: آزمون‌ها منتظر «دورهٔ آرام شروع» کارهای سنگین نمی‌مانند و تعداد پرس‌وجوی هر صفحه را در سرآیند X-Db-Queries می‌بینند.
             builder.UseSetting("Shop:Resources:StartupQuietMinutes", "0");
+            builder.UseSetting("Shop:Resources:LimitGcHeap", "false");
             builder.UseSetting("Shop:Diagnostics:QueryHeader", "true");
 
             builder.ConfigureTestServices(services =>
