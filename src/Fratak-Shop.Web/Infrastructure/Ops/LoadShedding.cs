@@ -97,10 +97,10 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
         """);
 
     /// <summary>
-    /// انتظار آخر برای صفحه‌ای که نسخهٔ ذخیره‌شده ندارد (پیش‌فرض ۲۰ ثانیه). مثال: صف پر است و «/search?q=…» نسخهٔ ذخیره‌شده
-    /// ندارد → به‌جای ۵۰۳ فوری تا ۲۰ ثانیهٔ دیگر برای یک جای خالی صبر می‌کند (درخواست منتظر تقریباً حافظه‌ای نمی‌گیرد).
+    /// انتظار آخر برای صفحه‌ای که نسخهٔ ذخیره‌شده ندارد (پیش‌فرض ۳۰ ثانیه). مثال: صف پر است و «/search?q=…» نسخهٔ ذخیره‌شده
+    /// ندارد → به‌جای ۵۰۳ فوری تا ۳۰ ثانیهٔ دیگر برای یک جای خالی صبر می‌کند (درخواست منتظر تقریباً حافظه‌ای نمی‌گیرد).
     /// </summary>
-    public TimeSpan LastResortWait { get; set; } = TimeSpan.FromSeconds(20);
+    public TimeSpan LastResortWait { get; set; } = TimeSpan.FromSeconds(30);
 
     public Task InvokeAsync(HttpContext http) => HandleAsync(http, ResourceGovernor.Current);
 

@@ -97,6 +97,34 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         };
     }
 
+    /// <summary>
+    /// کوکی‌های «شخصی‌سازی سبک» مهمان: بازدیدهای اخیر (fratak_rv)، معرف (fratak_ref) و آمار (fr_vid، fr_src).
+    /// صفحه را برای این مهمان کمی شخصی می‌کنند (مثلاً «پیشنهاد برای شما»)، ولی حساب کاربری، سبد یا اطلاعات خصوصی نیستند.
+    /// </summary>
+    public static bool IsPersonalizationCookie(string name) =>
+        name is "fratak_rv" or "fratak_ref" or "fr_vid" or "fr_src";
+
+    /// <summary>
+    /// دور نوزدهم (A13/A19): آیا درخواست اطلاعات خصوصی دارد (ورود، سبد، مقایسه، فرم امنیتی)؟ مانند <see cref="HasSessionState"/>
+    /// ولی کوکی‌های شخصی‌سازی سبک را نادیده می‌گیرد. کاربرد: صف ورودی و «آخرین نسخهٔ سالم» – مهمانی که فقط چند محصول دیده
+    /// (کوکی fratak_rv) هنگام شلوغی هم در صف می‌ماند و در بدترین حالت نسخهٔ عمومی صفحه را می‌بیند، نه ۵۰۳.
+    /// مثال: «fratak_rv=a1» → false؛ «fratak_at=…» یا «.Fratak.Cart=…» → true.
+    /// </summary>
+    public static bool HasPrivateState(HttpRequest request)
+    {
+        if (request.Headers.ContainsKey("Authorization"))
+            return true;
+        foreach (var cookie in request.Cookies)
+        {
+            var name = cookie.Key;
+            if (IsPersonalizationCookie(name))
+                continue;
+            if (name.Contains("fratak", StringComparison.OrdinalIgnoreCase) || name.StartsWith(".AspNetCore", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     public static bool HasSessionState(HttpRequest request)
     {
         if (request.Headers.ContainsKey("Authorization"))

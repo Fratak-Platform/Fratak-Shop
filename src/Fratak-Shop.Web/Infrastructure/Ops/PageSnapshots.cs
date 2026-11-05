@@ -81,7 +81,8 @@ public sealed class PageSnapshotStore
         // فایل‌ها (پسوند دار) و درخواست‌های handler فرم‌ها نه.
         if (Path.HasExtension(path.Value) || request.Query.ContainsKey("handler"))
             return false;
-        return !PageCachePolicy.HasSessionState(request);
+        // کوکی‌های شخصی‌سازی سبک (بازدیدهای اخیر و…) مانع نیستند؛ ذخیرهٔ نسخه فقط از پاسخ قابل کش (بدون هیچ کوکی) است.
+        return !PageCachePolicy.HasPrivateState(request);
     }
 
     /// <summary>آیا وقت ذخیرهٔ دوبارهٔ این صفحه است؟ (هر صفحه حداکثر هر ۱۰ دقیقه.)</summary>

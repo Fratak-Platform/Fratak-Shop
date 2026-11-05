@@ -99,7 +99,7 @@ public class ResourceGovernorTests
     [InlineData(100, 0.1, 0, 0, 64, PressureLevel.Critical)]
     public void Pressure_levels_follow_the_documented_thresholds(double memoryMb, double cpu, long pending, int active, int queued, PressureLevel expected)
     {
-        var budget = ResourceBudget.For(ResourceProfile.Low); // سقف هم‌زمان ۱۶، صف ۴۸
+        var budget = ResourceBudget.For(ResourceProfile.Low); // سقف هم‌زمان ۸، صف ۴۸
         Assert.Equal(expected, ResourceGovernor.Evaluate(Sample(memoryMb, 1000, cpu, pending, active, queued), budget));
     }
 
@@ -534,6 +534,10 @@ public class ResourceGovernorTests
     [InlineData("/assets/js/main.js", null, "GET", null, false)]
     [InlineData("/product/x", "?handler=AddToCart", "GET", null, false)]
     [InlineData("/product/x", null, "GET", "fratak_rt=abc", false)]
+    [InlineData("/product/x", null, "GET", ".Fratak.Cart=abc", false)]
+    [InlineData("/product/x", null, "GET", "fratak_rv=a1.b2", true)]
+    [InlineData("/", null, "GET", "fr_vid=1; fr_src=x; fratak_ref=CODE", true)]
+    [InlineData("/", null, "GET", "fratak_rv=a1; fratak_at=token", false)]
     public void Only_anonymous_public_pages_are_snapshot_candidates(string path, string? query, string method, string? cookie, bool expected)
     {
         Assert.Equal(expected, PageSnapshotStore.IsCandidate(Http(path, query, method, cookie).Request));
@@ -813,10 +817,10 @@ public class ResourceGovernorTests
         Assert.Equal(expected, MemoryLimits.ParseLimit(text));
 
     [Fact]
-    public void Gc_heap_gets_half_of_the_process_limit_but_never_too_little()
+    public void Gc_heap_gets_most_of_the_process_limit_but_never_too_little()
     {
-        Assert.Equal(256L * 1024 * 1024, MemoryLimits.HeapLimitFor(512));
-        Assert.Equal(512L * 1024 * 1024, MemoryLimits.HeapLimitFor(1024));
+        Assert.Equal((long)(512 * 0.55 * 1024 * 1024), MemoryLimits.HeapLimitFor(512));
+        Assert.Equal((long)(1024 * 0.55 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
         Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(200));
         Assert.Null(MemoryLimits.HeapLimitFor(0));
     }

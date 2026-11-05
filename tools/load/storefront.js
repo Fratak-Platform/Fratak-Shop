@@ -54,9 +54,8 @@ export default function () {
     connectionErrors.add(1, { page: path });
   else if (response.status >= 500) {
     serverErrors.add(1, { page: path, status: String(response.status) });
-    // چند نمونه برای عیب‌یابی (نه همه، تا خروجی شلوغ نشود).
-    if (__VU % 50 === 0)
-      console.error(`5xx ${response.status} ${path} retry-after=${response.headers['Retry-After'] || '-'} ${response.timings.duration.toFixed(0)}ms`);
+    // هر ۵xx با مسیر و زمان (باید نادر باشد؛ برای عیب‌یابی).
+    console.error(`5xx ${response.status} ${path} retry-after=${response.headers['Retry-After'] || '-'} ${response.timings.duration.toFixed(0)}ms`);
   }
   if (response.headers['X-Fratak-Snapshot'])
     snapshots.add(1);
