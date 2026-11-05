@@ -644,7 +644,11 @@ public sealed class ProcessMeter
 /// راه‌حل: هنگام شروع، سقف هیپ = ۶۰٪ سقف برنامه (کمینهٔ سقف کانتینر/سیستم، سقف پروفایل یا مقدار دستی) با GC.RefreshMemoryLimit.
 /// </para>
 /// <para>مثال: کانتینر ۵۱۲ مگ + Low → سقف برنامه ۵۱۲ → هیپ ۳۰۷ مگ. IIS روی سرور ۸ گیگ + Low → سقف ۱۰۲۴ → هیپ ۶۱۴ مگ.</para>
-/// <para>استفاده: Program.cs بلافاصله بعد از ResourceGovernor.Configure؛ ProcessMeter سقف مؤثر را از SystemAvailableBytes می‌خواند.</para>
+/// <para>
+/// استفاده: Program.cs بلافاصله بعد از ResourceGovernor.Configure فقط <see cref="Detect"/> (خواندن سقف واقعی)؛
+/// ResourceMonitorService یک دقیقه بعد از آماده شدن <see cref="Apply"/> (شروع برنامه – مهاجرت و داده‌های اولیه – حافظهٔ بیشتری
+/// می‌خواهد و نباید به سقف هیپ بخورد). ProcessMeter سقف مؤثر را از SystemAvailableBytes می‌خواند.
+/// </para>
 /// </summary>
 public static class MemoryLimits
 {
@@ -659,6 +663,17 @@ public static class MemoryLimits
 
     /// <summary>سقف هیپی که اعمال شد (بایت) یا null (صفحهٔ منابع).</summary>
     public static long? AppliedHeapLimitBytes { get; private set; }
+
+    /// <summary>
+    /// خواندن سقف واقعی حافظهٔ سیستم/کانتینر (یک بار، پیش از هر تغییر سقف هیپ). مثال: کانتینر ۵۱۲ مگ → ۵۳۶۸۷۰۹۱۲.
+    /// </summary>
+    public static void Detect()
+    {
+        if (SystemAvailableBytes is not null)
+            return;
+        var gcAvailable = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+        SystemAvailableBytes = ContainerLimitBytes() ?? (gcAvailable > 0 ? gcAvailable : null);
+    }
 
     /// <summary>
     /// سقف حافظهٔ cgroup لینوکس (کانتینر/هاست با محدودیت)، یا null. مثال: محتوای memory.max = «536870912» → 536870912؛ «max» → null.
@@ -698,7 +713,7 @@ public static class MemoryLimits
     public static string Apply(ResourceGovernor governor)
     {
         var gcAvailable = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
-        SystemAvailableBytes = ContainerLimitBytes() ?? (gcAvailable > 0 ? gcAvailable : null);
+        Detect();
         var processLimitMb = governor.EffectiveMemoryLimitMb(SystemAvailableBytes ?? 0);
         if (!governor.Options.LimitGcHeap || governor.IsUnlimited || HeapLimitFor(processLimitMb) is not { } heapLimit)
             return $"GC heap not limited (process limit {processLimitMb:0} MB)";

@@ -168,7 +168,9 @@ public sealed class ResourceMonitorService(
         if (_readyTicks <= StartupCollectTicks && StartupGate.IsReady && ++_readyTicks == StartupCollectTicks)
         {
             GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-            history.Note("پاک‌سازی حافظهٔ بعد از شروع برنامه");
+            var heapLimit = MemoryLimits.Apply(governor);
+            logger.LogInformation("Resources: profile {Profile}; {HeapLimit}", governor.Options.Profile, heapLimit);
+            history.Note("پاک‌سازی حافظهٔ بعد از شروع برنامه؛ " + heapLimit);
         }
 
         // فقط عیب‌یابی (Shop:Diagnostics:ResourceLog، مثلاً در آزمون بار): هر ۱۵ ثانیه یک سطر با جزئیات حافظه در گزارش.

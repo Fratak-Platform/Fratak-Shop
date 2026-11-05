@@ -13,6 +13,25 @@ public static class PasswordHasher
     private const int MemorySize = 65536;
     private const int Parallelism = 4;
 
+    // دور نوزدهم (A10): هر محاسبهٔ Argon2 حدود ۶۴ مگابایت حافظه می‌خواهد (MemorySize بالا). چند ورود/ثبت‌نام هم‌زمان (یا حملهٔ
+    // ورود انبوه) بدون صف چند صد مگ حافظه می‌گرفت و روی هاست کم‌حافظه پروسه را می‌کشت. حداکثر ۲ محاسبهٔ هم‌زمان؛ بقیه چند
+    // دهم ثانیه صبر می‌کنند. پارامترها عوض نشده‌اند (هش‌های قبلی معتبر می‌مانند).
+    private static readonly SemaphoreSlim Gate = new(2, 2);
+
+    /// <summary>محاسبهٔ هش با رعایت صف بالا. مثال: <c>Compute(argon2)</c> → ۳۲ بایت.</summary>
+    private static byte[] Compute(Argon2id argon2)
+    {
+        Gate.Wait();
+        try
+        {
+            return argon2.GetBytes(HashSize);
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
     public static string Hash(string? password)
     {
         if (string.IsNullOrWhiteSpace(password))
@@ -27,7 +46,7 @@ public static class PasswordHasher
             DegreeOfParallelism = Parallelism
         };
 
-        var hash = argon2.GetBytes(HashSize);
+        var hash = Compute(argon2);
 
         return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
@@ -66,7 +85,7 @@ public static class PasswordHasher
             DegreeOfParallelism = Parallelism
         };
 
-        var computedHash = argon2.GetBytes(HashSize);
+        var computedHash = Compute(argon2);
 
         return CryptographicOperations.FixedTimeEquals(storedHash, computedHash);
     }

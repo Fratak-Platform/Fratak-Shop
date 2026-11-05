@@ -215,6 +215,8 @@ jobs:
           docker pull -q grafana/k6
 
       - name: Run load test
+        env:
+          GCDUMP: "1"
         run: bash tools/load/run-load-test.sh out "Server=localhost,1433;Database=FratakShopLoad;User Id=sa;Password=Load_Test_Passw0rd!;TrustServerCertificate=True;MultipleActiveResultSets=true"
 
       - name: Report load test results
@@ -225,6 +227,8 @@ jobs:
           {
             echo "### Load test (512 MB, 0.5 CPU, 1000 users)"
             echo '```'; grep -v "level=warning" k6.txt 2>/dev/null | tail -c 9000; echo '```'
+            echo "#### GC heap after warm-up (largest types)"
+            echo '```'; head -n 50 gcdump-idle.txt 2>/dev/null; echo '```'
             echo "#### Resource samples (every 3 s)"
             echo '```'; { head -n 5 resources.log; echo ...; tail -n 60 resources.log; } 2>/dev/null; echo '```'
             echo "#### App log (resource events)"
