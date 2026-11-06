@@ -35,6 +35,7 @@ public class ProfitGuardIntegrationTests(SqlServerFixture db)
             DiscountPrice = discount,
             PurchasePrice = purchase,
             StockQuantity = 1,
+            SupplierUrl = "https://supplier.example/p/" + key,
         };
     }
 
@@ -108,6 +109,7 @@ public class ProfitGuardIntegrationTests(SqlServerFixture db)
                     StockQuantity = product.StockQuantity,
                     IsActive = product.IsActive,
                     PublishedAt = product.PublishedAt,
+                    SupplierUrl = "https://supplier.example/p/" + product.SKU, // لینک منبع خرید در ویرایش الزامی است
                 };
 
                 var result = await scope.ServiceProvider.GetRequiredService<IProductService>().EditProductAsync(command);

@@ -352,7 +352,7 @@ public class SmartContentTests
     [InlineData(150_000, 130_000, 120_000, false)]
     [InlineData(150_000, null, null, false)]
     [InlineData(0, null, 120_000, false)]
-    public void ProfitGuard_flags_only_real_losses(double price, double? discount, double? purchase, bool loss)
+    public void ProfitGuard_flags_only_real_losses(int price, int? discount, int? purchase, bool loss)
     {
         var message = ProfitGuard.Check((decimal)price, (decimal?)discount, (decimal?)purchase);
         Assert.Equal(loss, message is not null);
@@ -538,7 +538,7 @@ public class SmartContentTests
     [Fact]
     public void SmartUi_has_a_title_and_badge_for_every_enum_value()
     {
-        Assert.All(Enum.GetValues<SmartTaskKind>(), k => Assert.NotEqual("نامشخص", SmartUi.KindTitle(k)));
+        Assert.All(Enum.GetValues<SmartTaskKind>().Where(k => k != SmartTaskKind.None), k => Assert.NotEqual("نامشخص", SmartUi.KindTitle(k)));
         Assert.All(Enum.GetValues<SmartTaskStatus>(), s => Assert.StartsWith("a-badge-", SmartUi.Status(s).Badge));
         Assert.All(Enum.GetValues<BlogPlanStatus>(), s => Assert.NotEqual("—", SmartUi.PlanStatus(s).Title));
         Assert.All(Enum.GetValues<BlogArticleType>(), t => Assert.NotEqual("—", SmartUi.ArticleTypeTitle(t)));

@@ -28,8 +28,12 @@ public class SearchModel(
     Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide) : ShopPageModel
 {
     /// <summary>دور ۱۹ (C8): «کمکم کن انتخاب کنم» در صفحهٔ دسته – فقط با ?quiz=1 اجرا می‌شود (هزینهٔ پرس‌وجو برای بقیه صفر).</summary>
+    /// <para>نکته: مقدار به‌صورت متن خوانده می‌شود چون اتصال bool در ASP.NET فقط «true/false» را می‌پذیرد و «quiz=1» را نادیده می‌گیرد.</para>
     [FromQuery(Name = "quiz")]
-    public bool QuizOpen { get; set; }
+    public string? QuizParam { get; set; }
+
+    /// <summary>پرسش‌نامه باز است؟ مثال: ?quiz=1 یا ?quiz=true ← بله؛ بدون پارامتر یا ?quiz=0 ← خیر.</summary>
+    public bool QuizOpen => QuizParam is "1" || string.Equals(QuizParam, "true", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>سقف بودجهٔ انتخاب‌شده در پرسشنامه (تومان).</summary>
     [FromQuery(Name = "budget")]
