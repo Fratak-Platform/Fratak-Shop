@@ -82,6 +82,9 @@ exceptions=$(grep -oE "System\.[A-Za-z.]*Exception" app-load.log | sort | uniq -
 pressure=$(grep -E "Resources: level" app-load.log | tail -n 2 | tr -s ' ' | tr '\n' ';' || true)
 echo "::notice title=k6 summary::$summary 5xx: ${errors5xx:-none} exceptions: ${exceptions:-none}"
 echo "::notice title=pressure::${pressure:-n/a}"
+# اولین OutOfMemoryException با چند خط پشته (برای پیدا کردن مسیر کد پرمصرف).
+oom_stack=$(grep -n -m1 -B3 -A14 "OutOfMemoryException" app-load.log | cut -c1-220 | tr '\n' '|' | head -c 3000 || true)
+[ -n "$oom_stack" ] && echo "::notice title=oom stack::$oom_stack"
 # بیشینهٔ حافظهٔ غیرقابل آزادسازی (anon + shmem) در نمونه‌ها، و حافظه بعد از گرم شدن (پیش از بار).
 peak_unreclaimable=$(awk '{a=0;s=0; for(i=1;i<=NF;i++){ if($i ~ /^anon=/){sub("anon=","",$i);sub("M","",$i);a=$i} if($i ~ /^shmem=/){sub("shmem=","",$i);sub("M","",$i);s=$i} } if(a+s>m)m=a+s} END{print m+0}' resources.log 2>/dev/null)
 first_sample=$(head -n 1 resources.log 2>/dev/null | grep -oE "anon=[0-9]+M|shmem=[0-9]+M" | tr '\n' ' ' || true)

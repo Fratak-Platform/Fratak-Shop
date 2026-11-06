@@ -196,18 +196,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - variant: tc0
-            env: "DOTNET_TieredCompilation=0"
           - variant: tc0-arena2
             env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2"
-          - variant: arena2
-            env: "MALLOC_ARENA_MAX=2"
-          - variant: tc0-conc4
-            env: "DOTNET_TieredCompilation=0 Shop__Resources__MaxConcurrentRequests=4"
-          - variant: tc0-heap50
-            env: "DOTNET_TieredCompilation=0 Shop__Resources__HeapPercent=50"
-          - variant: tc0-arena2-heap50
-            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__HeapPercent=50"
+          - variant: tc0-arena2-heap60
+            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__HeapPercent=60"
+          - variant: tc0-arena2-heap65
+            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__HeapPercent=65"
+          - variant: tc0-arena2-conc6
+            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__MaxConcurrentRequests=6"
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
