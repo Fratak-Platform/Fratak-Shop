@@ -359,7 +359,7 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             ImageAlt = imageAlt is null ? null : PersianText.Truncate(imageAlt, 250),
             IsPublished = publish,
             PublishedAt = publish ? DateTimeOffset.UtcNow : null,
-            Seo = new SeoManagement.SeoMetaData { FocusKeyword = PersianText.Truncate(article.Keyword, 150) },
+            Seo = new Fratak_Shop.Data.Utilities.SeoManagement.SeoMetaData { FocusKeyword = PersianText.Truncate(article.Keyword, 150) },
         };
         context.BlogPosts.Add(post);
         await context.SaveChangesAsync(cancellationToken);
