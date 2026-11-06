@@ -111,6 +111,12 @@ public sealed class ResourceOptions
     /// جمع‌آوری می‌کند و جا برای حافظهٔ غیرمدیریت‌شده می‌ماند. پروفایل High بدون سقف دستی اثری ندارد.
     /// </summary>
     public bool LimitGcHeap { get; set; } = true;
+
+    /// <summary>
+    /// سهم هیپ GC از سقف حافظهٔ برنامه به درصد (۳۰ تا ۷۵). صفر = پیش‌فرض (۵۵٪). مثال: <c>Shop__Resources__HeapPercent=45</c> روی هاست
+    /// ۵۱۲ مگ ← سقف هیپ ۲۳۰ مگ (جای بیشتر برای حافظهٔ غیرمدیریت‌شده). استفاده: <see cref="MemoryLimits.Apply"/>.
+    /// </summary>
+    public int HeapPercent { get; set; }
 }
 
 /// <summary>
@@ -706,8 +712,12 @@ public static class MemoryLimits
     /// <summary>
     /// سقف هیپ پیشنهادی (بایت) یا null. مثال: <c>HeapLimitFor(512)</c> → ۲۸۲ مگ؛ <c>HeapLimitFor(0)</c> → null (بدون سقف).
     /// </summary>
-    public static long? HeapLimitFor(double processLimitMb) =>
-        processLimitMb > 0 ? Math.Max(MinHeapBytes, (long)(processLimitMb * HeapShare * 1024 * 1024)) : null;
+    public static long? HeapLimitFor(double processLimitMb, double share = HeapShare) =>
+        processLimitMb > 0 ? Math.Max(MinHeapBytes, (long)(processLimitMb * share * 1024 * 1024)) : null;
+
+    /// <summary>سهم هیپ از تنظیمات (HeapPercent) یا پیش‌فرض. مثال: HeapPercent=45 ← ۰٫۴۵؛ ۰ ← ۰٫۵۵؛ ۹۰ ← ۰٫۷۵ (محدود).</summary>
+    public static double ShareFor(ResourceOptions options) =>
+        options.HeapPercent > 0 ? Math.Clamp(options.HeapPercent, 30, 75) / 100.0 : HeapShare;
 
     /// <summary>
     /// خواندن سقف واقعی و (اگر روشن باشد) پایین آوردن سقف هیپ GC. هرگز سقف را بالا نمی‌برد و هرگز استثنا بیرون نمی‌دهد.
@@ -718,7 +728,7 @@ public static class MemoryLimits
         var gcAvailable = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
         Detect();
         var processLimitMb = governor.EffectiveMemoryLimitMb(SystemAvailableBytes ?? 0);
-        if (!governor.Options.LimitGcHeap || governor.IsUnlimited || HeapLimitFor(processLimitMb) is not { } heapLimit)
+        if (!governor.Options.LimitGcHeap || governor.IsUnlimited || HeapLimitFor(processLimitMb, ShareFor(governor.Options)) is not { } heapLimit)
             return $"GC heap not limited (process limit {processLimitMb:0} MB)";
         if (gcAvailable > 0 && gcAvailable <= heapLimit)
             return $"GC heap already within {gcAvailable / 1048576:0} MB (process limit {processLimitMb:0} MB)";

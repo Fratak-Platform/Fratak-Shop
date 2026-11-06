@@ -10,8 +10,12 @@ CONNECTION="${2:?connection string required}"
 BASE="http://localhost:5080"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
+# متغیرهای محیطی اضافه برای آزمایش (مثلاً LOAD_ENV="DOTNET_TieredCompilation=0 Shop__Resources__HeapPercent=45").
+extra_env=()
+for kv in ${LOAD_ENV:-}; do extra_env+=(-e "$kv"); done
+
 docker rm -f fratak-load > /dev/null 2>&1 || true
-docker run -d --name fratak-load --network host \
+docker run -d --name fratak-load --network host "${extra_env[@]}" \
   --memory 512m --memory-swap 512m --cpus 0.5 \
   -v "$OUT:/app" -w /app \
   -e ConnectionDefault="$CONNECTION" \
@@ -77,6 +81,10 @@ exceptions=$(grep -oE "System\.[A-Za-z.]*Exception" app-load.log | sort | uniq -
 pressure=$(grep -E "Resources: level" app-load.log | tail -n 2 | tr -s ' ' | tr '\n' ';')
 echo "::notice title=k6 summary::$summary 5xx: ${errors5xx:-none} exceptions: ${exceptions:-none}"
 echo "::notice title=pressure::${pressure:-n/a}"
+# بیشینهٔ حافظهٔ غیرقابل آزادسازی (anon + shmem) در نمونه‌ها، و حافظه بعد از گرم شدن (پیش از بار).
+peak_unreclaimable=$(awk '{a=0;s=0; for(i=1;i<=NF;i++){ if($i ~ /^anon=/){sub("anon=","",$i);sub("M","",$i);a=$i} if($i ~ /^shmem=/){sub("shmem=","",$i);sub("M","",$i);s=$i} } if(a+s>m)m=a+s} END{print m+0}' resources.log 2>/dev/null)
+first_sample=$(head -n 1 resources.log 2>/dev/null | grep -oE "anon=[0-9]+M|shmem=[0-9]+M" | tr '\n' ' ')
+echo "::notice title=memory::env='${LOAD_ENV:-}' peak anon+shmem=${peak_unreclaimable}MB; idle after warm-up: ${first_sample:-n/a}"
 
 if [ "$running" != "true" ]; then echo "::error::the app died during the load test (OOMKilled=$oom)"; exit 1; fi
 if [ "$k6_status" != "0" ]; then echo "::error::load test thresholds failed (5xx or connection errors)"; exit 1; fi

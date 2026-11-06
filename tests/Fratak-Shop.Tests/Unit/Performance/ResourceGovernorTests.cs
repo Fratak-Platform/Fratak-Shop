@@ -823,6 +823,11 @@ public class ResourceGovernorTests
         Assert.Equal((long)(1024 * 0.55 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
         Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(200));
         Assert.Null(MemoryLimits.HeapLimitFor(0));
+        // سهم قابل تنظیم (HeapPercent): ۴۵٪ از ۵۱۲ مگ؛ مقدار خارج از بازه محدود می‌شود؛ صفر = پیش‌فرض.
+        Assert.Equal((long)(512 * 0.45 * 1024 * 1024), MemoryLimits.HeapLimitFor(512, MemoryLimits.ShareFor(new ResourceOptions { HeapPercent = 45 })));
+        Assert.Equal(0.75, MemoryLimits.ShareFor(new ResourceOptions { HeapPercent = 95 }));
+        Assert.Equal(0.30, MemoryLimits.ShareFor(new ResourceOptions { HeapPercent = 5 }));
+        Assert.Equal(MemoryLimits.HeapShare, MemoryLimits.ShareFor(new ResourceOptions()));
     }
 
     [Fact]
