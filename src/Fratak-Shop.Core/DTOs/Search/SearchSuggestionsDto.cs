@@ -10,6 +10,9 @@ public class SearchSuggestionsDto
 
     /// <summary>Number of matching products (for "show all N results").</summary>
     public int TotalProducts { get; set; }
+
+    /// <summary>دور ۲۱: جست‌وجوی کلی (مثل «گوشی») ← دسته‌ها پیش از کالاها نمایش داده شوند؛ جست‌وجوی مدل («گوشی A55») ← کالاها اول.</summary>
+    public bool CategoryFirst { get; set; }
 }
 
 public record ProductSuggestion(string Name, string Slug, string? ImageName, decimal Price, decimal FinalPrice, bool IsAvailable);

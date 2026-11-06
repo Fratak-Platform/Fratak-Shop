@@ -40,6 +40,8 @@ module.exports = {
     "./wwwroot/assets/js/*.js",
     "./Areas/**/*.cshtml",
     "./Infrastructure/Admin/**/*.cs",
+    // دور ۲۱: کلاس‌های اندازه/وزن نوار اطلاعیه.
+    "./Infrastructure/AnnouncementLook.cs",
     // دور ۱۹: HTML ساخته‌شده در Core (کارت محصول مقاله، «خلاصه در یک نگاه»).
     "../Fratak-Shop.Core/Services/Smart/**/*.cs",
     // دور بیستم: «توضیحات محصول» حرفه‌ای (fs-review-box، fs-spec-table، fs-proscons در ContentWriter.Review.cs).

@@ -150,6 +150,25 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
         _ => AdminPermissions.ProductsManage,
     };
 
+    /// <summary>
+    /// دور ۲۱: اعلان دستهٔ تازهٔ ساخته‌شده به دارندگان مجوز مدیریت دسته (فقط وقتی دسته‌ای ساخته شد؛ جابه‌جایی ساده اعلان نمی‌خواهد).
+    /// مثال: «دسته‌بندی هوشمند: ۲ دستهٔ تازه» ← «۱۸ کالا دسته گرفت؛ ۲ دستهٔ تازه: پاوربانک، لیوان سرامیکی.» با لینک صفحهٔ دسته‌های هوشمند.
+    /// </summary>
+    public async Task NotifyCategoriesAsync(CategorizeReport report)
+    {
+        if (report.Created.Count == 0)
+            return;
+        try
+        {
+            await SendAsync(null, $"دسته‌بندی هوشمند: {PersianText.Digits(report.Created.Count)} دستهٔ تازه", Cut(report.Summary, 300),
+                "/admin/smart/categories", AdminPermissions.CatalogManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Smart categorization notification failed");
+        }
+    }
+
     private async Task SendAsync(Guid? userId, string title, string? body, string url, string permission)
     {
         if (userId is { } id)

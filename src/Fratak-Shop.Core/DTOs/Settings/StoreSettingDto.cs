@@ -69,6 +69,15 @@ public class StoreSettingCommand
     public string? AnnouncementText { get; set; }
     public string? AnnouncementUrl { get; set; }
     public string? AnnouncementColor { get; set; }
+    // دور ۲۱: ظاهر نوار اطلاعیه (توضیح عددها در StoreSetting).
+    public string? AnnouncementColor2 { get; set; }
+    public string? AnnouncementTextColor { get; set; }
+    public int AnnouncementStyle { get; set; }
+    public int AnnouncementEffect { get; set; }
+    public int AnnouncementFontSize { get; set; }
+    public int AnnouncementFontWeight { get; set; }
+    public string? AnnouncementMessages { get; set; }
+    public bool IsAnnouncementCloseable { get; set; }
     public string? FooterButtonText { get; set; }
     public string? FooterButtonUrl { get; set; }
     public string? SellerEconomicCode { get; set; }

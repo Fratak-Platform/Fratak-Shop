@@ -130,8 +130,16 @@ public class StoreSettingService(FratakShopDbContext context, IMemoryCache cache
         if (round10 is not null)
             return round10;
 
-        if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor))
+        if (!IsHexColor(command.ThemeColor) || !IsHexColor(command.AnnouncementColor)
+            || !IsHexColor(command.AnnouncementColor2) || !IsHexColor(command.AnnouncementTextColor))
             return "رنگ‌ها باید به صورت کد هگز باشند (مثلاً #0069FD).";
+
+        // دور ۲۱: گزینه‌های ظاهر نوار اطلاعیه فقط از فهرست ثابت (عدد نامعتبر = دستکاری فرم).
+        if (command.AnnouncementStyle is < 0 or > 4 || command.AnnouncementEffect is < 0 or > 4
+            || command.AnnouncementFontSize is < 0 or > 2 || command.AnnouncementFontWeight is < 0 or > 2)
+            return "گزینهٔ انتخاب‌شده برای ظاهر نوار اطلاعیه معتبر نیست.";
+        if (command.AnnouncementMessages is { Length: > 1000 })
+            return "پیام‌های چرخشی حداکثر ۱۰۰۰ نویسه است.";
 
         if (!IsSiteLink(command.AnnouncementUrl) || !IsSiteLink(command.FooterButtonUrl))
             return "لینک‌ها باید با / شروع شوند یا آدرس کامل http(s) باشند.";

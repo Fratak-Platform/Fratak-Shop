@@ -200,3 +200,42 @@
     });
   });
 })();
+
+// ═══ دور ۲۱: نوار اطلاعیهٔ بالای سایت ═══════════════════════════════════════
+// • چرخش پیام‌ها: هر ۵ ثانیه پیام بعدی (فقط وقتی بیش از یک پیام هست و زبانه دیده می‌شود).
+// • بستن: اگر مدیر «بستنی» را روشن کرده، مشتری می‌بندد و تا وقتی متن عوض نشده (همان data-ann) دوباره نمی‌بیند.
+//   فاصلهٔ زیر هدر ثابت (data-ann-spacer) هم همراهش برداشته می‌شود تا جای خالی نماند.
+// • «کاهش حرکت» دستگاه: چرخش خودکار خاموش می‌شود (فقط پیام اول).
+(function () {
+  "use strict";
+  const bar = document.querySelector("[data-ann]");
+  if (!bar) return;
+  const key = "fs-ann-closed";
+  const hide = () => {
+    bar.remove();
+    document.querySelectorAll("[data-ann-spacer]").forEach((el) => el.remove());
+  };
+  try {
+    if (bar.hasAttribute("data-ann-closeable") && localStorage.getItem(key) === bar.getAttribute("data-ann")) {
+      hide();
+      return;
+    }
+  } catch (_) { /* حالت خصوصی مرورگر: فقط نمایش */ }
+  const close = bar.querySelector("[data-ann-close]");
+  if (close) {
+    close.addEventListener("click", () => {
+      try { localStorage.setItem(key, bar.getAttribute("data-ann") || "1"); } catch (_) { /* نادیده */ }
+      hide();
+    });
+  }
+  const messages = Array.from(bar.querySelectorAll("[data-ann-msg]"));
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (messages.length < 2 || reduce) return;
+  let index = 0;
+  window.setInterval(() => {
+    if (document.hidden) return;
+    messages[index].hidden = true;
+    index = (index + 1) % messages.length;
+    messages[index].hidden = false;
+  }, 5000);
+})();

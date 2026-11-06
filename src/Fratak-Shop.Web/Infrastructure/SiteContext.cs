@@ -88,6 +88,9 @@ public interface ISiteContext
     /// <summary>Validated announcement background colour (hex).</summary>
     string AnnouncementColor { get; }
 
+    /// <summary>دور ۲۱: ظاهر کامل و امن نوار اطلاعیه (سبک، جلوه، اندازه، پیام‌های چرخشی).</summary>
+    AnnouncementLook Announcement { get; }
+
     /// <summary>Validated browser / PWA theme colour (hex).</summary>
     string ThemeColor { get; }
 
@@ -157,6 +160,13 @@ public class SiteContext(
     public bool ShowAnnouncement => Settings.IsAnnouncementEnabled && !string.IsNullOrWhiteSpace(Settings.AnnouncementText);
 
     public string AnnouncementColor => SafeColor(Settings.AnnouncementColor, BrandIdentity.DefaultAnnouncementColor);
+
+    private AnnouncementLook? _announcement;
+
+    public AnnouncementLook Announcement => _announcement ??= AnnouncementLook.Build(
+        Settings.AnnouncementColor, Settings.AnnouncementColor2, Settings.AnnouncementTextColor,
+        Settings.AnnouncementStyle, Settings.AnnouncementEffect, Settings.AnnouncementFontSize, Settings.AnnouncementFontWeight,
+        Settings.AnnouncementText, Settings.AnnouncementMessages, Settings.IsAnnouncementCloseable);
 
     public string ThemeColor => SafeColor(Settings.ThemeColor, BrandIdentity.DefaultThemeColor);
 

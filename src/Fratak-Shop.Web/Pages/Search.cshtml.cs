@@ -106,6 +106,9 @@ public class SearchModel(
 
     public ProductFilterResult Result { get; private set; } = null!;
     public List<CategoryDto> Categories { get; private set; } = [];
+
+    /// <summary>دور ۲۱: دستهٔ متناظر با جست‌وجوی کلی (مثلاً «گوشی» ← «گوشی موبایل») برای کارت بالای نتیجه‌ها؛ null یعنی جست‌وجوی دقیق.</summary>
+    public (string Name, string Slug)? Spotlight { get; private set; }
     /// <summary>Brand filter options of the current listing (with product counts).</summary>
     public List<BrandFacetDto> BrandFacets { get; private set; } = [];
 
@@ -275,6 +278,15 @@ public class SearchModel(
         }
 
         Categories = await categoryService.GetMenuCategoriesAsync();
+        // دور ۲۱: عبارت کلی («گوشی»، «هدفون بی سیم») ← کارت دستهٔ متناظر بالای نتیجه‌ها؛ عبارت دقیق («گوشی A55») ← فقط کالاها.
+        // از فهرست منوی کش‌شده محاسبه می‌شود (پرس‌وجوی اضافه ندارد).
+        if (hasQuery && Category is null && !IsBrandPage && PageNumber <= 1)
+        {
+            var flat = Categories.Where(c => c.IsActive).Select(c => (c.Id, c.Name, c.Slug))
+                .Concat(Categories.SelectMany(c => c.SubCategories).Where(c => c.IsActive).Select(c => (c.Id, c.Name, c.Slug)));
+            if (Fratak_Shop.Core.Services.Smart.SearchIntent.MatchCategory(Query, flat) is { } spot)
+                Spotlight = (spot.Name, spot.Slug);
+        }
         Pager = PagerModel.From(Result, Request);
 
         await ApplySeoAsync();

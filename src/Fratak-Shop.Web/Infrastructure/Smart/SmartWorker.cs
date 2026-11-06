@@ -117,6 +117,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         }
         if (options.Enabled && options.NightlyCompletePerDay > 0)
             count += await PlanNightlyCompleteAsync(services, queue, options.NightlyCompletePerDay, DateTimeOffset.UtcNow, cancellationToken);
+        if (options.Enabled)
+            count += await CategorizeAsync(services, queue, cancellationToken);
         await services.GetRequiredService<ISmartResearchStore>().PruneAsync(cancellationToken);
         await queue.PurgeAsync(cancellationToken);
         return count;
@@ -144,6 +146,30 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             count++;
         }
         return count;
+    }
+
+    /// <summary>
+    /// دور ۲۱: بازبینی خودکار دسته‌ها (هر ۶ ساعت): کالاهای «دسته‌بندی نشده» و «سایر» دسته می‌گیرند، کالاهای مهم و خوشه‌های ≥۳ دستهٔ
+    /// تازه می‌سازند و برای هر دستهٔ تازه «تکمیل دسته» (توضیح، پرسش‌های رایج، تصویر) با اولویت شبانه صف می‌شود. خطا فقط ثبت می‌شود.
+    /// </summary>
+    private static async Task<int> CategorizeAsync(IServiceProvider services, ISmartTaskQueue queue, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var report = await services.GetRequiredService<ISmartCategoryService>().RunAsync(null, 300, cancellationToken);
+            foreach (var category in report.Created)
+            {
+                await queue.EnqueueAsync(SmartTaskKind.CategoryComplete, SmartTarget.Category, category.Id, category.Name, SmartPriority.Nightly,
+                    userName: SmartOrchestrator.Actor, cancellationToken: cancellationToken);
+            }
+            await services.GetRequiredService<SmartNotifier>().NotifyCategoriesAsync(report);
+            return report.Moved;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Smart categorization failed");
+            return 0;
+        }
     }
 
     private async Task<int> ProcessOneAsync(IServiceProvider services, CancellationToken cancellationToken)

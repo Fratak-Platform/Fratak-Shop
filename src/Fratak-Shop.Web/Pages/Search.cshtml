@@ -298,6 +298,14 @@
             }
           </div>
         }
+        @if (Model.Spotlight is { } spot)
+        {
+          @* دور ۲۱: جست‌وجوی کلی ← پیشنهاد دیدن همهٔ مدل‌های دسته (با فیلتر برند و قیمت). *@
+          <a href="/category/@spot.Slug" class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-zinc-700 hover:border-sky-300">
+            <span>همهٔ مدل‌های <strong class="text-sky-700">@spot.Name</strong> را با فیلتر برند، قیمت و مشخصات ببینید</span>
+            <span class="shrink-0 font-semibold text-sky-600">مشاهدهٔ دسته ←</span>
+          </a>
+        }
         @if (Model.CorrectedFrom is { } typed)
         {
           <div class="mt-4 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-zinc-700">

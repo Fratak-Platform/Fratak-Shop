@@ -137,7 +137,7 @@ public class SmartTask : BaseEntity
     /// <summary>تا این زمان کار در دست یک اجراکننده است.</summary>
     public DateTimeOffset? LeaseUntil { get; set; }
 
-    /// <summary>چه کسی اجرا کرد: «server» یا «helper:نام رایانه».</summary>
+    /// <summary>چه کسی اجرا کرد: شناسهٔ کارگر سرور (نام رایانه:شمارهٔ فرایند)؛ از دور ۲۱ فقط خود سرور اجرا می‌کند.</summary>
     [MaxLength(100)]
     public string? ClaimedBy { get; set; }
 }

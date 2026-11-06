@@ -71,7 +71,7 @@
 <form method="post" asp-page-handler="Add" class="a-card">
   <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Plus", null, 18) افزودن ایده</h3></div>
   <div class="a-card-body grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-    <div class="lg:col-span-2"><label class="a-label" for="b-topic">موضوع</label><input id="b-topic" name="topic" class="a-input" maxlength="200" required placeholder="مثلاً راهنمای خرید هدفون بی‌سیم"></div>
+    <div class="lg:col-span-2"><label class="a-label" for="b-topic">عنوان دلخواه مقاله</label><input id="b-topic" name="topic" class="a-input" maxlength="200" required placeholder="مثلاً ۵ پیشنهاد خرید هدفون بی‌سیم برای ورزش"><p class="a-help">همین عنوان روی مقاله می‌نشیند؛ متن از کالاهای واقعی همان دسته نوشته می‌شود.</p></div>
     <div><label class="a-label" for="b-type">نوع</label>
       <select id="b-type" name="type" class="a-input">
         @foreach (var t in new[] { BlogArticleType.BuyingGuide, BlogArticleType.BestPicks, BlogArticleType.Comparison, BlogArticleType.HowTo, BlogArticleType.Review })

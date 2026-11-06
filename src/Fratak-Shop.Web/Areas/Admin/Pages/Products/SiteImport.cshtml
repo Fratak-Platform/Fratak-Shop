@@ -97,12 +97,12 @@
 
     <div class="a-card-body a-form-grid cols-3 border-b">
       <div>
-        <label class="a-label" for="imp-category">دستهٔ پیش‌فرض <span class="text-rose-600">*</span></label>
-        <select id="imp-category" name="categoryId" class="a-select" required>
-          <option value="">انتخاب کنید…</option>
+        <label class="a-label" for="imp-category">دسته</label>
+        <select id="imp-category" name="categoryId" class="a-select">
+          <option value="">خودکار (دسته‌بندی هوشمند)</option>
           @foreach (var cat in Model.Categories) { <option value="@cat.Id">@cat.Name</option> }
         </select>
-        <p class="a-help">اگر نام دستهٔ مبدأ با یکی از دسته‌های فروشگاه یکی باشد، همان انتخاب می‌شود. برند هم با نام تطبیق داده می‌شود.</p>
+        <p class="a-help">لازم نیست انتخاب کنید: سیستم از روی نام کالا دستهٔ درست را پیدا می‌کند و برای کالاهای مهم یا هر ۳ کالای مشابه، دستهٔ تازه (با نام، نامک انگلیسی، توضیح و تصویر) می‌سازد. نام دستهٔ مبدأ و برند هم تطبیق داده می‌شود.</p>
       </div>
       <div>
         <label class="a-label" for="imp-supplier">تأمین‌کننده</label>

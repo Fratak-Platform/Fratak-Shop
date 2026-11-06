@@ -90,6 +90,10 @@ public class CategoryService(FratakShopDbContext context) : ICategoryService
         if (category is null)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
 
+        // دور ۲۱: «دسته‌بندی نشده» جای کالاهای درون‌ریزی‌شده تا دسته‌بندی هوشمند است؛ حذفش درون‌ریزی را خراب می‌کند.
+        if (category.IsSystem)
+            return OperationResult.Error("«دسته‌بندی نشده» دستهٔ سیستمی است و حذف نمی‌شود.");
+
         var hasSubCategories = await context.Categories.AnyAsync(x => x.ParentId == id);
         if (hasSubCategories)
             return OperationResult.Error("این دسته‌بندی دارای زیردسته است؛ ابتدا زیردسته‌ها را حذف یا منتقل کنید.");

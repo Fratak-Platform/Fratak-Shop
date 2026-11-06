@@ -12,8 +12,12 @@ public sealed record BlogProduct(
     Guid Id, string Name, string Slug, string? BrandName, decimal FinalPrice, bool InStock, double Rating, int ReviewCount, int SalesCount,
     IReadOnlyList<SeoFeature> Features, IReadOnlyList<string> Pros, IReadOnlyList<string> Cons, IReadOnlyList<string> ForWhom);
 
-/// <summary>سفارش نوشتن یک مقاله. مثال: (BestPicks، «بهترین هدفون بی‌سیم»، دستهٔ «هدفون»، ۵ محصول).</summary>
-public sealed record BlogBrief(BlogArticleType Type, string Topic, string? Keyword, string? CategoryName, string? CategorySlug, IReadOnlyList<BlogProduct> Products, DateTimeOffset Now);
+/// <summary>
+/// سفارش نوشتن یک مقاله. مثال: (BestPicks، «۵ پیشنهاد خرید هدفون بی‌سیم»، دستهٔ «هدفون»، ۵ محصول).
+/// <para>دور ۲۱: <paramref name="CustomTitle"/> = عنوانی که ادمین خودش نوشته (ایدهٔ دستی)؛ همان عنوان مقاله می‌شود.</para>
+/// </summary>
+public sealed record BlogBrief(BlogArticleType Type, string Topic, string? Keyword, string? CategoryName, string? CategorySlug, IReadOnlyList<BlogProduct> Products, DateTimeOffset Now,
+    string? CustomTitle = null);
 
 /// <summary>مقالهٔ آماده: عنوان، خلاصه، HTML (با کدهای کوتاه محصول) و کلمهٔ کلیدی.</summary>
 public sealed record BlogArticle(string Title, string Excerpt, string Html, string Keyword, IReadOnlyList<string> ProductSlugs);
@@ -51,17 +55,19 @@ public static class BlogWriter
     {
         var cat = Category(brief);
         var year = PersianYear(brief.Now);
-        var ranked = products.OrderByDescending(Score).Take(6).ToList();
+        // دور ۲۱: فهرست متنوع (حداکثر ۲ کالا از هر برند + حتماً یک گزینهٔ اقتصادی) و عنوان «۵ پیشنهاد خرید …» به جای «بهترین …»
+        // (ادعای «بهترین» بدون آزمون مستقل نه صادقانه است نه برای گوگل امن).
+        var ranked = Diverse(products, 5);
         var seed = brief.Topic + cat;
-        var keyword = Keyword(brief, $"بهترین {cat}");
-        var title = $"{keyword} {year}؛ {PersianText.Digits(ranked.Count)} انتخاب بر اساس مشخصات و نظر خریداران";
+        var keyword = Keyword(brief, $"خرید {cat}");
+        var title = Title(brief, $"{PersianText.Digits(ranked.Count)} پیشنهاد خرید {cat} {year}؛ مقایسه، قیمت روز و مناسب چه کسی است");
         var html = new StringBuilder();
 
         var best = ranked.FirstOrDefault();
         var value = ranked.Where(p => p != best).OrderBy(p => p.FinalPrice).FirstOrDefault(p => p.Rating >= 3.8 || p.ReviewCount < 3);
         Tldr(html, [
-            best is null ? null : $"بهترین انتخاب کلی: {E(Short(best))} – بیشترین امتیاز و رضایت خریداران در این فهرست.",
-            value is null ? null : $"به‌صرفه‌ترین: {E(Short(value))} – پایین‌ترین قیمت بین گزینه‌های خوش‌نام.",
+            best is null ? null : $"انتخاب اول ما: {E(Short(best))} – بالاترین امتیاز و رضایت خریداران در این فهرست.",
+            value is null ? null : $"گزینهٔ اقتصادی: {E(Short(value))} – کمترین قیمت بین گزینه‌های خوش‌نام این فهرست.",
             ranked.Count > 2 ? $"اگر {E(Topic(ranked[2]))} برایتان مهم است: {E(Short(ranked[2]))}." : null,
             "قیمت‌ها هنگام باز کردن صفحه از فروشگاه خوانده می‌شوند و همیشه به‌روزند.",
         ]);
@@ -75,7 +81,7 @@ public static class BlogWriter
         foreach (var product in ranked)
         {
             index++;
-            var label = index == 1 ? "بهترین انتخاب کلی" : product == value ? "به‌صرفه‌ترین" : $"انتخاب {PersianText.Digits(index)}";
+            var label = index == 1 ? "انتخاب اول ما" : product == value ? "گزینهٔ اقتصادی" : $"پیشنهاد {PersianText.Digits(index)}";
             html.Append(H2($"{PersianText.Digits(index)}. {E(Short(product))} – {label}"));
             ProductSection(html, product, seed);
         }
@@ -88,7 +94,7 @@ public static class BlogWriter
             ? $"برای انتخاب {cat} اول نیاز اصلی‌تان را مشخص کنید و بعد مشخصات کلیدی را مقایسه کنید."
             : Spun(seed + "z", $"اگر [وقت مقایسه ندارید|فرصت بررسی همه را ندارید]، {E(Short(best))} [کم‌ریسک‌ترین|مطمئن‌ترین] انتخاب این فهرست است. برای بودجهٔ محدودتر{(value is null ? "" : $" {E(Short(value))}")} را ببینید و [در نهایت|در آخر] مدلی را بردارید که [با نیاز اصلی‌تان|با نوع استفادهٔ شما] جور است.")));
 
-        return Finish(title, keyword, html, ranked, $"{PersianText.Digits(ranked.Count)} انتخاب برتر {cat} با مقایسهٔ مشخصات، نقاط قوت و ضعف و مناسب چه کسانی است.");
+        return Finish(title, keyword, html, ranked, $"{PersianText.Digits(ranked.Count)} پیشنهاد خرید {cat} با مقایسهٔ مشخصات، نقاط قوت و ضعف، قیمت روز و اینکه هر کدام مناسب چه کسی است.");
     }
 
     // ───────────────────────────── راهنمای خرید ─────────────────────────────
@@ -99,7 +105,7 @@ public static class BlogWriter
         var year = PersianYear(brief.Now);
         var seed = brief.Topic + cat + "g";
         var keyword = Keyword(brief, $"راهنمای خرید {cat}");
-        var title = $"{keyword} {year}؛ قبل از خرید به این نکته‌ها دقت کنید";
+        var title = Title(brief, $"{keyword} {year}؛ قبل از خرید به این نکته‌ها دقت کنید");
         var ranked = products.OrderByDescending(Score).Take(4).ToList();
         var html = new StringBuilder();
 
@@ -168,7 +174,7 @@ public static class BlogWriter
     {
         var seed = a.Slug + b.Slug;
         var keyword = Keyword(brief, $"مقایسه {Short(a)} و {Short(b)}");
-        var title = $"{keyword}؛ کدام را بخریم؟";
+        var title = Title(brief, $"{keyword}؛ کدام را بخریم؟");
         var html = new StringBuilder();
         var cheaper = a.FinalPrice <= b.FinalPrice ? a : b;
         var better = Score(a) >= Score(b) ? a : b;
@@ -391,9 +397,72 @@ public static class BlogWriter
         html.Append("</ul></div>");
     }
 
+    /// <summary>عنوان دلخواه ادمین (اگر نوشته) وگرنه عنوان ساخته‌شده. مثال: CustomTitle «هدیهٔ تولد زیر ۲ میلیون» ← همان.</summary>
+    private static string Title(BlogBrief brief, string generated) =>
+        string.IsNullOrWhiteSpace(brief.CustomTitle) ? generated : PersianText.Truncate(PersianText.Clean(brief.CustomTitle), 200);
+
+    /// <summary>
+    /// دور ۲۱: انتخاب متنوع برای فهرست پیشنهاد خرید. به ترتیب امتیاز، حداکثر ۲ کالا از هر برند؛ اگر ارزان‌ترین کالای خوش‌نام
+    /// بیرون ماند جای آخرین را می‌گیرد تا هر بودجه‌ای گزینه داشته باشد.
+    /// مثال: ۴ سامسونگ پرامتیاز + ۲ شیائومی + ۱ انکر ← ۲ سامسونگ، ۲ شیائومی، ۱ انکر.
+    /// </summary>
+    public static List<BlogProduct> Diverse(IReadOnlyList<BlogProduct> products, int count)
+    {
+        var picked = new List<BlogProduct>();
+        var perBrand = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var product in products.OrderByDescending(Score))
+        {
+            var brand = product.BrandName ?? "";
+            if (brand.Length > 0 && perBrand.GetValueOrDefault(brand) >= 2)
+                continue;
+            picked.Add(product);
+            if (brand.Length > 0)
+                perBrand[brand] = perBrand.GetValueOrDefault(brand) + 1;
+            if (picked.Count >= count)
+                break;
+        }
+        // کمبود (برندها کم بودند) ← از باقی‌مانده‌ها پر می‌شود.
+        foreach (var product in products.OrderByDescending(Score).Where(p => !picked.Contains(p)))
+        {
+            if (picked.Count >= count)
+                break;
+            picked.Add(product);
+        }
+        var budget = products.Where(p => p.Rating >= 3.8 || p.ReviewCount < 3).OrderBy(p => p.FinalPrice).FirstOrDefault();
+        if (budget is not null && !picked.Contains(budget) && picked.Count >= 2)
+            picked[^1] = budget;
+        return picked;
+    }
+
+    /// <summary>
+    /// دور ۲۱: فهرست مطالب. هر H2 یک شناسه (s1، s2 …) می‌گیرد و فهرست لینک‌دار درست بعد از کادر «خلاصه در یک نگاه» می‌آید
+    /// (خواننده مستقیم به بخش دلخواه می‌رود؛ گوگل هم لینک‌های پرش را در نتیجه نشان می‌دهد). کمتر از ۳ تیتر ← بدون فهرست.
+    /// </summary>
+    public static string WithToc(string html)
+    {
+        var titles = new List<string>();
+        var index = 0;
+        var withIds = System.Text.RegularExpressions.Regex.Replace(html, "<h2>(.*?)</h2>", m =>
+        {
+            index++;
+            titles.Add(m.Groups[1].Value);
+            return $"<h2 id=\"s{index}\">{m.Groups[1].Value}</h2>";
+        }, System.Text.RegularExpressions.RegexOptions.Singleline, TimeSpan.FromSeconds(1));
+        if (titles.Count < 3)
+            return html;
+        var toc = new StringBuilder("<nav class=\"fs-toc\" aria-label=\"فهرست مطالب\"><p><strong>فهرست مطالب</strong></p><ol>");
+        for (var i = 0; i < titles.Count; i++)
+            toc.Append($"<li><a href=\"#s{i + 1}\">{titles[i]}</a></li>");
+        toc.Append("</ol></nav>");
+        var marker = $"<div class=\"{TldrClass}\">";
+        var start = withIds.IndexOf(marker, StringComparison.Ordinal);
+        var end = start < 0 ? -1 : withIds.IndexOf("</div>", start, StringComparison.Ordinal);
+        return end < 0 ? toc + withIds : withIds.Insert(end + "</div>".Length, toc.ToString());
+    }
+
     private static BlogArticle Finish(string title, string keyword, StringBuilder html, IEnumerable<BlogProduct> products, string excerpt)
     {
-        var text = AiPatternGuard.Clean(html.ToString());
+        var text = WithToc(AiPatternGuard.Clean(html.ToString()));
         return new BlogArticle(PersianText.Clean(title), PersianText.Truncate(PersianText.Clean(excerpt), 300), text, keyword, products.Select(p => p.Slug).ToList());
     }
 

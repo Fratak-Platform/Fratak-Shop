@@ -9,14 +9,31 @@
     @if (Site.ShowAnnouncement)
     {
       var announcementUrl = UrlSafety.IsSafeLink(Site.Settings.AnnouncementUrl) ? Site.Settings.AnnouncementUrl!.Trim() : null;
-      <div class="flex h-9 items-center justify-center px-3 text-xs md:text-sm text-white" style="background-color: @Site.AnnouncementColor">
-        @if (announcementUrl is not null)
+      var look = Site.Announcement;
+      @* دور ۲۱: ظاهر کامل نوار (AnnouncementLook: رنگ‌ها فقط هگز معتبر، کلاس‌ها از فهرست ثابت). چرخش پیام‌ها، بستن و
+         متن متحرک با main.js (بدون اسکریپت درون‌خطی)؛ «کاهش حرکت» دستگاه همهٔ جلوه‌ها را خاموش می‌کند. *@
+      <div class="@look.CssClass relative flex @look.HeightClass items-center justify-center overflow-hidden px-8"
+           style="background: @look.Background; color: @look.TextColor" data-ann="@Fratak_Shop.Core.Services.Seo.Engine.PersianText.Hash(string.Join("|", look.Messages))"
+           data-ann-closeable="@(look.Closeable ? "1" : null)" role="region" aria-label="اطلاعیه">
+        <div class="fs-ann-track truncate">
+          @for (var i = 0; i < look.Messages.Count; i++)
+          {
+            var message = look.Messages[i];
+            if (announcementUrl is not null)
+            {
+              <a href="@announcementUrl" class="fs-ann-msg hover:underline" data-ann-msg hidden="@(i > 0 ? "hidden" : null)">@message</a>
+            }
+            else
+            {
+              <span class="fs-ann-msg" data-ann-msg hidden="@(i > 0 ? "hidden" : null)">@message</span>
+            }
+          }
+        </div>
+        @if (look.Closeable)
         {
-          <a href="@announcementUrl" class="truncate hover:underline">@Site.Settings.AnnouncementText</a>
-        }
-        else
-        {
-          <span class="truncate">@Site.Settings.AnnouncementText</span>
+          <button type="button" class="absolute left-2 top-1/2 -translate-y-1/2 rounded p-1 opacity-80 hover:opacity-100" data-ann-close aria-label="بستن اطلاعیه">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+          </button>
         }
       </div>
     }

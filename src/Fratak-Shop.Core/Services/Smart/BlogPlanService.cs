@@ -30,14 +30,14 @@ public static class BlogPlanner
         var ideas = new List<PlanIdea>();
         var eligible = categories.Where(c => c.InStock >= 3).ToList();
 
-        // ۱) تقاضای واقعی: جست‌وجویی که نام یک دسته را دارد ← «بهترین …».
+        // ۱) تقاضای واقعی: جست‌وجویی که نام یک دسته را دارد ← «پیشنهاد خرید …» (دور ۲۱: بدون ادعای «بهترین»).
         foreach (var query in demandQueries)
         {
             var normalized = PersianText.Normalize(query);
             var category = eligible.FirstOrDefault(c => normalized.Contains(PersianText.Normalize(c.Name), StringComparison.Ordinal));
             if (category is null)
                 continue;
-            TryAdd(new PlanIdea(BlogArticleType.BestPicks, $"بهترین {PersianText.Clean(query)}", $"بهترین {PersianText.Clean(query)}", category.Id, [], "demand"));
+            TryAdd(new PlanIdea(BlogArticleType.BestPicks, $"{PersianText.Digits(Math.Min(5, category.InStock))} پیشنهاد خرید {PersianText.Clean(query)}", $"خرید {PersianText.Clean(query)}", category.Id, [], "demand"));
             if (ideas.Count >= count)
                 return ideas;
         }
@@ -50,7 +50,7 @@ public static class BlogPlanner
                 var name = PersianText.Clean(category.Name);
                 var idea = round switch
                 {
-                    BlogArticleType.BestPicks => new PlanIdea(round, $"بهترین {name}", $"بهترین {name}", category.Id, [], "auto"),
+                    BlogArticleType.BestPicks => new PlanIdea(round, $"{PersianText.Digits(Math.Min(5, category.InStock))} پیشنهاد خرید {name}", $"خرید {name}", category.Id, [], "auto"),
                     BlogArticleType.BuyingGuide => new PlanIdea(round, $"راهنمای خرید {name}", $"راهنمای خرید {name}", category.Id, [], "auto"),
                     _ when category.TopProducts.Count >= 2 => new PlanIdea(round,
                         $"مقایسه {Short(category.TopProducts[0].Name)} و {Short(category.TopProducts[1].Name)}",
@@ -173,7 +173,7 @@ public sealed class BlogPlanService(FratakShopDbContext context) : IBlogPlanServ
             .Where(q => !q.IsHidden && q.LastSearchedAt >= since && q.SearchCount >= 5)
             .OrderByDescending(q => q.SearchCount).Select(q => q.Query).Take(30).ToListAsync(cancellationToken);
 
-        // موضوع منتشرشده با عنوان کامل مقایسه نمی‌شود؛ «بهترین X» در عنوان «بهترین X ۱۴۰۵؛ …» هم تکراری حساب شود.
+        // موضوع منتشرشده با عنوان کامل مقایسه نمی‌شود؛ «۵ پیشنهاد خرید X» در عنوان «۵ پیشنهاد خرید X ۱۴۰۵؛ …» هم تکراری حساب شود.
         var takenTopics = taken.Concat(taken.Select(t => t.Split('؛')[0].Trim())).ToList();
         var stripped = takenTopics.Select(t => System.Text.RegularExpressions.Regex.Replace(t, @"\s*[۰-۹0-9]{4}\s*$", "", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(100))).ToList();
         var ideas = BlogPlanner.Propose(planner, stripped, demand, needed);

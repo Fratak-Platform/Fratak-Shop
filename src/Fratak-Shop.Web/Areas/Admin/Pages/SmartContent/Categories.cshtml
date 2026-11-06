@@ -9,9 +9,14 @@
 <div class="a-page-head">
   <div>
     <h2>تکمیل هوشمند دسته‌ها</h2>
-    <p class="a-muted text-sm mt-1">توضیح خریدمحور (برندها، بازهٔ قیمت، نکته‌های انتخاب و پرسش‌های رایج) و بنر بدون متن از عکس بهترین کالاها. دسته‌های کمتر از ۳ کالا متن نمی‌گیرند تا محتوای کم‌ارزش ساخته نشود.</p>
+    <p class="a-muted text-sm mt-1">توضیح خریدمحور (برندها، بازهٔ قیمت، نکته‌های انتخاب و پرسش‌های رایج) و بنر بدون متن از عکس بهترین کالاها. دسته‌های کمتر از ۳ کالا متن نمی‌گیرند تا محتوای کم‌ارزش ساخته نشود.
+      کالای درون‌ریزی‌شدهٔ بدون دسته خودکار دسته می‌گیرد؛ کالاهای مهم (مثل گوشی) و هر ۳ کالای مشابه دستهٔ تازه با نامک انگلیسی می‌سازند.</p>
   </div>
-  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a></div>
+  <div class="a-btn-group">
+    @* دور ۲۱: دسته‌بندی هوشمند کالاهای «دسته‌بندی نشده» و «سایر» (هر ۶ ساعت هم خودکار اجرا می‌شود). *@
+    <form method="post" asp-page-handler="Categorize" class="inline"><button class="a-btn a-btn-primary" type="submit">@Icons.Svg("MagicWand", null, 18) دسته‌بندی هوشمند الان</button></form>
+    <a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a>
+  </div>
 </div>
 
 <div class="a-card">

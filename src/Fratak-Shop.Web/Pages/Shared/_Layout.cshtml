@@ -41,7 +41,7 @@
   @if (Site.ShowAnnouncement)
   {
     @* The header (with the announcement bar) is fixed: keep the page content below it. *@
-    <div class="h-9" aria-hidden="true"></div>
+    <div class="@Site.Announcement.HeightClass" data-ann-spacer aria-hidden="true"></div>
   }
   <partial name="_StatusMessage" />
   @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Top })

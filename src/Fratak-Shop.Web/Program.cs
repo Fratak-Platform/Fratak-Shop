@@ -350,6 +350,7 @@ app.MapGet("/api/search/suggest", async (string? q, Fratak_Shop.Core.Services.Pr
     {
         query = result.Query,
         total = result.TotalProducts,
+        categoryFirst = result.CategoryFirst,
         correction,
         searchUrl = "/search?q=" + Uri.EscapeDataString(result.Query),
         products = result.Products.Select(p => new

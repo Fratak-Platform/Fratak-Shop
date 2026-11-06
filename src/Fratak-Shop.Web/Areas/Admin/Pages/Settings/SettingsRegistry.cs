@@ -27,6 +27,10 @@ public static class SettingsRegistry
     private static SField Img(string name, string label, string? help = null) => new(name, label, SKind.Image, help);
     private static SField D(string name, string label, string? help = null) => new(name, label, SKind.Decimal, help);
 
+    /// <summary>تبدیل فهرست (عدد، عنوان) به گزینه‌های فهرست کشویی. مثال: [(0,"ساده")] ← [("0","ساده")].</summary>
+    private static (string Value, string Title)[] Opt((int Value, string Title)[] items) =>
+        items.Select(i => (i.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), i.Title)).ToArray();
+
     public static readonly SGroup[] Groups =
     [
         new("general", "عمومی", "Storefront", "نام، معرفی و ظاهر فروشگاه",
@@ -50,6 +54,15 @@ public static class SettingsRegistry
             new("AnnouncementText", "متن اطلاعیه", SKind.Text) { ShowWhen = "IsAnnouncementEnabled" },
             new("AnnouncementUrl", "لینک اطلاعیه", SKind.Url) { ShowWhen = "IsAnnouncementEnabled" },
             new("AnnouncementColor", "رنگ نوار", SKind.Color) { ShowWhen = "IsAnnouncementEnabled" },
+            // دور ۲۱: ظاهر کامل نوار اطلاعیه (سبک، رنگ‌ها، اندازه و وزن قلم، جلوهٔ جلب توجه، پیام‌های چرخشی، دکمهٔ بستن).
+            new("AnnouncementStyle", "سبک نوار", SKind.Select) { ShowWhen = "IsAnnouncementEnabled", Options = Opt(Fratak_Shop.Web.Infrastructure.AnnouncementLook.Styles) },
+            new("AnnouncementColor2", "رنگ دوم (گرادیان)", SKind.Color, "خالی = همان رنگ نوار کمی روشن‌تر") { ShowWhen = "IsAnnouncementEnabled" },
+            new("AnnouncementTextColor", "رنگ متن", SKind.Color, "خالی = سفید") { ShowWhen = "IsAnnouncementEnabled" },
+            new("AnnouncementFontSize", "اندازهٔ متن", SKind.Select) { ShowWhen = "IsAnnouncementEnabled", Options = Opt(Fratak_Shop.Web.Infrastructure.AnnouncementLook.Sizes) },
+            new("AnnouncementFontWeight", "وزن قلم", SKind.Select) { ShowWhen = "IsAnnouncementEnabled", Options = Opt(Fratak_Shop.Web.Infrastructure.AnnouncementLook.Weights) },
+            new("AnnouncementEffect", "جلوهٔ جلب توجه", SKind.Select, "برای کاربرانی که «کاهش حرکت» را در دستگاه روشن کرده‌اند خودکار خاموش می‌شود.") { ShowWhen = "IsAnnouncementEnabled", Options = Opt(Fratak_Shop.Web.Infrastructure.AnnouncementLook.Effects) },
+            new("AnnouncementMessages", "پیام‌های چرخشی (هر خط یک پیام)", SKind.Area, "هر ۵ ثانیه پیام بعدی نمایش داده می‌شود؛ حداکثر ۶ پیام.") { ShowWhen = "IsAnnouncementEnabled", Wide = true },
+            new("IsAnnouncementCloseable", "مشتری بتواند نوار را ببندد", SKind.Bool) { ShowWhen = "IsAnnouncementEnabled" },
             T("FooterTitle", "عنوان فوتر"), T("FooterSubtitle", "زیرعنوان فوتر"), A("FooterText", "متن فوتر"), T("CopyrightText", "متن کپی‌رایت"),
             T("FooterButtonText", "متن دکمه فوتر"), U("FooterButtonUrl", "لینک دکمه فوتر"),
         ]),

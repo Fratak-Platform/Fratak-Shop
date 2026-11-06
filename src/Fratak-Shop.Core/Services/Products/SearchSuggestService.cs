@@ -99,6 +99,7 @@ public class SearchSuggestService(FratakShopDbContext context, IMemoryCache cach
             Query = normalized,
             TotalProducts = total,
             Categories = categoryRows,
+            CategoryFirst = categoryRows.Count > 0 && Smart.SearchIntent.IsBroad(normalized),
             Brands = brandRows,
             Products = rows.Select(p =>
             {

@@ -466,7 +466,8 @@ public sealed class SmartOrchestrator(
                 return new SmartOutcome(SmartTaskStatus.Skipped, "کالای موجود کافی برای این مقاله نبود.");
             }
             var category = row.CategoryId is { } cid ? await catalog.GetCategoryAsync(cid, cancellationToken) : null;
-            var article = BlogWriter.Write(new BlogBrief(row.Type, row.Topic, row.Keyword, category?.Name, category?.Slug, products, DateTimeOffset.UtcNow));
+            var article = BlogWriter.Write(new BlogBrief(row.Type, row.Topic, row.Keyword, category?.Name, category?.Slug, products, DateTimeOffset.UtcNow,
+                CustomTitle: row.Origin == "manual" ? row.Topic : null));
             var (titles, hashes) = await catalog.ExistingPostsAsync(cancellationToken);
             var report = BlogWriter.Check(article, titles, products.Select(p => p.Name), hashes, Math.Clamp(options.BlogQualityMin, 50, 100));
             var publish = report.Passed && options.BlogAutoPublish;

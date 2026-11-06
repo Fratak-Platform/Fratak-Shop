@@ -579,6 +579,20 @@
 
     const section = (title) => make("div", "px-3 pt-3 pb-1 text-xs font-semibold text-zinc-400", title);
 
+    // ردیف لینک‌های گرد (دسته‌ها یا برندها) زیر یک عنوان.
+    const linkChips = (title, items) => {
+      if (!items.length) return;
+      panel.appendChild(section(title));
+      const row = make("div", "flex flex-wrap gap-2 px-3 pb-2");
+      items.forEach((item) => {
+        const link = option(item.url, "rounded-full border px-3 py-1 text-xs");
+        link.classList.remove("px-3", "py-2", "text-sm");
+        link.textContent = item.name;
+        row.appendChild(link);
+      });
+      panel.appendChild(row);
+    };
+
     const render = (data) => {
       panel.textContent = "";
       active = -1;
@@ -594,6 +608,10 @@
         open();
         return;
       }
+
+      // دور ۲۱: جست‌وجوی کلی («گوشی») ← اول دسته‌ها؛ جست‌وجوی مدل ← اول کالاها. (chips پایین‌تر تعریف شده؛ اینجا فقط ترتیب.)
+      const categoriesFirst = data.categoryFirst && data.categories.length;
+      if (categoriesFirst) linkChips("دسته‌بندی‌ها", data.categories);
 
       if (data.products.length) {
         panel.appendChild(section("محصولات"));
@@ -620,20 +638,8 @@
         });
       }
 
-      const chips = (title, items) => {
-        if (!items.length) return;
-        panel.appendChild(section(title));
-        const row = make("div", "flex flex-wrap gap-2 px-3 pb-2");
-        items.forEach((item) => {
-          const link = option(item.url, "rounded-full border px-3 py-1 text-xs");
-          link.classList.remove("px-3", "py-2", "text-sm");
-          link.textContent = item.name;
-          row.appendChild(link);
-        });
-        panel.appendChild(row);
-      };
-      chips("دسته‌بندی‌ها", data.categories);
-      chips("برندها", data.brands);
+      if (!categoriesFirst) linkChips("دسته‌بندی‌ها", data.categories);
+      linkChips("برندها", data.brands);
 
       const all = option(data.searchUrl, "justify-center border-t font-semibold text-sky-600");
       all.textContent = data.total > data.products.length

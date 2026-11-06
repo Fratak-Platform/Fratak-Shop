@@ -869,7 +869,13 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsAutoCreated")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystem")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -7048,9 +7054,33 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("AnnouncementColor2")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("AnnouncementEffect")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AnnouncementFontSize")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AnnouncementFontWeight")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AnnouncementMessages")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("AnnouncementStyle")
+                        .HasColumnType("int");
+
                     b.Property<string>("AnnouncementText")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("AnnouncementTextColor")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("AnnouncementUrl")
                         .HasMaxLength(500)
@@ -7283,6 +7313,9 @@ namespace Fratak_Shop.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsAnnouncementCloseable")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsAnnouncementEnabled")
                         .HasColumnType("bit");

@@ -34,7 +34,7 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Products;
 [AdminPermission(AdminPermissions.ProductsManage)]
 public class SiteImportModel(ISiteCatalogService catalog, IProductService products, IAdminDataService data, IUploadStore uploads,
     IStoreSettingService storeSettings, IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<SiteImportModel> logger,
-    IMarketPricingService marketPricing) : AdminPageModel
+    IMarketPricingService marketPricing, Fratak_Shop.Core.Services.Smart.ISmartCategoryService smartCategories, Fratak_Shop.Core.Services.Smart.ISmartTaskQueue smartQueue) : AdminPageModel
 {
     /// <summary>روش‌های قیمت‌گذاری: ۱ = سود هدف روی قیمت مبدأ، ۲ = همان قیمت مبدأ، ۳ = بر اساس قیمت بازار (پیش‌فرض، مرحلهٔ سیزدهم).</summary>
     public const int PriceModeTarget = 1, PriceModeSource = 2, PriceModeMarket = 3;
@@ -110,7 +110,9 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
     /// </summary>
     /// <param name="token">توکن پیش‌نمایش.</param>
     /// <param name="selected">شمارهٔ ردیف‌های انتخاب‌شده.</param>
-    /// <param name="categoryId">دستهٔ پیش‌فرض (اگر نام دستهٔ مبدأ با دسته‌ای در فروشگاه یکی بود، همان انتخاب می‌شود).</param>
+    /// <param name="categoryId">دستهٔ پیش‌فرض (اختیاری). دور ۲۱: خالی = «خودکار»؛ کالا اول در «دسته‌بندی نشده» ساخته و بلافاصله با
+    /// دسته‌بندی هوشمند (SmartCategoryService) به دستهٔ درست برده می‌شود (یا دستهٔ تازه ساخته می‌شود). اگر نام دستهٔ مبدأ با دسته‌ای
+    /// در فروشگاه یکی بود، همان انتخاب می‌شود.</param>
     /// <param name="supplierId">تأمین‌کننده (اختیاری).</param>
     /// <param name="priceMode">۱ = قیمت مبدأ قیمت خرید است و قیمت فروش با سود هدف تنظیمات محاسبه می‌شود؛ ۲ = قیمت مبدأ همان قیمت فروش است؛
     /// ۳ (پیش‌فرض) = قیمت مبدأ قیمت خرید است، محصول با قیمت سود هدف ساخته می‌شود و بلافاصله در صف «قیمت‌گذاری بازار» می‌رود تا
@@ -128,8 +130,11 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         }
         Show(token, pending);
 
-        if (categoryId is null || Categories.All(c => c.Id != categoryId))
-            return Fail("دستهٔ پیش‌فرض محصولات را انتخاب کنید.");
+        if (categoryId is not null && Categories.All(c => c.Id != categoryId))
+            return Fail("دستهٔ انتخاب‌شده یافت نشد.");
+        var automatic = categoryId is null;
+        var fallbackCategory = categoryId ?? await smartCategories.EnsureUncategorizedAsync(HttpContext.RequestAborted);
+        var createdIds = new List<Guid>();
         if (supplierId is { } sid && Suppliers.All(s => s.Id != sid))
             return Fail("تأمین‌کنندهٔ انتخاب‌شده یافت نشد.");
 
@@ -174,7 +179,7 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
             }
 
             var command = BuildCommand(item, priceMode, costs, supplierId,
-                categoryNames.FirstOrDefault(c => Same(c.Name, item.Category))?.Id ?? categoryId.Value,
+                categoryNames.FirstOrDefault(c => Same(c.Name, item.Category))?.Id ?? fallbackCategory,
                 brandNames.FirstOrDefault(b => Same(b.Name, item.Brand))?.Id);
             command.Slug = await UniqueSlugAsync(EditModel.Slugify(item.Name));
             command.Images = savedNames.Select((name, i) => new ProductImageCommand { ImageName = name, AltText = command.Name, DisplayOrder = i + 1, IsPrimary = i == 0 }).ToList();
@@ -194,6 +199,8 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
             {
                 created++;
                 pending.Imported.Add(index);
+                if (await data.Query<Product>().Where(p => p.Slug == command.Slug).Select(p => (Guid?)p.Id).FirstOrDefaultAsync() is { } newId)
+                    createdIds.Add(newId);
                 if (priceMode == PriceModeMarket && command.PurchasePrice is > 0)
                     queued += await QueueMarketPriceAsync(item.SourceUrl, command.Name, command.Price, command.PurchasePrice);
             }
@@ -207,12 +214,15 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         }
 
         Show(token, pending);
+        var categorizeNote = createdIds.Count > 0 ? await CategorizeAsync(createdIds, automatic) : null;
         var message = $"{created} محصول به‌صورت پیش‌نویس غیرفعال ساخته شد";
         if (withImages)
             message += $" ({imagesSaved} تصویر روی سرور ذخیره شد{(imagesFailed > 0 ? $"، {imagesFailed} تصویر دانلود/خوانده نشد" : "")})";
         message += ".";
         if (queued > 0)
             message += $" قیمت فروش {queued} محصول در پس‌زمینه از روی قیمت بازار (ترب، دیجی‌کالا، باسلام) تنظیم می‌شود؛ نتیجه در جدول «قیمت‌گذاری بازار» همین صفحه.";
+        if (categorizeNote is not null)
+            message += " " + categorizeNote;
         if (failed > 0)
             message += $" {failed} محصول ساخته نشد.";
         if (skipped > 0)
@@ -369,9 +379,39 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
         return $"{slug}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(3)).ToLowerInvariant()}";
     }
 
+    /// <summary>
+    /// دور ۲۱: دسته‌بندی هوشمند کالاهای تازه (فقط آن‌هایی که در «دسته‌بندی نشده» یا «سایر» افتاده‌اند؛ انتخاب دستی ادمین دست نمی‌خورد).
+    /// برای هر دستهٔ تازه کار «تکمیل دسته» (توضیح، پرسش‌های رایج و تصویر) در صف هوشمند گذاشته می‌شود.
+    /// خطا هرگز درون‌ریزی را خراب نمی‌کند (کالاها ساخته شده‌اند و بازبینی ۶ ساعته دوباره تلاش می‌کند).
+    /// مثال خروجی: «دسته‌بندی هوشمند: ۱۸ کالا دسته گرفت؛ ۲ دستهٔ تازه: پاوربانک، لیوان سرامیکی.»
+    /// </summary>
+    private async Task<string?> CategorizeAsync(List<Guid> ids, bool automatic)
+    {
+        try
+        {
+            var report = await smartCategories.RunAsync(ids, ids.Count, HttpContext.RequestAborted);
+            foreach (var category in report.Created)
+            {
+                await smartQueue.EnqueueAsync(Fratak_Shop.Data.Entities.Smart.SmartTaskKind.CategoryComplete, Fratak_Shop.Data.Entities.Smart.SmartTarget.Category, category.Id,
+                    category.Name, Fratak_Shop.Core.Services.Smart.SmartPriority.Batch, userId: ActorId, userName: ActorName, cancellationToken: HttpContext.RequestAborted);
+            }
+            if (report.Examined == 0)
+                return null;
+            var note = "دسته‌بندی هوشمند: " + report.Summary;
+            if (report.Waiting > 0 && automatic)
+                note += $" {report.Waiting} کالا فعلاً در «دسته‌بندی نشده» ماند تا با رسیدن کالاهای مشابه دسته بگیرد (یا خودتان انتخاب کنید).";
+            return note;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Smart categorization after site import failed");
+            return "دسته‌بندی هوشمند این بار انجام نشد؛ در بازبینی خودکار بعدی انجام می‌شود.";
+        }
+    }
+
     private async Task LoadListsAsync()
     {
-        var categories = await data.Query<Category>().Select(c => new { c.Id, c.Name, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null }).ToListAsync();
+        var categories = await data.Query<Category>().Where(c => !c.IsSystem).Select(c => new { c.Id, c.Name, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null }).ToListAsync();
         Categories = categories.Select(c => (c.Id, c.Parent is null ? c.Name : $"{c.Parent} › {c.Name}")).OrderBy(c => c.Item2).ToList();
         var suppliers = await data.Query<Supplier>().Where(s => s.IsActive).OrderBy(s => s.DisplayOrder).ThenBy(s => s.Name).Select(s => new { s.Id, s.Name }).ToListAsync();
         Suppliers = suppliers.Select(s => (s.Id, s.Name)).ToList();

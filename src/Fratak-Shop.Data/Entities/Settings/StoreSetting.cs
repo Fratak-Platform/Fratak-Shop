@@ -251,6 +251,36 @@ public class StoreSetting : BaseEntity
     [MaxLength(20)]
     public string? AnnouncementColor { get; set; }
 
+    // دور ۲۱: ظاهر کامل نوار اطلاعیه (سبک، رنگ دوم، رنگ متن، اندازه و وزن قلم، جلوهٔ جلب توجه، پیام‌های چرخشی، بستنی بودن).
+    // معنی عددها: Web/Infrastructure/AnnouncementLook.cs (Styles/Effects/Sizes/Weights).
+
+    /// <summary>رنگ دوم گرادیان (هگز). خالی = همان رنگ اول کمی روشن‌تر.</summary>
+    [MaxLength(20)]
+    public string? AnnouncementColor2 { get; set; }
+
+    /// <summary>رنگ متن (هگز). خالی = سفید (یا تیره برای سبک طلایی).</summary>
+    [MaxLength(20)]
+    public string? AnnouncementTextColor { get; set; }
+
+    /// <summary>۰ ساده، ۱ گرادیان، ۲ جشن رنگارنگ، ۳ فوری، ۴ طلایی.</summary>
+    public int AnnouncementStyle { get; set; }
+
+    /// <summary>۰ بدون جلوه، ۱ چشمک، ۲ تپش، ۳ درخشش، ۴ متن متحرک.</summary>
+    public int AnnouncementEffect { get; set; }
+
+    /// <summary>۰ کوچک، ۱ متوسط، ۲ بزرگ.</summary>
+    public int AnnouncementFontSize { get; set; }
+
+    /// <summary>۰ معمولی، ۱ پررنگ، ۲ خیلی پررنگ.</summary>
+    public int AnnouncementFontWeight { get; set; }
+
+    /// <summary>پیام‌های چرخشی اضافه (هر خط یک پیام؛ هر ۵ ثانیه یکی). مثال: «تخفیف ۱۰٪ اولین خرید\nارسال رایگان بالای ۲ میلیون».</summary>
+    [MaxLength(1000)]
+    public string? AnnouncementMessages { get; set; }
+
+    /// <summary>مشتری می‌تواند نوار را ببندد (تا وقتی متن عوض نشده دوباره نمایش داده نمی‌شود).</summary>
+    public bool IsAnnouncementCloseable { get; set; }
+
     // ── Footer call to action ────────────────────────────────────────────
     [MaxLength(100)]
     public string? FooterButtonText { get; set; }

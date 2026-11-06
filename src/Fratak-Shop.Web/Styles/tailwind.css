@@ -55,3 +55,33 @@
 
 /* عنصرهایی که با ویژگی hidden پنهان می‌شوند (مثل شمارندهٔ زنده‌ی زنگوله) نباید با کلاس flex/inline-flex دوباره نمایش داده شوند. */
 [hidden]:not([hidden="until-found"]) { display: none !important; }
+
+/* ═══ دور ۲۱: نوار اطلاعیهٔ بالای سایت (AnnouncementLook.cs) ═══
+   بیرون از @layer تا Tailwind هیچ‌کدام را حذف نکند. همهٔ حرکت‌ها با prefers-reduced-motion خاموش می‌شوند. */
+.fs-ann { text-align: center; line-height: 1.4; }
+.fs-ann a { color: inherit; }
+.fs-ann-festive, .fs-ann-gold { background-size: 300% 100% !important; animation: fs-ann-flow 9s linear infinite; }
+.fs-ann-blink .fs-ann-track { animation: fs-ann-blink 1.6s ease-in-out infinite; }
+.fs-ann-pulse .fs-ann-track { animation: fs-ann-pulse 1.8s ease-in-out infinite; display: inline-block; }
+.fs-ann-shimmer::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .35) 50%, transparent 70%);
+  transform: translateX(-100%); animation: fs-ann-shine 3.2s ease-in-out infinite;
+}
+.fs-ann-marquee .fs-ann-track { overflow: visible; white-space: nowrap; animation: fs-ann-marquee 16s linear infinite; }
+@keyframes fs-ann-flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@keyframes fs-ann-blink { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@keyframes fs-ann-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes fs-ann-shine { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
+@keyframes fs-ann-marquee { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+@media (prefers-reduced-motion: reduce) {
+  .fs-ann, .fs-ann *, .fs-ann::after { animation: none !important; transition: none !important; }
+}
+
+/* دور ۲۱: فهرست مطالب مقاله‌های هوشمند (BlogWriter.WithToc). */
+.fs-toc { margin: 1.25rem 0; padding: .9rem 1.1rem; border: 1px solid #e4e4e7; border-radius: .9rem; background: #fafafa; }
+.fs-toc ol { margin: .4rem 0 0; padding-inline-start: 1.2rem; list-style: decimal; }
+.fs-toc li { margin: .2rem 0; }
+.fs-toc a { color: #0369a1; text-decoration: none; }
+.fs-toc a:hover { text-decoration: underline; }
+.prose-content h2[id] { scroll-margin-top: 7rem; }

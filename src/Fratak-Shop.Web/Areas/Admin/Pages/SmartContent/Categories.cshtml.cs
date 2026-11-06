@@ -13,7 +13,7 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.SmartContent;
 /// از بهترین عکس کالاها ساخته می‌شود. متن یا تصویری که خودتان گذاشته‌اید هرگز بازنویسی نمی‌شود.</para>
 /// </summary>
 [AdminPermission(AdminPermissions.CatalogManage)]
-public class CategoriesModel(ISmartCatalogService catalog, ISmartTaskQueue queue) : AdminPageModel
+public class CategoriesModel(ISmartCatalogService catalog, ISmartTaskQueue queue, ISmartCategoryService categorizer) : AdminPageModel
 {
     public List<(Guid Id, string Name, bool HasDescription, bool HasImage, int Products)> Items { get; private set; } = [];
 
@@ -29,6 +29,20 @@ public class CategoriesModel(ISmartCatalogService catalog, ISmartTaskQueue queue
             if (row.TargetKind == SmartTarget.Category && row.TargetId is { } id && !Latest.ContainsKey(id))
                 Latest[id] = row;
         }
+    }
+
+    /// <summary>
+    /// دور ۲۱: دکمهٔ «دسته‌بندی هوشمند الان» – همان کاری که هر ۶ ساعت خودکار انجام می‌شود (کالاهای «دسته‌بندی نشده» و «سایر» دسته
+    /// می‌گیرند و برای کالاهای مهم یا هر ۳ کالای مشابه دستهٔ تازه ساخته می‌شود). دستهٔ تازه بلافاصله «تکمیل» (متن و تصویر) را در صف می‌گیرد.
+    /// </summary>
+    public async Task<IActionResult> OnPostCategorizeAsync()
+    {
+        var ct = HttpContext.RequestAborted;
+        var report = await categorizer.RunAsync(null, 500, ct);
+        foreach (var category in report.Created)
+            await queue.EnqueueAsync(SmartTaskKind.CategoryComplete, SmartTarget.Category, category.Id, category.Name, SmartPriority.Batch, null, ActorId, ActorName, ct);
+        SuccessMessage = "دسته‌بندی هوشمند: " + report.Summary;
+        return BackToList();
     }
 
     public async Task<IActionResult> OnPostRunAsync(Guid id)
