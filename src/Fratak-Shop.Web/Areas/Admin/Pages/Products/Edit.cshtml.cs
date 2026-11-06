@@ -225,6 +225,8 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             .Where(i => existing is null || existing.Images.Any(e => e.ImageName == i.ImageName))
             .DistinctBy(i => i.ImageName, StringComparer.Ordinal)
             .ToList();
+        if (existing is not null)
+            kept.AddRange(Unposted(existing.Images, Input.Images, removedNames));
         var newFiles = newImages.Where(f => f.Length > 0).ToList();
         if (kept.Count + newFiles.Count > MaxImages)
             return await FailAsync($"حداکثر {MaxImages} تصویر برای هر محصول مجاز است.");
@@ -519,6 +521,22 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         input.RemovedImages.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim())
             .Concat(input.Images.Where(i => i.Remove && !string.IsNullOrWhiteSpace(i.ImageName)).Select(i => i.ImageName))
             .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// تصویرهای فعلی محصول که اصلاً در فرم نیامده‌اند و کسی هم حذفشان نکرده است (خالص؛ آزمون‌پذیر).
+    /// <para>چرا؟ اتصال فهرست در ASP.NET با اولین «جای خالی» در شماره‌ها (Images[0]، Images[2] بدون Images[1]) متوقف می‌شود؛
+    /// بدون این محافظ، تصویرهای بعد از جای خالی بی‌صدا پاک می‌شدند. قانون: تصویر فقط با «حذف» صریح پاک می‌شود، نه با نیامدن در فرم.</para>
+    /// <para>مثال: در پایگاه [a، b، c]؛ فرم فقط Images[0]=a و RemovedImages=b ← c با alt و ترتیب قبلی خودش می‌ماند.</para>
+    /// </summary>
+    public static IEnumerable<ProductImageInput> Unposted(IEnumerable<ProductImage> current, IEnumerable<ProductImageInput> posted, IReadOnlySet<string> removed)
+    {
+        var seen = posted.Select(i => i.ImageName).Where(n => !string.IsNullOrWhiteSpace(n)).ToHashSet(StringComparer.Ordinal);
+        return current
+            .Where(e => !seen.Contains(e.ImageName) && !removed.Contains(e.ImageName))
+            .DistinctBy(e => e.ImageName, StringComparer.Ordinal)
+            .Select(e => new ProductImageInput { ImageName = e.ImageName, AltText = e.AltText, DisplayOrder = e.DisplayOrder })
+            .ToList();
+    }
 
     private async Task<IActionResult> FailAsync(string message)
     {

@@ -425,8 +425,12 @@ public static partial class ContentWriter
         text.Replace(StrongOpen.ToString(), "", StringComparison.Ordinal).Replace(StrongClose.ToString(), "", StringComparison.Ordinal)
             .Replace(EmOpen.ToString(), "", StringComparison.Ordinal).Replace(EmClose.ToString(), "", StringComparison.Ordinal);
 
-    /// <summary>متن تأییدشدهٔ خریداران: تمیز، بدون نشانه، بدون نویسه‌های الگو و حداکثر ۲۰۰ نویسه.</summary>
-    private static string Note(string? text) => PersianText.Truncate(SpecKnowledge.Safe(Strip(PersianText.Clean(text))), 200).Trim();
+    /// <summary>
+    /// متن تأییدشدهٔ خریداران: فقط متن (هر تگ HTML حذف می‌شود)، تمیز، بدون نشانه، بدون نویسه‌های الگو و حداکثر ۲۰۰ نویسه.
+    /// مثال: «&lt;a href="javascript:…"&gt;لینک&lt;/a&gt; قاب بزرگ» ← «لینک قاب بزرگ».
+    /// </summary>
+    private static string Note(string? text) =>
+        PersianText.Truncate(SpecKnowledge.Safe(Strip(PersianText.Clean(PersianText.HtmlToText(text)))), 200).Trim();
 
     /// <summary>اولین «عبارت احتیاط» جمله ایتالیک می‌شود. مثال: «… طبق اعلام سازنده …» → «… &lt;em&gt;طبق اعلام سازنده&lt;/em&gt; …».</summary>
     private static string Caveats(string text)

@@ -114,8 +114,9 @@ public class SmartReviewTests
             Assert.Contains("<h3>", w.Html, StringComparison.Ordinal);
             Assert.Contains("<strong>", w.Html, StringComparison.Ordinal);
             Assert.Contains("<ul>", w.Html, StringComparison.Ordinal);
-            Assert.Contains("<table class=\"fs-spec-table\">", w.Html, StringComparison.Ordinal);
-            Assert.Contains("fs-review-box", w.Html, StringComparison.Ordinal);
+            // جدول فقط با دست‌کم ۳ مشخصه (جدول ۲ردیفه ارزشی ندارد).
+            var ctx = new WriterContext { Subject = w.Subject, Store = Store, Keyword = w.Keyword };
+            Assert.Equal(ctx.Facts.Count >= 3, w.Html.Contains("<table class=\"fs-spec-table\">", StringComparison.Ordinal));
             Assert.Contains("fs-proscons", w.Html, StringComparison.Ordinal);
             // <u> عمداً هرگز (با لینک اشتباه گرفته می‌شود و اثر سئویی ندارد)؛ تگ‌های قدیمی b/i هم نه.
             Assert.DoesNotContain("<u>", w.Html, StringComparison.OrdinalIgnoreCase);
@@ -128,6 +129,14 @@ public class SmartReviewTests
             // هیچ نشانهٔ داخلی (نویسه‌های استفادهٔ خصوصی یونیکد) جا نمانده است.
             Assert.False(w.Html.Any(ch => ch is >= '\uE000' and <= '\uF8FF'), "private-use marker left in output");
         }
+    }
+
+    [Fact]
+    public void Most_reviews_start_with_a_summary_box_for_the_buyer()
+    {
+        // کادر «خلاصهٔ بررسی» با دست‌کم ۲ نکتهٔ متمایز می‌آید؛ در این ۳۰ هدفون تقریباً همیشه.
+        var withBox = Output.Value.Count(w => w.Html.Contains("<div class=\"fs-review-box\">", StringComparison.Ordinal));
+        Assert.True(withBox >= 15, $"summary box in {withBox}/30");
     }
 
     [Fact]

@@ -720,7 +720,9 @@ public static partial class ContentWriter
     }
 
     private static readonly System.Text.RegularExpressions.Regex AnchorPattern =
-        new("<a href=\"[^\"<>]*\">[^<]*</a>", System.Text.RegularExpressions.RegexOptions.Compiled);
+        // فقط لینک داخلی («/…» و نه «//…») که خود نویسنده با A() ساخته؛ لینکی که از داده (مشخصه/نظر) با javascript: یا
+        // آدرس بیرونی بیاید با این الگو جور نمی‌شود و مثل متن ساده encode می‌شود (دور بیستم – آزمون حملهٔ نقد و بررسی).
+        new("<a href=\"/(?!/)[^\"<>]*\">[^<]*</a>", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     private static string H2(string text) => "<h2>" + WebUtility.HtmlEncode(text) + "</h2>";
 
