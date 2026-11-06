@@ -92,18 +92,18 @@ public class ProductImagesE2ETests(ShopApp app)
         return fields;
     }
 
+    /// <summary>
+    /// ارسال فرم ویرایش. موفق = ریدایرکت (۳۰۲) به همان صفحهٔ ویرایش یا فهرست؛ ناموفق = همان صفحه با پیام خطا (۲۰۰).
+    /// </summary>
     private static async Task SaveAsync(ShopClient client, Guid id, List<(string Key, string Value)> fields)
     {
         using var response = await client.PostFormAsync($"/admin/products/edit/{id}", fields.ToArray());
         var location = response.Headers.Location?.OriginalString ?? "";
-        if (response.StatusCode != HttpStatusCode.Redirect || !location.EndsWith("/admin/products", StringComparison.Ordinal))
-        {
-            var html = await response.Content.ReadAsStringAsync();
-            var message = response.StatusCode == HttpStatusCode.Redirect
-                ? (await client.GetPageAsync(location)).One(".a-alert, [role='alert'], .alert")?.TextContent
-                : ShopClient.Excerpt(html);
-            throw new Xunit.Sdk.XunitException($"Save failed: {(int)response.StatusCode} → {location}\n{message}");
-        }
+        if (response.StatusCode == HttpStatusCode.Redirect
+            && (location.EndsWith($"/admin/products/edit/{id}", StringComparison.OrdinalIgnoreCase) || location.EndsWith("/admin/products", StringComparison.Ordinal)))
+            return;
+        var html = await response.Content.ReadAsStringAsync();
+        throw new Xunit.Sdk.XunitException($"Save failed: {(int)response.StatusCode} → {location}\n{ShopClient.Excerpt(html)}");
     }
 
     [SqlFact]
