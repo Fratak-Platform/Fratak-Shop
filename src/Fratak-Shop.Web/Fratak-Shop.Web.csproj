@@ -21,13 +21,6 @@
   </PropertyGroup>
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
-    <!--
-      W^X (نوشتن یا اجرا): هر کد کامپایل‌شده را دو بار از راه «حافظهٔ اشتراکی» نگاشت می‌کند. روی هاست ۵۱۲ مگ آزمون بار
-      حدود ۱۱۵ مگابایت shmem نشان داد که قابل آزادسازی نیست و پروسه را به کشته شدن (OOM) می‌رساند. تیم دات‌نت خودش همین
-      را راه‌حل می‌داند (dotnet/runtime#82297): با خاموش کردنش حافظه به سطح دات‌نت ۶ برمی‌گردد. در دات‌نت ۱۰ این کلید از
-      runtimeconfig خوانده می‌شود، پس روی IIS هم بدون متغیر محیطی اعمال می‌شود. برگرداندن: DOTNET_EnableWriteXorExecute=1.
-    -->
-    <RuntimeHostConfigurationOption Include="System.Runtime.EnableWriteXorExecute" Value="false" />
   </ItemGroup>
 
   <ItemGroup>

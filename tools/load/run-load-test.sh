@@ -75,15 +75,16 @@ echo "::notice::Load test: container running=$running, OOMKilled=$oom, peak memo
 docker logs fratak-load > app-load.log 2>&1 || true
 
 # خلاصه به‌صورت annotation (در API گیت‌هاب هم خواندنی است، حتی وقتی گزارش کامل در دسترس نیست).
-summary=$(grep -E "server_errors\.|connection_errors\.|snapshot_responses|http_reqs\." k6.txt | tr -s ' .' ' ' | tr '\n' ';')
-errors5xx=$(grep -o "5xx [0-9]* [^ ]*" k6.txt | sort | uniq -c | sort -rn | head -n 8 | tr -s ' ' | tr '\n' ';')
-exceptions=$(grep -oE "System\.[A-Za-z.]*Exception" app-load.log | sort | uniq -c | sort -rn | head -n 5 | tr -s ' ' | tr '\n' ';')
-pressure=$(grep -E "Resources: level" app-load.log | tail -n 2 | tr -s ' ' | tr '\n' ';')
+# نکته: با set -o pipefail، grep بدون نتیجه (مثلاً «هیچ ۵xx» در آزمون موفق) کل اسکریپت را شکست می‌داد؛ «|| true» لازم است.
+summary=$(grep -E "server_errors\.|connection_errors\.|snapshot_responses|http_reqs\." k6.txt | tr -s ' .' ' ' | tr '\n' ';' || true)
+errors5xx=$(grep -o "5xx [0-9]* [^ ]*" k6.txt | sort | uniq -c | sort -rn | head -n 8 | tr -s ' ' | tr '\n' ';' || true)
+exceptions=$(grep -oE "System\.[A-Za-z.]*Exception" app-load.log | sort | uniq -c | sort -rn | head -n 5 | tr -s ' ' | tr '\n' ';' || true)
+pressure=$(grep -E "Resources: level" app-load.log | tail -n 2 | tr -s ' ' | tr '\n' ';' || true)
 echo "::notice title=k6 summary::$summary 5xx: ${errors5xx:-none} exceptions: ${exceptions:-none}"
 echo "::notice title=pressure::${pressure:-n/a}"
 # بیشینهٔ حافظهٔ غیرقابل آزادسازی (anon + shmem) در نمونه‌ها، و حافظه بعد از گرم شدن (پیش از بار).
 peak_unreclaimable=$(awk '{a=0;s=0; for(i=1;i<=NF;i++){ if($i ~ /^anon=/){sub("anon=","",$i);sub("M","",$i);a=$i} if($i ~ /^shmem=/){sub("shmem=","",$i);sub("M","",$i);s=$i} } if(a+s>m)m=a+s} END{print m+0}' resources.log 2>/dev/null)
-first_sample=$(head -n 1 resources.log 2>/dev/null | grep -oE "anon=[0-9]+M|shmem=[0-9]+M" | tr '\n' ' ')
+first_sample=$(head -n 1 resources.log 2>/dev/null | grep -oE "anon=[0-9]+M|shmem=[0-9]+M" | tr '\n' ' ' || true)
 echo "::notice title=memory::env='${LOAD_ENV:-}' peak anon+shmem=${peak_unreclaimable}MB; idle after warm-up: ${first_sample:-n/a}"
 
 if [ "$running" != "true" ]; then echo "::error::the app died during the load test (OOMKilled=$oom)"; exit 1; fi
