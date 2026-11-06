@@ -146,6 +146,8 @@ RestartSec=5
 User=www-data
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=Security__BehindProxy=true
+# کمتر کردن حافظهٔ غیرمدیریت‌شده (تعداد «arena»های malloc لینوکس؛ آزمون بار ۵۱۲ مگ: حدود ۴۰ مگ کمتر). فقط لینوکس.
+Environment=MALLOC_ARENA_MAX=2
 EnvironmentFile=/etc/fratak-shop.env
 
 [Install]

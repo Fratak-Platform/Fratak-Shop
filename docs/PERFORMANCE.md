@@ -18,7 +18,7 @@
 | شروع سبک | فهرست شهرها و راهنمای پنل فقط وقتی نسخه یا پایگاه داده عوض شده باشد (`App_Data/startup-sync.txt`)؛ گرم کردن کش‌ها بلافاصله بعد از آماده شدن | `FratakShopBootstrapper.cs`، `Ops/WarmupService.cs` |
 | فایل‌های ایستا | CSS/JS با Brotli/Gzip فقط یک بار فشرده و در حافظه نگه داشته می‌شوند (سقف ۱۶ مگ)؛ با `?v=` کش یک‌ساله | `Ops/PrecompressedStatic.cs` |
 | تصویر | تبدیل WebP یکی‌یکی (صف)، باز کردن کوچک‌شدهٔ عکس‌های خیلی بزرگ؛ در پنل، عکس پیش از آپلود در خود مرورگر WebP و کوچک می‌شود | `Media/WebPEncoder.cs`، `wwwroot/assets/js/upload-webp.js` |
-| حافظهٔ GC | Workstation GC غیرهم‌زمان + `ConserveMemory=5`؛ سقف هیپ = ۵۵٪ سقف برنامه؛ یک پاک‌سازی کامل یک دقیقه بعد از شروع | `Fratak-Shop.Web.csproj`، `MemoryLimits` در `ResourceGovernor.cs` |
+| حافظهٔ GC و کد | Workstation GC غیرهم‌زمان + `ConserveMemory=5`؛ کامپایل یک‌مرحله‌ای (`TieredCompilation=false`، بدون PGO)؛ سقف هیپ = ۶۰٪ سقف برنامه؛ یک پاک‌سازی کامل یک دقیقه بعد از شروع | `Fratak-Shop.Web.csproj`، `MemoryLimits` در `ResourceGovernor.cs` |
 | اتصال زنده | روی پروفایل Low فقط کارکنان اتصال SignalR دارند (هر اتصال یک درخواست باز است) | `Pages/Shared/_Layout.cshtml` |
 | گزارش | پنل ← فنی ← **منابع سرور**: فشار، حافظه، صف، کارهای منتظر، قطع‌کن‌ها، سنگین‌ترین صفحه‌ها، تاریخچهٔ روشن/خاموش شدن با دلیل | `Areas/Admin/Pages/System/Resources.cshtml` |
 
@@ -58,7 +58,9 @@
 | `Shop__Resources__MemoryLimitMb` | سقف حافظهٔ استخر به مگابایت (اگر هاست گفته، مثلاً `900`)؛ ۰ = خودکار |
 | `Shop__Resources__MaxConcurrentRequests` | سقف دستی درخواست هم‌زمان مهمان؛ ۰ = از پروفایل |
 | `Shop__Resources__StartupQuietMinutes` | دورهٔ آرام بعد از روشن شدن؛ ۱- = از پروفایل |
-| `Shop__Resources__LimitGcHeap` | سقف هیپ GC = ۵۵٪ سقف حافظهٔ برنامه (پیش‌فرض `true`)؛ جا برای حافظهٔ غیرمدیریت‌شده می‌ماند و پروسه به سقف نمی‌خورد |
+| `Shop__Resources__LimitGcHeap` | سقف هیپ GC = ۶۰٪ سقف حافظهٔ برنامه (پیش‌فرض `true`)؛ جا برای حافظهٔ غیرمدیریت‌شده می‌ماند و پروسه به سقف نمی‌خورد |
+| `Shop__Resources__HeapPercent` | سهم هیپ GC به درصد (۳۰ تا ۷۵؛ ۰ = پیش‌فرض ۶۰). کمتر = جای بیشتر برای حافظهٔ غیرمدیریت‌شده، ولی زیر ۵۵ روی ۵۱۲ مگ هیپ خفه می‌شود |
+| `MALLOC_ARENA_MAX` | فقط لینوکس: `2` حافظهٔ غیرمدیریت‌شده را کم می‌کند (در systemd، `docs/DEPLOYMENT.md`) |
 | `Shop__Resources__SelfRestart` | ری‌استارت کنترل‌شده در خط قرمز حافظه (`true`/`false`) |
 | `Shop__Diagnostics__QueryHeader` | فقط عیب‌یابی: سرآیند `X-Db-Queries` (روی سایت واقعی خاموش بماند) |
 
@@ -98,6 +100,24 @@
   dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out -p:FratakPublishTarget=linux
   bash tools/load/run-load-test.sh out "Server=localhost,1433;Database=FratakShopLoad;User Id=sa;Password=...;TrustServerCertificate=True"
   ```
+
+  برای آزمایش تنظیم دیگر: `LOAD_ENV="Shop__Resources__HeapPercent=65 DOTNET_GCgen0size=1000000" bash tools/load/run-load-test.sh …`.
+  خروجی در GitHub به‌صورت annotation: «memory» (قلهٔ حافظهٔ غیرقابل‌بازپس‌گیری و حافظه بعد از گرم شدن)، «k6 summary»، «pressure»
+  و در صورت خطای حافظه «oom stack».
+
+  **یافته‌های آزمون بار (دور ۱۹)** — هر تنظیم دو بار روی ماشین جدا:
+
+  | تنظیم | نتیجه |
+  |---|---|
+  | پایه (کامپایل چندمرحله‌ای، هیپ ۵۵٪) | پروسه کشته شد (OOMKilled) |
+  | W^X خاموش، صف ۴، `GCgen0size` | بی‌اثر (فقط shmem به anon تبدیل شد) — کنار گذاشته شد |
+  | هیپ ۴۵ یا ۵۰٪ | هیپ خفه شد: OutOfMemoryException و از کار افتادن پروسه |
+  | `TieredCompilation=false` | دیگر کشته نشد؛ چند ۵۰۰ نادر از OutOfMemoryException هیپ |
+  | + `MALLOC_ARENA_MAX=2` | قلهٔ حافظه ۴۰ تا ۶۰ مگ کمتر (۴۱۱ تا ۴۳۵ مگ) |
+  | + هیپ **۶۰٪** یا ۶۵٪ | **۴ اجرا از ۴ بدون هیچ خطا**؛ قلهٔ کل ۴۴۳ تا ۴۶۲ مگ از ۵۱۲ ← پیش‌فرض فعلی |
+
+  همچنین پشتهٔ OutOfMemoryException نشان داد نسخهٔ ذخیره‌شده برای مرورگر بدون gzip با بافر ۸۰ کیلوبایتی باز می‌شد (هیپ اشیای بزرگ)؛
+  حالا بافر ۱۶ کیلوبایت است (`PageSnapshotStore.DecompressBufferBytes`).
 
 ## ۵. محتوای هوشمند روی هاست ضعیف (دور ۱۹)
 

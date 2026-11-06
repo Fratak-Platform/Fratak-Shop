@@ -24,6 +24,7 @@ docker run -d --name fratak-load --network host "${extra_env[@]}" \
   -e ASPNETCORE_ENVIRONMENT=Development \
   -e ASPNETCORE_URLS="$BASE" \
   -e DOTNET_gcServer=0 \
+  -e MALLOC_ARENA_MAX=2 \
   -e Shop__Diagnostics__ResourceLog=true \
   -e Logging__LogLevel__Default=Warning \
   -e Logging__LogLevel__Fratak_Shop=Information \

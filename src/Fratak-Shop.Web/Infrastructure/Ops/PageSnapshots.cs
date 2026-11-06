@@ -25,6 +25,9 @@ public sealed class PageSnapshotStore
     /// <summary>بیشترین حجم HTML قابل ذخیره (بزرگ‌تر = ذخیره نمی‌شود).</summary>
     public const int MaxHtmlBytes = 1024 * 1024;
 
+    /// <summary>اندازهٔ بافر باز کردن gzip برای مرورگری که gzip نمی‌پذیرد (زیر ۸۵ کیلوبایت = بیرون از هیپ اشیای بزرگ).</summary>
+    public const int DecompressBufferBytes = 16 * 1024;
+
     private readonly ConcurrentDictionary<string, DateTimeOffset> _captured = new(StringComparer.Ordinal);
     private readonly string _directory;
     private readonly int _maxFiles;
@@ -170,8 +173,10 @@ public sealed class PageSnapshotStore
             return true;
         }
 
+        // بافر کوچک (۱۶ کیلوبایت): بافر پیش‌فرض CopyToAsync هشتاد کیلوبایتی است و در «هیپ اشیای بزرگ» گرفته می‌شود؛
+        // آزمون بار نشان داد همین بافر درست وقتی حافظه پر است (و این نسخه باید نجات‌دهنده باشد) OutOfMemoryException می‌دهد.
         await using var input = new GZipStream(new MemoryStream(gzip), CompressionMode.Decompress);
-        await input.CopyToAsync(response.Body, http.RequestAborted);
+        await input.CopyToAsync(response.Body, DecompressBufferBytes, http.RequestAborted);
         return true;
     }
 

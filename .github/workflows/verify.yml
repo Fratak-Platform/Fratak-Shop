@@ -186,24 +186,11 @@ jobs:
   # دور نوزدهم (A29): آزمون بار روی هاست ضعیف شبیه‌سازی‌شده – برنامهٔ منتشرشده با سقف ۵۱۲ مگابایت حافظه و نیم هستهٔ CPU،
   # ۱۰۰۰ کاربر هم‌زمان k6؛ شرط قبولی: صفر پاسخ ۵xx، صفر خطای اتصال، کانتینر زنده (tools/load/run-load-test.sh).
   load:
-    name: Load test (512 MB, 0.5 CPU, 1000 users) ${{ matrix.variant }}
+    name: Load test (512 MB, 0.5 CPU, 1000 users)
     needs: build
     if: needs.build.outputs.ok == 'true' && needs.build.outputs.migration != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # آزمایش موقت حافظه: چند تنظیم هم‌زمان روی ماشین‌های جدا (نتیجه در annotation «memory»).
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: tc0-arena2
-            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2"
-          - variant: tc0-arena2-heap60
-            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__HeapPercent=60"
-          - variant: tc0-arena2-heap65
-            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__HeapPercent=65"
-          - variant: tc0-arena2-conc6
-            env: "DOTNET_TieredCompilation=0 MALLOC_ARENA_MAX=2 Shop__Resources__MaxConcurrentRequests=6"
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -229,7 +216,6 @@ jobs:
 
       - name: Run load test
         env:
-          LOAD_ENV: ${{ matrix.env }}
         run: bash tools/load/run-load-test.sh out "Server=localhost,1433;Database=FratakShopLoad;User Id=sa;Password=Load_Test_Passw0rd!;TrustServerCertificate=True;MultipleActiveResultSets=true"
 
       - name: Report load test results
@@ -238,7 +224,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo "### Load test (512 MB, 0.5 CPU, 1000 users) ${{ matrix.variant }}"
+            echo "### Load test (512 MB, 0.5 CPU, 1000 users)"
             echo '```'; grep -v "level=warning" k6.txt 2>/dev/null | tail -c 9000; echo '```'
             echo "#### 5xx responses (status, page)"
             echo '```'; grep -o "5xx [0-9]* [^ ]*" k6.txt 2>/dev/null | sort | uniq -c | sort -rn | head -n 30; echo '```'

@@ -18,6 +18,12 @@
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <!-- PGO پویا هر متد پرکاربرد را سه بار کامپایل می‌کند (عادی، نمونه‌بردار، بهینه) ← حافظهٔ کد و CPU بیشتر؛ روی هاست ضعیف خاموش. -->
     <TieredPGO>false</TieredPGO>
+    <!--
+      کامپایل چندمرحله‌ای (Tiered) خاموش: هر متد فقط یک بار و مستقیم بهینه کامپایل می‌شود (نه اول سریع و بعد دوباره بهینه).
+      آزمون بار ۵۱۲ مگ / نیم هسته / ۱۰۰۰ کاربر: با این تنظیم حافظهٔ کد کمتر و قله‌ها کوتاه‌تر شد و پروسه دیگر کشته نشد (docs/PERFORMANCE.md).
+      هزینه: شروع برنامه چند ثانیه کندتر (فقط بار اول هر متد). روی IIS ویندوز هم همین اثر را دارد.
+    -->
+    <TieredCompilation>false</TieredCompilation>
   </PropertyGroup>
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />

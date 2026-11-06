@@ -590,6 +590,36 @@ public class ResourceGovernorTests
         }
     }
 
+    /// <summary>
+    /// صفحهٔ بزرگ (چند برابر بافر) برای مرورگر بدون gzip کامل و دست‌نخورده باز می‌شود، و بافر باز کردن زیر مرز «هیپ اشیای بزرگ»
+    /// (۸۵ کیلوبایت) است؛ آزمون بار نشان داد بافر پیش‌فرض ۸۰ کیلوبایتی درست وقتی حافظه پر است OutOfMemoryException می‌دهد.
+    /// </summary>
+    [Fact]
+    public async Task Large_snapshots_are_decompressed_with_a_small_buffer_and_arrive_intact()
+    {
+        Assert.InRange(PageSnapshotStore.DecompressBufferBytes, 4 * 1024, 84 * 1024);
+        var dir = TempDir();
+        try
+        {
+            var store = new PageSnapshotStore(dir, 100, TimeSpan.FromMinutes(10));
+            var body = string.Concat(Enumerable.Range(0, 6000).Select(i => $"<p>محصول شمارهٔ {i} – توضیح کوتاه</p>"));
+            var html = Encoding.UTF8.GetBytes("<!doctype html><html><body>" + body + "</body></html>");
+            Assert.True(html.Length > PageSnapshotStore.DecompressBufferBytes * 10);
+            await store.SaveAsync(PageSnapshotStore.Key("/blog", null), html);
+
+            var plain = Http("/blog");
+            Assert.True(await store.TryServeAsync(plain, "memory"));
+            Assert.Equal(200, plain.Response.StatusCode);
+            Assert.True(string.IsNullOrEmpty(plain.Response.Headers.ContentEncoding.ToString()));
+            Assert.Equal(html, ((MemoryStream)plain.Response.Body).ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+    }
+
     [Fact]
     public async Task Snapshots_are_never_served_to_signed_in_users_or_when_disabled()
     {
@@ -819,8 +849,9 @@ public class ResourceGovernorTests
     [Fact]
     public void Gc_heap_gets_most_of_the_process_limit_but_never_too_little()
     {
-        Assert.Equal((long)(512 * 0.55 * 1024 * 1024), MemoryLimits.HeapLimitFor(512));
-        Assert.Equal((long)(1024 * 0.55 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
+        Assert.Equal(0.60, MemoryLimits.HeapShare);
+        Assert.Equal((long)(512 * 0.60 * 1024 * 1024), MemoryLimits.HeapLimitFor(512));
+        Assert.Equal((long)(1024 * 0.60 * 1024 * 1024), MemoryLimits.HeapLimitFor(1024));
         Assert.Equal(MemoryLimits.MinHeapBytes, MemoryLimits.HeapLimitFor(200));
         Assert.Null(MemoryLimits.HeapLimitFor(0));
         // سهم قابل تنظیم (HeapPercent): ۴۵٪ از ۵۱۲ مگ؛ مقدار خارج از بازه محدود می‌شود؛ صفر = پیش‌فرض.

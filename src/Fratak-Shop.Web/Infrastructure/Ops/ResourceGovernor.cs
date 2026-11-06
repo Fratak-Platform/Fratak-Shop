@@ -107,13 +107,13 @@ public sealed class ResourceOptions
     public bool DbContextPooling { get; set; } = true;
 
     /// <summary>
-    /// سقف هیپ GC = ۵۵٪ سقف حافظهٔ برنامه (A4، <see cref="MemoryLimits"/>). پیش‌فرض روشن: GC پیش از رسیدن به سقف استخر/کانتینر
+    /// سقف هیپ GC = ۶۰٪ سقف حافظهٔ برنامه (A4، <see cref="MemoryLimits"/>). پیش‌فرض روشن: GC پیش از رسیدن به سقف استخر/کانتینر
     /// جمع‌آوری می‌کند و جا برای حافظهٔ غیرمدیریت‌شده می‌ماند. پروفایل High بدون سقف دستی اثری ندارد.
     /// </summary>
     public bool LimitGcHeap { get; set; } = true;
 
     /// <summary>
-    /// سهم هیپ GC از سقف حافظهٔ برنامه به درصد (۳۰ تا ۷۵). صفر = پیش‌فرض (۵۵٪). مثال: <c>Shop__Resources__HeapPercent=45</c> روی هاست
+    /// سهم هیپ GC از سقف حافظهٔ برنامه به درصد (۳۰ تا ۷۵). صفر = پیش‌فرض (۶۰٪). مثال: <c>Shop__Resources__HeapPercent=45</c> روی هاست
     /// ۵۱۲ مگ ← سقف هیپ ۲۳۰ مگ (جای بیشتر برای حافظهٔ غیرمدیریت‌شده). استفاده: <see cref="MemoryLimits.Apply"/>.
     /// </summary>
     public int HeapPercent { get; set; }
@@ -650,9 +650,9 @@ public sealed class ProcessMeter
 /// <para>
 /// مشکل: GC به‌طور پیش‌فرض تا ۷۵٪ حافظهٔ کانتینر/سیستم را برای هیپ خودش مجاز می‌داند. ولی برنامه حافظهٔ دیگری هم دارد (کد نگاشت‌شدهٔ
 /// DLLها، ICU، بافرهای شبکه، SqlClient)؛ روی هاست ۵۱۲ مگی این جمع از سقف می‌گذرد و سیستم‌عامل پروسه را می‌کشد (۵۰۳).
-/// راه‌حل: بعد از شروع، سقف هیپ = ۵۵٪ سقف برنامه (کمینهٔ سقف کانتینر/سیستم، سقف پروفایل یا مقدار دستی) با GC.RefreshMemoryLimit.
+/// راه‌حل: بعد از شروع، سقف هیپ = ۶۰٪ سقف برنامه (کمینهٔ سقف کانتینر/سیستم، سقف پروفایل یا مقدار دستی) با GC.RefreshMemoryLimit.
 /// </para>
-/// <para>مثال: کانتینر ۵۱۲ مگ + Low → سقف برنامه ۵۱۲ → هیپ ۲۸۲ مگ. IIS روی سرور ۸ گیگ + Low → سقف ۱۰۲۴ → هیپ ۵۶۳ مگ.</para>
+/// <para>مثال: کانتینر ۵۱۲ مگ + Low → سقف برنامه ۵۱۲ → هیپ ۳۰۷ مگ. IIS روی سرور ۸ گیگ + Low → سقف ۱۰۲۴ → هیپ ۶۱۴ مگ.</para>
 /// <para>
 /// استفاده: Program.cs بلافاصله بعد از ResourceGovernor.Configure فقط <see cref="Detect"/> (خواندن سقف واقعی)؛
 /// ResourceMonitorService یک دقیقه بعد از آماده شدن <see cref="Apply"/> (شروع برنامه – مهاجرت و داده‌های اولیه – حافظهٔ بیشتری
@@ -661,8 +661,12 @@ public sealed class ProcessMeter
 /// </summary>
 public static class MemoryLimits
 {
-    /// <summary>سهم هیپ GC از سقف برنامه.</summary>
-    public const double HeapShare = 0.55;
+    /// <summary>
+    /// سهم هیپ GC از سقف برنامه. ۶۰٪ از آزمون بار آمده: با کامپایل یک‌مرحله‌ای (csproj) حافظهٔ غیرمدیریت‌شده حدود ۲۰۰ مگ است؛
+    /// ۵۰٪ هیپ را خفه می‌کرد (OutOfMemoryException)، ۵۵٪ گاهی، ۶۰ و ۶۵٪ در همهٔ اجراها بدون خطا و قلهٔ کل حافظه ۴۴۳ تا ۴۶۲ مگ از ۵۱۲.
+    /// ۶۰ انتخاب شد تا برای حافظهٔ غیرمدیریت‌شده جای امن بماند. قابل تغییر با <see cref="ResourceOptions.HeapPercent"/>.
+    /// </summary>
+    public const double HeapShare = 0.60;
 
     /// <summary>کمترین سقف هیپ (کمتر از این برنامه حتی بالا نمی‌آید).</summary>
     public const long MinHeapBytes = 160L * 1024 * 1024;
@@ -710,18 +714,18 @@ public static class MemoryLimits
         long.TryParse(text?.Trim(), out var value) && value > 0 && value < (1L << 50) ? value : null;
 
     /// <summary>
-    /// سقف هیپ پیشنهادی (بایت) یا null. مثال: <c>HeapLimitFor(512)</c> → ۲۸۲ مگ؛ <c>HeapLimitFor(0)</c> → null (بدون سقف).
+    /// سقف هیپ پیشنهادی (بایت) یا null. مثال: <c>HeapLimitFor(512)</c> → ۳۰۷ مگ؛ <c>HeapLimitFor(0)</c> → null (بدون سقف).
     /// </summary>
     public static long? HeapLimitFor(double processLimitMb, double share = HeapShare) =>
         processLimitMb > 0 ? Math.Max(MinHeapBytes, (long)(processLimitMb * share * 1024 * 1024)) : null;
 
-    /// <summary>سهم هیپ از تنظیمات (HeapPercent) یا پیش‌فرض. مثال: HeapPercent=45 ← ۰٫۴۵؛ ۰ ← ۰٫۵۵؛ ۹۰ ← ۰٫۷۵ (محدود).</summary>
+    /// <summary>سهم هیپ از تنظیمات (HeapPercent) یا پیش‌فرض. مثال: HeapPercent=45 ← ۰٫۴۵؛ ۰ ← ۰٫۶۰؛ ۹۰ ← ۰٫۷۵ (محدود).</summary>
     public static double ShareFor(ResourceOptions options) =>
         options.HeapPercent > 0 ? Math.Clamp(options.HeapPercent, 30, 75) / 100.0 : HeapShare;
 
     /// <summary>
     /// خواندن سقف واقعی و (اگر روشن باشد) پایین آوردن سقف هیپ GC. هرگز سقف را بالا نمی‌برد و هرگز استثنا بیرون نمی‌دهد.
-    /// خروجی: متن کوتاه برای گزارش شروع. مثال: «heap limit 282 MB (process 512 MB)».
+    /// خروجی: متن کوتاه برای گزارش شروع. مثال: «heap limit 307 MB (process 512 MB)».
     /// </summary>
     public static string Apply(ResourceGovernor governor)
     {
