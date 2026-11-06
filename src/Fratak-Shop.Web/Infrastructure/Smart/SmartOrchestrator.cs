@@ -30,12 +30,12 @@ public sealed class SmartTaskResult
     /// <summary>دور «رد همه و جست‌وجوی دوباره» عکس‌ها (۰ = بار اول). دکمهٔ «جست‌وجوی دوباره» دور بعدی را صف می‌کند.</summary>
     public int ImageRound { get; set; }
 
-    /// <summary>پیش‌نمایش «نقد و بررسی» (دور بیستم)؛ null یعنی این کار متنی ننوشت.</summary>
+    /// <summary>پیش‌نمایش «توضیحات محصول» (دور بیستم)؛ null یعنی این کار متنی ننوشت.</summary>
     public ReviewPreview? Review { get; set; }
 }
 
 /// <summary>
-/// پیش‌نمایش «نقد و بررسی» حرفه‌ای در نتیجهٔ کار هوشمند. Applied=true یعنی خودکار روی صفحه نشسته (فقط برای اطلاع)؛
+/// پیش‌نمایش «توضیحات محصول» حرفه‌ای در نتیجهٔ کار هوشمند. Applied=true یعنی خودکار روی صفحه نشسته (فقط برای اطلاع)؛
 /// وگرنه کارشناس در صفحهٔ «محتوای هوشمند ← محصول» یکی از Mode ها را انتخاب می‌کند:
 /// «replace» = جایگزین متن فعلی؛ «choose» = متن انسانی بلند وجود دارد ← جایگزین / افزودن زیر متن فعلی / رد.
 /// </summary>
@@ -56,7 +56,7 @@ public sealed class ReviewPreview
     public string? BaseHash { get; set; }
 }
 
-/// <summary>تصمیم دستیار برای متن «نقد و بررسی» یک کالا (خالص؛ <see cref="SmartOrchestrator.DecideReview"/>).</summary>
+/// <summary>تصمیم دستیار برای متن «توضیحات محصول» یک کالا (خالص؛ <see cref="SmartOrchestrator.DecideReview"/>).</summary>
 public enum ReviewAction
 {
     /// <summary>دست نزن (کارشناس برگردانده یا ویرایش کرده است).</summary>
@@ -76,7 +76,7 @@ public enum ReviewAction
 /// مغز اجرای کارهای صف هوشمند (B1–B21): هر کار را بر اساس نوعش انجام می‌دهد و فقط چیزهای «مطمئن» را خودکار اعمال می‌کند.
 /// <list type="bullet">
 /// <item><b>عکس کالا</b>: ۱۰ تا ۱۵ نامزد از همهٔ منابع؛ پیش‌فرض همه منتظر تأیید کارشناس (رد همه ← جست‌وجوی دوباره بدون عکس‌های ردشده).</item>
-/// <item><b>نقد و بررسی</b>: HTML حرفه‌ای سئو؛ متن کم ← خودکار (اگر امن)، متن انسانی بلند ← فقط پیشنهاد.</item>
+/// <item><b>توضیحات محصول</b>: HTML حرفه‌ای سئو؛ متن کم ← خودکار (اگر امن)، متن انسانی بلند ← فقط پیشنهاد.</item>
 /// <item><b>مشخصات</b>: ادغام دیجی‌کالا + صفحهٔ تأمین‌کننده (جدول، dl و JSON-LD) + تا ۶ فروشگاه نتایج جست‌وجو؛ ردیف تازه‌ای که دست‌کم ۲ منبع روی آن توافق دارند خودکار،
 /// تغییر مقدار فعلی همیشه با تأیید کارشناس.</item>
 /// <item><b>خلاصهٔ خرید</b>: تحلیل نظرهای سایت و دیجی‌کالا؛ با ۸ نظر یا بیشتر خودکار تأیید، کمتر ← پیش‌نویس. خلاصهٔ تأییدشدهٔ انسانی هرگز بازنویسی نمی‌شود.</item>
@@ -103,7 +103,7 @@ public sealed class SmartOrchestrator(
     /// <summary>حداکثر فروشگاه نتایج جست‌وجو که مشخصاتشان خوانده می‌شود (هر فروشگاه یک «رأی» در ادغام مشخصات).</summary>
     public const int SpecShopsMax = 6;
 
-    /// <summary>متن کمتر از این تعداد واژه «کم‌محتوا» حساب می‌شود و دستیار خودش نقد و بررسی را اضافه می‌کند.</summary>
+    /// <summary>متن کمتر از این تعداد واژه «کم‌محتوا» حساب می‌شود و دستیار خودش توضیحات محصول را اضافه می‌کند.</summary>
     public const int ThinBodyWords = 150;
 
     public async Task<SmartOutcome> RunAsync(ClaimedSmartTask task, CancellationToken cancellationToken)
@@ -227,8 +227,6 @@ public sealed class SmartOrchestrator(
         var draft = ReviewSynthesis.Build(new InsightSubject(subject.Id, subject.Name, subject.BrandName, subject.CategoryName, subject.Features), reviews);
         if (!draft.HasContent)
             return new SmartOutcome(SmartTaskStatus.Skipped, "از نظرها نکتهٔ پرتکرار و قابل اتکایی درنیامد.");
-        if (!string.IsNullOrWhiteSpace(draft.Summary))
-            draft.Summary = await sources.PolishAsync(draft.Summary, cancellationToken);
 
         var approve = options.AutoApproveInsightMinReviews > 0 && draft.ReviewCount >= options.AutoApproveInsightMinReviews;
         var saved = await insights.SaveDraftAsync(productId, draft, approve, Actor, cancellationToken);
@@ -285,10 +283,10 @@ public sealed class SmartOrchestrator(
             await Step("عکس", () => ProductImagesAsync(productId, manual: false, round: 0, cancellationToken));
         await Step("مشخصات", () => ProductSpecsAsync(productId, cancellationToken));
         await Step("خلاصهٔ خرید", () => ProductInsightAsync(productId, cancellationToken));
-        // نقد و بررسی بعد از مشخصات و خلاصهٔ خرید (از داده‌های تازهٔ آن‌ها استفاده می‌کند) و پیش از سئوی خودکار
+        // توضیحات محصول بعد از مشخصات و خلاصهٔ خرید (از داده‌های تازهٔ آن‌ها استفاده می‌کند) و پیش از سئوی خودکار
         // (تا خلبان عنوان/متا را با متن نهایی بسنجد).
         if (options.AutoReview)
-            await Step("نقد و بررسی", () => ProductReviewAsync(productId, cancellationToken));
+            await Step("توضیحات محصول", () => ProductReviewAsync(productId, cancellationToken));
         try
         {
             await seo.ProcessAsync(SeoEntityKind.Product, productId, cancellationToken);
@@ -301,12 +299,12 @@ public sealed class SmartOrchestrator(
         return new SmartOutcome(needsReview ? SmartTaskStatus.NeedsReview : SmartTaskStatus.Applied, string.Join(" | ", merged.Steps), JsonSerializer.Serialize(merged, Json));
     }
 
-    // ───────────────────────────── نقد و بررسی ─────────────────────────────
+    // ───────────────────────────── توضیحات محصول ─────────────────────────────
 
     /// <summary>
     /// تصمیم دربارهٔ متن فعلی صفحه (خالص؛ آزمون‌پذیر). ترتیب مهم است:
     /// <list type="number">
-    /// <item>آخرین نقد و بررسی هوشمند را کارشناس «برگردانده» ← Skip (تصمیم انسان محترم است).</item>
+    /// <item>آخرین توضیحات محصول هوشمند را کارشناس «برگردانده» ← Skip (تصمیم انسان محترم است).</item>
     /// <item>متن فعلی دقیقاً همان نوشتهٔ دستیار است ← Regenerate.</item>
     /// <item>نشانه هست ولی متن عوض شده (کارشناس ویرایش کرده) ← Skip.</item>
     /// <item>کمتر از ۱۵۰ واژه ← Write (متن فعلی بالای بررسی می‌ماند).</item>
@@ -316,18 +314,18 @@ public sealed class SmartOrchestrator(
     public static (ReviewAction Action, string Reason) DecideReview(ProductBodyState state)
     {
         if (state.RolledBack)
-            return (ReviewAction.Skip, "کارشناس آخرین «نقد و بررسی» هوشمند را برگردانده است؛ دستیار دوباره چیزی نمی‌نویسد.");
+            return (ReviewAction.Skip, "کارشناس آخرین «توضیحات محصول» هوشمند را برگردانده است؛ دستیار دوباره چیزی نمی‌نویسد.");
         if (state.WrittenBySmart)
             return (ReviewAction.Regenerate, "متن فعلی را دستیار نوشته؛ با داده‌های تازه به‌روز می‌شود.");
         if (state.HasMarker)
-            return (ReviewAction.Skip, "متن «نقد و بررسی» را کارشناس ویرایش کرده است؛ دستیار به آن دست نمی‌زند.");
+            return (ReviewAction.Skip, "متن «توضیحات محصول» را کارشناس ویرایش کرده است؛ دستیار به آن دست نمی‌زند.");
         if (state.Words < ThinBodyWords)
-            return (ReviewAction.Write, "توضیحات کالا کم است؛ نقد و بررسی حرفه‌ای اضافه می‌شود.");
-        return (ReviewAction.Propose, "کالا توضیحات انسانی بلند دارد؛ نقد و بررسی فقط پیشنهاد می‌شود.");
+            return (ReviewAction.Write, "توضیحات کالا کم است؛ توضیحات محصول حرفه‌ای اضافه می‌شود.");
+        return (ReviewAction.Propose, "کالا توضیحات انسانی بلند دارد؛ توضیحات محصول فقط پیشنهاد می‌شود.");
     }
 
     /// <summary>
-    /// نوشتن «نقد و بررسی» HTML حرفه‌ای (تیتر، جدول مشخصات، فهرست مزایا/معایب، کلیدواژهٔ پررنگ …) با موتور سئوی داخلی.
+    /// نوشتن «توضیحات محصول» HTML حرفه‌ای (تیتر، جدول مشخصات، فهرست مزایا/معایب، کلیدواژهٔ پررنگ …) با موتور سئوی داخلی.
     /// اعمال خودکار فقط وقتی: تصمیم Write/Regenerate باشد و پیش‌نویس از همهٔ دروازه‌های ضد جریمه بگذرد (Safe). وگرنه پیش‌نمایش برای کارشناس.
     /// خلاصهٔ خرید تأییدشده (مزایا/معایب از نظر خریداران) هم در متن می‌آید.
     /// </summary>
@@ -348,7 +346,7 @@ public sealed class SmartOrchestrator(
         };
         var written = await engine.WriteProductReviewAsync(productId, keep, await NotesAsync(productId, cancellationToken), cancellationToken);
         if (!written.IsSuccess() || written.Data is not { } draft)
-            return new SmartOutcome(SmartTaskStatus.Skipped, written.Message ?? "نوشتن نقد و بررسی ممکن نشد.");
+            return new SmartOutcome(SmartTaskStatus.Skipped, written.Message ?? "نوشتن توضیحات محصول ممکن نشد.");
         var preview = new ReviewPreview
         {
             Html = draft.Html, Words = draft.Words, CurrentWords = state.Words, ScoreBefore = draft.ScoreBefore, ScoreAfter = draft.ScoreAfter,
@@ -361,38 +359,49 @@ public sealed class SmartOrchestrator(
         if (action != ReviewAction.Propose && draft.Safe)
         {
             var applied = await seo.ApplyBodyAsync(productId, draft.Html,
-                $"نقد و بررسی هوشمند ({PersianText.Digits(draft.Words)} واژه)", Actor, cancellationToken);
+                $"توضیحات محصول هوشمند ({PersianText.Digits(draft.Words)} واژه)", Actor, cancellationToken);
             if (applied.IsSuccess())
             {
                 if (!applied.Data)
-                    return new SmartOutcome(SmartTaskStatus.Skipped, "نقد و بررسی هوشمند به‌روز است؛ تغییری لازم نبود.");
+                    return new SmartOutcome(SmartTaskStatus.Skipped, "توضیحات محصول هوشمند به‌روز است؛ تغییری لازم نبود.");
                 preview.Applied = true;
                 preview.Html = "";
                 return new SmartOutcome(SmartTaskStatus.Applied,
-                    $"نقد و بررسی حرفه‌ای ({PersianText.Digits(draft.Words)} واژه، امتیاز سئو {PersianText.Digits(draft.ScoreBefore)} ← {PersianText.Digits(draft.ScoreAfter)}) روی صفحه نشست؛ از «تاریخچهٔ سئو» برگشت‌پذیر است.",
+                    $"توضیحات محصول حرفه‌ای ({PersianText.Digits(draft.Words)} واژه، امتیاز سئو {PersianText.Digits(draft.ScoreBefore)} ← {PersianText.Digits(draft.ScoreAfter)}) روی صفحه نشست؛ از «تاریخچهٔ سئو» برگشت‌پذیر است.",
                     JsonSerializer.Serialize(result, Json));
             }
             preview.Problems.Add(applied.Message ?? "ذخیره ممکن نشد.");
         }
         var why = action == ReviewAction.Propose ? reason : "پیش‌نویس از همهٔ بررسی‌های ضد جریمه نگذشت؛ بعد از دیدن شما اعمال می‌شود.";
-        return new SmartOutcome(SmartTaskStatus.NeedsReview, $"پیش‌نویس نقد و بررسی ({PersianText.Digits(draft.Words)} واژه) آماده است. {why}",
+        return new SmartOutcome(SmartTaskStatus.NeedsReview, $"پیش‌نویس توضیحات محصول ({PersianText.Digits(draft.Words)} واژه) آماده است. {why}",
             JsonSerializer.Serialize(result, Json));
     }
 
-    /// <summary>نکته‌های خلاصهٔ خرید «تأییدشده» برای نقد و بررسی (پیش‌نویس تأییدنشده هرگز در متن عمومی نمی‌آید).</summary>
+    /// <summary>
+    /// داده‌های کمکی «توضیحات محصول» (دور ۲۱): تحقیق در سایت‌های دیگر (<see cref="SmartSources.ResearchDocsAsync"/> ←
+    /// <see cref="ProductResearch.Analyze"/>) + نکته‌های خلاصهٔ خرید «تأییدشده» (پیش‌نویس تأییدنشده هرگز در متن عمومی نمی‌آید).
+    /// <para>هیچ جمله‌ای از سایت دیگر کپی نمی‌شود؛ فقط ترتیب موضوع‌ها، اقلام جعبه، کاربردها و ویژگی‌های مورد توافق.</para>
+    /// </summary>
     private async Task<ReviewNotes?> NotesAsync(Guid productId, CancellationToken cancellationToken)
     {
+        ReviewNotes? buyers = null;
         var insight = await insights.GetApprovedAsync(productId, cancellationToken);
-        if (insight is null || (insight.Pros.Count == 0 && insight.Cons.Count == 0 && insight.ForWhom.Count == 0 && string.IsNullOrWhiteSpace(insight.Verdict)))
-            return null;
-        return new ReviewNotes
+        if (insight is not null && (insight.Pros.Count > 0 || insight.Cons.Count > 0 || insight.ForWhom.Count > 0 || !string.IsNullOrWhiteSpace(insight.Verdict)))
         {
-            Pros = insight.Pros.Select(p => p.Text).ToList(),
-            Cons = insight.Cons.Select(p => p.Text).ToList(),
-            ForWhom = insight.ForWhom,
-            Verdict = insight.Verdict,
-            ReviewCount = insight.ReviewCount,
-        };
+            buyers = new ReviewNotes
+            {
+                Pros = insight.Pros.Select(p => p.Text).ToList(),
+                Cons = insight.Cons.Select(p => p.Text).ToList(),
+                ForWhom = insight.ForWhom,
+                Verdict = insight.Verdict,
+                ReviewCount = insight.ReviewCount,
+            };
+        }
+
+        var digest = ResearchDigest.Empty;
+        if (await catalog.GetProductAsync(productId, cancellationToken) is { } subject)
+            digest = ProductResearch.Analyze(await sources.ResearchDocsAsync(subject, SpecShopsMax, cancellationToken));
+        return digest.Sources == 0 ? buyers : ProductResearch.ToNotes(digest, buyers);
     }
 
     /// <summary>خواندن یک عدد صحیح از JSON بار کار. مثال: ({"round":2}, "round") ← ۲؛ JSON خراب یا نبود ← ۰.</summary>

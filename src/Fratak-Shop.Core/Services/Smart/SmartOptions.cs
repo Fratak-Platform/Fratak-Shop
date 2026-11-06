@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
@@ -65,7 +63,7 @@ public sealed class SmartOptions
     public int AutoApproveInsightMinReviews { get; set; } = 8;
 
     /// <summary>
-    /// دور بیستم: «تکمیل هوشمند» برای محصول «نقد و بررسی» حرفه‌ای (HTML با تیتر، خلاصه، جدول، نقاط قوت و جمع‌بندی) هم بنویسد.
+    /// دور بیستم: «تکمیل هوشمند» برای محصول «توضیحات محصول» حرفه‌ای (HTML با تیتر، خلاصه، جدول، نقاط قوت و جمع‌بندی) هم بنویسد.
     /// متن کم‌محتوا یا نوشتهٔ قبلی خود دستیار فقط وقتی همهٔ محافظ‌های جریمه قبول شوند خودکار جایگزین می‌شود؛ متن بلند انسانی
     /// هرگز بی‌اجازه عوض نمی‌شود (پیش‌نمایش برای تأیید کارشناس).
     /// </summary>
@@ -141,13 +139,6 @@ public sealed class SmartOptions
     /// </summary>
     public bool BlockBelowCost { get; set; } = true;
 
-    // ── دستیار رایانهٔ مالک (A31) ─────────────────────────────────
-
-    /// <summary>اگر دستیار وصل است، دریافت صفحه‌های منابع (دیجی‌کالا، ترب، …) از رایانهٔ مالک انجام شود (IP ایرانی، بدون فشار به هاست).</summary>
-    public bool UseHelperFetch { get; set; } = true;
-
-    /// <summary>اگر دستیار مدل زبانی محلی (Ollama) دارد، متن‌های تولیدی با آن روان‌تر شوند (بعد از گذشتن از همان محافظ‌ها).</summary>
-    public bool UseHelperLlm { get; set; } = true;
 
     /// <summary>
     /// مقدارهای خارج از بازه را اصلاح می‌کند تا یک عدد اشتباه در فرم، سایت را به خطر نیندازد.
@@ -208,16 +199,9 @@ public static class CustomerQuietHours
     }
 }
 
-/// <summary>وضعیت دستیار رایانهٔ مالک برای نمایش در پنل.</summary>
-public sealed record HelperStatus(bool HasKey, string? KeyHint, string? Name, DateTimeOffset? LastSeenAt)
-{
-    /// <summary>دستیار در دو دقیقهٔ اخیر تماس گرفته است.</summary>
-    public bool IsOnline(DateTimeOffset now) => LastSeenAt is { } seen && now - seen < TimeSpan.FromMinutes(2);
-}
-
 /// <summary>
-/// خواندن/ذخیرهٔ تنظیمات هوشمند و مدیریت کلید دستیار (A31).
-/// <para>محل استفاده: صفحهٔ «تنظیمات محتوای هوشمند»، کارگر هوشمند، سرویس یادآوری‌ها، محافظ سود و API دستیار.</para>
+/// خواندن/ذخیرهٔ تنظیمات هوشمند (همه‌چیز روی خود سرور و با موتور داخلی؛ هیچ سرویس/مدل زبانی بیرونی در کار نیست).
+/// <para>محل استفاده: صفحهٔ «تنظیمات محتوای هوشمند»، کارگر هوشمند، سرویس یادآوری‌ها، محافظ سود.</para>
 /// </summary>
 public interface ISmartConfigService
 {
@@ -226,26 +210,11 @@ public interface ISmartConfigService
 
     Task<OperationResult> SaveAsync(SmartOptions options, CancellationToken cancellationToken = default);
 
-    Task<HelperStatus> GetHelperAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// ساخت کلید تازهٔ دستیار (کلید قبلی بی‌اعتبار می‌شود). خود کلید فقط همین یک بار برگردانده می‌شود.
-    /// مثال خروجی: «fh_3k9…» (۴۸ نویسه).
-    /// </summary>
-    Task<string> RotateHelperKeyAsync(CancellationToken cancellationToken = default);
-
-    Task<OperationResult> RevokeHelperKeyAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// بررسی کلید ارسالی دستیار با مقایسهٔ زمان‌ثابت هش‌ها. درست ← زمان «آخرین تماس» به‌روز می‌شود (حداکثر هر ۳۰ ثانیه یک‌بار ذخیره).
-    /// </summary>
-    Task<bool> VerifyHelperKeyAsync(string? key, string? helperName, CancellationToken cancellationToken = default);
 }
 
 public sealed class SmartConfigService(FratakShopDbContext context, IMemoryCache cache) : ISmartConfigService
 {
     private const string CacheKey = "smart:options";
-    private const string HelperCacheKey = "smart:helper";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public async Task<SmartOptions> GetAsync(CancellationToken cancellationToken = default)
@@ -282,73 +251,6 @@ public sealed class SmartConfigService(FratakShopDbContext context, IMemoryCache
         cache.Remove(CacheKey);
         return OperationResult.Success("تنظیمات محتوای هوشمند ذخیره شد.");
     }
-
-    public async Task<HelperStatus> GetHelperAsync(CancellationToken cancellationToken = default)
-    {
-        var row = await context.SmartContentConfigs.OrderBy(c => c.CreatedAt)
-            .Select(c => new { c.HelperKeyHash, c.HelperKeyHint, c.HelperName, c.HelperLastSeenAt })
-            .FirstOrDefaultAsync(cancellationToken);
-        return row is null
-            ? new HelperStatus(false, null, null, null)
-            : new HelperStatus(!string.IsNullOrEmpty(row.HelperKeyHash), row.HelperKeyHint, row.HelperName, row.HelperLastSeenAt);
-    }
-
-    public async Task<string> RotateHelperKeyAsync(CancellationToken cancellationToken = default)
-    {
-        var key = "fh_" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(33)).Replace('+', 'x').Replace('/', 'y').TrimEnd('=');
-        var row = await RowAsync(cancellationToken);
-        row.HelperKeyHash = Hash(key);
-        row.HelperKeyHint = "…" + key[^4..];
-        row.HelperLastSeenAt = null;
-        row.HelperName = null;
-        await context.SaveChangesAsync(cancellationToken);
-        cache.Remove(HelperCacheKey);
-        return key;
-    }
-
-    public async Task<OperationResult> RevokeHelperKeyAsync(CancellationToken cancellationToken = default)
-    {
-        var row = await RowAsync(cancellationToken);
-        row.HelperKeyHash = null;
-        row.HelperKeyHint = null;
-        row.HelperLastSeenAt = null;
-        await context.SaveChangesAsync(cancellationToken);
-        cache.Remove(HelperCacheKey);
-        return OperationResult.Success("کلید دستیار باطل شد؛ دستیار دیگر نمی‌تواند وصل شود.");
-    }
-
-    public async Task<bool> VerifyHelperKeyAsync(string? key, string? helperName, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(key) || key.Length is < 20 or > 200)
-            return false;
-        var stored = await cache.GetOrCreateAsync(HelperCacheKey, async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
-            return await context.SmartContentConfigs.OrderBy(c => c.CreatedAt).Select(c => c.HelperKeyHash).FirstOrDefaultAsync(cancellationToken);
-        });
-        if (string.IsNullOrEmpty(stored))
-            return false;
-        var given = Encoding.ASCII.GetBytes(Hash(key));
-        var expected = Encoding.ASCII.GetBytes(stored);
-        if (!CryptographicOperations.FixedTimeEquals(given, expected))
-            return false;
-
-        // «آخرین تماس» برای نمایش «وصل است» در پنل؛ حداکثر هر ۳۰ ثانیه یک نوشتن.
-        var touchKey = "smart:helper-touch";
-        if (!cache.TryGetValue(touchKey, out _))
-        {
-            cache.Set(touchKey, true, TimeSpan.FromSeconds(30));
-            var row = await RowAsync(cancellationToken);
-            row.HelperLastSeenAt = DateTimeOffset.UtcNow;
-            if (!string.IsNullOrWhiteSpace(helperName))
-                row.HelperName = helperName.Trim().Length > 100 ? helperName.Trim()[..100] : helperName.Trim();
-            await context.SaveChangesAsync(cancellationToken);
-        }
-        return true;
-    }
-
-    /// <summary>هش SHA-256 هگز (کلید خام هرگز ذخیره نمی‌شود).</summary>
-    public static string Hash(string key) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))).ToLowerInvariant();
 
     private async Task<SmartContentConfig> RowAsync(CancellationToken cancellationToken)
     {

@@ -126,7 +126,6 @@ public static class WebServiceCollectionExtensions
         services.AddHostedService<Infrastructure.Seo.SeoAutopilotWorker>();
 
         // دور نوزدهم (B/C، A31): محتوای هوشمند – منابع بیرونی مؤدب، عکس‌یاب، اجراکنندهٔ کارها، کارگر پس‌زمینه و دستیار محلی مدیر.
-        services.AddSingleton<Infrastructure.Smart.HelperBroker>();
         services.AddScoped<Infrastructure.Smart.SmartSources>();
         services.AddScoped<Infrastructure.Smart.SmartImageFinder>();
         services.AddScoped<Infrastructure.Smart.SmartOrchestrator>();

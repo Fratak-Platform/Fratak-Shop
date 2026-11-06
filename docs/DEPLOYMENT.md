@@ -369,8 +369,8 @@ pwsh tools/clean.ps1         # ویندوز (‎-KeepNode، ‎-Report فقط گ
 * migration تازه: `20261105090000_Round19SmartContent` (جدول‌های SmartTasks، SmartResearchCaches، SmartContentConfigs، BlogPlanItems، CustomerReminders،
   ProductInsights). مثل همیشه هنگام شروع برنامه خودکار اعمال می‌شود؛ پیش از به‌روزرسانی پشتیبان بگیرید.
 * تنظیمات در پنل: «محتوای هوشمند ← تنظیمات». پیش‌فرض‌ها امن‌اند (انتشار خودکار بلاگ فقط پس از قبول دروازهٔ کیفیت، محافظ سود روشن).
-* دستیار محلی اختیاری است: `tools/Fratak-Helper/README.md`. اگر ModSecurity درخواست‌های `/api/helper/` را رد کرد (۴۰۳)،
-  برای همین مسیر استثنا بگذارید.
+* دور ۲۱: «دستیار محلی» (`tools/Fratak-Helper`) و مدل زبانی (Ollama) کاملاً حذف شدند؛ مسیر `/api/helper/*` دیگر وجود ندارد و
+  migration `20261107090000_Round21Autonomy` ستون‌های کلید آن را پاک می‌کند. همه‌چیز با موتور داخلی خود سایت انجام می‌شود.
 
 ## ۱۲. عیب‌یابی ۴۰۳ / ۵۰۳ / «دسترسی ندارید» (مرحلهٔ ۱۷)
 

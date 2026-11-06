@@ -85,10 +85,6 @@ public static class RateLimitingSetup
         if (path.StartsWithSegments("/api/a", StringComparison.OrdinalIgnoreCase))
             return Window("beacon:" + key, 600, TimeSpan.FromMinutes(1));
 
-        // دستیار محلی مدیر (دور ۱۹، A31): هر نتیجه یک درخواست است؛ بودجهٔ جدا (کلید دستیار هم جداگانه بررسی می‌شود).
-        if (path.StartsWithSegments("/api/helper", StringComparison.OrdinalIgnoreCase))
-            return Window("helper:" + key, 240, TimeSpan.FromMinutes(1));
-
         if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
             return Window("api:" + key, 60, TimeSpan.FromMinutes(1));
 

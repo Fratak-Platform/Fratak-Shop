@@ -1,7 +1,7 @@
 @page "/admin/smart/settings"
 @model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.SettingsModel
 @*
-  تنظیمات محتوای هوشمند: هر بخش یک کارت؛ پایین صفحه دستیار محلی (کلید و وضعیت).
+  تنظیمات محتوای هوشمند: هر بخش یک کارت؛ همه‌چیز با موتور داخلی خود سایت (بدون مدل زبانی یا برنامهٔ بیرونی).
 *@
 @{
     ViewData["Title"] = "تنظیمات محتوای هوشمند";
@@ -15,13 +15,6 @@
   </div>
   <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a></div>
 </div>
-
-@if (!string.IsNullOrEmpty(Model.NewHelperKey))
-{
-  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", null, 16)
-    <span>کلید دستیار (فقط همین یک بار نمایش داده می‌شود): <code class="a-ltr select-all">@Model.NewHelperKey</code></span>
-  </div>
-}
 
 <form method="post" asp-page-handler="Save" class="a-stack">
   <div class="a-card">
@@ -45,10 +38,10 @@
   </div>
 
   <div class="a-card">
-    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagicWand", null, 18) تکمیل خودکار کالا، عکس‌ها و نقد و بررسی</h3></div>
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagicWand", null, 18) تکمیل خودکار کالا، عکس‌ها و توضیحات محصول</h3></div>
     <div class="a-card-body a-stack">
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImagesNeedApproval"> عکس‌ها فقط بعد از انتخاب کارشناس روی کالا بنشینند (پیشنهادی؛ مشتری هرگز عکس کالای دیگری نمی‌بیند)</label>
-      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AutoReview"> «نقد و بررسی» حرفه‌ای (HTML سئو) در تکمیل هوشمند نوشته شود؛ برای توضیحات کم خودکار، برای متن بلند شما فقط پیشنهاد</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AutoReview"> «توضیحات محصول» حرفه‌ای (HTML سئو) در تکمیل هوشمند نوشته شود؛ برای توضیحات کم خودکار، برای متن بلند شما فقط پیشنهاد</label>
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.NotifyResults"> نتیجهٔ هر کار هوشمند با اعلان (زنگوله و پوش) و لینک مستقیم به همان بخش خبر داده شود</label>
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="a-label" asp-for="Options.ImageCandidates">تعداد عکس پیشنهادی برای انتخاب (۶ تا ۱۵)</label><input class="a-input" asp-for="Options.ImageCandidates" min="6" max="15"></div>
@@ -108,43 +101,5 @@
     </div>
   </div>
 
-  <div class="a-card">
-    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Monitor", null, 18) دستیار محلی (اختیاری)</h3></div>
-    <div class="a-card-body a-stack">
-      <p class="a-muted text-sm">
-        اگر هاست به بعضی سایت‌ها دسترسی ندارد، برنامهٔ کوچک «Fratak-Helper» روی کامپیوتر خودتان درخواست‌ها را از طرف سایت می‌فرستد
-        و (اگر Ollama نصب باشد) متن‌ها را روان‌تر می‌کند. بدون آن هم همه‌چیز کار می‌کند.
-      </p>
-      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.UseHelperFetch"> وقتی دستیار آنلاین است، دریافت صفحه‌ها از طریق آن انجام شود</label>
-      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.UseHelperLlm"> روان‌سازی متن با مدل محلی دستیار (فقط اگر عددها و اسم‌ها دست نخورند)</label>
-    </div>
-  </div>
-
   <div><button type="submit" class="a-btn">@Icons.Svg("Check", null, 16) ذخیرهٔ تنظیمات</button></div>
 </form>
-
-<div class="a-card mt-4">
-  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) کلید دستیار</h3>
-    <span class="a-badge @(Model.HelperOnline ? "a-badge-green" : "a-badge-gray")">@(Model.HelperOnline ? "آنلاین" : "آفلاین")</span>
-  </div>
-  <div class="a-card-body a-stack">
-    <p class="text-sm">
-      @if (Model.Helper.HasKey)
-      {
-        <text>کلید فعال: <code class="a-ltr">…@Model.Helper.KeyHint</code>@(Model.Helper.Name is null ? "" : " · " + Model.Helper.Name)@(Model.Helper.LastSeenAt is { } seen ? " · آخرین اتصال " + AdminUi.Ago(seen) : "")</text>
-      }
-      else
-      {
-        <text>هنوز کلیدی ساخته نشده؛ بدون کلید هیچ دستیاری نمی‌تواند وصل شود.</text>
-      }
-    </p>
-    <p class="a-muted text-xs">نصب: پوشهٔ <code>tools/Fratak-Helper</code> را روی ویندوز کپی کنید و <code class="a-ltr">Fratak-Helper.ps1 -Site https://shop.fratak.ir -Key کلید</code> را اجرا کنید.</p>
-    <div class="flex gap-2">
-      <form method="post" asp-page-handler="Rotate"><button type="submit" class="a-btn a-btn-light">@Icons.Svg("Plus", null, 16) ساخت کلید تازه</button></form>
-      @if (Model.Helper.HasKey)
-      {
-        <form method="post" asp-page-handler="Revoke"><button type="submit" class="a-btn a-btn-light">@Icons.Svg("Prohibit", null, 16) باطل کردن کلید</button></form>
-      }
-    </div>
-  </div>
-</div>

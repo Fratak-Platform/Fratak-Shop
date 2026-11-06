@@ -47,6 +47,10 @@
   .fs-cons { @apply border-amber-200 bg-amber-50; }
   .prose-content .fs-pros h3, .prose-content .fs-cons h3 { @apply mt-0 text-base; }
   .fs-pros ul, .fs-cons ul { @apply mb-0; }
+  /* دور ۲۱: «توضیحات محصول» فروشگاهی — نکته‌های خرید و استفاده، اقلام همراه. */
+  .fs-tips { @apply rounded-xl border border-amber-200 bg-amber-50 p-4 mb-6; }
+  .fs-tips ul { @apply mb-0; }
+  .prose-content ul.fs-inbox { @apply grid gap-1 sm:grid-cols-2; }
 }
 
 /* عنصرهایی که با ویژگی hidden پنهان می‌شوند (مثل شمارندهٔ زنده‌ی زنگوله) نباید با کلاس flex/inline-flex دوباره نمایش داده شوند. */

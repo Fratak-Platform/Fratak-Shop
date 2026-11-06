@@ -368,7 +368,7 @@ public static partial class SpecKnowledge
     /// </summary>
     public static string Safe(string text) =>
         text.Replace('[', '(').Replace(']', ')').Replace('{', '(').Replace('}', ')').Replace('|', '/')
-            // نویسه‌های «استفادهٔ خصوصی» U+E000..U+E003 نشانهٔ داخلی strong/em نویسندهٔ «نقد و بررسی»اند؛ از داده حذف می‌شوند.
+            // نویسه‌های «استفادهٔ خصوصی» U+E000..U+E003 نشانهٔ داخلی strong/em نویسندهٔ «توضیحات محصول»اند؛ از داده حذف می‌شوند.
             .Replace("\uE000", "", StringComparison.Ordinal).Replace("\uE001", "", StringComparison.Ordinal)
             .Replace("\uE002", "", StringComparison.Ordinal).Replace("\uE003", "", StringComparison.Ordinal);
 

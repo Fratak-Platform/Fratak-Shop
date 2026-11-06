@@ -110,9 +110,7 @@ public sealed class LoadSheddingMiddleware(RequestDelegate next, PageSnapshotSto
         var request = http.Request;
 
         // اتصال‌های بلندمدت (SignalR) و بررسی سلامت شمرده نمی‌شوند.
-        // دور ۱۹ (A31): انتظار طولانی «دستیار محلی» (/api/helper/next تا ۲۵ ثانیه بی‌کار منتظر کار است) جای صف صفحه‌ها را نمی‌گیرد.
-        if (request.Path.StartsWithSegments("/hubs") || request.Path.StartsWithSegments("/health") || request.Path.StartsWithSegments("/healthz")
-            || request.Path.StartsWithSegments("/api/helper"))
+        if (request.Path.StartsWithSegments("/hubs") || request.Path.StartsWithSegments("/health") || request.Path.StartsWithSegments("/healthz"))
         {
             await next(http);
             return;

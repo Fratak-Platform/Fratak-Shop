@@ -9,8 +9,11 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <summary>ردیف مشخصات قابل ذخیره در کش تحقیق (تاپل در JSON ذخیره نمی‌شود).</summary>
 public sealed record SpecRow(string Key, string Value);
 
-/// <summary>جزئیات کش‌شدهٔ کالای دیجی‌کالا.</summary>
-public sealed record CachedProductDetails(List<SpecRow> Specs, List<string> Images);
+/// <summary>
+/// جزئیات کش‌شدهٔ کالا (دیجی‌کالا یا صفحهٔ فروشگاه). دور ۲۱: Text = متن «توضیحات» صفحه برای تحقیق
+/// (<see cref="ProductResearch"/>)؛ ردیف‌های قدیمی کش این فیلد را ندارند (null).
+/// </summary>
+public sealed record CachedProductDetails(List<SpecRow> Specs, List<string> Images, string? Text = null);
 
 /// <summary>
 /// دور بیستم: یک فروشگاه در نتایج جست‌وجو. Match = شباهت عنوان نتیجه با کالای ما (۰ تا ۱).
@@ -27,7 +30,6 @@ public sealed record CachedImageHit(string Url, string? Title, string? PageUrl);
 /// <item>هر منبع از راه <see cref="IExternalSourceGate"/>: فاصلهٔ حداقل بین درخواست‌ها و «استراحت» خودکار بعد از محدودیت (۴۲۹/۴۰۳/کپچا).</item>
 /// <item>همهٔ درخواست‌ها با محافظ SSRF (<see cref="ISupplierHttp"/>) و سقف حجم.</item>
 /// <item>نتیجه‌ها در <see cref="ISmartResearchStore"/> کش می‌شوند (جست‌وجو ۷ روز، جزئیات ۳۰ روز) تا یک کالا دو بار پرسیده نشود (B22).</item>
-/// <item>اگر «دستیار محلی» روشن باشد، اول از اینترنت کامپیوتر مدیر امتحان می‌شود (A31) و در صورت شکست مستقیم.</item>
 /// </list>
 /// <para>هیچ متدی استثنا بیرون نمی‌دهد؛ شکست ← فهرست خالی/null و ادامهٔ کار بدون آن منبع.</para>
 /// <para>محل استفاده: <see cref="SmartImageFinder"/> و <see cref="SmartOrchestrator"/>.</para>
@@ -36,8 +38,6 @@ public sealed class SmartSources(
     ISupplierHttp http,
     IExternalSourceGate gate,
     ISeoWebSource web,
-    HelperBroker broker,
-    ISmartConfigService config,
     ISmartResearchStore store,
     ILogger<SmartSources> logger)
 {
@@ -51,20 +51,12 @@ public sealed class SmartSources(
     private static readonly TimeSpan DetailsTtl = TimeSpan.FromDays(30);
 
     /// <summary>
-    /// یک درخواست مؤدب. ترتیب: دستیار محلی (اگر روشن و مجاز) ← مستقیم از سرور با دروازهٔ منبع.
+    /// یک درخواست مؤدب، مستقیم از سرور و از پشت دروازهٔ منبع (فاصلهٔ مؤدبانه + توقف خودکار وقتی منبع ما را مسدود کرد).
     /// </summary>
     public async Task<string?> GetAsync(string source, string url, bool json, CancellationToken cancellationToken)
     {
         try
         {
-            var options = await config.GetAsync(cancellationToken);
-            if (options.UseHelperFetch && broker.IsOnline(DateTimeOffset.UtcNow))
-            {
-                var viaHelper = await broker.RunAsync("fetch", url, json ? "application/json" : "text/html", null, cancellationToken);
-                if (viaHelper is { Status: >= 200 and < 300, Body.Length: > 0 })
-                    return viaHelper.Body;
-            }
-
             using var lease = await gate.TryEnterAsync(source, PoliteInterval, cancellationToken);
             if (lease is null)
                 return null;
@@ -139,7 +131,7 @@ public sealed class SmartSources(
 
     public async Task<CachedProductDetails?> DigikalaDetailsAsync(long id, CancellationToken cancellationToken)
     {
-        var key = "dk:product:" + id;
+        var key = "dk:product:v2:" + id; // v2 (دور ۲۱): متن معرفی هم کش می‌شود
         var cached = await store.GetAsync<CachedProductDetails>(key, cancellationToken);
         if (cached is not null)
             return cached;
@@ -147,7 +139,8 @@ public sealed class SmartSources(
         if (body is null)
             return null;
         var details = SmartParsers.DigikalaProduct(body);
-        var result = new CachedProductDetails(details.Specs.Select(s => new SpecRow(s.Key, s.Value)).ToList(), details.Images.ToList());
+        var result = new CachedProductDetails(details.Specs.Select(s => new SpecRow(s.Key, s.Value)).ToList(), details.Images.ToList(),
+            ProductResearch.DigikalaText(body));
         await store.SetAsync(key, "digikala", result, DetailsTtl, cancellationToken);
         return result;
     }
@@ -172,7 +165,7 @@ public sealed class SmartSources(
     /// </summary>
     public async Task<(List<SpecRow> Specs, List<string> Images)> PageAsync(string url, CancellationToken cancellationToken)
     {
-        var key = "page:" + url;
+        var key = "page:v2:" + url; // v2 (دور ۲۱): متن توضیحات صفحه هم کش می‌شود
         var cached = await store.GetAsync<CachedProductDetails>(key, cancellationToken);
         if (cached is not null)
             return (cached.Specs ?? new List<SpecRow>(), cached.Images ?? new List<string>()); // ردیف کش قدیمی ممکن است فهرست نداشته باشد
@@ -187,8 +180,49 @@ public sealed class SmartSources(
             images.Add(og);
         images.AddRange(SmartParsers.JsonLdImages(html, url));
         images = images.Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList();
-        await store.SetAsync(key, uri.Host, new CachedProductDetails(specs, images), DetailsTtl, cancellationToken);
+        await store.SetAsync(key, uri.Host, new CachedProductDetails(specs, images, ProductResearch.PageText(html)), DetailsTtl, cancellationToken);
         return (specs, images);
+    }
+
+    /// <summary>
+    /// دور ۲۱: متن «توضیحات» یک صفحهٔ فروشگاه برای تحقیق (از همان کش <see cref="PageAsync"/>؛ اگر کش نبود یک بار دریافت می‌شود).
+    /// مثال: صفحهٔ ووکامرس ← متن پنل توضیحات + description JSON-LD؛ صفحهٔ نامعتبر/در دسترس نبود ← رشتهٔ خالی.
+    /// </summary>
+    public async Task<string> PageTextAsync(string url, CancellationToken cancellationToken)
+    {
+        await PageAsync(url, cancellationToken);
+        return (await store.GetAsync<CachedProductDetails>("page:v2:" + url, cancellationToken))?.Text ?? "";
+    }
+
+    /// <summary>
+    /// دور ۲۱: جمع کردن متن توضیحات همین کالا از چند سایت برای «توضیحات محصول»: دیجی‌کالا (معتبر)، صفحهٔ تأمین‌کننده (معتبر)
+    /// و فروشگاه‌های نتایج جست‌وجو (با شباهت عنوان ≥ ۰٫۶). همه از کش ۳۰ روزه و با فاصلهٔ مؤدبانه؛ شکست هر منبع ← بدون آن ادامه.
+    /// </summary>
+    public async Task<List<ResearchDoc>> ResearchDocsAsync(SmartProductSubject subject, int shops, CancellationToken cancellationToken)
+    {
+        var docs = new List<ResearchDoc>();
+        try
+        {
+            if (await FindDigikalaAsync(subject, cancellationToken) is { } hit && await DigikalaDetailsAsync(hit.Id, cancellationToken) is { Text.Length: > 0 } dk)
+                docs.Add(new ResearchDoc("digikala.com", dk.Text!, true));
+            if (!string.IsNullOrWhiteSpace(subject.SupplierUrl) && Uri.TryCreate(subject.SupplierUrl, UriKind.Absolute, out var supplier))
+            {
+                var text = await PageTextAsync(subject.SupplierUrl, cancellationToken);
+                if (text.Length > 0)
+                    docs.Add(new ResearchDoc(supplier.Host, text, true));
+            }
+            foreach (var shop in await SerpShopHitsAsync(subject.SearchQuery, shops, 0.6, cancellationToken))
+            {
+                var text = await PageTextAsync(shop.Url, cancellationToken);
+                if (text.Length > 0)
+                    docs.Add(new ResearchDoc(new Uri(shop.Url).Host, text, false));
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogDebug(exception, "Research gathering failed");
+        }
+        return docs;
     }
 
     /// <summary>
@@ -276,27 +310,5 @@ public sealed class SmartSources(
         var urls = SmartParsers.BasalamImages(body).Where(x => SmartParsers.TitleMatch(query, x.Title) >= 0.6).Select(x => x.Image).Take(6).ToList();
         await store.SetAsync(key, "basalam", urls, DetailsTtl, cancellationToken);
         return urls;
-    }
-
-    /// <summary>
-    /// بازنویسی روان یک متن با Ollama روی کامپیوتر مدیر (اختیاری، A31). فقط وقتی پذیرفته می‌شود که
-    /// <see cref="LlmGuard.Accept"/> تأیید کند (همهٔ عددها حفظ شده، طول نزدیک، فارسی، بدون الگوی ماشینی)؛ وگرنه متن اصلی برمی‌گردد.
-    /// </summary>
-    public async Task<string> PolishAsync(string text, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var options = await config.GetAsync(cancellationToken);
-            if (!options.UseHelperLlm || string.IsNullOrWhiteSpace(text) || !broker.IsOnline(DateTimeOffset.UtcNow))
-                return text;
-            var prompt = "این متن فارسی را روان‌تر و طبیعی‌تر بازنویسی کن. هیچ اطلاعات، عدد یا ادعای تازه‌ای اضافه نکن، چیزی حذف نکن و فقط متن بازنویسی‌شده را برگردان:\n\n" + text;
-            var result = await broker.RunAsync("llm", null, null, prompt, cancellationToken);
-            return result is { Status: >= 200 and < 300, Body: { } body } && LlmGuard.Accept(text, body) ? PersianText.Clean(body) : text;
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            logger.LogDebug(exception, "Helper LLM polish failed");
-            return text;
-        }
     }
 }

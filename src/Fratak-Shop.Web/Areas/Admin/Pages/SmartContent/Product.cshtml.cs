@@ -20,7 +20,7 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.SmartContent;
 /// عکس‌های ردشده از دیسک هم پاک می‌شوند (فایل یتیم نمی‌ماند).</para>
 /// <para>پایین: خلاصهٔ خرید (پیش‌نویس/تأییدشده) با ویرایش، تأیید و رد؛ و تاریخچهٔ کارهای این کالا.</para>
 /// <para>دور بیستم: ۱۰ تا ۱۵ عکس نامزد با بزرگ‌نمایی، «انتخاب همه» و «رد همه و جست‌وجوی دوباره» (عکس‌های ردشده دیگر هرگز
-/// برای این کالا نمی‌آیند و منابعشان در رتبه‌بندی بعدی پایین می‌روند)؛ پیش‌نمایش «نقد و بررسی» با جایگزین/افزودن/رد؛
+/// برای این کالا نمی‌آیند و منابعشان در رتبه‌بندی بعدی پایین می‌روند)؛ پیش‌نمایش «توضیحات محصول» با جایگزین/افزودن/رد؛
 /// هر کار لنگر id="task-{id}" دارد تا لینک اعلان مستقیم به همان بخش بیاید.</para>
 /// </summary>
 [AdminPermission(AdminPermissions.ProductsManage)]
@@ -75,7 +75,7 @@ public class ProductModel(
     public static IEnumerable<SpecSuggestion> PendingSpecs(SmartTaskResult result) =>
         result.Specs.Where(s => s.Diff != SpecDiffKind.Same && !s.AutoApplicable);
 
-    /// <summary>آیا این نتیجه پیش‌نمایش «نقد و بررسی» اعمال‌نشده دارد؟</summary>
+    /// <summary>آیا این نتیجه پیش‌نمایش «توضیحات محصول» اعمال‌نشده دارد؟</summary>
     public static bool HasPendingReview(SmartTaskResult result) => result.Review is { Applied: false } r && !string.IsNullOrWhiteSpace(r.Html);
 
     /// <summary>HTML امن پیش‌نمایش (دوباره پاک‌سازی می‌شود؛ ستون نتیجه هم نباید راه XSS باشد).</summary>
@@ -102,7 +102,7 @@ public class ProductModel(
     }
 
     /// <summary>
-    /// اعمال بازبینی یک کار: ردیف‌های تیک‌خوردهٔ مشخصات، عکس‌های انتخاب‌شده و تصمیم «نقد و بررسی».
+    /// اعمال بازبینی یک کار: ردیف‌های تیک‌خوردهٔ مشخصات، عکس‌های انتخاب‌شده و تصمیم «توضیحات محصول».
     /// <para>عکس: انتخاب‌شده‌ها به کالا اضافه و «تأییدشده» ثبت می‌شوند؛ بقیه «ردشده» ثبت (هرگز دوباره برای این کالا نمی‌آیند) و فایلشان پاک می‌شود.
     /// refetch="true" (دکمهٔ «رد همهٔ عکس‌ها و جست‌وجوی دوباره»): همهٔ عکس‌ها رد و دور بعدی جست‌وجو در صف گذاشته می‌شود.</para>
     /// <para>reviewMode: replace = جایگزین متن فعلی؛ append = افزودن زیر متن فعلی؛ هر چیز دیگر = رد پیش‌نمایش.</para>
@@ -198,7 +198,7 @@ public class ProductModel(
             .ToList();
 
     /// <summary>
-    /// اعمال تصمیم «نقد و بررسی». null = این کار پیش‌نمایشی نداشت یا کارشناس رد کرد.
+    /// اعمال تصمیم «توضیحات محصول». null = این کار پیش‌نمایشی نداشت یا کارشناس رد کرد.
     /// اگر متن صفحه بعد از ساخت پیش‌نمایش عوض شده باشد، چیزی اعمال نمی‌شود (کار کسی پاک نشود).
     /// </summary>
     private async Task<(bool Ok, string Message)?> ApplyReviewAsync(Guid id, ReviewPreview? review, string? mode, CancellationToken ct)
@@ -209,13 +209,13 @@ public class ProductModel(
         if (state is null)
             return (false, "محصول پیدا نشد.");
         if (review.BaseHash is not null && review.BaseHash != PersianText.Hash(state.Html))
-            return (false, "متن توضیحات کالا بعد از ساخت این پیش‌نویس عوض شده؛ «نقد و بررسی» را دوباره بزنید تا با متن تازه نوشته شود.");
+            return (false, "متن توضیحات کالا بعد از ساخت این پیش‌نویس عوض شده؛ «توضیحات محصول» را دوباره بزنید تا با متن تازه نوشته شود.");
         var html = mode == "append" && !string.IsNullOrWhiteSpace(state.Html) ? state.Html.TrimEnd() + "\n" + review.Html : review.Html;
         var applied = await autopilot.ApplyBodyAsync(id, html,
-            mode == "append" ? "نقد و بررسی هوشمند زیر متن فعلی (تأیید کارشناس)" : "نقد و بررسی هوشمند جایگزین متن قبلی (تأیید کارشناس)", ActorName, ct);
+            mode == "append" ? "توضیحات محصول هوشمند زیر متن فعلی (تأیید کارشناس)" : "توضیحات محصول هوشمند جایگزین متن قبلی (تأیید کارشناس)", ActorName, ct);
         return applied.IsSuccess()
-            ? (true, mode == "append" ? "نقد و بررسی زیر متن فعلی اضافه شد" : "نقد و بررسی جایگزین شد")
-            : (false, applied.Message ?? "نقد و بررسی ذخیره نشد.");
+            ? (true, mode == "append" ? "توضیحات محصول زیر متن فعلی اضافه شد" : "توضیحات محصول جایگزین شد")
+            : (false, applied.Message ?? "توضیحات محصول ذخیره نشد.");
     }
 
     public async Task<IActionResult> OnPostInsightAsync(Guid id, string? op)

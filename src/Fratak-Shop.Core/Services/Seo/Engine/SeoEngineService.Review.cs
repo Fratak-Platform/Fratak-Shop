@@ -5,7 +5,7 @@ using Fratak_Shop.Data.Entities.SeoEngine;
 namespace Fratak_Shop.Core.Services.Seo.Engine;
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  موتور سئو – «نقد و بررسی» هوشمند محصول (دور بیستم)
+//  موتور سئو – «توضیحات محصول» هوشمند محصول (دور بیستم)
 //  این بخش متن را فقط «می‌سازد و می‌سنجد»؛ ذخیره با ISeoAutopilotService.ApplyBodyAsync است (با تاریخچه و امکان برگرداندن).
 //  سنجه‌های ایمنی (همه باید قبول شوند تا Safe=true شود و دستیار بتواند خودکار اعمال کند):
 //   ۱) نگهبان جریمه (SeoPenaltyGuard): بدون عبارت اسپم، بدون لینک زیاد؛
@@ -15,7 +15,7 @@ namespace Fratak_Shop.Core.Services.Seo.Engine;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// <summary>
-/// خروجی نوشتن «نقد و بررسی». Safe = همهٔ سنجه‌ها قبول شد (اعمال خودکار مجاز است)؛ Problems = دلیل‌های عدم اطمینان به فارسی.
+/// خروجی نوشتن «توضیحات محصول». Safe = همهٔ سنجه‌ها قبول شد (اعمال خودکار مجاز است)؛ Problems = دلیل‌های عدم اطمینان به فارسی.
 /// <para>مثال: Html=«&lt;p data-fs="review"&gt;…»، Words=420، ScoreBefore=48، ScoreAfter=71، NaturalScore=86، Safe=true.</para>
 /// </summary>
 public sealed class ProductReviewDraft
@@ -31,7 +31,7 @@ public sealed class ProductReviewDraft
 
 public sealed partial class SeoEngineService
 {
-    /// <summary>کمترین واژهٔ «نقد و بررسی» قابل قبول (کمتر = محتوای کم‌ارزش).</summary>
+    /// <summary>کمترین واژهٔ «توضیحات محصول» قابل قبول (کمتر = محتوای کم‌ارزش).</summary>
     public const int ReviewMinWords = 150;
 
     /// <summary>کمترین نمرهٔ طبیعی بودن متن (AiPatternGuard) برای اعمال خودکار.</summary>
@@ -60,7 +60,7 @@ public sealed partial class SeoEngineService
         };
         var written = ContentWriter.ProductReview(ctx, string.IsNullOrWhiteSpace(keepHtml) ? null : keepHtml.Trim());
         if (written is null)
-            return OperationResult<ProductReviewDraft>.Error("مشخصات کافی نیست؛ برای «نقد و بررسی» دست‌کم ۲ مشخصهٔ قابل استفاده لازم است.");
+            return OperationResult<ProductReviewDraft>.Error("مشخصات کافی نیست؛ برای «توضیحات محصول» دست‌کم ۲ مشخصهٔ قابل استفاده لازم است.");
 
         // پاک‌سازی امنیتی همان پاک‌سازی ذخیرهٔ دستی است؛ ساختار ما (h2/h3/ul/table/strong/em/class/data-fs) از آن عبور می‌کند.
         var html = written.SanitizeText();

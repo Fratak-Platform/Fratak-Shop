@@ -45,7 +45,7 @@ public enum SmartTaskKind : byte
     BlogImage = 7,
 
     /// <summary>
-    /// «نقد و بررسی» حرفه‌ای محصول با HTML ساختاریافته (دور بیستم): تیتر، خلاصهٔ بررسی، جدول، نقاط قوت/پیش از خرید بدانید و جمع‌بندی.
+    /// «توضیحات محصول» حرفه‌ای محصول با HTML ساختاریافته (دور بیستم): تیتر، خلاصهٔ بررسی، جدول، نقاط قوت/پیش از خرید بدانید و جمع‌بندی.
     /// </summary>
     ProductReview = 8,
 }
@@ -272,7 +272,7 @@ public enum BlogArticleType : byte
     /// <summary>آموزش/نکات نگهداری و استفاده.</summary>
     HowTo = 3,
 
-    /// <summary>نقد و بررسی یک محصول.</summary>
+    /// <summary>توضیحات محصول یک محصول.</summary>
     Review = 4,
 }
 
@@ -378,24 +378,12 @@ public class CustomerReminder : BaseEntity
 /// <summary>
 /// تنظیمات امکانات هوشمند (یک ردیف). گزینه‌ها JSON هستند تا افزودن گزینهٔ تازه مهاجرت پایگاه داده نخواهد؛
 /// کلاس گزینه‌ها: Core/Services/Smart/SmartOptions.cs.
-/// <para>کلید «دستیار رایانهٔ مالک» (A31) فقط به‌صورت هش SHA-256 ذخیره می‌شود؛ خود کلید فقط یک بار هنگام ساخت نمایش داده می‌شود.</para>
+/// <para>دور ۲۱: ستون‌های «دستیار محلی» حذف شدند (مهاجرت Round21Autonomy).</para>
 /// </summary>
 public class SmartContentConfig : BaseEntity
 {
     [Required]
     public string OptionsJson { get; set; } = "{}";
-
-    [MaxLength(128)]
-    public string? HelperKeyHash { get; set; }
-
-    /// <summary>چهار نویسهٔ آخر کلید برای شناسایی («…a1b2»).</summary>
-    [MaxLength(20)]
-    public string? HelperKeyHint { get; set; }
-
-    public DateTimeOffset? HelperLastSeenAt { get; set; }
-
-    [MaxLength(100)]
-    public string? HelperName { get; set; }
 
     /// <summary>آخرین اجرای برنامه‌ریز تقویم محتوا.</summary>
     public DateTimeOffset? LastPlanAt { get; set; }

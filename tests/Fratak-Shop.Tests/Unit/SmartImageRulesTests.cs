@@ -268,7 +268,7 @@ public class SmartImageRulesTests
     [Fact]
     public void Notification_title_and_batch_summary_are_short_persian_text()
     {
-        Assert.Equal("نقد و بررسی هوشمند: هدفون X – منتظر تأیید شما",
+        Assert.Equal("توضیحات محصول هوشمند: هدفون X – منتظر تأیید شما",
             SmartNotifier.TaskTitle(Claimed(SmartTaskKind.ProductReview, SmartTarget.Product, Guid.NewGuid()), SmartTaskStatus.NeedsReview));
         Assert.Equal("عکس هوشمند – اعمال شد",
             SmartNotifier.TaskTitle(Claimed(SmartTaskKind.ProductImages, SmartTarget.Product, Guid.NewGuid(), " "), SmartTaskStatus.Applied));

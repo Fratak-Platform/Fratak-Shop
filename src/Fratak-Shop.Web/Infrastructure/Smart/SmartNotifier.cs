@@ -115,7 +115,7 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
         return $"{PersianText.Digits(batch.Total)} کار: " + (parts.Count == 0 ? "انجام شد" : string.Join("، ", parts));
     }
 
-    /// <summary>عنوان اعلان یک کار. مثال: «نقد و بررسی هوشمند: هدفون X – منتظر تأیید شما».</summary>
+    /// <summary>عنوان اعلان یک کار. مثال: «توضیحات محصول هوشمند: هدفون X – منتظر تأیید شما».</summary>
     public static string TaskTitle(ClaimedSmartTask task, SmartTaskStatus status)
     {
         var kind = task.Kind switch
@@ -127,7 +127,7 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
             SmartTaskKind.CategoryComplete => "تکمیل دسته",
             SmartTaskKind.BlogArticle => "مقالهٔ هوشمند",
             SmartTaskKind.BlogImage => "تصویر مقاله",
-            SmartTaskKind.ProductReview => "نقد و بررسی هوشمند",
+            SmartTaskKind.ProductReview => "توضیحات محصول هوشمند",
             _ => "کار هوشمند",
         };
         var state = status switch

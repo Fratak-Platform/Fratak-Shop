@@ -6,11 +6,11 @@ using Fratak_Shop.Web.Infrastructure.Smart;
 namespace Fratak_Shop.Tests.Unit;
 
 /// <summary>
-/// تست‌های دور بیستم برای «نقد و بررسی» حرفه‌ای محصول (بدون دیتابیس و بدون اینترنت).
+/// تست‌های «توضیحات محصول» حرفه‌ای (دور بیستم؛ دور ۲۱: قالب فروشگاهی به‌جای نقد و بررسی) بدون دیتابیس و بدون اینترنت.
 /// <para>سناریو مثل اجرای واقعی است: ۳۰ هدفون هم‌دسته (برند و مشخصات متفاوت ولی شبیه) پشت سر هم نوشته می‌شوند و
 /// بعد از هر محصول نمای سایت به‌روز می‌شود. انتظار:</para>
 /// <list type="bullet">
-/// <item>ساختار HTML درست: پاراگراف نشانه‌دار اول، H2/H3، strong، فهرست، جدول مشخصات؛ تگ &lt;u&gt; هرگز.</item>
+/// <item>ساختار HTML درست: پاراگراف نشانه‌دار اول، H2/H3، strong، فهرست، کادر ویژگی‌های کلیدی و نکته‌ها؛ تگ &lt;u&gt; هرگز.</item>
 /// <item>سئوی سالم: کلمهٔ کلیدی در مقدمه و تیتر، تراکم ۰٫۵ تا ۲٫۵ درصد، بدون «محتوای تکراری» و حداقل ۲۰۰ واژه.</item>
 /// <item>بدون ادعای ممنوع (اصل/بهترین/تضمینی …) و بدون جای‌نگهدار جامانده ({ } [ |]).</item>
 /// <item>قطعی (دو بار اجرا = همان متن) و متن هم‌دسته‌ها از هم دور (SimHash).</item>
@@ -104,7 +104,7 @@ public class SmartReviewTests
     // ── ساختار ────────────────────────────────────────────────────────
 
     [Fact]
-    public void Review_is_structured_html_with_headings_lists_table_and_strong_keyword()
+    public void Description_is_structured_html_with_headings_lists_tips_and_strong_keyword()
     {
         foreach (var w in Output.Value)
         {
@@ -114,10 +114,12 @@ public class SmartReviewTests
             Assert.Contains("<h3>", w.Html, StringComparison.Ordinal);
             Assert.Contains("<strong>", w.Html, StringComparison.Ordinal);
             Assert.Contains("<ul>", w.Html, StringComparison.Ordinal);
-            // جدول فقط با دست‌کم ۳ مشخصه (جدول ۲ردیفه ارزشی ندارد).
-            var ctx = new WriterContext { Subject = w.Subject, Store = Store, Keyword = w.Keyword };
-            Assert.Equal(ctx.Facts.Count >= 3, w.Html.Contains("<table class=\"fs-spec-table\">", StringComparison.Ordinal));
-            Assert.Contains("fs-proscons", w.Html, StringComparison.Ordinal);
+            // دور ۲۱: «توضیحات محصول» جدول مشخصات را تکرار نمی‌کند (صفحهٔ محصول زبانهٔ «مشخصات» دارد)
+            // و همیشه بخش «نکته‌های خرید و استفاده» دارد؛ قالب قدیمی «نقاط قوت/پیش از خرید بدانید» دیگر نیست.
+            Assert.DoesNotContain("<table", w.Html, StringComparison.Ordinal);
+            Assert.Contains("<div class=\"fs-tips\">", w.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("fs-proscons", w.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("در این بررسی", w.Html, StringComparison.Ordinal);
             // <u> عمداً هرگز (با لینک اشتباه گرفته می‌شود و اثر سئویی ندارد)؛ تگ‌های قدیمی b/i هم نه.
             Assert.DoesNotContain("<u>", w.Html, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("<b>", w.Html, StringComparison.OrdinalIgnoreCase);
@@ -134,7 +136,7 @@ public class SmartReviewTests
     [Fact]
     public void Most_reviews_start_with_a_summary_box_for_the_buyer()
     {
-        // کادر «خلاصهٔ بررسی» با دست‌کم ۲ نکتهٔ متمایز می‌آید؛ در این ۳۰ هدفون تقریباً همیشه.
+        // کادر «ویژگی‌های کلیدی» با دست‌کم ۲ نکته می‌آید؛ در این ۳۰ هدفون تقریباً همیشه.
         var withBox = Output.Value.Count(w => w.Html.Contains("<div class=\"fs-review-box\">", StringComparison.Ordinal));
         Assert.True(withBox >= 15, $"summary box in {withBox}/30");
     }

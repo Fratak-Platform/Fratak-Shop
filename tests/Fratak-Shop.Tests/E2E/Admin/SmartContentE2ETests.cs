@@ -91,40 +91,16 @@ public class SmartContentE2ETests(ShopApp app)
     }
 
     [SqlTheory]
-    [InlineData(null)]
-    [InlineData("fh_wrong-key-0123456789abcdefghijklmnop")]
-    [InlineData("short")]
-    public async Task Helper_api_rejects_missing_or_wrong_keys(string? key)
+    [InlineData("/api/helper/ping")]
+    [InlineData("/api/helper/next")]
+    public async Task Removed_local_helper_api_no_longer_exists(string url)
     {
+        // دور ۲۱: «دستیار محلی» و Ollama کاملاً حذف شدند؛ این مسیرها دیگر نباید هیچ کاری انجام دهند.
         using var client = app.CreateClient();
-        foreach (var url in new[] { "/api/helper/ping", "/api/helper/next" })
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            if (key is not null)
-                request.Headers.Add("X-Helper-Key", key);
-            using var response = await client.Http.SendAsync(request);
-            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        }
-
-        using var post = new HttpRequestMessage(HttpMethod.Post, "/api/helper/result")
-        {
-            Content = new StringContent($"{{\"id\":\"{Guid.NewGuid()}\",\"status\":200,\"body\":\"x\"}}", System.Text.Encoding.UTF8, "application/json"),
-        };
-        if (key is not null)
-            post.Headers.Add("X-Helper-Key", key);
-        using var posted = await client.Http.SendAsync(post);
-        Assert.Equal(HttpStatusCode.Unauthorized, posted.StatusCode);
-    }
-
-    [SqlFact]
-    public async Task Helper_api_rejects_an_oversized_key_header()
-    {
-        using var client = app.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/helper/ping");
-        request.Headers.Add("X-Helper-Key", new string('a', 5000));
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("X-Helper-Key", "fh_wrong-key-0123456789abcdefghijklmnop");
         using var response = await client.Http.SendAsync(request);
-        Assert.True(response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.BadRequest or HttpStatusCode.RequestHeaderFieldsTooLarge,
-            ((int)response.StatusCode).ToString());
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     // ── فروشگاه ───────────────────────────────────────────────────

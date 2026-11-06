@@ -49,7 +49,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         (StaffNotificationKind.ExpenseDue, "سررسید هزینه‌های تکراری"),
         (StaffNotificationKind.ReportFailed, "خطای ارسال گزارش خودکار"),
         (StaffNotificationKind.SeoSuggestions, "پیشنهادهای موتور سئو"),
-        (StaffNotificationKind.SmartResult, "نتیجهٔ کارهای هوشمند (عکس، مشخصات، نقد و بررسی، مقاله)"),
+        (StaffNotificationKind.SmartResult, "نتیجهٔ کارهای هوشمند (عکس، مشخصات، توضیحات محصول، مقاله)"),
         (StaffNotificationKind.Alert, "هشدارهای سیستم"),
     ];
 

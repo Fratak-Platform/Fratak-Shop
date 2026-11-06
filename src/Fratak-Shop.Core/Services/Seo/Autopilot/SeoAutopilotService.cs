@@ -52,10 +52,10 @@ public interface ISeoAutopilotService
     Task<OperationResult> RollbackAsync(Guid revisionId, string? byName, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// نوشتن متن تازهٔ «توضیحات» یک محصول (دور بیستم – «نقد و بررسی» هوشمند) با تاریخچه و امکان برگرداندن.
+    /// نوشتن متن تازهٔ «توضیحات» یک محصول (دور بیستم – «توضیحات محصول» هوشمند) با تاریخچه و امکان برگرداندن.
     /// <para>قبل از ذخیره همان مرتب‌سازی HTML خلبان اجرا می‌شود و هش آن ثبت می‌شود تا خلبان دوباره به متن دست نزند.</para>
     /// <para>Data = آیا متن صفحه واقعاً عوض شد؟ متن یکسان با متن فعلی ← موفق با false. متن بلندتر از سقف ← خطا (هیچ چیز ذخیره نمی‌شود).</para>
-    /// <para>مثال: ApplyBodyAsync(id، «&lt;p data-fs="review"&gt;…»، «نقد و بررسی هوشمند نوشته شد»، «دستیار هوشمند»).</para>
+    /// <para>مثال: ApplyBodyAsync(id، «&lt;p data-fs="review"&gt;…»، «توضیحات محصول هوشمند نوشته شد»، «دستیار هوشمند»).</para>
     /// <para>محل استفاده: SmartOrchestrator (اعمال خودکار امن) و صفحهٔ «محتوای هوشمند ← محصول» (دکمهٔ جایگزین/افزودن).</para>
     /// </summary>
     Task<OperationResult<bool>> ApplyBodyAsync(Guid productId, string html, string summary, string? byName, CancellationToken cancellationToken = default);
@@ -648,7 +648,7 @@ public sealed class SeoAutopilotService(
         using (SeoChangeFeed.Suppress())
             await context.SaveChangesAsync(cancellationToken);
         context.ChangeTracker.Clear();
-        return OperationResult<bool>.Success(true, "متن «نقد و بررسی» روی صفحه نشست.");
+        return OperationResult<bool>.Success(true, "متن «توضیحات محصول» روی صفحه نشست.");
     }
 
     // ── ابزارها ─────────────────────────────────────────────────────────

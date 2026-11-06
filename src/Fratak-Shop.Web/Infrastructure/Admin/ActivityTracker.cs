@@ -213,9 +213,7 @@ public sealed class ActivityTrackingMiddleware(RequestDelegate next, ActivityTra
             var isAsset = path.StartsWithSegments("/assets") || path.StartsWithSegments("/media") || path.StartsWithSegments("/uploads")
                           || path.StartsWithSegments("/lib") || path.StartsWithSegments("/favicon.ico") || path.StartsWithSegments("/health")
                           // اتصال زندهٔ SignalR ساعت‌ها باز می‌ماند؛ نباید «درخواست کند» شمرده شود.
-                          || path.StartsWithSegments("/hubs")
-                          // دستیار محلی (دور ۱۹): long-poll عمداً تا ۲۵ ثانیه طول می‌کشد.
-                          || path.StartsWithSegments("/api/helper");
+                          || path.StartsWithSegments("/hubs");
             if (!isAsset)
             {
                 tracker.RecordRequest(http, Stopwatch.GetElapsedTime(started).TotalMilliseconds);

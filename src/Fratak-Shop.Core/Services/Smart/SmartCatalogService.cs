@@ -29,11 +29,11 @@ public sealed record SmartCategorySubject(Guid Id, string Name, string Slug, str
     IReadOnlyList<BlogProduct> TopProducts, IReadOnlyList<string> ProductImageNames);
 
 /// <summary>
-/// وضعیت متن «توضیحات» محصول برای تصمیم دستیار دربارهٔ «نقد و بررسی» (دور بیستم).
+/// وضعیت متن «توضیحات» محصول برای تصمیم دستیار دربارهٔ «توضیحات محصول» (دور بیستم).
 /// <list type="bullet">
-/// <item>WrittenBySmart: متن فعلی دقیقاً همان است که دستیار نوشته (هش برابر آخرین تغییر «نقد و بررسی هوشمند» و برنگشته) ← بازنویسی مجاز.</item>
+/// <item>WrittenBySmart: متن فعلی دقیقاً همان است که دستیار نوشته (هش برابر آخرین تغییر «توضیحات محصول هوشمند» و برنگشته) ← بازنویسی مجاز.</item>
 /// <item>HasMarker: نشانهٔ data-fs="review" هست ولی متن عوض شده ← کارشناس ویرایش کرده؛ دست نزن.</item>
-/// <item>RolledBack: کارشناس آخرین «نقد و بررسی» را از تاریخچه برگردانده ← تصمیم انسان؛ دوباره نمی‌نویسیم.</item>
+/// <item>RolledBack: کارشناس آخرین «توضیحات محصول» را از تاریخچه برگردانده ← تصمیم انسان؛ دوباره نمی‌نویسیم.</item>
 /// </list>
 /// </summary>
 public sealed record ProductBodyState(string Html, int Words, bool WrittenBySmart, bool HasMarker, bool RolledBack);
@@ -106,7 +106,7 @@ public interface ISmartCatalogService
     /// <summary>دور بیستم: امتیاز هر منبع عکس در همهٔ محصولات (لاپلاس). مثال: {"digikala":0.83، "bing:x.ir":0.2}.</summary>
     Task<Dictionary<string, double>> ImageSourceScoresAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>دور بیستم: وضعیت متن توضیحات محصول برای تصمیم «نقد و بررسی» (null = محصول پیدا نشد).</summary>
+    /// <summary>دور بیستم: وضعیت متن توضیحات محصول برای تصمیم «توضیحات محصول» (null = محصول پیدا نشد).</summary>
     Task<ProductBodyState?> GetBodyStateAsync(Guid productId, CancellationToken cancellationToken = default);
 }
 

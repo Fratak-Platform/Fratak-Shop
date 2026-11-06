@@ -127,7 +127,7 @@ public class SmartContentIntegrationTests(SqlServerFixture db)
     }
 
     [SqlFact]
-    public async Task Settings_are_clamped_and_the_helper_key_is_verified_and_revocable()
+    public async Task Settings_are_clamped_to_safe_ranges()
     {
         await using var scope = db.Scope();
         var config = scope.ServiceProvider.GetRequiredService<ISmartConfigService>();
@@ -137,24 +137,6 @@ public class SmartContentIntegrationTests(SqlServerFixture db)
         options.BlogPostsPerWeek = 50;
         Assert.True((await config.SaveAsync(options)).IsSuccess());
         Assert.Equal(7, (await config.GetAsync()).BlogPostsPerWeek);
-
-        var key = await config.RotateHelperKeyAsync();
-        Assert.True(key.Length >= 32);
-        Assert.True(await config.VerifyHelperKeyAsync(key, "لپ‌تاپ دفتر"));
-        Assert.False(await config.VerifyHelperKeyAsync(key + "x", null));
-        Assert.False(await config.VerifyHelperKeyAsync("", null));
-        Assert.False(await config.VerifyHelperKeyAsync(null, null));
-        var status = await config.GetHelperAsync();
-        Assert.True(status.HasKey);
-        Assert.DoesNotContain(key, status.KeyHint ?? ""); // خود کلید هیچ‌جا نمایش داده نمی‌شود
-
-        var newer = await config.RotateHelperKeyAsync();
-        Assert.False(await config.VerifyHelperKeyAsync(key, null)); // کلید قبلی باطل شد
-        Assert.True(await config.VerifyHelperKeyAsync(newer, null));
-
-        Assert.True((await config.RevokeHelperKeyAsync()).IsSuccess());
-        Assert.False(await config.VerifyHelperKeyAsync(newer, null));
-        Assert.False((await config.GetHelperAsync()).HasKey);
 
         options = await config.GetAsync();
         options.BlogPostsPerWeek = original;

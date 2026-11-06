@@ -5,23 +5,47 @@ using Fratak_Shop.Data.Entities.SeoEngine;
 namespace Fratak_Shop.Core.Services.Seo.Engine;
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  «نقد و بررسی» حرفه‌ای محصول با HTML ساختاریافته (دور بیستم)
-//  چرا؟ متن قبلی موتور (Body) فقط چند پاراگراف ساده بود. خریدار و گوگل هر دو متنی را بهتر می‌فهمند که:
-//   • بالای صفحه «خلاصهٔ بررسی» داشته باشد (خریدار اول نکته‌های کلیدی را می‌بیند)؛
-//   • تیتر H2 و زیرتیتر H3 داشته باشد (اسکن سریع + فهم موضوع برای موتور جست‌وجو)؛
-//   • عبارت‌های مهم با <strong> و هشدارهای منصفانه (مثل «طبق اعلام سازنده») با <em> مشخص شوند؛
-//   • فهرست نقاط قوت / «پیش از خرید بدانید»، جدول مشخصات کلیدی و جمع‌بندی داشته باشد.
+//  «توضیحات محصول» حرفه‌ای با HTML ساختاریافته (دور بیستم؛ دور ۲۱: از «نقد و بررسی» به «توضیحات فروشگاهی»)
+//  چرا؟ خریدار در فروشگاه «توضیحات محصول» می‌خواند، نه مقالهٔ نقد. ساختار مثل فروشگاه‌های حرفه‌ای:
+//   • معرفی کوتاه و فروشنده + کادر «ویژگی‌های کلیدی» بالای متن (خریدار اول نکته‌های مهم را می‌بیند)؛
+//   • H2 «معرفی» و برای هر موضوع یک H3 (ترتیب موضوع‌ها از تحقیق در سایت‌های دیگر)؛
+//   • مناسب چه کسانی است، اقلام همراه، نکته‌های خرید و نگه‌داری و «خرید از فروشگاه»؛
+//   • عبارت‌های مهم با <strong> و هشدارهای منصفانه (مثل «طبق اعلام سازنده») با <em>.
+//  تحقیق: متن سایت‌های دیگر فقط «خوانده» می‌شود (Core/Services/Smart/ProductResearch.cs) و هرگز کپی نمی‌شود.
 //  اصل‌ها: فقط از داده‌های واقعی (مشخصات، آمار هم‌دسته‌ها در خود فروشگاه، نظرهای تأییدشده) – هیچ ادعای ساختگی؛
 //  عبارت ممنوع (اصل، بهترین، تضمینی …) نمی‌آید؛ تگ <u> عمداً استفاده نمی‌شود (اثر سئویی ندارد و با لینک اشتباه گرفته می‌شود).
 //  پاراگراف اول با data-fs="review" علامت می‌خورد تا سیستم بداند این متن را «دستیار هوشمند» نوشته است.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// <summary>
-/// نکته‌های تأییدشدهٔ خریداران برای «نقد و بررسی». همه متن انسانی/تأییدشده‌اند و بدون تغییر (فقط encode) نمایش داده می‌شوند.
+/// یک ویژگی برجسته که چند منبع دربارهٔ کالا گفته‌اند. Label برچسب استاندارد خود ما است. Sources = تعداد منبع موافق.
+/// </summary>
+public sealed record ResearchHighlight(string Label, SpecTopic Topic, int Sources);
+
+/// <summary>
+/// داده‌های کمکی «توضیحات محصول»: نکته‌های تأییدشدهٔ خریداران + نتیجهٔ تحقیق در سایت‌های دیگر (دور ۲۱). همه متن انسانی/تأییدشده‌اند و بدون تغییر (فقط encode) نمایش داده می‌شوند.
 /// مثال: Pros = [«صدای بم قوی»]، Cons = [«قاب شارژ کمی بزرگ است»]، Verdict = «برای استفادهٔ روزمره ارزش خرید دارد».
 /// </summary>
 public sealed class ReviewNotes
 {
+    /// <summary>
+    /// دور ۲۱: نتیجهٔ «تحقیق» دربارهٔ همین کالا در سایت‌های دیگر (<see cref="Fratak_Shop.Core.Services.Smart.ProductResearch"/>). متن هیچ سایتی کپی نمی‌شود؛
+    /// فقط این‌ها استفاده می‌شوند: ترتیب اهمیت موضوع‌ها، اقلام همراه، کاربردها و ویژگی‌هایی که چند منبع روی آن توافق دارند.
+    /// </summary>
+    public IReadOnlyList<SpecTopic> TopicOrder { get; init; } = [];
+
+    /// <summary>اقلام داخل جعبه (مورد توافق ≥۲ منبع یا یک منبع معتبر). مثال: [«کابل شارژ USB-C»، «دفترچهٔ راهنما»].</summary>
+    public IReadOnlyList<string> InBox { get; init; } = [];
+
+    /// <summary>کاربردهای مورد توافق. مثال: [«ورزش»، «مکالمه‌های کاری»].</summary>
+    public IReadOnlyList<string> UseCases { get; init; } = [];
+
+    /// <summary>ویژگی‌هایی که چند منبع گفته‌اند (برچسب استاندارد ما، نه متن آن‌ها). مثال: («اتصال هم‌زمان به دو دستگاه»، Bluetooth).</summary>
+    public IReadOnlyList<ResearchHighlight> Highlights { get; init; } = [];
+
+    /// <summary>تعداد منبع‌هایی که متنشان تحلیل شد (برای گزارش به کارشناس).</summary>
+    public int ResearchSources { get; init; }
+
     public IReadOnlyList<string> Pros { get; init; } = [];
     public IReadOnlyList<string> Cons { get; init; } = [];
     public IReadOnlyList<string> ForWhom { get; init; } = [];
@@ -32,12 +56,12 @@ public sealed class ReviewNotes
 public static partial class ContentWriter
 {
     /// <summary>
-    /// مقدار ویژگی data-fs پاراگراف اول «نقد و بررسی» هوشمند. مثال خروجی: <c>&lt;p data-fs="review"&gt;…&lt;/p&gt;</c>.
+    /// مقدار ویژگی data-fs پاراگراف اول «توضیحات محصول» هوشمند. مثال خروجی: <c>&lt;p data-fs="review"&gt;…&lt;/p&gt;</c>.
     /// محل استفاده: تشخیص «این متن را دستیار نوشته» در SmartCatalogService.GetBodyStateAsync.
     /// </summary>
     public const string ReviewMarker = "review";
 
-    /// <summary>عبارتی که اگر در HTML باشد یعنی بخشی از متن را «نقد و بررسی» هوشمند نوشته است.</summary>
+    /// <summary>عبارتی که اگر در HTML باشد یعنی بخشی از متن را «توضیحات محصول» هوشمند نوشته است.</summary>
     public const string ReviewMarkerAttribute = "data-fs=\"review\"";
 
     // نشانه‌های داخلی برای strong/em (نویسه‌های «استفادهٔ خصوصی» یونیکد که در متن واقعی نمی‌آیند).
@@ -54,7 +78,7 @@ public static partial class ContentWriter
     ];
 
     /// <summary>
-    /// «نقد و بررسی» کامل یک محصول به‌صورت HTML ساختاریافته.
+    /// «توضیحات محصول» کامل یک محصول به‌صورت HTML ساختاریافته.
     /// <para>keepHtml: متن فعلی صفحه که باید دست‌نخورده بالای متن بماند (برای صفحهٔ کم‌محتوا)؛ null/خالی = فقط بررسی تازه.</para>
     /// <para>null = نوشتن مجاز نیست: صفحه محصول نیست یا کمتر از ۲ مشخصهٔ قابل استفاده دارد (متن بدون داده = محتوای کم‌ارزش).</para>
     /// <para>مثال: هدفون با «شارژدهی 30 ساعت»، «نویز کنسلینگ: دارد» و «IPX5» ← خلاصهٔ بررسی، H2 مشخصات با H3 «باتری و شارژدهی»،
@@ -98,7 +122,7 @@ public static partial class ContentWriter
     }
 
     /// <summary>
-    /// بخش انسانی بالای «نقد و بررسی» هوشمند: هر چه پیش از پاراگراف نشانه‌دار آمده (برای بازنویسی بدون از دست رفتن متن کارشناس).
+    /// بخش انسانی بالای «توضیحات محصول» هوشمند: هر چه پیش از پاراگراف نشانه‌دار آمده (برای بازنویسی بدون از دست رفتن متن کارشناس).
     /// مثال: «&lt;p&gt;متن کارشناس&lt;/p&gt;\n&lt;p data-fs="review"&gt;…» ← «&lt;p&gt;متن کارشناس&lt;/p&gt;»؛ بدون نشانه ← کل متن؛ نشانه در ابتدا ← null.
     /// </summary>
     public static string? HumanPart(string? html)
@@ -113,7 +137,20 @@ public static partial class ContentWriter
         return human.Length == 0 ? null : human;
     }
 
-    /// <summary>بخش‌های HTML نقد و بررسی به ترتیب نمایش.</summary>
+    /// <summary>
+    /// بخش‌های HTML «توضیحات محصول» (دور ۲۱) به ترتیب نمایش؛ ساختاری که فروشگاه‌های حرفه‌ای می‌نویسند:
+    /// <list type="number">
+    /// <item>معرفی کوتاه و فروشنده (پاراگراف نشانه‌دار؛ کلمهٔ کلیدی پررنگ).</item>
+    /// <item>کادر «ویژگی‌های کلیدی» (چند نکتهٔ فایده‌محور برای خریدار عجول).</item>
+    /// <item>H2 «معرفی/ویژگی‌ها» با یک H3 برای هر موضوع (ترتیب موضوع‌ها از تحقیق: هر چه سایت‌های دیگر بیشتر دربارهٔ آن نوشته‌اند جلوتر).</item>
+    /// <item>جایگاه میان مدل‌های مشابه همین فروشگاه (فقط اختلاف معنادار).</item>
+    /// <item>مناسب چه کسانی است (از مشخصات + کاربردهای مورد توافق چند منبع).</item>
+    /// <item>اقلام همراه (فقط اگر چند منبع یا منبع معتبر گفته باشند).</item>
+    /// <item>نکته‌های خرید و استفاده (منصفانه + نگه‌داری).</item>
+    /// <item>خرید از فروشگاه (شرایط واقعی فروشگاه + لینک داخلی).</item>
+    /// </list>
+    /// <para>جدول مشخصات عمداً تکرار نمی‌شود: صفحهٔ محصول زبانهٔ جدا «مشخصات محصول» دارد.</para>
+    /// </summary>
     private static List<string> ReviewSections(Composer c)
     {
         var ctx = c.Ctx;
@@ -121,24 +158,24 @@ public static partial class ContentWriter
         var facts = ctx.Distinctive;
         var notes = ctx.Notes;
         var sections = new List<string>();
+        var uses = (notes?.UseCases ?? []).Select(Note).Where(n => n.Length is > 2 and <= 60).Distinct(StringComparer.Ordinal).Take(4).ToList();
 
-        // ۱) معرفی (پاراگراف نشانه‌دار؛ کلمهٔ کلیدی پررنگ). همیشه اولین بلوک متنی تا «کلمه در مقدمه» برقرار باشد.
+        // ۱) معرفی فروشنده (نه «در این بررسی …»). همیشه اولین بلوک متنی تا «کلمه در مقدمه» برقرار باشد.
         var intro = new List<string>();
         if (p?.BrandName is not null && p.CategoryName is not null)
             intro.Add(Said(c,
-                "در این [نقد و بررسی|بررسی]، {L} از برند {B} را از نظر [مشخصات فنی|ویژگی‌های فنی]، کاربرد روزمره و شرایط خرید [مرور می‌کنیم|بررسی می‌کنیم].",
-                "{L} [مدلی|محصولی] از برند {B} در دستهٔ {C} است و [در این بررسی|اینجا] [نقاط قوت|ویژگی‌های مهم] و نکته‌های پیش از خرید آن را [می‌بینیم|مرور می‌کنیم].",
-                "[اگر|وقتی] به خرید {L} فکر می‌کنید، این بررسی [مهم‌ترین مشخصات|مشخصات کلیدی] و کاربردهای این [مدل|محصول] از برند {B} را [یک‌جا|کنار هم] [نشان می‌دهد|جمع کرده است].",
-                "{L} را [در این صفحه|اینجا] [با جزئیات|دقیق] بررسی کرده‌ایم تا [آگاهانه‌تر|راحت‌تر] [تصمیم بگیرید|انتخاب کنید]؛ [محصولی|مدلی] از برند {B} در گروه {C}."));
+                "{L} [محصولی|مدلی] از برند {B} در دستهٔ {C} است که [برای استفادهٔ روزمره|برای کاربرد روزانه] [طراحی شده|ساخته شده] و [امکانات کاربردی|ویژگی‌های کاربردی] را [در اختیار شما می‌گذارد|یک‌جا ارائه می‌دهد].",
+                "[اگر دنبال|اگر به دنبال] [محصولی|انتخابی] [مطمئن|کاربردی] در دستهٔ {C} هستید، {L} از برند {B} [گزینه‌ای است که ارزش آشنایی دارد|انتخابی است که ارزش بررسی دارد].",
+                "{L} [عضوی از|بخشی از] [محصولات|خانوادهٔ] {C} برند {B} است؛ [محصولی|مدلی] که روی [نیازهای واقعی|کاربرد روزمرهٔ] [کاربر|خریدار] تمرکز دارد.",
+                "برند {B} در {L} [ترکیبی از|مجموعه‌ای از] [ویژگی‌های کاربردی|امکانات مهم] را برای [علاقه‌مندان|خریداران] {C} [فراهم کرده است|کنار هم گذاشته است]."));
         else if (p?.CategoryName is not null)
             intro.Add(Said(c,
-                "در این [نقد و بررسی|بررسی]، {L} از دستهٔ {C} را از نظر مشخصات فنی، کاربرد روزمره و شرایط خرید [مرور می‌کنیم|بررسی می‌کنیم].",
-                "[اگر|وقتی] به خرید {L} فکر می‌کنید، این بررسی [مهم‌ترین مشخصات|مشخصات کلیدی] و کاربردهای آن را [یک‌جا|کنار هم] [نشان می‌دهد|جمع کرده است].",
-                "{L} را [در این صفحه|اینجا] [با جزئیات|دقیق] بررسی کرده‌ایم تا [آگاهانه‌تر|راحت‌تر] [تصمیم بگیرید|انتخاب کنید]."));
+                "{L} [محصولی|مدلی] در دستهٔ {C} است که [برای استفادهٔ روزمره|برای کاربرد روزانه] [طراحی شده|ساخته شده] و [امکانات کاربردی|ویژگی‌های کاربردی] را [در اختیار شما می‌گذارد|یک‌جا ارائه می‌دهد].",
+                "[اگر دنبال|اگر به دنبال] [محصولی|انتخابی] [مطمئن|کاربردی] در دستهٔ {C} هستید، {L} [گزینه‌ای است که ارزش آشنایی دارد|انتخابی است که ارزش بررسی دارد]."));
         else
             intro.Add(Said(c,
-                "در این [نقد و بررسی|بررسی]، {L} را از نظر مشخصات فنی، کاربرد روزمره و شرایط خرید [مرور می‌کنیم|بررسی می‌کنیم].",
-                "{L} را [در این صفحه|اینجا] [با جزئیات|دقیق] بررسی کرده‌ایم تا [آگاهانه‌تر|راحت‌تر] [تصمیم بگیرید|انتخاب کنید]."));
+                "{L} [محصولی|مدلی] است که [برای استفادهٔ روزمره|برای کاربرد روزانه] [طراحی شده|ساخته شده] و [امکانات کاربردی|ویژگی‌های کاربردی] را [در اختیار شما می‌گذارد|یک‌جا ارائه می‌دهد].",
+                "{L} [گزینه‌ای است که|انتخابی است که] [ارزش آشنایی بیشتر دارد|ارزش بررسی دارد]."));
         intro[0] = Mark(intro[0], ctx.Lead, StrongOpen, StrongClose);
 
         var top = facts.Take(3).Select(FactPhrase).ToList();
@@ -148,31 +185,34 @@ public static partial class ContentWriter
             intro.Add(Said(c,
                 $"[مهم‌ترین|برجسته‌ترین] ویژگی‌های {{N}} {joined} است.",
                 $"{joined} از [نکات|ویژگی‌های] [اصلی|قابل توجه] {{N}} [به شمار می‌رود|است].",
-                $"[به‌طور خلاصه|در نگاه اول]، {{N}} با {joined} [شناخته می‌شود|جلب توجه می‌کند]."));
+                $"{{N}} با {joined} [پاسخ خوبی به نیاز روزمره می‌دهد|برای استفادهٔ روزمره آماده است]."));
         }
+        if (uses.Count > 0)
+            intro.Add(Said(c,
+                $"این [محصول|مدل] [به‌ویژه|بیشتر] برای {PersianText.JoinList(uses)} [مناسب است|کاربرد دارد].",
+                $"[کاربرد اصلی|بیشترین کاربرد] {{N}} [در|برای] {PersianText.JoinList(uses)} است."));
         sections.Add("<p " + ReviewMarkerAttribute + ">" + RichInline(string.Join(' ', intro)) + "</p>");
 
-        // ۲) خلاصهٔ بررسی (اول کار برای خریدار: نکته‌های کلیدی در یک نگاه).
-        var summary = new List<string>();
-        foreach (var fact in facts.Take(3))
-        {
-            var phrase = SpecKnowledge.Highlight(fact) ?? FactPhrase(fact);
-            var why = Why(fact);
-            summary.Add(StrongOpen + phrase + StrongClose + (why is null ? "." : "؛ " + why + "."));
-        }
-        if (WarrantyPhrase(p) is { } warrantyItem)
-            summary.Add(StrongOpen + Strip(SpecKnowledge.Safe(warrantyItem)) + StrongClose + (c.Next(2) == 0 ? "؛ برای پشتیبانی پس از خرید." : "؛ همراه با خدمات پس از خرید."));
-        if (notes is { ReviewCount: >= 3 })
-            summary.Add($"جمع‌بندی {StrongOpen}{PersianText.Digits(notes.ReviewCount)} نظر خریداران{StrongClose} در همین بررسی آمده است.");
-        if (summary.Count >= 2)
-            sections.Add("<div class=\"fs-review-box\"><p class=\"fs-review-box-title\"><strong>خلاصهٔ بررسی</strong></p>" + BulletList(summary) + "</div>");
+        // ۲) ویژگی‌های کلیدی (خریدار عجول در یک نگاه می‌بیند چه می‌خرد).
+        var key = KeyFeatures(c);
+        if (key.Count >= 2)
+            sections.Add("<div class=\"fs-review-box\"><p class=\"fs-review-box-title\"><strong>ویژگی‌های کلیدی</strong></p>" + BulletList(key) + "</div>");
 
-        // ۳) مشخصات: H2 + برای هر موضوع شناخته‌شده یک H3 با توضیح واقعی آن مشخصه.
+        // ۳) معرفی ویژگی‌ها: H2 + H3 برای هر موضوع. ترتیب = اول موضوع‌هایی که سایت‌های دیگر بیشتر درباره‌اش نوشته‌اند.
         sections.Add(H2(c.Say(
-            "بررسی مشخصات {S}", "مشخصات و ویژگی‌های {S}", "{S} از نظر فنی", "نگاهی دقیق به ویژگی‌های {S}", "{S} چه ویژگی‌هایی دارد؟")));
+            "معرفی {S}", "آشنایی با ویژگی‌های {S}", "{S} چه ویژگی‌هایی دارد؟", "ویژگی‌ها و امکانات {S}", "نگاهی به امکانات {S}")));
+        var order = notes?.TopicOrder ?? [];
+        int Rank(SpecTopic topic)
+        {
+            for (var i = 0; i < order.Count; i++)
+                if (order[i] == topic)
+                    return i;
+            return order.Count + (int)topic;
+        }
         var groups = facts.Where(f => TopicTitle(f.Topic) is not null)
             .GroupBy(f => TopicTitle(f.Topic)!, StringComparer.Ordinal)
-            .Take(4)
+            .OrderBy(g => g.Min(f => Rank(f.Topic)))
+            .Take(5)
             .ToList();
         if (groups.Count >= 2)
         {
@@ -181,6 +221,12 @@ public static partial class ContentWriter
                 sections.Add(H3(c.Say(group.Key, group.Key + " {N}")));
                 var sentences = group.Take(3).Select(f => Explained(c, f)).ToList();
                 sections.Add(Paragraph(sentences));
+            }
+            var rest = facts.Where(f => TopicTitle(f.Topic) is null).Take(3).Select(f => Explained(c, f)).ToList();
+            if (rest.Count >= 2)
+            {
+                sections.Add(H3(c.Say("سایر ویژگی‌ها", "امکانات دیگر {N}", "ویژگی‌های [تکمیلی|دیگر]")));
+                sections.Add(Paragraph(rest));
             }
         }
         else
@@ -191,61 +237,57 @@ public static partial class ContentWriter
                 sections.Add(Paragraph(sentences.Skip(i).Take(3).ToList()));
         }
 
-        // جدول مشخصات کلیدی (با سرستون؛ HtmlSeoFixer هم همین ساختار را می‌خواهد).
-        var rows = ctx.Facts.Take(8).ToList();
-        if (rows.Count >= 3)
-        {
-            sections.Add(H3(c.Say("مشخصات کلیدی در یک نگاه", "جدول مشخصات [اصلی|کلیدی] {S}", "خلاصهٔ مشخصات {N}")));
-            var table = new StringBuilder("<table class=\"fs-spec-table\"><thead><tr><th>ویژگی</th> <th>مقدار</th></tr></thead><tbody>");
-            foreach (var row in rows)
-                table.Append("<tr><td>").Append(WebUtility.HtmlEncode(row.Key)).Append("</td> <td>")
-                    .Append(WebUtility.HtmlEncode(row.IsYes ? "دارد" : row.Value)).Append("</td></tr>");
-            table.Append("</tbody></table>");
-            sections.Add(table.ToString());
-        }
-
-        // ۴) نقاط قوت و «پیش از خرید بدانید» (منصفانه و فقط از داده).
-        var pros = Pros(c);
-        var cautions = Cautions(c);
-        sections.Add(H2(c.Say("نقاط قوت و نکات قابل توجه {S}", "[مزایا|نقاط قوت] و [محدودیت‌های|نکته‌های] {N}", "{S}: [نقاط قوت|مزایا] و نکته‌های پیش از خرید")));
-        var box = new StringBuilder("<div class=\"fs-proscons\">");
-        if (pros.Count > 0)
-            box.Append("<div class=\"fs-pros\"><h3>نقاط قوت</h3>").Append(BulletList(pros)).Append("</div>");
-        box.Append("<div class=\"fs-cons\"><h3>پیش از خرید بدانید</h3>").Append(BulletList(cautions)).Append("</div></div>");
-        sections.Add(box.ToString());
-
-        // ۵) مقایسه با هم‌دسته‌ها در خود فروشگاه (فقط اختلاف معنادار).
+        // ۴) جایگاه میان مدل‌های مشابه همین فروشگاه (فقط اختلاف معنادار).
         var compare = CompareSentences(c);
         if (compare.Count > 0)
         {
-            sections.Add(H2(c.Say("{S} در مقایسه با مدل‌های مشابه", "مقایسهٔ {S} با [سایر|دیگر] [مدل‌های|محصولات] {C}", "{S} [در کنار|در برابر] [هم‌رده‌ها|مدل‌های هم‌رده]")));
+            sections.Add(H2(c.Say("{S} در کنار مدل‌های مشابه", "جایگاه {S} میان [مدل‌های|محصولات] {C}", "{S} [در برابر|در کنار] [هم‌رده‌ها|مدل‌های هم‌رده]")));
             sections.Add(Paragraph(compare));
         }
 
-        // ۶) مناسب چه کسانی است (از مشخصات + «مناسب برای» تأییدشدهٔ خلاصهٔ خرید).
+        // ۵) مناسب چه کسانی است (از مشخصات + کاربردهای مورد توافق چند منبع + «مناسب برای» تأییدشدهٔ خلاصهٔ خرید).
         var audience = facts.Select(SpecKnowledge.Audience).OfType<string>()
+            .Concat(uses.Select(u => "مناسب برای " + u))
             .Concat((notes?.ForWhom ?? []).Select(Note).Where(n => n.Length > 0))
-            .Distinct(StringComparer.Ordinal).Take(4).ToList();
+            .Distinct(StringComparer.Ordinal).Take(5).ToList();
         if (audience.Count > 0)
         {
             sections.Add(H2(c.Say("{S} مناسب چه کسانی است؟", "این {T} برای چه کسانی مناسب است؟", "[چه کسانی|چه کاربرانی] از {S} [بیشتر لذت می‌برند|بیشترین بهره را می‌برند]؟")));
             sections.Add("<p>" + RichInline(Said(c,
                 "{N} [به‌ویژه|بیشتر] برای این [گروه‌ها|افراد] [مناسب است|پیشنهاد می‌شود]:",
                 "[با توجه به|بر اساس] مشخصات، {N} [برای|به کار] این [افراد|گروه‌ها] [می‌آید|مناسب است]:")) + "</p>");
-            sections.Add(BulletList(audience.Select(a => a + ".").ToList()));
+            sections.Add(BulletList(audience.Select(a => a.TrimEnd('.') + ".").ToList()));
         }
 
-        // ۷) جمع‌بندی و خرید (آخرین H2؛ کلمهٔ کلیدی در تیتر) + شرایط فروشگاه + لینک داخلی.
+        // ۶) اقلام همراه (فقط از تحقیق مورد توافق؛ با احتیاط منصفانه).
+        var inBox = (notes?.InBox ?? []).Select(Note).Where(n => n.Length is > 1 and <= 60).Distinct(StringComparer.Ordinal).Take(8).ToList();
+        if (inBox.Count >= 2)
+        {
+            sections.Add(H3(c.Say("اقلام همراه {N}", "[داخل جعبهٔ|محتویات بستهٔ] {N} چه چیزهایی هست؟", "محتویات جعبه")));
+            sections.Add("<p>" + RichInline(Said(c,
+                "[طبق اعلام فروشندگان|بر اساس اطلاعات فروشندگان]، این اقلام همراه {N} [ارائه می‌شود|در جعبه قرار دارد]:",
+                "[در جعبهٔ|داخل بستهٔ] {N} [معمولاً|] این [موارد|اقلام] [قرار دارد|دیده می‌شود] (طبق اعلام فروشندگان):")) + "</p>");
+            sections.Add("<ul class=\"fs-inbox\">" + string.Concat(inBox.Select(i => "<li>" + WebUtility.HtmlEncode(i) + "</li>")) + "</ul>");
+        }
+
+        // ۷) نکته‌های خرید و استفاده (منصفانه، از داده + نکتهٔ نگه‌داری هر موضوع).
+        var tips = Cautions(c);
+        sections.Add(H2(c.Say("نکته‌های خرید و استفادهٔ {S}", "پیش از خرید {S} بدانید", "[نکته‌های مهم|توصیه‌های] [خرید و نگه‌داری|استفاده و نگه‌داری] {N}")));
+        sections.Add("<div class=\"fs-tips\">" + BulletList(tips) + "</div>");
+
+        // ۸) خرید (آخرین H2؛ کلمهٔ کلیدی در تیتر) + شرایط فروشگاه + لینک داخلی.
         var closing = new List<string>();
         if (notes?.Verdict is { } verdict && Note(verdict).Length >= 15)
             closing.Add(EmOpen + "جمع‌بندی خریداران:" + EmClose + " " + Note(verdict).TrimEnd('.', '!', '؟') + ".");
         else
         {
             var two = facts.Take(2).Select(FactPhrase).ToList();
-            var forWhom = audience.FirstOrDefault() ?? "استفادهٔ روزمره";
+            var forWhom = uses.FirstOrDefault() ?? audience.FirstOrDefault() ?? "استفادهٔ روزمره";
+            if (forWhom.StartsWith("مناسب برای ", StringComparison.Ordinal))
+                forWhom = forWhom["مناسب برای ".Length..];
             closing.Add(Said(c,
-                $"[در مجموع|به‌طور خلاصه]، {{N}} با {PersianText.JoinList(two)} [گزینه‌ای منطقی|انتخابی سنجیده] برای {forWhom} است.",
-                $"[اگر|چنانچه] {PersianText.JoinList(two)} برایتان مهم است، {{N}} [ارزش بررسی دارد|گزینهٔ مناسبی است]؛ به‌ویژه برای {forWhom}."));
+                $"[در مجموع|به‌طور خلاصه]، {{N}} با {PersianText.JoinList(two)} [گزینه‌ای منطقی|انتخابی سنجیده] برای {forWhom.TrimEnd('.')} است.",
+                $"[اگر|چنانچه] {PersianText.JoinList(two)} برایتان مهم است، {{N}} [ارزش بررسی دارد|گزینهٔ مناسبی است]؛ به‌ویژه برای {forWhom.TrimEnd('.')}."));
         }
         closing.Add(Said(c,
             "برای خرید {L} [کافی است|فقط کافی است] آن را به سبد خرید اضافه کنید و سفارش را آنلاین ثبت کنید.",
@@ -264,7 +306,7 @@ public static partial class ContentWriter
                     "[اگر می‌خواهید مقایسه کنید|برای مقایسه]، [سایر محصولات|مدل‌های دیگر] {LINKS} را هم ببینید.",
                 ],
                 new Dictionary<string, string> { ["{LINKS}"] = PersianText.JoinList(links) }));
-        sections.Add(H2(c.Say("جمع‌بندی و خرید {L}", "خرید {L}: جمع‌بندی نهایی", "[نتیجه‌گیری|جمع‌بندی] [نهایی|] دربارهٔ خرید {L}")));
+        sections.Add(H2(c.Say("خرید {L}", "خرید {L} از {SITE}", "[سفارش|خرید] آنلاین {L}", "چرا {L} را از {SITE} بخریم؟")));
         // پاراگراف‌های ≤ ۳ جمله (خوانایی و قانون طول پاراگراف).
         for (var i = 0; i < closing.Count; i += 3)
             sections.Add(Paragraph(closing.Skip(i).Take(3).ToList()));
@@ -272,10 +314,11 @@ public static partial class ContentWriter
     }
 
     /// <summary>
-    /// نقاط قوت از داده: عبارت برجستهٔ مشخصات، برتری معنادار نسبت به میانگین هم‌دسته‌ها، گارانتی و نقاط قوت تأییدشدهٔ خریداران.
-    /// مثال: «<strong>حذف نویز فعال</strong> برای تمرکز در محیط‌های شلوغ.»
+    /// «ویژگی‌های کلیدی» (دور ۲۱): نکته‌های فایده‌محور از مشخصات متمایز (+ برتری معنادار نسبت به میانگین هم‌دسته‌ها)،
+    /// ویژگی‌های مورد توافق چند منبع که در مشخصات ما نیامده‌اند، گارانتی و نکته‌های تأییدشدهٔ خریداران. حداکثر ۷ مورد.
+    /// <para>مثال: «⟦حذف نویز فعال⟧؛ برای تمرکز در محیط‌های شلوغ.» ، «⟦اتصال هم‌زمان به دو دستگاه⟧ (به گفتهٔ چند فروشنده).»</para>
     /// </summary>
-    private static List<string> Pros(Composer c)
+    private static List<string> KeyFeatures(Composer c)
     {
         var ctx = c.Ctx;
         var list = new List<string>();
@@ -283,15 +326,30 @@ public static partial class ContentWriter
         {
             if (list.Count >= 4)
                 break;
-            if (SpecKnowledge.Highlight(fact) is not { } highlight)
-                continue;
+            var phrase = SpecKnowledge.Highlight(fact) ?? FactPhrase(fact);
             var better = BetterThanAverage(ctx, fact);
-            list.Add(StrongOpen + highlight + StrongClose + (better ? " بالاتر از میانگین هم‌رده‌ها در همین فروشگاه." : Why(fact) is { } why ? "؛ " + why + "." : "."));
+            list.Add(StrongOpen + phrase + StrongClose + (better ? "؛ بالاتر از میانگین هم‌رده‌ها در همین فروشگاه." : Why(fact) is { } why ? "؛ " + why + "." : "."));
         }
-        if (list.Count == 0)
-            list.AddRange(ctx.Distinctive.Take(2).Select(f => StrongOpen + FactPhrase(f) + StrongClose + "."));
-        foreach (var pro in (ctx.Notes?.Pros ?? []).Select(Note).Where(n => n.Length > 0).Take(3))
+        var covered = ctx.Facts.Select(f => f.Topic).Where(t => t != SpecTopic.Generic).ToHashSet();
+        foreach (var highlight in ctx.Notes?.Highlights ?? [])
+        {
+            if (list.Count >= 5)
+                break;
+            if (highlight.Topic != SpecTopic.Generic && covered.Contains(highlight.Topic))
+                continue; // مشخصات خود ما دقیق‌تر است؛ ادعای منابع دیگر تکرار نمی‌شود
+            var label = Note(highlight.Label);
+            if (label.Length > 0)
+                list.Add(StrongOpen + label + StrongClose + (c.Next(2) == 0 ? " (طبق اعلام فروشندگان)." : " (به گفتهٔ چند فروشنده)."));
+        }
+        if (WarrantyPhrase(ctx.Subject.Product) is { } warrantyItem && list.Count < 6)
+            list.Add(StrongOpen + Strip(SpecKnowledge.Safe(warrantyItem)) + StrongClose + (c.Next(2) == 0 ? "؛ برای پشتیبانی پس از خرید." : "؛ همراه با خدمات پس از خرید."));
+        // نظر خریداران همیشه دست‌کم یک جا دارد (سقف کل ۷ مورد).
+        foreach (var pro in (ctx.Notes?.Pros ?? []).Select(Note).Where(n => n.Length > 0).Take(2))
+        {
+            if (list.Count >= 7)
+                break;
             list.Add(EmOpen + "از نظر خریداران:" + EmClose + " " + pro.TrimEnd('.') + ".");
+        }
         return list;
     }
 
@@ -328,6 +386,13 @@ public static partial class ContentWriter
                     break;
             }
         }
+        // نکتهٔ نگه‌داری هر موضوع (دانش عمومی درست، نه ادعا دربارهٔ این مدل). حداکثر دو مورد تا فهرست شلوغ نشود.
+        foreach (var care in ctx.Facts.Select(f => CareTip(c, f)).OfType<string>().Distinct(StringComparer.Ordinal).Take(2))
+        {
+            if (list.Count >= 5)
+                break;
+            list.Add(care);
+        }
         if (WarrantyPhrase(ctx.Subject.Product) is null && list.Count < 5)
             list.Add("در مشخصات این کالا گارانتی ثبت نشده است؛ اگر برایتان مهم است، پیش از خرید از پشتیبانی بپرسید.");
         if (list.Count == 0)
@@ -336,6 +401,24 @@ public static partial class ContentWriter
                 "[برای انتخاب درست|برای خرید آگاهانه]، سازگاری {N} با [دستگاه‌ها|وسایل] و نیازتان را در [جدول مشخصات|مشخصات کامل] بررسی کنید."));
         return list;
     }
+
+    /// <summary>
+    /// نکتهٔ نگه‌داری/استفادهٔ درست برای یک موضوع مشخصات (دور ۲۱). فقط توصیهٔ عمومی و درست؛ هیچ ادعایی دربارهٔ خود کالا نمی‌سازد.
+    /// مثال: باتری ← «برای عمر بیشتر باتری، با شارژر استاندارد شارژ کنید و دستگاه را در گرمای زیاد شارژ نکنید.»؛ موضوع ناشناخته ← null.
+    /// </summary>
+    private static string? CareTip(Composer c, SpecFact f) => f.Topic switch
+    {
+        SpecTopic.Battery => c.Next(2) == 0
+            ? "برای عمر بیشتر باتری، با شارژر و کابل استاندارد شارژ کنید و دستگاه را در گرمای زیاد شارژ نکنید."
+            : "اگر مدتی از دستگاه استفاده نمی‌کنید، باتری را نیمه‌شارژ نگه دارید تا عمر آن کوتاه نشود.",
+        SpecTopic.Water =>
+            "پس از تماس با آب یا عرق، دستگاه را با پارچهٔ نرم خشک کنید و درگاه شارژ را تا خشک شدن کامل به برق نزنید.",
+        SpecTopic.ScreenSize or SpecTopic.Resolution or SpecTopic.Refresh =>
+            "برای محافظت از صفحه‌نمایش در برابر خط و ضربه، استفاده از محافظ صفحه و کاور توصیه می‌شود.",
+        SpecTopic.Material when f.Value.Contains("چرم", StringComparison.Ordinal) =>
+            "سطح چرمی را دور از رطوبت و نور مستقیم نگه دارید و با دستمال خشک تمیز کنید.",
+        _ => null,
+    };
 
     /// <summary>آیا عدد این مشخصه به‌طور معنادار (≥۱۵٪) از میانگین هم‌دسته‌ها بهتر است؟</summary>
     private static bool BetterThanAverage(WriterContext ctx, SpecFact fact)

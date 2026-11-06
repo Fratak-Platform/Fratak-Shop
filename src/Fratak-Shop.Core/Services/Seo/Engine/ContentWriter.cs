@@ -50,7 +50,7 @@ public sealed class WriterContext
     public IReadOnlySet<string> Avoid { get; init; } = new HashSet<string>();
 
     /// <summary>
-    /// نکته‌های تأییدشدهٔ خریداران (خلاصهٔ خرید تأییدشده) برای «نقد و بررسی» – دور بیستم.
+    /// نکته‌های تأییدشدهٔ خریداران (خلاصهٔ خرید تأییدشده) برای «توضیحات محصول» – دور بیستم.
     /// فقط وقتی پر می‌شود که خلاصهٔ خرید محصول «تأییدشده» باشد؛ null = بدون نظر خریداران (فقط از مشخصات نوشته می‌شود).
     /// محل پر شدن: <c>SeoEngineService.WriteProductReviewAsync</c>.
     /// </summary>
@@ -721,7 +721,7 @@ public static partial class ContentWriter
 
     private static readonly System.Text.RegularExpressions.Regex AnchorPattern =
         // فقط لینک داخلی («/…» و نه «//…») که خود نویسنده با A() ساخته؛ لینکی که از داده (مشخصه/نظر) با javascript: یا
-        // آدرس بیرونی بیاید با این الگو جور نمی‌شود و مثل متن ساده encode می‌شود (دور بیستم – آزمون حملهٔ نقد و بررسی).
+        // آدرس بیرونی بیاید با این الگو جور نمی‌شود و مثل متن ساده encode می‌شود (دور بیستم – آزمون حملهٔ توضیحات محصول).
         new("<a href=\"/(?!/)[^\"<>]*\">[^<]*</a>", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     private static string H2(string text) => "<h2>" + WebUtility.HtmlEncode(text) + "</h2>";

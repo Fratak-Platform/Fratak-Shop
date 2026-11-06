@@ -123,11 +123,11 @@ public interface ISeoEngineService
     Task<SeoLiveReport> LiveAsync(SeoDraftInput input, IReadOnlyList<Autopilot.LinkTarget>? linkTargets, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// نوشتن «نقد و بررسی» حرفه‌ای (HTML ساختاریافته) برای یک محصول، بدون ذخیره.
-    /// <para>keepHtml: متنی که دست‌نخورده بالای بررسی تازه می‌ماند (متن کم صفحه، یا بخش انسانی بالای «نقد و بررسی» قبلی)؛ null = فقط بررسی.</para>
+    /// نوشتن «توضیحات محصول» حرفه‌ای (HTML ساختاریافته) برای یک محصول، بدون ذخیره.
+    /// <para>keepHtml: متنی که دست‌نخورده بالای بررسی تازه می‌ماند (متن کم صفحه، یا بخش انسانی بالای «توضیحات محصول» قبلی)؛ null = فقط بررسی.</para>
     /// <para>notes: نکته‌های «خلاصهٔ خرید» تأییدشده (null = فقط از مشخصات).</para>
     /// <para>خطا: محصول پیدا نشد یا مشخصات کافی نیست («مشخصات کافی نیست» – دستیار این را به کارشناس نشان می‌دهد).</para>
-    /// <para>محل استفاده: SmartOrchestrator (تکمیل محصول و کار «نقد و بررسی»).</para>
+    /// <para>محل استفاده: SmartOrchestrator (تکمیل محصول و کار «توضیحات محصول»).</para>
     /// </summary>
     Task<OperationResult<ProductReviewDraft>> WriteProductReviewAsync(Guid productId, string? keepHtml, ReviewNotes? notes, CancellationToken cancellationToken = default);
 }
@@ -543,7 +543,7 @@ public sealed partial class SeoEngineService(
         {
             reasons.Add($"تحلیل {PersianText.Digits(insight.PagesAnalyzed)} صفحهٔ برتر نتایج ({string.Join("، ", insight.Hosts.Take(4))}): میانهٔ متن رقبا {PersianText.Digits(insight.MedianWords)} واژه است.");
             if (insight.MedianWords > after.Words * 1.5 && insight.MedianWords > 200)
-                reasons.Add($"⚠ کار انسانی: متن رقبا بلندتر است ({PersianText.Digits(insight.MedianWords)} در برابر {PersianText.Digits(after.Words)} واژه)؛ نوشتن نقد و بررسی یا تجربهٔ استفاده توسط نویسنده پیشنهاد می‌شود.");
+                reasons.Add($"⚠ کار انسانی: متن رقبا بلندتر است ({PersianText.Digits(insight.MedianWords)} در برابر {PersianText.Digits(after.Words)} واژه)؛ نوشتن توضیحات محصول یا تجربهٔ استفاده توسط نویسنده پیشنهاد می‌شود.");
             if (insight.CommonTerms.Count > 0)
                 reasons.Add("واژه‌های پرتکرار صفحه‌های برتر (برای نویسنده): " + string.Join("، ", insight.CommonTerms.Take(10).Select(t => t.Word)) + ".");
         }

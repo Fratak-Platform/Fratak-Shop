@@ -309,25 +309,7 @@ public class SmartContentTests
         Assert.DoesNotContain("missing", html, StringComparison.Ordinal);
     }
 
-    // ── محافظ خروجی مدل زبانی، ساعت سکوت، محافظ سود ─────────────────
-
-    [Fact]
-    public void LlmGuard_rejects_changed_numbers_markup_links_and_other_languages()
-    {
-        const string original = "این پاوربانک ۱۰۰۰۰ میلی‌آمپر ساعت ظرفیت دارد و با دو درگاه خروجی همزمان دو گوشی را شارژ می‌کند.";
-        Assert.False(LlmGuard.Accept(original, original.Replace("۱۰۰۰۰", "۲۰۰۰۰")));
-        Assert.False(LlmGuard.Accept(original, original + " <a href=\"x\">خرید</a>"));
-        Assert.False(LlmGuard.Accept(original, original + " http://spam.example"));
-        Assert.False(LlmGuard.Accept(original, "This power bank has 10000 mAh capacity and charges two phones at the same time quickly."));
-        Assert.False(LlmGuard.Accept(original, "کوتاه ۱۰۰۰۰"));
-        Assert.False(LlmGuard.Accept(original, ""));
-    }
-
-    [Fact]
-    public void LlmGuard_numbers_are_compared_digit_system_independently()
-    {
-        Assert.True(LlmGuard.Numbers("قیمت ۱٬۲۰۰ و وزن 2.5").SetEquals(LlmGuard.Numbers("قیمت 1200 و وزن ۲٫۵")));
-    }
+    // ── ساعت سکوت، محافظ سود ─────────────────
 
     [Theory]
     [InlineData(19, 0, true)]  // ۲۲:۳۰ تهران
@@ -477,53 +459,6 @@ public class SmartContentTests
         Assert.False(SmartImageAnalyzer.IsAcceptable(small!, 600));
         Assert.True(ImageHash.IsDuplicate(big.Hash, small.Hash)); // همان تصویر در اندازهٔ کوچک‌تر = تکراری
     }
-
-    // ── دستیار محلی ────────────────────────────────────────────────
-
-    [Fact]
-    public async Task HelperBroker_returns_null_when_helper_is_offline()
-    {
-        var broker = new HelperBroker();
-        Assert.False(broker.IsOnline(DateTimeOffset.UtcNow));
-        Assert.Null(await broker.RunAsync("fetch", "https://example.com", null, null, CancellationToken.None));
-        Assert.Equal(0, broker.Pending);
-    }
-
-    [Fact]
-    public async Task HelperBroker_round_trips_a_job_through_the_helper()
-    {
-        var broker = new HelperBroker();
-        broker.MarkSeen();
-
-        var run = broker.RunAsync("fetch", "https://example.com/p", "text/html", null, CancellationToken.None);
-        var job = await broker.NextAsync(CancellationToken.None);
-        Assert.NotNull(job);
-        Assert.Equal("https://example.com/p", job!.Url);
-
-        Assert.True(broker.Complete(new HelperResult(job.Id, 200, "<html>ok</html>", null)));
-        var result = await run;
-        Assert.Equal(200, result!.Status);
-        Assert.Equal("<html>ok</html>", result.Body);
-        Assert.Equal(0, broker.Pending);
-        Assert.False(broker.Complete(new HelperResult(job.Id, 200, "late", null))); // پاسخ دیرهنگام/تکراری پذیرفته نمی‌شود
-    }
-
-    [Fact]
-    public async Task HelperBroker_rejects_unknown_and_oversized_results()
-    {
-        var broker = new HelperBroker();
-        Assert.False(broker.Complete(new HelperResult(Guid.NewGuid(), 200, "x", null)));
-
-        broker.MarkSeen();
-        var run = broker.RunAsync("fetch", "https://example.com/big", null, null, CancellationToken.None);
-        var job = await broker.NextAsync(CancellationToken.None);
-        Assert.True(broker.Complete(new HelperResult(job!.Id, 200, new string('x', HelperBroker.MaxBodyChars + 1), null)));
-        var result = await run;
-        Assert.Null(result!.Body);
-        Assert.Equal(0, result.Status);
-        Assert.False(string.IsNullOrWhiteSpace(result.Error));
-    }
-
     // ── کدهای کمکی پنل ─────────────────────────────────────────────
 
     /// <summary>کار پس‌زمینهٔ هوشمند (هر چند ثانیه نوشتن در صف) نباید کش صفحه‌های عمومی را خالی کند؛ ولی خلاصهٔ خرید تأییدشده باید.</summary>

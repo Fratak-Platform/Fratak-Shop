@@ -4,7 +4,7 @@
 @using Fratak_Shop.Data.Entities.Smart
 @using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
 @*
-  محتوای هوشمند یک کالا: دکمه‌های اجرا، پیشنهادهای منتظر تأیید (مشخصات/عکس با بزرگ‌نمایی و انتخاب همه/نقد و بررسی)، خلاصهٔ خرید و تاریخچه.
+  محتوای هوشمند یک کالا: دکمه‌های اجرا، پیشنهادهای منتظر تأیید (مشخصات/عکس با بزرگ‌نمایی و انتخاب همه/توضیحات محصول)، خلاصهٔ خرید و تاریخچه.
   هر کار لنگر id="task-{id}" دارد (لینک اعلان‌ها مستقیم به همان بخش می‌آید).
 *@
 @{
@@ -25,7 +25,7 @@
     <form method="post" asp-page-handler="Run" asp-route-id="@p.Id" class="inline">
       <button type="submit" class="a-btn">@Icons.Svg("MagicWand", null, 18) تکمیل هوشمند</button>
     </form>
-    @foreach (var (key, title, icon) in new[] { ("images", "فقط عکس", "Image"), ("specs", "فقط مشخصات", "ListChecks"), ("insight", "خلاصهٔ نظرها", "Sparkle"), ("review", "نقد و بررسی", "Article") })
+    @foreach (var (key, title, icon) in new[] { ("images", "فقط عکس", "Image"), ("specs", "فقط مشخصات", "ListChecks"), ("insight", "خلاصهٔ نظرها", "Sparkle"), ("review", "توضیحات محصول", "Article") })
     {
       <form method="post" asp-page-handler="Run" asp-route-id="@p.Id" class="inline">
         <input type="hidden" name="kind" value="@key">
@@ -38,7 +38,7 @@
 <div class="a-alert a-alert-info mb-4">@Icons.Svg("Info", null, 16)
   <span>مشخصاتی که دست‌کم دو منبع روی آن توافق دارند خودکار اضافه می‌شوند؛ تغییر مقدارهای فعلی همیشه منتظر تأیید شماست.
   عکس‌ها از چند منبع (دیجی‌کالا، تأمین‌کننده، فروشگاه‌های نتایج جست‌وجو، باسلام و جست‌وجوی تصویر) جمع می‌شوند و فقط عکس‌هایی که شما انتخاب کنید روی کالا می‌نشینند.
-  عکس ردشده دیگر هرگز برای این کالا پیشنهاد نمی‌شود. «نقد و بررسی» حرفه‌ای برای توضیحات کم خودکار نوشته می‌شود و متن بلند شما فقط پیشنهاد می‌گیرد.</span>
+  عکس ردشده دیگر هرگز برای این کالا پیشنهاد نمی‌شود. «توضیحات محصول» حرفه‌ای برای توضیحات کم خودکار نوشته می‌شود و متن بلند شما فقط پیشنهاد می‌گیرد.</span>
 </div>
 
 @foreach (var (row, result) in Model.Pending)
@@ -110,7 +110,7 @@
     {
       var review = result.Review!;
       <div class="a-card-body">
-        <h4 class="font-bold mb-1">@Icons.Svg("Article", null, 16) پیش‌نویس «نقد و بررسی» حرفه‌ای</h4>
+        <h4 class="font-bold mb-1">@Icons.Svg("Article", null, 16) پیش‌نویس «توضیحات محصول» حرفه‌ای</h4>
         <p class="a-muted text-xs mb-2">@Format.Number(review.Words) واژه · امتیاز سئو @Format.Number(review.ScoreBefore) ← @Format.Number(review.ScoreAfter) · طبیعی بودن متن @Format.Number(review.Natural)
           @if (review.CurrentWords > 0) { <span> · متن فعلی صفحه @Format.Number(review.CurrentWords) واژه</span> }</p>
         @if (review.Problems.Count > 0)
@@ -121,7 +121,7 @@
         }
         <div class="a-review-preview">@Html.Raw(ProductModel.SafePreview(review))</div>
         <fieldset class="flex flex-wrap gap-3 mt-3 text-sm">
-          <legend class="sr-only">تصمیم نقد و بررسی</legend>
+          <legend class="sr-only">تصمیم توضیحات محصول</legend>
           <label class="a-check"><input type="radio" name="reviewMode" value="replace" checked="@(review.Mode == "replace" ? "checked" : null)" autocomplete="off"> @(review.Mode == "choose" ? "جایگزین متن فعلی" : "اعمال روی صفحه")</label>
           @if (review.Mode == "choose")
           {
