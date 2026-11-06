@@ -13,6 +13,15 @@ public sealed record SpecRow(string Key, string Value);
 public sealed record CachedProductDetails(List<SpecRow> Specs, List<string> Images);
 
 /// <summary>
+/// دور بیستم: یک فروشگاه در نتایج جست‌وجو. Match = شباهت عنوان نتیجه با کالای ما (۰ تا ۱).
+/// مثال: («https://mobile.ir/p/t15»، «خرید هدفون هایلو T15»، ۰٫۸).
+/// </summary>
+public sealed record SerpShop(string Url, string Title, double Match);
+
+/// <summary>دور بیستم: نتیجهٔ جست‌وجوی تصویر قابل ذخیره در کش (تاپل/رکورد Core مستقیم ذخیره نمی‌شود).</summary>
+public sealed record CachedImageHit(string Url, string? Title, string? PageUrl);
+
+/// <summary>
 /// دریافت دادهٔ بیرونی برای محتوای هوشمند (B1–B13) با رعایت کامل ادب و ایمنی:
 /// <list type="bullet">
 /// <item>هر منبع از راه <see cref="IExternalSourceGate"/>: فاصلهٔ حداقل بین درخواست‌ها و «استراحت» خودکار بعد از محدودیت (۴۲۹/۴۰۳/کپچا).</item>
@@ -157,40 +166,86 @@ public sealed class SmartSources(
         return reviews;
     }
 
-    /// <summary>مشخصات و تصویر اصلی یک صفحهٔ فروشگاه/تأمین‌کننده (جدول مشخصات + og:image).</summary>
-    public async Task<(List<SpecRow> Specs, string? Image)> PageAsync(string url, CancellationToken cancellationToken)
+    /// <summary>
+    /// مشخصات و تصویرهای یک صفحهٔ فروشگاه/تأمین‌کننده: جدول/فهرست مشخصات + JSON-LD، و تصویرها از og:image و JSON-LD
+    /// (اولی = تصویر اصلی صفحه). مثال: صفحهٔ ووکامرس ← ۱۲ ردیف مشخصات و ۴ تصویر.
+    /// </summary>
+    public async Task<(List<SpecRow> Specs, List<string> Images)> PageAsync(string url, CancellationToken cancellationToken)
     {
         var key = "page:" + url;
         var cached = await store.GetAsync<CachedProductDetails>(key, cancellationToken);
         if (cached is not null)
-            return (cached.Specs, cached.Images.FirstOrDefault());
+            return (cached.Specs ?? new List<SpecRow>(), cached.Images ?? new List<string>()); // ردیف کش قدیمی ممکن است فهرست نداشته باشد
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
-            return (new List<SpecRow>(), null);
+            return (new List<SpecRow>(), new List<string>());
         var html = await GetAsync(Supplier + ":" + uri.Host, url, false, cancellationToken);
         if (html is null)
-            return (new List<SpecRow>(), null);
+            return (new List<SpecRow>(), new List<string>());
         var specs = SmartParsers.HtmlSpecs(html).Select(s => new SpecRow(s.Key, s.Value)).ToList();
-        var image = SmartParsers.OgImage(html, url);
-        await store.SetAsync(key, uri.Host, new CachedProductDetails(specs, image is null ? new List<string>() : new List<string> { image }), DetailsTtl, cancellationToken);
-        return (specs, image);
+        var images = new List<string>();
+        if (SmartParsers.OgImage(html, url) is { } og)
+            images.Add(og);
+        images.AddRange(SmartParsers.JsonLdImages(html, url));
+        images = images.Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+        await store.SetAsync(key, uri.Host, new CachedProductDetails(specs, images), DetailsTtl, cancellationToken);
+        return (specs, images);
     }
 
-    /// <summary>دو فروشگاه برتر نتایج جست‌وجو برای «نام کالا مشخصات» (B7).</summary>
-    public async Task<List<string>> SerpShopsAsync(string query, int take, CancellationToken cancellationToken)
+    /// <summary>
+    /// فروشگاه‌های نتایج جست‌وجو برای یک کالا (B7، گسترش دور بیستم): دو جست‌وجو («… مشخصات» و «خرید …») تا داده از سایت‌های
+    /// بیشتری بیاید، فقط صفحه‌های فروشگاهی، هر دامنه یک بار، و فقط عنوان‌هایی با شباهت ≥ <paramref name="minMatch"/> (همان کالا).
+    /// </summary>
+    public async Task<List<SerpShop>> SerpShopHitsAsync(string query, int take, double minMatch, CancellationToken cancellationToken)
     {
-        try
+        var list = new List<SerpShop>();
+        foreach (var phrase in new[] { query + " مشخصات", "خرید " + query })
         {
-            var serp = await web.SearchAsync(query + " مشخصات", cancellationToken);
-            if (!serp.Ok || serp.Value is null)
-                return [];
-            return serp.Value.Where(r => CompetitorParsers.IsShopCandidate(r.Url) && SmartParsers.TitleMatch(query, r.Title) >= 0.5)
-                .Select(r => r.Url).DistinctBy(u => new Uri(u).Host).Take(take).ToList();
+            if (list.Count >= take)
+                break;
+            try
+            {
+                var serp = await web.SearchAsync(phrase, cancellationToken);
+                if (!serp.Ok || serp.Value is null)
+                    continue;
+                foreach (var r in serp.Value)
+                {
+                    if (!CompetitorParsers.IsShopCandidate(r.Url) || !Uri.TryCreate(r.Url, UriKind.Absolute, out var uri))
+                        continue;
+                    var match = SmartParsers.TitleMatch(query, r.Title);
+                    if (match >= minMatch && list.All(x => !string.Equals(new Uri(x.Url).Host, uri.Host, StringComparison.OrdinalIgnoreCase)))
+                        list.Add(new SerpShop(r.Url, r.Title, match));
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogDebug(exception, "SERP lookup failed");
+            }
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            logger.LogDebug(exception, "SERP lookup failed");
+        return list.OrderByDescending(x => x.Match).Take(take).ToList();
+    }
+
+    /// <summary>آدرس فروشگاه‌های برتر نتایج جست‌وجو برای مشخصات (B7؛ شباهت عنوان ≥ ۰٫۵).</summary>
+    public async Task<List<string>> SerpShopsAsync(string query, int take, CancellationToken cancellationToken) =>
+        (await SerpShopHitsAsync(query, take, 0.5, cancellationToken)).Select(s => s.Url).ToList();
+
+    /// <summary>
+    /// دور بیستم: نتایج کامل جست‌وجوی تصویر بینگ (تصویر + عنوان + صفحه). round = شمارهٔ دور «جست‌وجوی دوباره»:
+    /// هر دور صفحهٔ بعدی نتایج (first=1، ۳۶، ۷۱ …) تا عکس‌های تازه بیاید.
+    /// </summary>
+    public async Task<List<ImageHit>> BingImageResultsAsync(string query, int round, CancellationToken cancellationToken)
+    {
+        round = Math.Clamp(round, 0, 20);
+        var key = "img:bing2:" + round + ":" + query;
+        var cached = await store.GetAsync<List<CachedImageHit>>(key, cancellationToken);
+        if (cached is not null)
+            return cached.Select(h => new ImageHit(h.Url, h.Title, h.PageUrl)).ToList();
+        var first = 1 + round * 35;
+        var html = await GetAsync(BingImages, $"https://www.bing.com/images/search?form=HDRSC2&first={first}&q=" + Uri.EscapeDataString(query), false, cancellationToken);
+        if (html is null)
             return [];
-        }
+        var hits = SmartParsers.BingImageResults(html);
+        await store.SetAsync(key, "bing", hits.Select(h => new CachedImageHit(h.Url, h.Title, h.PageUrl)).ToList(), DetailsTtl, cancellationToken);
+        return hits;
     }
 
     /// <summary>تصویرهای جست‌وجوی تصویر بینگ (B1).</summary>

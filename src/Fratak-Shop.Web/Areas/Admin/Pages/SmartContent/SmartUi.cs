@@ -20,6 +20,7 @@ public static class SmartUi
         SmartTaskKind.CategoryComplete => "تکمیل دسته",
         SmartTaskKind.BlogArticle => "نوشتن مقاله",
         SmartTaskKind.BlogImage => "تصویر مقاله",
+        SmartTaskKind.ProductReview => "نقد و بررسی",
         _ => "نامشخص",
     };
 

@@ -1,6 +1,9 @@
 using Fratak_Shop.Core.Services.Admin;
+using System.Text.Json;
 using Fratak_Shop.Core.Services.Seo.Autopilot;
+using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Smart;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.SeoEngine;
 using Fratak_Shop.Data.Entities.Smart;
 using Fratak_Shop.Web.Helpers;
@@ -16,6 +19,9 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.SmartContent;
 /// <para>وسط: موارد منتظر تأیید – مشخصات پیشنهادی (با منبع و میزان توافق، قبل/بعد) و عکس‌های پیشنهادی؛ کارشناس تیک می‌زند و «اعمال».
 /// عکس‌های ردشده از دیسک هم پاک می‌شوند (فایل یتیم نمی‌ماند).</para>
 /// <para>پایین: خلاصهٔ خرید (پیش‌نویس/تأییدشده) با ویرایش، تأیید و رد؛ و تاریخچهٔ کارهای این کالا.</para>
+/// <para>دور بیستم: ۱۰ تا ۱۵ عکس نامزد با بزرگ‌نمایی، «انتخاب همه» و «رد همه و جست‌وجوی دوباره» (عکس‌های ردشده دیگر هرگز
+/// برای این کالا نمی‌آیند و منابعشان در رتبه‌بندی بعدی پایین می‌روند)؛ پیش‌نمایش «نقد و بررسی» با جایگزین/افزودن/رد؛
+/// هر کار لنگر id="task-{id}" دارد تا لینک اعلان مستقیم به همان بخش بیاید.</para>
 /// </summary>
 [AdminPermission(AdminPermissions.ProductsManage)]
 public class ProductModel(
@@ -59,7 +65,7 @@ public class ProductModel(
         foreach (var row in History.Where(r => r.Status == SmartTaskStatus.NeedsReview))
         {
             var result = SmartUi.Result(await queue.GetResultJsonAsync(row.Id, ct));
-            if (result is not null && (PendingSpecs(result).Any() || result.PendingImages.Count > 0))
+            if (result is not null && (PendingSpecs(result).Any() || result.PendingImages.Count > 0 || HasPendingReview(result)))
                 Pending.Add((row, result));
         }
         return Page();
@@ -68,6 +74,12 @@ public class ProductModel(
     /// <summary>ردیف‌های مشخصاتی که هنوز تأیید لازم دارند (تکراری‌ها و خودکارها حذف).</summary>
     public static IEnumerable<SpecSuggestion> PendingSpecs(SmartTaskResult result) =>
         result.Specs.Where(s => s.Diff != SpecDiffKind.Same && !s.AutoApplicable);
+
+    /// <summary>آیا این نتیجه پیش‌نمایش «نقد و بررسی» اعمال‌نشده دارد؟</summary>
+    public static bool HasPendingReview(SmartTaskResult result) => result.Review is { Applied: false } r && !string.IsNullOrWhiteSpace(r.Html);
+
+    /// <summary>HTML امن پیش‌نمایش (دوباره پاک‌سازی می‌شود؛ ستون نتیجه هم نباید راه XSS باشد).</summary>
+    public static string SafePreview(ReviewPreview review) => review.Html.SanitizeText();
 
     /// <summary>دکمه‌های اجرا. kind: complete | images | specs | insight.</summary>
     public async Task<IActionResult> OnPostRunAsync(Guid id, string? kind)
@@ -81,6 +93,7 @@ public class ProductModel(
             "images" => SmartTaskKind.ProductImages,
             "specs" => SmartTaskKind.ProductSpecs,
             "insight" => SmartTaskKind.ProductInsight,
+            "review" => SmartTaskKind.ProductReview,
             _ => SmartTaskKind.ProductComplete,
         };
         await queue.EnqueueAsync(taskKind, SmartTarget.Product, id, subject.Name, SmartPriority.Manual, null, ActorId, ActorName, ct);
@@ -88,8 +101,13 @@ public class ProductModel(
         return RedirectToPage(new { id });
     }
 
-    /// <summary>اعمال ردیف‌های تیک‌خوردهٔ مشخصات و عکس‌های انتخاب‌شده؛ بقیهٔ عکس‌های پیشنهادی پاک می‌شوند.</summary>
-    public async Task<IActionResult> OnPostApplyAsync(Guid id, Guid taskId, string[]? specs, string[]? imageNames)
+    /// <summary>
+    /// اعمال بازبینی یک کار: ردیف‌های تیک‌خوردهٔ مشخصات، عکس‌های انتخاب‌شده و تصمیم «نقد و بررسی».
+    /// <para>عکس: انتخاب‌شده‌ها به کالا اضافه و «تأییدشده» ثبت می‌شوند؛ بقیه «ردشده» ثبت (هرگز دوباره برای این کالا نمی‌آیند) و فایلشان پاک می‌شود.
+    /// refetch="true" (دکمهٔ «رد همهٔ عکس‌ها و جست‌وجوی دوباره»): همهٔ عکس‌ها رد و دور بعدی جست‌وجو در صف گذاشته می‌شود.</para>
+    /// <para>reviewMode: replace = جایگزین متن فعلی؛ append = افزودن زیر متن فعلی؛ هر چیز دیگر = رد پیش‌نمایش.</para>
+    /// </summary>
+    public async Task<IActionResult> OnPostApplyAsync(Guid id, Guid taskId, string[]? specs, string[]? imageNames, string? reviewMode, string? refetch)
     {
         var ct = HttpContext.RequestAborted;
         var (row, result) = await LoadPendingAsync(id, taskId, ct);
@@ -110,32 +128,94 @@ public class ProductModel(
         }
 
         // فقط نام‌هایی که واقعاً در نتیجهٔ همین کار بوده‌اند پذیرفته می‌شوند (جلوگیری از دست‌کاری فرم).
-        var allowed = result.PendingImages.Select(i => i.FileName).ToHashSet(StringComparer.Ordinal);
-        var approved = (imageNames ?? []).Where(allowed.Contains).Distinct(StringComparer.Ordinal).ToList();
+        var again = string.Equals(refetch, "true", StringComparison.OrdinalIgnoreCase);
+        var (approved, rejected) = SplitImages(result.PendingImages, again ? null : imageNames);
         var imagesAdded = 0;
         if (approved.Count > 0)
-            imagesAdded = await catalog.AddProductImagesAsync(id, approved.Select(n => (n, row.TargetTitle ?? "")).ToList(), ct);
-        images.DeleteProductFiles(allowed.Except(approved, StringComparer.Ordinal));
+        {
+            var alts = approved.Select((img, i) => (img.FileName, Alt: i == 0 ? row.TargetTitle ?? "" : $"{row.TargetTitle} – نمای {PersianText.Digits(i + 1)}")).ToList();
+            imagesAdded = await catalog.AddProductImagesAsync(id, alts, ct);
+            if (imagesAdded < approved.Count)
+                images.DeleteProductFiles(approved.Skip(imagesAdded).Select(f => f.FileName));
+        }
+        await catalog.RecordImageFeedbackAsync(id, Feedback(approved, rejected), ct);
+        images.DeleteProductFiles(rejected.Select(f => f.FileName));
+
+        var reviewNote = await ApplyReviewAsync(id, result.Review, reviewMode, ct);
+        if (reviewNote is { Ok: false })
+            ErrorMessage = reviewNote.Value.Message;
 
         if (specsAdded + imagesAdded > 0)
             await autopilot.ProcessAsync(SeoEntityKind.Product, id, ct);
-        await queue.MarkReviewedAsync(taskId, $"بازبینی {ActorName}: {Format.Number(specsAdded)} مشخصه و {Format.Number(imagesAdded)} عکس اعمال شد.", ct);
-        SuccessMessage = $"{Format.Number(specsAdded)} مشخصه و {Format.Number(imagesAdded)} عکس اعمال شد.";
+        var parts = $"{Format.Number(specsAdded)} مشخصه و {Format.Number(imagesAdded)} عکس اعمال شد" + (reviewNote is { Ok: true } ok ? "؛ " + ok.Message : "");
+        await queue.MarkReviewedAsync(taskId, $"بازبینی {ActorName}: {parts}.", ct);
+
+        if (again)
+        {
+            var round = result.ImageRound + 1;
+            await queue.EnqueueAsync(SmartTaskKind.ProductImages, SmartTarget.Product, id, row.TargetTitle, SmartPriority.Manual,
+                JsonSerializer.Serialize(new { round }), ActorId, ActorName, ct);
+            SuccessMessage = $"{parts}. {Format.Number(rejected.Count)} عکس رد شد و دیگر هرگز برای این کالا پیشنهاد نمی‌شود؛ جست‌وجوی تازه در صف است و نتیجه‌اش اعلان می‌شود.";
+        }
+        else
+        {
+            SuccessMessage = parts + ".";
+        }
         return RedirectToPage(new { id });
     }
 
-    /// <summary>رد همهٔ پیشنهادهای یک کار (عکس‌های موقت پاک می‌شوند).</summary>
+    /// <summary>رد همهٔ پیشنهادهای یک کار: عکس‌ها «ردشده» ثبت (دیگر نمی‌آیند) و فایل‌های موقت پاک می‌شوند.</summary>
     public async Task<IActionResult> OnPostRejectAsync(Guid id, Guid taskId)
     {
         var ct = HttpContext.RequestAborted;
         var (row, result) = await LoadPendingAsync(id, taskId, ct);
         if (row is not null && result is not null)
         {
+            await catalog.RecordImageFeedbackAsync(id, Feedback([], result.PendingImages), ct);
             images.DeleteProductFiles(result.PendingImages.Select(i => i.FileName));
             await queue.MarkReviewedAsync(taskId, $"پیشنهادها توسط {ActorName} رد شد.", ct);
-            SuccessMessage = "پیشنهادها رد شد.";
+            SuccessMessage = "پیشنهادها رد شد؛ عکس‌های ردشده دیگر برای این کالا پیشنهاد نمی‌شوند.";
         }
         return RedirectToPage(new { id });
+    }
+
+    /// <summary>
+    /// جدا کردن عکس‌های انتخاب‌شده و ردشده (خالص؛ آزمون‌پذیر). نام‌های ناشناخته (دست‌کاری فرم) نادیده گرفته می‌شوند؛
+    /// chosen=null یعنی همه رد. مثال: [a,b,c] و ["b","x"] ← ([b], [a,c]).
+    /// </summary>
+    public static (List<FoundImage> Approved, List<FoundImage> Rejected) SplitImages(IReadOnlyList<FoundImage> pending, IEnumerable<string>? chosen)
+    {
+        var picked = new HashSet<string>(chosen ?? [], StringComparer.Ordinal);
+        var unique = pending.DistinctBy(i => i.FileName, StringComparer.Ordinal).ToList();
+        return (unique.Where(i => picked.Contains(i.FileName)).ToList(), unique.Where(i => !picked.Contains(i.FileName)).ToList());
+    }
+
+    /// <summary>بازخورد عکس‌ها برای یادگیری (فقط آن‌هایی که آدرس یا اثر انگشت دارند؛ نتیجه‌های قدیمی صف این‌ها را نداشتند).</summary>
+    public static List<ImageFeedbackItem> Feedback(IEnumerable<FoundImage> approved, IEnumerable<FoundImage> rejected) =>
+        approved.Select(i => (Image: i, Ok: true)).Concat(rejected.Select(i => (Image: i, Ok: false)))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Image.Url) || x.Image.Hash != 0)
+            .Select(x => new ImageFeedbackItem(x.Image.Url, x.Image.Hash, x.Image.Source, x.Ok))
+            .ToList();
+
+    /// <summary>
+    /// اعمال تصمیم «نقد و بررسی». null = این کار پیش‌نمایشی نداشت یا کارشناس رد کرد.
+    /// اگر متن صفحه بعد از ساخت پیش‌نمایش عوض شده باشد، چیزی اعمال نمی‌شود (کار کسی پاک نشود).
+    /// </summary>
+    private async Task<(bool Ok, string Message)?> ApplyReviewAsync(Guid id, ReviewPreview? review, string? mode, CancellationToken ct)
+    {
+        if (review is not { Applied: false } || string.IsNullOrWhiteSpace(review.Html) || mode is not ("replace" or "append"))
+            return null;
+        var state = await catalog.GetBodyStateAsync(id, ct);
+        if (state is null)
+            return (false, "محصول پیدا نشد.");
+        if (review.BaseHash is not null && review.BaseHash != PersianText.Hash(state.Html))
+            return (false, "متن توضیحات کالا بعد از ساخت این پیش‌نویس عوض شده؛ «نقد و بررسی» را دوباره بزنید تا با متن تازه نوشته شود.");
+        var html = mode == "append" && !string.IsNullOrWhiteSpace(state.Html) ? state.Html.TrimEnd() + "\n" + review.Html : review.Html;
+        var applied = await autopilot.ApplyBodyAsync(id, html,
+            mode == "append" ? "نقد و بررسی هوشمند زیر متن فعلی (تأیید کارشناس)" : "نقد و بررسی هوشمند جایگزین متن قبلی (تأیید کارشناس)", ActorName, ct);
+        return applied.IsSuccess()
+            ? (true, mode == "append" ? "نقد و بررسی زیر متن فعلی اضافه شد" : "نقد و بررسی جایگزین شد")
+            : (false, applied.Message ?? "نقد و بررسی ذخیره نشد.");
     }
 
     public async Task<IActionResult> OnPostInsightAsync(Guid id, string? op)

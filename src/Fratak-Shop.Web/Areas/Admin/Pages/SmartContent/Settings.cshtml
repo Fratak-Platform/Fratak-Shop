@@ -30,7 +30,7 @@
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.Enabled"> محتوای هوشمند روشن باشد (خاموش: هیچ کاری از صف اجرا نمی‌شود)</label>
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div><label class="a-label" asp-for="Options.MinImageSide">حداقل ضلع عکس (پیکسل)</label><input class="a-input" asp-for="Options.MinImageSide" min="300" max="2000"></div>
-        <div><label class="a-label" asp-for="Options.MaxImageCandidates">حداکثر عکس بررسی‌شده برای هر کالا</label><input class="a-input" asp-for="Options.MaxImageCandidates" min="6" max="60"></div>
+        <div><label class="a-label" asp-for="Options.MaxImageCandidates">حداکثر نامزد عکس که بررسی می‌شود (پیش از انتخاب بهترین‌ها)</label><input class="a-input" asp-for="Options.MaxImageCandidates" min="6" max="60"></div>
         <div><label class="a-label" asp-for="Options.AutoImagesWhenFewerThan">افزودن خودکار عکس وقتی کالا کمتر از … عکس دارد</label><input class="a-input" asp-for="Options.AutoImagesWhenFewerThan" min="0" max="12"></div>
         <div><label class="a-label" asp-for="Options.AutoImagesMax">حداکثر عکس خودکار در هر بار</label><input class="a-input" asp-for="Options.AutoImagesMax" min="0" max="8"></div>
         <div><label class="a-label" asp-for="Options.AutoSpecMinSources">مشخصهٔ تازه با توافق چند منبع خودکار اضافه شود</label><input class="a-input" asp-for="Options.AutoSpecMinSources" min="2" max="5"></div>
@@ -41,6 +41,20 @@
         <div><label class="a-label" asp-for="Options.DeadStockWarnDays">هشدار کالای راکد بعد از … روز بدون فروش</label><input class="a-input" asp-for="Options.DeadStockWarnDays" min="14" max="365"></div>
         <div><label class="a-label" asp-for="Options.DeadStockCriticalDays">راکد جدی بعد از … روز</label><input class="a-input" asp-for="Options.DeadStockCriticalDays" min="14" max="730"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagicWand", null, 18) تکمیل خودکار کالا، عکس‌ها و نقد و بررسی</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImagesNeedApproval"> عکس‌ها فقط بعد از انتخاب کارشناس روی کالا بنشینند (پیشنهادی؛ مشتری هرگز عکس کالای دیگری نمی‌بیند)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AutoReview"> «نقد و بررسی» حرفه‌ای (HTML سئو) در تکمیل هوشمند نوشته شود؛ برای توضیحات کم خودکار، برای متن بلند شما فقط پیشنهاد</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.NotifyResults"> نتیجهٔ هر کار هوشمند با اعلان (زنگوله و پوش) و لینک مستقیم به همان بخش خبر داده شود</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.ImageCandidates">تعداد عکس پیشنهادی برای انتخاب (۶ تا ۱۵)</label><input class="a-input" asp-for="Options.ImageCandidates" min="6" max="15"></div>
+        <div><label class="a-label" asp-for="Options.NightlyCompletePerDay">تکمیل خودکار شبانه: حداکثر کالا در روز (۰ = خاموش)</label><input class="a-input" asp-for="Options.NightlyCompletePerDay" min="0" max="200"></div>
+      </div>
+      <p class="a-muted text-xs">تکمیل شبانه با پایین‌ترین اولویت و فقط وقتی سرور آزاد است اجرا می‌شود؛ هر کالا حداکثر یک بار در ۳۰ روز. عکس ردشده دیگر هرگز برای همان کالا نمی‌آید و منابعی که عکس‌هایشان بیشتر رد می‌شود خودکار عقب می‌روند.</p>
     </div>
   </div>
 

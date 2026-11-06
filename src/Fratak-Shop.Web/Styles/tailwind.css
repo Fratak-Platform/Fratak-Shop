@@ -31,6 +31,22 @@
   .fs-product-card__price del { @apply text-zinc-400 font-normal ml-1; }
   .fs-product-card__price--out { @apply text-zinc-500 font-normal; }
   .prose-content .fs-product-card__btn, .fs-product-card__btn { @apply self-start mt-1 text-xs bg-sky-600 text-white rounded-lg px-3 py-1.5 hover:bg-sky-700 hover:text-white; }
+
+  /* دور بیستم: «نقد و بررسی» حرفه‌ای (ContentWriter.ProductReview) – کادر خلاصه، جدول مشخصات و مزایا/نکته‌ها. */
+  .prose-content strong { @apply font-semibold text-zinc-800; }
+  .prose-content em { @apply not-italic font-medium text-zinc-700; }
+  .fs-review-box { @apply bg-sky-50 border border-sky-200 rounded-xl p-4 mb-6; }
+  .fs-review-box ul { @apply mb-0; }
+  .prose-content .fs-review-box-title { @apply mb-2 text-zinc-800; }
+  .prose-content .fs-spec-table { @apply table w-full; }
+  .fs-spec-table tbody tr:nth-child(even) { @apply bg-zinc-50; }
+  .fs-spec-table td:first-child { @apply text-zinc-500 w-2/5; }
+  .fs-proscons { @apply grid gap-3 sm:grid-cols-2 mb-6; }
+  .fs-pros, .fs-cons { @apply rounded-xl border p-4; }
+  .fs-pros { @apply border-emerald-200 bg-emerald-50; }
+  .fs-cons { @apply border-amber-200 bg-amber-50; }
+  .prose-content .fs-pros h3, .prose-content .fs-cons h3 { @apply mt-0 text-base; }
+  .fs-pros ul, .fs-cons ul { @apply mb-0; }
 }
 
 /* عنصرهایی که با ویژگی hidden پنهان می‌شوند (مثل شمارندهٔ زنده‌ی زنگوله) نباید با کلاس flex/inline-flex دوباره نمایش داده شوند. */

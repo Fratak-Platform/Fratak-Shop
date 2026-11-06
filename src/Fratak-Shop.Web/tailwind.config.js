@@ -42,6 +42,8 @@ module.exports = {
     "./Infrastructure/Admin/**/*.cs",
     // دور ۱۹: HTML ساخته‌شده در Core (کارت محصول مقاله، «خلاصه در یک نگاه»).
     "../Fratak-Shop.Core/Services/Smart/**/*.cs",
+    // دور بیستم: «نقد و بررسی» حرفه‌ای (fs-review-box، fs-spec-table، fs-proscons در ContentWriter.Review.cs).
+    "../Fratak-Shop.Core/Services/Seo/Engine/**/*.cs",
   ],
   // Classes used by the original template that are not referenced literally anymore.
   safelist: [

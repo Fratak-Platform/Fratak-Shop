@@ -72,6 +72,12 @@ public enum StaffNotificationKind
 
     /// <summary>پیشنهادهای تازهٔ موتور سئو آمادهٔ بررسی‌اند – مرحلهٔ ۷ فاز ۸.</summary>
     SeoSuggestions = 20,
+
+    /// <summary>
+    /// نتیجهٔ کار «دستیار هوشمند» (دور بیستم): عکس/مشخصات/نقد و بررسی آماده شد یا منتظر تأیید است. لینک مستقیم به همان بخش
+    /// (مثال: /admin/smart/product/{id}#task-{taskId}).
+    /// </summary>
+    SmartResult = 21,
 }
 
 /// <summary>

@@ -28,6 +28,19 @@ public sealed record SmartProductSubject(
 public sealed record SmartCategorySubject(Guid Id, string Name, string Slug, string? Description, string? ImageName, string? FaqJson, int ProductCount,
     IReadOnlyList<BlogProduct> TopProducts, IReadOnlyList<string> ProductImageNames);
 
+/// <summary>
+/// وضعیت متن «توضیحات» محصول برای تصمیم دستیار دربارهٔ «نقد و بررسی» (دور بیستم).
+/// <list type="bullet">
+/// <item>WrittenBySmart: متن فعلی دقیقاً همان است که دستیار نوشته (هش برابر آخرین تغییر «نقد و بررسی هوشمند» و برنگشته) ← بازنویسی مجاز.</item>
+/// <item>HasMarker: نشانهٔ data-fs="review" هست ولی متن عوض شده ← کارشناس ویرایش کرده؛ دست نزن.</item>
+/// <item>RolledBack: کارشناس آخرین «نقد و بررسی» را از تاریخچه برگردانده ← تصمیم انسان؛ دوباره نمی‌نویسیم.</item>
+/// </list>
+/// </summary>
+public sealed record ProductBodyState(string Html, int Words, bool WrittenBySmart, bool HasMarker, bool RolledBack);
+
+/// <summary>یک تصمیم کارشناس روی یک عکس پیشنهادی (برای جدول بازخورد). Url=آدرس منبع، Hash=dHash (۰ = نامعلوم)، Source=کلید منبع.</summary>
+public sealed record ImageFeedbackItem(string? Url, long Hash, string? Source, bool Approved);
+
 /// <summary>یک ردیف «ناقص» برای دکمهٔ «تکمیل هوشمند همهٔ ناقص‌ها» (B20).</summary>
 public sealed record IncompleteProduct(Guid Id, string Name, int Images, int Features, bool HasShortDescription, bool HasInsight, DateTimeOffset CreatedAt);
 
@@ -80,6 +93,21 @@ public interface ISmartCatalogService
     Task<bool> SetPostImageAsync(Guid postId, string imageName, string alt, CancellationToken cancellationToken = default);
 
     Task<(string Title, string? ImageName, string? Excerpt)?> GetPostAsync(Guid postId, CancellationToken cancellationToken = default);
+
+    /// <summary>دور بیستم: فهرست سیاه عکس‌های ردشدهٔ یک محصول (آدرس + اثر انگشت). محل استفاده: SmartImageFinder.</summary>
+    Task<ImageBlacklist> GetImageBlacklistAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور بیستم: ثبت تصمیم کارشناس روی عکس‌ها. ردیف تکراری (همان محصول و همان آدرس) فقط به‌روز می‌شود. خروجی: تعداد ردیف ثبت/به‌روزشده.
+    /// مثال: کارشناس ۳ عکس از ۱۲ را انتخاب کرد ← ۳ ردیف Approved=true و ۹ ردیف Approved=false.
+    /// </summary>
+    Task<int> RecordImageFeedbackAsync(Guid productId, IReadOnlyList<ImageFeedbackItem> items, CancellationToken cancellationToken = default);
+
+    /// <summary>دور بیستم: امتیاز هر منبع عکس در همهٔ محصولات (لاپلاس). مثال: {"digikala":0.83، "bing:x.ir":0.2}.</summary>
+    Task<Dictionary<string, double>> ImageSourceScoresAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>دور بیستم: وضعیت متن توضیحات محصول برای تصمیم «نقد و بررسی» (null = محصول پیدا نشد).</summary>
+    Task<ProductBodyState?> GetBodyStateAsync(Guid productId, CancellationToken cancellationToken = default);
 }
 
 public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCatalogService
@@ -379,5 +407,90 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
     {
         var row = await context.BlogPosts.Where(p => p.Id == postId).Select(p => new { p.Title, p.ImageName, p.Excerpt }).FirstOrDefaultAsync(cancellationToken);
         return row is null ? null : (row.Title, row.ImageName, row.Excerpt);
+    }
+
+    // ── دور بیستم: بازخورد عکس و وضعیت متن ─────────────────────────────
+
+    public async Task<ImageBlacklist> GetImageBlacklistAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var rows = await context.SmartImageFeedbacks.Where(f => f.ProductId == productId && !f.Approved)
+            .OrderByDescending(f => f.CreatedAt).Take(2000)
+            .Select(f => new { f.UrlKey, f.Hash })
+            .ToListAsync(cancellationToken);
+        return rows.Count == 0 ? ImageBlacklist.Empty : new ImageBlacklist(rows.Select(r => r.UrlKey), rows.Select(r => r.Hash));
+    }
+
+    public async Task<int> RecordImageFeedbackAsync(Guid productId, IReadOnlyList<ImageFeedbackItem> items, CancellationToken cancellationToken = default)
+    {
+        // هر آیتم یک کلید یکتا دارد: هش آدرس؛ اگر آدرس نداشت (عکس قدیمی بدون منبع)، هش «اثر انگشت» به‌جایش.
+        var clean = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.Url) || i.Hash != 0)
+            .Select(i => (Key: SmartImageRules.UrlKey(string.IsNullOrWhiteSpace(i.Url) ? "dhash:" + i.Hash : i.Url!), i.Hash,
+                Source: SmartTaskQueue.Limit(i.Source, 100), i.Approved))
+            .GroupBy(i => i.Key, StringComparer.Ordinal)
+            .Select(g => g.Last())
+            .Take(100)
+            .ToList();
+        if (clean.Count == 0)
+            return 0;
+        var keys = clean.Select(c => c.Key).ToList();
+        var existing = await context.SmartImageFeedbacks.AsTracking()
+            .Where(f => f.ProductId == productId && keys.Contains(f.UrlKey))
+            .ToListAsync(cancellationToken);
+        foreach (var item in clean)
+        {
+            var row = existing.FirstOrDefault(f => f.UrlKey == item.Key);
+            if (row is null)
+            {
+                context.SmartImageFeedbacks.Add(new SmartImageFeedback
+                {
+                    ProductId = productId, UrlKey = item.Key, Hash = item.Hash, Source = item.Source, Approved = item.Approved,
+                });
+                continue;
+            }
+            row.Approved = item.Approved;
+            if (item.Hash != 0)
+                row.Hash = item.Hash;
+            row.Source ??= item.Source;
+        }
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return clean.Count;
+    }
+
+    public async Task<Dictionary<string, double>> ImageSourceScoresAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await context.SmartImageFeedbacks.Where(f => f.Source != null)
+            .GroupBy(f => f.Source!)
+            .Select(g => new { Source = g.Key, Total = g.Count(), Approved = g.Count(f => f.Approved) })
+            .ToListAsync(cancellationToken);
+        return rows.ToDictionary(r => r.Source, r => SmartImageRules.SourceScore(r.Approved, r.Total), StringComparer.Ordinal);
+    }
+
+    public async Task<ProductBodyState?> GetBodyStateAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var product = await context.Products.Where(p => p.Id == productId).Select(p => new { p.Description }).FirstOrDefaultAsync(cancellationToken);
+        if (product is null)
+            return null;
+        var html = product.Description ?? "";
+        var words = PersianText.AnalyzeHtml(html).Words;
+        var hasMarker = html.Contains(ContentWriter.ReviewMarkerAttribute, StringComparison.Ordinal);
+        var revisions = await context.SeoRevisions
+            .Where(r => r.Kind == Fratak_Shop.Data.Entities.SeoEngine.SeoEntityKind.Product && r.EntityId == productId
+                        && r.Source == Fratak_Shop.Data.Entities.SeoEngine.SeoRevisionSource.SmartReview)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(5)
+            .Select(r => new { r.AfterJson, r.RevertedAt })
+            .ToListAsync(cancellationToken);
+        var hash = PersianText.Hash(html);
+        var written = hasMarker && revisions.Any(r => r.RevertedAt == null && BodyHash(r.AfterJson) == hash);
+        var rolledBack = revisions.Count > 0 && revisions[0].RevertedAt != null;
+        return new ProductBodyState(html, words, written, hasMarker, rolledBack);
+
+        static string? BodyHash(string? json)
+        {
+            var map = Fratak_Shop.Core.Services.Seo.Autopilot.SeoAutopilotService.ReadStamps(json);
+            return map.TryGetValue(Fratak_Shop.Core.Services.Seo.Autopilot.SeoFieldMap.BodyField, out var body) ? PersianText.Hash(body) : null;
+        }
     }
 }

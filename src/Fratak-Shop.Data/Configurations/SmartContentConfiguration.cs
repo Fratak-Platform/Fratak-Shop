@@ -27,6 +27,13 @@ public class SmartResearchCacheConfiguration : IEntityTypeConfiguration<SmartRes
     }
 }
 
+/// <summary>دور بیستم: بازخورد عکس‌ها همیشه با شناسهٔ محصول خوانده می‌شود (فهرست سیاه).</summary>
+public class SmartImageFeedbackConfiguration : IEntityTypeConfiguration<SmartImageFeedback>
+{
+    public void Configure(EntityTypeBuilder<SmartImageFeedback> builder) =>
+        builder.HasIndex(f => f.ProductId);
+}
+
 /// <summary>هر محصول حداکثر یک جمع‌بندی.</summary>
 public class ProductInsightConfiguration : IEntityTypeConfiguration<ProductInsight>
 {

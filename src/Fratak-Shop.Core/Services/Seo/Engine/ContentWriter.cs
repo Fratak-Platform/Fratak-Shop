@@ -49,6 +49,13 @@ public sealed class WriterContext
     /// <summary>متن‌هایی که قبلاً رد شده‌اند (نرمال‌شده)؛ دوباره پیشنهاد نمی‌شوند.</summary>
     public IReadOnlySet<string> Avoid { get; init; } = new HashSet<string>();
 
+    /// <summary>
+    /// نکته‌های تأییدشدهٔ خریداران (خلاصهٔ خرید تأییدشده) برای «نقد و بررسی» – دور بیستم.
+    /// فقط وقتی پر می‌شود که خلاصهٔ خرید محصول «تأییدشده» باشد؛ null = بدون نظر خریداران (فقط از مشخصات نوشته می‌شود).
+    /// محل پر شدن: <c>SeoEngineService.WriteProductReviewAsync</c>.
+    /// </summary>
+    public ReviewNotes? Notes { get; init; }
+
     private Random? _random;
 
     /// <summary>تصادفی ثابت برای (صفحه، نسخه): یک نسخه همیشه همان متن را می‌سازد (قابل تکرار و تست).</summary>

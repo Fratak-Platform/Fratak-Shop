@@ -21,8 +21,17 @@ public sealed record SmartTaskRow(
 /// <summary>شمارش وضعیت‌ها برای کارت‌های بالای صفحهٔ صف.</summary>
 public sealed record SmartQueueStats(int Queued, int Running, int NeedsReview, int Failed, int AppliedToday);
 
-/// <summary>کار برداشته‌شده برای اجرا.</summary>
-public sealed record ClaimedSmartTask(Guid Id, SmartTaskKind Kind, SmartTarget TargetKind, Guid? TargetId, string? TargetTitle, string? PayloadJson, int Attempts, int Priority);
+/// <summary>
+/// کار برداشته‌شده برای اجرا. RequestedById/CreatedAt (دور بیستم) برای اعلان نتیجه: درخواست‌دهنده و زمان ساخت (برای پیدا کردن «دستهٔ» کارهای گروهی).
+/// </summary>
+public sealed record ClaimedSmartTask(Guid Id, SmartTaskKind Kind, SmartTarget TargetKind, Guid? TargetId, string? TargetTitle, string? PayloadJson, int Attempts, int Priority,
+    Guid? RequestedById = null, DateTimeOffset CreatedAt = default);
+
+/// <summary>
+/// خلاصهٔ یک «دسته» کار گروهی (دور بیستم): همهٔ کارهای یک درخواست‌دهنده با یک اولویت که در فاصلهٔ ±۱۰ دقیقه ساخته شده‌اند.
+/// مثال: «تکمیل همهٔ ناقص‌ها» برای ۲۰ محصول ← Total=20، Applied=14، NeedsReview=5، Failed=1.
+/// </summary>
+public sealed record SmartBatchSummary(int Total, int Applied, int NeedsReview, int Failed, int Skipped, int Pending);
 
 /// <summary>
 /// صف کارهای هوشمند (B20–B21) روی جدول SmartTasks.
@@ -72,6 +81,21 @@ public interface ISmartTaskQueue
 
     /// <summary>بستن «نیاز به بررسی» پس از تصمیم ادمین (اعمال/رد پیشنهادها).</summary>
     Task MarkReviewedAsync(Guid id, string summary, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور بیستم: تعداد کارهای هنوز تمام‌نشده (در صف/در حال اجرا) همین درخواست‌دهنده با همین اولویت.
+    /// ۰ یعنی «دستهٔ» کار گروهی تمام شد و وقت فرستادن یک اعلان خلاصه است. محل استفاده: SmartNotifier.
+    /// </summary>
+    Task<int> PendingCountAsync(Guid? requestedById, int priority, CancellationToken cancellationToken = default);
+
+    /// <summary>دور بیستم: خلاصهٔ دستهٔ کارهای گروهی (همان درخواست‌دهنده و اولویت، ساخته‌شده در ±۱۰ دقیقهٔ <paramref name="around"/>).</summary>
+    Task<SmartBatchSummary> BatchSummaryAsync(Guid? requestedById, int priority, DateTimeOffset around, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور بیستم: هدف‌هایی که از <paramref name="since"/> به بعد کاری از این نوع داشته‌اند (برای «تکمیل خودکار شبانه»: سقف روزانه و
+    /// تکرار نکردن محصولی که در ۳۰ روز گذشته تکمیل شده). priority=null یعنی همهٔ اولویت‌ها.
+    /// </summary>
+    Task<List<Guid>> RecentTargetsAsync(SmartTaskKind kind, DateTimeOffset since, int? priority = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class SmartTaskQueue(FratakShopDbContext context) : ISmartTaskQueue
@@ -139,7 +163,8 @@ public sealed class SmartTaskQueue(FratakShopDbContext context) : ISmartTaskQueu
             var candidate = await context.SmartTasks
                 .Where(t => t.Status == SmartTaskStatus.Queued && t.RunAfter <= now)
                 .OrderByDescending(t => t.Priority).ThenBy(t => t.CreatedAt)
-                .Select(t => new ClaimedSmartTask(t.Id, t.Kind, t.TargetKind, t.TargetId, t.TargetTitle, t.PayloadJson, t.Attempts, t.Priority))
+                .Select(t => new ClaimedSmartTask(t.Id, t.Kind, t.TargetKind, t.TargetId, t.TargetTitle, t.PayloadJson, t.Attempts, t.Priority,
+                    t.RequestedById, t.CreatedAt))
                 .FirstOrDefaultAsync(cancellationToken);
             if (candidate is null)
                 return null;
@@ -279,6 +304,32 @@ public sealed class SmartTaskQueue(FratakShopDbContext context) : ISmartTaskQueu
                 .SetProperty(t => t.Status, SmartTaskStatus.Applied)
                 .SetProperty(t => t.Summary, clean)
                 .SetProperty(t => t.UpdatedAt, now), cancellationToken);
+    }
+
+    public Task<int> PendingCountAsync(Guid? requestedById, int priority, CancellationToken cancellationToken = default) =>
+        context.SmartTasks.CountAsync(t => t.RequestedById == requestedById && t.Priority == priority
+                                           && (t.Status == SmartTaskStatus.Queued || t.Status == SmartTaskStatus.Running), cancellationToken);
+
+    public async Task<SmartBatchSummary> BatchSummaryAsync(Guid? requestedById, int priority, DateTimeOffset around, CancellationToken cancellationToken = default)
+    {
+        var from = around.AddMinutes(-10);
+        var to = around.AddMinutes(10);
+        var counts = await context.SmartTasks
+            .Where(t => t.RequestedById == requestedById && t.Priority == priority && t.CreatedAt >= from && t.CreatedAt <= to)
+            .GroupBy(t => t.Status)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        int Count(params SmartTaskStatus[] statuses) => counts.Where(c => statuses.Contains(c.Key)).Sum(c => c.Count);
+        return new SmartBatchSummary(counts.Sum(c => c.Count), Count(SmartTaskStatus.Applied), Count(SmartTaskStatus.NeedsReview),
+            Count(SmartTaskStatus.Failed), Count(SmartTaskStatus.Skipped, SmartTaskStatus.Cancelled), Count(SmartTaskStatus.Queued, SmartTaskStatus.Running));
+    }
+
+    public Task<List<Guid>> RecentTargetsAsync(SmartTaskKind kind, DateTimeOffset since, int? priority = null, CancellationToken cancellationToken = default)
+    {
+        var query = context.SmartTasks.Where(t => t.Kind == kind && t.CreatedAt >= since && t.TargetId != null);
+        if (priority is { } p)
+            query = query.Where(t => t.Priority == p);
+        return query.Select(t => t.TargetId!.Value).Distinct().ToListAsync(cancellationToken);
     }
 
     private static IQueryable<SmartTaskRow> Rows(IQueryable<SmartTask> query) =>

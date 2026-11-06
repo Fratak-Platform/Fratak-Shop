@@ -119,20 +119,28 @@
           <div class="a-card-body">
             @if (i.Images.Count > 0)
             {
-              <div class="a-img-grid mb-4">
+              @* حذف «بر اساس نام فایل» (admin-gallery.js): دکمهٔ حذف هر کارت فقط همان تصویر را در Input.RemovedImages می‌گذارد؛
+                 کلیک روی تصویر ← لایت‌باکس با بزرگ‌نمایی و «حذف این تصویر». تا «ذخیره» زده نشود برگشت‌پذیر است. *@
+              <div class="a-img-grid mb-4" id="product-gallery" data-gallery="remove" data-remove-name="Input.RemovedImages" data-reindex="Input.Images">
                 @for (var n = 0; n < i.Images.Count; n++)
                 {
                   var img = i.Images[n];
-                  <div class="a-img-card">
-                    <img src="@ImageHelper.Sized(ImageHelper.Product(img.ImageName), 320)" alt="@img.AltText" loading="lazy">
+                  <div class="a-img-card" data-gallery-item data-name="@img.ImageName" data-full="@ImageHelper.Product(img.ImageName)" data-caption="@img.AltText">
+                    <div class="a-img-frame">
+                      <img src="@ImageHelper.Sized(ImageHelper.Product(img.ImageName), 320)" alt="@img.AltText" loading="lazy" data-gallery-open tabindex="0">
+                      <button type="button" class="a-img-del" data-gallery-remove aria-pressed="false" aria-label="حذف این تصویر">حذف</button>
+                    </div>
                     <input type="hidden" name="Input.Images[@n].ImageName" value="@img.ImageName">
                     <input name="Input.Images[@n].AltText" value="@img.AltText" class="a-input a-input-sm" placeholder="متن جایگزین (alt)" maxlength="250">
                     <div class="flex items-center justify-between gap-2 text-xs">
-                      <label class="a-check"><input type="radio" name="Input.PrimaryImage" value="@img.ImageName" checked="@(i.PrimaryImage == img.ImageName)"> اصلی</label>
+                      <label class="a-check"><input type="radio" name="Input.PrimaryImage" value="@img.ImageName" checked="@(i.PrimaryImage == img.ImageName)" autocomplete="off"> اصلی</label>
                       <input type="number" name="Input.Images[@n].DisplayOrder" value="@img.DisplayOrder" class="a-input a-input-sm a-ltr" style="width:4rem" aria-label="ترتیب">
-                      <label class="a-check text-red-600"><input type="checkbox" name="Input.Images[@n].Remove" value="true"> حذف</label>
                     </div>
                   </div>
+                }
+                @foreach (var removed in i.RemovedImages)
+                {
+                  <input type="hidden" name="Input.RemovedImages" value="@removed" data-removed-input>
                 }
               </div>
             }

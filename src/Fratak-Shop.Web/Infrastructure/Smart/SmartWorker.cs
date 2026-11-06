@@ -10,7 +10,9 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <item>هر ۲۰ ثانیه (صف خالی: هر ۶۰ ثانیه) یک کار از صف هوشمند برمی‌دارد و با <see cref="SmartOrchestrator"/> اجرا می‌کند؛
 /// خطا ← تلاش دوباره با فاصلهٔ فزاینده (حداکثر ۳ بار، بعد «ناموفق» با پیام خطا در پنل).</item>
 /// <item>هر ۳۰ دقیقه: یادآوری‌های مشتری (درخواست نظر و تمدید کالای مصرفی، با سکوت شبانه).</item>
-/// <item>هر ۶ ساعت: تکمیل تقویم محتوای ۴ هفتهٔ آینده و گذاشتن مقاله‌های سررسیده در صف؛ پاک‌سازی کش تحقیق و کارهای قدیمی.</item>
+/// <item>هر ۶ ساعت: تکمیل تقویم محتوای ۴ هفتهٔ آینده و گذاشتن مقاله‌های سررسیده در صف؛ تکمیل خودکار شبانهٔ کالاهای ناقص
+/// (حداکثر NightlyCompletePerDay در ۲۴ ساعت، هر کالا حداکثر یک بار در ۳۰ روز)؛ پاک‌سازی کش تحقیق و کارهای قدیمی.</item>
+/// <item>بعد از هر نتیجه (یا شکست نهایی): اعلان به ادمین با لینک مستقیم به بخش بازبینی (<see cref="SmartNotifier"/>).</item>
 /// </list>
 /// <para>همه از مدیر منابع می‌گذرند (کار هوشمند «سنگین» است: یکی‌یکی و فقط وقتی سرور زیر فشار نیست – A1)
 /// و از صفحهٔ «فنی ← کارهای پس‌زمینه» قابل توقف‌اند. هیچ استثنایی از ExecuteAsync بیرون نمی‌رود.</para>
@@ -96,7 +98,7 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         return await JobMonitor.TrackAsync(job, () => run(scope.ServiceProvider));
     }
 
-    /// <summary>برنامه‌ریزی تقویم، صف کردن مقاله‌های سررسیده و پاک‌سازی.</summary>
+    /// <summary>برنامه‌ریزی تقویم، صف کردن مقاله‌های سررسیده، تکمیل شبانهٔ کالاها و پاک‌سازی.</summary>
     private static async Task<int> PlanAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
         var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
@@ -113,8 +115,34 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
                 count++;
             }
         }
+        if (options.Enabled && options.NightlyCompletePerDay > 0)
+            count += await PlanNightlyCompleteAsync(services, queue, options.NightlyCompletePerDay, DateTimeOffset.UtcNow, cancellationToken);
         await services.GetRequiredService<ISmartResearchStore>().PruneAsync(cancellationToken);
         await queue.PurgeAsync(cancellationToken);
+        return count;
+    }
+
+    /// <summary>
+    /// تکمیل خودکار شبانه (بخش F): ادمین لازم نیست دکمه بزند؛ هر ۶ ساعت تا سقف روزانه کالای ناقص (کم‌عکس، کم‌مشخصات، بدون خلاصه) با
+    /// اولویت «شبانه» (پایین‌ترین؛ کار دستی همیشه جلوتر) در صف می‌رود. کالایی که در ۳۰ روز گذشته تکمیل (یا تلاش) شده دوباره نمی‌آید
+    /// تا منابع بیرونی و هاست بی‌دلیل درگیر نشوند. مثال: سقف ۲۰ و ۱۲ کار در ۲۴ ساعت گذشته ← ۸ کالای تازه.
+    /// </summary>
+    public static async Task<int> PlanNightlyCompleteAsync(IServiceProvider services, ISmartTaskQueue queue, int perDay, DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var done = (await queue.RecentTargetsAsync(SmartTaskKind.ProductComplete, now.AddHours(-24), SmartPriority.Nightly, cancellationToken)).Count;
+        var room = Math.Clamp(perDay, 0, 200) - done;
+        if (room <= 0)
+            return 0;
+        var recent = (await queue.RecentTargetsAsync(SmartTaskKind.ProductComplete, now.AddDays(-30), cancellationToken: cancellationToken)).ToHashSet();
+        var candidates = await services.GetRequiredService<ISmartCatalogService>().ListIncompleteAsync(Math.Min(1000, recent.Count + room * 3), cancellationToken);
+        var count = 0;
+        foreach (var product in candidates.Where(p => !recent.Contains(p.Id)).Take(room))
+        {
+            await queue.EnqueueAsync(SmartTaskKind.ProductComplete, SmartTarget.Product, product.Id, product.Name, SmartPriority.Nightly,
+                userName: SmartOrchestrator.Actor, cancellationToken: cancellationToken);
+            count++;
+        }
         return count;
     }
 
@@ -133,6 +161,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             timeout.CancelAfter(Lease - TimeSpan.FromMinutes(1));
             var outcome = await services.GetRequiredService<SmartOrchestrator>().RunAsync(task, timeout.Token);
             await queue.CompleteAsync(task.Id, outcome.Status, outcome.Summary, outcome.ResultJson, cancellationToken: cancellationToken);
+            if (options.NotifyResults)
+                await services.GetRequiredService<SmartNotifier>().NotifyAsync(task, outcome.Status, outcome.Summary, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -144,6 +174,9 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             logger.LogWarning(exception, "Smart task {Task} ({Kind}) failed", task.Id, task.Kind);
             var message = exception is OperationCanceledException ? "زمان کار تمام شد (منابع بیرونی کند بودند)." : "خطا: " + exception.Message;
             await queue.RetryLaterAsync(task.Id, TimeSpan.FromMinutes(15 * Math.Max(1, task.Attempts)), message, CancellationToken.None);
+            // شکست نهایی (بعد از ۳ تلاش) هم نتیجه است و باید به ادمین برسد؛ تلاش‌های میانی بی‌صدا.
+            if (options.NotifyResults && task.Attempts >= SmartTaskQueue.MaxAttempts)
+                await services.GetRequiredService<SmartNotifier>().NotifyAsync(task, SmartTaskStatus.Failed, message, CancellationToken.None);
         }
         return 1;
     }

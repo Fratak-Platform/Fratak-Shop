@@ -46,6 +46,16 @@ public sealed class SmartOptions
     /// <summary>حداکثر عکسی که خودکار اضافه می‌شود (بقیه برای انتخاب کارشناس می‌ماند).</summary>
     public int AutoImagesMax { get; set; } = 3;
 
+    /// <summary>
+    /// دور بیستم: هیچ عکسی بدون تأیید کارشناس روی محصول نمی‌نشیند (پیش‌فرض روشن). عکس اشتباه یعنی مشتری یک چیز می‌بیند و
+    /// چیز دیگری می‌خرد؛ پس عکس‌یاب ۱۰ تا ۱۵ نامزد می‌آورد و کارشناس درست‌ها را انتخاب می‌کند (یا «رد همه و جست‌وجوی دوباره»).
+    /// خاموش ← رفتار دور نوزدهم: عکس‌های منابع «همان کالا» تا سقف <see cref="AutoImagesMax"/> خودکار اضافه می‌شوند.
+    /// </summary>
+    public bool ImagesNeedApproval { get; set; } = true;
+
+    /// <summary>دور بیستم: چند عکس نامزد برای انتخاب کارشناس آماده شود (۶ تا ۱۵؛ پیش‌فرض ۱۲).</summary>
+    public int ImageCandidates { get; set; } = 12;
+
     // ── مشخصات و نظرها (B7–B13) ───────────────────────────────────
 
     /// <summary>ردیف مشخصاتی که دست‌کم این تعداد منبع روی آن توافق دارند خودکار اضافه می‌شود (فقط ردیف‌های تازه، نه تغییر ردیف موجود).</summary>
@@ -53,6 +63,22 @@ public sealed class SmartOptions
 
     /// <summary>جمع‌بندی نظرها وقتی خودکار «تأیید» و در سایت نمایش داده می‌شود که دست‌کم این تعداد نظر واقعی تحلیل شده باشد.</summary>
     public int AutoApproveInsightMinReviews { get; set; } = 8;
+
+    /// <summary>
+    /// دور بیستم: «تکمیل هوشمند» برای محصول «نقد و بررسی» حرفه‌ای (HTML با تیتر، خلاصه، جدول، نقاط قوت و جمع‌بندی) هم بنویسد.
+    /// متن کم‌محتوا یا نوشتهٔ قبلی خود دستیار فقط وقتی همهٔ محافظ‌های جریمه قبول شوند خودکار جایگزین می‌شود؛ متن بلند انسانی
+    /// هرگز بی‌اجازه عوض نمی‌شود (پیش‌نمایش برای تأیید کارشناس).
+    /// </summary>
+    public bool AutoReview { get; set; } = true;
+
+    /// <summary>
+    /// دور بیستم: هر شب حداکثر چند محصول ناقص خودکار «تکمیل هوشمند» شوند (۰ = خاموش؛ پیش‌فرض ۲۰). محصولی که در ۳۰ روز گذشته
+    /// تکمیل شده دوباره انتخاب نمی‌شود.
+    /// </summary>
+    public int NightlyCompletePerDay { get; set; } = 20;
+
+    /// <summary>دور بیستم: برای هر نتیجهٔ کار هوشمند اعلان پنل (با لینک مستقیم به همان بخش) فرستاده شود.</summary>
+    public bool NotifyResults { get; set; } = true;
 
     // ── بلاگ هوشمند (B14–B18) ─────────────────────────────────────
 
@@ -133,6 +159,8 @@ public sealed class SmartOptions
         MaxImageCandidates = Math.Clamp(MaxImageCandidates, 6, 60);
         AutoImagesWhenFewerThan = Math.Clamp(AutoImagesWhenFewerThan, 0, 12);
         AutoImagesMax = Math.Clamp(AutoImagesMax, 0, 8);
+        ImageCandidates = Math.Clamp(ImageCandidates, 6, 15);
+        NightlyCompletePerDay = Math.Clamp(NightlyCompletePerDay, 0, 200);
         AutoSpecMinSources = Math.Clamp(AutoSpecMinSources, 2, 5);
         AutoApproveInsightMinReviews = Math.Clamp(AutoApproveInsightMinReviews, 3, 500);
         BlogPostsPerWeek = Math.Clamp(BlogPostsPerWeek, 0, 7);

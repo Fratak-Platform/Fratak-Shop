@@ -49,6 +49,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         (StaffNotificationKind.ExpenseDue, "سررسید هزینه‌های تکراری"),
         (StaffNotificationKind.ReportFailed, "خطای ارسال گزارش خودکار"),
         (StaffNotificationKind.SeoSuggestions, "پیشنهادهای موتور سئو"),
+        (StaffNotificationKind.SmartResult, "نتیجهٔ کارهای هوشمند (عکس، مشخصات، نقد و بررسی، مقاله)"),
         (StaffNotificationKind.Alert, "هشدارهای سیستم"),
     ];
 
@@ -149,6 +150,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         StaffNotificationKind.ExpenseDue => "هزینه",
         StaffNotificationKind.ReportFailed => "گزارش",
         StaffNotificationKind.SeoSuggestions => "سئو",
+        StaffNotificationKind.SmartResult => "هوشمند",
         _ => "سیستم",
     };
 
@@ -159,6 +161,7 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         StaffNotificationKind.NewTicket or StaffNotificationKind.TicketReply or StaffNotificationKind.NewMessage => "a-badge-blue",
         StaffNotificationKind.Mention or StaffNotificationKind.Assignment or StaffNotificationKind.Approval => "a-badge-purple",
         StaffNotificationKind.NewReturn or StaffNotificationKind.NewWithdrawal or StaffNotificationKind.ShipmentIssue => "a-badge-yellow",
+        StaffNotificationKind.SmartResult => "a-badge-sky",
         _ => "a-badge-gray",
     };
 }

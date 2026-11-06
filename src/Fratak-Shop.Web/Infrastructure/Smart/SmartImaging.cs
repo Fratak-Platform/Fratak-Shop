@@ -133,55 +133,108 @@ public static class BannerGenerator
     }
 }
 
-/// <summary>یک تصویر ذخیره‌شده توسط یابنده. Trusted: از منبع مطمئن (همان کالا در دیجی‌کالا/تأمین‌کننده/باسلام).</summary>
-public sealed record FoundImage(string FileName, int Width, int Height, string Source, bool Trusted);
+/// <summary>
+/// یک تصویر ذخیره‌شده توسط یابنده. Trusted: از منبع «همان کالا» (دیجی‌کالا/تأمین‌کننده/باسلام).
+/// <para>دور بیستم (همه اختیاری تا نتیجه‌های قدیمی صف هم خوانده شوند): Url = آدرس اصلی تصویر (برای فهرست سیاه)، Hash = dHash،
+/// PageUrl = صفحه‌ای که تصویر در آن بود، Title = عنوان آن صفحه/کارت، Score = امتیاز رتبه‌بندی (۰ تا ۱).</para>
+/// </summary>
+public sealed record FoundImage(string FileName, int Width, int Height, string Source, bool Trusted,
+    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0);
+
+/// <summary>یک نامزد تصویر پیش از دانلود (داخلی یابنده و آزمون‌ها).</summary>
+public sealed record ImageCandidate(string Url, string Source, bool Trusted, double Match, string? Title = null, string? PageUrl = null)
+{
+    /// <summary>
+    /// امتیاز رتبه‌بندی: ۶۰٪ سابقهٔ تأیید منبع (از تصمیم‌های کارشناس) + ۴۰٪ شباهت عنوان به کالای ما + ۰٫۱ برای منبع «همان کالا».
+    /// مثال: دیجی‌کالا با سابقهٔ ۰٫۸ و شباهت ۱ ← ۰٫۹۸؛ بینگ ناشناس (۰٫۴۵) با شباهت ۰٫۵ ← ۰٫۴۷.
+    /// </summary>
+    public double Score(IReadOnlyDictionary<string, double>? sourceScores) =>
+        Math.Round(SmartImageRules.ScoreOf(Source, sourceScores) * 0.6 + Math.Clamp(Match, 0, 1) * 0.4 + (Trusted ? 0.1 : 0), 4);
+}
 
 /// <summary>
-/// یابندهٔ تصویر کالا/دسته/مقاله (B1–B6).
-/// <para>منابع به ترتیب اعتماد: ۱) همان کالا در دیجی‌کالا (تطبیق نام و عدد مدل)؛ ۲) og:image صفحهٔ تأمین‌کننده؛ ۳) باسلام با نام مشابه؛
-/// ۴) جست‌وجوی تصویر بینگ. تصویرهای ۱ تا ۳ «مطمئن»اند و خودکار اضافه می‌شوند؛ نتایج بینگ فقط «پیشنهاد» می‌شوند تا مدیر تأیید کند
-/// (ضد دادهٔ بی‌ربط).</para>
-/// <para>کیفیت: حداکثر ۳۶ نامزد، ۳ دانلود هم‌زمان، هر فایل ≤ ۵ مگابایت، ضلع کوتاه ≥ ۶۰۰، حذف تکراری‌ها با dHash (هم با تصویرهای فعلی کالا)،
-/// ذخیره با همان پاک‌سازی آپلود دستی (WebP، بدون متادیتا، نام تصادفی).</para>
+/// یابندهٔ تصویر کالا/دسته/مقاله (B1–B6، گسترش دور بیستم).
+/// <para>منابع: ۱) همان کالا در دیجی‌کالا (تطبیق نام و عدد مدل)؛ ۲) صفحهٔ تأمین‌کننده (og:image + JSON-LD)؛ ۳) باسلام با نام مشابه؛
+/// ۴) فروشگاه‌های نتایج جست‌وجو (عنوان با شباهت ≥ ۰٫۶، تصویرهای og و JSON-LD هر صفحه)؛ ۵) جست‌وجوی تصویر بینگ با عنوان کارت
+/// (شباهت ≥ ۰٫۵؛ کارت بدون عنوان کنار گذاشته می‌شود).</para>
+/// <para>ضد عکس اشتباه: هر عکسی که کارشناس برای همین کالا رد کرده (آدرس یا اثر انگشت تصویری) هرگز دوباره نمی‌آید؛ منابع بر اساس
+/// نسبت تأیید قبلی کارشناس مرتب می‌شوند؛ «جست‌وجوی دوباره» (round) صفحهٔ بعدی نتایج بینگ را می‌خواند.</para>
+/// <para>کیفیت: دانلود دسته‌ای ۶تایی (۳ هم‌زمان) تا وقتی به تعداد خواسته برسد، هر فایل ≤ ۵ مگابایت، ضلع کوتاه ≥ ۶۰۰،
+/// حذف تکراری‌ها با dHash (هم با تصویرهای فعلی کالا)، ذخیره با همان پاک‌سازی آپلود دستی (WebP، بدون متادیتا، نام تصادفی).</para>
 /// </summary>
 public sealed class SmartImageFinder(
     IHttpClientFactory httpFactory,
     IUploadStore uploads,
     SmartSources sources,
     ISmartConfigService config,
+    ISmartCatalogService catalog,
     ILogger<SmartImageFinder> logger)
 {
     public const int MaxImageBytes = 5 * 1024 * 1024;
 
-    public async Task<List<FoundImage>> FindForProductAsync(SmartProductSubject subject, int want, CancellationToken cancellationToken)
+    /// <summary>کمترین شباهت عنوان صفحهٔ فروشگاه (نتایج جست‌وجو) برای برداشتن تصویرهایش.</summary>
+    public const double ShopTitleMatch = 0.6;
+
+    /// <summary>کمترین شباهت عنوان کارت تصویر بینگ.</summary>
+    public const double BingTitleMatch = 0.5;
+
+    /// <summary>
+    /// نامزدهای تصویر یک کالا را از همهٔ منابع جمع، با فهرست سیاه فیلتر، رتبه‌بندی و تا <paramref name="want"/> عکس سالم ذخیره می‌کند.
+    /// round = شمارهٔ دور «رد همه و جست‌وجوی دوباره» (۰ = بار اول).
+    /// </summary>
+    public async Task<List<FoundImage>> FindForProductAsync(SmartProductSubject subject, int want, int round, CancellationToken cancellationToken)
     {
         var options = await config.GetAsync(cancellationToken);
-        var trusted = new List<(string Url, string Source)>();
+        var blacklist = await catalog.GetImageBlacklistAsync(subject.Id, cancellationToken);
+        var scores = await catalog.ImageSourceScoresAsync(cancellationToken);
+        var candidates = new List<ImageCandidate>();
+
         var hit = await sources.FindDigikalaAsync(subject, cancellationToken);
         if (hit is not null && await sources.DigikalaDetailsAsync(hit.Id, cancellationToken) is { } details)
-            trusted.AddRange(details.Images.Select(u => (u, "digikala")));
+            candidates.AddRange(details.Images.Select(u => new ImageCandidate(u, "digikala", true, 1, hit.Title)));
         if (!string.IsNullOrWhiteSpace(subject.SupplierUrl))
         {
-            var (_, og) = await sources.PageAsync(subject.SupplierUrl, cancellationToken);
-            if (og is not null)
-                trusted.Add((og, "supplier"));
+            var (_, images) = await sources.PageAsync(subject.SupplierUrl, cancellationToken);
+            candidates.AddRange(images.Take(6).Select(u => new ImageCandidate(u, "supplier", true, 1, null, subject.SupplierUrl)));
         }
-        trusted.AddRange((await sources.BasalamImagesAsync(subject.SearchQuery, cancellationToken)).Select(u => (u, "basalam")));
+        candidates.AddRange((await sources.BasalamImagesAsync(subject.SearchQuery, cancellationToken))
+            .Select(u => new ImageCandidate(u, "basalam", true, 0.8)));
 
-        var suggested = new List<(string Url, string Source)>();
-        if (trusted.Count < want)
-            suggested.AddRange((await sources.BingImagesAsync(subject.SearchQuery, cancellationToken)).Select(u => (u, "bing")));
+        // منابع عمومی همیشه جست‌وجو می‌شوند (کارشناس از بین ۱۰ تا ۱۵ نامزد انتخاب می‌کند)، ولی فقط با عنوان مطمئن.
+        foreach (var shop in await sources.SerpShopHitsAsync(subject.SearchQuery, 4, ShopTitleMatch, cancellationToken))
+        {
+            var (_, images) = await sources.PageAsync(shop.Url, cancellationToken);
+            var key = SmartImageRules.SourceKey("serp", shop.Url);
+            candidates.AddRange(images.Take(3).Select(u => new ImageCandidate(u, key, false, shop.Match, shop.Title, shop.Url)));
+        }
+        foreach (var image in await sources.BingImageResultsAsync(subject.SearchQuery, round, cancellationToken))
+        {
+            if (image.Title is null)
+                continue;
+            var match = Math.Max(SmartParsers.TitleMatch(subject.Name, image.Title),
+                string.IsNullOrWhiteSpace(subject.EnglishName) ? 0 : SmartParsers.TitleMatch(subject.SearchQuery, image.Title));
+            if (match >= BingTitleMatch)
+                candidates.Add(new ImageCandidate(image.Url, SmartImageRules.SourceKey("bing", image.PageUrl ?? image.Url), false, match, image.Title, image.PageUrl));
+        }
 
+        var ranked = Rank(candidates, blacklist, scores, Math.Clamp(options.MaxImageCandidates, 6, 36));
         var existing = subject.ImageNames.Select(n => uploads.GetPath(UploadArea.Products, n)).Where(p => p is not null && File.Exists(p))
             .Select(p => SmartImageAnalyzer.Analyze(File.ReadAllBytes(p!))).Where(i => i is not null).Select(i => i!.Hash).ToList();
-
-        var candidates = trusted.Select(t => (t.Url, t.Source, Trusted: true))
-            .Concat(suggested.Select(s => (s.Url, s.Source, Trusted: false)))
-            .DistinctBy(c => c.Url, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Clamp(options.MaxImageCandidates, 4, 36))
-            .ToList();
-        return await DownloadAndStoreAsync(candidates, existing, Math.Clamp(want, 1, 12), options.MinImageSide, UploadArea.Products, cancellationToken);
+        return await DownloadAndStoreAsync(ranked, existing, blacklist, scores, Math.Clamp(want, 1, 15), options.MinImageSide, UploadArea.Products, cancellationToken);
     }
+
+    /// <summary>
+    /// مرتب‌سازی و پالایش نامزدها (خالص؛ آزمون‌پذیر): حذف آدرس‌های فهرست سیاه، حذف آدرس تکراری (اولی با امتیاز بیشتر می‌ماند)،
+    /// مرتب‌سازی نزولی امتیاز و سقف تعداد. مثال: عکسی که کارشناس قبلاً رد کرده ← حذف؛ دیجی‌کالا جلوتر از بینگ ناشناس.
+    /// </summary>
+    public static List<ImageCandidate> Rank(IEnumerable<ImageCandidate> candidates, ImageBlacklist blacklist, IReadOnlyDictionary<string, double>? scores, int max) =>
+        candidates
+            .Where(c => SmartParsers.CleanImageUrl(c.Url) is not null && !blacklist.BlocksUrl(c.Url))
+            .OrderByDescending(c => c.Score(scores))
+            .ThenBy(c => c.Url, StringComparer.Ordinal)
+            .DistinctBy(c => SmartImageRules.UrlKey(c.Url))
+            .Take(Math.Max(1, max))
+            .ToList();
 
     /// <summary>
     /// تصویر دسته/مقاله (B4/B5): بنر بدون متن از بهترین تصویر کالاهای همان دسته/مقاله. خروجی نام فایل در ناحیهٔ مقصد.
@@ -199,38 +252,46 @@ public sealed class SmartImageFinder(
     /// <summary>حذف فایل‌های پیشنهادی ردشده (فقط نام فایل معتبر داخل پوشهٔ محصولات).</summary>
     public void DeleteProductFiles(IEnumerable<string> names) => uploads.Delete(UploadArea.Products, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
 
-    private async Task<List<FoundImage>> DownloadAndStoreAsync(List<(string Url, string Source, bool Trusted)> candidates, List<ulong> existing,
-        int want, int minSide, UploadArea area, CancellationToken cancellationToken)
+    private async Task<List<FoundImage>> DownloadAndStoreAsync(List<ImageCandidate> candidates, List<ulong> existing, ImageBlacklist blacklist,
+        IReadOnlyDictionary<string, double>? scores, int want, int minSide, UploadArea area, CancellationToken cancellationToken)
     {
         var results = new List<FoundImage>();
         var hashes = new List<ulong>(existing);
         using var throttle = new SemaphoreSlim(3);
-        var downloads = candidates.Select(async c =>
+        // دسته‌های ۶تایی به ترتیب امتیاز: وقتی به تعداد خواسته رسیدیم بقیه اصلاً دانلود نمی‌شوند (پهنای باند و حافظهٔ هاست ضعیف).
+        foreach (var batch in candidates.Chunk(6))
         {
-            await throttle.WaitAsync(cancellationToken);
-            try
+            if (results.Count >= want)
+                break;
+            var downloads = batch.Select(async c =>
             {
-                return (Candidate: c, Bytes: await DownloadAsync(c.Url, cancellationToken));
-            }
-            finally
-            {
-                throttle.Release();
-            }
-        }).ToList();
+                await throttle.WaitAsync(cancellationToken);
+                try
+                {
+                    return (Candidate: c, Bytes: await DownloadAsync(c.Url, cancellationToken));
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            }).ToList();
 
-        foreach (var task in downloads)
-        {
-            var (candidate, bytes) = await task;
-            if (bytes is null || results.Count(r => r.Trusted == candidate.Trusted) >= want)
-                continue;
-            var info = SmartImageAnalyzer.Analyze(bytes);
-            if (info is null || !SmartImageAnalyzer.IsAcceptable(info, minSide) || hashes.Any(h => ImageHash.IsDuplicate(h, info.Hash)))
-                continue;
-            var name = await StoreAsync(bytes, area, cancellationToken);
-            if (name is null)
-                continue;
-            hashes.Add(info.Hash);
-            results.Add(new FoundImage(name, info.Width, info.Height, candidate.Source, candidate.Trusted));
+            foreach (var task in downloads)
+            {
+                var (candidate, bytes) = await task;
+                if (bytes is null || results.Count >= want)
+                    continue;
+                var info = SmartImageAnalyzer.Analyze(bytes);
+                if (info is null || !SmartImageAnalyzer.IsAcceptable(info, minSide) || blacklist.BlocksHash(info.Hash)
+                    || hashes.Any(h => ImageHash.IsDuplicate(h, info.Hash)))
+                    continue;
+                var name = await StoreAsync(bytes, area, cancellationToken);
+                if (name is null)
+                    continue;
+                hashes.Add(info.Hash);
+                results.Add(new FoundImage(name, info.Width, info.Height, candidate.Source, candidate.Trusted,
+                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores)));
+            }
         }
         return results;
     }

@@ -15,6 +15,7 @@ namespace Fratak_Shop.Data.Entities.Smart;
 //   • BlogPlanItem          ← تقویم محتوای بلاگ (B18).
 //   • CustomerReminder      ← یادآوری‌های بعد از خرید: درخواست نظر (C19) و تمدید کالای مصرفی (C20).
 //   • SmartContentConfig    ← تنظیمات همهٔ این امکانات + کلید هش‌شدهٔ «دستیار رایانهٔ مالک» (A31).
+//   • SmartImageFeedback    ← دور بیستم: عکس‌هایی که کارشناس برای هر محصول تأیید/رد کرده (فهرست سیاه + رتبهٔ منبع عکس).
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// <summary>نوع کار هوشمند. مثال: <see cref="ProductImages"/> = پیدا کردن عکس‌های تازه برای یک محصول.</summary>
@@ -42,6 +43,11 @@ public enum SmartTaskKind : byte
 
     /// <summary>عکس شاخص یک مقاله.</summary>
     BlogImage = 7,
+
+    /// <summary>
+    /// «نقد و بررسی» حرفه‌ای محصول با HTML ساختاریافته (دور بیستم): تیتر، خلاصهٔ بررسی، جدول، نقاط قوت/پیش از خرید بدانید و جمع‌بندی.
+    /// </summary>
+    ProductReview = 8,
 }
 
 /// <summary>هدف کار: محصول، دسته یا مقاله.</summary>
@@ -134,6 +140,35 @@ public class SmartTask : BaseEntity
     /// <summary>چه کسی اجرا کرد: «server» یا «helper:نام رایانه».</summary>
     [MaxLength(100)]
     public string? ClaimedBy { get; set; }
+}
+
+/// <summary>
+/// بازخورد کارشناس روی عکس‌های پیشنهادی (دور بیستم).
+/// <para>چرا؟ عکس اشتباه یعنی مشتری یک چیز می‌بیند و چیز دیگری می‌خرد. هر عکسی که کارشناس رد کند (یا «رد همه و جست‌وجوی دوباره» بزند)
+/// اینجا ثبت می‌شود و دیگر هرگز برای همان محصول پیشنهاد نمی‌شود – نه با همان آدرس و نه با همان تصویر از سایت دیگر (اثر انگشت dHash).</para>
+/// <para>رتبهٔ منبع: نسبت تأیید هر منبع (مثلاً «digikala»، «serp:example.com»، «bing:shop.ir») در همهٔ محصولات؛ منبعی که عکس‌هایش
+/// بیشتر تأیید شده، دفعهٔ بعد اول می‌آید (یادگیری از تصمیم‌های خود کارشناس).</para>
+/// <para>مثال ردیف: ProductId=…، UrlKey=sha256(آدرس تمیزشده)، Hash=0x8f3c…، Source=«serp:mobile.ir»، Approved=false.</para>
+/// <para>محل استفاده: SmartCatalogService (GetImageBlacklistAsync، RecordImageFeedbackAsync، ImageSourceScoresAsync) و SmartImageFinder.</para>
+/// </summary>
+public class SmartImageFeedback : BaseEntity
+{
+    public Guid ProductId { get; set; }
+
+    /// <summary>SHA-256 هگز (۶۴ نویسه) آدرس تمیزشدهٔ عکس؛ آدرس خام ذخیره نمی‌شود (کوتاه و یکتا).</summary>
+    [Required]
+    [MaxLength(64)]
+    public string UrlKey { get; set; } = null!;
+
+    /// <summary>اثر انگشت تصویری (dHash ۶۴ بیتی)؛ ۰ = نامعلوم.</summary>
+    public long Hash { get; set; }
+
+    /// <summary>کلید منبع. مثال: «digikala»، «supplier»، «serp:mobile.ir»، «basalam»، «bing:shop.ir».</summary>
+    [MaxLength(100)]
+    public string? Source { get; set; }
+
+    /// <summary>true = کارشناس این عکس را انتخاب کرد؛ false = رد شد (فهرست سیاه همین محصول).</summary>
+    public bool Approved { get; set; }
 }
 
 /// <summary>

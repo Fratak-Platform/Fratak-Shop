@@ -121,6 +121,15 @@ public interface ISeoEngineService
     /// خطر جریمه و مانع انتشار؛ بدون جست‌وجوی اینترنتی و بدون ذخیره.
     /// </summary>
     Task<SeoLiveReport> LiveAsync(SeoDraftInput input, IReadOnlyList<Autopilot.LinkTarget>? linkTargets, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// نوشتن «نقد و بررسی» حرفه‌ای (HTML ساختاریافته) برای یک محصول، بدون ذخیره.
+    /// <para>keepHtml: متنی که دست‌نخورده بالای بررسی تازه می‌ماند (متن کم صفحه، یا بخش انسانی بالای «نقد و بررسی» قبلی)؛ null = فقط بررسی.</para>
+    /// <para>notes: نکته‌های «خلاصهٔ خرید» تأییدشده (null = فقط از مشخصات).</para>
+    /// <para>خطا: محصول پیدا نشد یا مشخصات کافی نیست («مشخصات کافی نیست» – دستیار این را به کارشناس نشان می‌دهد).</para>
+    /// <para>محل استفاده: SmartOrchestrator (تکمیل محصول و کار «نقد و بررسی»).</para>
+    /// </summary>
+    Task<OperationResult<ProductReviewDraft>> WriteProductReviewAsync(Guid productId, string? keepHtml, ReviewNotes? notes, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="ISeoEngineService"/>

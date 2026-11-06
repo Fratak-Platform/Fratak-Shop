@@ -342,16 +342,16 @@ public static partial class SpecKnowledge
         return (code, string.Join(" و ", parts), level);
     }
 
-    private static bool IsCapacity(SpecFact f) =>
+    internal static bool IsCapacity(SpecFact f) =>
         f.Value.Contains("آمپر", StringComparison.Ordinal) || PersianText.Normalize(f.Value).Contains("mah", StringComparison.Ordinal);
 
-    private static bool IsPassive(string value)
+    internal static bool IsPassive(string value)
     {
         var n = PersianText.Normalize(value);
         return n.Contains("پسیو") || n.Contains("passive") || n.Contains("غیرفعال") || n.Contains("غیر فعال");
     }
 
-    private static bool IsUsbC(string value)
+    internal static bool IsUsbC(string value)
     {
         var n = PersianText.Normalize(value).Replace(" ", "");
         return n.Contains("usb-c") || n.Contains("type-c") || n.Contains("typec") || n.Contains("usbc");
@@ -367,7 +367,10 @@ public static partial class SpecKnowledge
     /// نویسه‌های ویژهٔ الگو ([ ] | { }) در مقدار ویژگی‌ها به نویسهٔ بی‌خطر تبدیل می‌شوند تا الگوی جمله خراب نشود.
     /// </summary>
     public static string Safe(string text) =>
-        text.Replace('[', '(').Replace(']', ')').Replace('{', '(').Replace('}', ')').Replace('|', '/');
+        text.Replace('[', '(').Replace(']', ')').Replace('{', '(').Replace('}', ')').Replace('|', '/')
+            // نویسه‌های «استفادهٔ خصوصی» U+E000..U+E003 نشانهٔ داخلی strong/em نویسندهٔ «نقد و بررسی»اند؛ از داده حذف می‌شوند.
+            .Replace("\uE000", "", StringComparison.Ordinal).Replace("\uE001", "", StringComparison.Ordinal)
+            .Replace("\uE002", "", StringComparison.Ordinal).Replace("\uE003", "", StringComparison.Ordinal);
 
     [GeneratedRegex(@"\d+(\.\d+)?", RegexOptions.CultureInvariant, 200)]
     private static partial Regex NumberPattern();

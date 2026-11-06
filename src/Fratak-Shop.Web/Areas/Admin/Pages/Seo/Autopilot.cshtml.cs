@@ -97,6 +97,7 @@ public class AutopilotModel(
         Fratak_Shop.Data.Entities.SeoEngine.SeoRevisionSource.Slug => "نامک انگلیسی",
         Fratak_Shop.Data.Entities.SeoEngine.SeoRevisionSource.Image => "تصویر",
         Fratak_Shop.Data.Entities.SeoEngine.SeoRevisionSource.Manual => "دستی",
+        Fratak_Shop.Data.Entities.SeoEngine.SeoRevisionSource.SmartReview => "نقد و بررسی هوشمند",
         _ => "نامشخص",
     };
 

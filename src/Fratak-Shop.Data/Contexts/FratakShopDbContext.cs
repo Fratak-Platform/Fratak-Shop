@@ -316,6 +316,9 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Smart.CustomerReminder> CustomerReminders { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.SmartContentConfig> SmartContentConfigs { get; set; } = null!;
 
+    // دور بیستم: بازخورد کارشناس روی عکس‌های پیشنهادی (فهرست سیاه + رتبهٔ منبع).
+    public DbSet<Fratak_Shop.Data.Entities.Smart.SmartImageFeedback> SmartImageFeedbacks { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

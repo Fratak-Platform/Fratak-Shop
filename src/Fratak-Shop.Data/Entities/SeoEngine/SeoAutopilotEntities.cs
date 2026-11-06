@@ -96,6 +96,9 @@ public enum SeoRevisionSource : byte
     Slug = 6,
     Image = 7,
     Manual = 8,
+
+    /// <summary>«نقد و بررسی» حرفه‌ای که دستیار هوشمند نوشت (دور بیستم). هش متن بعد از این تغییر = «نوشتهٔ دستیار».</summary>
+    SmartReview = 9,
 }
 
 /// <summary>

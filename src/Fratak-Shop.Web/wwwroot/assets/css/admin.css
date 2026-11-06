@@ -293,6 +293,30 @@ html[data-theme="dark"] .a-card.a-card-staff { background: var(--a-primary-soft)
 .a-img-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 .a-img-card { border: 1px solid var(--a-border); border-radius: 12px; padding: 8px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
 .a-img-card img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #f8fafc; border-radius: 8px; }
+/* دور بیستم: گالری با حذف دقیق هر تصویر و انتخاب عکس‌های پیشنهادی (admin-gallery.js) */
+.a-img-frame { position: relative; }
+.a-img-frame img { cursor: zoom-in; }
+.a-img-del { position: absolute; top: 6px; left: 6px; border: 0; border-radius: 9999px; padding: 3px 10px; font-size: 11px; font-weight: 700;
+  color: #fff; background: rgba(220, 38, 38, .9); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.a-img-del:focus-visible { outline: 2px solid #0069FD; outline-offset: 2px; }
+.a-img-card.is-removed { opacity: .55; border-style: dashed; border-color: #ef4444; }
+.a-img-card.is-removed img { filter: grayscale(1); cursor: default; }
+.a-img-card.is-removed .a-img-del { background: #0069FD; }
+.a-img-card.is-selected { border-color: #0069FD; box-shadow: 0 0 0 2px rgba(0,105,253,.35); }
+.a-img-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; line-height: 1.7; }
+.a-img-meta a { color: inherit; text-decoration: underline dotted; overflow-wrap: anywhere; }
+.a-img-score { font-variant-numeric: tabular-nums; }
+.a-review-preview { max-height: 32rem; overflow: auto; border: 1px solid var(--a-border); border-radius: 12px; padding: 12px 16px; background: #fff; line-height: 2; }
+.a-review-preview h2 { font-size: 1.1rem; font-weight: 800; margin: 1rem 0 .5rem; }
+.a-review-preview h3 { font-size: 1rem; font-weight: 700; margin: .8rem 0 .4rem; }
+.a-review-preview p { margin: .4rem 0; }
+.a-review-preview ul, .a-review-preview ol { padding-inline-start: 1.25rem; margin: .4rem 0; list-style: disc; }
+.a-review-preview ol { list-style: decimal; }
+.a-review-preview table { width: 100%; border-collapse: collapse; margin: .6rem 0; font-size: .9rem; }
+.a-review-preview th, .a-review-preview td { border: 1px solid var(--a-border); padding: 6px 8px; text-align: start; }
+.a-review-preview th { background: #f8fafc; }
+html[data-theme="dark"] .a-review-preview { background: var(--a-card); color: var(--a-text); }
+html[data-theme="dark"] .a-review-preview th { background: #0D1D2E; }
 
 /* details / disclosure */
 details.a-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }

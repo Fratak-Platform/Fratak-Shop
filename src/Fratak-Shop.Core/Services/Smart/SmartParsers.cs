@@ -8,6 +8,12 @@ namespace Fratak_Shop.Core.Services.Smart;
 /// <summary>یک کالای پیدا شده در جست‌وجوی دیجی‌کالا. مثال: (12345، «هدفون بی‌سیم هایلو مدل T15»، «Haylou T15»).</summary>
 public sealed record DigikalaHit(long Id, string Title, string? EnglishTitle);
 
+/// <summary>
+/// یک نتیجهٔ جست‌وجوی تصویر (دور بیستم): آدرس تصویر اصلی، عنوان کارت و صفحه‌ای که تصویر در آن است.
+/// مثال: («https://shop.ir/img/t15.jpg»، «هدفون هایلو T15 مشکی»، «https://shop.ir/p/t15»).
+/// </summary>
+public sealed record ImageHit(string Url, string? Title, string? PageUrl);
+
 /// <summary>جزئیات کالای دیجی‌کالا: ردیف‌های مشخصات و آدرس تصویرها.</summary>
 public sealed record DigikalaDetails(IReadOnlyList<(string Key, string Value)> Specs, IReadOnlyList<string> Images);
 
@@ -137,6 +143,12 @@ public static partial class SmartParsers
                 Add(list, m.Groups["k"].Value, m.Groups["v"].Value);
             foreach (Match m in SpanPairRegex().Matches(html))
                 Add(list, m.Groups["k"].Value, m.Groups["v"].Value);
+            // دور بیستم: فهرست تعریف <dl><dt>کلید</dt><dd>مقدار</dd> (رایج در قالب‌های فروشگاهی) و
+            // داده‌های ساخت‌یافتهٔ JSON-LD (Product.additionalProperty) که خیلی از فروشگاه‌ها برای گوگل می‌گذارند.
+            foreach (Match m in DefinitionRegex().Matches(html))
+                Add(list, m.Groups["k"].Value, m.Groups["v"].Value);
+            foreach (var (key, value) in JsonLdSpecs(html))
+                Add(list, WebUtility.HtmlEncode(key), WebUtility.HtmlEncode(value));
         }
         catch (RegexMatchTimeoutException)
         {
@@ -177,9 +189,16 @@ public static partial class SmartParsers
     /// <summary>
     /// نتایج جست‌وجوی تصویر بینگ (HTML): هر کارت <c>&lt;a class="iusc" m="{…&quot;murl&quot;:&quot;…&quot;…}"&gt;</c> آدرس تصویر اصلی (murl) را دارد.
     /// </summary>
-    public static List<string> BingImages(string? html)
+    public static List<string> BingImages(string? html) => BingImageResults(html).Select(h => h.Url).ToList();
+
+    /// <summary>
+    /// دور بیستم: نتایج کامل جست‌وجوی تصویر بینگ – آدرس تصویر (murl)، عنوان کارت (t) و صفحهٔ منبع (purl).
+    /// عنوان برای سنجش «همین کالاست؟» (TitleMatch) و صفحه برای امتیاز جداگانهٔ هر سایت استفاده می‌شود.
+    /// <para>مثال m: {"murl":"https://a.ir/x.jpg","purl":"https://a.ir/p/1","t":"هدفون هایلو T15"} ← ImageHit(آدرس تصویر، عنوان، صفحه).</para>
+    /// </summary>
+    public static List<ImageHit> BingImageResults(string? html)
     {
-        var list = new List<string>();
+        var list = new List<ImageHit>();
         if (string.IsNullOrEmpty(html))
             return list;
         try
@@ -193,9 +212,14 @@ public static partial class SmartParsers
                 using (doc)
                 {
                     if (Str(doc.RootElement, "murl") is { } url && CleanImageUrl(url) is { } clean)
-                        list.Add(clean);
+                    {
+                        var title = Str(doc.RootElement, "t") is { } t ? Truncate(PersianText.Clean(PersianText.HtmlToText(t)), 300) : null;
+                        var page = Str(doc.RootElement, "purl") is { } purl && Uri.TryCreate(purl, UriKind.Absolute, out var pageUri)
+                                   && pageUri.Scheme is "http" or "https" ? pageUri.AbsoluteUri : null;
+                        list.Add(new ImageHit(clean, string.IsNullOrWhiteSpace(title) ? null : title, page));
+                    }
                 }
-                if (list.Count >= 30)
+                if (list.Count >= 40)
                     break;
             }
         }
@@ -203,7 +227,159 @@ public static partial class SmartParsers
         {
             // همان نتایج خوانده‌شده.
         }
-        return list.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return list.DistinctBy(h => h.Url, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// دور بیستم: تصویرهای کالا از داده‌های ساخت‌یافتهٔ JSON-LD صفحه (Product.image: رشته، آرایه یا ImageObject؛ داخل @graph هم).
+    /// مثال: {"@type":"Product","image":["https://a.ir/1.jpg",{"@type":"ImageObject","url":"/2.jpg"}]} ← دو آدرس کامل.
+    /// </summary>
+    public static List<string> JsonLdImages(string? html, string? pageUrl = null)
+    {
+        var list = new List<string>();
+        Uri? basis = pageUrl is not null && Uri.TryCreate(pageUrl, UriKind.Absolute, out var b) ? b : null;
+        foreach (var block in JsonLdBlocks(html))
+        {
+            var root = Parse(block);
+            if (root is not { } doc)
+                continue;
+            using (doc)
+            {
+                foreach (var product in Products(doc.RootElement, 0))
+                {
+                    if (Prop(product, "image") is not { } image)
+                        continue;
+                    foreach (var raw in ImageValues(image))
+                    {
+                        var value = WebUtility.HtmlDecode(raw).Trim();
+                        if (basis is not null && Uri.TryCreate(basis, value, out var absolute))
+                            value = absolute.AbsoluteUri;
+                        if (CleanImageUrl(value) is { } clean)
+                            list.Add(clean);
+                    }
+                }
+            }
+            if (list.Count >= 12)
+                break;
+        }
+        return list.Distinct(StringComparer.OrdinalIgnoreCase).Take(12).ToList();
+
+        static IEnumerable<string> ImageValues(JsonElement image)
+        {
+            switch (image.ValueKind)
+            {
+                case JsonValueKind.String:
+                    yield return image.GetString()!;
+                    break;
+                case JsonValueKind.Object when (Str(image, "url") ?? Str(image, "contentUrl")) is { } url:
+                    yield return url;
+                    break;
+                case JsonValueKind.Array:
+                    foreach (var item in image.EnumerateArray().Take(12))
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                            yield return item.GetString()!;
+                        else if (item.ValueKind == JsonValueKind.Object && (Str(item, "url") ?? Str(item, "contentUrl")) is { } itemUrl)
+                            yield return itemUrl;
+                    }
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// دور بیستم: ردیف‌های مشخصات از JSON-LD (Product.additionalProperty[] با name و value؛ داخل @graph هم).
+    /// مثال: {"@type":"PropertyValue","name":"وزن","value":"45 گرم"} ← («وزن»، «45 گرم»). عدد هم به متن تبدیل می‌شود.
+    /// </summary>
+    public static List<(string Key, string Value)> JsonLdSpecs(string? html)
+    {
+        var list = new List<(string, string)>();
+        foreach (var block in JsonLdBlocks(html))
+        {
+            var root = Parse(block);
+            if (root is not { } doc)
+                continue;
+            using (doc)
+            {
+                foreach (var product in Products(doc.RootElement, 0))
+                {
+                    if (Prop(product, "additionalProperty") is not { ValueKind: JsonValueKind.Array } properties)
+                        continue;
+                    foreach (var property in properties.EnumerateArray().Take(80))
+                    {
+                        var name = Str(property, "name");
+                        var value = Prop(property, "value") is { } v
+                            ? v.ValueKind switch
+                            {
+                                JsonValueKind.String => v.GetString(),
+                                JsonValueKind.Number => v.GetRawText(),
+                                JsonValueKind.True => "دارد",
+                                JsonValueKind.False => "ندارد",
+                                _ => null,
+                            }
+                            : null;
+                        if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(value))
+                            list.Add((PersianText.Clean(name), PersianText.Clean(value)));
+                    }
+                }
+            }
+        }
+        return list.Take(80).ToList();
+    }
+
+    /// <summary>متن بلوک‌های &lt;script type="application/ld+json"&gt; (حداکثر ۱۰ بلوک، هر کدام ≤ ۲۰۰ کیلوبایت).</summary>
+    private static List<string> JsonLdBlocks(string? html)
+    {
+        var blocks = new List<string>();
+        if (string.IsNullOrEmpty(html))
+            return blocks;
+        try
+        {
+            foreach (Match m in JsonLdRegex().Matches(html.Length > 1_500_000 ? html[..1_500_000] : html))
+            {
+                var json = m.Groups["j"].Value.Trim();
+                if (json.Length is > 1 and <= 200_000)
+                    blocks.Add(json);
+                if (blocks.Count >= 10)
+                    break;
+            }
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // همان بلوک‌های خوانده‌شده.
+        }
+        return blocks;
+    }
+
+    /// <summary>گره‌های @type=Product (یا آرایه‌ای که Product دارد) در ریشه، آرایه یا @graph؛ حداکثر عمق ۴.</summary>
+    private static IEnumerable<JsonElement> Products(JsonElement element, int depth)
+    {
+        if (depth > 4)
+            yield break;
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray().Take(50))
+                foreach (var product in Products(item, depth + 1))
+                    yield return product;
+            yield break;
+        }
+        if (element.ValueKind != JsonValueKind.Object)
+            yield break;
+        if (IsProduct(Prop(element, "@type")))
+            yield return element;
+        if (Prop(element, "@graph") is { ValueKind: JsonValueKind.Array } graph)
+            foreach (var product in Products(graph, depth + 1))
+                yield return product;
+        if (Prop(element, "mainEntity") is { ValueKind: JsonValueKind.Object } main)
+            foreach (var product in Products(main, depth + 1))
+                yield return product;
+
+        static bool IsProduct(JsonElement? type) => type switch
+        {
+            { ValueKind: JsonValueKind.String } t => t.GetString() is "Product" or "ProductModel" or "IndividualProduct",
+            { ValueKind: JsonValueKind.Array } a => a.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.String && x.GetString() is "Product" or "ProductModel"),
+            _ => false,
+        };
     }
 
     /// <summary>
@@ -332,6 +508,12 @@ public static partial class SmartParsers
 
     [GeneratedRegex(@"<li[^>]*>\s*<span[^>]*>(?<k>[^<]{2,60})</span>\s*<span[^>]*>(?<v>[^<]{1,200})</span>\s*</li>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 1000)]
     private static partial Regex SpanPairRegex();
+
+    [GeneratedRegex(@"<dt[^>]*>\s*(?<k>[^<]{2,80})\s*</dt>\s*<dd[^>]*>(?<v>.{1,300}?)</dd>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex DefinitionRegex();
+
+    [GeneratedRegex(@"<script[^>]+type\s*=\s*[""']application/ld\+json[""'][^>]*>(?<j>.*?)</script>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex JsonLdRegex();
 
     [GeneratedRegex(@"<meta[^>]+(?:property|name)\s*=\s*[""'](?:og:image(?::secure_url)?|twitter:image)[""'][^>]*content\s*=\s*[""'](?<u>[^""']{8,1500})[""']", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 500)]
     private static partial Regex OgImageRegex();

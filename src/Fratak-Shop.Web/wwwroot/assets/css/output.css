@@ -807,6 +807,100 @@ video {
   color: rgb(255 255 255 / var(--tw-text-opacity));
 }
 
+/* دور بیستم: «نقد و بررسی» حرفه‌ای (ContentWriter.ProductReview) – کادر خلاصه، جدول مشخصات و مزایا/نکته‌ها. */
+
+.prose-content strong {
+  font-weight: 600;
+  --tw-text-opacity: 1;
+  color: rgb(31 43 56 / var(--tw-text-opacity));
+}
+
+.prose-content em {
+  font-weight: 500;
+  font-style: normal;
+  --tw-text-opacity: 1;
+  color: rgb(58 69 84 / var(--tw-text-opacity));
+}
+
+.fs-review-box {
+  margin-bottom: 1.5rem;
+  border-radius: 0.75rem;
+  border-width: 1px;
+  --tw-border-opacity: 1;
+  border-color: rgb(173 214 255 / var(--tw-border-opacity));
+  --tw-bg-opacity: 1;
+  background-color: rgb(235 245 255 / var(--tw-bg-opacity));
+  padding: 1rem;
+}
+
+.fs-review-box ul {
+  margin-bottom: 0px;
+}
+
+.prose-content .fs-review-box-title {
+  margin-bottom: 0.5rem;
+  --tw-text-opacity: 1;
+  color: rgb(31 43 56 / var(--tw-text-opacity));
+}
+
+.prose-content .fs-spec-table {
+  display: table;
+  width: 100%;
+}
+
+.fs-spec-table tbody tr:nth-child(even) {
+  --tw-bg-opacity: 1;
+  background-color: rgb(250 251 252 / var(--tw-bg-opacity));
+}
+
+.fs-spec-table td:first-child {
+  width: 40%;
+  --tw-text-opacity: 1;
+  color: rgb(107 119 135 / var(--tw-text-opacity));
+}
+
+.fs-proscons {
+  margin-bottom: 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .fs-proscons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.fs-pros, .fs-cons {
+  border-radius: 0.75rem;
+  border-width: 1px;
+  padding: 1rem;
+}
+
+.fs-pros {
+  --tw-border-opacity: 1;
+  border-color: rgb(167 243 208 / var(--tw-border-opacity));
+  --tw-bg-opacity: 1;
+  background-color: rgb(236 253 245 / var(--tw-bg-opacity));
+}
+
+.fs-cons {
+  --tw-border-opacity: 1;
+  border-color: rgb(253 230 138 / var(--tw-border-opacity));
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 251 235 / var(--tw-bg-opacity));
+}
+
+.prose-content .fs-pros h3, .prose-content .fs-cons h3 {
+  margin-top: 0px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.fs-pros ul, .fs-cons ul {
+  margin-bottom: 0px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -5558,10 +5652,6 @@ video {
 
   .lg\:grid-cols-5 {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .lg\:grid-cols-6 {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .lg\:grid-cols-7 {

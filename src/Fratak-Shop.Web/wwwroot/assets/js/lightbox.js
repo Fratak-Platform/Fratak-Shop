@@ -16,14 +16,21 @@
  *  چه چیزهایی باز نمی‌شوند؟ عنصرهای data-no-lightbox، تصویرهای خیلی کوچک (آیکون)، تصویرهای داخل لینک به صفحهٔ دیگر،
  *  و کلیک با Ctrl/Cmd/دکمهٔ وسط (رفتار عادی مرورگر برای کسی که عمداً می‌خواهد).
  *
- *  امکانات: ورق زدن (دکمه، کلیدهای ←/→، کشیدن انگشت روی موبایل)، بزرگ‌نمایی با کلیک روی تصویر و جابه‌جایی با حرکت ماوس،
+ *  امکانات: ورق زدن (دکمه، کلیدهای ←/→، کشیدن انگشت روی موبایل)، بزرگ‌نمایی (کلیک/ضربه روی تصویر = ۲٫۵ برابر، چرخ ماوس و
+ *  دکمه‌های +/− تا ۵ برابر، دو انگشت روی موبایل) و جابه‌جایی با حرکت ماوس یا انگشت، کلیدهای + و − و 0،
  *  Esc برای بستن، قفل اسکرول صفحه، بازگرداندن فوکوس، پیش‌بارگذاری تصویر بعدی، شمارنده و عنوان (alt).
+ *
+ *  دکمه‌های عملیات (دور بیستم): open(list, start, { actions: [...] }) دکمه‌هایی مثل «حذف این تصویر» یا «انتخاب» را بالای تصویر
+ *  می‌گذارد. هر action: { label: "متن" یا تابع(item, index), danger: true/false, onClick(item, index, api) }.
+ *  api: { remove(i) حذف از فهرست فعلی (آخری ← بسته شدن)، refresh() بازسازی برچسب‌ها، close() }.
+ *  هر item می‌تواند data دلخواه داشته باشد (مثلاً عنصر کارت در صفحه). محل استفاده: admin-gallery.js (ویرایش کالا و پیشنهادهای هوشمند).
  *
  *  امنیت: هیچ متنی با innerHTML ساخته نمی‌شود (فقط textContent)، اسکریپت درون‌خطی ندارد (سازگار با CSP)
  *  و فقط آدرس‌های http/https/نسبی را به‌عنوان تصویر می‌پذیرد (javascript: و data: غیرتصویری رد می‌شوند).
  *  ظاهر با style خود عنصرها ساخته می‌شود تا به کلاس‌های Tailwind (که این پوشه را اسکن نمی‌کند) وابسته نباشد.
  *
- *  محل استفاده: در _Layout، _LayoutMinimal و _AdminLayout بارگذاری می‌شود. API عمومی: window.FratakLightbox.open([urls], index).
+ *  محل استفاده: در _Layout، _LayoutMinimal و _AdminLayout بارگذاری می‌شود.
+ *  API عمومی: window.FratakLightbox.open([urls یا {url, caption, data}], index, { actions }) و close().
  */
 (function () {
   "use strict";
@@ -34,10 +41,15 @@
   const CONTENT_SCOPE = ".prose-content, [data-lightbox-scope]";
   const MIN_SIZE = 48; // تصویرهای کوچک‌تر از این (آیکون‌ها) باز نمی‌شوند
 
-  let root, imgEl, captionEl, counterEl, prevBtn, nextBtn, closeBtn, spinner;
+  const MAX_SCALE = 5;
+  const CLICK_SCALE = 2.5;
+
+  let root, imgEl, captionEl, counterEl, prevBtn, nextBtn, closeBtn, spinner, toolbar, zoomInBtn, zoomOutBtn;
   let items = [];
   let index = 0;
-  let zoomed = false;
+  let scale = 1;
+  let actions = [];
+  let pinchStart = null;
   let lastFocus = null;
   let touchStartX = null;
   let touchStartY = null;
@@ -172,8 +184,9 @@
     root.hidden = true;
     Object.assign(root.style, {
       position: "fixed", inset: "0", zIndex: "2147483000", background: "rgba(10,14,25,.92)",
-      display: "none", // نمایش با display کنترل می‌شود (style درون‌خطی بر ویژگی hidden غلبه می‌کند) alignItems: "center", justifyContent: "center", touchAction: "none",
-      opacity: "0", transition: "opacity .18s ease", overscrollBehavior: "contain",
+      // نمایش با display کنترل می‌شود (style درون‌خطی بر ویژگی hidden غلبه می‌کند).
+      display: "none", alignItems: "center", justifyContent: "center", touchAction: "none",
+      opacity: "0", transition: "opacity .18s ease", overscrollBehavior: "contain", overflow: "hidden",
     });
 
     imgEl = document.createElement("img");
@@ -212,8 +225,25 @@
     prevBtn = button("تصویر قبلی", ICON_RIGHT, { right: "12px", top: "50%", marginTop: "-22px" });
     nextBtn = button("تصویر بعدی", ICON_LEFT, { left: "12px", top: "50%", marginTop: "-22px" });
 
-    root.append(spinner, imgEl, counterEl, captionEl, closeBtn, prevBtn, nextBtn);
+    // نوار بالا-چپ: بزرگ‌نمایی/کوچک‌نمایی + دکمه‌های عملیات صفحه (مثلاً «حذف این تصویر»).
+    toolbar = document.createElement("div");
+    Object.assign(toolbar.style, {
+      position: "absolute", top: "12px", left: "12px", display: "flex", gap: "8px", alignItems: "center",
+      flexWrap: "wrap", maxWidth: "calc(100vw - 90px)", zIndex: "3", direction: "rtl",
+    });
+    zoomInBtn = button("بزرگ‌نمایی (+)", ICON_PLUS, { position: "static" });
+    zoomOutBtn = button("کوچک‌نمایی (−)", ICON_MINUS, { position: "static" });
+    toolbar.append(zoomInBtn, zoomOutBtn);
+
+    root.append(spinner, imgEl, counterEl, captionEl, closeBtn, prevBtn, nextBtn, toolbar);
     document.body.appendChild(root);
+    zoomInBtn.addEventListener("click", (e) => { e.stopPropagation(); setScale(scale * 1.5); });
+    zoomOutBtn.addEventListener("click", (e) => { e.stopPropagation(); setScale(scale / 1.5); });
+    root.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (e.target === imgEl) pan(e);
+      setScale(scale * (e.deltaY < 0 ? 1.2 : 1 / 1.2));
+    }, { passive: false });
 
     closeBtn.addEventListener("click", close);
     prevBtn.addEventListener("click", (e) => { e.stopPropagation(); go(-1); });
@@ -228,12 +258,26 @@
       captionEl.style.display = "";
     });
     root.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        // دو انگشت: شروع بزرگ‌نمایی.
+        pinchStart = { dist: distance(e.touches), scale };
+        touchStartX = null;
+        return;
+      }
       if (e.touches.length !== 1) return;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
     }, { passive: true });
+    root.addEventListener("touchmove", (e) => {
+      if (pinchStart && e.touches.length === 2) {
+        setScale(pinchStart.scale * distance(e.touches) / Math.max(1, pinchStart.dist));
+        return;
+      }
+      if (scale > 1 && e.touches.length === 1) pan(e.touches[0]); // جابه‌جایی تصویر بزرگ‌شده با انگشت
+    }, { passive: true });
     root.addEventListener("touchend", (e) => {
-      if (touchStartX === null || zoomed) { touchStartX = null; return; }
+      if (pinchStart) { if (e.touches.length < 2) pinchStart = null; touchStartX = null; return; }
+      if (touchStartX === null || scale > 1) { touchStartX = null; return; }
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
       touchStartX = null;
@@ -243,10 +287,60 @@
     root.addEventListener("keydown", trapFocus);
   }
 
+  const ICON_PLUS = "M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z";
+  const ICON_MINUS = "M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128Z";
+
+  function distance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // ── دکمه‌های عملیات صفحه ──────────────────────────────────────────────
+  const api = {
+    /** حذف تصویر i از فهرست فعلی؛ اگر چیزی نماند پنجره بسته می‌شود. */
+    remove(i) {
+      const at = typeof i === "number" ? i : index;
+      if (at < 0 || at >= items.length) return;
+      items.splice(at, 1);
+      if (items.length === 0) { close(); return; }
+      if (index >= items.length) index = items.length - 1;
+      render();
+    },
+    /** بازسازی برچسب دکمه‌ها (مثلاً بعد از «انتخاب»/«لغو انتخاب»). */
+    refresh() { renderActions(); },
+    close() { close(); },
+  };
+
+  function renderActions() {
+    toolbar.querySelectorAll("[data-lb-action]").forEach((b) => b.remove());
+    const item = items[index];
+    actions.forEach((action) => {
+      const label = typeof action.label === "function" ? action.label(item, index) : action.label;
+      if (!label) return;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("data-lb-action", "");
+      b.textContent = String(label);
+      Object.assign(b.style, {
+        height: "40px", padding: "0 16px", borderRadius: "9999px", border: "0", cursor: "pointer", fontSize: "13px",
+        fontFamily: "inherit", fontWeight: "700", color: "#fff",
+        background: action.danger ? "rgba(220,38,38,.92)" : "rgba(0,105,253,.92)", boxShadow: "0 4px 14px rgba(0,0,0,.3)",
+      });
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        try { action.onClick && action.onClick(items[index], index, api); } catch (err) { /* خطای صفحه پنجره را خراب نکند */ }
+        if (root && !root.hidden) renderActions();
+      });
+      toolbar.appendChild(b);
+    });
+  }
+
   // ── رفتار ──────────────────────────────────────────────────────────
   function render() {
     const item = items[index];
     resetZoom();
+    renderActions();
     spinner.style.display = "";
     imgEl.removeAttribute("src");
     imgEl.src = item.url;
@@ -266,16 +360,26 @@
     render();
   }
 
+  /** بزرگ‌نمایی بین ۱ و ۵ برابر. مثال: setScale(2.5). */
+  function setScale(next) {
+    scale = Math.min(MAX_SCALE, Math.max(1, next));
+    if (scale < 1.05) scale = 1;
+    imgEl.style.transform = scale > 1 ? "scale(" + scale.toFixed(3) + ")" : "";
+    imgEl.style.cursor = scale > 1 ? "zoom-out" : "zoom-in";
+    if (scale === 1) imgEl.style.transformOrigin = "50% 50%";
+    zoomOutBtn.style.opacity = scale > 1 ? "1" : ".45";
+    zoomInBtn.style.opacity = scale < MAX_SCALE ? "1" : ".45";
+  }
+
   function toggleZoom(e) {
-    e.stopPropagation();
-    zoomed = !zoomed;
-    imgEl.style.cursor = zoomed ? "zoom-out" : "zoom-in";
-    if (zoomed) pan(e);
-    imgEl.style.transform = zoomed ? "scale(2)" : "";
+    if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+    const zoomIn = scale === 1;
+    if (zoomIn && e) { scale = CLICK_SCALE; pan(e); }
+    setScale(zoomIn ? CLICK_SCALE : 1);
   }
 
   function pan(e) {
-    if (!zoomed) return;
+    if (scale <= 1 || !e) return;
     const rect = imgEl.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -283,10 +387,7 @@
   }
 
   function resetZoom() {
-    zoomed = false;
-    imgEl.style.transform = "";
-    imgEl.style.transformOrigin = "50% 50%";
-    imgEl.style.cursor = "zoom-in";
+    setScale(1);
   }
 
   function onKey(e) {
@@ -294,22 +395,33 @@
     if (e.key === "Escape") { e.preventDefault(); close(); }
     else if (e.key === "ArrowLeft") { e.preventDefault(); go(1); }   // RTL
     else if (e.key === "ArrowRight") { e.preventDefault(); go(-1); }
+    else if (e.key === "+" || e.key === "=") { e.preventDefault(); setScale(scale * 1.5); }
+    else if (e.key === "-") { e.preventDefault(); setScale(scale / 1.5); }
+    else if (e.key === "0") { e.preventDefault(); setScale(1); }
   }
 
   function trapFocus(e) {
     if (e.key !== "Tab") return;
-    const focusable = [closeBtn, prevBtn, nextBtn].filter((b) => b.style.display !== "none");
+    const focusable = [closeBtn, prevBtn, nextBtn, zoomInBtn, zoomOutBtn].concat(Array.from(toolbar.querySelectorAll("[data-lb-action]")))
+      .filter((b) => b.style.display !== "none");
     const i = focusable.indexOf(document.activeElement);
     e.preventDefault();
     const next = e.shiftKey ? (i <= 0 ? focusable.length - 1 : i - 1) : (i + 1) % focusable.length;
     focusable[next].focus();
   }
 
-  function open(list, start) {
-    const clean = (list || []).map((it) => (typeof it === "string" ? { url: safeUrl(it), caption: "" } : { url: safeUrl(it.url), caption: it.caption || "" }))
+  /**
+   * باز کردن پنجره. list: آدرس‌ها یا {url, caption, data}؛ start: شمارهٔ تصویر اول؛ options.actions: دکمه‌های عملیات.
+   * مثال: open([{url:"/uploads/products/a.webp", data: card}], 0, { actions: [{ label: "حذف", danger: true, onClick: (it, i, api) => api.remove(i) }] })
+   */
+  function open(list, start, options) {
+    const clean = (list || []).map((it) => (typeof it === "string"
+      ? { url: safeUrl(it), caption: "" }
+      : { url: safeUrl(it.url), caption: it.caption || "", data: it.data }))
       .filter((it) => it.url);
     if (clean.length === 0) return;
     if (!root) build();
+    actions = options && Array.isArray(options.actions) ? options.actions.filter((a) => a && typeof a.onClick === "function") : [];
     items = clean;
     index = Math.min(Math.max(0, start || 0), items.length - 1);
     lastFocus = document.activeElement;
@@ -329,6 +441,7 @@
     root.hidden = true;
     root.style.display = "none";
     imgEl.removeAttribute("src");
+    actions = [];
     document.documentElement.style.overflow = previousOverflow;
     document.removeEventListener("keydown", onKey);
     if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus({ preventScroll: true });

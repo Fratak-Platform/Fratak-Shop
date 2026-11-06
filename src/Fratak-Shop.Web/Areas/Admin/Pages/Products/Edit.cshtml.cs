@@ -18,6 +18,8 @@ public sealed class ProductImageInput
     public string ImageName { get; set; } = "";
     public string? AltText { get; set; }
     public int DisplayOrder { get; set; }
+
+    /// <summary>روش قدیمی (تیک «حذف» کنار هر ردیف)؛ برای سازگاری با فرم‌های بدون جاوااسکریپت هنوز پذیرفته می‌شود.</summary>
     public bool Remove { get; set; }
 }
 
@@ -57,6 +59,12 @@ public sealed class ProductInput
     public bool ExcludeFromSupplierSync { get; set; }
     public string? PrimaryImage { get; set; }
     public List<ProductImageInput> Images { get; set; } = [];
+
+    /// <summary>
+    /// نام فایل تصویرهایی که کارمند «حذف» زده است (دور بیستم؛ admin-gallery.js). حذف بر اساس نام است، نه شمارهٔ ردیف،
+    /// تا هرگز تصویر دیگری (مثلاً آخری) به‌جای تصویر کلیک‌شده حذف نشود. مثال: ["a1b2.webp"].
+    /// </summary>
+    public List<string> RemovedImages { get; set; } = [];
     public List<ProductFeatureInput> Features { get; set; } = [];
     public SeoInput Seo { get; set; } = new();
 }
@@ -211,8 +219,11 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
             return await FailAsync("پایان تخفیف باید بعد از شروع آن باشد.");
 
         // Images: kept ones (+ alt / order / primary) and the new uploads.
-        var kept = Input.Images.Where(i => !i.Remove && !string.IsNullOrWhiteSpace(i.ImageName))
+        // حذف بر اساس «نام فایل» (Input.RemovedImages)؛ هر نام فقط یک بار (ردیف تکراری فرم هرگز ردیف تکراری نمی‌سازد).
+        var removedNames = RemovedNames(Input);
+        var kept = Input.Images.Where(i => !i.Remove && !string.IsNullOrWhiteSpace(i.ImageName) && !removedNames.Contains(i.ImageName))
             .Where(i => existing is null || existing.Images.Any(e => e.ImageName == i.ImageName))
+            .DistinctBy(i => i.ImageName, StringComparer.Ordinal)
             .ToList();
         var newFiles = newImages.Where(f => f.Length > 0).ToList();
         if (kept.Count + newFiles.Count > MaxImages)
@@ -500,6 +511,15 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         return Succeeded(result) ? Redirect("/admin/products") : Redirect($"/admin/products/edit/{id}");
     }
 
+    /// <summary>
+    /// نام تصویرهای حذف‌شده: Input.RemovedImages + ردیف‌هایی که تیک قدیمی «حذف» دارند (فقط نام فایل، بدون مسیر).
+    /// مثال: RemovedImages=["b.webp"] و Images[0]={a.webp, Remove=true} ← {a.webp, b.webp}.
+    /// </summary>
+    public static HashSet<string> RemovedNames(ProductInput input) =>
+        input.RemovedImages.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim())
+            .Concat(input.Images.Where(i => i.Remove && !string.IsNullOrWhiteSpace(i.ImageName)).Select(i => i.ImageName))
+            .ToHashSet(StringComparer.Ordinal);
+
     private async Task<IActionResult> FailAsync(string message)
     {
         ErrorMessage = message;
@@ -509,15 +529,29 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         if (ProductId is { } id)
         {
             // Keep the typed values; images come back from the database (new uploads must be chosen again).
+            // تصویرهایی که کارمند «حذف» زده بود حذف‌شده می‌مانند (نام‌ها دوباره در فرم می‌آیند) و alt/ترتیب تایپ‌شده حفظ می‌شود.
+            var removedNames = RemovedNames(Input);
             var product = await data.Query<Product>().Include(p => p.Images).FirstOrDefaultAsync(p => p.Id == id);
             if (product is not null)
-                Input.Images = product.Images.OrderBy(i => i.DisplayOrder)
-                    .Select(i => new ProductImageInput { ImageName = i.ImageName, AltText = Input.Images.FirstOrDefault(x => x.ImageName == i.ImageName)?.AltText ?? i.AltText, DisplayOrder = i.DisplayOrder })
+            {
+                var typed = Input.Images.Where(x => !string.IsNullOrWhiteSpace(x.ImageName))
+                    .DistinctBy(x => x.ImageName, StringComparer.Ordinal).ToDictionary(x => x.ImageName, StringComparer.Ordinal);
+                Input.RemovedImages = product.Images.Select(i => i.ImageName).Where(removedNames.Contains).ToList();
+                Input.Images = product.Images.Where(i => !removedNames.Contains(i.ImageName))
+                    .Select(i => new ProductImageInput
+                    {
+                        ImageName = i.ImageName,
+                        AltText = typed.TryGetValue(i.ImageName, out var t) ? t.AltText : i.AltText,
+                        DisplayOrder = typed.TryGetValue(i.ImageName, out var o) ? o.DisplayOrder : i.DisplayOrder,
+                    })
+                    .OrderBy(i => i.DisplayOrder)
                     .ToList();
+            }
         }
         else
         {
             Input.Images = [];
+            Input.RemovedImages = [];
         }
         if (Input.Features.Count == 0)
             Input.Features = [new ProductFeatureInput()];

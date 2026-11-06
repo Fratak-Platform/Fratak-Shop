@@ -130,6 +130,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<Infrastructure.Smart.SmartSources>();
         services.AddScoped<Infrastructure.Smart.SmartImageFinder>();
         services.AddScoped<Infrastructure.Smart.SmartOrchestrator>();
+        services.AddScoped<Infrastructure.Smart.SmartNotifier>();
         services.AddHostedService<Infrastructure.Smart.SmartWorker>();
 
         // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.

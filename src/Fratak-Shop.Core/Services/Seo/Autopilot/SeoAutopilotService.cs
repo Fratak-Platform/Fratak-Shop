@@ -50,6 +50,15 @@ public interface ISeoAutopilotService
 
     /// <summary>برگرداندن یک تغییر از تاریخچه.</summary>
     Task<OperationResult> RollbackAsync(Guid revisionId, string? byName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// نوشتن متن تازهٔ «توضیحات» یک محصول (دور بیستم – «نقد و بررسی» هوشمند) با تاریخچه و امکان برگرداندن.
+    /// <para>قبل از ذخیره همان مرتب‌سازی HTML خلبان اجرا می‌شود و هش آن ثبت می‌شود تا خلبان دوباره به متن دست نزند.</para>
+    /// <para>Data = آیا متن صفحه واقعاً عوض شد؟ متن یکسان با متن فعلی ← موفق با false. متن بلندتر از سقف ← خطا (هیچ چیز ذخیره نمی‌شود).</para>
+    /// <para>مثال: ApplyBodyAsync(id، «&lt;p data-fs="review"&gt;…»، «نقد و بررسی هوشمند نوشته شد»، «دستیار هوشمند»).</para>
+    /// <para>محل استفاده: SmartOrchestrator (اعمال خودکار امن) و صفحهٔ «محتوای هوشمند ← محصول» (دکمهٔ جایگزین/افزودن).</para>
+    /// </summary>
+    Task<OperationResult<bool>> ApplyBodyAsync(Guid productId, string html, string summary, string? byName, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="ISeoAutopilotService"/>
@@ -603,6 +612,43 @@ public sealed class SeoAutopilotService(
         using (SeoChangeFeed.Suppress())
             await context.SaveChangesAsync(cancellationToken);
         return OperationResult.Success("تغییر برگردانده شد.");
+    }
+
+    public async Task<OperationResult<bool>> ApplyBodyAsync(Guid productId, string html, string summary, string? byName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return OperationResult<bool>.Error("متن خالی است.");
+        var page = await SeoPages.LoadAsync(context, SeoEntityKind.Product, productId, cancellationToken);
+        if (page is null)
+            return OperationResult<bool>.NotFound("محصول پیدا نشد.");
+
+        // همان مرتب‌سازی شبانهٔ خلبان (ترتیب تیترها، سرستون جدول، alt …) همین حالا؛ پس شب‌های بعد متن عوض نمی‌شود.
+        var final = HtmlSeoFixer.Fix(html, new HtmlFixContext(page.Name, host?.Host)).Html;
+        if (final.Length > page.BodyMaxLength)
+            return OperationResult<bool>.Error("متن از سقف طول توضیحات بلندتر است؛ ذخیره نشد.");
+        var before = page.Body;
+        if (string.Equals(before, final, StringComparison.Ordinal))
+            return OperationResult<bool>.Success(false, "متن صفحه همین بود؛ تغییری لازم نشد.");
+
+        page.SetBody(final);
+        var revision = Revision(page, SeoRevisionSource.SmartReview, summary,
+            new Dictionary<string, string?> { [SeoFieldMap.BodyField] = before },
+            new Dictionary<string, string?> { [SeoFieldMap.BodyField] = final });
+        revision.ByName = string.IsNullOrWhiteSpace(byName) ? ActorName : Cut(byName, 150);
+        context.SeoRevisions.Add(revision);
+        var state = await StateAsync(SeoEntityKind.Product, productId, cancellationToken);
+        state.LastHtmlHash = PersianText.Hash(final);
+        state.LastHtmlFixAt = DateTimeOffset.UtcNow;
+
+        if (DbLengthGuard.FindOverflow(context) is { } overflow)
+        {
+            context.ChangeTracker.Clear();
+            return OperationResult<bool>.Error(overflow);
+        }
+        using (SeoChangeFeed.Suppress())
+            await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return OperationResult<bool>.Success(true, "متن «نقد و بررسی» روی صفحه نشست.");
     }
 
     // ── ابزارها ─────────────────────────────────────────────────────────
