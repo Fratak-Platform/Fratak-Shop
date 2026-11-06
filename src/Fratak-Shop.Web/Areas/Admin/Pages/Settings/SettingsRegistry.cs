@@ -29,7 +29,7 @@ public static class SettingsRegistry
 
     /// <summary>تبدیل فهرست (عدد، عنوان) به گزینه‌های فهرست کشویی. مثال: [(0,"ساده")] ← [("0","ساده")].</summary>
     private static (string Value, string Title)[] Opt((int Value, string Title)[] items) =>
-        items.Select(i => (i.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), i.Title)).ToArray();
+        items.Select(i => (i.Value.ToString(global::System.Globalization.CultureInfo.InvariantCulture), i.Title)).ToArray();
 
     public static readonly SGroup[] Groups =
     [
