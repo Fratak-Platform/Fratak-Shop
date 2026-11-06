@@ -1,0 +1,16 @@
+@model Fratak_Shop.Web.Infrastructure.BrandLockupModel
+@inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersions
+@*
+  لوگوی فروشگاه = «آیکون» + «بخش اول» + «بخش رنگی» + «شعار» (مرحلهٔ دوازدهم – استودیوی لوگو).
+  همه چیز برای هر محل جدا از پنل ← تنظیمات ← استودیوی لوگو می‌آید: نمایش آیکون/متن/شعار، آیکون اختصاصی، اندازهٔ آیکون
+  (دسکتاپ و موبایل)، اندازه و وزن قلم، فاصلهٔ آیکون تا متن، فاصلهٔ دو بخش متن، فاصلهٔ شعار، چینش، تراز و رنگ‌ها.
+  ساخت HTML: Infrastructure/BrandLockupHtml.cs (یک منبع برای سایت، پنل، پیش‌نمایش و صفحهٔ تعمیرات).
+  قاعده‌های ثابت CSS: wwwroot/assets/css/brand-lockup.css (در _BrandHead لینک شده).
+  محل استفاده: هدر، منوی موبایل، فوتر، ورود/ثبت‌نام/کد تأیید، سربرگ پنل، فاکتور و پیش‌نمایش استودیوی لوگو.
+  امنیت: متن‌ها و آدرس‌ها HtmlEncode، رنگ‌ها فقط hex معتبر و اندازه‌ها عدد صحیح در محدوده (BrandResolver).
+*@
+@{
+    var view = Model.View ?? Site.BrandFor(Model.Place);
+    var html = BrandLockupHtml.Render(view, Model.CssClass, url => FileVersions.AddFileVersionToPath(Context.Request.PathBase, url), Model.Preview);
+}
+@Html.Raw(html)

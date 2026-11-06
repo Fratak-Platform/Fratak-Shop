@@ -1,0 +1,79 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.AuditModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@{
+    ViewData["Title"] = "گزارش فعالیت";
+}
+<div class="a-page-head">
+  <div>
+    <h2>گزارش فعالیت</h2>
+    <p class="a-muted text-sm mt-1">هر ایجاد، ویرایش و حذفی که در پنل یا سایت انجام شده، با نام انجام‌دهنده و مقدار قبل و بعد ثبت می‌شود.</p>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    @if (Model.UserId is not null) { <input type="hidden" name="user" value="@Model.UserId"> }
+    @if (Model.EntityId is not null) { <input type="hidden" name="id" value="@Model.EntityId"> }
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="a-q">جست‌وجو</label><input id="a-q" name="q" value="@Model.Search" class="a-input" placeholder="نام کاربر، خلاصه یا شناسه"></div>
+    <div class="a-field"><label class="a-label" for="a-entity">بخش</label>
+      <select id="a-entity" name="entity" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var t in Model.EntityTypes) { <option value="@t" selected="@(Model.EntityType == t)">@t</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="a-action">عملیات</label>
+      <select id="a-action" name="action" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        <option value="create" selected="@(Model.ActionName == "create")">ایجاد</option>
+        <option value="update" selected="@(Model.ActionName == "update")">ویرایش</option>
+        <option value="delete" selected="@(Model.ActionName == "delete")">حذف</option>
+        <option value="restore" selected="@(Model.ActionName == "restore")">بازیابی از سطل</option>
+      </select></div>
+    <div class="a-field"><label class="a-label" for="a-from">از</label><input id="a-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/01/01"></div>
+    <div class="a-field"><label class="a-label" for="a-to">تا</label><input id="a-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/12/29"></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/system/audit">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>زمان</th><th>انجام‌دهنده</th><th>عملیات</th><th>مورد</th><th>تغییرات</th></tr></thead>
+      <tbody>
+        @foreach (var log in Model.Logs.Items)
+        {
+          var changes = AuditModel.ParseChanges(log.Changes);
+          <tr>
+            <td data-label="زمان" class="nowrap text-xs">@Format.DateTime(log.CreatedAt)</td>
+            <td data-label="انجام‌دهنده">
+              @if (log.UserId is not null) { <a class="a-link" href="@AdminUi.With(HttpContext.Request, ("user", log.UserId.ToString()), ("page", null))">@(log.UserName ?? "کاربر")</a> } else { <span class="a-muted">سیستم</span> }
+              @if (log.IpAddress is not null) { <div class="a-muted text-xs a-ltr text-right">@log.IpAddress</div> }
+            </td>
+            <td data-label="عملیات"><span class="a-badge @AuditModel.ActionBadge(log.Action)">@AuditModel.ActionTitle(log.Action)</span></td>
+            <td data-label="مورد" style="max-width:280px">
+              <span class="a-mono text-xs">@log.EntityType</span>
+              @if (log.Summary is not null) { <div class="text-sm">@log.Summary</div> }
+              @if (log.EntityId is not null) { <a class="a-link a-ltr text-xs" href="@AdminUi.With(HttpContext.Request, ("id", log.EntityId), ("entity", log.EntityType), ("page", null))">تاریخچه این مورد</a> }
+            </td>
+            <td data-label="تغییرات">
+              @if (changes.Count > 0)
+              {
+                <details>
+                  <summary class="a-link text-xs cursor-pointer">@changes.Count فیلد</summary>
+                  <table class="a-table a-table-compact mt-2 text-xs">
+                    @foreach (var c in changes)
+                    {
+                      <tr><td class="a-mono">@c.Field</td><td class="a-down break-all" dir="auto">@AuditModel.Short(c.Before)</td><td class="a-up break-all" dir="auto">@AuditModel.Short(c.After)</td></tr>
+                    }
+                  </table>
+                </details>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Logs.Items.Count == 0) { <div class="a-empty">فعالیتی یافت نشد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Logs.Page, Model.Logs.PageCount, Model.Logs.Total)" />
+</div>

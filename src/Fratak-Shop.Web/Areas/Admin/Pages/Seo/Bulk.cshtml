@@ -1,0 +1,178 @@
+@page "/admin/seo/bulk"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.BulkModel
+@using Fratak_Shop.Core.Services.Seo.Tools
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  ویرایش گروهی سئو (مرحلهٔ هفتم – فاز ۸ب).
+  • زبانهٔ نوع صفحه (محصول، دسته، …) و فیلترهای آماده با تعداد («بدون توضیح متا»، «عنوان تکراری»، …).
+  • جدول قابل ویرایش: عنوان سئو، توضیح متا و کلمهٔ کلیدی با شمارندهٔ نویسه؛ «ذخیرهٔ تغییرات» فقط ردیف‌های عوض‌شده را ذخیره می‌کند.
+  • جست‌وجو و جایگزینی روی ردیف‌های تیک‌خورده: اول پیش‌نمایش، بعد اعمال.
+*@
+@{
+    ViewData["Title"] = "ویرایش گروهی سئو";
+    var rows = Model.List.Items;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>ویرایش گروهی سئو</h2>
+    <p class="a-muted text-sm mt-1">
+      عنوان، توضیح متا و کلمهٔ کلیدی چند صفحه را همین‌جا ویرایش کنید؛ فقط ردیف‌هایی که عوض کرده‌اید ذخیره و نمره‌شان فوراً دوباره حساب می‌شود.
+      اگر کس دیگری هم‌زمان همان فیلد را عوض کرده باشد، آن ردیف ذخیره نمی‌شود تا کارش از بین نرود.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/seo/engine">@Icons.Svg("Gauge", null, 18) موتور سئو</a>
+    <a class="a-btn a-btn-light" href="/admin/seo/review">@Icons.Svg("ListChecks", null, 18) پیشنهادهای سیستم</a>
+  </div>
+</div>
+
+<nav class="a-tabs mb-3" aria-label="نوع صفحه">
+  @foreach (var kind in Enum.GetValues<SeoEntityKind>())
+  {
+    <a class="a-tab @(Model.Kind == kind ? "is-active" : "")" href="@Model.KindUrl(kind)">@SeoEngineUi.KindTitle(kind)</a>
+  }
+</nav>
+
+@if (Model.Preview is not null)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Eye", null, 18) پیش‌نمایش جایگزینی «@Model.Find» ← «@Model.Replacement» در @(Model.Field == SeoBulkField.Title ? "عنوان سئو" : "توضیح متا")</h3></div>
+    <div class="a-card-body">
+      @if (Model.Preview.Count == 0)
+      {
+        <div class="a-empty">عبارت در ردیف‌های انتخاب‌شده پیدا نشد؛ چیزی تغییر نمی‌کند.</div>
+        <a class="a-btn a-btn-light mt-3" href="@Model.ListUrl()">بازگشت</a>
+      }
+      else
+      {
+        var valid = Model.Preview.Count(p => !p.TooLong);
+        <p class="text-sm mb-3">@Format.Number(valid) صفحه تغییر می‌کند@(Model.Preview.Count > valid ? $" ({Format.Number(Model.Preview.Count - valid)} ردیف چون خالی یا بیش از حد بلند می‌شود کنار گذاشته می‌شود)" : "").</p>
+        <div class="a-stack mb-4">
+          @foreach (var item in Model.Preview)
+          {
+            <div class="a-sg-field">
+              <div class="text-sm font-bold">@item.Name @if (item.TooLong) { <span class="a-badge a-badge-red">کنار گذاشته می‌شود</span> }</div>
+              <div class="a-diff">
+                <div class="a-diff-old text-sm">@item.Before</div>
+                <div class="a-diff-new text-sm">@item.After <span class="a-muted text-xs">(@Format.Number(item.After.Length) نویسه)</span></div>
+              </div>
+            </div>
+          }
+        </div>
+        <form method="post" action="@(Model.ListUrl() + "&handler=Replace")" asp-antiforgery="true" class="flex flex-wrap gap-2">
+          @foreach (var id in Model.Ids) { <input type="hidden" name="Ids" value="@id"> }
+          <input type="hidden" name="Field" value="@Model.Field">
+          <input type="hidden" name="Find" value="@Model.Find">
+          <input type="hidden" name="Replacement" value="@Model.Replacement">
+          <button type="submit" class="a-btn" disabled="@(valid == 0)">@Icons.Svg("Check", null, 16) اعمال روی @Format.Number(valid) صفحه</button>
+          <a class="a-btn a-btn-light" href="@Model.ListUrl()">انصراف</a>
+        </form>
+      }
+    </div>
+  </div>
+}
+else
+{
+  <div class="a-pills mb-3">
+    @foreach (var (key, title) in BulkModel.FilterTabs)
+    {
+      <a class="a-pill @(Model.Filter == key ? "is-active" : "")" href="@Model.FilterUrl(key)">
+        @title <b>@Format.Number(Model.Counts.GetValueOrDefault(key))</b>
+      </a>
+    }
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-body">
+      <form method="get" class="a-filters">
+        <input type="hidden" name="kind" value="@Model.Kind">
+        @if (Model.Filter != "all") { <input type="hidden" name="filter" value="@Model.Filter"> }
+        <div>
+          <label class="a-label" for="f-q">جست‌وجو</label>
+          <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام، عنوان یا کلمهٔ کلیدی">
+        </div>
+        <div class="a-filters-actions"><button class="a-btn" type="submit">جست‌وجو</button></div>
+      </form>
+    </div>
+
+    <form method="post" action="@(Model.ListUrl() + "&handler=Save")" asp-antiforgery="true" data-dirty-guard data-bulk>
+      <div class="a-card-body a-stack" style="border-top:1px solid var(--a-border)">
+        <div class="flex flex-wrap items-end gap-2">
+          <div>
+            <label class="a-label" for="r-field">جست‌وجو و جایگزینی در</label>
+            <select id="r-field" name="Field" class="a-select a-input-sm">
+              <option value="Title">عنوان سئو</option>
+              <option value="MetaDescription">توضیح متا</option>
+            </select>
+          </div>
+          <div>
+            <label class="a-label" for="r-find">پیدا کن</label>
+            <input id="r-find" name="Find" class="a-input a-input-sm" maxlength="100" placeholder="مثلاً: خرید">
+          </div>
+          <div>
+            <label class="a-label" for="r-rep">جایگزین کن با</label>
+            <input id="r-rep" name="Replacement" class="a-input a-input-sm" maxlength="200" placeholder="مثلاً: خرید آنلاین — {name} = نام صفحه">
+          </div>
+          <button type="submit" class="a-btn a-btn-sm a-btn-light" formaction="@(Model.ListUrl() + "&handler=Preview")">
+            @Icons.Svg("Eye", null, 16) پیش‌نمایش روی <b data-bulk-count>0</b> ردیف انتخاب‌شده
+          </button>
+        </div>
+      </div>
+
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead>
+            <tr>
+              <th class="a-col-check"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th>
+              <th>صفحه</th>
+              <th>عنوان سئو</th>
+              <th>توضیح متا</th>
+              <th>کلمهٔ کلیدی</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (var i = 0; i < rows.Count; i++)
+            {
+              var row = rows[i];
+              <tr>
+                <td class="a-col-check"><input type="checkbox" name="Ids" value="@row.Id" data-row-check aria-label="انتخاب"></td>
+                <td data-label="صفحه" style="min-width:180px">
+                  <a class="a-link" href="@SeoEngineUi.AnalyzeUrl(Model.Kind, row.Id)">@row.Name</a>
+                  <div class="flex flex-wrap gap-1 mt-1">
+                    @if (row.Score is { } score) { <span class="a-badge @SeoEngineUi.ScoreBadge(score)">نمره @Format.Number(score)</span> }
+                    @if (row.DuplicateTitle) { <span class="a-badge a-badge-yellow">عنوان تکراری</span> }
+                  </div>
+                  <input type="hidden" name="Rows[@i].Id" value="@row.Id">
+                  <input type="hidden" name="Rows[@i].OriginalTitle" value="@row.SeoTitle">
+                  <input type="hidden" name="Rows[@i].OriginalMeta" value="@row.MetaDescription">
+                  <input type="hidden" name="Rows[@i].OriginalFocus" value="@row.FocusKeyword">
+                </td>
+                <td data-label="عنوان سئو" style="min-width:220px">
+                  <input name="Rows[@i].Title" value="@row.SeoTitle" class="a-input a-input-sm" maxlength="@SeoBulkEditService.TitleMax" placeholder="@row.Name" data-counter="60" aria-label="عنوان سئو">
+                </td>
+                <td data-label="توضیح متا" style="min-width:280px">
+                  <textarea name="Rows[@i].Meta" rows="2" class="a-textarea a-input-sm" maxlength="@SeoBulkEditService.MetaMax" data-counter="160" aria-label="توضیح متا">@row.MetaDescription</textarea>
+                </td>
+                <td data-label="کلمهٔ کلیدی" style="min-width:150px">
+                  <input name="Rows[@i].Focus" value="@row.FocusKeyword" class="a-input a-input-sm" maxlength="@SeoBulkEditService.FocusMax" aria-label="کلمهٔ کلیدی">
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (rows.Count == 0) { <div class="a-empty">صفحه‌ای با این فیلتر نیست. @(Model.Filter != "all" ? "همه‌چیز در این بخش کامل است." : "")</div> }
+      </div>
+
+      @if (rows.Count > 0)
+      {
+        <div class="a-card-body flex flex-wrap items-center gap-2">
+          <button type="submit" class="a-btn">@Icons.Svg("Check", null, 16) ذخیرهٔ تغییرات</button>
+          <span class="a-muted text-xs">طول پیشنهادی: عنوان تا ۶۰ و توضیح متا ۱۲۰ تا ۱۶۰ نویسه. عنوان خالی = نام صفحه نمایش داده می‌شود.</span>
+        </div>
+      }
+    </form>
+    <partial name="_AdminPager" model="Model.Pager" />
+  </div>
+}

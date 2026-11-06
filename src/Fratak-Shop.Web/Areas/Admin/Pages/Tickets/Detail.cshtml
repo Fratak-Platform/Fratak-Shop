@@ -1,0 +1,104 @@
+@page "/admin/tickets/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Tickets.DetailModel
+@using Fratak_Shop.Data.Entities.Support
+@using Fratak_Shop.Web.Areas.Admin.Pages.Tickets
+@{
+    var t = Model.Ticket;
+    ViewData["Title"] = $"تیکت {t.TicketNumber}";
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/tickets" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>@t.Subject</h2>
+      <p class="a-muted text-sm mt-1"><span class="a-ltr">#@t.TicketNumber</span> · @Model.DepartmentTitle · <span class="a-badge @IndexModel.StatusBadge(t.Status)">@IndexModel.StatusTitle(t.Status)</span> @if (t.Priority == TicketPriority.High) { <span class="a-badge a-badge-red">فوری</span> }</p>
+    </div>
+  </div>
+  <div class="a-btn-group">
+    @if (t.Status != TicketStatus.InProgress && t.Status != TicketStatus.Closed)
+    {
+      <form method="post" asp-page-handler="Status" asp-route-id="@t.Id"><input type="hidden" name="status" value="@TicketStatus.InProgress"><button class="a-btn a-btn-light" type="submit">در حال بررسی</button></form>
+    }
+    @if (t.Status != TicketStatus.Closed)
+    {
+      <form method="post" asp-page-handler="Status" asp-route-id="@t.Id" data-confirm="تیکت بسته شود؟"><input type="hidden" name="status" value="@TicketStatus.Closed"><button class="a-btn a-btn-light" type="submit">بستن تیکت</button></form>
+    }
+    else
+    {
+      <form method="post" asp-page-handler="Status" asp-route-id="@t.Id"><input type="hidden" name="status" value="@TicketStatus.Open"><button class="a-btn a-btn-light" type="submit">بازگشایی</button></form>
+    }
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+    @foreach (var m in Model.Messages)
+    {
+      <div class="a-card @(m.IsStaff ? "a-card-staff" : "")">
+        <div class="a-card-body">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-sm mb-2">
+            <b>@(m.IsStaff ? $"{m.AuthorName}{(string.IsNullOrEmpty(m.StaffName) ? "" : $" ({m.StaffName})")}" : m.AuthorName)</b>
+            <span class="a-muted text-xs">@Format.DateTime(m.CreatedAt)</span>
+          </div>
+          <div class="text-sm leading-7 whitespace-pre-line">@m.Content</div>
+          @if (m.Attachments.Count > 0)
+          {
+            <div class="mt-3 flex flex-wrap gap-2">
+              @foreach (var a in m.Attachments)
+              {
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/tickets/@t.Id?handler=attachment&name=@Uri.EscapeDataString(a.FileName)" data-lightbox="@(a.ContentType.StartsWith("image/", StringComparison.Ordinal) ? "ticket" : null)" data-caption="@a.FileName">@Icons.Svg("Paperclip", null, 14) @a.FileName <span class="a-muted">(@AdminUi.FileSize(a.SizeBytes))</span></a>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <form method="post" asp-page-handler="Reply" asp-route-id="@t.Id" enctype="multipart/form-data" class="a-card" id="reply">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Reply", null, 18) پاسخ به مشتری</span></div>
+      <div class="a-card-body a-form-grid">
+        @await Component.InvokeAsync("ReadyMessagePicker", new { scope = Fratak_Shop.Data.Entities.Notifications.ReadyMessageScope.Ticket, bodyTarget = "#reply-content" })
+        <textarea id="reply-content" name="content" class="a-textarea" rows="6" maxlength="4000" required placeholder="پاسخ شما با پیامک / اعلان به مشتری اطلاع داده می‌شود. برچسب‌هایی مثل {FirstName} با اطلاعات مشتری پر می‌شوند."></textarea>
+        <div class="a-field"><label class="a-label" for="r-files">پیوست (تصویر یا PDF)</label><input id="r-files" type="file" name="attachments" multiple accept="image/*,application/pdf" class="a-input"></div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <label class="a-check"><input type="checkbox" name="close" value="true"> پس از پاسخ، تیکت بسته شود</label>
+          <button class="a-btn" type="submit">@Icons.Svg("PaperPlaneTilt", null, 18) ارسال پاسخ</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("User", null, 18) مشتری</span></div>
+      <div class="a-card-body">
+        <dl class="a-kv text-sm">
+          <dt>نام</dt><dd>@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@t.UserId">@(string.IsNullOrEmpty(Model.CustomerName) ? "بدون نام" : Model.CustomerName)</a> } else { @Model.CustomerName }</dd>
+          <dt>موبایل</dt><dd class="a-ltr">@Pii.Phone(Model.CustomerPhone)</dd>
+          <dt>تیکت‌ها</dt><dd>@Model.CustomerTicketCount</dd>
+          @if (Model.OrderNumber is not null) { <dt>سفارش</dt><dd>@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@t.OrderId">@Model.OrderNumber</a> } else { <span class="a-ltr">@Model.OrderNumber</span> }</dd> }
+          <dt>ایجاد</dt><dd>@Format.DateTime(t.CreatedAt)</dd>
+        </dl>
+      </div>
+    </div>
+    <form method="post" asp-page-handler="Meta" asp-route-id="@t.Id" class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Sliders", null, 18) ارجاع و اولویت</span></div>
+      <div class="a-card-body a-form-grid">
+        <div class="a-field"><label class="a-label" for="m-as">کارشناس مسئول</label>
+          <select id="m-as" name="assignedTo" class="a-select">
+            <option value="">— ارجاع‌نشده —</option>
+            @foreach (var s in Model.Staff.Where(s => !s.IsBlocked)) { <option value="@s.UserId" selected="@(t.AssignedToUserId == s.UserId)">@s.FullName</option> }
+          </select></div>
+        <div class="a-field"><label class="a-label" for="m-dep">دپارتمان</label>
+          <select id="m-dep" name="departmentId" class="a-select">
+            @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(t.DepartmentId == d.Id)">@d.Title</option> }
+          </select></div>
+        <div class="a-field"><label class="a-label" for="m-pr">اولویت</label>
+          <select id="m-pr" name="priority" class="a-select">
+            @foreach (var p in new[] { TicketPriority.High, TicketPriority.Normal, TicketPriority.Low }) { <option value="@p" selected="@(t.Priority == p)">@IndexModel.PriorityTitle(p)</option> }
+          </select></div>
+        <button class="a-btn a-btn-soft" type="submit">ذخیره</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+@page
+@model DeniedModel
+@{
+    ViewData["Title"] = "دسترسی محدود";
+}
+<div class="a-card max-w-xl mx-auto mt-10">
+  <div class="a-card-body text-center py-10">
+    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 text-red-600 mb-4">@Icons.Svg("LockKey", null, 32)</div>
+    <h2 class="text-lg font-bold mb-2">به این بخش دسترسی ندارید</h2>
+    <p class="a-muted mb-6">نقش کاربری شما اجازه دسترسی به این صفحه یا عملیات را نمی‌دهد. اگر برای کارتان لازم است، از مدیر فروشگاه بخواهید دسترسی لازم را به نقش شما اضافه کند.</p>
+    @if (!string.IsNullOrEmpty(Model.NeedTitle))
+    {
+      <p class="text-sm mb-6">دسترسی لازم: <span class="a-badge a-badge-purple">@Model.NeedTitle</span></p>
+    }
+    <a href="/admin" class="a-btn">بازگشت به داشبورد</a>
+  </div>
+</div>

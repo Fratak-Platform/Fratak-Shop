@@ -1,0 +1,45 @@
+/*
+  لوگوی فروشگاه (مرحلهٔ دوازدهم – استودیوی لوگو).
+  HTML را Infrastructure/BrandLockupHtml.cs می‌سازد و اندازه‌ها/رنگ‌های هر محل را با متغیرهای CSS روی خود لوگو می‌گذارد:
+    --bl-ih / --bl-ihm   ارتفاع آیکون (دسکتاپ / موبایل)
+    --bl-gap / --bl-gapm فاصلهٔ آیکون تا متن
+    --bl-fs / --bl-fsm   اندازهٔ قلم نام          --bl-fw وزن قلم   --bl-ls فاصلهٔ حروف
+    --bl-pg / --bl-pgm   فاصلهٔ «بخش اول» تا «بخش رنگی»
+    --bl-tg فاصلهٔ نام تا شعار   --bl-ts / --bl-tsm اندازهٔ شعار   --bl-dy جابه‌جایی عمودی متن
+    --bl-c1 / --bl-c2 / --bl-c3 رنگ بخش اول، بخش رنگی و شعار
+  این فایل فقط قاعده‌های ثابت را دارد؛ موبایل = عرض کمتر از ۷۶۸ پیکسل (همان md در Tailwind).
+  پیش‌نمایش زندهٔ پنل (assets/js/admin-brand.js) همین متغیرها را عوض می‌کند.
+*/
+.bl { display: inline-flex; flex-direction: row; align-items: center; gap: var(--bl-gap, 8px); line-height: 1; direction: rtl; vertical-align: middle; max-width: 100%; }
+.bl-row-rev { flex-direction: row-reverse; }
+.bl-col { flex-direction: column; }
+.bl.bl-a-start { align-items: flex-start; }
+.bl.bl-a-end { align-items: flex-end; }
+.bl-icon { display: block; height: var(--bl-ih, 44px); width: auto; max-width: calc(var(--bl-ih, 44px) * 4); object-fit: contain; flex-shrink: 0; }
+.bl-text { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--bl-tg, 4px); position: relative; top: var(--bl-dy, 0); min-width: 0; }
+.bl-col .bl-text { align-items: center; text-align: center; }
+.bl-col.bl-a-start .bl-text { align-items: flex-start; text-align: start; }
+.bl-col.bl-a-end .bl-text { align-items: flex-end; text-align: end; }
+.bl-name { display: inline-flex; align-items: baseline; gap: var(--bl-pg, 8px); font-size: var(--bl-fs, 28px); font-weight: var(--bl-fw, 800); letter-spacing: var(--bl-ls, 0); color: var(--bl-c1, #0B1927); white-space: nowrap; line-height: 1.15; }
+.bl-p2 { color: var(--bl-c2, #0069FD); }
+.bl-tag { font-size: var(--bl-ts, 12px); font-weight: 500; color: var(--bl-c3, #64748B); white-space: nowrap; line-height: 1.35; }
+.bl[hidden], .bl [hidden] { display: none !important; }
+/* حالت شب سایت: آیکون تیره جای آیکون روشن (dark.css هم همین را دارد؛ اینجا برای صفحه‌هایی که style.css ندارند). */
+.bl .brand-logo-dark { display: none; }
+html.dark .bl .brand-logo-light { display: none; }
+html.dark .bl .brand-logo-dark { display: block; }
+html.dark .bl .brand-text-main { color: #FFFFFF; }
+html.dark .bl .brand-tagline { color: #94A3B8; }
+@media (max-width: 767.98px) {
+  .bl { gap: var(--bl-gapm, var(--bl-gap, 8px)); }
+  .bl-icon { height: var(--bl-ihm, var(--bl-ih, 44px)); max-width: calc(var(--bl-ihm, var(--bl-ih, 44px)) * 4); }
+  .bl-name { font-size: var(--bl-fsm, var(--bl-fs, 28px)); gap: var(--bl-pgm, var(--bl-pg, 8px)); }
+  .bl-tag { font-size: var(--bl-tsm, var(--bl-ts, 12px)); }
+}
+/* چاپ فاکتور: همان اندازهٔ دسکتاپ حتی اگر صفحهٔ چاپ باریک باشد. */
+@media print {
+  .bl { gap: var(--bl-gap, 8px); }
+  .bl-icon { height: var(--bl-ih, 44px); }
+  .bl-name { font-size: var(--bl-fs, 28px); gap: var(--bl-pg, 8px); }
+  .bl-tag { font-size: var(--bl-ts, 12px); }
+}

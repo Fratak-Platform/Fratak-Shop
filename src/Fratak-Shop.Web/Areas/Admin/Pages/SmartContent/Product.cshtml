@@ -1,0 +1,214 @@
+@page "/admin/smart/product/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.ProductModel
+@using Fratak_Shop.Core.Services.Smart
+@using Fratak_Shop.Data.Entities.Smart
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@*
+  محتوای هوشمند یک کالا: دکمه‌های اجرا، پیشنهادهای منتظر تأیید (مشخصات/عکس با بزرگ‌نمایی و انتخاب همه/توضیحات محصول)، خلاصهٔ خرید و تاریخچه.
+  هر کار لنگر id="task-{id}" دارد (لینک اعلان‌ها مستقیم به همان بخش می‌آید).
+*@
+@{
+    var p = Model.Subject!;
+    ViewData["Title"] = "محتوای هوشمند · " + p.Name;
+    var ins = Model.Insight;
+}
+
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/products/edit/@p.Id" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>@p.Name</h2>
+      <p class="a-muted text-sm mt-1">@Format.Number(p.ImageNames.Count) عکس · @Format.Number(p.Features.Count) مشخصه · @(string.IsNullOrWhiteSpace(p.ShortDescription) ? "بدون توضیح کوتاه" : "توضیح کوتاه دارد")</p>
+    </div>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Run" asp-route-id="@p.Id" class="inline">
+      <button type="submit" class="a-btn">@Icons.Svg("MagicWand", null, 18) تکمیل هوشمند</button>
+    </form>
+    @foreach (var (key, title, icon) in new[] { ("images", "فقط عکس", "Image"), ("specs", "فقط مشخصات", "ListChecks"), ("insight", "خلاصهٔ نظرها", "Sparkle"), ("review", "توضیحات محصول", "Article") })
+    {
+      <form method="post" asp-page-handler="Run" asp-route-id="@p.Id" class="inline">
+        <input type="hidden" name="kind" value="@key">
+        <button type="submit" class="a-btn a-btn-light">@Icons.Svg(icon, null, 16) @title</button>
+      </form>
+    }
+  </div>
+</div>
+
+<div class="a-alert a-alert-info mb-4">@Icons.Svg("Info", null, 16)
+  <span>مشخصاتی که دست‌کم دو منبع روی آن توافق دارند خودکار اضافه می‌شوند؛ تغییر مقدارهای فعلی همیشه منتظر تأیید شماست.
+  عکس‌ها از چند منبع (دیجی‌کالا، تأمین‌کننده، فروشگاه‌های نتایج جست‌وجو، باسلام و جست‌وجوی تصویر) جمع می‌شوند و فقط عکس‌هایی که شما انتخاب کنید روی کالا می‌نشینند.
+  عکس ردشده دیگر هرگز برای این کالا پیشنهاد نمی‌شود. «توضیحات محصول» حرفه‌ای برای توضیحات کم خودکار نوشته می‌شود و متن بلند شما فقط پیشنهاد می‌گیرد.</span>
+</div>
+
+@foreach (var (row, result) in Model.Pending)
+{
+  var specs = ProductModel.PendingSpecs(result).ToList();
+  var galleryId = "gallery-" + row.Id.ToString("N");
+  <form method="post" asp-page-handler="Apply" asp-route-id="@p.Id" class="a-card mb-4" id="task-@row.Id">
+    <input type="hidden" name="taskId" value="@row.Id">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Eye", null, 18) منتظر تأیید · @SmartUi.KindTitle(row.Kind) · @AdminUi.Ago(row.FinishedAt ?? row.CreatedAt)</h3></div>
+    @if (specs.Count > 0)
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th></th><th>ویژگی</th><th>مقدار فعلی</th><th>پیشنهاد</th><th>منبع</th></tr></thead>
+          <tbody>
+            @foreach (var s in specs)
+            {
+              <tr>
+                <td data-label="انتخاب"><input type="checkbox" name="specs" value="@s.Key" checked="@(s.Diff == SpecDiffKind.New && !s.Conflict ? "checked" : null)" aria-label="اعمال @s.Key"></td>
+                <td data-label="ویژگی" class="font-bold">@s.Key</td>
+                <td data-label="مقدار فعلی" class="a-muted">@(s.Current ?? "—")</td>
+                <td data-label="پیشنهاد">@s.Value @if (s.Conflict) { <span class="a-badge a-badge-yellow">منبع‌ها اختلاف دارند</span> }</td>
+                <td data-label="منبع" class="text-xs">@string.Join("، ", s.Sources) (@Format.Number(s.Agreement))</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @if (result.PendingImages.Count > 0)
+    {
+      <div class="a-card-body">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <p class="a-muted text-sm">عکس‌های پیشنهادی@(result.ImageRound > 0 ? " (جست‌وجوی دور " + Format.Number(result.ImageRound + 1) + ")" : ""): روی عکس بزنید تا بزرگ شود؛ عکس‌های درست را تیک بزنید. انتخاب‌نشده‌ها بعد از «اعمال» رد و پاک می‌شوند.</p>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="a-badge a-badge-blue" data-gallery-count="@galleryId"></span>
+            <button type="button" class="a-btn a-btn-light a-btn-sm" data-gallery-all="@galleryId">انتخاب همه</button>
+            <button type="button" class="a-btn a-btn-light a-btn-sm" data-gallery-none="@galleryId">هیچ‌کدام</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="@galleryId" data-gallery="select">
+          @foreach (var img in result.PendingImages.OrderByDescending(i => i.Score))
+          {
+            var src = "/uploads/products/" + img.FileName;
+            var caption = img.Source + " · " + Format.Number(img.Width) + "×" + Format.Number(img.Height) + (string.IsNullOrWhiteSpace(img.Title) ? "" : " · " + img.Title);
+            <div class="a-img-card" data-gallery-item data-name="@img.FileName" data-full="@src" data-caption="@caption">
+              <div class="a-img-frame">
+                <img src="@src" alt="عکس پیشنهادی از @img.Source" loading="lazy" data-gallery-open tabindex="0">
+              </div>
+              <label class="a-check text-xs"><input type="checkbox" name="imageNames" value="@img.FileName" data-gallery-check autocomplete="off"> انتخاب</label>
+              <div class="a-img-meta a-muted">
+                <span class="a-badge @(img.Trusted ? "a-badge-green" : "a-badge-gray")">@img.Source</span>
+                <span class="a-ltr">@Format.Number(img.Width)×@Format.Number(img.Height)</span>
+                @if (img.Score > 0)
+                {
+                  <span class="a-img-score" title="امتیاز: سابقهٔ تأیید منبع + شباهت عنوان">@Format.Number((int)Math.Round(img.Score * 100))٪</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(img.PageUrl) && Uri.TryCreate(img.PageUrl, UriKind.Absolute, out var pageUri) && pageUri.Scheme is "http" or "https")
+                {
+                  <a href="@pageUri" target="_blank" rel="noopener noreferrer nofollow" title="@img.Title">@pageUri.Host</a>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    @if (ProductModel.HasPendingReview(result))
+    {
+      var review = result.Review!;
+      <div class="a-card-body">
+        <h4 class="font-bold mb-1">@Icons.Svg("Article", null, 16) پیش‌نویس «توضیحات محصول» حرفه‌ای</h4>
+        <p class="a-muted text-xs mb-2">@Format.Number(review.Words) واژه · امتیاز سئو @Format.Number(review.ScoreBefore) ← @Format.Number(review.ScoreAfter) · طبیعی بودن متن @Format.Number(review.Natural)
+          @if (review.CurrentWords > 0) { <span> · متن فعلی صفحه @Format.Number(review.CurrentWords) واژه</span> }</p>
+        @if (review.Problems.Count > 0)
+        {
+          <ul class="a-alert a-alert-warn text-xs mb-2">
+            @foreach (var problem in review.Problems.Take(6)) { <li>@problem</li> }
+          </ul>
+        }
+        <div class="a-review-preview">@Html.Raw(ProductModel.SafePreview(review))</div>
+        <fieldset class="flex flex-wrap gap-3 mt-3 text-sm">
+          <legend class="sr-only">تصمیم توضیحات محصول</legend>
+          <label class="a-check"><input type="radio" name="reviewMode" value="replace" checked="@(review.Mode == "replace" ? "checked" : null)" autocomplete="off"> @(review.Mode == "choose" ? "جایگزین متن فعلی" : "اعمال روی صفحه")</label>
+          @if (review.Mode == "choose")
+          {
+            <label class="a-check"><input type="radio" name="reviewMode" value="append" checked autocomplete="off"> افزودن زیر متن فعلی</label>
+          }
+          <label class="a-check"><input type="radio" name="reviewMode" value="skip" autocomplete="off"> رد این متن</label>
+        </fieldset>
+      </div>
+    }
+    <div class="a-card-body flex flex-wrap gap-2">
+      <button type="submit" class="a-btn">@Icons.Svg("Check", null, 16) اعمال موارد انتخاب‌شده</button>
+      @if (result.PendingImages.Count > 0)
+      {
+        <button type="submit" name="refetch" value="true" class="a-btn a-btn-soft" data-confirm="همهٔ عکس‌های این فهرست رد می‌شوند و دیگر هرگز برای این کالا نمی‌آیند؛ جست‌وجوی تازه از منابع دیگر شروع می‌شود. مشخصات و متن تیک‌خورده اعمال می‌شوند.">@Icons.Svg("ArrowsClockwise", null, 16) رد همهٔ عکس‌ها و جست‌وجوی دوباره</button>
+      }
+      <button type="submit" class="a-btn a-btn-light" formaction="@Url.Page("Product", "Reject", new { id = p.Id })">@Icons.Svg("XCircle", null, 16) رد همه</button>
+    </div>
+  </form>
+}
+
+<div class="a-card mb-4" id="insight">
+  <div class="a-card-head">
+    <h3 class="a-card-title">@Icons.Svg("Sparkle", null, 18) خلاصهٔ خرید (از نظر خریداران)</h3>
+    @if (ins is not null)
+    {
+      <span class="a-badge @(ins.Status == ProductInsightStatus.Approved ? "a-badge-green" : ins.Status == ProductInsightStatus.Rejected ? "a-badge-gray" : "a-badge-yellow")">
+        @(ins.Status == ProductInsightStatus.Approved ? "تأییدشده" + (ins.ApprovedByName is null ? "" : " · " + ins.ApprovedByName) : ins.Status == ProductInsightStatus.Rejected ? "ردشده" : "پیش‌نویس")
+      </span>
+    }
+  </div>
+  @if (ins is null)
+  {
+    <div class="a-empty">هنوز خلاصه‌ای ساخته نشده. «خلاصهٔ نظرها» را بزنید؛ با کمتر از ۳ نظر چیزی ساخته نمی‌شود تا محتوای کم‌ارزش منتشر نشود.</div>
+  }
+  else
+  {
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-3">بر پایهٔ @Format.Number(ins.ReviewCount) نظر از @string.Join("، ", ins.Sources)@(ins.Rating is { } rating ? " · امتیاز " + rating.ToString("0.0") : "") · @AdminUi.Ago(ins.GeneratedAt)</p>
+      <form method="post" asp-page-handler="Insight" asp-route-id="@p.Id" class="a-stack">
+        <div><label class="a-label" for="e-sum">خلاصه</label><textarea id="e-sum" asp-for="Edit.Summary" rows="3" class="a-input"></textarea></div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div><label class="a-label" for="e-pros">نقاط قوت (هر خط یکی)</label><textarea id="e-pros" asp-for="Edit.Pros" rows="5" class="a-input"></textarea></div>
+          <div><label class="a-label" for="e-cons">نقاط ضعف (هر خط یکی)</label><textarea id="e-cons" asp-for="Edit.Cons" rows="5" class="a-input"></textarea></div>
+          <div><label class="a-label" for="e-for">مناسب چه کسانی</label><textarea id="e-for" asp-for="Edit.ForWhom" rows="3" class="a-input"></textarea></div>
+          <div><label class="a-label" for="e-not">مناسب نیست برای</label><textarea id="e-not" asp-for="Edit.NotFor" rows="3" class="a-input"></textarea></div>
+        </div>
+        <div><label class="a-label" for="e-ver">جمع‌بندی</label><textarea id="e-ver" asp-for="Edit.Verdict" rows="2" class="a-input"></textarea></div>
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" class="a-btn">@Icons.Svg("Check", null, 16) ذخیره و تأیید</button>
+          @if (ins.Status != ProductInsightStatus.Approved)
+          {
+            <button type="submit" name="op" value="approve" class="a-btn a-btn-soft">تأیید بدون تغییر</button>
+          }
+          @if (ins.Status != ProductInsightStatus.Rejected)
+          {
+            <button type="submit" name="op" value="reject" class="a-btn a-btn-light">@Icons.Svg("Prohibit", null, 16) عدم نمایش</button>
+          }
+        </div>
+      </form>
+    </div>
+  }
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) تاریخچهٔ کارهای این کالا</h3></div>
+  @if (Model.History.Count == 0)
+  {
+    <div class="a-empty">هنوز کاری انجام نشده.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>نوع</th><th>وضعیت</th><th>نتیجه</th><th>زمان</th></tr></thead>
+        <tbody>
+          @foreach (var t in Model.History)
+          {
+            var (statusTitle, badge) = SmartUi.Status(t.Status);
+            <tr id="@(Model.Pending.Any(x => x.Row.Id == t.Id) ? null : "task-" + t.Id)">
+              <td data-label="نوع">@SmartUi.KindTitle(t.Kind)</td>
+              <td data-label="وضعیت"><span class="a-badge @badge">@statusTitle</span></td>
+              <td data-label="نتیجه" class="text-xs">@t.Summary @if (!string.IsNullOrWhiteSpace(t.Error)) { <div class="a-down">@t.Error</div> }</td>
+              <td data-label="زمان" class="text-xs nowrap">@AdminUi.Ago(t.FinishedAt ?? t.CreatedAt)</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

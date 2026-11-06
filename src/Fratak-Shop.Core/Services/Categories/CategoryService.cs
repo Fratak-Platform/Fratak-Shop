@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Categories.Command;
+using Fratak_Shop.Core.DTOs.Categories.Command;
 using Fratak_Shop.Core.DTOs.Categories.Query;
 using Fratak_Shop.Core.Mappers.Category;
 using Fratak_Shop.Core.Utilities;
@@ -90,6 +90,10 @@ public class CategoryService(FratakShopDbContext context) : ICategoryService
         if (category is null)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
 
+        // دور ۲۱: «دسته‌بندی نشده» جای کالاهای درون‌ریزی‌شده تا دسته‌بندی هوشمند است؛ حذفش درون‌ریزی را خراب می‌کند.
+        if (category.IsSystem)
+            return OperationResult.Error("«دسته‌بندی نشده» دستهٔ سیستمی است و حذف نمی‌شود.");
+
         var hasSubCategories = await context.Categories.AnyAsync(x => x.ParentId == id);
         if (hasSubCategories)
             return OperationResult.Error("این دسته‌بندی دارای زیردسته است؛ ابتدا زیردسته‌ها را حذف یا منتقل کنید.");
@@ -124,12 +128,28 @@ public class CategoryService(FratakShopDbContext context) : ICategoryService
         return category?.Map();
     }
 
+    public async Task<List<CategoryDto>> GetMenuCategoriesAsync()
+    {
+        var categories = await context.Categories
+            .Where(x => x.ParentId == null && x.IsActive)
+            .Include(x => x.SubCategories
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.DisplayOrder)
+                .ThenBy(s => s.Name))
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.Name)
+            .ToListAsync();
+
+        return categories.Map();
+    }
+
     public async Task<CategoryDto?> GetCategoryBySlugAsync(string slug)
     {
         if (string.IsNullOrWhiteSpace(slug))
             return null;
 
         var category = await context.Categories
+            .Include(x => x.ParentCategory)
             .Include(x => x.SubCategories)
             .FirstOrDefaultAsync(p => p.Slug == slug.Trim());
 

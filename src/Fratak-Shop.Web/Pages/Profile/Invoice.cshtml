@@ -1,0 +1,221 @@
+@page "/profile/orders/{orderNumber}/invoice"
+@model Fratak_Shop.Web.Pages.Profile.InvoiceModel
+@using Fratak_Shop.Data.Entities.Orders
+@{
+    Layout = null;
+    var order = Model.Order;
+    var settings = Site.Settings;
+    var sellerName = settings.OrganizationLegalName ?? settings.SiteName;
+    var itemsDiscount = order.Items.Sum(i => i.DiscountAmount);
+    var otherDiscount = Math.Max(0, order.DiscountAmount - order.CouponDiscountAmount);
+    var totalQuantity = order.Items.Sum(i => i.Quantity);
+    var issuedAt = order.InvoiceIssuedAt ?? DateTimeOffset.UtcNow;
+    var fileName = Model.IsFinal ? $"invoice-{order.InvoiceNumber}.pdf" : $"proforma-{order.OrderNumber}.pdf";
+}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>@Site.Title(Model.IsFinal ? $"فاکتور {order.InvoiceNumber}" : $"پیش‌فاکتور {order.OrderNumber}")</title>
+  <partial name="_BrandHead" />
+  <link rel="stylesheet" href="~/assets/css/invoice.css" asp-append-version="true">
+</head>
+<body class="inv-body" data-auto-print="@(Model.AutoPrint ? "1" : null)">
+  <div class="inv-toolbar" role="toolbar" aria-label="ابزار فاکتور">
+    <a class="inv-btn" href="/profile/orders/@order.OrderNumber.ToLowerInvariant()">&rarr; بازگشت به سفارش</a>
+    <span class="inv-toolbar-spacer"></span>
+    <button type="button" class="inv-btn" data-invoice-print>
+      @Icons.Svg("Printer", "inv-icon", 18) چاپ
+    </button>
+    <button type="button" class="inv-btn inv-btn-primary" data-invoice-pdf data-file-name="@fileName">
+      @Icons.Svg("Download", "inv-icon", 18) دانلود PDF
+    </button>
+  </div>
+
+  <div class="inv-stage" data-invoice-stage>
+    <article id="invoice" class="inv-sheet" data-invoice-sheet>
+      <header class="inv-header">
+        <div class="inv-brand">
+          @await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Invoice))
+          <div class="inv-brand-name">@sellerName</div>
+        </div>
+        <div class="inv-title">
+          <h1>@(Model.IsFinal ? "صورتحساب فروش کالا و خدمات" : "پیش‌فاکتور")</h1>
+          @if (!Model.IsFinal)
+          {
+            <div class="inv-badge inv-badge-warn">
+              @(order.Status == OrderStatus.Cancelled ? "سفارش لغو شده" : "پرداخت نشده — فاقد اعتبار مالیاتی")
+            </div>
+          }
+          else if (order.Status is OrderStatus.Cancelled or OrderStatus.Returned)
+          {
+            <div class="inv-badge inv-badge-warn">@(order.Status == OrderStatus.Returned ? "مرجوع شده" : "لغو شده") — مبلغ مسترد شده</div>
+          }
+        </div>
+        <dl class="inv-meta">
+          @if (Model.IsFinal)
+          {
+            <div><dt>شماره فاکتور</dt><dd dir="ltr">@order.InvoiceNumber</dd></div>
+            <div><dt>تاریخ صدور</dt><dd>@Format.Date(issuedAt)</dd></div>
+          }
+          <div><dt>شماره سفارش</dt><dd dir="ltr">@order.OrderNumber</dd></div>
+          <div><dt>تاریخ سفارش</dt><dd>@Format.Date(order.CreatedAt)</dd></div>
+        </dl>
+      </header>
+
+      <section class="inv-party">
+        <h2>مشخصات فروشنده</h2>
+        <div class="inv-grid">
+          <div><span>نام:</span> @sellerName</div>
+          @if (!string.IsNullOrWhiteSpace(settings.SellerEconomicCode))
+          {
+            <div><span>کد اقتصادی:</span> <bdi>@settings.SellerEconomicCode</bdi></div>
+          }
+          @if (!string.IsNullOrWhiteSpace(settings.SellerNationalId))
+          {
+            <div><span>شناسه ملی:</span> <bdi>@settings.SellerNationalId</bdi></div>
+          }
+          @if (!string.IsNullOrWhiteSpace(settings.SellerRegistrationNumber))
+          {
+            <div><span>شماره ثبت:</span> <bdi>@settings.SellerRegistrationNumber</bdi></div>
+          }
+          @if (!string.IsNullOrWhiteSpace(settings.SupportPhone))
+          {
+            <div><span>تلفن:</span> <bdi>@settings.SupportPhone</bdi></div>
+          }
+          @if (!string.IsNullOrWhiteSpace(settings.PostalCode))
+          {
+            <div><span>کد پستی:</span> <bdi>@settings.PostalCode</bdi></div>
+          }
+          @if (!string.IsNullOrWhiteSpace(settings.Address))
+          {
+            <div class="inv-wide"><span>نشانی:</span> @settings.Address</div>
+          }
+        </div>
+      </section>
+
+      <section class="inv-party">
+        <h2>مشخصات خریدار</h2>
+        <div class="inv-grid">
+          <div><span>نام:</span> @order.CustomerName</div>
+          <div><span>تلفن:</span> <bdi>@order.ShippingPhone</bdi></div>
+          <div><span>کد پستی:</span> <bdi>@order.ShippingPostalCode</bdi></div>
+          <div class="inv-wide"><span>نشانی:</span> @order.ShippingProvince، @order.ShippingCity، @order.ShippingAddress @order.ShippingBuildingNumber @order.ShippingUnit</div>
+        </div>
+      </section>
+
+      <table class="inv-items">
+        <thead>
+          <tr>
+            <th class="inv-col-index">ردیف</th>
+            <th class="inv-col-name">شرح کالا</th>
+            <th>کد کالا</th>
+            <th>تعداد</th>
+            <th>مبلغ واحد</th>
+            <th>تخفیف</th>
+            <th>مبلغ کل</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (var i = 0; i < order.Items.Count; i++)
+          {
+            var item = order.Items[i];
+            <tr>
+              <td>@(i + 1)</td>
+              <td class="inv-col-name">@item.ProductName</td>
+              <td><bdi>@(string.IsNullOrWhiteSpace(item.SKU) ? "-" : item.SKU)</bdi></td>
+              <td>@item.Quantity</td>
+              <td>@Format.Price(item.UnitPrice)</td>
+              <td>@(item.DiscountAmount > 0 ? Format.Price(item.DiscountAmount) : "-")</td>
+              <td class="inv-strong">@Format.Price(item.TotalAmount)</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">جمع (@order.Items.Count قلم)</td>
+            <td>@totalQuantity</td>
+            <td></td>
+            <td>@(itemsDiscount > 0 ? Format.Price(itemsDiscount) : "-")</td>
+            <td class="inv-strong">@Format.Price(order.Items.Sum(i => i.TotalAmount))</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p class="inv-unit">مبالغ به تومان است.</p>
+
+      <div class="inv-bottom">
+        <div class="inv-notes">
+          <dl class="inv-facts">
+            <div><dt>روش پرداخت</dt><dd>@Display.PaymentMethod(order.PaymentMethod)</dd></div>
+            <div><dt>وضعیت پرداخت</dt><dd>@Display.PaymentStatus(order.PaymentStatus)</dd></div>
+            @if (order.PaidAt.HasValue)
+            {
+              <div><dt>تاریخ پرداخت</dt><dd>@Format.Date(order.PaidAt.Value)</dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(order.TransactionId))
+            {
+              <div><dt>شناسه پرداخت</dt><dd><bdi>@order.TransactionId</bdi></dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(order.ShippingMethod))
+            {
+              <div><dt>روش ارسال</dt><dd>@order.ShippingMethod</dd></div>
+            }
+            @if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+            {
+              <div><dt>کد رهگیری مرسوله</dt><dd><bdi>@order.TrackingCode</bdi></dd></div>
+            }
+          </dl>
+          @if (!string.IsNullOrWhiteSpace(settings.InvoiceNote))
+          {
+            <p class="inv-note">@settings.InvoiceNote</p>
+          }
+        </div>
+
+        <table class="inv-totals">
+          <tbody>
+            <tr><th>جمع کل کالاها</th><td>@Format.Price(order.SubtotalAmount)</td></tr>
+            @if (itemsDiscount > 0)
+            {
+              <tr><th>تخفیف کالاها</th><td class="inv-minus">@Format.Price(itemsDiscount)-</td></tr>
+            }
+            @if (order.CouponDiscountAmount > 0)
+            {
+              <tr><th>کد تخفیف <bdi>@order.CouponCode</bdi></th><td class="inv-minus">@Format.Price(order.CouponDiscountAmount)-</td></tr>
+            }
+            @if (otherDiscount > 0)
+            {
+              <tr><th>سایر تخفیف‌ها</th><td class="inv-minus">@Format.Price(otherDiscount)-</td></tr>
+            }
+            <tr><th>هزینه ارسال</th><td>@(order.ShippingAmount > 0 ? Format.Price(order.ShippingAmount) : "رایگان")</td></tr>
+            <tr class="inv-grand"><th>مبلغ قابل پرداخت</th><td>@Format.Price(order.PayableAmount)</td></tr>
+            @if (order.WalletBonusAmount > 0)
+            {
+              <tr><th>پرداخت از اعتبار هدیه</th><td>@Format.Price(order.WalletBonusAmount)</td></tr>
+            }
+            @if (order.RefundedAmount > 0)
+            {
+              <tr><th>مبلغ مسترد شده</th><td class="inv-plus">@Format.Price(order.RefundedAmount)</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="inv-words">مبلغ قابل پرداخت به حروف: <strong>@PersianNumberWords.ToWords(order.PayableAmount) تومان</strong></p>
+
+      <footer class="inv-footer">
+        <div class="inv-sign">مهر و امضای فروشنده</div>
+        <div class="inv-sign">امضای خریدار</div>
+      </footer>
+      <p class="inv-legal">
+        @(Model.IsFinal ? "این صورتحساب به صورت الکترونیکی صادر شده است." : "این سند پیش‌فاکتور است و پس از پرداخت، صورتحساب با شماره سریال صادر می‌شود.")
+        <bdi>@Model.SiteHost</bdi>
+      </p>
+    </article>
+  </div>
+
+  <script src="~/assets/js/modal.js" asp-append-version="true"></script>
+  <script src="~/assets/js/dependencies/html2pdf.bundle.min.js"></script>
+  <script src="~/assets/js/invoice.js" asp-append-version="true"></script>
+</body>
+</html>

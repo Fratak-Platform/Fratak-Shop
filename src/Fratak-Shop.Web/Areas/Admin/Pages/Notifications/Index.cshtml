@@ -1,0 +1,116 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Notifications.IndexModel
+@using Fratak_Shop.Data.Entities.Notifications
+@using Fratak_Shop.Web.Areas.Admin.Pages.Notifications
+@{
+    ViewData["Title"] = "اعلان‌ها و پیام همگانی";
+}
+<div class="a-page-head">
+  <div>
+    <h2>اعلان‌ها و پیام همگانی</h2>
+    <p class="a-muted text-sm mt-1">ارسال اطلاعیه، کمپین تخفیف یا پیام اختصاصی به مشتریان (اعلان سایت + اعلان مرورگر).</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.SettingsManage) || Model.Can(AdminPermissions.NotificationsSend))
+    {
+      <a class="a-btn a-btn-light" href="/admin/notifications/templates">@Icons.Svg("Gear", null, 18) قالب‌های پیام رویدادها</a>
+    }
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">کاربران</div><div class="a-stat-value">@Format.Number(Model.Customers)</div></div>
+  <div class="a-stat"><div class="a-stat-label">مشترکان اعلان مرورگر</div><div class="a-stat-value">@Format.Number(Model.PushSubscribers)</div><div class="a-stat-sub">@Format.Number(Model.PushDevices) دستگاه</div></div>
+  <div class="a-stat"><div class="a-stat-label">اعلان مرورگر</div><div class="a-stat-value">@(Model.PushEnabled ? "فعال" : "غیرفعال")</div>@if (!Model.PushEnabled) { <div class="a-stat-sub">از تنظیمات (PWA و کلید VAPID) فعال کنید.</div> }</div>
+  <div class="a-stat"><div class="a-stat-label">سلامت دستگاه‌ها</div><div class="a-stat-value">@Format.Number(Model.PushHealth.Healthy) <span class="text-sm a-muted">سالم</span></div>
+    <div class="a-stat-sub">@Format.Number(Model.PushHealth.Failing) دارای خطا · آخرین تحویل موفق: @(Model.PushHealth.LastSuccessAt is { } ok ? Format.Relative(ok) : "—")</div></div>
+</div>
+@if (Model.LastPush is { } last && (last.StatusCode is null || last.StatusCode >= 400))
+{
+  <div class="a-alert a-alert-warn mb-4">
+    آخرین ارسال پوش به <span class="a-ltr">@last.Host</span> ناموفق بود (@(last.StatusCode?.ToString() ?? "بدون پاسخ") · @Format.Relative(last.At)).
+    اگر سرور در ایران است، سرویس پوش گوگل (FCM) ممکن است از سمت سرور در دسترس نباشد؛ در این حالت اعلان داخل سایت و پیامک همچنان کار می‌کنند.
+    برای آزمایش روی دستگاه خودتان از <a class="a-link" href="/admin/inbox">اعلان‌های من ← اعلان آزمایشی</a> استفاده کنید.
+  </div>
+}
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">پیام همگانی جدید</span></div>
+    <form method="post" asp-page-handler="Broadcast" class="a-card-body a-form-grid" data-dirty-guard data-confirm="پیام برای مخاطبان منتشر شود؟">
+      <div class="grid gap-3 md:grid-cols-2">
+        <div class="a-field"><label class="a-label" for="b-aud">مخاطبان</label>
+          <select id="b-aud" asp-for="Broadcast.Audience" class="a-select">
+            @foreach (var au in new[] { NotificationAudience.AllCustomers, NotificationAudience.CustomersWithOrders, NotificationAudience.CustomersWithoutOrders, NotificationAudience.LoyaltyTier }) { <option value="@au" selected="@(Model.Broadcast.Audience == au)">@IndexModel.AudienceTitle(au)</option> }
+          </select></div>
+        <div class="a-field" data-show-when="#b-aud=LoyaltyTier"><label class="a-label" for="b-tier">سطح باشگاه</label>
+          <select id="b-tier" asp-for="Broadcast.LoyaltyTierId" class="a-select">
+            <option value="">انتخاب کنید</option>
+            @foreach (var t in Model.Tiers) { <option value="@t.Id" selected="@(Model.Broadcast.LoyaltyTierId == t.Id)">@t.Name</option> }
+          </select></div>
+        <div class="a-field"><label class="a-label" for="b-cat">دسته</label>
+          <select id="b-cat" asp-for="Broadcast.Category" class="a-select">
+            @foreach (var c in new[] { NotificationCategory.Promotion, NotificationCategory.System, NotificationCategory.Order, NotificationCategory.Loyalty, NotificationCategory.Wallet, NotificationCategory.Security, NotificationCategory.Support }) { <option value="@c" selected="@(Model.Broadcast.Category == c)">@IndexModel.CategoryTitle(c)</option> }
+          </select></div>
+      </div>
+      @await Component.InvokeAsync("ReadyMessagePicker", new { scope = ReadyMessageScope.Broadcast, bodyTarget = "#b-body", titleTarget = "#b-title", linkTarget = "#b-link" })
+      <div class="a-field"><label class="a-label" for="b-title">عنوان</label><input id="b-title" asp-for="Broadcast.Title" class="a-input" maxlength="200" required></div>
+      <div class="a-field"><label class="a-label" for="b-body">متن</label><textarea id="b-body" asp-for="Broadcast.Body" class="a-textarea" rows="4" maxlength="2000" required></textarea>
+        <div class="a-help">پیام همگانی برای همه یکسان است؛ فقط برچسب <code>{SiteName}</code> (نام فروشگاه) پشتیبانی می‌شود.</div></div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div class="a-field"><label class="a-label" for="b-link">لینک (اختیاری)</label><input id="b-link" asp-for="Broadcast.LinkUrl" class="a-input a-ltr" placeholder="/products?discount=true"></div>
+        <div class="a-field"><label class="a-label" for="b-linktext">متن دکمه</label><input id="b-linktext" asp-for="Broadcast.LinkText" class="a-input" maxlength="100" placeholder="مشاهده"></div>
+        <div class="a-field"><label class="a-label" for="b-pub">تاریخ انتشار (خالی = همین حالا)</label><input id="b-pub" asp-for="Broadcast.PublishDate" class="a-input a-ltr" placeholder="1404/01/01"></div>
+        <div class="a-field"><label class="a-label" for="b-exp">تا تاریخ (اختیاری)</label><input id="b-exp" asp-for="Broadcast.ExpireDate" class="a-input a-ltr" placeholder="1404/01/15"></div>
+      </div>
+      <div class="flex flex-wrap gap-4">
+        <label class="a-check text-sm"><input type="checkbox" name="Broadcast.IsPinned" value="true" checked="@Model.Broadcast.IsPinned"><input type="hidden" name="Broadcast.IsPinned" value="false"> سنجاق در بالای لیست اعلان‌ها</label>
+        <label class="a-check text-sm"><input type="checkbox" name="Broadcast.SendPush" value="true" checked="@Model.Broadcast.SendPush" disabled="@(!Model.PushEnabled)"><input type="hidden" name="Broadcast.SendPush" value="false"> ارسال اعلان مرورگر به مشترکان (حداکثر ۲۰٬۰۰۰)</label>
+      </div>
+      <div><button class="a-btn" type="submit">@Icons.Svg("PaperPlaneTilt", null, 18) انتشار</button></div>
+    </form>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">پیام اختصاصی به یک مشتری</span></div>
+    <form method="post" asp-page-handler="Direct" class="a-card-body a-form-grid">
+      <div class="a-field"><label class="a-label" for="d-phone">موبایل مشتری</label><input id="d-phone" asp-for="Direct.Phone" class="a-input a-ltr" placeholder="09121234567" inputmode="numeric" required></div>
+      @await Component.InvokeAsync("ReadyMessagePicker", new { scope = ReadyMessageScope.Direct, bodyTarget = "#d-body", titleTarget = "#d-title", linkTarget = "#d-link" })
+      <div class="a-field"><label class="a-label" for="d-title">عنوان</label><input id="d-title" asp-for="Direct.Title" class="a-input" maxlength="200" required></div>
+      <div class="a-field"><label class="a-label" for="d-body">متن</label><textarea id="d-body" asp-for="Direct.Body" class="a-textarea" rows="4" maxlength="2000" required></textarea>
+        <div class="a-help">برچسب‌هایی مثل <code>{FirstName}</code> یا <code>{WalletBalance}</code> با اطلاعات همین مشتری پر می‌شوند (<a class="a-link" href="/admin/ready-messages">فهرست برچسب‌ها</a>).</div></div>
+      <div class="a-field"><label class="a-label" for="d-link">لینک (اختیاری)</label><input id="d-link" asp-for="Direct.LinkUrl" class="a-input a-ltr" placeholder="/profile/orders"></div>
+      <label class="a-check text-sm"><input type="checkbox" name="Direct.SendPush" value="true" checked="@Model.Direct.SendPush"><input type="hidden" name="Direct.SendPush" value="false"> اعلان مرورگر</label>
+      <label class="a-check text-sm"><input type="checkbox" name="Direct.SendSms" value="true" checked="@Model.Direct.SendSms"><input type="hidden" name="Direct.SendSms" value="false"> پیامک هم ارسال شود</label>
+      <label class="a-check text-sm"><input type="checkbox" name="Direct.SendEmail" value="true" checked="@Model.Direct.SendEmail"><input type="hidden" name="Direct.SendEmail" value="false"> ایمیل هم ارسال شود (اگر ایمیل مشتری تأیید شده باشد)</label>
+      <div><button class="a-btn" type="submit">ارسال</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">پیام‌های همگانی <span class="a-muted text-sm">(@Format.Number(Model.Items.Total))</span></span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>پیام</th><th>مخاطبان</th><th>بازه نمایش</th><th>خوانده‌شده</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var n in Model.Items.Items)
+        {
+          <tr>
+            <td data-label="پیام"><b>@n.Title</b> @if (n.IsPinned) { <span class="a-badge a-badge-purple">سنجاق</span> }<div class="a-muted text-xs line-clamp-2">@n.Body</div>@if (n.LinkUrl is not null) { <div class="a-ltr text-xs text-right">@n.LinkUrl</div> }</td>
+            <td data-label="مخاطبان" class="text-sm">@IndexModel.AudienceTitle(n.Audience)@if (n.TierName is not null) { <span>: @n.TierName</span> }<div class="a-muted text-xs">@IndexModel.CategoryTitle(n.Category)</div></td>
+            <td data-label="بازه" class="text-xs nowrap">@(n.PublishAt is { } p ? Format.Date(p) : Format.Date(n.CreatedAt)) @if (n.ExpiresAt is { } e) { <span>تا @Format.Date(e)</span> }</td>
+            <td data-label="خوانده‌شده" class="num">@Format.Number(n.Reads)</td>
+            <td data-label="وضعیت">@if (!n.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> } else if (n.ExpiresAt is { } ex && ex <= DateTimeOffset.UtcNow) { <span class="a-badge a-badge-gray">منقضی</span> } else if (n.PublishAt is { } pa && pa > DateTimeOffset.UtcNow) { <span class="a-badge a-badge-sky">زمان‌بندی‌شده</span> } else { <span class="a-badge a-badge-green">در حال نمایش</span> }</td>
+            <td class="nowrap">
+              <form method="post" asp-page-handler="Toggle" asp-route-id="@n.Id" class="inline"><button class="a-btn a-btn-xs a-btn-light" type="submit">@(n.IsActive ? "غیرفعال" : "فعال")</button></form>
+              <form method="post" asp-page-handler="Delete" asp-route-id="@n.Id" class="inline" data-confirm="این پیام حذف شود؟" data-confirm-danger><button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">حذف</button></form>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Items.Count == 0) { <div class="a-empty">هنوز پیام همگانی ارسال نشده است.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>

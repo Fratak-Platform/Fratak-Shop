@@ -28,6 +28,8 @@ public static class UserAddressMapper
             PostalCode = address.PostalCode,
             PhoneNumber = address.PhoneNumber,
             IsDefault = address.IsDefault,
+            Latitude = address.Latitude,
+            Longitude = address.Longitude,
         };
     }
 

@@ -1,0 +1,76 @@
+@page "/profile/favorites"
+@model Fratak_Shop.Web.Pages.Profile.FavoritesModel
+@{
+    Layout = "_Layout";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Favorites" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div>
+          <h1 class="text-zinc-800 text-lg mb-4 font-semibold">
+           علاقه مندی ها:
+          </h1>
+          @if (Model.Favorites.Count == 0)
+          {
+            <div class="text-center py-10 text-zinc-500">
+              لیست علاقه مندی های شما خالی است.
+              <a asp-page="/Search" class="block w-fit mx-auto mt-4 rounded-lg bg-sky-500 px-6 py-2 text-sm text-white">مشاهده محصولات</a>
+            </div>
+          }
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-3">
+            @foreach (var favorite in Model.Favorites)
+            {
+              var url = $"/product/{favorite.ProductSlug}";
+              var percent = favorite.HasActiveDiscount && favorite.Price > 0 ? (int)Math.Round((favorite.Price - favorite.FinalPrice) / favorite.Price * 100) : 0;
+              <div class="my-2 p-2 md:p-4 bg-white rounded-2xl border group">
+                <div class="flex justify-between relative">
+                  @if (percent > 0)
+                  {
+                    <div class="bg-sky-500 rounded-full w-8 h-8 pt-1 text-white flex items-center justify-center text-xs">
+                      % @percent
+                    </div>
+                  }
+                  <form method="post" asp-page-handler="Toggle" class="flex flex-col gap-y-2 absolute left-0" data-confirm="از علاقه مندی ها حذف شود؟">
+                    <input type="hidden" name="productId" value="@favorite.ProductId" />
+                    <button type="submit" aria-label="حذف از علاقه مندی ها" title="حذف از علاقه مندی ها">
+                      @Icons.Svg("Heart", "bg-gray-200 rounded-full p-1 fill-red-500 transition cursor-pointer", 33)
+                    </button>
+                  </form>
+                </div>
+                <a href="@url" class="image-box mb-6 block">
+                  <img class="max-w-52 mx-auto @(favorite.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(favorite.ProductImageName)" alt="@favorite.ProductName" loading="lazy">
+                </a>
+                <div class="space-y-5">
+                  <span class="mb-2 h-8 md:h-10 flex justify-between">
+                    <a href="@url" class="flex flex-col gap-y-2">
+                      <span class="text-sm font-semibold text-zinc-800 line-clamp-2">
+                        @favorite.ProductName
+                      </span>
+                    </a>
+                  </span>
+                  <div class="flex items-center gap-x-2">
+                    @if (favorite.HasActiveDiscount)
+                    {
+                      <div class="flex justify-center gap-x-1 text-xs text-zinc-400">
+                        <div class="line-through">@Format.Price(favorite.Price)</div>
+                        <div class="line-through">تومان</div>
+                      </div>
+                    }
+                    <div class="flex justify-center gap-x-1 font-semibold text-zinc-800">
+                      <div>@Format.Price(favorite.FinalPrice)</div>
+                      <div>تومان</div>
+                    </div>
+                  </div>
+                  <a href="@url" class="flex items-center justify-center gap-x-1 text-sm w-full py-2 px-2 rounded-lg text-white bg-gradient-to-bl from-sky-500 to-sky-700 hover:opacity-80 transition">
+                    @(favorite.IsInStock ? "خرید محصول" : "ناموجود - مشاهده")
+                  </a>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>

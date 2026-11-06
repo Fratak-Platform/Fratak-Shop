@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Core.DTOs.Comments.Query;
+using Fratak_Shop.Core.DTOs.Comments.Query;
 using Fratak_Shop.Core.Utilities;
 
 namespace Fratak_Shop.Core.DTOs.Blogs.Posts.Query;
@@ -8,6 +8,8 @@ public class PostDto : BaseDto
     public Guid? AuthorId { get; set; }
     public string AuthorName { get; set; } = null!;
     public Guid BlogCategoryId { get; set; }
+    public string? BlogCategoryName { get; set; }
+    public string? BlogCategorySlug { get; set; }
     public string Title { get; set; } = null!;
     public string Slug { get; set; } = null!;
     public string? Excerpt { get; set; }
@@ -72,6 +74,7 @@ public class SeoMetaDataDto
     public string? ArticleTagsJson { get; set; }
     public string? SchemaType { get; set; }
     public string? StructuredDataJsonLd { get; set; }
+    public string? FaqJson { get; set; }
     public bool? IncludeInSitemap { get; set; }
     public DateTimeOffset? SitemapLastModified { get; set; }
     public decimal? SitemapPriority { get; set; }

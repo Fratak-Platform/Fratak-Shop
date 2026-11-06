@@ -1,0 +1,50 @@
+# الگوی پرسش‌های پرتکرار خریداران (برای FAQ و تیترهای پرسشی): «پرسش ⇥ شرط داده ⇥ نوع صفحه ⇥ وزن»
+# شرط: any، warranty، return، delivery، cod، stock، brand، specs، category
+آیا {name} گارانتی دارد؟	warranty	product	1
+{name} چند ماه گارانتی دارد؟	warranty	product	0.8
+اگر {name} ایراد داشت چه کنم؟	warranty	product	0.6
+آیا می‌توانم {name} را پس بدهم؟	return	product	1
+شرایط بازگشت {name} چیست؟	return	product	0.8
+{name} چند روزه به دستم می‌رسد؟	delivery	product	1
+هزینهٔ ارسال {name} چقدر است؟	delivery	product	0.8
+آیا امکان پرداخت در محل برای {name} هست؟	cod	product	1
+آیا {name} موجود است؟	stock	product	0.8
+{name} ساخت کدام برند است؟	brand	product	0.6
+{name} مناسب چه کسانی است؟	any	product	0.9
+مهم‌ترین ویژگی {name} چیست؟	specs	product	0.9
+مشخصات فنی {name} چیست؟	specs	product	0.8
+{name} با چه دستگاه‌هایی سازگار است؟	specs	product	0.5
+چطور از {name} نگهداری کنم؟	any	product	0.7
+تفاوت {name} با مدل‌های مشابه چیست؟	any	product	0.7
+قیمت {name} چقدر است؟	any	product	0.8
+آیا {name} اصل است؟	any	product	0.6
+برای خرید {name} چه نکاتی مهم است؟	any	category	1
+قیمت {name} از چه عواملی تأثیر می‌گیرد؟	any	category	0.9
+بهترین برند {name} کدام است؟	any	category	0.6
+تفاوت مدل‌های مختلف {name} در چیست؟	any	category	0.8
+آیا {name} گارانتی دارند؟	warranty	category	0.8
+ارسال {name} چند روز طول می‌کشد؟	delivery	category	0.8
+آیا محصولات {name} اصل هستند؟	brand	brand	0.9
+محصولات {name} گارانتی دارند؟	warranty	brand	0.9
+پرفروش‌ترین محصول {name} کدام است؟	any	brand	0.7
+{name} محصول کدام کشور است؟	any	brand	0.5
+{name} چیست؟	any	blog	1
+{name} چه کاربردی دارد؟	any	blog	0.9
+مزایای {name} چیست؟	any	blog	0.8
+معایب {name} چیست؟	any	blog	0.7
+چگونه {name} را انتخاب کنیم؟	any	blog	0.8
+آیا {name} برای همه مناسب است؟	any	blog	0.6
+هزینهٔ {name} چقدر است؟	any	blog	0.5
+چطور با {site} تماس بگیرم؟	any	contact	1
+ساعات پاسخ‌گویی پشتیبانی چه زمانی است؟	any	contact	0.9
+پاسخ پیام‌ها چقدر طول می‌کشد؟	any	contact	0.7
+چطور سفارشم را پیگیری کنم؟	any	faq	1
+روش‌های پرداخت چیست؟	any	faq	0.9
+چطور کالا را مرجوع کنم؟	return	faq	0.9
+هزینهٔ ارسال چقدر است؟	delivery	faq	0.9
+آیا پرداخت در محل ممکن است؟	cod	faq	0.8
+{site} چه محصولاتی دارد؟	any	home	0.9
+آیا خرید از {site} امن است؟	any	home	0.9
+سفارش‌ها چند روزه ارسال می‌شوند؟	delivery	home	0.8
+باشگاه مشتریان {site} چه امتیازی دارد؟	any	club	1
+امتیازها را چطور خرج کنم؟	any	club	0.8

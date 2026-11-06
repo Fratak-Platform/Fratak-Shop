@@ -1,236 +1,260 @@
-@page
+@page "/checkout"
 @model CheckoutModel
+@using Fratak_Shop.Data.Entities.Orders
 @{
-    ViewData["Title"] = "پرداخت";
     Layout = "_Layout";
+    var cart = Model.Cart;
+    var settings = Site.Settings;
+    const string optionLabel = "flex w-full p-3 text-gray-600 bg-white border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-sky-400 peer-checked:text-sky-700 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 hover:bg-gray-50";
+    const string sectionTitle = "flex justify-between gap-x-1 items-center text-zinc-600 border-b pb-2 mb-4 text-lg font-semibold";
 }
-
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
     <span class="flex items-center justify-center mt-4 mb-8 md:mt-10 md:mb-14 gap-x-5">
-      <div class="w-full h-px bg-zinc-300">
-      </div>
-      <div class="text-xl md:text-4xl font-semibold text-zinc-700 min-w-max text-center">
-        تکمیل سفارش
-      </div>
-      <div class="w-full h-px bg-zinc-300">
-      </div>
+      <div class="w-full h-px bg-zinc-300"></div>
+      <h1 class="text-xl md:text-4xl font-semibold text-zinc-700 min-w-max text-center">تکمیل سفارش</h1>
+      <div class="w-full h-px bg-zinc-300"></div>
     </span>
     <div class="flex flex-col md:flex-row gap-5">
-      <div class="md:w-8/12 bg-white border rounded-xl shadow-lg p-4">
-        <div class="p-2 sm:p-4 mb-10">
-          <div class="flex justify-between gap-x-1 items-center text-zinc-600 border-b pb-2 mb-4 text-lg font-semibold">
-            <div>
-              آدرس تحویل سفارش
+      <form method="post" asp-page-handler="PlaceOrder" id="checkoutForm" class="md:w-8/12 bg-white border rounded-xl shadow-lg p-4" data-checkout-form>
+        @* address *@
+        <section class="p-2 sm:p-4 mb-8">
+          <div class="@sectionTitle">
+            <h2>آدرس تحویل سفارش</h2>
+            <a href="/profile/addresses?new=1" data-ui="modal-open" data-arg="showEditAddress" class="text-base font-normal text-sky-700">افزودن آدرس جدید</a>
+          </div>
+          @if (Model.Addresses.Count == 0)
+          {
+            <p class="text-zinc-600">هنوز آدرسی ثبت نکرده اید؛ برای ادامه یک آدرس اضافه کنید.</p>
+          }
+          <ul class="grid gap-3">
+            @foreach (var address in Model.Addresses)
+            {
+              <li>
+                <input type="radio" id="address-@address.Id" name="Input.AddressId" value="@address.Id" class="hidden peer" required data-address-switch
+                       checked="@(address.Id == Model.Input.AddressId ? "checked" : null)">
+                <label for="address-@address.Id" class="block w-full p-4 text-gray-600 bg-white border-2 border-gray-200 rounded-lg cursor-pointer peer-checked:border-sky-400 hover:bg-gray-50">
+                  <div class="flex items-center justify-between">
+                    <span class="font-semibold text-zinc-700">@address.Title</span>
+                    @if (address.IsDefault)
+                    {
+                      <span class="text-xs bg-sky-100 text-sky-700 rounded-full px-2 py-1">پیش فرض</span>
+                    }
+                  </div>
+                  <div class="text-zinc-600 mt-2">@address.FullAddress</div>
+                  <div class="text-xs text-zinc-500 mt-2 flex flex-wrap gap-x-4">
+                    <span>گیرنده: @address.FirstName @address.LastName</span>
+                    <span dir="ltr">@address.PhoneNumber</span>
+                    <span>کد پستی: @address.PostalCode</span>
+                  </div>
+                </label>
+              </li>
+            }
+          </ul>
+        </section>
+
+        @* shipping *@
+        <section class="p-2 sm:p-4 mb-8">
+          <div class="@sectionTitle"><h2>روش ارسال</h2></div>
+          @if (Model.SelectedAddress is null)
+          {
+            <p class="text-sm text-zinc-500">برای مشاهده روش‌های ارسال ابتدا آدرس تحویل را ثبت کنید.</p>
+          }
+          else if (Model.ShippingOptions.Count == 0)
+          {
+            <p class="text-sm text-red-500">متاسفانه برای آدرس انتخاب‌شده روش ارسالی در دسترس نیست.</p>
+          }
+          <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            @foreach (var option in Model.ShippingOptions)
+            {
+              var method = option.Method;
+              <li>
+                <input type="radio" id="ship-@method.Id" name="Input.ShippingMethodId" value="@method.Id" class="hidden peer" required
+                       data-shipping-cost="@option.Cost" data-cod="@(method.SupportsCashOnDelivery ? "1" : "0")"
+                       data-remaining="@(option.RemainingForFreeShipping ?? 0)" data-slot-panel="slots-@method.Id"
+                       data-coupon-shipping="@Model.CouponShippingDiscount(method.Id)"
+                       checked="@(method.Id == Model.Input.ShippingMethodId ? "checked" : null)">
+                <label for="ship-@method.Id" class="@optionLabel flex-col gap-y-1">
+                  <span class="flex items-center justify-between gap-x-2">
+                    <span class="flex items-center gap-x-2 font-semibold text-sm">
+                      @Icons.Svg(method.Type == Fratak_Shop.Data.Entities.Shipping.ShippingMethodType.Express ? "Lightning" : method.RequiresTimeSlot ? "Storefront" : "Truck", "fill-sky-600", 20)
+                      @method.Title
+                    </span>
+                    <span class="text-sm @(option.IsFree ? "text-emerald-600" : "text-zinc-700")">@(option.IsFree ? "رایگان" : Format.Toman(option.Cost))</span>
+                  </span>
+                  <span class="text-xs text-zinc-500">@(string.IsNullOrWhiteSpace(method.Description) ? option.DeliveryEstimate : $"{option.DeliveryEstimate} • {method.Description}")</span>
+                  @if (!method.SupportsCashOnDelivery && settings.IsCashOnDeliveryEnabled)
+                  {
+                    <span class="text-[11px] text-amber-600">بدون امکان پرداخت در محل</span>
+                  }
+                </label>
+              </li>
+            }
+          </ul>
+
+          @if (Model.UnavailableShipping.Count > 0)
+          {
+            <ul class="mt-3 space-y-1">
+              @foreach (var unavailable in Model.UnavailableShipping)
+              {
+                <li class="flex items-center gap-x-1.5 text-xs text-zinc-400">
+                  @Icons.Svg("Info", "fill-zinc-400 shrink-0", 14)
+                  <span><span class="line-through">@unavailable.Title</span> — @unavailable.Reason</span>
+                </li>
+              }
+            </ul>
+          }
+
+          @foreach (var option in Model.ShippingOptions.Where(o => o.Method.RequiresTimeSlot))
+          {
+            <div id="slots-@option.Method.Id" data-slot-group class="mt-5 rounded-xl border border-dashed border-sky-200 p-3">
+              <p class="mb-3 text-sm font-semibold text-zinc-600">زمان تحویل «@option.Method.Title»</p>
+              @if (!option.Days.Any(d => d.HasAvailableSlot))
+              {
+                <p class="text-sm text-red-500">فعلاً بازه خالی برای تحویل وجود ندارد.</p>
+              }
+              <div class="space-y-3">
+                @foreach (var day in option.Days)
+                {
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div class="w-32 shrink-0 text-sm text-zinc-700">@(day.IsToday ? "امروز" : Format.Day(day.Date))</div>
+                    <div class="flex flex-wrap gap-2">
+                      @foreach (var slot in day.Slots)
+                      {
+                        var value = CheckoutModel.SlotValue(day.Date, slot.SlotId);
+                        var id = $"slot-{option.Method.Id:N}-{day.Date:yyyyMMdd}-{slot.SlotId:N}";
+                        <span>
+                          <input type="radio" id="@id" name="Input.DeliverySlot" value="@value" class="hidden peer"
+                                 disabled="@(slot.IsAvailable ? null : "disabled")" checked="@(value == Model.Input.DeliverySlot ? "checked" : null)">
+                          <label for="@id" class="inline-flex flex-col items-center rounded-lg border-2 border-gray-200 px-3 py-1.5 text-xs cursor-pointer peer-checked:border-sky-400 peer-checked:text-sky-700 peer-disabled:cursor-not-allowed peer-disabled:opacity-40 hover:bg-gray-50"
+                                 title="@slot.UnavailableReason">
+                            @slot.Title
+                            @if (!slot.IsAvailable && !string.IsNullOrWhiteSpace(slot.UnavailableReason))
+                            {
+                              <span class="text-[10px] text-zinc-400">@slot.UnavailableReason</span>
+                            }
+                          </label>
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
-            <a onclick="showEditAddress()" class="text-base font-normal text-sky-700" href="#">
-              ویرایش آدرس
-            </a>
+          }
+        </section>
+
+        @* payment *@
+        <section class="p-2 sm:p-4 mb-6">
+          <div class="@sectionTitle"><h2>روش پرداخت</h2></div>
+          @if (Model.PaymentChoices.Count == 0)
+          {
+            <p class="text-sm text-red-500">در حال حاضر هیچ روش پرداختی فعال نیست؛ لطفاً با پشتیبانی تماس بگیرید.</p>
+          }
+          <ul class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            @foreach (var payment in Model.PaymentChoices)
+            {
+              <li>
+                <input type="radio" id="pay-@payment.Method" name="Input.PaymentMethod" value="@payment.Method" class="hidden peer"
+                       data-payment="@payment.Method" disabled="@(payment.IsAvailable ? null : "disabled")" data-blocked="@(payment.IsAvailable ? null : "1")"
+                       checked="@(payment.Method == Model.Input.PaymentMethod ? "checked" : null)">
+                <label for="pay-@payment.Method" class="@optionLabel h-full items-center gap-x-3">
+                  @Icons.Svg(payment.Icon, "shrink-0 fill-sky-700", 28)
+                  <span class="flex flex-col">
+                    <span class="text-sm font-semibold">@payment.Title</span>
+                    <span class="text-[11px] text-zinc-500 mt-1">@payment.Note</span>
+                  </span>
+                </label>
+              </li>
+            }
+          </ul>
+          <p class="hidden mt-3 text-xs text-amber-600" data-payment-hint></p>
+        </section>
+
+        <div class="p-2 sm:p-4">
+          <label class="text-sm text-zinc-700 flex mb-2" for="Input_Note">توضیحات سفارش</label>
+          <textarea id="Input_Note" name="Input.Note" placeholder="نکات مهم درباره تحویل محصول" cols="30" rows="4" maxlength="1000" class="text-sm block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white px-3 py-2 text-gray-700 outline-none transition-all focus:border-sky-400">@Model.Input.Note</textarea>
+        </div>
+      </form>
+
+      <aside class="bg-white border rounded-xl shadow-lg p-4 md:w-4/12 h-fit md:sticky md:top-36">
+        <div class="p-3" data-checkout-summary data-items="@cart.PayableAmount" data-wallet="@Model.WalletBalance" data-coupon="@(Model.Coupon?.ItemsDiscount ?? 0)"
+             data-cod-max="@settings.CashOnDeliveryMaxAmount">
+          <div class="flex gap-x-1 justify-between items-center text-zinc-600 px-2 py-3 font-semibold">
+            <div>قیمت کالاها (@cart.TotalQuantity)</div>
+            <div>@Format.Toman(cart.SubtotalAmount)</div>
           </div>
-          <div class="text-zinc-600 text-lg ">
-            تهران - میدان دماوند - روبرو میدان امام حسین - طبقه اول
+          @if (cart.TotalDiscountAmount > 0)
+          {
+            <div class="flex gap-x-1 justify-between items-center text-red-500 font-semibold mt-1 px-2 py-3">
+              <div>تخفیف</div>
+              <div>@Format.Toman(cart.TotalDiscountAmount)</div>
+            </div>
+          }
+          @if (Model.Coupon is { ItemsDiscount: > 0 } coupon)
+          {
+            <div class="flex gap-x-1 justify-between items-center text-red-500 font-semibold mt-1 px-2 py-3">
+              <div>کد تخفیف <span dir="ltr">@coupon.Code</span></div>
+              <div>@Format.Toman(coupon.ItemsDiscount)</div>
+            </div>
+          }
+          <div class="flex gap-x-1 justify-between items-center text-zinc-600 font-semibold mt-1 px-2 py-3">
+            <div>هزینه ارسال</div>
+            <div data-shipping-output>-</div>
           </div>
-          <!-- edit addredd modal -->
+          <div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-3 px-2 pt-5 font-black border-t">
+            <div>مبلغ قابل پرداخت</div>
+            <div><span data-total-output>@Format.Price(cart.PayableAmount)</span> تومان</div>
+          </div>
+          <p class="hidden text-xs text-emerald-600 px-2 mt-3" data-free-hint>
+            با افزودن <span data-free-remaining></span> تومان دیگر، ارسال این روش رایگان می شود.
+          </p>
+          @if (settings.IsCouponEnabled)
+          {
+            <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/checkout")' />
+          }
+          @if (Model.IsBelowMinimum)
+          {
+            <p class="text-xs text-red-500 px-2 mt-3">حداقل مبلغ سفارش @Format.Toman(Model.MinimumOrderAmount) است.</p>
+          }
+          <button type="submit" form="checkoutForm" class="mx-auto block text-center w-full px-2 py-3 mt-6 bg-sky-500 hover:bg-sky-400 disabled:bg-gray-300 transition text-gray-100 rounded-lg"
+                  disabled="@(Model.Addresses.Count == 0 || Model.ShippingOptions.Count == 0 || Model.PaymentChoices.Count == 0 || Model.IsBelowMinimum ? "disabled" : null)">
+            ثبت سفارش و پرداخت
+          </button>
+          <p class="mt-3 text-[11px] leading-5 text-zinc-500">
+            ثبت سفارش به معنای پذیرش <a class="text-sky-600" href="/page/rules">قوانین و مقررات</a> فروشگاه است.
+            @if (settings.HasZarinPal)
+            {
+              <text>مهلت پرداخت اینترنتی @settings.UnpaidOrderTimeoutMinutes دقیقه است.</text>
+            }
+          </p>
+          <a asp-page="/Cart" class="block text-center text-sm text-sky-600 mt-4">بازگشت به سبد خرید</a>
+        </div>
+      </aside>
+    </div>
+    @* add address modal *@
           <div class="max-w-2xl mx-auto relative">
-            <!-- Main modal -->
-            <div id="showEditAddress" class="overflow-x-hidden overflow-y-auto z-50 fixed h-modal h-full inset-0 justify-center items-center hidden">
-                <div onclick="closeEditAddress()" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
+            @* Main modal *@
+            <div id="showEditAddress" data-modal class="overflow-x-hidden overflow-y-auto z-50 fixed h-modal h-full inset-0 justify-center items-center hidden">
+                <div data-ui="modal-close" data-arg="showEditAddress" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
                 </div>
                 <div class="relative w-12/12 sm:w-10/12 lg:w-6/12 px-4 h-auto mb-4 z-50 mt-5 md:mt-10 mx-auto">
-                  <!-- Modal content -->
+                  @* Modal content *@
                   <div class="bg-white rounded-lg shadow-lg relative overflow-y-visible">
                       <div class="flex justify-between items-center p-4 border-b">
-                        <h3 class="text-gray-700">ویرایش آدرس</h3>
-                        <button onclick="closeEditAddress()" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center">
+                        <h3 class="text-gray-700">افزودن آدرس جدید</h3>
+                        <button data-ui="modal-close" data-arg="showEditAddress" type="button" aria-label="بستن" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center">
                           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>  
                         </button>
                       </div>
-                      <form class="space-y-6 px-6 lg:px-8 pb-4 sm:pb-6 pt-4" action="#">
-                        <div>
-                          <!-- inputs -->
-                          <div class="sm:flex gap-x-5 mt-5">
-                            <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                نام
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <input type="text" name="" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">
-                            </div>
-                            <div class="sm:w-1/2 flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                نام خانوادگی
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <input type="text" name="" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">          
-                            </div>
-                          </div>
-                          <div class="sm:flex gap-x-5 mt-7">
-                            <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                استان
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <select name="select" class="focus:shadow-primary-outline text-sm leading-5.6 ease block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all placeholder:text-gray-500 focus:border-sky-500 focus:outline-none">
-                                @foreach (var item in Model.ProvinceOptions) {@Html.Raw(item.OptionHtml)</option>
-                                }
-                              </select>
-                            </div>
-                            <div class="sm:w-1/2 flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                شهر
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <select name="select" class="focus:shadow-primary-outline text-sm leading-5.6 ease block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all placeholder:text-gray-500 focus:border-sky-500 focus:outline-none">
-                                @foreach (var item in Model.CityOptions) {@Html.Raw(item.OptionHtml)</option>
-                                }
-                              </select>
-                            </div>
-                          </div>
-                          <div class="mt-7">
-                            <div class="flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                خیابان و کوچه
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <input type="text" name="" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">
-                            </div>
-                            <div class="flex flex-col gap-y-1 mt-5">
-                              <label class="text-sm text-zinc-700 flex">
-                                شماره پلاک و واحد
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <input type="text" name="" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">          
-                            </div>
-                          </div>
-                          <div class="sm:flex gap-x-5 mt-5">
-                            <div class="sm:w-1/2 mb-2 sm:mb-0 flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                تلفن
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <input type="text" name="" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">
-                            </div>
-                            <div class="sm:w-1/2 flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                کد پستی
-                                <svg class="fill-red-500" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="#4d4d4d" viewBox="0 0 256 256"><path d="M210.23,101.57l-72.6,29,51.11,65.71a6,6,0,0,1-9.48,7.36L128,137.77,76.74,203.68a6,6,0,1,1-9.48-7.36l51.11-65.71-72.6-29a6,6,0,1,1,4.46-11.14L122,119.14V40a6,6,0,0,1,12,0v79.14l71.77-28.71a6,6,0,1,1,4.46,11.14Z"></path></svg>
-                              </label>
-                              <input type="text" name="" class="focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none">          
-                            </div>
-                          </div>
-                          <div class="mt-5">
-                            <div class="flex flex-col gap-y-1">
-                              <label class="text-sm text-zinc-700 flex">
-                                توضیحات اضافه
-                              </label>
-                              <textarea placeholder="نکات مهم درباره تحویل محصول" name="mailTicket" cols="30" rows="7" class="focus:shadow-primary-outline text-sm leading-5.6 ease block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-400 focus:outline-none"></textarea>
-                            </div>
-                          </div>
-                          <a href="" class="w-1/2 mx-auto mt-2 block py-3 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-xl text-center">
-                            ثبت تغییرات
-                          </a>
-                        </div>
+                      <form method="post" asp-page-handler="AddAddress" class="space-y-6 px-6 lg:px-8 pb-4 sm:pb-6 pt-4">
+                        <partial name="_AddressFields" model="new AddressFieldsModel(Model.Address, Model.Provinces)" />
+                        <button type="submit" class="w-1/2 mx-auto mt-2 block py-3 text-sm bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-xl text-center">
+                          ثبت آدرس
+                        </button>
                       </form>
                   </div>
                 </div>
-            </div> 
-          </div>
-        </div>
-        <div class="p-2 sm:p-4 mb-10">
-          <div class="flex gap-x-1 items-center text-zinc-600 border-b pb-2 mb-4 text-lg font-semibold">
-            انتخاب روز تحویل کالا
-          </div>
-          <ul class="grid w-full gap-6 grid-cols-3 md:grid-cols-6">
-            @foreach (var item in Model.DeliveryDays) {<li>
-              @Html.Raw(item.InputHtml)
-                <div class="text-center">
-                  <div class="mb-1">@item.DayName</div>
-                  <div class="text-sm">@item.DayNumber آبان</div>
-                </div>
-              </label>
-            </li>
-            }
-          </ul>
-        </div>
-        <div class="grid md:grid-cols-2 ">
-          <div class="p-2 sm:p-4">
-            <div class="flex gap-x-1 items-center text-zinc-600 border-b pb-2 mb-4 text-lg font-semibold">
-              انتخاب نوع ارسال کالا
-            </div>
-            <ul class="grid grid-cols-2 w-full gap-3">
-              @foreach (var item in Model.ShippingMethods) {<li>
-                @Html.Raw(item.InputHtml)
-                  <div class="text-center">
-                    <span class="text-sm">پست @item.Title :</span>
-                    <span class="text-sm">@item.Price تومان</span>
-                  </div>
-                </label>
-              </li>
-              }
-            </ul>
-          </div>
-          <div class="p-2 sm:p-4">
-            <div class="flex gap-x-1 items-center text-zinc-600 border-b pb-2 mb-4 text-lg font-semibold">
-              انتخاب نوع پرداخت
-            </div>
-            <ul class="grid grid-cols-2 w-full gap-3">
-              @foreach (var item in Model.PaymentMethods) {<li>
-                @Html.Raw(item.InputHtml)                           
-                  <svg class="max-w-12 fill-sky-800" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256">@Html.Raw(item.IconHtml)</path></svg>@item.Spacer<div class="text-center">
-                    <span class="text-sm">پرداخت @item.Title</span>
-                  </div>
-                </label>
-              </li>
-              }
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white border rounded-xl shadow-lg p-4 md:w-4/12 h-fit space-y-5">
-        <div class="p-3">
-          <div class="flex gap-x-1 justify-between items-center text-zinc-600 px-2 py-3 font-semibold">
-            <div>
-              قیمت کالاها (2)
-            </div>
-            <div class="flex gap-x-1">
-              <div>
-                1,700,000
-              </div>
-              <div>
-                تومان
-              </div>
             </div>
           </div>
-          <div class="flex gap-x-1 justify-between items-center text-red-500 font-semibold mt-3 px-2 py-3">
-            <div>
-              تخفیف
-            </div>
-            <div class="flex gap-x-1">
-              <div>
-                400,000
-              </div>
-              <div>
-                تومان
-              </div>
-            </div>
-          </div>
-          <div class="flex gap-x-1 justify-between items-center text-zinc-800 mt-5 px-2 pt-5 font-black border-t">
-            <div>
-              جمع سبد خرید
-            </div>
-            <div class="flex gap-x-1">
-              <div>
-                3,400,000
-              </div>
-              <div>
-                تومان
-              </div>
-            </div>
-          </div>
-          <a asp-page="/Checkout" class="mx-auto block text-center w-full px-2 py-3 mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
-            تکمیل سفارش و پرداخت
-          </a>
-        </div>
-      </div>
-    </div>
   </main>

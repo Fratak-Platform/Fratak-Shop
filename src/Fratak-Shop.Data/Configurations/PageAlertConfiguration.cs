@@ -10,5 +10,7 @@ public class PageAlertConfiguration : IEntityTypeConfiguration<PageAlert>
     {
         builder.HasIndex(a => new { a.Page, a.Position });
         builder.HasIndex(a => a.IsActive);
+        builder.HasIndex(a => a.ProductId);
+        builder.HasIndex(a => a.CategoryId);
     }
 }

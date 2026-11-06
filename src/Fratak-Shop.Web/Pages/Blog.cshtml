@@ -1,10 +1,8 @@
-@page
+@page "/blog"
 @model BlogModel
 @{
-    ViewData["Title"] = "بلاگ";
     Layout = "_Layout";
 }
-
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
     <div class="bg-white border rounded-xl shadow-lg p-4">
@@ -12,35 +10,33 @@
         <div class="w-full h-px bg-zinc-300">
         </div>
         <div class="text-xl md:text-4xl font-semibold text-zinc-700 min-w-max text-center">
-          وبلاگ
+          @(Model.Category?.Name ?? "وبلاگ")
         </div>
         <div class="w-full h-px bg-zinc-300">
         </div>
       </span>
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-        @foreach (var item in Model.BlogCards) {<div class="bg-white rounded-2xl border border-zinc-300 group">
-          <a href="" class="image-box">
-            @Html.Raw(item.ImageTag)
-          </a>
-          <div class="p-2 md:p-4 mt-2">
-            <a asp-page="/BlogSingle" class="font-semibold text-zinc-800">
-              ۷ ترفند برای افزایش طول عمر هدفون
-            </a>
-            <p class="mb-4 mt-5 text-zinc-600">
-              اگر از جمله کاربرانی هستید که هدفون‌های شما بعد از حدود یک یا دو سال استفاده خراب...
-            </p>
-            <a asp-page="/BlogSingle" class="flex items-center justify-center w-fit mx-auto text-blue-600 hover:text-blue-400 transition">
-              ادامه مطلب
-            </a>
-          </div>
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div class="flex gap-2 flex-wrap">
+          <a href="/blog" class="rounded-full px-4 py-1.5 text-sm border @(Model.Category is null ? "bg-sky-500 border-sky-500 text-white" : "border-gray-300 text-zinc-600 hover:bg-gray-50")">همه مقالات</a>
+          @foreach (var category in Model.Categories)
+          {
+            <a href="/blog/category/@category.Slug" class="rounded-full px-4 py-1.5 text-sm border @(category.Slug == Model.CategorySlug ? "bg-sky-500 border-sky-500 text-white" : "border-gray-300 text-zinc-600 hover:bg-gray-50")">@category.Name</a>
+          }
         </div>
+        <form method="get" action="/blog" class="relative md:w-72">
+          <input type="search" name="q" value="@Model.Query" placeholder="جستجو در مقالات" aria-label="جستجو در مقالات" class="w-full rounded-xl bg-gray-100 px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-sky-400">
+        </form>
+      </div>
+      @if (Model.Result.Data.Count == 0)
+      {
+        <p class="text-center text-zinc-500 py-10">مقاله ای پیدا نشد.</p>
+      }
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+        @foreach (var post in Model.Result.Data)
+        {
+          <partial name="_BlogCard" model="post" />
         }
       </div>
-      <ul class="flex items-center justify-center gap-x-2 md:gap-x-3 h-8 text-sm mt-10 mb-4">
-        @foreach (var item in Model.PaginationItems) {<li>
-          @Html.Raw(item.LinkHtml)</a>
-        </li>
-        }
-      </ul>
+      <partial name="_Pagination" model="Model.Pager" />
     </div>
   </main>

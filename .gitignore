@@ -185,6 +185,8 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
+# Round 17: the shared IIS publish profile (no secrets) is part of the repository
+!src/Fratak-Shop.Web/Properties/PublishProfiles/IIS-Windows.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
@@ -361,3 +363,27 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Customer uploads (review photos)
+src/Fratak-Shop.Web/wwwroot/uploads/comments/
+src/Fratak-Shop.Web/wwwroot/uploads/returns/
+src/Fratak-Shop.Web/wwwroot/uploads/videos/
+
+# Private runtime data: data-protection keys, ticket attachments, optimized image cache
+App_Data/
+# Admin panel uploads (catalog / blog / banner images)
+src/Fratak-Shop.Web/wwwroot/uploads/products/
+src/Fratak-Shop.Web/wwwroot/uploads/categories/
+src/Fratak-Shop.Web/wwwroot/uploads/brands/
+src/Fratak-Shop.Web/wwwroot/uploads/blogs/
+src/Fratak-Shop.Web/wwwroot/uploads/banners/
+src/Fratak-Shop.Web/wwwroot/uploads/content/
+src/Fratak-Shop.Web/wwwroot/uploads/media/
+
+# Round 13: all runtime uploads (any area), local secrets/overrides and editor folders
+src/Fratak-Shop.Web/wwwroot/uploads/
+appsettings.*.local.json
+appsettings.Local.json
+*.env
+.env
+.idea/
+.vscode/

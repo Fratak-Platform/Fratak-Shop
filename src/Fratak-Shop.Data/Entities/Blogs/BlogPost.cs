@@ -42,13 +42,20 @@ public class BlogPost : BaseEntity
 
     public DateTimeOffset? PublishedAt { get; set; }
 
+    /// <summary>A writer sent the draft to the editors (admin panel review queue).</summary>
+    public DateTimeOffset? SubmittedForReviewAt { get; set; }
+
+    /// <summary>Editor's feedback to the writer.</summary>
+    [MaxLength(1000)]
+    public string? ReviewNote { get; set; }
+
     public SeoMetaData? Seo { get; set; }
 
     [ForeignKey(nameof(AuthorId))]
-    public User Author { get; set; } = new();
+    public User? Author { get; set; }
 
     [ForeignKey(nameof(BlogCategoryId))]
-    public BlogCategory BlogCategory { get; set; } = new();
+    public BlogCategory BlogCategory { get; set; } = null!;
 
     public List<Comment> Comments { get; set; } = [];
 }

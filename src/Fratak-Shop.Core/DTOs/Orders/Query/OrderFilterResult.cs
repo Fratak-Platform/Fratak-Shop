@@ -26,6 +26,11 @@ public class OrderFilterData : BaseDto
     public string? TrackingCode { get; set; }
     public int ItemCount { get; set; }
     public DateTimeOffset? PaidAt { get; set; }
+    public DateTimeOffset? PaymentDeadline { get; set; }
+    public decimal RefundedAmount { get; set; }
+
+    public bool IsAwaitingPayment(DateTimeOffset now) =>
+        OrderRules.IsPayable(Status, PaymentMethod, PaymentStatus, PaymentDeadline, now);
 }
 
 /// <summary>

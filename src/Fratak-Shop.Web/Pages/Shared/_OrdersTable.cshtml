@@ -1,0 +1,85 @@
+@model List<OrderFilterData>
+@if (Model.Count == 0)
+{
+  <div class="text-center py-10 text-zinc-500">
+    هنوز سفارشی ثبت نکرده اید.
+    <a asp-page="/Search" class="block w-fit mx-auto mt-4 rounded-lg bg-sky-500 px-6 py-2 text-sm text-white">شروع خرید</a>
+  </div>
+}
+else
+{
+  <table class="w-full">
+    <thead>
+      <tr class="border-y">
+        <th>
+          <p class="text-xs md:text-sm font-normal flex items-center text-zinc-400 py-3">
+            شماره سفارش
+          </p>
+        </th>
+        <th>
+          <p class="text-xs md:text-sm font-normal flex items-center text-zinc-400">
+            تاریخ
+          </p>
+        </th>
+        <th>
+          <p class="text-xs md:text-sm font-normal flex items-center text-zinc-400">
+            مبلغ
+          </p>
+        </th>
+        <th>
+          <p class="text-xs md:text-sm font-normal flex items-center text-zinc-400">
+            وضعیت
+          </p>
+        </th>
+        <th>
+          <p class="text-xs md:text-sm font-normal flex items-center text-zinc-400">
+            پرداخت
+          </p>
+        </th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var order in Model)
+      {
+        <tr class="hover:bg-zinc-100 text-xs md:text-sm">
+          <td class="px-3 py-4 border-b">
+            <p class="text-zinc-700" dir="ltr">
+              #@order.OrderNumber
+            </p>
+          </td>
+          <td class="p-3 border-b">
+            <p class="text-zinc-700">
+              @Format.Date(order.CreatedAt)
+            </p>
+          </td>
+          <td class="p-3 border-b">
+            <p class="text-zinc-700 whitespace-nowrap">
+              @Format.Toman(order.PayableAmount)
+            </p>
+          </td>
+          <td class="p-3 border-b">
+            <span class="whitespace-nowrap rounded-full px-2 py-1 text-xs @Display.OrderStatusBadge(order.Status)">
+              @Display.OrderStatus(order.Status)
+            </span>
+          </td>
+          <td class="p-3 border-b">
+            <span class="whitespace-nowrap rounded-full px-2 py-1 text-xs @Display.PaymentStatusBadge(order.PaymentStatus)">
+              @Display.PaymentStatus(order.PaymentStatus)
+            </span>
+          </td>
+          <td class="p-3 border-b">
+            <a asp-page="/Profile/OrderDetail" asp-route-orderNumber="@order.OrderNumber" class="text-sky-600 hover:text-sky-500 whitespace-nowrap">
+              جزئیات
+            </a>
+            @if (order.Status == Fratak_Shop.Data.Entities.Orders.OrderStatus.Shipped && !string.IsNullOrWhiteSpace(order.TrackingCode))
+            {
+              @* مرحلهٔ ۷ – فاز ۶: دکمهٔ پیگیری مرسوله (خط زمانی رویدادهای پست در صفحهٔ سفارش). *@
+              <a href="/profile/orders/@(order.OrderNumber.ToLowerInvariant())#shipment" class="mt-1 block w-fit whitespace-nowrap rounded-md bg-sky-50 px-2 py-0.5 text-xs text-sky-700 hover:bg-sky-100">پیگیری مرسوله</a>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

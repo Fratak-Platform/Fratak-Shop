@@ -13,4 +13,10 @@ public interface ILocationService
     Task<List<LocationDto>> GetActiveLocationsAsync();
     Task<LocationDto?> GetLocationByIdAsync(Guid id);
     Task<List<LocationDto>> GetChildrenByParentIdAsync(Guid? parentId);
+
+    /// <summary>استان‌های فعال به ترتیب الفبا.</summary>
+    Task<List<LocationDto>> GetProvincesAsync();
+
+    /// <summary>شهرهای فعال یک استان به ترتیب الفبا.</summary>
+    Task<List<LocationDto>> GetCitiesAsync(Guid provinceId);
 }

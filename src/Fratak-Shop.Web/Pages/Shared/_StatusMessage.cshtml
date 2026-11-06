@@ -1,0 +1,23 @@
+@{
+    var success = TempData["SuccessMessage"] as string;
+    var error = TempData["ErrorMessage"] as string;
+}
+@if (!string.IsNullOrWhiteSpace(success) || !string.IsNullOrWhiteSpace(error))
+{
+  <div class="fixed top-24 md:top-32 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md space-y-2" data-toast>
+    @if (!string.IsNullOrWhiteSpace(success))
+    {
+      <div class="flex items-start justify-between gap-x-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 shadow-lg" role="status">
+        <span>@success</span>
+        <button type="button" class="text-green-700 font-bold" data-toast-close aria-label="بستن">×</button>
+      </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+      <div class="flex items-start justify-between gap-x-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 shadow-lg" role="alert">
+        <span>@error</span>
+        <button type="button" class="text-red-600 font-bold" data-toast-close aria-label="بستن">×</button>
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,94 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Feedback.IndexModel
+@{
+    ViewData["Title"] = "نظرسنجی خرید";
+    var request = HttpContext.Request;
+    var s = Model.Summary;
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var answered = s.Recommend + s.NotRecommend;
+    var nps = answered == 0 ? 0 : (int)Math.Round(100.0 * s.Recommend / answered);
+    var maxDist = Math.Max(1, s.Distribution.Max());
+}
+<div class="a-page-head">
+  <div>
+    <h2>نظرسنجی تجربه خرید</h2>
+    <p class="a-muted text-sm mt-1">امتیاز مشتریان به سفارش‌های تحویل‌شده · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+  <div class="a-btn-group">
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <div class="a-pills mb-3">
+      @foreach (var (key, title) in AdminPeriods.Presets)
+      {
+        <a class="a-pill @(Model.Period.Preset == key ? "is-active" : "")" href="/admin/feedback?period=@key">@title</a>
+      }
+    </div>
+    <form method="get" class="a-filters">
+      <input type="hidden" name="period" value="@Model.Preset">
+      <div class="a-field"><label class="a-label" for="fb-from">از تاریخ</label><input id="fb-from" name="from" value="@(Model.Period.Preset == "custom" ? Model.Period.FromText : Model.From)" class="a-input a-ltr" placeholder="1404/01/01"></div>
+      <div class="a-field"><label class="a-label" for="fb-to">تا تاریخ</label><input id="fb-to" name="to" value="@(Model.Period.Preset == "custom" ? Model.Period.ToText : Model.To)" class="a-input a-ltr" placeholder="1404/12/29"></div>
+      <div class="a-field"><label class="a-label" for="fb-rating">امتیاز کلی</label>
+        <select id="fb-rating" name="rating" class="a-select" data-autosubmit>
+          <option value="">همه</option>
+          <option value="low" selected="@(Model.Rating == "low")">ناراضی (۱ و ۲)</option>
+          <option value="mid" selected="@(Model.Rating == "mid")">متوسط (۳)</option>
+          <option value="high" selected="@(Model.Rating == "high")">راضی (۴ و ۵)</option>
+        </select></div>
+      <label class="a-check text-sm"><input type="checkbox" name="comment" value="true" checked="@Model.OnlyWithComment" data-autosubmit> فقط دارای توضیح</label>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/feedback">پاک کردن</a></div>
+    </form>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">تعداد پاسخ</div><div class="a-stat-value">@Format.Number(s.Count)</div></div>
+  <div class="a-stat"><div class="a-stat-label">میانگین امتیاز کلی</div><div class="a-stat-value">@s.Overall.ToString("0.0", inv) <small class="text-sm">از ۵</small></div></div>
+  <div class="a-stat"><div class="a-stat-label">ارسال و تحویل</div><div class="a-stat-value">@s.Delivery.ToString("0.0", inv)</div><div class="a-stat-sub">بسته‌بندی @s.Packaging.ToString("0.0", inv) · تطابق کالا @s.ProductMatch.ToString("0.0", inv)</div></div>
+  <div class="a-stat"><div class="a-stat-label">پیشنهاد به دیگران</div><div class="a-stat-value">@nps٪</div><div class="a-stat-sub">@Format.Number(s.Recommend) بله · @Format.Number(s.NotRecommend) خیر</div></div>
+</div>
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">توزیع امتیاز کلی</span></div>
+    <div class="a-card-body">
+      @for (var star = 5; star >= 1; star--)
+      {
+        var count = s.Distribution[star - 1];
+        var width = 100.0 * count / maxDist;
+        <div class="flex items-center gap-2 text-sm mb-2">
+          <span class="w-10 nowrap">@star ★</span>
+          <div class="a-progress flex-1"><div style="width:@(width.ToString("0.#", inv))%"></div></div>
+          <span class="w-10 text-left num">@Format.Number(count)</span>
+        </div>
+      }
+    </div>
+  </div>
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">پاسخ‌ها <span class="a-muted text-sm">(@Format.Number(Model.Items.Total))</span></span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>سفارش</th><th>مشتری</th><th>کلی</th><th>ارسال/بسته‌بندی/تطابق</th><th>توضیح</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Items.Items)
+          {
+            <tr>
+              <td data-label="سفارش">@if (Model.Can(AdminPermissions.OrdersView)) { <a class="a-link a-ltr" href="/admin/orders/@r.OrderId">@r.OrderNumber</a> } else { <span class="a-ltr">@r.OrderNumber</span> }<div class="a-muted text-xs">@AdminUi.Ago(r.CreatedAt)</div></td>
+              <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@Pii.NameOrPhone(r.CustomerName, r.Phone)</a> } else { @Pii.NameOrPhone(r.CustomerName, r.Phone) }</td>
+              <td data-label="کلی"><span class="a-badge @(r.Overall <= 2 ? "a-badge-red" : r.Overall == 3 ? "a-badge-yellow" : "a-badge-green")">@r.Overall ★</span>
+                @if (r.WouldRecommend == false) { <div class="text-xs text-red-600">پیشنهاد نمی‌کند</div> }</td>
+              <td data-label="جزئیات" class="text-sm nowrap">@r.Delivery / @r.Packaging / @r.ProductMatch</td>
+              <td data-label="توضیح" class="text-sm whitespace-pre-line">@(r.Comment ?? "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Items.Items.Count == 0) { <div class="a-empty">پاسخی در این بازه ثبت نشده است.</div> }
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+  </div>
+</div>

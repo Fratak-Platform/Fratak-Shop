@@ -1,0 +1,53 @@
+@page "/profile/sessions"
+@model Fratak_Shop.Web.Pages.Profile.SessionsModel
+@{
+    Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.UserProfile;
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Sessions" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <h1 class="text-zinc-800 text-lg font-semibold">دستگاه های فعال</h1>
+          @if (Model.Sessions.Count(s => !s.IsCurrent) > 0)
+          {
+            <form method="post" asp-page-handler="RevokeOthers" data-confirm="همه دستگاه‌های دیگر از حساب شما خارج شوند؟">
+              <button type="submit" class="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-500 hover:bg-red-50">خروج از همه دستگاه های دیگر</button>
+            </form>
+          }
+        </div>
+        <p class="mb-4 text-xs leading-6 text-zinc-500">اگر دستگاهی را نمی شناسید، آن را خارج کنید و رمز عبور خود را تغییر دهید.</p>
+        <ul class="space-y-3">
+          @foreach (var session in Model.Sessions)
+          {
+            <li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 @(session.IsCurrent ? "border-sky-300 bg-sky-50/40" : "")">
+              <div class="flex items-center gap-x-3">
+                @Icons.Svg("Devices", session.IsCurrent ? "fill-sky-600" : "fill-zinc-500", 28)
+                <div>
+                  <div class="font-semibold text-sm text-zinc-700">
+                    @Display.Device(session.UserAgent)
+                    @if (session.IsCurrent)
+                    {
+                      <span class="mr-2 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-700">همین دستگاه</span>
+                    }
+                  </div>
+                  <div class="mt-1 text-xs text-zinc-500">
+                    ورود: @Format.DateTime(session.StartedAt) • آخرین فعالیت: @Format.DateTime(session.LastActiveAt)
+                    @if (!string.IsNullOrWhiteSpace(session.IpAddress))
+                    {
+                      <text> • IP: </text><span dir="ltr">@session.IpAddress</span>
+                    }
+                  </div>
+                </div>
+              </div>
+              <form method="post" asp-page-handler="Revoke" asp-route-familyId="@session.FamilyId" data-confirm="این دستگاه از حساب خارج شود؟">
+                <button type="submit" class="text-xs text-red-500 hover:underline">@(session.IsCurrent ? "خروج" : "خارج کردن")</button>
+              </form>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+  </main>

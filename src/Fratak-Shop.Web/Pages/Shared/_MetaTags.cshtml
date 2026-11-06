@@ -1,0 +1,88 @@
+@{
+    var settings = Site.Settings;
+    string? Meta(string key) => ViewData[key] as string;
+    var title = Meta(PageMetaKeys.Title);
+    // Personal/transactional pages are never indexed, even if an SEO record says otherwise.
+    var robots = PrivatePaths.IsPrivate(ViewContext.HttpContext.Request.Path)
+        ? "noindex, nofollow"
+        : Meta(PageMetaKeys.Robots) ?? "index, follow, max-image-preview:large";
+}
+  <title>@Site.Title(title)</title>
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Description)))
+{
+  <meta name="description" content="@Meta(PageMetaKeys.Description)">
+}
+@* دور سئوی خودکار: متای keywords چاپ نمی‌شود – گوگل آن را نادیده می‌گیرد، بینگ پرشدنش را نشانهٔ اسپم می‌داند و رقبا
+   کلمه‌های هدف سایت را از آن می‌خوانند. کلمه‌ها همچنان در موتور سئو (تحلیل، لینک داخلی، گزارش) استفاده می‌شوند. *@
+  <meta name="robots" content="@robots">
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
+{
+  <link rel="canonical" href="@Meta(PageMetaKeys.Canonical)">
+  <link rel="alternate" hreflang="fa-IR" href="@Meta(PageMetaKeys.Canonical)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.PrevPage)))
+{
+  <link rel="prev" href="@Meta(PageMetaKeys.PrevPage)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.NextPage)))
+{
+  <link rel="next" href="@Meta(PageMetaKeys.NextPage)">
+}
+@if (!string.IsNullOrWhiteSpace(settings.GoogleSiteVerification))
+{
+  <meta name="google-site-verification" content="@settings.GoogleSiteVerification">
+}
+@if (!string.IsNullOrWhiteSpace(settings.BingSiteVerification))
+{
+  <meta name="msvalidate.01" content="@settings.BingSiteVerification">
+}
+  <meta property="og:site_name" content="@settings.SiteName">
+  <meta property="og:locale" content="fa_IR">
+  <meta property="og:type" content="@(Meta(PageMetaKeys.OgType) ?? "website")">
+  <meta property="og:title" content="@(Meta(PageMetaKeys.OgTitle) ?? Site.Title(title))">
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgDescription)))
+{
+  <meta property="og:description" content="@Meta(PageMetaKeys.OgDescription)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.Canonical)))
+{
+  <meta property="og:url" content="@Meta(PageMetaKeys.Canonical)">
+}
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgImage)))
+{
+  <meta property="og:image" content="@Meta(PageMetaKeys.OgImage)">
+  if (Meta(PageMetaKeys.OgImage)!.Contains("/media/og/", StringComparison.Ordinal))
+  {
+  <meta property="og:image:type" content="image/webp">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  }
+  <meta property="og:image:alt" content="@(Meta(PageMetaKeys.OgTitle) ?? Site.Title(title))">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="@Meta(PageMetaKeys.OgImage)">
+}
+  <meta name="twitter:title" content="@(Meta(PageMetaKeys.OgTitle) ?? Site.Title(title))">
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.OgDescription)))
+{
+  <meta name="twitter:description" content="@Meta(PageMetaKeys.OgDescription)">
+}
+@if (ViewData[PageMetaKeys.ProductMeta] is List<KeyValuePair<string, string>> productMeta)
+{
+  foreach (var pair in productMeta)
+  {
+  <meta name="@pair.Key" content="@pair.Value">
+  }
+}
+@* "!" opts the elements out of tag helpers so the type attribute is not re-encoded.
+   JSON is serialized with <, >, & escaped, so it can never close the script element. *@
+@if (!string.IsNullOrWhiteSpace(Meta(PageMetaKeys.JsonLd)))
+{
+  <!script type="application/ld+json">@Html.Raw(Meta(PageMetaKeys.JsonLd))</!script>
+}
+@if (ViewData[PageMetaKeys.JsonLdBlocks] is List<string> blocks)
+{
+  foreach (var block in blocks)
+  {
+  <!script type="application/ld+json">@Html.Raw(block)</!script>
+  }
+}

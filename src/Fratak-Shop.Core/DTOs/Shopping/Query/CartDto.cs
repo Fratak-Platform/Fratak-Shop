@@ -13,6 +13,9 @@ public class CartDto : BaseDto
 
     public List<CartItemDto> Items { get; set; } = [];
 
+    /// <summary>Discount code applied to the cart (validated again at checkout).</summary>
+    public string? CouponCode { get; set; }
+
     /// <summary>تعداد ردیف‌های سبد خرید.</summary>
     public int ItemCount => Items.Count;
 

@@ -1,0 +1,57 @@
+@page "/profile/tickets"
+@model Fratak_Shop.Web.Pages.Profile.TicketsModel
+@{
+    Layout = "_Layout";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Tickets" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-5">
+        <div class="flex flex-wrap items-center gap-3">
+          @Icons.Svg("Headset", "fill-sky-500", 28)
+          <h1 class="text-zinc-800 text-lg font-semibold">تیکت‌های پشتیبانی</h1>
+          <a href="/profile/tickets/new" class="mr-auto rounded-lg bg-sky-500 px-4 py-2 text-sm text-white hover:bg-sky-400">تیکت جدید</a>
+        </div>
+
+        @if (Model.Items.Count == 0)
+        {
+          <div class="py-12 text-center text-zinc-500">
+            @Icons.Svg("Chat", "fill-zinc-300 mx-auto mb-3", 48)
+            هنوز تیکتی ثبت نکرده‌اید. سوال یا مشکلی دارید؟ یک تیکت بفرستید.
+          </div>
+        }
+        else
+        {
+          <ul class="space-y-3">
+            @foreach (var ticket in Model.Items)
+            {
+              var status = Fratak_Shop.Web.Pages.Profile.TicketsModel.StatusOf(ticket.Status);
+              <li>
+                <a href="/profile/tickets/@ticket.TicketNumber.ToLowerInvariant()" class="flex flex-wrap items-center gap-3 rounded-xl border p-4 transition hover:border-sky-200 hover:bg-sky-50/40 @(ticket.HasUnreadReply ? "border-emerald-200" : "")">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                      @if (ticket.HasUnreadReply)
+                      {
+                        <span class="h-2 w-2 rounded-full bg-emerald-500" title="پاسخ جدید"></span>
+                      }
+                      <span class="font-semibold text-zinc-700">@ticket.Subject</span>
+                      <span class="rounded-full px-2 py-0.5 text-[11px] @status.Css">@status.Text</span>
+                    </div>
+                    <div class="mt-1 text-xs text-zinc-500">
+                      <span dir="ltr">@ticket.TicketNumber</span> — @ticket.DepartmentTitle
+                      @if (!string.IsNullOrEmpty(ticket.OrderNumber))
+                      {
+                        <span> — سفارش <span dir="ltr">@ticket.OrderNumber</span></span>
+                      }
+                    </div>
+                  </div>
+                  <div class="text-left text-xs text-zinc-400">آخرین فعالیت<br>@Format.DateTime(ticket.LastActivityAt)</div>
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  </main>

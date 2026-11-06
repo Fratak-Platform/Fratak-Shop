@@ -1,0 +1,58 @@
+@page "/admin/smart/categories"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.CategoriesModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@* تکمیل هوشمند دسته‌ها: جدول دسته‌ها + دکمهٔ تکمیل هر ردیف. *@
+@{
+    ViewData["Title"] = "تکمیل هوشمند دسته‌ها";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تکمیل هوشمند دسته‌ها</h2>
+    <p class="a-muted text-sm mt-1">توضیح خریدمحور (برندها، بازهٔ قیمت، نکته‌های انتخاب و پرسش‌های رایج) و بنر بدون متن از عکس بهترین کالاها. دسته‌های کمتر از ۳ کالا متن نمی‌گیرند تا محتوای کم‌ارزش ساخته نشود.
+      کالای درون‌ریزی‌شدهٔ بدون دسته خودکار دسته می‌گیرد؛ کالاهای مهم (مثل گوشی) و هر ۳ کالای مشابه دستهٔ تازه با نامک انگلیسی می‌سازند.</p>
+  </div>
+  <div class="a-btn-group">
+    @* دور ۲۱: دسته‌بندی هوشمند کالاهای «دسته‌بندی نشده» و «سایر» (هر ۶ ساعت هم خودکار اجرا می‌شود). *@
+    <form method="post" asp-page-handler="Categorize" class="inline"><button class="a-btn a-btn-primary" type="submit">@Icons.Svg("MagicWand", null, 18) دسته‌بندی هوشمند الان</button></form>
+    <a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a>
+  </div>
+</div>
+
+<div class="a-card">
+  @if (Model.Items.Count == 0)
+  {
+    <div class="a-empty">دسته‌ای تعریف نشده.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>دسته</th><th>کالا</th><th>توضیح</th><th>تصویر</th><th>آخرین کار</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var c in Model.Items)
+          {
+            Model.Latest.TryGetValue(c.Id, out var last);
+            <tr>
+              <td data-label="دسته" class="font-bold">@c.Name</td>
+              <td data-label="کالا">@Format.Number(c.Products)</td>
+              <td data-label="توضیح">@(c.HasDescription ? "✓" : "—")</td>
+              <td data-label="تصویر">@(c.HasImage ? "✓" : "—")</td>
+              <td data-label="آخرین کار" class="text-xs">
+                @if (last is not null)
+                {
+                  var (statusTitle, badge) = SmartUi.Status(last.Status);
+                  <span class="a-badge @badge">@statusTitle</span> <span class="a-muted">@AdminUi.Ago(last.FinishedAt ?? last.CreatedAt)</span>
+                  if (!string.IsNullOrWhiteSpace(last.Summary)) { <div>@last.Summary</div> }
+                }
+              </td>
+              <td data-label="">
+                <form method="post" asp-page-handler="Run" class="inline"><input type="hidden" name="id" value="@c.Id"><button type="submit" class="a-btn a-btn-xs a-btn-soft" disabled="@(c.Products < 3 ? "disabled" : null)">@Icons.Svg("MagicWand", null, 14) تکمیل</button></form>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

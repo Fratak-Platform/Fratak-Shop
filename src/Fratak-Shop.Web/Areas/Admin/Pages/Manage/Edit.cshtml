@@ -1,0 +1,161 @@
+@page "/admin/manage/{key}/edit/{id:guid?}"
+@using Fratak_Shop.Web.Infrastructure.Admin.Manage
+@model Fratak_Shop.Web.Areas.Admin.Pages.Manage.EditModel
+@{
+    var def = Model.Def;
+    var e = Model.Entity;
+    ViewData["Title"] = Model.IsNew ? $"{def.Singular} جدید" : $"ویرایش {def.Singular}";
+    var backUrl = $"/admin/manage/{def.Key}" + (Model.Parent is { } pid ? $"?parent={pid}" : "");
+    var selfId = Model.IsNew ? (Guid?)null : ManageEngine.IdOf(e);
+    var slugField = def.Field("Slug");
+    var labelField = def.Field("Name") ?? def.Field("Title");
+    var draftTitle = def.Singular + (labelField is not null && !Model.IsNew ? ": " + ManageEngine.InputValue(e, labelField) : " جدید");
+    var previewUrl = $"{HttpContext.Request.Host}{(def.PublicUrl is not null && slugField is not null ? def.PublicUrl.Replace("{Slug}", ManageEngine.InputValue(e, slugField)) : "/")}";
+    // سئوی هوشمند درجا (مرحلهٔ شانزدهم): دسته، برند، صفحهٔ محتوا و صفحه‌های ثابت.
+    var smartKind = def.HasSeo ? Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.ManageKind(def.Key) : null;
+    var smartContext = smartKind is null ? null : Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context(smartKind, smartKind == "StaticPage" ? null : selfId, new
+    {
+        name = labelField is null ? null : "#m-" + labelField.Name,
+        english = def.Field("EnglishName") is null ? null : "#m-EnglishName",
+        slug = slugField is null ? null : "#m-Slug",
+        summary = def.Field("Summary") is null ? null : "#m-Summary",
+        body = def.Field("Content") is not null ? "#m-Content" : def.Field("Description") is not null ? "#m-Description" : null,
+        page = def.Field("Page") is null ? null : "#m-Page",
+    });
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="@backUrl" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <h2>@ViewData["Title"] <span class="a-muted text-sm font-normal">· @def.Title</span></h2>
+  </div>
+  @if (!Model.IsNew && def.Children.Length > 0)
+  {
+    <div class="a-btn-group">
+      @foreach (var child in def.Children)
+      {
+        <a class="a-btn a-btn-light" href="/admin/manage/@child.Key?parent=@selfId">@child.Title</a>
+      }
+    </div>
+  }
+</div>
+
+<form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
+      data-edit-key="@(Model.IsNew ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
+      data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@draftTitle" data-smart-context="@smartContext">
+  <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
+  @if (Model.Parent is not null) { <input type="hidden" name="parent" value="@Model.Parent"> }
+  <div class="a-card">
+    <div class="a-card-body a-form-grid cols-2">
+      @foreach (var f in def.Fields)
+      {
+        var value = ManageEngine.InputValue(e, f);
+        var fid = "m-" + f.Name;
+        var wide = f.Wide || f.Kind is MKind.Html or MKind.Image;
+        <div class="a-field @(wide ? "span-all" : "")">
+          @switch (f.Kind)
+          {
+            case MKind.Bool:
+              <label class="a-check mt-6"><input type="checkbox" name="@f.Name" value="true" checked="@(ManageEngine.Get(e, f) is true)"> @f.Label</label>
+              <input type="hidden" name="@f.Name" value="false">
+              break;
+
+            case MKind.ReadOnly:
+              <span class="a-label">@f.Label</span>
+              <div class="a-input bg-gray-50">@(ManageEngine.Cell(def, f, e, new Dictionary<string, Dictionary<Guid, string>>()))</div>
+              break;
+
+            default:
+              <label class="a-label @(f.Required ? "req" : "")" for="@fid">@f.Label</label>
+              switch (f.Kind)
+              {
+                case MKind.TextArea:
+                  <textarea id="@fid" name="@f.Name" class="a-textarea @(f.Ltr ? "a-ltr" : "")" rows="@f.Rows" required="@f.Required">@value</textarea>
+                  break;
+                case MKind.Html:
+                  <textarea id="@fid" name="@f.Name" class="a-textarea" rows="@f.Rows" data-html-editor required="@f.Required">@value</textarea>
+                  break;
+                case MKind.Enum:
+                  <select id="@fid" name="@f.Name" class="a-select" required="@f.Required">
+                    @foreach (var (optionValue, optionLabel) in ManageEngine.EnumOptions(def, f))
+                    {
+                      <option value="@optionValue" selected="@(value == optionValue)">@optionLabel</option>
+                    }
+                  </select>
+                  break;
+                case MKind.Ref:
+                  <select id="@fid" name="@f.Name" class="a-select" required="@f.Required">
+                    <option value="">— @(f.Required ? "انتخاب" : "هیچ") —</option>
+                    @foreach (var option in Model.Options.GetValueOrDefault(f.Name) ?? new Dictionary<Guid, string>())
+                    {
+                      if (selfId == option.Key && f.RefType == def.Entity) { continue; }
+                      <option value="@option.Key" selected="@(value == option.Key.ToString())">@option.Value</option>
+                    }
+                  </select>
+                  break;
+                case MKind.Image:
+                  <div class="flex flex-wrap items-center gap-4">
+                    @if (!string.IsNullOrEmpty(value))
+                    {
+                      <img src="@ManageEngine.ImageUrl(f, value)" alt="" class="a-thumb-lg">
+                      if (!f.Required) { <label class="a-check text-red-600"><input type="checkbox" name="@(f.Name)__remove" value="true"> حذف تصویر</label> }
+                    }
+                    <input id="@fid" type="file" name="@f.Name" accept="image/jpeg,image/png,image/webp" class="a-input" style="max-width:22rem" data-file-preview="#@(fid)-preview">
+                    <div id="@(fid)-preview" class="a-img-grid"></div>
+                  </div>
+                  break;
+                case MKind.Int:
+                  <input id="@fid" type="number" step="1" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required">
+                  break;
+                case MKind.Decimal:
+                  <input id="@fid" type="text" inputmode="@(f.IsMoney ? "numeric" : "decimal")" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required" data-money="@(f.IsMoney ? "تومان" : null)">
+                  break;
+                case MKind.Date:
+                  <input id="@fid" name="@f.Name" value="@value" class="a-input a-ltr" placeholder="1404/08/01 14:30" required="@f.Required">
+                  break;
+                case MKind.Time:
+                  <input id="@fid" type="time" name="@f.Name" value="@value" class="a-input a-ltr" required="@f.Required">
+                  break;
+                case MKind.Color:
+                  <div class="flex gap-2"><input type="color" value="@(string.IsNullOrEmpty(value) ? "#0069FD" : value)" class="h-10 w-12 rounded border" data-color-for="#@fid" aria-label="انتخاب رنگ"><input id="@fid" name="@f.Name" value="@value" class="a-input a-ltr" maxlength="20"></div>
+                  break;
+                case MKind.Url:
+                  <input id="@fid" type="text" name="@f.Name" value="@value" class="a-input a-ltr" placeholder="@(f.Placeholder ?? "/path یا https://")" required="@f.Required">
+                  break;
+                default:
+                  var slugSource = def.Fields.FirstOrDefault(x => x.Kind == MKind.Slug && x.SlugFrom == f.Name);
+                  <input id="@fid" name="@f.Name" value="@value" class="a-input @(f.Ltr ? "a-ltr" : "")" placeholder="@f.Placeholder" required="@f.Required" data-slug-source="@(slugSource is null ? null : "#m-" + slugSource.Name)">
+                  break;
+              }
+              break;
+          }
+          @if (f.Help is not null) { <p class="a-help">@f.Help</p> }
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (def.HasSeo)
+  {
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو</span></div>
+      <div class="a-card-body">
+        @await Html.PartialAsync("_SeoFields", new SeoFieldsModel("Seo", Model.Seo, previewUrl, def.Field("Name") is not null ? "#m-Name" : def.Field("Title") is not null ? "#m-Title" : null, null))
+      </div>
+    </div>
+  }
+
+  <div class="a-actionbar">
+    <span class="flex-1"></span>
+    <a href="@backUrl" class="a-btn a-btn-light">انصراف</a>
+    @if (def.CanCreate)
+    {
+      <button type="submit" name="after" value="new" class="a-btn a-btn-soft">ذخیره و افزودن بعدی</button>
+    }
+    <button type="submit" name="after" value="list" class="a-btn">@Icons.Svg("Check", null, 18) ذخیره</button>
+  </div>
+</form>
+
+@if (Model.History is not null)
+{
+  <div class="mt-4"><partial name="_EditHistory" model="Model.History" /></div>
+}

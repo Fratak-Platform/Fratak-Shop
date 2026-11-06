@@ -1,0 +1,225 @@
+﻿using Fratak_Shop.Data.Entities.Settings;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Fratak_Shop.Data.Configurations;
+
+public class StoreSettingConfiguration : IEntityTypeConfiguration<StoreSetting>
+{
+    public void Configure(EntityTypeBuilder<StoreSetting> builder)
+    {
+        builder.Property(s => s.FreeShippingThreshold).HasPrecision(18, 0);
+        builder.Property(s => s.MinimumOrderAmount).HasPrecision(18, 0);
+        builder.Property(s => s.CashOnDeliveryMaxAmount).HasPrecision(18, 0);
+        builder.Property(s => s.WalletMinTopUpAmount).HasPrecision(18, 0);
+        builder.Property(s => s.WalletMaxTopUpAmount).HasPrecision(18, 0);
+        builder.Property(s => s.WalletMinWithdrawalAmount).HasPrecision(18, 0);
+        builder.Property(s => s.WalletMaxWithdrawalAmount).HasPrecision(18, 0);
+        builder.Property(s => s.AbandonedCartMinAmount).HasPrecision(18, 0);
+
+        // Existing rows get the same defaults as new installations.
+        builder.Property(s => s.IsPasswordLoginEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsOtpLoginEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsOtpRegistrationEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsTwoFactorAvailable).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsCouponEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsGuestOrderTrackingEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsRecommendationEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsLoyaltyEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsReferralEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPwaEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPwaInstallPromptEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsAbandonedCartEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsReviewImageEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsInstantSearchEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.WalletMaxPendingWithdrawals).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.AbandonedCartAfterMinutes).HasDefaultValue(60).HasSentinel(60);
+        builder.Property(s => s.AbandonedCartExpireDays).HasDefaultValue(7).HasSentinel(7);
+        builder.Property(s => s.ReviewMaxImages).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.ReviewMaxImageSizeKb).HasDefaultValue(2048).HasSentinel(2048);
+        builder.Property(s => s.PwaInstallPromptAfterPages).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.PwaInstallPromptSnoozeDays).HasDefaultValue(14).HasSentinel(14);
+        builder.Property(s => s.InvoiceNumberPrefix).HasDefaultValue("INV");
+
+        // Round 5
+        builder.Property(s => s.IsProductAlertEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ProductAlertMaxPerUser).HasDefaultValue(50).HasSentinel(50);
+        builder.Property(s => s.IsGiftCardEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.GiftCardMinAmount).HasPrecision(18, 0);
+        builder.Property(s => s.GiftCardMinAmount).HasDefaultValue(100000m).HasSentinel(100000m);
+        builder.Property(s => s.GiftCardMaxAmount).HasPrecision(18, 0);
+        builder.Property(s => s.GiftCardMaxAmount).HasDefaultValue(10000000m).HasSentinel(10000000m);
+        builder.Property(s => s.GiftCardPresetAmounts).HasDefaultValue("200000,500000,1000000,2000000");
+        builder.Property(s => s.GiftCardValidDays).HasDefaultValue(365).HasSentinel(365);
+        builder.Property(s => s.ReferralCookieDays).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.IsCaptchaEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.CaptchaAfterFailedAttempts).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.IsNewDeviceAlertEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsSaveForLaterEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPriceHistoryEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PriceHistoryDays).HasDefaultValue(90).HasSentinel(90);
+        builder.Property(s => s.IsAddressMapEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.MapTileUrl).HasDefaultValue("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+        builder.Property(s => s.MapAttribution).HasDefaultValue("© OpenStreetMap");
+        builder.Property(s => s.MapDefaultLatitude).HasPrecision(9, 6);
+        builder.Property(s => s.MapDefaultLatitude).HasDefaultValue(35.6892m).HasSentinel(35.6892m);
+        builder.Property(s => s.MapDefaultLongitude).HasPrecision(9, 6);
+        builder.Property(s => s.MapDefaultLongitude).HasDefaultValue(51.3890m).HasSentinel(51.3890m);
+        builder.Property(s => s.MapDefaultZoom).HasDefaultValue(12).HasSentinel(12);
+        builder.Property(s => s.IsReturnEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ReturnWindowDays).HasDefaultValue(7).HasSentinel(7);
+        builder.Property(s => s.ReturnMaxImages).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.IsOrderFeedbackEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.OrderFeedbackWindowDays).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.IsDarkModeEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsSearchSynonymsEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsPopularSearchesEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PopularSearchesCount).HasDefaultValue(8).HasSentinel(8);
+        builder.Property(s => s.PopularSearchMinCount).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.IsDidYouMeanEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsCustomerAnswerEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsCommentVotingEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsSmartCompareEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsProductVideoEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsTicketEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.TicketMaxOpenPerUser).HasDefaultValue(5).HasSentinel(5);
+        builder.Property(s => s.TicketMaxAttachments).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.TicketMaxAttachmentSizeKb).HasDefaultValue(2048).HasSentinel(2048);
+        builder.Property(s => s.IsWebPushEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.IsImageOptimizationEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ImageQuality).HasDefaultValue(80).HasSentinel(80);
+        builder.Property(s => s.IsPageCacheEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PageCacheSeconds).HasDefaultValue(300).HasSentinel(300);
+        builder.Property(s => s.RequirePurchaseInvoiceForProcessing).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.LowStockThreshold).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.ErrorLogRetentionDays).HasDefaultValue(60).HasSentinel(60);
+        builder.Property(s => s.AuditLogRetentionDays).HasDefaultValue(365).HasSentinel(365);
+
+        // مرحلهٔ هفتم – زمان‌بندی سفارش، لینک پرداخت و محدودیت پرداخت در محل.
+        builder.Property(s => s.IsOrderSlaEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SlaSupplierOrderHours).HasDefaultValue(24).HasSentinel(24);
+        builder.Property(s => s.SlaPreparationHours).HasDefaultValue(48).HasSentinel(48);
+        builder.Property(s => s.SlaTrackingCodeHours).HasDefaultValue(12).HasSentinel(12);
+        builder.Property(s => s.SlaDeliveryMinDays).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.SlaDeliveryMaxDays).HasDefaultValue(4).HasSentinel(4);
+        builder.Property(s => s.SlaWarningPercent).HasDefaultValue(75).HasSentinel(75);
+        builder.Property(s => s.PaymentLinkHours).HasDefaultValue(48).HasSentinel(48);
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round7Orders",
+            "[SlaSupplierOrderHours] >= 1 AND [SlaPreparationHours] >= 1 AND [SlaTrackingCodeHours] >= 1 " +
+            "AND [SlaDeliveryMinDays] >= 0 AND [SlaDeliveryMaxDays] >= [SlaDeliveryMinDays] AND [PaymentLinkHours] >= 1 " +
+            "AND [CodMinDeliveredOrders] >= 0 AND [CodMaxReturnedOrders] >= 0"));
+
+        // مرحلهٔ هفتم – فاز ۵: بررسی خودکار تأمین‌کننده.
+        builder.Property(s => s.IsSupplierSyncEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SupplierSyncRunsPerDay).HasDefaultValue(4).HasSentinel(4);
+        builder.Property(s => s.SupplierAutoOutOfStock).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SupplierStockMarginPercent).HasDefaultValue(20).HasSentinel(20);
+        builder.Property(s => s.SupplierStockMaxQuantity).HasDefaultValue(10).HasSentinel(10);
+        builder.Property(s => s.SupplierRequestDelayMs).HasDefaultValue(1500).HasSentinel(1500);
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_SupplierSync",
+            "[SupplierSyncRunsPerDay] BETWEEN 1 AND 24 AND [SupplierStockMarginPercent] BETWEEN 0 AND 90 " +
+            "AND [SupplierStockMaxQuantity] >= 1 AND [SupplierRequestDelayMs] >= 200"));
+
+        // مرحلهٔ هفتم – فاز ۶: رهگیری خودکار مرسوله‌های پستی.
+        builder.Property(s => s.IsPostTrackingEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PostTrackingRunsPerDay).HasDefaultValue(4).HasSentinel(4);
+        builder.Property(s => s.PostTrackingAutoDeliver).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.PostTrackingMaxDays).HasDefaultValue(30).HasSentinel(30);
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_PostTracking",
+            "[PostTrackingRunsPerDay] BETWEEN 1 AND 12 AND [PostTrackingMaxDays] BETWEEN 3 AND 120"));
+
+        // مرحلهٔ هفتم – فاز ۷: آمار بازدید و قیف فروش.
+        builder.Property(s => s.IsAnalyticsEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.AnalyticsRetentionDays).HasDefaultValue(400).HasSentinel(400);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Analytics", "[AnalyticsRetentionDays] BETWEEN 30 AND 1500"));
+        builder.Property(s => s.IsSeoEngineEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SeoEngineRunsPerDay).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.SeoEngineBatchSize).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.SeoCompetitorResearch).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SeoAllowSlugChanges).HasDefaultValue(true).HasSentinel(true);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_SeoEngine",
+            "[SeoEngineRunsPerDay] BETWEEN 1 AND 6 AND [SeoEngineBatchSize] BETWEEN 5 AND 200"));
+
+        // مرحلهٔ هفتم – فاز ۹: پشتیبان، حالت تعمیر، مسدودسازی خودکار IP، لاگ.
+        builder.Property(s => s.IsBackupEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.BackupRunsPerDay).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.BackupStartHour).HasDefaultValue(3).HasSentinel(3);
+        builder.Property(s => s.BackupKeepCount).HasDefaultValue(7).HasSentinel(7);
+        builder.Property(s => s.IsBackupVerifyEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.MaintenanceRetryMinutes).HasDefaultValue(60).HasSentinel(60);
+        builder.Property(s => s.IpAutoBlockThreshold).HasDefaultValue(20).HasSentinel(20);
+        builder.Property(s => s.IpAutoBlockHours).HasDefaultValue(24).HasSentinel(24);
+        builder.Property(s => s.LogFileRetentionDays).HasDefaultValue(14).HasSentinel(14);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Ops",
+            "[BackupRunsPerDay] BETWEEN 1 AND 4 AND [BackupStartHour] BETWEEN 0 AND 23 AND [BackupKeepCount] BETWEEN 1 AND 60 " +
+            "AND [MaintenanceRetryMinutes] BETWEEN 5 AND 1440 AND [IpAutoBlockThreshold] BETWEEN 5 AND 1000 AND [IpAutoBlockHours] BETWEEN 1 AND 720 " +
+            "AND [LogFileRetentionDays] BETWEEN 1 AND 180"));
+
+        // مرحلهٔ هفتم – فاز ۱۰: امنیت کارکنان (TOTP، تأیید دوباره، تأیید دونفره، پوشاندن اطلاعات).
+        builder.Property(s => s.IsStaffTotpEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.ReauthMinutes).HasDefaultValue(15).HasSentinel(15);
+        builder.Property(s => s.TwoPersonWalletThreshold).HasPrecision(18, 0).HasDefaultValue(1_000_000m).HasSentinel(1_000_000m);
+        builder.Property(s => s.TwoPersonWithdrawalThreshold).HasPrecision(18, 0).HasDefaultValue(5_000_000m).HasSentinel(5_000_000m);
+        builder.Property(s => s.IsTwoPersonRoleChangeEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Team",
+            "[ReauthMinutes] BETWEEN 5 AND 240 AND [TwoPersonWalletThreshold] >= 0 AND [TwoPersonWithdrawalThreshold] >= 0"));
+
+        // مرحلهٔ دهم: برند، سیاست قیمت تأمین‌کننده و پیشنهاد قیمت فروش.
+        builder.Property(s => s.BrandTextInAuth).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.BrandTextInAdmin).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.BrandTextInInvoice).HasDefaultValue(true).HasSentinel(true);
+        builder.Property(s => s.SupplierPriceAutoMode).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.SupplierRepriceMode).HasDefaultValue(1).HasSentinel(1);
+        builder.Property(s => s.SupplierRepriceMarkupPercent).HasDefaultValue(25).HasSentinel(25);
+        builder.Property(s => s.SupplierRepriceMarkupAmount).HasPrecision(18, 0);
+        builder.Property(s => s.SupplierRepriceMinMarginPercent).HasDefaultValue(5).HasSentinel(5);
+        builder.Property(s => s.SupplierRepriceRounding).HasPrecision(18, 0).HasDefaultValue(1000m).HasSentinel(1000m);
+        builder.Property(s => s.SupplierRepriceMaxJumpPercent).HasDefaultValue(50).HasSentinel(50);
+        builder.Property(s => s.PricingPackagingCost).HasPrecision(18, 0);
+        builder.Property(s => s.PricingShippingCost).HasPrecision(18, 0);
+        builder.Property(s => s.PricingGatewayFeePercent).HasPrecision(5, 2).HasDefaultValue(1m).HasSentinel(1m);
+        builder.Property(s => s.PricingOtherCostPercent).HasPrecision(5, 2);
+        builder.Property(s => s.PricingOtherCostAmount).HasPrecision(18, 0);
+        builder.Property(s => s.PricingTaxPercent).HasPrecision(5, 2);
+        builder.Property(s => s.PricingTargetMarginPercent).HasDefaultValue(30).HasSentinel(30);
+        builder.Property(s => s.PricingMinMarginPercent).HasDefaultValue(8).HasSentinel(8);
+        builder.Property(s => s.PricingUndercutPercent).HasPrecision(5, 2).HasDefaultValue(2m).HasSentinel(2m);
+        builder.Property(s => s.PricingRounding).HasPrecision(18, 0).HasDefaultValue(1000m).HasSentinel(1000m);
+        builder.Property(s => s.IsCompetitorPriceLookupEnabled).HasDefaultValue(true).HasSentinel(true);
+        builder.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_Round10",
+            "[SupplierPriceAutoMode] BETWEEN 0 AND 2 AND [SupplierRepriceMode] BETWEEN 0 AND 5 " +
+            "AND [SupplierRepriceMarkupPercent] BETWEEN 0 AND 1000 AND [SupplierRepriceMarkupAmount] >= 0 " +
+            "AND [SupplierRepriceMinMarginPercent] BETWEEN 0 AND 500 AND [SupplierRepriceRounding] >= 0 AND [SupplierRepriceMaxJumpPercent] BETWEEN 0 AND 1000 " +
+            "AND [PricingPackagingCost] >= 0 AND [PricingShippingCost] >= 0 AND [PricingOtherCostAmount] >= 0 " +
+            "AND [PricingGatewayFeePercent] BETWEEN 0 AND 20 AND [PricingOtherCostPercent] BETWEEN 0 AND 50 AND [PricingTaxPercent] BETWEEN 0 AND 30 " +
+            "AND [PricingTargetMarginPercent] BETWEEN 0 AND 500 AND [PricingMinMarginPercent] BETWEEN 0 AND 500 " +
+            "AND [PricingUndercutPercent] BETWEEN 0 AND 30 AND [PricingRounding] >= 0"));
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round6",
+            "[LowStockThreshold] >= 0 AND [ErrorLogRetentionDays] >= 1 AND [AuditLogRetentionDays] >= 1"));
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round5",
+            "[ProductAlertMaxPerUser] >= 0 AND [GiftCardMinAmount] > 0 AND [GiftCardMaxAmount] >= [GiftCardMinAmount] AND [GiftCardValidDays] >= 0 " +
+            "AND [ReferralCookieDays] >= 0 AND [CaptchaAfterFailedAttempts] >= 0 AND [PriceHistoryDays] > 0 AND [MapDefaultZoom] BETWEEN 1 AND 19 " +
+            "AND [ReturnWindowDays] >= 0 AND [ReturnMaxImages] BETWEEN 0 AND 10 AND [OrderFeedbackWindowDays] >= 0 AND [DefaultTheme] BETWEEN 0 AND 2 " +
+            "AND [PopularSearchesCount] BETWEEN 0 AND 30 AND [PopularSearchMinCount] >= 1 AND [TicketMaxOpenPerUser] >= 1 " +
+            "AND [TicketMaxAttachments] BETWEEN 0 AND 10 AND [TicketMaxAttachmentSizeKb] > 0 AND [ImageQuality] BETWEEN 40 AND 95 AND [PageCacheSeconds] >= 0"));
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Values",
+            "[FreeShippingThreshold] >= 0 AND [MinimumOrderAmount] >= 0 AND [CashOnDeliveryMaxAmount] >= 0 " +
+            "AND [WalletMinTopUpAmount] >= 0 AND [WalletMaxTopUpAmount] >= [WalletMinTopUpAmount] " +
+            "AND [WalletMinWithdrawalAmount] >= 0 AND [UnpaidOrderTimeoutMinutes] > 0 AND [DeliveryDaysAhead] > 0"));
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_StoreSettings_Round4",
+            "[WalletMaxWithdrawalAmount] >= 0 AND [WalletMaxPendingWithdrawals] > 0 AND [AbandonedCartAfterMinutes] > 0 " +
+            "AND [AbandonedCartMinAmount] >= 0 AND [AbandonedCartExpireDays] > 0 AND [ReviewMaxImages] >= 0 AND [ReviewMaxImages] <= 10 " +
+            "AND [ReviewMaxImageSizeKb] > 0 AND [PwaInstallPromptAfterPages] >= 0 AND [PwaInstallPromptSnoozeDays] >= 0"));
+    }
+}

@@ -1,4 +1,4 @@
-﻿namespace Fratak_Shop.Data.Entities.Pages;
+namespace Fratak_Shop.Data.Entities.Pages;
 
 /// <summary>
 /// Complete list of site pages. Used by <see cref="PageSeo"/> (static-page SEO)
@@ -32,4 +32,20 @@ public enum SitePage
     UserOrders = 22,      // سفارش‌های کاربر
     UserFavorites = 23,   // علاقه‌مندی‌های کاربر
     NotFound = 24,        // صفحه یافت نشد
+    ReturnPolicy = 25,    // شرایط بازگشت کالا
+    ShippingGuide = 26,   // شیوه‌های ارسال
+    PaymentGuide = 27,    // شیوه‌های پرداخت
+    UserWallet = 28,      // کیف پول کاربر
+    Compare = 29,         // مقایسه محصولات
+    ContentPage = 30,     // صفحات محتوایی دیگر
+    CheckoutComplete = 31, // ثبت موفق سفارش
+    OrderDetails = 32,    // جزئیات سفارش (پروفایل)
+    CustomerClub = 33,    // باشگاه مشتریان
+    Notifications = 34,   // اعلان‌ها
+    UserTickets = 35,     // تیکت‌های پشتیبانی
+    UserReturns = 36,     // مرجوعی‌ها
+    GiftCards = 37,       // کارت هدیه
+    Invite = 38,          // دعوت دوستان
+    UserAlerts = 39,      // اطلاع‌رسانی‌های محصول (خبرم کن)
+    AllPages = 100,       // همه صفحات
 }

@@ -1,0 +1,63 @@
+@page "/profile/returns"
+@model Fratak_Shop.Web.Pages.Profile.ReturnsModel
+@{
+    Layout = "_Layout";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Returns" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-5">
+        <div class="flex flex-wrap items-center gap-3">
+          @Icons.Svg("ArrowUUpLeft", "fill-sky-500", 28)
+          <h1 class="text-zinc-800 text-lg font-semibold">مرجوعی‌ها</h1>
+        </div>
+        <p class="text-sm leading-7 text-zinc-500">
+          تا @Format.Number(Site.Settings.ReturnWindowDays) روز پس از تحویل، از صفحه جزئیات سفارش می‌توانید درخواست مرجوعی ثبت کنید.
+          پس از تایید و دریافت کالا، مبلغ به کیف پول شما برگشت داده می‌شود.
+          <a href="/profile/orders" class="text-sky-600 hover:underline">رفتن به سفارش‌ها</a>
+        </p>
+        @if (!string.IsNullOrWhiteSpace(Site.Settings.ReturnPolicyText))
+        {
+          <details class="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+            <summary class="cursor-pointer font-semibold">شرایط مرجوعی کالا</summary>
+            <p class="mt-2 whitespace-pre-line leading-7">@Site.Settings.ReturnPolicyText</p>
+          </details>
+        }
+
+        @if (Model.Items.Count == 0)
+        {
+          <div class="py-12 text-center text-zinc-500">
+            @Icons.Svg("Package", "fill-zinc-300 mx-auto mb-3", 48)
+            درخواست مرجوعی ثبت نکرده‌اید.
+          </div>
+        }
+        else
+        {
+          <ul class="space-y-3">
+            @foreach (var item in Model.Items)
+            {
+              var status = Fratak_Shop.Web.Pages.Profile.ReturnsModel.StatusOf(item.Status);
+              <li>
+                <a href="/profile/returns/@item.RequestNumber.ToLowerInvariant()" class="flex flex-wrap items-center gap-3 rounded-xl border p-4 transition hover:border-sky-200 hover:bg-sky-50/40">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                      <span class="font-semibold text-zinc-700" dir="ltr">@item.RequestNumber</span>
+                      <span class="rounded-full px-2 py-0.5 text-[11px] @status.Css">@status.Text</span>
+                    </div>
+                    <div class="mt-1 text-xs text-zinc-500">
+                      سفارش <span dir="ltr">@item.OrderNumber</span> — @item.ReasonTitle — @Format.Date(item.CreatedAt)
+                    </div>
+                  </div>
+                  <div class="text-left text-sm">
+                    <div class="text-xs text-zinc-400">مبلغ</div>
+                    <div class="font-semibold text-zinc-700">@Format.Toman(item.RefundedAmount > 0 ? item.RefundedAmount : item.ApprovedAmount ?? item.RequestedAmount)</div>
+                  </div>
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  </main>

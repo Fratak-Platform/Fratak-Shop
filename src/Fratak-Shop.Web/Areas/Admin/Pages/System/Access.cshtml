@@ -1,0 +1,161 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.AccessModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@using Fratak_Shop.Web.Infrastructure.Ops
+@{
+    ViewData["Title"] = "درخواست‌های ردشده و پایداری";
+    var kinds = Enum.GetValues<RequestMonitor.Kind>();
+    var trusted = Fratak_Shop.Core.Services.Ops.FirewallState.Trusted;
+    var keyTitle = Model.KeySource switch { "configured" => "از تنظیمات", "persisted" => "پایدار (فایل)", _ => "موقت!" };
+    var keyNote = Model.KeyProblem ?? (Model.KeySource == "ephemeral" ? "با هر ری‌استارت همه بیرون می‌افتند" : "با ری‌استارت کسی بیرون نمی‌افتد");
+    var startNote = StartupGate.LastError is null ? "" : " · " + StartupGate.LastError;
+}
+<div class="a-page-head">
+  <div>
+    <h2>درخواست‌های ردشده و پایداری</h2>
+    <p class="a-muted text-sm mt-1">هر ۴۰۳، ۴۲۹، ۵۰۳، «دسترسی ندارید» یا ارجاع به صفحهٔ ورود که خود برنامه انجام داده، با دلیل دقیق. اگر خطایی که کاربر دیده اینجا نیست، از بیرون برنامه آمده است (راهنمای پایین صفحه). IP شما: <span class="a-ltr">@Model.MyIp</span></p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/system">@Icons.Svg("Pulse", null, 18) سلامت سامانه</a>
+    <a class="a-btn a-btn-light" href="/admin/system/firewall">@Icons.Svg("Prohibit", null, 18) فایروال</a>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">کلید نشست‌های ورود</div>
+    <div class="a-stat-value @(Model.KeySource == "ephemeral" ? "text-red-600" : "")">@keyTitle</div>
+    <div class="a-stat-sub">@keyNote</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">نشست گم‌شده (یک ساعت اخیر)</div>
+    <div class="a-stat-value @(Model.LostSessions >= 5 ? "text-amber-600" : "")">@Format.Number(Model.LostSessions)</div>
+    <div class="a-stat-sub">کاربرِ دارای نشست که به صفحهٔ ورود فرستاده شد</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">ریدایرکت به دامنهٔ اصلی</div>
+    <div class="a-stat-value">@Format.Number((long)RequestMonitor.CanonicalRedirects)</div>
+    <div class="a-stat-sub">www یا دامنهٔ قدیمی ← دامنهٔ اصلی (از زمان روشن شدن)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">آماده‌سازی پایگاه داده</div>
+    <div class="a-stat-value @(StartupGate.IsReady ? "" : "text-red-600")">@(StartupGate.IsReady ? "آماده" : "منتظر پایگاه داده")</div>
+    <div class="a-stat-sub">@Format.Number(StartupGate.Attempts) تلاش@(startNote)</div>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Funnel", null, 18) نوع رد شدن</span><span class="a-muted text-xs">عدد: یک ساعت اخیر / از زمان روشن شدن</span></div>
+  <div class="a-card-body">
+    <div class="a-pills">
+      <a class="a-pill @(Model.SelectedKind is null ? "is-active" : "")" href="/admin/system/access">همه</a>
+      @foreach (var k in kinds)
+      {
+        <a class="a-pill @(Model.SelectedKind == k ? "is-active" : "")" href="/admin/system/access?kind=@k">@RequestMonitor.Title(k) <b>@Format.Number(Model.LastHour.GetValueOrDefault(k)) / @Format.Number(Model.Totals.GetValueOrDefault(k))</b></a>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ListChecks", null, 18) رویدادهای اخیر</span><span class="a-muted text-xs">۲۰۰ مورد آخر؛ با ری‌استارت پاک می‌شود</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>زمان</th><th>نوع</th><th>درخواست</th><th>IP / دستگاه</th><th>دلیل</th></tr></thead>
+      <tbody>
+        @foreach (var e in Model.Events)
+        {
+          <tr>
+            <td data-label="زمان" class="nowrap text-xs">@Format.DateTime(e.At)<div class="a-muted a-ltr">@Fratak_Shop.Core.Utilities.IranClock.ToLocal(e.At).ToString("HH:mm:ss")</div></td>
+            <td data-label="نوع"><span class="a-badge @AccessModel.Css(e.Kind)">@RequestMonitor.Title(e.Kind)</span>@if (e.HadSession && e.Kind == RequestMonitor.Kind.LoginRedirect) { <div class="text-xs text-amber-600 mt-1">نشست داشت</div> }</td>
+            <td data-label="درخواست" class="text-xs"><div class="a-ltr text-right break-all">@e.Method @e.Path</div><div class="a-muted a-ltr text-right">@e.Host · @e.Status</div></td>
+            <td data-label="IP / دستگاه" class="text-xs"><span class="a-ltr">@e.Ip</span><div class="a-muted">@e.Device@(e.UserId is null ? "" : " · کاربر واردشده")</div></td>
+            <td data-label="دلیل" class="text-xs">@(string.IsNullOrEmpty(e.Detail) ? "-" : e.Detail)</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Events.Count == 0) { <div class="a-empty">از زمان روشن شدن برنامه درخواستی از این نوع رد نشده است.</div> }
+  </div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Gauge", null, 18) IPهای پرتکرار (یک ساعت اخیر)</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>IP</th><th>تعداد</th><th>بیشترین نوع</th></tr></thead>
+        <tbody>
+          @foreach (var (ip, count, top) in Model.TopIps)
+          {
+            <tr><td class="a-ltr text-xs">@ip</td><td>@Format.Number(count)</td><td><span class="a-badge @AccessModel.Css(top)">@RequestMonitor.Title(top)</span></td></tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.TopIps.Count == 0) { <div class="a-empty">موردی نیست.</div> }
+    </div>
+    <div class="a-card-body text-xs a-muted">اگر یک IP بیشتر رویدادها را دارد و کاربران واقعی شکایت دارند، احتمالاً همه پشت یک پراکسی/CDN هستند (کادر کناری).</div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) پراکسی و IPهای مورد اعتماد</span></div>
+    <div class="a-card-body text-sm space-y-2">
+      @if (Model.Proxies.Count == 0)
+      {
+        <p>هیچ درخواستی با سرآیند X-Forwarded-For از فرستندهٔ نامطمئن نیامده است (یا سایت پشت پراکسی نیست، یا پراکسی درست تنظیم شده).</p>
+      }
+      else
+      {
+        <div class="a-alert a-alert-warn">@Format.Number(RequestMonitor.ForwardedUntrusted) درخواست از این فرستنده‌ها سرآیند پراکسی داشت ولی مورد اعتماد نبود؛ IP واقعی کاربران دیده نمی‌شود. اگر این‌ها CDN/پراکسی خودتان است، در appsettings.Production.json بخش Security مقدار KnownProxies یا KnownNetworks را بگذارید.</div>
+        <ul class="list-disc pr-5">
+          @foreach (var (ip, count) in Model.Proxies) { <li><span class="a-ltr">@ip</span> – @Format.Number(count)</li> }
+        </ul>
+      }
+      <p class="a-muted">IPهای مورد اعتماد تنظیمات (Security:TrustedIps؛ هرگز با فایروال یا محدودیت تعداد رد نمی‌شوند): @(trusted.Count == 0 ? "تنظیم نشده" : string.Join("، ", trusted.Select(t => t.Text)))</p>
+    </div>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Clock", null, 18) روشن/خاموش شدن برنامه</span><span class="a-muted text-xs a-ltr">App_Data/logs/lifecycle.json</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>روشن شدن</th><th>مدت</th><th>پایان</th><th>نسخه / پروسه</th></tr></thead>
+      <tbody>
+        @foreach (var run in Model.Runs)
+        {
+          var running = AppLifecycle.Current;
+          var current = running is not null && running.ProcessId == run.ProcessId && running.StartedAt == run.StartedAt;
+          var unclean = AppLifecycle.IsUnclean(run);
+          <tr>
+            <td data-label="روشن شدن" class="nowrap text-xs">@Format.DateTime(run.StartedAt)</td>
+            <td data-label="مدت" class="text-xs">@AccessModel.Duration(run)</td>
+            <td data-label="پایان" class="text-xs">
+              @if (current) { <span class="a-badge a-badge-green">در حال اجرا</span> }
+              else if (run.Crash is not null) { <span class="a-badge a-badge-red">خطای مرگبار</span><div class="a-ltr text-right mt-1 break-all">@run.Crash</div> }
+              else if (unclean) { <span class="a-badge a-badge-yellow">توقف ناگهانی</span> }
+              else if (run.StoppedAt.HasValue) { <span class="a-badge a-badge-gray">خاموش عادی</span> <span class="a-muted">@Format.DateTime(run.StoppedAt)</span> }
+              else { <span class="a-badge a-badge-blue">هم‌زمان (بازیافت IIS)</span> }
+            </td>
+            <td data-label="نسخه / پروسه" class="a-ltr text-xs">@run.Version · #@run.ProcessId</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Runs.Count == 0) { <div class="a-empty">تاریخچه‌ای ثبت نشده است (پوشهٔ App_Data/logs قابل نوشتن نیست؟).</div> }
+  </div>
+  <div class="a-card-body text-xs a-muted">«خاموش عادی» با بازیافت زمان‌بندی‌شده یا بیکاری استخر IIS هم پیش می‌آید؛ بیش از چند بار در روز یعنی تنظیمات استخر برنامه را طبق docs/DEPLOYMENT.md درست کنید (Idle Time-out = 0، Start Mode = AlwaysRunning). «توقف ناگهانی» یعنی پروسه بدون خاموشی عادی بسته شده (کمبود حافظه، کشته شدن پروسه، خطای بومی).</div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Info", null, 18) خطایی که اینجا نیست از کجا آمده؟</span></div>
+  <div class="a-card-body text-sm leading-7">
+    <ul class="list-disc pr-5 space-y-2">
+      <li><b>۴۰۳ با صفحهٔ IIS/Plesk</b> (نه صفحهٔ سایت): فایروال وب Plesk (ModSecurity) یا «IP Address and Domain Restrictions» در IIS. در Plesk: «Web Application Firewall» دامنه را روی Detection only بگذارید یا قانون مربوط را از گزارش ModSecurity (Logs) غیرفعال کنید.</li>
+      <li><b>۴۰۳ با متن «۴۰۳ – دسترسی شما به این سایت محدود شده است» (با IP و کد FW-…)</b>: دیوار آتش همین برنامه (در فهرست بالا با همان کد دیده می‌شود). از «فنی ← فایروال» قانون را بردارید یا IP را در Security:TrustedIps بگذارید.</li>
+      <li><b>۵۰۳ «Service Unavailable» ساده</b>: استخر برنامهٔ IIS متوقف شده (معمولاً Rapid-Fail بعد از چند خطای شروع). در Plesk ← Dedicated IIS Application Pool ← Start/Recycle؛ علت را در «روشن/خاموش شدن برنامه» و «گزارش‌های سرور» ببینید.</li>
+      <li><b>۵۰۲.۵ / ۵۰۰.۳۰</b>: برنامه اصلاً بالا نیامده (نسخهٔ ASP.NET Core Hosting Bundle روی سرور با net10.0 نمی‌خواند یا فایل‌ها ناقص آپلود شده‌اند). در web.config مقدار stdoutLogEnabled را true کنید و پوشهٔ logs را ببینید.</li>
+      <li><b>«دسترسی ندارید» در پنل</b>: در فهرست بالا با نوع «دسترسی پنل ندارد» و نام دسترسی لازم دیده می‌شود؛ نقش کارمند را در «کارکنان و نقش‌ها» درست کنید.</li>
+    </ul>
+  </div>
+</div>

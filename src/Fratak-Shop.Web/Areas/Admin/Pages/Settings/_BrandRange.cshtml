@@ -1,0 +1,11 @@
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.BrandRange
+@* اسلایدر + عدد استودیوی لوگو. فقط ورودی عددی ارسال می‌شود؛ خالی = خودکار (admin-brand.js مقدار خودکار را نشان می‌دهد). *@
+<div class="a-field">
+  <label class="a-label" for="@Model.Id">@Model.Label</label>
+  <div class="a-bl-range">
+    <input type="range" min="@Model.Min" max="@Model.Max" step="1" value="@(Model.Value ?? (int.TryParse(Model.Placeholder, out var p) ? p : Model.Min))" data-bl-range="#@Model.Id" tabindex="-1" aria-hidden="true">
+    <input type="number" id="@Model.Id" name="@Model.Name" value="@BrandModel.Num(Model.Value)" min="@Model.Min" max="@Model.Max" step="1" inputmode="numeric"
+           class="a-input a-input-sm a-ltr" dir="ltr" placeholder="@(Model.Placeholder ?? "خودکار")" data-f="@Model.Key">
+    <button type="button" class="a-icon-btn" data-bl-clear="#@Model.Id" title="خودکار" aria-label="خودکار">@Icons.Svg("ArrowCounterClockwise", null, 14)</button>
+  </div>
+</div>

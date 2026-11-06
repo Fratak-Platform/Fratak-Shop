@@ -1,0 +1,89 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Finance.WithdrawalsModel
+@using Fratak_Shop.Data.Entities.Wallets
+@{
+    ViewData["Title"] = "درخواست‌های برداشت";
+    var request = HttpContext.Request;
+    var canManage = Model.Can(AdminPermissions.WithdrawalsManage);
+    (int Count, decimal Amount) C(WithdrawalStatus s) => Model.Counts.GetValueOrDefault(s);
+}
+<div class="a-page-head">
+  <div>
+    <h2>درخواست‌های برداشت از کیف پول</h2>
+    <p class="a-muted text-sm mt-1">مبلغ درخواست هنگام ثبت از کیف پول کسر شده است. با «رد»، مبلغ به کیف پول مشتری برمی‌گردد. اعتبار هدیه قابل برداشت نیست.</p>
+  </div>
+  @if (Model.Can(AdminPermissions.FinanceExport))
+  {
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+  }
+</div>
+
+<div class="a-pills mb-4">
+  @foreach (var (st, label) in new (WithdrawalStatus?, string)[] { (WithdrawalStatus.Pending, "در انتظار بررسی"), (WithdrawalStatus.Approved, "تأییدشده (در صف واریز)"), (WithdrawalStatus.Paid, "واریزشده"), (WithdrawalStatus.Rejected, "ردشده"), (WithdrawalStatus.Cancelled, "لغو کاربر") })
+  {
+    var c = C(st!.Value);
+    <a class="a-pill @(Model.Status == st ? "is-active" : "")" href="/admin/finance/withdrawals?status=@st">@label <b>@Format.Number(c.Count)</b>@if (c.Amount > 0 && st is WithdrawalStatus.Pending or WithdrawalStatus.Approved) { <span class="a-muted text-xs">(@Format.Toman(c.Amount))</span> }</a>
+  }
+  <a class="a-pill @(Model.Status is null ? "is-active" : "")" href="/admin/finance/withdrawals?status=">همه</a>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <input type="hidden" name="status" value="@Model.Status">
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="w-q">جست‌وجو</label><input id="w-q" name="q" value="@Model.Search" class="a-input" placeholder="موبایل، صاحب حساب، شبا یا شماره پیگیری"></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">جست‌وجو</button></div>
+  </form>
+</div>
+
+<div class="a-stack">
+  @foreach (var w in Model.Items.Items)
+  {
+    <div class="a-card">
+      <div class="a-card-body">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <b class="text-lg">@AdminUi.Money(w.Amount)</b>
+              <span class="a-badge @Display.WithdrawalStatusBadge(w.Status)">@Display.WithdrawalStatus(w.Status)</span>
+              <span class="a-muted text-xs">@Format.DateTime(w.CreatedAt)</span>
+            </div>
+            <div class="text-sm mt-1">
+              @if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@w.UserId">@Pii.NameOrPhone(w.UserName, w.Phone)</a> } else { @w.UserName }
+              <span class="a-muted a-ltr">@Pii.Phone(w.Phone)</span> · موجودی فعلی کیف پول: @Format.Toman(w.CurrentWallet)
+            </div>
+          </div>
+          <dl class="a-kv text-sm" style="min-width:260px">
+            <dt>صاحب حساب</dt><dd>@w.AccountHolder</dd>
+            @if (w.Iban is not null) { <dt>شبا</dt><dd class="a-ltr a-mono">@Pii.Iban(w.Iban) @if (Pii.ShowBank) { <button type="button" class="a-link text-xs" data-copy="@w.Iban">کپی</button> }</dd> }
+            @if (w.CardNumber is not null) { <dt>کارت</dt><dd class="a-ltr a-mono">@Pii.Card(w.CardNumber) @if (Pii.ShowBank) { <button type="button" class="a-link text-xs" data-copy="@w.CardNumber">کپی</button> }</dd> }
+            @if (w.AccountNumber is not null) { <dt>حساب</dt><dd class="a-ltr a-mono">@Pii.Card(w.AccountNumber)</dd> }
+            @if (w.BankTrackingNumber is not null) { <dt>پیگیری واریز</dt><dd class="a-ltr">@w.BankTrackingNumber</dd> }
+            @if (w.AdminNote is not null) { <dt>یادداشت</dt><dd>@w.AdminNote</dd> }
+          </dl>
+        </div>
+        @if (canManage && w.Status is WithdrawalStatus.Pending or WithdrawalStatus.Approved)
+        {
+          <div class="a-divider my-3"></div>
+          <div class="flex flex-wrap gap-3 items-end">
+            <form method="post" asp-page-handler="Status" asp-route-id="@w.Id" class="a-filters flex-1" data-confirm="واریز این مبلغ ثبت شود؟ به مشتری اطلاع داده می‌شود.">
+              <input type="hidden" name="status" value="@WithdrawalStatus.Paid">
+              <div class="a-field"><label class="a-label" for="t-@w.Id">شماره پیگیری واریز</label><input id="t-@w.Id" name="tracking" class="a-input a-ltr" required maxlength="100"></div>
+              <div class="a-filters-actions"><button class="a-btn a-btn-success" type="submit">@Icons.Svg("Check", null, 18) واریز شد</button></div>
+            </form>
+            @if (w.Status == WithdrawalStatus.Pending)
+            {
+              <form method="post" asp-page-handler="Status" asp-route-id="@w.Id"><input type="hidden" name="status" value="@WithdrawalStatus.Approved"><button class="a-btn a-btn-soft" type="submit">تأیید (در صف واریز)</button></form>
+            }
+            <form method="post" asp-page-handler="Status" asp-route-id="@w.Id" class="a-filters" data-confirm="درخواست رد شود؟ مبلغ به کیف پول مشتری برمی‌گردد." data-confirm-danger>
+              <input type="hidden" name="status" value="@WithdrawalStatus.Rejected">
+              <div class="a-field"><label class="a-label" for="r-@w.Id">دلیل رد</label><input id="r-@w.Id" name="adminNote" class="a-input" required maxlength="500"></div>
+              <div class="a-filters-actions"><button class="a-btn a-btn-danger-soft" type="submit">رد</button></div>
+            </form>
+          </div>
+        }
+      </div>
+    </div>
+  }
+  @if (Model.Items.Items.Count == 0) { <div class="a-card"><div class="a-empty">درخواستی وجود ندارد.</div></div> }
+</div>
+<partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />

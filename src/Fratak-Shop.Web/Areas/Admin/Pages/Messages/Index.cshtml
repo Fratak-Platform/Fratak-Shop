@@ -1,0 +1,111 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Messages.IndexModel
+@using Fratak_Shop.Data.Entities.Messages
+@using Fratak_Shop.Web.Areas.Admin.Pages.Messages
+@{
+    ViewData["Title"] = "پیام‌های تماس";
+    var request = HttpContext.Request;
+    var state = Model.State ?? "new";
+    var tabs = new (string Key, string Title, int Count)[]
+    {
+        ("new", "جدید", Model.Counts.GetValueOrDefault(MessageStatus.New) + Model.Counts.GetValueOrDefault(MessageStatus.None)),
+        ("progress", "در حال پیگیری", Model.Counts.GetValueOrDefault(MessageStatus.InProgress)),
+        ("answered", "پاسخ داده شده", Model.Counts.GetValueOrDefault(MessageStatus.Answered)),
+        ("closed", "بسته", Model.Counts.GetValueOrDefault(MessageStatus.Closed)),
+        ("all", "همه", Model.Counts.Values.Sum()),
+    };
+}
+<div class="a-page-head">
+  <div>
+    <h2>پیام‌های تماس</h2>
+    <p class="a-muted text-sm mt-1">پیام‌های فرم «تماس با ما»، پیشنهادها و شکایت‌ها. پاسخ از طریق تماس تلفنی یا ایمیل داده می‌شود و وضعیت اینجا ثبت می‌گردد.</p>
+  </div>
+  <div class="a-btn-group">
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+  </div>
+</div>
+
+<div class="a-pills mb-4">
+  @foreach (var t in tabs)
+  {
+    <a class="a-pill @(state == t.Key ? "is-active" : "")" href="/admin/messages?state=@t.Key">@t.Title <b>@Format.Number(t.Count)</b></a>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <input type="hidden" name="state" value="@state">
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="m-q">جست‌وجو</label><input id="m-q" name="q" value="@Model.Search" class="a-input" placeholder="نام، موبایل، ایمیل یا متن"></div>
+    <div class="a-field"><label class="a-label" for="m-type">نوع</label>
+      <select id="m-type" name="type" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var ty in new[] { MessageType.Contact, MessageType.Support, MessageType.Suggestion, MessageType.Complaint }) { <option value="@ty" selected="@(Model.Type == ty)">@IndexModel.TypeTitle(ty)</option> }
+      </select></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+  </form>
+</div>
+
+<div data-bulk>
+  <form method="post" asp-page-handler="Bulk" id="bulk-form" class="a-bulkbar" data-bulk-bar data-confirm="عملیات روی پیام‌های انتخاب‌شده انجام شود؟">
+    <span><b data-bulk-count>0</b> مورد انتخاب شده</span>
+    <select name="action" class="a-select a-input-sm" style="width:auto">
+      <option value="progress">در حال پیگیری</option>
+      <option value="answered">پاسخ داده شد</option>
+      <option value="closed">بستن</option>
+      <option value="delete">حذف</option>
+    </select>
+    <button type="submit" class="a-btn a-btn-sm">اعمال</button>
+  </form>
+
+  @if (Model.Items.Items.Count > 0)
+  {
+    <label class="a-check text-sm mb-2"><input type="checkbox" data-check-all> انتخاب همه موارد این صفحه</label>
+  }
+
+  <div class="a-stack">
+    @foreach (var m in Model.Items.Items)
+    {
+      <article class="a-card">
+        <div class="a-card-body">
+          <div class="flex flex-wrap items-start gap-3">
+            <input type="checkbox" name="ids" value="@m.Id" form="bulk-form" data-row-check class="mt-1.5" aria-label="انتخاب">
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 text-sm">
+                <b>@(m.FullName ?? "بی‌نام")</b>
+                @if (m.UserId is not null && Model.Can(AdminPermissions.CustomersView)) { <a class="a-link text-xs" href="/admin/customers/@m.UserId">پروفایل مشتری</a> }
+                <span class="a-badge a-badge-gray">@IndexModel.TypeTitle(m.Type)</span>
+                <span class="a-badge @IndexModel.StatusBadge(m.Status)">@IndexModel.StatusTitle(m.Status)</span>
+                <span class="a-muted text-xs" title="@Format.DateTime(m.CreatedAt)">@AdminUi.Ago(m.CreatedAt)</span>
+              </div>
+              <div class="flex flex-wrap gap-3 text-xs mt-1">
+                @if (!string.IsNullOrEmpty(m.PhoneNumber)) { if (Pii.ShowContacts) { <a class="a-link a-ltr" href="tel:@m.PhoneNumber">@m.PhoneNumber</a> } else { <span class="a-ltr">@Pii.Phone(m.PhoneNumber)</span> } }
+                @if (!string.IsNullOrEmpty(m.Email) && !Pii.ShowContacts) { <span class="a-ltr">@Pii.Email(m.Email)</span> } else if (!string.IsNullOrEmpty(m.Email)) { <a class="a-link a-ltr break-all" href="@($"mailto:{m.Email}?subject={Uri.EscapeDataString("پاسخ: " + (m.Subject ?? "پیام شما"))}")">@m.Email</a> }
+              </div>
+              @if (!string.IsNullOrWhiteSpace(m.Subject)) { <div class="font-semibold mt-2">@m.Subject</div> }
+              <p class="mt-1 text-sm leading-7 whitespace-pre-line">@m.Content</p>
+              @if (m.RepliedAt is { } replied) { <div class="a-muted text-xs mt-2">پاسخ: @Format.DateTime(replied)</div> }
+              <div class="flex flex-wrap gap-2 mt-3">
+                @if (m.Status != MessageStatus.Answered)
+                {
+                  <form method="post" asp-page-handler="Status" asp-route-id="@m.Id" asp-route-status="@MessageStatus.Answered"><button class="a-btn a-btn-sm a-btn-success" type="submit">@Icons.Svg("Check", null, 16) پاسخ داده شد</button></form>
+                }
+                @if (m.Status is MessageStatus.New or MessageStatus.None)
+                {
+                  <form method="post" asp-page-handler="Status" asp-route-id="@m.Id" asp-route-status="@MessageStatus.InProgress"><button class="a-btn a-btn-sm a-btn-light" type="submit">در حال پیگیری</button></form>
+                }
+                @if (m.Status != MessageStatus.Closed)
+                {
+                  <form method="post" asp-page-handler="Status" asp-route-id="@m.Id" asp-route-status="@MessageStatus.Closed"><button class="a-btn a-btn-sm a-btn-light" type="submit">بستن</button></form>
+                }
+                <form method="post" asp-page-handler="Delete" asp-route-id="@m.Id" data-confirm="این پیام حذف شود؟" data-confirm-danger><button class="a-btn a-btn-sm a-btn-danger-soft" type="submit">حذف</button></form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    }
+  </div>
+  @if (Model.Items.Items.Count == 0) { <div class="a-card"><div class="a-empty">پیامی در این بخش نیست.</div></div> }
+</div>
+<partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />

@@ -15,8 +15,18 @@ public class Cart : BaseEntity
     [MaxLength(100)]
     public string? SessionKey { get; set; }
 
+    /// <summary>Discount code applied to the cart (re-validated at checkout).</summary>
+    [MaxLength(50)]
+    public string? CouponCode { get; set; }
+
+    /// <summary>Last time an item was added, changed or removed (abandoned-cart detection).</summary>
+    public DateTimeOffset? LastActivityAt { get; set; }
+
     [ForeignKey(nameof(UserId))]
     public User? User { get; set; }
 
     public List<CartItem> Items { get; set; } = [];
+
+    /// <summary>"Next purchase" list (not part of the cart totals).</summary>
+    public List<SavedCartItem> SavedItems { get; set; } = [];
 }

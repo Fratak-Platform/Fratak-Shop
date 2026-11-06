@@ -1,0 +1,104 @@
+@model CompetitorCardModel
+@using Fratak_Shop.Core.Services.Pricing
+@*
+  کارت «قیمت رقبا» در فرم محصول (مرحلهٔ پانزدهم).
+  نشان می‌دهد آخرین بار قیمت همین کالا در ترب، دیجی‌کالا، باسلام و سایت‌های دیگر چند بود، کدام قیمت‌ها حساب شدند
+  (و دلیل کنار رفتن بقیه) و قیمت فعلی ما در ترب چندم است. داده: IProductCompetitorService.GetAsync.
+*@
+@{
+    var d = Model.Detail;
+    const int MaxRows = 40;
+}
+<div class="a-card a-competitors" id="competitors">
+  <div class="a-card-head">
+    <span class="a-card-title">@Icons.Svg("Storefront", null, 18) قیمت رقبا</span>
+    <div class="flex items-center gap-2">
+      @if (d is not null)
+      {
+        <span class="a-muted text-xs" title="@Format.DateTime(d.CheckedAt)">بررسی: @Format.Relative(d.CheckedAt)</span>
+      }
+      @if (Model.CanRefresh)
+      {
+        <form method="post" asp-page-handler="RefreshCompetitors" asp-route-id="@Model.ProductId" class="contents" data-busy-text="در حال بررسی…">
+          <button type="submit" class="a-btn a-btn-sm a-btn-light">@Icons.Svg("ArrowCounterClockwise", null, 14) بررسی دوباره</button>
+        </form>
+      }
+    </div>
+  </div>
+  <div class="a-card-body">
+    @if (d is null)
+    {
+      <div class="a-empty">
+        هنوز قیمت رقبای این کالا بررسی نشده است.
+        @if (Model.CanRefresh) { <span class="block text-xs mt-1">«بررسی دوباره» یا دکمهٔ «پیشنهاد قیمت فروش» را بزنید.</span> }
+      </div>
+    }
+    else
+    {
+      var accepted = d.Offers.Count(o => o.Accepted);
+      <div class="a-competitor-stats">
+        <div><span>قیمت فعلی ما</span><b>@(d.OurPrice > 0 ? Format.Toman(d.OurPrice) : "—")</b></div>
+        <div>
+          <span>ارزان‌ترین فروشندهٔ ترب</span>
+          <b>@(d.TorobLowest is { } tl ? Format.Toman(tl) : "—")</b>
+          <small>@(d.TorobSellers > 0 ? $"{Format.Number(d.TorobSellers)} فروشندهٔ معتبر" : "فروشنده‌ای در ترب پیدا نشد")</small>
+        </div>
+        <div><span>جایگاه ما در ترب</span><b>@CompetitorDisplay.RankText(d.TorobRank, d.TorobSellers)</b></div>
+        <div>
+          <span>ارزان‌ترین / میانهٔ همهٔ رقبا</span>
+          <b>@(d.Lowest is { } lo ? Format.Price(lo) : "—") / @(d.Median is { } me ? Format.Price(me) : "—")</b>
+          <small>@Format.Number(accepted) قیمت معتبر از @Format.Number(d.Offers.Count)</small>
+        </div>
+      </div>
+
+      @if (d.TorobRank is 1)
+      {
+        <p class="a-alert a-alert-success text-sm">@Icons.Svg("CheckCircle", "shrink-0", 16) قیمت فعلی ما از همهٔ فروشندگان معتبر ترب کمتر است.@(d.CheaperElsewhere > 0 ? $" {Format.Number(d.CheaperElsewhere)} فروشگاه بیرون از ترب ارزان‌تر یا هم‌قیمت است." : "")</p>
+      }
+      else if (d.TorobRank is { } rank)
+      {
+        <p class="a-alert a-alert-warn text-sm">@Icons.Svg("Warning", "shrink-0", 16) @Format.Number(rank - 1) فروشنده در ترب ارزان‌تر یا هم‌قیمت ما هستند؛ برای ارزان‌ترین بودن در ترب، قیمت را از @Format.Toman(d.TorobLowest ?? 0) کمتر کنید (دکمهٔ «پیشنهاد قیمت فروش»).</p>
+      }
+      <p class="a-muted text-xs">عبارت جست‌وجو: «@d.Query»@(d.MatchedTitle is null ? "" : $" · کالای انتخاب‌شده در ترب: «{d.MatchedTitle}»")</p>
+
+      @if (d.Offers.Count == 0)
+      {
+        <div class="a-empty">در آخرین بررسی قیمتی پیدا نشد.</div>
+      }
+      else
+      {
+        <div class="a-table-wrap">
+          <table class="a-table a-competitor-table">
+            <thead><tr><th>فروشگاه</th><th>منبع</th><th>قیمت (تومان)</th><th>نسبت به ما</th><th>داوری</th></tr></thead>
+            <tbody>
+              @foreach (var o in d.Offers.Take(MaxRows))
+              {
+                var diff = CompetitorDisplay.Diff(o.Offer.Price, d.OurPrice);
+                <tr class="@(o.Accepted ? "" : "is-rejected")">
+                  <td>
+                    @if (UrlSafety.IsHttpUrl(o.Offer.Url))
+                    {
+                      <a class="a-link" href="@o.Offer.Url" target="_blank" rel="noopener noreferrer nofollow" title="@o.Offer.Title">@o.Offer.Shop</a>
+                    }
+                    else
+                    {
+                      <span title="@o.Offer.Title">@o.Offer.Shop</span>
+                    }
+                    @if (!string.IsNullOrEmpty(o.Offer.Title)) { <span class="block text-xs a-muted a-competitor-title">@o.Offer.Title</span> }
+                  </td>
+                  <td class="text-xs">@o.Offer.Source</td>
+                  <td class="num">@Format.Price(o.Offer.Price)</td>
+                  <td class="num a-ltr @(diff is < 0 ? "a-down" : diff is > 0 ? "a-up" : "")">@CompetitorDisplay.Percent(diff)</td>
+                  <td><span class="a-badge @CompetitorDisplay.VerdictCss(o.Code)" title="@o.Reason">@CompetitorDisplay.VerdictTitle(o.Code)</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (d.Offers.Count > MaxRows) { <p class="a-help">@Format.Number(MaxRows) قیمت اول (ارزان‌ترها) نمایش داده شد.</p> }
+        <p class="a-help">«نسبت به ما»: منفی یعنی رقیب ارزان‌تر از قیمت فعلی ماست. برای حذف یک قیمت نادرست فقط در یک محاسبه، از دیالوگ «پیشنهاد قیمت فروش» استفاده کنید.</p>
+      }
+      @if (!string.IsNullOrEmpty(d.Problems)) { <p class="a-muted text-xs mt-2">@Icons.Svg("Info", "inline", 14) @d.Problems</p> }
+    }
+  </div>
+</div>

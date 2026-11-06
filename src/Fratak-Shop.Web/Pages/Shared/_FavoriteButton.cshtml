@@ -1,0 +1,8 @@
+@model Guid
+<form method="post" asp-page="/Profile/Favorites" asp-page-handler="Toggle">
+  <input type="hidden" name="productId" value="@Model" />
+  <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+  <button type="submit" title="افزودن به علاقه مندی ها" aria-label="افزودن به علاقه مندی ها" class="group/edit border bg-gray-100 border-gray-300 p-2 h-auto rounded-lg shadow-md hover:bg-red-500 transition cursor-pointer">
+    @Icons.Svg("Heart", "group-hover/edit:fill-white transition", 24)
+  </button>
+</form>

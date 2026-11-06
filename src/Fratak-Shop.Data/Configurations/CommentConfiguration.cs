@@ -33,6 +33,12 @@ public class CommentConfiguration : IEntityTypeConfiguration<Comment>
         builder.HasIndex(c => c.ProductId);
         builder.HasIndex(c => c.BlogPostId);
         builder.HasIndex(c => c.Status);
+        builder.HasIndex(c => new { c.ProductId, c.UserId, c.Type });
+
+        builder.HasMany(c => c.Images)
+            .WithOne(i => i.Comment)
+            .HasForeignKey(i => i.CommentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.ToTable(t =>
         {
@@ -44,5 +50,15 @@ public class CommentConfiguration : IEntityTypeConfiguration<Comment>
                 "CK_Comments_Rating",
                 "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
         });
+    }
+}
+
+public class CommentImageConfiguration : IEntityTypeConfiguration<CommentImage>
+{
+    public void Configure(EntityTypeBuilder<CommentImage> builder)
+    {
+        builder.HasIndex(i => new { i.CommentId, i.DisplayOrder });
+        builder.HasIndex(i => i.FileName).IsUnique();
+        builder.ToTable(t => t.HasCheckConstraint("CK_CommentImages_Size", "[SizeBytes] > 0"));
     }
 }

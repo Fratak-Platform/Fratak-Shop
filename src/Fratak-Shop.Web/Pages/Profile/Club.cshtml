@@ -1,0 +1,149 @@
+@page "/profile/club"
+@model Fratak_Shop.Web.Pages.Profile.ClubModel
+@{
+    Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.CustomerClub;
+    var settings = Site.Settings;
+    var summary = Model.Summary;
+    var club = new ClubViewModel(Model.Program, summary);
+    static string TxClass(int points) => points >= 0 ? "text-emerald-600" : "text-red-500";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Club" />
+      <div class="md:w-9/12 mt-5 md:mt-0 space-y-6">
+        @* summary *@
+        <section class="relative overflow-hidden rounded-2xl bg-gradient-to-bl from-sky-500 to-sky-800 p-5 md:p-6 text-white shadow-lg">
+          <div class="lg:flex items-start justify-between gap-6">
+            <div class="max-w-xl">
+              <div class="flex items-center gap-x-2">
+                @Icons.Svg("Crown", "fill-amber-300", 28)
+                <h1 class="text-lg md:text-xl font-bold">@settings.LoyaltyName</h1>
+              </div>
+              @if (!string.IsNullOrWhiteSpace(settings.LoyaltyProgramDescription))
+              {
+                <p class="mt-3 text-sm leading-7 text-sky-50">@settings.LoyaltyProgramDescription</p>
+              }
+            </div>
+            <div class="mt-5 lg:mt-0 w-full lg:w-80 shrink-0 rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm text-sky-100">امتیاز قابل استفاده</span>
+                @if (summary.Tier is not null)
+                {
+                  <span class="rounded-full bg-white px-3 py-1 text-xs font-bold" style="color:@(summary.Tier.Color ?? "#0069FD")">سطح @summary.Tier.Name</span>
+                }
+              </div>
+              <div class="mt-2 flex items-end gap-x-2">
+                <span class="text-4xl font-extrabold">@Format.Number(summary.Points)</span>
+                <span class="mb-1 text-sm">امتیاز</span>
+              </div>
+              <div class="mt-1 text-xs text-sky-100">امتیاز کل کسب‌شده: @Format.Number(summary.LifetimePoints)</div>
+              @if (summary.NextTier is not null)
+              {
+                <div class="mt-3 text-xs text-sky-100">
+                  @Format.Number(Math.Max(0, summary.NextTier.MinLifetimePoints - summary.LifetimePoints)) امتیاز تا سطح «@summary.NextTier.Name»
+                </div>
+                <div class="mt-2 h-2 w-full rounded-full bg-white/20" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@summary.ProgressPercent" aria-label="پیشرفت تا سطح بعد">
+                  <div class="h-2 rounded-full bg-amber-300" data-width="@summary.ProgressPercent"></div>
+                </div>
+              }
+              @if (summary.ExpiringSoon > 0)
+              {
+                <div class="mt-3 text-xs text-amber-200">@Format.Number(summary.ExpiringSoon) امتیاز شما به زودی منقضی می‌شود.</div>
+              }
+            </div>
+          </div>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(summary.ReferralCode))
+        {
+          <section class="rounded-2xl bg-white p-5 shadow-lg md:flex items-center gap-5">
+            <div class="flex items-center gap-x-3">
+              <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-50">@Icons.Svg("UsersThree", "fill-violet-500", 26)</span>
+              <div>
+                <h2 class="font-semibold text-zinc-800">دوستانتان را دعوت کنید</h2>
+                <p class="mt-1 text-xs leading-6 text-zinc-500">
+                  @(settings.LoyaltyReferralDescription ?? "دوست شما با کد معرف شما ثبت‌نام می‌کند و هدیه می‌گیرد؛ شما هم پس از اولین خرید او امتیاز می‌گیرید.")
+                  (@Format.Number(summary.ReferralCount) دعوت موفق)
+                </p>
+              </div>
+            </div>
+            <div class="mt-4 md:mt-0 md:mr-auto flex flex-wrap items-center gap-2">
+              <span class="rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2 font-bold tracking-widest text-violet-700" dir="ltr">@summary.ReferralCode</span>
+              <button type="button" data-copy="@summary.ReferralCode" class="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50">کپی کد</button>
+              <a href="/profile/invite" class="rounded-lg border border-sky-200 px-3 py-2 text-sm text-sky-600 hover:bg-sky-50">لینک دعوت و دوستان من</a>
+              @if (Model.ReferralLink is not null)
+              {
+                <button type="button" data-copy="@Model.ReferralLink" class="rounded-lg bg-violet-500 px-3 py-2 text-sm text-white hover:bg-violet-600">کپی لینک دعوت</button>
+              }
+            </div>
+          </section>
+        }
+
+        <div class="rounded-2xl bg-white p-5 shadow-lg">
+          <partial name="_ClubRewards" model="club" />
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-2">
+          <section class="rounded-2xl bg-white p-5 shadow-lg" aria-labelledby="coupons-title">
+            <h2 id="coupons-title" class="mb-4 flex items-center gap-x-2 font-semibold text-zinc-800">@Icons.Svg("Ticket", "fill-sky-500", 22) کدهای تخفیف شما</h2>
+            @if (summary.Coupons.Count == 0)
+            {
+              <p class="py-6 text-center text-sm text-zinc-500">در حال حاضر کد تخفیفی برای شما فعال نیست.</p>
+            }
+            <ul class="space-y-3">
+              @foreach (var coupon in summary.Coupons)
+              {
+                <li class="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-sky-200 bg-sky-50/50 p-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold text-zinc-800">@coupon.Title</div>
+                    <div class="mt-1 text-xs text-zinc-500">
+                      @coupon.ValueText
+                      @if (coupon.MinOrderAmount > 0)
+                      {
+                        <span> | حداقل خرید @Format.Toman(coupon.MinOrderAmount)</span>
+                      }
+                      @if (coupon.EndsAt.HasValue)
+                      {
+                        <span> | تا @Format.Date(coupon.EndsAt.Value)</span>
+                      }
+                    </div>
+                  </div>
+                  <span class="rounded-lg bg-white px-3 py-1.5 font-bold tracking-wider text-sky-700" dir="ltr">@coupon.Code</span>
+                  <button type="button" data-copy="@coupon.Code" class="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50">کپی</button>
+                </li>
+              }
+            </ul>
+          </section>
+
+          <section class="rounded-2xl bg-white p-5 shadow-lg" aria-labelledby="history-title">
+            <h2 id="history-title" class="mb-4 flex items-center gap-x-2 font-semibold text-zinc-800">@Icons.Svg("History", "fill-zinc-500", 22) تاریخچه امتیازها</h2>
+            @if (summary.Transactions.Count == 0)
+            {
+              <p class="py-6 text-center text-sm text-zinc-500">هنوز امتیازی ثبت نشده است.</p>
+            }
+            <ul class="divide-y divide-zinc-100">
+              @foreach (var tx in summary.Transactions)
+              {
+                <li class="flex items-center gap-3 py-3 text-sm">
+                  <div class="min-w-0 flex-1">
+                    <div class="text-zinc-700 truncate">@(tx.Description ?? "-")</div>
+                    <div class="mt-1 text-xs text-zinc-400">@Format.DateTime(tx.CreatedAt)</div>
+                  </div>
+                  <span class="font-bold @TxClass(tx.Points)" dir="ltr">@(tx.Points > 0 ? "+" : "")@Format.Number(tx.Points)</span>
+                </li>
+              }
+            </ul>
+          </section>
+        </div>
+
+        <div class="rounded-2xl bg-white p-5 shadow-lg">
+          <partial name="_ClubEarnRules" model="club" />
+        </div>
+        <div class="rounded-2xl bg-white p-5 shadow-lg">
+          <partial name="_ClubTiers" model="club" />
+        </div>
+      </div>
+    </div>
+  </main>

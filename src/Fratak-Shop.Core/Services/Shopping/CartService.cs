@@ -1,4 +1,4 @@
-using Fratak_Shop.Core.DTOs.Shopping.Command;
+﻿using Fratak_Shop.Core.DTOs.Shopping.Command;
 using Fratak_Shop.Core.DTOs.Shopping.Query;
 using Fratak_Shop.Core.Mappers.Carts;
 using Fratak_Shop.Core.Utilities;
@@ -75,10 +75,14 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.NotFound("محصول مورد نظر یافت نشد یا غیرفعال است.");
 
         var item = cart.Items.FirstOrDefault(x => x.ProductId == command.ProductId);
-        var newQuantity = (item?.Quantity ?? 0) + command.Quantity;
+        // جمع با long (بررسی امنیتی دور ۸): quantity=2147483647 روی کالایی که در سبد است، با int سرریز می‌کرد و
+        // تعداد منفی از بررسی موجودی رد می‌شد و در سبد می‌نشست. بعد از بررسی موجودی، مقدار حتماً در بازهٔ int است.
+        var requestedQuantity = (long)(item?.Quantity ?? 0) + command.Quantity;
 
-        if (product.StockQuantity < newQuantity)
+        if (product.StockQuantity < requestedQuantity)
             return OperationResult.Error($"موجودی محصول «{product.Name}» کافی نیست.");
+
+        var newQuantity = (int)requestedQuantity;
 
         if (item is null)
         {
@@ -94,6 +98,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             item.Quantity = newQuantity;
         }
 
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
         return OperationResult.Success("محصول به سبد خرید اضافه شد.");
@@ -127,6 +132,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.Error($"موجودی محصول «{product.Name}» کافی نیست.");
 
         item.Quantity = command.Quantity;
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
         return OperationResult.Success("تعداد محصول در سبد خرید به‌روزرسانی شد.");
@@ -153,6 +159,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.NotFound("این محصول در سبد خرید شما وجود ندارد.");
 
         cart.Items.Remove(item);
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
         return OperationResult.Success("محصول از سبد خرید حذف شد.");
@@ -171,13 +178,37 @@ public class CartService(FratakShopDbContext context) : ICartService
         if (cart is null)
             return OperationResult.NotFound("سبد خرید مورد نظر یافت نشد.");
 
+        cart.CouponCode = null;
+        cart.LastActivityAt = DateTimeOffset.UtcNow;
+
         if (cart.Items.Count == 0)
+        {
+            await context.SaveChangesAsync();
             return OperationResult.Success("سبد خرید شما خالی است.");
+        }
 
         cart.Items.Clear();
         await context.SaveChangesAsync();
 
         return OperationResult.Success("سبد خرید خالی شد.");
+    }
+
+    public async Task<OperationResult> SetCouponAsync(Guid cartId, string? couponCode)
+    {
+        var code = string.IsNullOrWhiteSpace(couponCode) ? null : couponCode.Trim().ToUpperInvariant();
+        if (code is { Length: > 50 })
+            return OperationResult.Error("کد تخفیف معتبر نیست.");
+
+        var affected = await context.Carts
+            .Where(x => x.Id == cartId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.CouponCode, code)
+                .SetProperty(x => x.LastActivityAt, DateTimeOffset.UtcNow)
+                .SetProperty(x => x.UpdatedAt, DateTimeOffset.UtcNow));
+
+        return affected == 0
+            ? OperationResult.NotFound("سبد خرید مورد نظر یافت نشد.")
+            : OperationResult.Success(code is null ? "کد تخفیف حذف شد." : "کد تخفیف ثبت شد.");
     }
 
     public async Task<OperationResult> MergeGuestCartAsync(string sessionKey, Guid userId)
@@ -195,6 +226,7 @@ public class CartService(FratakShopDbContext context) : ICartService
         var guestCart = await context.Carts
             .AsTracking()
             .Include(x => x.Items)
+            .Include(x => x.SavedItems)
             .FirstOrDefaultAsync(x => x.SessionKey == sessionKey.Trim() && x.UserId == null);
 
         if (guestCart is null)
@@ -203,6 +235,7 @@ public class CartService(FratakShopDbContext context) : ICartService
         var userCart = await context.Carts
             .AsTracking()
             .Include(x => x.Items)
+            .Include(x => x.SavedItems)
             .FirstOrDefaultAsync(x => x.UserId == userId);
 
         // کاربر سبدی ندارد؛ همان سبد مهمان به حساب او منتقل می‌شود.
@@ -210,10 +243,15 @@ public class CartService(FratakShopDbContext context) : ICartService
         {
             guestCart.UserId = userId;
             guestCart.SessionKey = null;
+            guestCart.LastActivityAt = DateTimeOffset.UtcNow;
             await context.SaveChangesAsync();
 
             return OperationResult.Success("سبد خرید مهمان به حساب کاربری شما منتقل شد.");
         }
+
+        // A code entered as guest survives the sign-in.
+        userCart.CouponCode ??= guestCart.CouponCode;
+        userCart.LastActivityAt = DateTimeOffset.UtcNow;
 
         var productIds = guestCart.Items
             .Select(item => item.ProductId)
@@ -234,11 +272,11 @@ public class CartService(FratakShopDbContext context) : ICartService
 
             var existingItem = userCart.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
 
-            var quantity = (existingItem?.Quantity ?? 0) + item.Quantity;
+            // long تا جمع دو تعداد بزرگ سرریز نکند (همان مورد AddItemAsync).
+            var merged = (long)(existingItem?.Quantity ?? 0) + item.Quantity;
 
             // بیشتر از موجودی انبار کالا به سبد کاربر اضافه نمی‌شود.
-            if (quantity > product.StockQuantity)
-                quantity = product.StockQuantity;
+            var quantity = (int)Math.Min(merged, product.StockQuantity);
 
             if (quantity <= 0)
                 continue;
@@ -256,6 +294,15 @@ public class CartService(FratakShopDbContext context) : ICartService
             {
                 existingItem.Quantity = quantity;
             }
+        }
+
+        // «خرید بعدی» of the guest moves along (unless already in the customer's cart or list).
+        foreach (var saved in guestCart.SavedItems.ToList())
+        {
+            if (userCart.SavedItems.All(x => x.ProductId != saved.ProductId) && userCart.Items.All(x => x.ProductId != saved.ProductId))
+                userCart.SavedItems.Add(new SavedCartItem { CartId = userCart.Id, ProductId = saved.ProductId, Quantity = saved.Quantity });
+
+            context.SavedCartItems.Remove(saved);
         }
 
         foreach (var item in guestCart.Items.ToList())

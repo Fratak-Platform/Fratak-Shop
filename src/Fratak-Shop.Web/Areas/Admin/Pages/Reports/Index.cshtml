@@ -1,0 +1,158 @@
+@page "/admin/reports"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.IndexModel
+@using Fratak_Shop.Core.Services.Reports
+@*
+  قیف فروش و بازدید (مرحلهٔ هفتم – فاز ۷). همهٔ داده‌ها از آمار داخلی سایت است (بدون Google Analytics یا سرویس پولی).
+*@
+@{
+    ViewData["Title"] = "قیف فروش و بازدید";
+    var f = Model.Funnel;
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var paid = f.Steps.LastOrDefault()?.Count ?? 0;
+    var conversion = f.Visitors == 0 ? 0 : Math.Round(paid * 100d / f.Visitors, 2);
+    var grid = Model.HeatTab == "orders" ? Model.Heatmap.Orders : Model.Heatmap.Visits;
+    var gridMax = Math.Max(1, grid.Max(r => r.Max()));
+    var request = HttpContext.Request;
+}
+<div class="a-page-head">
+  <div>
+    <h2>قیف فروش و بازدید</h2>
+    <p class="a-muted text-sm mt-1">آمار داخلی سایت (بدون سرویس خارجی) · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/reports/campaigns">@Icons.Svg("Target", null, 18) منبع‌ها و کمپین‌ها</a>
+    <a class="a-btn a-btn-light" href="/admin/reports/products">@Icons.Svg("TrendUp", null, 18) عملکرد محصولات</a>
+  </div>
+</div>
+
+@if (Model.TrackingDisabled)
+{
+  <div class="a-alert a-alert-warn mb-4">ثبت آمار بازدید در تنظیمات خاموش است؛ داده‌های تازه جمع نمی‌شوند. @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-link" href="/admin/settings?tab=analytics">روشن کردن</a> }</div>
+}
+
+<partial name="_ReportPeriod" model="Model" />
+
+@if (!f.HasData)
+{
+  <div class="a-alert a-alert-info mb-4">در این بازه هنوز بازدیدی ثبت نشده است. آمار از زمان فعال شدن این بخش جمع می‌شود و هر دقیقه به‌روز می‌شود.</div>
+}
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">بازدیدکنندهٔ یکتا</div><div class="a-stat-value">@Format.Number(f.Visitors)</div><div class="a-stat-sub">@Format.Number(f.Members) نفر واردشده به حساب</div></div>
+  <div class="a-stat"><div class="a-stat-label">بازدید صفحه</div><div class="a-stat-value">@Format.Number(f.PageViews)</div><div class="a-stat-sub">@(f.Visitors == 0 ? "—" : (f.PageViews / (double)f.Visitors).ToString("0.0", inv)) صفحه برای هر نفر</div></div>
+  <div class="a-stat"><div class="a-stat-label">خرید قطعی</div><div class="a-stat-value">@Format.Number(paid)</div><div class="a-stat-sub">از بازدیدکننده‌های ثبت‌شده</div></div>
+  <div class="a-stat"><div class="a-stat-label">نرخ تبدیل</div><div class="a-stat-value">@conversion.ToString("0.##", inv)٪</div><div class="a-stat-sub">خرید قطعی ÷ بازدیدکننده</div></div>
+</div>
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">قیف فروش</span><span class="a-muted text-xs">هر نفر در هر روز یک بار شمرده می‌شود</span></div>
+    <div class="a-card-body">
+      <div class="a-funnel">
+        @foreach (var step in f.Steps)
+        {
+          var width = Math.Max(step.Count > 0 ? 2 : 0, step.RateFromStart);
+          <div class="a-funnel-row">
+            <div class="a-funnel-title">@step.Title</div>
+            <div class="a-funnel-track"><div class="a-funnel-fill" style="width:@(width.ToString("0.##", inv))%"></div></div>
+            <div class="a-funnel-val"><b>@Format.Number(step.Count)</b>
+              @if (step.RateFromPrevious is { } rate)
+              {
+                <span class="a-muted text-xs">(@rate.ToString("0.#", inv)٪ از پلهٔ قبل)</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      @if (f.Steps.Count > 2 && f.Visitors > 0)
+      {
+        var drop = f.Steps.Skip(1).Where(s => s.RateFromPrevious.HasValue).OrderBy(s => s.RateFromPrevious).First();
+        var dropRate = (drop.RateFromPrevious ?? 0).ToString("0.#", inv);
+        <p class="a-muted text-sm mt-3"><span>@Icons.Svg("Info", null, 16)</span> بیشترین ریزش: پیش از «@drop.Title» (فقط @dropRate٪ ادامه داده‌اند).</p>
+      }
+      @if (f.UntrackedOrders > 0)
+      {
+        <p class="a-muted text-xs mt-2">@Format.Number(f.UntrackedOrders) سفارش این بازه به بازدیدکننده‌ای وصل نیست (ثبت از پنل، پیش از فعال شدن آمار یا مرورگر بدون جاوااسکریپت) و در قیف شمرده نشده است.</p>
+      }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">دستگاه‌ها</span></div>
+    <div class="a-card-body"><partial name="_HBars" model="new HBarsModel(f.Devices, ByCount: true)" /></div>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">بازدیدکننده‌های روزانه</span></div>
+  <div class="a-card-body">@await Html.PartialAsync("_BarChart", new BarChartModel("بازدیدکننده‌های روزانه", f.DailyVisitors, false))</div>
+</div>
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">منبع‌های ورودی برتر</span><a class="a-link text-sm" href="/admin/reports/campaigns?period=@Model.Period.Preset">همه و کمپین‌ها</a></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>منبع</th><th>نوع</th><th>بازدیدکننده</th><th>سفارش قطعی</th><th>مبلغ</th><th>نرخ تبدیل</th></tr></thead>
+        <tbody>
+          @foreach (var row in f.Sources)
+          {
+            <tr>
+              <td data-label="منبع"><b>@row.SourceTitle</b></td>
+              <td data-label="نوع">@row.MediumTitle</td>
+              <td data-label="بازدیدکننده">@Format.Number(row.Visitors)</td>
+              <td data-label="سفارش قطعی">@Format.Number(row.Orders)</td>
+              <td data-label="مبلغ">@Format.Toman(row.Revenue)</td>
+              <td data-label="نرخ تبدیل">@(row.Conversion is { } c ? c.ToString("0.##", inv) + "٪" : "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (f.Sources.Count == 0)
+      {
+        <div class="a-empty">داده‌ای ثبت نشده است.</div>
+      }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">صفحه‌های ورود پرتکرار</span></div>
+    <div class="a-card-body"><partial name="_HBars" model="new HBarsModel(f.LandingPages, ByCount: true)" /></div>
+  </div>
+</div>
+
+<div class="a-card mb-4" id="heatmap">
+  <div class="a-card-head">
+    <span class="a-card-title">نقشهٔ حرارتی روز و ساعت <span class="a-muted text-xs">(به وقت ایران)</span></span>
+    <div class="a-tabs">
+      <a class="a-tab @(Model.HeatTab == "visits" ? "is-active" : "")" href="@AdminUi.With(request, ("heat", "visits"))#heatmap">ورود بازدیدکننده</a>
+      <a class="a-tab @(Model.HeatTab == "orders" ? "is-active" : "")" href="@AdminUi.With(request, ("heat", "orders"))#heatmap">ثبت سفارش</a>
+    </div>
+  </div>
+  <div class="a-card-body">
+    <div class="a-heat-wrap">
+      <table class="a-heat" aria-label="نقشهٔ حرارتی">
+        <thead><tr><th></th>@for (var h = 0; h < 24; h++) { <th>@h</th> }</tr></thead>
+        <tbody>
+          @for (var d = 0; d < 7; d++)
+          {
+            <tr>
+              <th>@HeatmapReport.DayNames[d]</th>
+              @for (var h = 0; h < 24; h++)
+              {
+                var count = grid[d][h];
+                var level = count == 0 ? 0 : (int)Math.Ceiling(count * 5d / gridMax);
+                <td class="lv@(level)" title="@HeatmapReport.DayNames[d] ساعت @h: @Format.Number(count)">@(count == 0 ? "" : Format.Number(count))</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @{
+        var peakText = string.Join("، ", Model.Heatmap.Peaks(grid).Select(p => HeatmapReport.DayNames[p.Day] + " ساعت " + p.Hour));
+    }
+    @if (peakText.Length > 0)
+    {
+      <p class="a-muted text-sm mt-3"><span>@Icons.Svg("Lightning", null, 16)</span> پرترافیک‌ترین زمان‌ها: @peakText — زمان مناسب برای ارسال پیامک، اعلان یا شروع حراج.</p>
+    }
+  </div>
+</div>

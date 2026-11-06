@@ -1,0 +1,93 @@
+@page "/admin/smart/blog"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.BlogModel
+@using Fratak_Shop.Data.Entities.Smart
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@* تقویم بلاگ خودکار: جدول ایده‌ها + افزودن ایده. *@
+@{
+    ViewData["Title"] = "تقویم بلاگ خودکار";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تقویم بلاگ خودکار</h2>
+    <p class="a-muted text-sm mt-1">
+      @(Model.Options.BlogPlanner ? $"هر هفته {Format.Number(Model.Options.BlogPostsPerWeek)} مقاله" : "برنامه‌ریزی خودکار خاموش است")
+      · انتشار خودکار @(Model.Options.BlogAutoPublish ? $"برای مقاله‌های با نمرهٔ کیفیت {Format.Number(Model.Options.BlogQualityMin)} به بالا" : "خاموش (همه پیش‌نویس می‌مانند)").
+      هر مقاله بالای صفحه «خلاصهٔ سریع» دارد و فقط کالاهای موجود را معرفی می‌کند.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Plan"><button type="submit" class="a-btn">@Icons.Svg("Sparkle", null, 18) پر کردن تقویم</button></form>
+    <a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  @if (Model.Rows.Count == 0)
+  {
+    <div class="a-empty">تقویم خالی است. «پر کردن تقویم» را بزنید یا پایین ایده اضافه کنید.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>زمان</th><th>موضوع</th><th>نوع</th><th>وضعیت</th><th>کیفیت</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Rows)
+          {
+            var (statusTitle, badge) = SmartUi.PlanStatus(r.Status);
+            <tr>
+              <td data-label="زمان" class="text-xs nowrap">@Format.Date(r.PlannedFor)</td>
+              <td data-label="موضوع">
+                <div class="font-bold text-sm">@r.Topic</div>
+                @if (!string.IsNullOrWhiteSpace(r.Keyword)) { <div class="a-muted text-xs">کلمهٔ کلیدی: @r.Keyword</div> }
+                @if (!string.IsNullOrWhiteSpace(r.Note)) { <div class="a-muted text-xs">@r.Note</div> }
+              </td>
+              <td data-label="نوع">@SmartUi.ArticleTypeTitle(r.Type)</td>
+              <td data-label="وضعیت"><span class="a-badge @badge">@statusTitle</span></td>
+              <td data-label="کیفیت">@(r.QualityScore is { } q ? Format.Number(q) : "—")</td>
+              <td data-label="">
+                @if (r.PostId is { } postId)
+                {
+                  <a class="a-btn a-btn-xs a-btn-light" href="/admin/blog/edit/@postId">مقاله</a>
+                }
+                @if (r.Status is BlogPlanStatus.Planned or BlogPlanStatus.Failed or BlogPlanStatus.Skipped)
+                {
+                  <form method="post" asp-page-handler="Write" class="inline"><input type="hidden" name="id" value="@r.Id"><button type="submit" class="a-btn a-btn-xs a-btn-soft">همین حالا بنویس</button></form>
+                }
+                @if (r.Status is BlogPlanStatus.Planned)
+                {
+                  <form method="post" asp-page-handler="Skip" class="inline"><input type="hidden" name="id" value="@r.Id"><button type="submit" class="a-btn a-btn-xs a-btn-light">رد</button></form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<form method="post" asp-page-handler="Add" class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Plus", null, 18) افزودن ایده</h3></div>
+  <div class="a-card-body grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+    <div class="lg:col-span-2"><label class="a-label" for="b-topic">عنوان دلخواه مقاله</label><input id="b-topic" name="topic" class="a-input" maxlength="200" required placeholder="مثلاً ۵ پیشنهاد خرید هدفون بی‌سیم برای ورزش"><p class="a-help">همین عنوان روی مقاله می‌نشیند؛ متن از کالاهای واقعی همان دسته نوشته می‌شود.</p></div>
+    <div><label class="a-label" for="b-type">نوع</label>
+      <select id="b-type" name="type" class="a-input">
+        @foreach (var t in new[] { BlogArticleType.BuyingGuide, BlogArticleType.BestPicks, BlogArticleType.Comparison, BlogArticleType.HowTo, BlogArticleType.Review })
+        {
+          <option value="@t">@SmartUi.ArticleTypeTitle(t)</option>
+        }
+      </select>
+    </div>
+    <div><label class="a-label" for="b-cat">دسته</label>
+      <select id="b-cat" name="categoryId" class="a-input">
+        <option value="">—</option>
+        @foreach (var c in Model.Categories) { <option value="@c.Id">@c.Name</option> }
+      </select>
+    </div>
+    <div><label class="a-label" for="b-days">چند روز دیگر</label><input id="b-days" type="number" name="days" value="0" min="0" max="120" class="a-input"></div>
+    <div class="lg:col-span-2"><label class="a-label" for="b-kw">کلمهٔ کلیدی (اختیاری)</label><input id="b-kw" name="keyword" class="a-input" maxlength="120"></div>
+    <div><button type="submit" class="a-btn">@Icons.Svg("Plus", null, 16) افزودن</button></div>
+  </div>
+</form>

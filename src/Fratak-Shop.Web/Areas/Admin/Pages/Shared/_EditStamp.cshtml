@@ -1,0 +1,16 @@
+@model EditStampModel
+@*
+  فیلد مخفی «نسخهٔ رکورد» داخل فرم ویرایش + هشدار تعارض (وقتی کس دیگری در این فاصله ذخیره کرده است).
+  توضیح کامل: Infrastructure/Admin/EditSupport.cs (کلاس EditStamp).
+*@
+<input type="hidden" name="@EditStamp.FieldName" value="@Model.Stamp">
+@if (Model.ConflictMessage is not null)
+{
+  <div class="a-alert a-alert-warn" role="alert">
+    <div>
+      <b>تعارض ویرایش هم‌زمان</b>
+      <p class="text-sm mt-1">@Model.ConflictMessage</p>
+      <label class="a-check mt-2"><input type="checkbox" name="@EditStamp.ForceName" value="true"> با وجود این، نسخهٔ من ذخیره شود (تغییرات نفر دیگر بازنویسی می‌شود)</label>
+    </div>
+  </div>
+}

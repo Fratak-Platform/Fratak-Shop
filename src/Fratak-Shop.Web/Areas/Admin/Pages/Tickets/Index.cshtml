@@ -1,0 +1,73 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Tickets.IndexModel
+@using Fratak_Shop.Data.Entities.Support
+@using Fratak_Shop.Web.Areas.Admin.Pages.Tickets
+@{
+    ViewData["Title"] = "تیکت‌های پشتیبانی";
+    var request = HttpContext.Request;
+}
+<div class="a-page-head">
+  <div>
+    <h2>تیکت‌های پشتیبانی</h2>
+    <p class="a-muted text-sm mt-1">@Format.Number(Model.WaitingCount) تیکت منتظر پاسخ · @Format.Number(Model.MineCount) تیکت باز به شما ارجاع شده</p>
+  </div>
+  @if (Model.Can(AdminPermissions.ContentManage) || Model.Can(AdminPermissions.TicketsManage)) { <a class="a-btn a-btn-light" href="/admin/manage/support-departments">@Icons.Svg("Gear", null, 18) دپارتمان‌ها</a> }
+</div>
+
+<div class="a-pills mb-4">
+  @foreach (var (key, label) in new[] { ("waiting", "منتظر پاسخ"), ("progress", "در حال بررسی"), ("answered", "پاسخ داده‌شده"), ("closed", "بسته"), ("all", "همه") })
+  {
+    <a class="a-pill @(Model.State == key ? "is-active" : "")" href="@AdminUi.With(request, ("state", key), ("page", null))">@label @if (key == "waiting") { <b>@Format.Number(Model.WaitingCount)</b> }</a>
+  }
+  <a class="a-pill @(Model.Assigned == "me" ? "is-active" : "")" href="@AdminUi.With(request, ("assigned", Model.Assigned == "me" ? null : "me"), ("page", null))">ارجاع به من <b>@Model.MineCount</b></a>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <input type="hidden" name="state" value="@Model.State">
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="t-q">جست‌وجو</label><input id="t-q" name="q" value="@Model.Search" class="a-input" placeholder="شماره تیکت، موضوع، موبایل یا سفارش"></div>
+    <div class="a-field"><label class="a-label" for="t-dep">دپارتمان</label>
+      <select id="t-dep" name="department" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(Model.DepartmentId == d.Id)">@d.Title</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="t-pr">اولویت</label>
+      <select id="t-pr" name="priority" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var p in new[] { TicketPriority.High, TicketPriority.Normal, TicketPriority.Low }) { <option value="@p" selected="@(Model.Priority == p)">@IndexModel.PriorityTitle(p)</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="t-as">ارجاع</label>
+      <select id="t-as" name="assigned" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        <option value="me" selected="@(Model.Assigned == "me")">به من</option>
+        <option value="none" selected="@(Model.Assigned == "none")">ارجاع‌نشده</option>
+      </select></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/tickets">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>تیکت</th><th>مشتری</th><th>دپارتمان</th><th>وضعیت</th><th>ارجاع</th><th>آخرین فعالیت</th></tr></thead>
+      <tbody>
+        @foreach (var t in Model.Items.Items)
+        {
+          <tr>
+            <td data-label="تیکت">
+              <a class="a-link font-semibold" href="/admin/tickets/@t.Id">@t.Subject</a>
+              <div class="a-muted text-xs"><span class="a-ltr">#@t.TicketNumber</span> · @t.MessageCount پیام @if (t.OrderNumber is not null) { <span>· سفارش <span class="a-ltr">@t.OrderNumber</span></span> }</div>
+            </td>
+            <td data-label="مشتری">@Pii.NameOrPhone(t.CustomerName, t.Phone)<div class="a-muted text-xs a-ltr text-right">@Pii.Phone(t.Phone)</div></td>
+            <td data-label="دپارتمان">@t.Department @if (t.Priority == TicketPriority.High) { <span class="a-badge a-badge-red">فوری</span> }</td>
+            <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(t.Status)">@IndexModel.StatusTitle(t.Status)</span></td>
+            <td data-label="ارجاع" class="text-xs">@(t.AssignedTo ?? "—")</td>
+            <td data-label="آخرین فعالیت" class="nowrap text-xs">@AdminUi.Ago(t.LastActivityAt)</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Items.Count == 0) { <div class="a-empty">تیکتی وجود ندارد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>

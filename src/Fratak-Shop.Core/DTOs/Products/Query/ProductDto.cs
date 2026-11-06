@@ -13,9 +13,20 @@ public class ProductDto : BaseDto
     public string? CategoryName { get; set; }
     public string? CategorySlug { get; set; }
 
+    public Guid? BrandId { get; set; }
+    public string? BrandName { get; set; }
+    public string? BrandEnglishName { get; set; }
+    public string? BrandSlug { get; set; }
+
     public string Name { get; set; } = null!;
+    public string? EnglishName { get; set; }
     public string Slug { get; set; } = null!;
     public string SKU { get; set; } = null!;
+
+    /// <summary>Barcode (EAN / UPC / ISBN) and manufacturer part number for search engines.</summary>
+    public string? Gtin { get; set; }
+    public string? Mpn { get; set; }
+
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
 
@@ -32,6 +43,11 @@ public class ProductDto : BaseDto
 
     public bool HasActiveDiscount { get; set; }
 
+    /// <summary>درصد تخفیف فعال (عدد صحیح ۰ تا ۱۰۰).</summary>
+    public int DiscountPercent => HasActiveDiscount && Price > 0
+        ? (int)Math.Round(DiscountAmount / Price * 100)
+        : 0;
+
     public int StockQuantity { get; set; }
     public bool IsInStock => StockQuantity > 0;
 
@@ -40,6 +56,15 @@ public class ProductDto : BaseDto
 
     public bool IsActive { get; set; }
     public DateTimeOffset? PublishedAt { get; set; }
+
+    public int ViewCount { get; set; }
+    public int SalesCount { get; set; }
+
+    /// <summary>میانگین امتیاز دیدگاه‌های تاییدشده (۰ یعنی بدون امتیاز).</summary>
+    public double AverageRating { get; set; }
+
+    /// <summary>تعداد دیدگاه‌های تاییدشده.</summary>
+    public int ReviewCount { get; set; }
 
     public SeoMetaDataDto? Seo { get; set; }
 

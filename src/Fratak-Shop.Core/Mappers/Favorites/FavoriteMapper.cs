@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Core.DTOs.Favorites.Query;
 using Fratak_Shop.Data.Entities.Favorites;
 
@@ -18,6 +19,15 @@ public static class FavoriteMapper
             ProductId = favorite.ProductId,
             ProductName = favorite.Product.Name,
             ProductSlug = favorite.Product.Slug,
+            ProductImageName = favorite.Product.Images
+                .OrderByDescending(image => image.IsPrimary)
+                .ThenBy(image => image.DisplayOrder)
+                .Select(image => image.ImageName)
+                .FirstOrDefault(),
+            Price = favorite.Product.Price,
+            FinalPrice = favorite.Product.GetFinalPrice(),
+            HasActiveDiscount = favorite.Product.HasActiveDiscount(),
+            IsInStock = favorite.Product.StockQuantity > 0,
         };
     }
 

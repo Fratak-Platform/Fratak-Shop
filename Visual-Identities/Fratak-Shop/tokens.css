@@ -1,0 +1,11 @@
+/* Colours sampled from the supplied raster reference. Not a storefront UI theme. */
+:root {
+  --fr-navy: #0B1927;
+  --fr-ink: var(--fr-navy);
+  --fr-blue: #0069FD;
+  --fr-white: #FFFFFF;
+  --fr-paper: #FDFDFD;
+  --fr-gradient-start: #019BFF;
+  --fr-gradient-end: #0156FE;
+  --fr-icon-gradient: linear-gradient(135deg, var(--fr-gradient-start), var(--fr-gradient-end));
+}

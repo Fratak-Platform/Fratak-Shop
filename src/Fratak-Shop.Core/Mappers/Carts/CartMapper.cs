@@ -17,6 +17,7 @@ public static class CartMapper
             DeletedAt = cart.DeletedAt,
             UserId = cart.UserId,
             SessionKey = cart.SessionKey,
+            CouponCode = cart.CouponCode,
             Items = cart.Items
                 .OrderBy(item => item.CreatedAt)
                 .Select(item => item.Map())

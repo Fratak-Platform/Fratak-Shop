@@ -1,0 +1,158 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.FirewallModel
+@using Fratak_Shop.Data.Entities.Ops
+@{
+    ViewData["Title"] = "فایروال";
+    var canManage = Model.Can(AdminPermissions.SystemManage);
+    var now = DateTimeOffset.UtcNow;
+    var blocks = Model.IpRules.Count(r => r.Action == IpRuleAction.Block && (r.ExpiresAt is null || r.ExpiresAt > now));
+    var allows = Model.IpRules.Count(r => r.Action == IpRuleAction.Allow && (r.ExpiresAt is null || r.ExpiresAt > now));
+    var blockedHits = Model.IpRules.Sum(r => r.Hits) + Model.BotRules.Sum(r => r.Hits);
+}
+<div class="a-page-head">
+  <div>
+    <h2>فایروال (IP و ربات‌ها)</h2>
+    <p class="a-muted text-sm mt-1">درخواست‌های IP مسدود یا ربات‌های ممنوع پیش از رسیدن به سایت با خطای ۴۰۳ رد می‌شوند. قانون «مجاز» همیشه بر «مسدود» مقدم است.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/system/security">@Icons.Svg("ShieldCheck", null, 18) رویدادهای امنیتی</a>
+    @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light" href="/admin/settings?tab=ops">@Icons.Svg("Gear", null, 18) مسدودسازی خودکار</a> }
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">IP / بازهٔ مسدود فعال</div><div class="a-stat-value">@Format.Number(blocks)</div></div>
+  <div class="a-stat"><div class="a-stat-label">IP مجاز</div><div class="a-stat-value">@Format.Number(allows)</div></div>
+  <div class="a-stat"><div class="a-stat-label">ربات ممنوع فعال</div><div class="a-stat-value">@Format.Number(Model.BotRules.Count(b => b.IsActive))</div></div>
+  <div class="a-stat"><div class="a-stat-label">درخواست ردشده</div><div class="a-stat-value">@Format.Number(blockedHits)</div><div class="a-stat-sub">هر ۵ دقیقه به‌روز می‌شود</div></div>
+</div>
+
+<div class="a-alert @(Model.AutoBlockEnabled ? "a-alert-info" : "a-alert-warn") mb-4">
+  @Icons.Svg("Info", "shrink-0", 20)
+  <div>
+    @if (Model.AutoBlockEnabled)
+    {
+      <span>مسدودسازی خودکار <b>روشن</b> است: IPی که در یک ساعت @Format.Number(Model.AutoBlockThreshold) بار یا بیشتر ورود ناموفق داشته باشد، @Format.Number(Model.AutoBlockHours) ساعت مسدود می‌شود.</span>
+    }
+    else
+    {
+      <span>مسدودسازی خودکار <b>خاموش</b> است. با روشن کردن آن در تنظیمات، حمله‌های حدس رمز خودکار متوقف می‌شوند.</span>
+    }
+    @if (Model.CurrentIp is not null) { <div class="text-xs mt-1">IP فعلی شما: <span class="a-ltr font-semibold">@Model.CurrentIp</span> (برای اینکه هرگز مسدود نشوید، آن را «مجاز» کنید).</div> }
+  </div>
+</div>
+
+@if (Model.Suspicious.Count > 0)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Warning", null, 18) IPهای مشکوک (۵ ورود ناموفق یا بیشتر در ۲۴ ساعت)</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards a-table-compact">
+        <thead><tr><th>IP</th><th>ورود ناموفق</th><th>آخرین تلاش</th><th>وضعیت</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var s in Model.Suspicious)
+          {
+            <tr>
+              <td data-label="IP" class="a-ltr"><a class="a-link" href="/admin/system/security?q=@s.Ip">@s.Ip</a></td>
+              <td data-label="ورود ناموفق" class="num">@Format.Number(s.FailedLogins)</td>
+              <td data-label="آخرین تلاش" class="text-xs">@AdminUi.Ago(s.LastAt)</td>
+              <td data-label="وضعیت">@if (s.IsBlocked) { <span class="a-badge a-badge-red">مسدود</span> } else { <span class="a-badge a-badge-gray">آزاد</span> }</td>
+              <td data-label="" class="nowrap">
+                @if (canManage && !s.IsBlocked)
+                {
+                  <form method="post" asp-page-handler="AddIp" class="inline" data-confirm="این IP به مدت ۲۴ ساعت مسدود شود؟">
+                    <input type="hidden" name="value" value="@s.Ip"><input type="hidden" name="action" value="Block"><input type="hidden" name="hours" value="24"><input type="hidden" name="reason" value="ورود ناموفق مکرر">
+                    <button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">مسدود ۲۴ ساعت</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Prohibit", null, 18) قانون‌های IP</span></div>
+  @if (canManage)
+  {
+    <form method="post" asp-page-handler="AddIp" class="a-card-body a-filters border-b border-gray-100">
+      <div class="a-field" style="flex-basis:200px"><label class="a-label" for="ip-value">IP یا بازه</label><input id="ip-value" name="value" class="a-input a-ltr" dir="ltr" placeholder="5.6.7.8 یا 5.6.7.0/24" required maxlength="64"></div>
+      <div class="a-field"><label class="a-label" for="ip-action">نوع</label>
+        <select id="ip-action" name="action" class="a-select"><option value="Block">مسدود</option><option value="Allow">مجاز (هرگز مسدود نشود)</option></select></div>
+      <div class="a-field"><label class="a-label" for="ip-hours">مدت</label>
+        <select id="ip-hours" name="hours" class="a-select">
+          <option value="">دائمی</option><option value="1">۱ ساعت</option><option value="24">۲۴ ساعت</option><option value="168">۷ روز</option><option value="720">۳۰ روز</option>
+        </select></div>
+      <div class="a-field" style="flex-basis:220px"><label class="a-label" for="ip-reason">دلیل (اختیاری)</label><input id="ip-reason" name="reason" class="a-input" maxlength="300" placeholder="مثلاً: اسکن سایت"></div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">افزودن قانون</button></div>
+    </form>
+  }
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>IP / بازه</th><th>نوع</th><th>انقضا</th><th>دلیل</th><th>ثبت‌کننده</th><th>ردشده</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var r in Model.IpRules)
+        {
+          var expired = r.ExpiresAt is { } exp && exp <= now;
+          <tr class="@(expired ? "opacity-60" : "")">
+            <td data-label="IP / بازه" class="a-ltr font-semibold">@r.Value</td>
+            <td data-label="نوع">@if (r.Action == IpRuleAction.Block) { <span class="a-badge a-badge-red">مسدود</span> } else { <span class="a-badge a-badge-green">مجاز</span> } @if (r.IsAutomatic) { <span class="a-badge a-badge-purple">خودکار</span> }</td>
+            <td data-label="انقضا" class="text-xs">@(r.ExpiresAt is null ? "دائمی" : expired ? "منقضی شد" : Format.DateTime(r.ExpiresAt))</td>
+            <td data-label="دلیل" class="text-xs">@r.Reason</td>
+            <td data-label="ثبت‌کننده" class="text-xs">@r.CreatedBy · @AdminUi.Ago(r.CreatedAt)</td>
+            <td data-label="ردشده" class="num">@Format.Number(r.Hits) @if (r.LastHitAt is { } hit) { <div class="a-muted text-xs">@AdminUi.Ago(hit)</div> }</td>
+            <td data-label="">
+              @if (canManage)
+              {
+                <form method="post" asp-page-handler="DeleteIp" class="inline" data-confirm="این قانون حذف شود؟"><input type="hidden" name="id" value="@r.Id"><button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">حذف</button></form>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.IpRules.Count == 0) { <div class="a-empty">قانون IPی ثبت نشده است.</div> }
+  </div>
+</div>
+
+<div class="a-card" id="bots">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Robot", null, 18) ربات‌های ممنوع (User-Agent)</span></div>
+  @if (canManage)
+  {
+    <form method="post" asp-page-handler="AddBot" class="a-card-body a-filters border-b border-gray-100">
+      <div class="a-field" style="flex-basis:200px"><label class="a-label" for="bot-pattern">بخشی از User-Agent</label><input id="bot-pattern" name="pattern" class="a-input a-ltr" dir="ltr" placeholder="مثلاً: semrushbot" required maxlength="120"></div>
+      <div class="a-field" style="flex-basis:240px"><label class="a-label" for="bot-reason">دلیل (اختیاری)</label><input id="bot-reason" name="reason" class="a-input" maxlength="300" placeholder="مثلاً: مصرف زیاد منابع"></div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">افزودن</button></div>
+    </form>
+  }
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>الگو</th><th>وضعیت</th><th>دلیل</th><th>ردشده</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var b in Model.BotRules)
+        {
+          <tr>
+            <td data-label="الگو" class="a-ltr font-semibold">@b.Pattern</td>
+            <td data-label="وضعیت"><span class="a-badge @AdminUi.Bool(b.IsActive)">@(b.IsActive ? "فعال" : "غیرفعال")</span></td>
+            <td data-label="دلیل" class="text-xs">@b.Reason</td>
+            <td data-label="ردشده" class="num">@Format.Number(b.Hits) @if (b.LastHitAt is { } hit) { <div class="a-muted text-xs">@AdminUi.Ago(hit)</div> }</td>
+            <td data-label="" class="nowrap">
+              @if (canManage)
+              {
+                <form method="post" asp-page-handler="ToggleBot" class="inline"><input type="hidden" name="id" value="@b.Id"><input type="hidden" name="active" value="@(b.IsActive ? "false" : "true")"><button class="a-btn a-btn-xs a-btn-light" type="submit">@(b.IsActive ? "غیرفعال" : "فعال")</button></form>
+                <form method="post" asp-page-handler="DeleteBot" class="inline" data-confirm="این قانون حذف شود؟"><input type="hidden" name="id" value="@b.Id"><button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">حذف</button></form>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.BotRules.Count == 0) { <div class="a-empty">ربات ممنوعی ثبت نشده است.</div> }
+  </div>
+  <div class="a-card-body pt-0">
+    <p class="a-help">الگوهایی که موتورهای جست‌وجو (Googlebot، Bingbot…)، ربات پیش‌نمایش پیام‌رسان‌ها یا مرورگرهای عادی را هم بگیرند پذیرفته نمی‌شوند تا به سئو و فروش آسیب نرسد. ابزارهای اسکن و حمله (sqlmap، nikto و …) به‌صورت پیش‌فرض مسدودند.</p>
+  </div>
+</div>

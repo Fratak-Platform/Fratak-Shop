@@ -75,11 +75,17 @@ public class FavoriteService(FratakShopDbContext context) : IFavoriteService
         return OperationResult.Success("محصول از علاقه‌مندی‌ها حذف شد.");
     }
 
+    public async Task<bool> IsFavoriteAsync(Guid userId, Guid productId)
+    {
+        return await context.Favorites.AnyAsync(x => x.UserId == userId && x.ProductId == productId);
+    }
+
     public async Task<List<FavoriteDto>> GetFavoritesByUserIdAsync(Guid userId)
     {
         var favorites = await context.Favorites
             .Where(x => x.UserId == userId)
             .Include(x => x.Product)
+            .ThenInclude(x => x.Images)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 

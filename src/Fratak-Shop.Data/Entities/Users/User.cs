@@ -2,9 +2,11 @@
 using Fratak_Shop.Data.Entities.Blogs;
 using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Favorites;
+using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Messages;
 using Fratak_Shop.Data.Entities.Orders;
 using Fratak_Shop.Data.Entities.Shopping;
+using Fratak_Shop.Data.Entities.Wallets;
 using Fratak_Shop.Data.Utilities;
 
 namespace Fratak_Shop.Data.Entities.Users;
@@ -37,6 +39,101 @@ public class User : BaseEntity
 
     public DateTimeOffset? LastLoginAt { get; set; }
 
+    /// <summary>
+    /// Random value that changes whenever the credentials change (password change,
+    /// "sign out everywhere"); issued tokens carrying an old stamp are rejected.
+    /// </summary>
+    [MaxLength(64)]
+    public string? SecurityStamp { get; set; }
+
+    /// <summary>Consecutive failed password sign-ins (reset on success).</summary>
+    public int FailedLoginCount { get; set; }
+
+    /// <summary>Password sign-in is blocked until this moment (brute-force protection).</summary>
+    public DateTimeOffset? LockoutEndAt { get; set; }
+
+    /// <summary>Current wallet balance in Toman (ledger: <see cref="WalletTransactions"/>).</summary>
+    public decimal WalletBalance { get; set; }
+
+    /// <summary>
+    /// Part of <see cref="WalletBalance"/> that came from promotions (club rewards,
+    /// gifts, admin credits). It can only be spent on orders and is never withdrawable.
+    /// </summary>
+    public decimal WalletBonusBalance { get; set; }
+
+    /// <summary>Birthday (customer club gift).</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>Password sign-in additionally requires a one-time SMS code.</summary>
+    public bool TwoFactorEnabled { get; set; }
+
+    /// <summary>
+    /// کلید مخفی برنامهٔ احراز هویت (Google Authenticator و …) – رمزنگاری‌شده با ISecretProtector، نه متن خام.
+    /// null = برنامهٔ احراز هویت فعال نیست. فقط برای کارکنان (صفحهٔ «حساب من» پنل). منطق: Core/Services/Team/TotpService.
+    /// </summary>
+    [MaxLength(300)]
+    public string? TotpSecretProtected { get; set; }
+
+    /// <summary>زمان فعال شدن برنامهٔ احراز هویت؛ null یعنی هنوز تأیید نشده (کلید ساخته شده ولی کد اول وارد نشده).</summary>
+    public DateTimeOffset? TotpEnabledAt { get; set; }
+
+    /// <summary>
+    /// شمارهٔ آخرین بازهٔ ۳۰ثانیه‌ای که کدش پذیرفته شد؛ کد همان بازه یا قبل‌تر دوباره پذیرفته نمی‌شود
+    /// (جلوگیری از استفادهٔ دوباره از کدی که کسی دیده یا شنود کرده).
+    /// </summary>
+    public long? TotpLastStep { get; set; }
+
+    /// <summary>
+    /// کدهای بازیابی (برای وقتی گوشی گم شده) به شکل هش SHA-256 و جداشده با «;». هر کد یک بار مصرف می‌شود.
+    /// </summary>
+    [MaxLength(1000)]
+    public string? TotpRecoveryCodes { get; set; }
+
+    /// <summary>Current customer-club points (ledger: <see cref="LoyaltyTransactions"/>).</summary>
+    public int LoyaltyPoints { get; set; }
+
+    /// <summary>All points ever earned; decides the club level.</summary>
+    public int LoyaltyLifetimePoints { get; set; }
+
+    /// <summary>Personal invite code (customer club referral).</summary>
+    [MaxLength(20)]
+    public string? ReferralCode { get; set; }
+
+    /// <summary>The customer who invited this user.</summary>
+    public Guid? ReferredByUserId { get; set; }
+
+    /// <summary>Blocked by the shop: cannot sign in, existing sessions are revoked.</summary>
+    public bool IsBlocked { get; set; }
+
+    public DateTimeOffset? BlockedAt { get; set; }
+
+    [MaxLength(500)]
+    public string? BlockReason { get; set; }
+
+    /// <summary>
+    /// مرحلهٔ پانزدهم: شناسهٔ ثابت «مدیر اصلی سیستم» از تنظیمات سرور (<c>Shop:DefaultAdmins</c>).
+    /// <para>چرا: مدیر ممکن است شماره، نام یا رمزش را عوض کند؛ برنامه در هر بار اجرا او را با همین کلید پیدا می‌کند،
+    /// نه با شمارهٔ فعلی. مثال: «phone:09013181090» (از شمارهٔ اولیهٔ تنظیمات) یا «key:owner» (فیلد Key در تنظیمات).</para>
+    /// <para>حساب دارای این کلید از پنل حذف، مسدود یا بی‌دسترسی نمی‌شود و اگر به هر دلیلی پاک/مسدود شده باشد،
+    /// در اجرای بعدی برنامه برمی‌گردد. null = کاربر عادی. استفاده: AdminAccessService.EnsureDefaultsAsync.</para>
+    /// </summary>
+    [MaxLength(80)]
+    public string? SystemAdminKey { get; set; }
+
+    /// <summary>
+    /// مرحلهٔ هفدهم: آخرین شمارهٔ موبایلی که برای این مدیر اصلی در تنظیمات سرور (<c>Shop:DefaultAdmins</c>) آمده و اعمال شده.
+    /// <para>چرا: باید فرق «مدیر شماره‌اش را از پنل عوض کرده» (دست نمی‌زنیم) و «صاحب سرور شمارهٔ داخل تنظیمات را اصلاح کرده»
+    /// (باید اعمال شود) را بفهمیم. اگر شمارهٔ تنظیمات با این ستون فرق کند یعنی تنظیمات عوض شده است.</para>
+    /// <para>مثال: ستون «09013181090» و تنظیمات «09913181090» ← شمارهٔ حساب طبق تنظیمات اصلاح می‌شود (یا اگر صاحب شمارهٔ تازه
+    /// قبلاً ثبت‌نام کرده، همان حساب مدیر اصلی می‌شود). null = کاربر عادی. استفاده: AdminAccessService.EnsureDefaultsAsync.</para>
+    /// </summary>
+    [MaxLength(20)]
+    public string? SystemAdminPhone { get; set; }
+
+    /// <summary>Internal note of the staff about this customer.</summary>
+    [MaxLength(2000)]
+    public string? AdminNote { get; set; }
+
     public List<UserAddress> Addresses { get; set; } = [];
 
     public List<Cart> Carts { get; set; } = [];
@@ -50,6 +147,14 @@ public class User : BaseEntity
     public List<Message> Messages { get; set; } = [];
 
     public List<Favorite> Favorites { get; set; } = [];
+
+    public List<WalletTransaction> WalletTransactions { get; set; } = [];
+
+    public List<WithdrawalRequest> WithdrawalRequests { get; set; } = [];
+
+    public List<UserRefreshToken> RefreshTokens { get; set; } = [];
+
+    public List<LoyaltyTransaction> LoyaltyTransactions { get; set; } = [];
 }
 
 public enum UserRole

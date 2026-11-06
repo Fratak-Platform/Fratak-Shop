@@ -1,0 +1,116 @@
+@page "/admin/seo/tasks"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.TasksModel
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Areas.Admin.Pages.Seo
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  کارهای سئو: زبانه‌های باز/حل‌شده/نادیده/همه + فیلتر شدت و جست‌وجو.
+  هر ردیف: شدت، عنوان، توضیح و راه‌حل (با فهرست صفحه‌ها)، اهمیت، آخرین مشاهده و دکمه‌های نادیده/بازگشایی.
+*@
+@{
+    ViewData["Title"] = "کارهای سئو";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>کارهای سئو</h2>
+    <p class="a-muted text-sm mt-1">
+      مشکل‌هایی که خزش شبانهٔ سایت پیدا کرده، مرتب‌شده از مهم به کم‌اهمیت. موارد «رفع خودکار» را خود سیستم درست می‌کند؛
+      بقیه با توضیح و راه‌حل آمده‌اند. وقتی مشکل در خزش بعدی دیده نشود، کار خودکار بسته می‌شود.
+    </p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/seo/autopilot">@Icons.Svg("Gauge", null, 18) داشبورد سئوی خودکار</a></div>
+</div>
+
+<nav class="a-tabs mb-4" aria-label="بخش‌ها">
+  @foreach (var (key, title) in TasksModel.Tabs)
+  {
+    <a class="a-tab @(Model.Tab == key ? "is-active" : "")" href="@Model.UrlWith(("tab", key == "open" ? null : key), ("page", null))">@title</a>
+  }
+</nav>
+
+<div class="a-card">
+  <div class="a-card-body">
+    <form method="get" class="a-filters">
+      @if (Model.Tab != "open") { <input type="hidden" name="tab" value="@Model.Tab"> }
+      <div>
+        <label class="a-label" for="f-q">جست‌وجو</label>
+        <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="عنوان، آدرس یا کد">
+      </div>
+      <div>
+        <label class="a-label" for="f-severity">شدت</label>
+        <select id="f-severity" name="severity" class="a-input">
+          <option value="">همه</option>
+          @foreach (var severity in new[] { SeoTaskSeverity.Critical, SeoTaskSeverity.Warning, SeoTaskSeverity.Info })
+          {
+            <option value="@severity" selected="@(Model.Severity == severity ? "selected" : null)">@AutopilotModel.SeverityTitle(severity)</option>
+          }
+        </select>
+      </div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+    </form>
+  </div>
+
+  @if (Model.Tasks.Items.Count == 0)
+  {
+    <div class="a-empty">@(Model.Tab == "open" ? "کار بازی نیست 🎉" : "موردی پیدا نشد.")</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>شدت</th><th>کار</th><th>اهمیت</th><th>وضعیت</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var task in Model.Tasks.Items)
+          {
+            <tr>
+              <td data-label="شدت"><span class="a-badge @AutopilotModel.SeverityBadge(task.Severity)">@AutopilotModel.SeverityTitle(task.Severity)</span></td>
+              <td data-label="کار" style="max-width:520px">
+                <div class="font-bold text-sm">@task.Title</div>
+                <div class="a-muted text-xs mt-1">@task.Detail</div>
+                @if (!string.IsNullOrEmpty(task.Path))
+                {
+                  <a class="a-link text-xs a-ltr" href="@SeoEngineUi.PublicUrl(task.Path)" target="_blank" rel="noopener">@task.Path</a>
+                }
+                @if (task.AutoFixable) { <span class="a-badge a-badge-green">رفع خودکار</span> }
+              </td>
+              <td data-label="اهمیت">@Format.Number(task.Impact)</td>
+              <td data-label="وضعیت" class="text-xs nowrap">
+                <div>@TasksModel.StatusTitle(task.Status)</div>
+                <div class="a-muted">دیده‌شده @AdminUi.Ago(task.LastSeenAt)</div>
+                @if (task.ResolvedAt is { } resolved) { <div class="a-muted">@AdminUi.Ago(resolved)@(task.ResolvedBy is null ? "" : " · " + task.ResolvedBy)</div> }
+              </td>
+              <td data-label="">
+                @if (Model.CanManage)
+                {
+                  if (task.Status == SeoTaskStatus.Open)
+                  {
+                    <form method="post" asp-page-handler="Status" class="inline">
+                      <input type="hidden" name="id" value="@task.Id">
+                      <input type="hidden" name="status" value="@SeoTaskStatus.Dismissed">
+                      <button type="submit" class="a-btn a-btn-xs a-btn-light">نادیده بگیر</button>
+                    </form>
+                    <form method="post" asp-page-handler="Status" class="inline">
+                      <input type="hidden" name="id" value="@task.Id">
+                      <input type="hidden" name="status" value="@SeoTaskStatus.Fixed">
+                      <button type="submit" class="a-btn a-btn-xs a-btn-soft">انجام شد</button>
+                    </form>
+                  }
+                  else
+                  {
+                    <form method="post" asp-page-handler="Status" class="inline">
+                      <input type="hidden" name="id" value="@task.Id">
+                      <input type="hidden" name="status" value="@SeoTaskStatus.Open">
+                      <button type="submit" class="a-btn a-btn-xs a-btn-light">بازگشایی</button>
+                    </form>
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <partial name="_AdminPager" model="Model.Pager" />
+  }
+</div>

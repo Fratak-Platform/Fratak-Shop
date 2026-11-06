@@ -1,0 +1,203 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.EmailModel
+@using Fratak_Shop.Data.Entities.Settings
+@using Fratak_Shop.Core.Services.Notifications
+@*
+  سرویس ایمیل (مرحلهٔ دوازدهم). «اتصال سریع» در assets/js/admin-email.js است (CSP اسکریپت درون‌خطی را نمی‌پذیرد):
+  هر دکمهٔ data-email-preset سرور/درگاه/رمزنگاری را پر می‌کند و راهنمای همان سرویس را نشان می‌دهد.
+*@
+@{
+    ViewData["Title"] = "سرویس ایمیل";
+    var canManage = Model.Can(AdminPermissions.SystemManage);
+    var cfg = Model.Config;
+    var stats = Model.Stats;
+    var preset = EmailPresets.Find(cfg.Preset);
+}
+<div class="a-page-head">
+  <div>
+    <h2>سرویس ایمیل</h2>
+    <p class="a-muted text-sm mt-1">اعلان‌های سفارش، پیام‌های فروشگاه، لینک تأیید ایمیل و گزارش‌های خودکار با سرور SMTP خودتان ارسال می‌شوند. رمز رمزنگاری‌شده ذخیره می‌شود و دیگر نمایش داده نمی‌شود.</p>
+  </div>
+</div>
+
+@if (cfg.Mode == EmailMode.Smtp && Model.NotReadyReason is { } reason)
+{
+  <div class="a-alert a-alert-danger mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div><b>ایمیل ارسال نمی‌شود:</b> @reason.</div></div>
+}
+else if (cfg.Mode == EmailMode.LogOnly)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Info", "shrink-0", 20)<div>حالت «فقط ثبت در گزارش» فعال است؛ ایمیلی ارسال نمی‌شود (در محیط توسعه متن ایمیل در گزارش سرور نوشته می‌شود). پس از تنظیم و آزمایش SMTP، حالت را «ارسال با SMTP» کنید.</div></div>
+}
+else if (cfg.Mode == EmailMode.Disabled)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Info", "shrink-0", 20)<div>سرویس ایمیل خاموش است؛ هیچ ایمیلی (حتی گزارش‌های خودکار بدون SMTP اختصاصی) ارسال نمی‌شود.</div></div>
+}
+@if (string.IsNullOrWhiteSpace(cfg.SiteBaseUrl))
+{
+  <div class="a-alert a-alert-info mb-4">@Icons.Svg("Info", "shrink-0", 20)<div>«نشانی سایت» ثبت نشده است؛ لینک‌ها و لوگوی داخل ایمیل بدون آن کار نمی‌کنند. با ذخیرهٔ فرم، نشانی فعلی پنل ثبت می‌شود.</div></div>
+}
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <form method="post" asp-page-handler="Save" class="a-card" data-dirty-guard autocomplete="off" data-email-form data-domain="@Model.Domain">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Gear", null, 18) تنظیمات</span></div>
+    <div class="a-card-body grid gap-3">
+      @if (canManage)
+      {
+        <div class="a-field">
+          <span class="a-label">اتصال سریع</span>
+          <div class="a-pills" role="group" aria-label="سرویس‌های آماده">
+            @foreach (var p in EmailPresets.All)
+            {
+              <button type="button" class="a-pill @(preset?.Key == p.Key ? "is-active" : "")" data-email-preset="@p.Key" data-host="@p.Host" data-port="@p.Port"
+                      data-security="@p.Security" data-user-hint="@p.UserHint" data-help="@p.Help">@p.Title</button>
+            }
+            <button type="button" class="a-pill @(preset is null ? "is-active" : "")" data-email-preset="" data-help="نشانی سرور، درگاه و رمزنگاری را از سرویس‌دهندهٔ ایمیل خود بگیرید.">سرور دیگر</button>
+          </div>
+          <div class="a-alert a-alert-info mt-2 text-sm" data-email-help hidden="@(preset is null)">@Icons.Svg("Lightbulb", "shrink-0", 18)<div data-email-help-text>@preset?.Help</div></div>
+        </div>
+      }
+      <input type="hidden" name="email.Preset" value="@cfg.Preset" data-email-field="preset">
+
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="e-mode">حالت</label>
+          <select id="e-mode" name="email.Mode" class="a-select" disabled="@(!canManage)">
+            <option value="@EmailMode.Smtp" selected="@(cfg.Mode == EmailMode.Smtp)">ارسال با SMTP</option>
+            <option value="@EmailMode.LogOnly" selected="@(cfg.Mode == EmailMode.LogOnly)">فقط ثبت در گزارش (آزمایشی)</option>
+            <option value="@EmailMode.Disabled" selected="@(cfg.Mode == EmailMode.Disabled)">خاموش</option>
+          </select>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="e-max">سقف ارسال در ساعت</label>
+          <input id="e-max" name="email.MaxPerHour" value="@cfg.MaxPerHour" class="a-input a-ltr" dir="ltr" inputmode="numeric" maxlength="6" readonly="@(!canManage)">
+          <p class="a-help">بیشتر از این در صف می‌ماند (دور ریخته نمی‌شود). جیمیل حدود ۵۰۰ در روز.</p>
+        </div>
+      </div>
+
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="e-host">سرور SMTP</label>
+          <input id="e-host" name="email.Host" value="@cfg.Host" class="a-input a-ltr" dir="ltr" maxlength="200" placeholder="smtp.gmail.com" spellcheck="false" readonly="@(!canManage)" data-email-field="host">
+        </div>
+        <div class="a-form-grid cols-2">
+          <div class="a-field">
+            <label class="a-label" for="e-port">درگاه</label>
+            <input id="e-port" name="email.Port" value="@cfg.Port" class="a-input a-ltr" dir="ltr" inputmode="numeric" maxlength="5" placeholder="587" readonly="@(!canManage)" data-email-field="port">
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="e-security">رمزنگاری</label>
+            <select id="e-security" name="email.Security" class="a-select" disabled="@(!canManage)" data-email-field="security">
+              <option value="@EmailSecurity.Auto" selected="@(cfg.Security == EmailSecurity.Auto)">خودکار</option>
+              <option value="@EmailSecurity.SslOnConnect" selected="@(cfg.Security == EmailSecurity.SslOnConnect)">SSL/TLS (۴۶۵)</option>
+              <option value="@EmailSecurity.StartTls" selected="@(cfg.Security == EmailSecurity.StartTls)">STARTTLS (۵۸۷)</option>
+              <option value="@EmailSecurity.None" selected="@(cfg.Security == EmailSecurity.None)">بدون رمزنگاری (فقط شبکهٔ داخلی)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="e-user">نام کاربری</label>
+          <input id="e-user" name="email.UserName" value="@cfg.UserName" class="a-input a-ltr" dir="ltr" maxlength="200" autocomplete="off" spellcheck="false" placeholder="@(preset?.UserHint ?? "you@example.com")" readonly="@(!canManage)" data-email-field="user">
+          <p class="a-help">معمولاً همان نشانی کامل ایمیل.</p>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="e-pass">رمز @(cfg.HasPassword ? "(ثبت شده؛ خالی = بدون تغییر)" : "")</label>
+          <input id="e-pass" name="email.Password" type="password" class="a-input a-ltr" dir="ltr" maxlength="200" autocomplete="new-password" spellcheck="false" readonly="@(!canManage)">
+          @if (cfg.HasPassword && canManage) { <label class="a-check text-xs mt-1"><input type="checkbox" name="email.ClearPassword" value="true"> حذف رمز ثبت‌شده</label> }
+          @if (Model.PasswordSource == "تنظیمات سرور") { <p class="a-help">اکنون رمز از تنظیمات سرور (<span class="a-ltr" dir="ltr">Email__Password</span>) خوانده می‌شود؛ رمز ثبت‌شده در پنل بر آن مقدم است.</p> }
+          else { <p class="a-help">برای Gmail/Yahoo/Zoho «رمز برنامه» (App Password).</p> }
+        </div>
+      </div>
+
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="e-from">نشانی فرستنده</label>
+          <input id="e-from" name="email.FromAddress" value="@cfg.FromAddress" class="a-input a-ltr" dir="ltr" maxlength="200" placeholder="no-reply@@your-domain.ir" spellcheck="false" readonly="@(!canManage)" data-email-field="from">
+          <p class="a-help">باید همان حساب یا نشانی تأییدشده نزد سرویس‌دهنده باشد.</p>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="e-from-name">نام فرستنده</label>
+          <input id="e-from-name" name="email.FromName" value="@cfg.FromName" class="a-input" maxlength="100" placeholder="@Site.Settings.SiteName" readonly="@(!canManage)">
+          <p class="a-help">خالی = نام فروشگاه.</p>
+        </div>
+      </div>
+
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="e-reply">پاسخ به (اختیاری)</label>
+          <input id="e-reply" name="email.ReplyTo" value="@cfg.ReplyTo" class="a-input a-ltr" dir="ltr" maxlength="200" placeholder="@(Site.Settings.SupportEmail ?? "support@your-domain.ir")" spellcheck="false" readonly="@(!canManage)">
+          <p class="a-help">پاسخ مشتری به این نشانی می‌رود.</p>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="e-base">نشانی سایت</label>
+          <input id="e-base" name="email.SiteBaseUrl" value="@cfg.SiteBaseUrl" class="a-input a-ltr" dir="ltr" maxlength="200" placeholder="https://@Model.Domain" spellcheck="false" readonly="@(!canManage)">
+          <p class="a-help">برای لینک‌ها و لوگوی داخل ایمیل. خالی = نشانی فعلی پنل.</p>
+        </div>
+      </div>
+
+      @if (canManage)
+      {
+        <div class="flex flex-wrap gap-2"><button class="a-btn" type="submit">ذخیره</button></div>
+      }
+    </div>
+  </form>
+
+  <div class="grid gap-4 content-start">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Pulse", null, 18) وضعیت</span><span class="a-muted text-xs">از زمان روشن شدن برنامه</span></div>
+      <div class="a-card-body">
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="a-badge @(Model.NotReadyReason is null ? "a-badge-green" : "a-badge-gray")">@(Model.NotReadyReason is null ? "آماده ارسال" : "ارسال واقعی خاموش")</span>
+          <span class="a-badge @(Model.PasswordSource is null ? "a-badge-gray" : "a-badge-green")">رمز: @(Model.PasswordSource ?? "ثبت نشده")</span>
+          <span class="a-badge a-badge-green">موفق: @Format.Number(stats.Sent)</span>
+          <span class="a-badge @(stats.Failed > 0 ? "a-badge-yellow" : "a-badge-gray")">ناموفق: @Format.Number(stats.Failed)</span>
+          <span class="a-badge a-badge-gray">در صف: @Format.Number(Model.Pending)</span>
+          @if (stats.Dropped > 0)
+          {
+            <span class="a-badge a-badge-red">ردشده: @Format.Number(stats.Dropped)</span>
+          }
+        </div>
+        <dl class="a-kv text-sm">
+          <dt>آخرین ارسال موفق</dt><dd>@(stats.LastSuccessAt is { } ok ? AdminUi.Ago(ok) : "-")</dd>
+          <dt>آخرین خطا</dt><dd>@(stats.LastFailureAt is { } bad ? AdminUi.Ago(bad) + " · " + stats.LastFailure : "-")</dd>
+          <dt>ارسال‌نشده (حالت غیرفعال)</dt><dd>@Format.Number(stats.Skipped)</dd>
+        </dl>
+        @if (canManage)
+        {
+          <form method="post" asp-page-handler="Check" class="mt-3"><button class="a-btn a-btn-light" type="submit" data-busy-text="در حال اتصال…">@Icons.Svg("ArrowsClockwise", null, 18) بررسی اتصال و ورود (بدون ارسال)</button></form>
+        }
+      </div>
+    </div>
+
+    @if (canManage)
+    {
+      <form method="post" asp-page-handler="Test" class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("PaperPlaneTilt", null, 18) ایمیل آزمایشی</span></div>
+        <div class="a-card-body grid gap-3">
+          <div class="a-field">
+            <label class="a-label" for="t-to">نشانی گیرنده</label>
+            <input id="t-to" name="to" type="email" class="a-input a-ltr" dir="ltr" maxlength="200" placeholder="you@@example.com" required>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="a-btn a-btn-light" type="submit" data-busy-text="در حال ارسال…">@Icons.Svg("Envelope", null, 18) ارسال ایمیل آزمایشی</button>
+          </div>
+          <p class="a-help">با تنظیمات ذخیره‌شده ارسال می‌شود (در حالت «فقط ثبت در گزارش» هم)، تا پیش از روشن کردن سرویس مطمئن شوید.</p>
+        </div>
+      </form>
+    }
+
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Eye", null, 18) پیش‌نمایش قالب ایمیل</span><a class="a-link text-xs" href="/admin/settings/brand?place=Email">لوگوی ایمیل</a></div>
+      <div class="a-card-body">
+        <iframe class="a-email-preview" src="/admin/system/email?handler=Preview" sandbox="" title="پیش‌نمایش ایمیل" loading="lazy" referrerpolicy="no-referrer"></iframe>
+        <p class="a-help mt-2">نمونهٔ یک اعلان سفارش با لوگو، رنگ و اطلاعات تماس فروشگاه. متن هر اعلان از «قالب‌های پیام رویدادها» می‌آید.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+  <script src="~/assets/js/admin-email.js" asp-append-version="true"></script>
+}

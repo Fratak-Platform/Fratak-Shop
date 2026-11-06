@@ -1,0 +1,31 @@
+@page "/club"
+@model ClubModel
+@{
+    Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.CustomerClub;
+    var settings = Site.Settings;
+    var club = new ClubViewModel(Model.Program, null);
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6 pb-10 space-y-10">
+    <section class="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-sky-500 to-sky-800 p-6 md:p-10 text-white shadow-lg">
+      <div class="max-w-2xl">
+        <div class="flex items-center gap-x-2">
+          @Icons.Svg("Crown", "fill-amber-300", 32)
+          <h1 class="text-xl md:text-2xl font-bold">@settings.LoyaltyName @settings.SiteName</h1>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(settings.LoyaltyProgramDescription))
+        {
+          <p class="mt-3 text-sm md:text-base leading-8 text-sky-50">@settings.LoyaltyProgramDescription</p>
+        }
+        <div class="mt-5 flex flex-wrap gap-3">
+          <a href="/register" class="rounded-xl bg-white px-6 py-3 text-sm font-bold text-sky-600 hover:bg-sky-50">عضویت رایگان</a>
+          <a href="/login?returnUrl=%2Fprofile%2Fclub" class="rounded-xl border border-white/60 px-6 py-3 text-sm text-white hover:bg-white/10">ورود به حساب</a>
+        </div>
+      </div>
+    </section>
+
+    <partial name="_ClubEarnRules" model="club" />
+    <partial name="_ClubTiers" model="club" />
+    <partial name="_ClubRewards" model="club" />
+  </main>

@@ -1,0 +1,15 @@
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.BrandColorField
+@* فیلد رنگ استودیوی لوگو: متن هگز (نام فرم) + انتخابگر رنگ (بدون نام؛ admin-brand.js این دو را هم‌گام می‌کند). خالی = پیش‌فرض. *@
+<div class="a-field">
+  <label class="a-label" for="@Model.Id">@Model.Label</label>
+  <div class="a-bl-color">
+    <input type="color" value="@(BrandStyleRules.Hex(Model.Value) is { } hex && hex.Length == 7 ? hex : Model.Fallback)" data-bl-swatch="#@Model.Id" aria-label="انتخاب رنگ @Model.Label">
+    <input id="@Model.Id" name="@Model.Name" value="@Model.Value" class="a-input a-ltr" dir="ltr" maxlength="7" placeholder="@Model.Fallback" pattern="#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})"
+           data-bl-color data-fallback="@Model.Fallback" data-f="@(Model.Place ? Model.Key : null)" data-g="@(Model.Place ? null : Model.Key)">
+    <button type="button" class="a-icon-btn" data-bl-clear="#@Model.Id" title="پیش‌فرض" aria-label="رنگ پیش‌فرض">@Icons.Svg("Close", null, 16)</button>
+  </div>
+  @if (Model.Help is not null)
+  {
+    <p class="a-help">@Model.Help</p>
+  }
+</div>

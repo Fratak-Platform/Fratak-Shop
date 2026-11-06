@@ -1,0 +1,268 @@
+@page "/admin/seo/engine"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.EngineModel
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  موتور هوشمند سئو – داشبورد (مرحلهٔ هفتم – فاز ۸).
+  • بالا: اجرای بعدی، دکمهٔ «همین الان اجرا کن» و آمار کلی.
+  • زبانهٔ «نمای کلی»: نمره بر اساس نوع صفحه، وضعیت منبع‌های تحقیق، ضعیف‌ترین صفحه‌ها و اجراهای اخیر.
+  • زبانهٔ «همهٔ صفحه‌ها»: نمرهٔ هر صفحه با فیلتر نوع/بازهٔ نمره/جست‌وجو؛ هر ردیف به صفحهٔ «تحلیل» می‌رود.
+*@
+@{
+    ViewData["Title"] = "موتور هوشمند سئو";
+    var d = Model.Dashboard;
+    var s = Model.Settings;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>موتور هوشمند سئو</h2>
+    <p class="a-muted text-sm mt-1">
+      همهٔ محصولات، دسته‌ها، برندها، مقاله‌ها و صفحه‌ها @Format.Number(s.SeoEngineRunsPerDay) بار در روز بررسی و نمره‌دهی می‌شوند؛
+      برای صفحه‌های کم‌نمره عنوان، توضیحات، متن، پرسش‌وپاسخ و متن تصویر نوشته و با صفحه‌های برتر نتایج مقایسه می‌شود.
+      هیچ تغییری بدون تأیید شما روی سایت نمی‌رود.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Run">
+      <button type="submit" class="a-btn" disabled="@(Model.IsRunning || Model.RunQueued)">
+        <span class="inline-flex">@Icons.Svg("ArrowsClockwise", Model.IsRunning ? "animate-spin" : null, 18)</span>
+        @(Model.IsRunning ? "در حال اجرا…" : Model.RunQueued ? "در صف شروع…" : "همین الان اجرا کن")
+      </button>
+    </form>
+    <a class="a-btn a-btn-light" href="/admin/seo/review">@Icons.Svg("ListChecks", null, 18) بررسی پیشنهادها (@Format.Number(d.Pending))</a>
+    @if (Model.Can(AdminPermissions.SettingsManage))
+    {
+      <a class="a-btn a-btn-light" href="/admin/settings?tab=seo-engine">@Icons.Svg("Gear", null, 18) تنظیمات</a>
+    }
+  </div>
+</div>
+
+@if (!s.IsSeoEngineEnabled)
+{
+  <div class="a-alert a-alert-warn mb-4">اجرای خودکار در تنظیمات خاموش است؛ موتور فقط با دکمهٔ «همین الان اجرا کن» یا «ساخت پیشنهاد» در صفحهٔ تحلیل کار می‌کند.</div>
+}
+@if (!s.SeoCompetitorResearch)
+{
+  <div class="a-alert a-alert-info mb-4">تحقیق رقبا خاموش است؛ پیشنهادها فقط با داده‌های خود فروشگاه (مشخصات، جست‌وجوهای داخلی و متن‌های سایت) ساخته می‌شوند.</div>
+}
+@if (d.Pages == 0)
+{
+  <div class="a-alert a-alert-info mb-4">موتور هنوز اجرا نشده است. با «همین الان اجرا کن» اولین بررسی شروع می‌شود (معمولاً کمتر از چند دقیقه).</div>
+}
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Gauge", null, 16) میانگین نمرهٔ سئو</div>
+    <div class="a-stat-value">@Format.Number(d.AverageScore) <small>از ۱۰۰</small></div>
+    <div class="a-progress mt-2"><div style="width:@(d.AverageScore)%"></div></div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("ChartBar", null, 16) صفحه‌های بررسی‌شده</div>
+    <div class="a-stat-value">@Format.Number(d.Pages)</div>
+    <div class="a-stat-sub">
+      <a class="a-down" href="/admin/seo/engine?tab=pages&band=weak">@Format.Number(d.Weak) ضعیف</a> ·
+      <a href="/admin/seo/engine?tab=pages&band=medium">@Format.Number(d.Medium) متوسط</a> ·
+      <a class="a-up" href="/admin/seo/engine?tab=pages&band=strong">@Format.Number(d.Strong) خوب</a>
+    </div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("ListChecks", null, 16) منتظر بررسی شما</div>
+    <div class="a-stat-value"><a href="/admin/seo/review">@Format.Number(d.Pending)</a></div>
+    <div class="a-stat-sub">@Format.Number(d.AppliedLast30Days) پیشنهاد در ۳۰ روز اخیر اعمال شد (میانگین +@Format.Number(d.AverageGain) نمره)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Clock", null, 16) اجرای خودکار بعدی</div>
+    <div class="a-stat-value">@(s.IsSeoEngineEnabled ? Format.DateTime(Model.NextRun) : "خاموش")</div>
+    <div class="a-stat-sub">آخرین اجرا: @(d.Runs.Count > 0 ? Format.Relative(d.Runs[0].StartedAt) : "هنوز اجرا نشده")</div>
+  </div>
+</div>
+
+<nav class="a-tabs mb-4" aria-label="بخش‌ها">
+  <a class="a-tab @(Model.Tab == "overview" ? "is-active" : "")" href="/admin/seo/engine">نمای کلی</a>
+  <a class="a-tab @(Model.Tab == "pages" ? "is-active" : "")" href="/admin/seo/engine?tab=pages">همهٔ صفحه‌ها</a>
+</nav>
+
+@if (Model.Tab == "pages")
+{
+  <div class="a-card">
+    <div class="a-card-body">
+      <form method="get" class="a-filters">
+        <input type="hidden" name="tab" value="pages">
+        <div>
+          <label class="a-label" for="f-q">جست‌وجو</label>
+          <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام صفحه، کلمهٔ کلیدی یا آدرس">
+        </div>
+        <div>
+          <label class="a-label" for="f-kind">نوع</label>
+          <select id="f-kind" name="kind" class="a-input">
+            <option value="">همه</option>
+            @foreach (var kind in Enum.GetValues<SeoEntityKind>())
+            {
+              <option value="@kind" selected="@(Model.Kind == kind ? "selected" : null)">@SeoEngineUi.KindTitle(kind)</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label class="a-label" for="f-band">نمره</label>
+          <select id="f-band" name="band" class="a-input">
+            <option value="">همه</option>
+            <option value="weak" selected="@(Model.Band == "weak" ? "selected" : null)">ضعیف (زیر ۵۰)</option>
+            <option value="medium" selected="@(Model.Band == "medium" ? "selected" : null)">متوسط (۵۰ تا ۷۹)</option>
+            <option value="strong" selected="@(Model.Band == "strong" ? "selected" : null)">خوب (۸۰ و بیشتر)</option>
+          </select>
+        </div>
+        <div>
+          <label class="a-label" for="f-sort">مرتب‌سازی</label>
+          <select id="f-sort" name="sort" class="a-input">
+            <option value="score" selected="@(Model.Sort == "score" ? "selected" : null)">کم‌نمره‌ترین اول</option>
+            <option value="views" selected="@(Model.Sort == "views" ? "selected" : null)">پربازدیدترین اول</option>
+            <option value="best" selected="@(Model.Sort == "best" ? "selected" : null)">پرنمره‌ترین اول</option>
+          </select>
+        </div>
+        <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+      </form>
+    </div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>صفحه</th><th>نوع</th><th>نمره</th><th>مشکل‌ها</th><th>کلمهٔ کلیدی</th><th>بازدید</th><th>بررسی</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var row in Model.Scores)
+          {
+            <tr>
+              <td data-label="صفحه"><a class="a-link" href="@SeoEngineUi.AnalyzeUrl(row.Kind, row.EntityId)">@row.Title</a><div class="a-muted text-xs a-ltr break-all">@row.Path</div></td>
+              <td data-label="نوع"><span class="a-badge a-badge-gray">@SeoEngineUi.KindTitle(row.Kind)</span></td>
+              <td data-label="نمره"><span class="a-badge @SeoEngineUi.ScoreBadge(row.Score)">@Format.Number(row.Score)</span></td>
+              <td data-label="مشکل‌ها" class="num">@Format.Number(row.Problems)</td>
+              <td data-label="کلمهٔ کلیدی" class="text-sm">@(row.FocusKeyword ?? "—")</td>
+              <td data-label="بازدید" class="num">@Format.Number(row.Views)</td>
+              <td data-label="بررسی" class="text-xs nowrap">@AdminUi.Ago(row.AnalyzedAt)</td>
+              <td class="nowrap">
+                <a class="a-btn a-btn-xs" href="@SeoEngineUi.AnalyzeUrl(row.Kind, row.EntityId)">تحلیل</a>
+                <a class="a-btn a-btn-xs a-btn-light" href="@SeoEngineUi.PublicUrl(row.Path)" target="_blank" rel="noopener">مشاهده</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Scores.Count == 0) { <div class="a-empty">صفحه‌ای با این فیلترها پیدا نشد.</div> }
+    </div>
+    <partial name="_AdminPager" model="Model.Pager" />
+  </div>
+}
+else
+{
+  <div class="grid gap-4 lg:grid-cols-2 mb-4">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">نمره بر اساس نوع صفحه</span></div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-compact">
+          <thead><tr><th>نوع</th><th>تعداد</th><th>میانگین</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var k in d.ByKind)
+            {
+              <tr>
+                <td><a class="a-link" href="/admin/seo/engine?tab=pages&kind=@k.Kind">@SeoEngineUi.KindTitle(k.Kind)</a></td>
+                <td class="num">@Format.Number(k.Pages)</td>
+                <td><span class="a-badge @SeoEngineUi.ScoreBadge(k.Average)">@Format.Number(k.Average)</span></td>
+                <td style="min-width:120px"><div class="a-progress"><div style="width:@(k.Average)%"></div></div></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (d.ByKind.Count == 0) { <div class="a-empty">هنوز داده‌ای نیست.</div> }
+      </div>
+    </div>
+
+    <div class="a-card">
+      <div class="a-card-head">
+        <span class="a-card-title">منبع‌های تحقیق رقبا (۴۸ ساعت اخیر)</span>
+        <span class="a-muted text-xs">رایگان و بدون کلید؛ نتیجه‌ها ۷ روز کش می‌شوند</span>
+      </div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-compact">
+          <thead><tr><th>منبع</th><th>موفق</th><th>ناموفق</th><th>آخرین پاسخ‌دهنده</th></tr></thead>
+          <tbody>
+            @foreach (var src in d.Sources)
+            {
+              <tr>
+                <td>@SeoEngineUi.SourceTitle(src.Kind)</td>
+                <td class="num a-up">@Format.Number(src.Ok)</td>
+                <td class="num @(src.Failed > 0 ? "a-down" : "")">@Format.Number(src.Failed)</td>
+                <td class="a-ltr text-xs">@(src.LastSource ?? "—")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (d.Sources.Count == 0)
+        {
+          <div class="a-empty">در ۴۸ ساعت اخیر درخواستی به منبع‌های اینترنتی فرستاده نشده (یا همه از کش خوانده شده‌اند).</div>
+        }
+      </div>
+      <div class="a-card-body"><p class="a-help">اگر همهٔ درخواست‌ها ناموفق‌اند، سرور به این سایت‌ها دسترسی ندارد؛ موتور بدون خطا با داده‌های داخلی ادامه می‌دهد.</p></div>
+    </div>
+  </div>
+
+  <div class="a-card mb-4">
+    <div class="a-card-head">
+      <span class="a-card-title">ضعیف‌ترین صفحه‌ها</span>
+      <a class="a-link text-sm" href="/admin/seo/engine?tab=pages">همهٔ صفحه‌ها</a>
+    </div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>صفحه</th><th>نوع</th><th>نمره</th><th>مشکل‌ها</th><th>بازدید</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var row in d.Worst)
+          {
+            <tr>
+              <td data-label="صفحه"><a class="a-link" href="@SeoEngineUi.AnalyzeUrl(row.Kind, row.EntityId)">@row.Title</a></td>
+              <td data-label="نوع"><span class="a-badge a-badge-gray">@SeoEngineUi.KindTitle(row.Kind)</span></td>
+              <td data-label="نمره"><span class="a-badge @SeoEngineUi.ScoreBadge(row.Score)">@Format.Number(row.Score)</span></td>
+              <td data-label="مشکل‌ها" class="num">@Format.Number(row.Problems)</td>
+              <td data-label="بازدید" class="num">@Format.Number(row.Views)</td>
+              <td><a class="a-btn a-btn-xs" href="@SeoEngineUi.AnalyzeUrl(row.Kind, row.EntityId)">تحلیل</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (d.Worst.Count == 0) { <div class="a-empty">هنوز داده‌ای نیست.</div> }
+    </div>
+  </div>
+
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">اجراهای اخیر</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>شروع</th><th>نوع</th><th>مدت</th><th>بررسی‌شده</th><th>پیشنهاد تازه</th><th>خطا</th><th>نتیجه</th></tr></thead>
+        <tbody>
+          @foreach (var run in d.Runs)
+          {
+            <tr>
+              <td data-label="شروع" class="text-xs nowrap">@Format.DateTime(run.StartedAt)</td>
+              <td data-label="نوع">@(run.Trigger == SeoRunTrigger.Manual ? "دستی" : "خودکار")</td>
+              <td data-label="مدت" class="text-xs">@(run.FinishedAt.HasValue ? AdminUi.Duration(run.FinishedAt.Value - run.StartedAt) : "در جریان…")</td>
+              <td data-label="بررسی‌شده" class="num">@Format.Number(run.Analyzed)</td>
+              <td data-label="پیشنهاد تازه" class="num">@Format.Number(run.Suggested)</td>
+              <td data-label="خطا" class="num @(run.Failed > 0 ? "a-down" : "")">@Format.Number(run.Failed)</td>
+              <td data-label="نتیجه" class="text-xs">@run.Message</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (d.Runs.Count == 0) { <div class="a-empty">هنوز اجرایی ثبت نشده است.</div> }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">موتور چطور کار می‌کند؟</span></div>
+    <div class="a-card-body a-prose text-sm">
+      <ul>
+        <li><b>نمره‌دهی:</b> بیش از ۲۰ بررسی (طول و یکتایی عنوان و توضیحات، کلمهٔ کلیدی در جای درست، تراکم کلمه، حجم و ساختار متن، لینک داخلی، خوانایی، تصویر و alt، محتوای تکراری، پرسش‌وپاسخ و نامک).</li>
+        <li><b>تحقیق رقبا:</b> عبارت اصلی هر صفحه در گوگل/بینگ پیشنهاد گرفته و صفحه‌های برتر نتایج خوانده می‌شوند (طول متن، واژه‌های مشترک، ساختار عنوان، فارسی یا انگلیسی بودن آدرس).</li>
+        <li><b>نوشتن:</b> چند نسخه از هر متن بر اساس واقعیت‌های همان صفحه (مشخصات، برند، گارانتی، شرایط ارسال و مرجوعی) ساخته و با یک مدل زبانی آموزش‌دیده روی متن‌های خود سایت امتیاز روانی می‌گیرد؛ بهترین نسخه پیشنهاد می‌شود. هیچ ادعای ساختگی نوشته نمی‌شود.</li>
+        <li><b>بررسی شما:</b> هر بخش جدا تأیید می‌شود. با رد کردن (و نوشتن دلیل مثل «خیلی طولانی است») نسخهٔ تازه با سبک دیگر ساخته می‌شود و متن ردشده دیگر پیشنهاد نمی‌شود.</li>
+        <li><b>بدون ریسک:</b> متن فعلی صفحه هرگز پاک نمی‌شود، کلمهٔ کلیدی انتخاب‌شده توسط شما عوض نمی‌شود و تغییر نامک فقط برای صفحه‌های تازه/کم‌بازدید و همیشه با ریدایرکت ۳۰۱ است.</li>
+      </ul>
+    </div>
+  </div>
+}

@@ -1,0 +1,333 @@
+@page "/admin/seo/autopilot"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.AutopilotModel
+@using Fratak_Shop.Core.Services.Seo.Autopilot
+@using Fratak_Shop.Web.Areas.Admin.Pages.Seo
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  داشبورد سئوی خودکار (دور سئوی خودکار).
+  • بالا: نمرهٔ سلامت، میانگین نمرهٔ سئو، کارهای باز، تغییرهای این هفته، کلیک ۲۸ روزه + «همین الان اجرا کن».
+  • وسط: پوشش فیلدها، کارهای مهم، آخرین تغییرها، فرصت‌ها (نزدیک صفحهٔ اول، هم‌نوع‌خواری)، تقویم مناسبت‌ها.
+  • پایین: تنظیمات هر بخش (فقط با مجوز مدیریت سئو) و آدرس فیدها.
+*@
+@{
+    ViewData["Title"] = "سئوی خودکار";
+    var r = Model.Report;
+    var o = Model.Options;
+    var clicksDelta = r.Clicks28 - r.ClicksPrevious28;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>سئوی خودکار</h2>
+    <p class="a-muted text-sm mt-1">
+      سایت بدون کارشناس سئو خودش را بهتر می‌کند: فیلدهای خالی پر می‌شوند، HTML مرتب می‌شود، تصویرها WebP و دارای Alt می‌شوند،
+      لینک داخلی ساخته می‌شود و هر تغییر در «تاریخچه» با یک کلیک برمی‌گردد. بازنویسی متن‌های موجود فقط با دادهٔ واقعی گوگل و با فاصله انجام می‌شود تا ریسک جریمه نباشد.
+    </p>
+  </div>
+  @if (Model.CanManage)
+  {
+    <div class="a-btn-group">
+      <form method="post" asp-page-handler="Run">
+        <button type="submit" class="a-btn">@Icons.Svg("MagicWand", null, 18) همین الان اجرا کن</button>
+      </form>
+    </div>
+  }
+</div>
+
+@if (!o.Enabled)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", null, 16) <span>سئوی خودکار خاموش است؛ هیچ تغییری خودکار انجام نمی‌شود. از تنظیمات پایین صفحه روشنش کنید.</span></div>
+}
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Gauge", null, 16) سلامت فنی سایت</div>
+    <div class="a-stat-value"><span class="a-badge @AutopilotModel.HealthBadge(r.Health)">@(r.Health is { } h ? Format.Number(h) : "—")</span></div>
+    <div class="a-stat-sub">@(r.LastCrawl?.FinishedAt is { } crawled ? "آخرین خزش " + AdminUi.Ago(crawled) + " · " + Format.Number(r.LastCrawl.Pages) + " صفحه" : "هنوز خزشی انجام نشده")</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Sparkle", null, 16) میانگین نمرهٔ سئو</div>
+    <div class="a-stat-value">@Format.Number(r.AverageScore)</div>
+    <div class="a-stat-sub">@Format.Number(r.ScoredPages) صفحهٔ نمره‌گرفته</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Warning", null, 16) کارهای باز</div>
+    <div class="a-stat-value @(r.OpenErrors > 0 ? "a-down" : "")">@Format.Number(r.OpenErrors + r.OpenWarnings + r.OpenNotices)</div>
+    <div class="a-stat-sub">@Format.Number(r.OpenErrors) خطا · @Format.Number(r.OpenWarnings) هشدار · @Format.Number(r.OpenNotices) نکته</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Clock", null, 16) تغییرهای این هفته</div>
+    <div class="a-stat-value">@Format.Number(r.ChangesThisWeek)</div>
+    <div class="a-stat-sub">@Format.Number(Model.Pending) صفحه در صف پردازش</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Pulse", null, 16) کلیک گوگل (۲۸ روز)</div>
+    <div class="a-stat-value">@Format.Number(r.Clicks28)</div>
+    <div class="a-stat-sub @(clicksDelta >= 0 ? "a-up" : "a-down")">@(clicksDelta >= 0 ? "+" : "−")@Format.Number(Math.Abs(clicksDelta)) نسبت به ۲۸ روز قبل</div>
+  </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(r.LastNightlySummary))
+{
+  <div class="a-alert a-alert-info mb-4">@Icons.Svg("Info", null, 16) <span>آخرین اجرای کامل @(r.LastNightlyRunAt is { } ran ? AdminUi.Ago(ran) : ""): @r.LastNightlySummary</span></div>
+}
+
+<div class="a-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) پوشش سئوی صفحه‌ها</h3></div>
+    <div class="a-card-body a-stack">
+      @foreach (var (title, value) in new[] { ("عنوان سئو", r.TitleCoverage), ("توضیحات متا", r.MetaCoverage), ("کلمهٔ کلیدی اصلی", r.FocusCoverage), ("Alt تصویرهای محصول", r.AltCoverage) })
+      {
+        <div>
+          <div class="flex justify-between text-sm"><span>@title</span><span>@Format.Number(value)٪</span></div>
+          <div class="a-progress"><div style="width:@(value)%"></div></div>
+        </div>
+      }
+      <div class="a-muted text-xs">آزمون عنوان: @Format.Number(r.TestsRunning) در جریان · @Format.Number(r.TestsWon) موفق · @Format.Number(r.TestsLost) برگشت‌خورده</div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head">
+      <h3 class="a-card-title">@Icons.Svg("Warning", null, 18) مهم‌ترین کارها</h3>
+      <a class="a-link text-sm" href="/admin/seo/tasks">همه</a>
+    </div>
+    <div class="a-card-body">
+      @if (r.TopTasks.Count == 0)
+      {
+        <div class="a-empty">کار بازی نیست 🎉</div>
+      }
+      else
+      {
+        <ul class="a-stack">
+          @foreach (var task in r.TopTasks)
+          {
+            <li>
+              <span class="a-badge @AutopilotModel.SeverityBadge(task.Severity)">@AutopilotModel.SeverityTitle(task.Severity)</span>
+              <span class="text-sm">@task.Title</span>
+              @if (task.AutoFixable) { <span class="a-badge a-badge-green">رفع خودکار</span> }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head">
+      <h3 class="a-card-title">@Icons.Svg("Clock", null, 18) آخرین تغییرها</h3>
+      <a class="a-link text-sm" href="/admin/seo/history">تاریخچه</a>
+    </div>
+    <div class="a-card-body">
+      @if (r.RecentChanges.Count == 0)
+      {
+        <div class="a-empty">هنوز تغییری ثبت نشده است.</div>
+      }
+      else
+      {
+        <ul class="a-stack">
+          @foreach (var change in r.RecentChanges)
+          {
+            <li class="text-sm">
+              <span class="a-badge a-badge-gray">@AutopilotModel.SourceTitle(change.Source)</span>
+              <a class="a-link" href="@SeoEngineUi.PublicUrl(change.Path)" target="_blank" rel="noopener">@change.PageTitle</a>
+              <div class="a-muted text-xs">@change.Summary · @AdminUi.Ago(change.CreatedAt)@(change.RevertedAt is not null ? " · برگردانده شد" : "")</div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-grid mb-4" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Sparkle", null, 18) نزدیک صفحهٔ اول گوگل</h3></div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">جایگاه ۸ تا ۲۰ با نمایش کافی؛ کمی بهبود این صفحه‌ها بیشترین کلیک تازه را می‌آورد. سئوی خودکار عنوانشان را با آزمون زمانی بهتر می‌کند.</p>
+      @if (r.NearPageOne.Count == 0)
+      {
+        <div class="a-empty">دادهٔ کافی از Search Console نیست.</div>
+      }
+      else
+      {
+        <table class="a-table a-table-compact">
+          <thead><tr><th>صفحه</th><th>نمایش</th><th>جایگاه</th></tr></thead>
+          <tbody>
+            @foreach (var p in r.NearPageOne)
+            {
+              <tr><td class="a-ltr text-xs break-all">@p.Path</td><td>@Format.Number(p.Impressions)</td><td>@p.Position.ToString("0.0")</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Warning", null, 18) رقابت صفحه‌ها سر یک کلمه</h3></div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">وقتی چند صفحهٔ سایت برای یک جست‌وجو رقابت می‌کنند، هیچ‌کدام بالا نمی‌آید. صفحهٔ قوی‌تر را اصلی کنید و از بقیه به آن لینک دهید.</p>
+      @if (r.Cannibalization.Count == 0)
+      {
+        <div class="a-empty">موردی پیدا نشد.</div>
+      }
+      else
+      {
+        <ul class="a-stack">
+          @foreach (var group in r.Cannibalization)
+          {
+            <li class="text-sm">
+              <b>«@group.Query»</b>
+              <div class="a-muted text-xs a-ltr">@string.Join(" | ", group.Pages.Select(p => $"{p.Path} ({p.Position:0.0})"))</div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) مناسبت‌های پیش رو</h3></div>
+    <div class="a-card-body">
+      <p class="a-muted text-xs mb-2">گوگل برای رتبه دادن به صفحهٔ مناسبتی چند هفته زمان می‌خواهد؛ این مقاله‌ها/دسته‌ها را از الان آماده کنید.</p>
+      @if (r.Calendar.Count == 0)
+      {
+        <div class="a-empty">تا ۴۵ روز آینده مناسبت مهمی نیست.</div>
+      }
+      else
+      {
+        <ul class="a-stack">
+          @foreach (var occasion in r.Calendar)
+          {
+            <li class="text-sm">
+              <b>@occasion.Name</b> <span class="a-badge a-badge-sky">@Format.Number(occasion.DaysLeft) روز دیگر</span>
+              @if (occasion.Topics.Count > 0) { <div class="a-muted text-xs">پیشنهاد: @string.Join("، ", occasion.Topics)</div> }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</div>
+
+@if (r.Vitals.Count > 0 || r.Bots.Count > 0)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head">
+      <h3 class="a-card-title">@Icons.Svg("Monitor", null, 18) سرعت واقعی کاربران و ربات‌ها (۷ روز)</h3>
+      <a class="a-link text-sm" href="/admin/seo/signals">جزئیات</a>
+    </div>
+    <div class="a-card-body">
+      <div class="a-chips">
+        @foreach (var vital in r.Vitals)
+        {
+          var (rating, badge) = AutopilotModel.VitalRating(vital.Rating);
+          <span class="a-chip">@vital.Metric: @AutopilotModel.VitalValue(vital.Metric, vital.P75) <span class="a-badge @badge">@rating</span></span>
+        }
+        @foreach (var bot in r.Bots.Take(4))
+        {
+          <span class="a-chip">@bot.Bot: @Format.Number(bot.Hits) بازدید</span>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) تنظیمات</h3></div>
+  <div class="a-card-body">
+    <form method="post" asp-page-handler="Save" class="a-stack">
+      <fieldset disabled="@(!Model.CanManage)" class="a-stack">
+        <label class="a-check"><input type="checkbox" asp-for="Options.Enabled"> سئوی خودکار روشن باشد</label>
+
+        <div class="a-form-grid">
+          @foreach (var (field, title, hint, value) in new[]
+          {
+              ("FillFields", "پر کردن فیلدهای خالی", "عنوان، توضیحات، کلمهٔ کلیدی، Alt و پرسش‌وپاسخ – فقط فیلدهای خالی", o.FillFields),
+              ("FixHtml", "مرتب‌سازی HTML متن‌ها", "تیتر خالی/تکراری، استایل اضافه، لینک بیرونی، کامنت", o.FixHtml),
+              ("Images", "تصویرها", "تبدیل به WebP و Alt خودکار", o.Images),
+              ("Redirects", "ریدایرکت خودکار", "۳۰۱ هنگام عوض شدن نامک یا حذف صفحه", o.Redirects),
+              ("Rewrite", "بازنویسی داده‌محور", "فقط صفحه‌های کم‌کلیک با دادهٔ Search Console، با آزمون و برگشت خودکار", o.Rewrite),
+              ("InternalLinks", "لینک داخلی", "هنگام نمایش صفحه؛ متن ذخیره‌شده تغییر نمی‌کند", o.InternalLinks),
+              ("Landings", "صفحه‌های قیمت", "«قیمت … زیر X تومان» فقط وقتی محصول کافی دارد", o.Landings),
+          })
+          {
+            <div class="a-field">
+              <label class="a-label" for="mode-@field">@title</label>
+              <select id="mode-@field" name="Options.@field" class="a-input">
+                @foreach (var (mode, modeTitle) in AutopilotModel.Modes)
+                {
+                  <option value="@mode" selected="@(value == mode ? "selected" : null)">@modeTitle</option>
+                }
+              </select>
+              <div class="a-muted text-xs mt-1">@hint</div>
+            </div>
+          }
+        </div>
+
+        <div class="a-checks">
+          <label class="a-check"><input type="checkbox" asp-for="Options.IndexNow"> اعلام فوری صفحه‌های تازه به بینگ/یاندکس (IndexNow)</label>
+          <label class="a-check"><input type="checkbox" asp-for="Options.Crawl"> خزش شبانهٔ سایت و ساخت «کارهای سئو»</label>
+          <label class="a-check"><input type="checkbox" asp-for="Options.BotLog"> ثبت بازدید ربات‌های گوگل/بینگ (با تشخیص ربات جعلی)</label>
+          <label class="a-check"><input type="checkbox" asp-for="Options.RealUserMetrics"> سنجش سرعت واقعی کاربران (بدون کوکی)</label>
+          <label class="a-check"><input type="checkbox" asp-for="Options.WeeklyReport"> گزارش هفتگی برای مدیران</label>
+          <label class="a-check"><input type="checkbox" asp-for="Options.ProductFeeds"> فید محصولات (ترب و فید XML)</label>
+        </div>
+
+        <div class="a-form-grid">
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.NightlyHour">ساعت اجرای شبانه (تهران)</label>
+            <input class="a-input" asp-for="Options.NightlyHour" type="number" min="0" max="23">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.RewriteCooldownDays">فاصلهٔ بازنویسی یک صفحه (روز)</label>
+            <input class="a-input" asp-for="Options.RewriteCooldownDays" type="number" min="21" max="365">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.RewriteWeeklyPercent">سقف بازنویسی هفتگی (٪ صفحه‌ها)</label>
+            <input class="a-input" asp-for="Options.RewriteWeeklyPercent" type="number" min="1" max="20">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.MaxAutoLinks">حداکثر لینک داخلی خودکار در هر صفحه</label>
+            <input class="a-input" asp-for="Options.MaxAutoLinks" type="number" min="0" max="15">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.CrawlMaxPages">حداکثر صفحه در هر خزش</label>
+            <input class="a-input" asp-for="Options.CrawlMaxPages" type="number" min="50" max="20000">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.MaxLandingPages">حداکثر صفحهٔ قیمت</label>
+            <input class="a-input" asp-for="Options.MaxLandingPages" type="number" min="0" max="500">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.DefaultAuthor">نویسندهٔ پیش‌فرض مقاله‌ها (اسکیما)</label>
+            <input class="a-input" asp-for="Options.DefaultAuthor" maxlength="100" placeholder="خالی = نام فروشگاه">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.BlockedWords">واژه‌های ممنوع در متن خودکار (با ویرگول)</label>
+            <input class="a-input" asp-for="Options.BlockedWords" maxlength="2000" placeholder="مثال: ارزان‌ترین، اصل‌ترین">
+          </div>
+        </div>
+
+        @if (Model.CanManage)
+        {
+          <div><button type="submit" class="a-btn a-btn-success">@Icons.Svg("Check", null, 18) ذخیرهٔ تنظیمات</button></div>
+        }
+      </fieldset>
+    </form>
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Database", null, 18) فیدها و اعلام به موتورها</h3></div>
+  <div class="a-card-body a-stack text-sm">
+    <div>API محصولات ترب (نسخهٔ ۳، فقط با توکن امضاشدهٔ ترب): <span class="a-ltr a-mono">@Model.SiteRoot/torob_api/v3/products</span></div>
+    <div>فید XML محصولات (گوگل مرچنت و مقایسه‌گرها): <a class="a-link a-ltr" href="/feeds/products.xml" target="_blank" rel="noopener">@Model.SiteRoot/feeds/products.xml</a></div>
+    <div>نقشهٔ سایت (همراه تصویرها): <a class="a-link a-ltr" href="/sitemap.xml" target="_blank" rel="noopener">@Model.SiteRoot/sitemap.xml</a></div>
+    @if (!string.IsNullOrEmpty(Model.IndexNowKey))
+    {
+      <div>کلید IndexNow: <span class="a-ltr a-mono">@Model.IndexNowKey</span> (فایل تأیید خودکار در <span class="a-ltr a-mono">/indexnow/@(Model.IndexNowKey).txt</span>)</div>
+    }
+  </div>
+</div>

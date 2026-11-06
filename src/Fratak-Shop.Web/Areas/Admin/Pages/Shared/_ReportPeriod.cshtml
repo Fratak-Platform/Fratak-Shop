@@ -1,0 +1,18 @@
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.ReportPageModel
+@* انتخاب بازهٔ گزارش‌های تحلیلی (فاز ۷): دکمه‌های آماده یا از/تا تاریخ شمسی. *@
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <div class="a-pills mb-3">
+      @foreach (var (key, title) in AdminPeriods.Presets)
+      {
+        <a class="a-pill @(Model.Period.Preset == key ? "is-active" : "")" href="@Model.BasePath?period=@key">@title</a>
+      }
+    </div>
+    <form method="get" action="@Model.BasePath" class="a-filters">
+      <input type="hidden" name="period" value="@Model.Preset">
+      <div class="a-field"><label class="a-label" for="rp-from">از تاریخ</label><input id="rp-from" name="from" value="@(Model.Period.Preset == "custom" ? Model.Period.FromText : Model.From)" class="a-input a-ltr" placeholder="1405/01/01"></div>
+      <div class="a-field"><label class="a-label" for="rp-to">تا تاریخ</label><input id="rp-to" name="to" value="@(Model.Period.Preset == "custom" ? Model.Period.ToText : Model.To)" class="a-input a-ltr" placeholder="1405/12/29"></div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="@Model.BasePath">پیش‌فرض</a></div>
+    </form>
+  </div>
+</div>

@@ -1,66 +1,73 @@
-@page
+@page "/faq"
 @model FaqModel
 @{
-    ViewData["Title"] = "سوالات متداول";
     Layout = "_Layout";
 }
 
-
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
-    <div class="bg-white border rounded-xl shadow-lg p-4">
-      <div>
-        <div class="-mx-4 flex flex-wrap">
-          <div class="w-full px-4">
-            <div class="mx-auto mb-[60px] max-w-[520px] text-center lg:mb-20">
-              <h2
-                class="my-4 text-3xl font-bold sm:text-[40px]/[48px]">
-                جواب سوال هاتو اینجا پیدا کن
-              </h2>
-              <p>
-                اگه جواب سوال موردنظرتون رو پیدا نکردید به پشتیبانی پیام دهید.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div class="-mx-4 flex flex-wrap">
-          <div class="w-full px-4 lg:w-1/2">
-            @foreach (var item in Model.FaqLeft) {<button class="group mb-8 w-full rounded-lg bg-white p-4 shadow-[0px_20px_95px_0px_rgba(201,203,204,0.30)] sm:p-8 lg:px-6 xl:px-8">
-              <div class="flex items-center justify-between h-8 px-3 rounded-lg text-zinc-700">
-                <span class="truncate">
-                  @item.Question
-                </span>
-                <svg class="size-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                </svg>
-              </div>
-              <div class="max-h-0 overflow-hidden duration-300 group-focus:max-h-40 text-right text-sm">
-                <div class="py-5 px-4 text-zinc-700">
-                  با تسویه کردن سبد خرید، سفارش به صورت خودکار تایید میشه.ونیاز به کار خاصی از طرف شما یا ما نیست.
-                </div>
-              </div>
-            </button>
-            }
-          </div>
-          <div class="w-full px-4 lg:w-1/2">
-            @foreach (var item in Model.FaqRight) {<button class="group mb-8 w-full rounded-lg bg-white p-4 shadow-[0px_20px_95px_0px_rgba(201,203,204,0.30)] sm:p-8 lg:px-6 xl:px-8">
-              <div class="flex items-center justify-between h-8 px-3 rounded-lg text-zinc-700">
-                <span class="truncate">
-                  @item.QuestionStart سفارشم را @item.QuestionEnd
-                </span>
-                <svg class="size-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                </svg>
-              </div>
-              <div class="max-h-0 overflow-hidden duration-300 group-focus:max-h-40 text-right text-sm">
-                <div class="py-5 px-4 text-zinc-700">
-                  با تسویه کردن سبد خرید، سفارش به صورت خودکار تایید میشه.ونیاز به کار خاصی از طرف شما یا ما نیست.
-                </div>
-              </div>
-            </button>
-            }
-          </div>
-        </div>
+    <div class="bg-white border rounded-xl shadow-lg p-4 md:p-8">
+      <div class="mx-auto mb-10 max-w-[620px] text-center">
+        <h1 class="my-4 text-3xl font-bold sm:text-[40px]/[48px] text-zinc-800">سوالات متداول</h1>
+        <p class="text-zinc-600">
+          اگر جواب سوال خود را پیدا نکردید به <a asp-page="/ContactUs" class="text-sky-600">پشتیبانی</a> پیام دهید.
+        </p>
+        @if (Model.TotalCount > 3)
+        {
+          <label class="mt-6 flex items-center gap-x-2 rounded-xl bg-gray-100 px-4 py-3">
+            @Icons.Svg("Search", "fill-zinc-500", 20)
+            <span class="sr-only">جستجو در سوالات</span>
+            <input type="search" data-faq-search class="w-full bg-transparent outline-none text-zinc-700" placeholder="جستجو در سوالات..." autocomplete="off">
+          </label>
+        }
       </div>
+
+      @if (Model.Groups.Count == 0)
+      {
+        <p class="py-10 text-center text-zinc-500">هنوز سوالی ثبت نشده است.</p>
+      }
+      else
+      {
+        @if (Model.Groups.Count > 1)
+        {
+          <nav class="mb-8 flex flex-wrap justify-center gap-2" aria-label="دسته بندی سوالات">
+            @foreach (var group in Model.Groups)
+            {
+              <a href="#faq-@group.Slug" class="flex items-center gap-x-1 rounded-full border border-sky-200 px-4 py-2 text-sm text-sky-700 hover:bg-sky-50 transition">
+                @if (Icons.Has(group.IconKey)) { @Icons.Svg(group.IconKey!, "fill-sky-600", 18) }
+                @group.Title
+              </a>
+            }
+          </nav>
+        }
+
+        <div class="space-y-10">
+          @foreach (var group in Model.Groups)
+          {
+            <section id="faq-@group.Slug" data-faq-group class="scroll-mt-40">
+              <h2 class="mb-2 flex items-center gap-x-2 text-xl font-semibold text-zinc-800">
+                @if (Icons.Has(group.IconKey)) { @Icons.Svg(group.IconKey!, "fill-sky-600", 24) }
+                @group.Title
+              </h2>
+              @if (!string.IsNullOrWhiteSpace(group.Description))
+              {
+                <p class="mb-4 text-sm text-zinc-500">@group.Description</p>
+              }
+              <div class="grid gap-4 lg:grid-cols-2 items-start">
+                @foreach (var item in group.Items)
+                {
+                  <details data-faq-item class="group rounded-lg bg-white p-4 shadow-[0px_20px_95px_0px_rgba(201,203,204,0.30)] border border-zinc-100 sm:px-6">
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-x-3 text-zinc-700">
+                      <span class="text-right font-medium">@item.Question</span>
+                      @Icons.Svg("CaretDown", "shrink-0 transition-transform duration-300 group-open:rotate-180", 18)
+                    </summary>
+                    <div class="prose-content pt-4 text-sm leading-7 text-zinc-600">@Html.Raw(item.Answer)</div>
+                  </details>
+                }
+              </div>
+            </section>
+          }
+        </div>
+        <p data-faq-empty class="hidden py-10 text-center text-zinc-500">سوالی با این عبارت پیدا نشد.</p>
+      }
     </div>
   </main>

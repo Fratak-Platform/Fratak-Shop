@@ -1,0 +1,234 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.IndexModel
+@using Fratak_Shop.Core.Services.Products
+@{
+    ViewData["Title"] = "محصولات";
+    var request = HttpContext.Request;
+    var canManage = Model.Can(AdminPermissions.ProductsManage);
+    var canSupplier = Model.Can(AdminPermissions.ProductsSupplier);
+    var canEdit = canManage || Model.Can(AdminPermissions.SeoManage);
+}
+<div class="a-page-head">
+  <h2>محصولات <span class="a-muted text-sm font-normal">(@Format.Number(Model.Products.Total))</span></h2>
+  <div class="a-btn-group">
+    @if (canManage)
+    {
+      <a href="/admin/products/edit" class="a-btn">@Icons.Svg("Plus", null, 18) محصول جدید</a>
+      <a href="/admin/products/bulk-price" class="a-btn a-btn-light">@Icons.Svg("Calculator", null, 18) تغییر گروهی قیمت</a>
+      <a href="/admin/products/import" class="a-btn a-btn-light">@Icons.Svg("UploadSimple", null, 18) ورود از اکسل</a>
+      @if (Model.Can(AdminPermissions.ProductsSupplier))
+      {
+        <a href="/admin/products/site-import" class="a-btn a-btn-light">@Icons.Svg("Storefront", null, 18) درون‌ریزی از سایت</a>
+      }
+    }
+    <a href="/admin/products/inventory" class="a-btn a-btn-light">@Icons.Svg("Package", null, 18) انبار</a>
+    @if (Model.Can(AdminPermissions.ProductsSupplier))
+    {
+      <a href="/admin/products/supplier-sync" class="a-btn a-btn-light">@Icons.Svg("ArrowsClockwise", null, 18) بررسی تأمین‌کننده</a>
+    }
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+  </div>
+</div>
+
+<div class="a-pills mb-4">
+  <a class="a-pill @(Model.Stock is null && Model.State is null && Model.Missing is null ? "is-active" : "")" href="/admin/products">همه<b>@Format.Number(Model.Counts["all"])</b></a>
+  <a class="a-pill @(Model.Stock == "out" ? "is-active" : "")" href="@AdminUi.With(request, ("stock", "out"))">ناموجود<b>@Format.Number(Model.Counts["out"])</b></a>
+  <a class="a-pill @(Model.Stock == "low" ? "is-active" : "")" href="@AdminUi.With(request, ("stock", "low"))">رو به اتمام (≤ @Model.LowStockThreshold)<b>@Format.Number(Model.Counts["low"])</b></a>
+  <a class="a-pill @(Model.State == "inactive" ? "is-active" : "")" href="@AdminUi.With(request, ("state", "inactive"))">غیرفعال<b>@Format.Number(Model.Counts["inactive"])</b></a>
+  @if (canSupplier)
+  {
+    <a class="a-pill @(Model.Missing == "source" ? "is-active" : "")" href="@AdminUi.With(request, ("missing", "source"))">بدون لینک منبع<b>@Format.Number(Model.Counts["source"])</b></a>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="f-q">جست‌وجو</label><input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام، کد کالا، اسلاگ"></div>
+    <div class="a-field">
+      <label class="a-label" for="f-cat">دسته</label>
+      <select id="f-cat" name="category" class="a-select">
+        <option value="">همه</option>
+        @foreach (var c in Model.Categories) { <option value="@c.Id" selected="@(Model.Category == c.Id)">@c.Name</option> }
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-brand">برند</label>
+      <select id="f-brand" name="brand" class="a-select">
+        <option value="">همه</option>
+        @foreach (var b in Model.Brands) { <option value="@b.Id" selected="@(Model.Brand == b.Id)">@b.Name</option> }
+      </select>
+    </div>
+    @if (canSupplier)
+    {
+      <div class="a-field">
+        <label class="a-label" for="f-sup">تأمین‌کننده</label>
+        <select id="f-sup" name="supplier" class="a-select">
+          <option value="">همه</option>
+          @foreach (var s in Model.Suppliers) { <option value="@s.Id" selected="@(Model.Supplier == s.Id)">@s.Name</option> }
+        </select>
+      </div>
+    }
+    <div class="a-field">
+      <label class="a-label" for="f-state">وضعیت</label>
+      <select id="f-state" name="state" class="a-select">
+        <option value="">همه</option>
+        <option value="active" selected="@(Model.State == "active")">فعال</option>
+        <option value="inactive" selected="@(Model.State == "inactive")">غیرفعال</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-stock">موجودی</label>
+      <select id="f-stock" name="stock" class="a-select">
+        <option value="">همه</option>
+        <option value="in" selected="@(Model.Stock == "in")">موجود</option>
+        <option value="low" selected="@(Model.Stock == "low")">رو به اتمام</option>
+        <option value="out" selected="@(Model.Stock == "out")">ناموجود</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-missing">ناقص</label>
+      <select id="f-missing" name="missing" class="a-select">
+        <option value="">—</option>
+        <option value="image" selected="@(Model.Missing == "image")">بدون تصویر</option>
+        <option value="seo" selected="@(Model.Missing == "seo")">بدون توضیحات متا (سئو)</option>
+        @if (canSupplier)
+        {
+          <option value="source" selected="@(Model.Missing == "source")">بدون لینک منبع</option>
+          <option value="cost" selected="@(Model.Missing == "cost")">بدون قیمت خرید</option>
+        }
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-sort">مرتب‌سازی</label>
+      <select id="f-sort" name="sort" class="a-select">
+        <option value="newest" selected="@(Model.Sort == "newest")">جدیدترین</option>
+        <option value="oldest" selected="@(Model.Sort == "oldest")">قدیمی‌ترین</option>
+        <option value="name" selected="@(Model.Sort == "name")">نام</option>
+        <option value="price" selected="@(Model.Sort == "price")">گران‌ترین</option>
+        <option value="price-asc" selected="@(Model.Sort == "price-asc")">ارزان‌ترین</option>
+        <option value="stock" selected="@(Model.Sort == "stock")">کمترین موجودی</option>
+        <option value="sales" selected="@(Model.Sort == "sales")">پرفروش‌ترین</option>
+        <option value="views" selected="@(Model.Sort == "views")">پربازدیدترین</option>
+      </select>
+    </div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">@Icons.Svg("Funnel", null, 16) اعمال</button><a class="a-btn a-btn-light" href="/admin/products">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card" data-bulk>
+  @if (canManage)
+  {
+    <form method="post" asp-page-handler="Bulk" id="bulk-form" class="a-bulkbar" data-bulk-bar>
+      <span><b data-bulk-count>0</b> محصول</span>
+      <select name="action" id="bulk-action" class="a-select a-input-sm" style="width:auto">
+        <option value="activate">فعال‌سازی</option>
+        <option value="deactivate">غیرفعال‌سازی</option>
+        @if (Model.Can(AdminPermissions.ProductsDelete)) { <option value="delete">حذف</option> }
+      </select>
+      <button type="submit" class="a-btn a-btn-sm" data-confirm="عملیات روی محصولات انتخاب‌شده انجام شود؟">اعمال</button>
+      @* تغییر قیمت همیشه با پیش‌نمایش اثر انجام می‌شود (صفحهٔ «تغییر گروهی قیمت»). *@
+      <button type="submit" class="a-btn a-btn-sm a-btn-light" formaction="/admin/products/bulk-price?handler=Select" data-keep-enabled>@Icons.Svg("Calculator", null, 16) تغییر قیمت با پیش‌نمایش</button>
+    </form>
+  }
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead>
+        <tr>
+          @if (canManage) { <th class="sel"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th> }
+          <th>محصول</th><th>دسته / برند</th><th>قیمت</th><th>موجودی</th><th>فروش</th><th>وضعیت</th><th>کامل بودن</th>
+          @if (canSupplier) { <th>منبع</th> }
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var p in Model.Products.Items)
+        {
+          var stockCss = p.Stock <= 0 ? "a-badge-red" : p.Stock <= Model.LowStockThreshold ? "a-badge-yellow" : "a-badge-green";
+          <tr>
+            @if (canManage) { <td class="sel" data-label=""><input type="checkbox" name="ids" value="@p.Id" form="bulk-form" data-row-check aria-label="انتخاب @p.Name"></td> }
+            <td data-label="محصول">
+              <div class="flex items-center gap-3">
+                <img class="a-thumb" src="@ImageHelper.Sized(ImageHelper.Product(p.ImageName), 160)" alt="" loading="lazy">
+                <div class="min-w-0">
+                  @if (canEdit)
+                  {
+                    <a class="a-link font-semibold line-clamp-2" href="/admin/products/edit/@p.Id">@p.Name</a>
+                  }
+                  else
+                  {
+                    <span class="font-semibold line-clamp-2">@p.Name</span>
+                  }
+                  <div class="a-muted text-xs a-ltr text-right">@p.SKU</div>
+                </div>
+              </div>
+            </td>
+            <td data-label="دسته / برند">@p.CategoryName<div class="a-muted text-xs">@p.BrandName</div></td>
+            <td data-label="قیمت" class="num nowrap">
+              @if (p.DiscountPrice is { } dp && dp < p.Price)
+              {
+                <div class="font-semibold">@Format.Price(dp)</div><div class="a-muted text-xs line-through">@Format.Price(p.Price)</div>
+              }
+              else
+              {
+                <span class="font-semibold">@Format.Price(p.Price)</span>
+              }
+              @if (canSupplier && p.PurchasePrice is { } cost)
+              {
+                <div class="a-muted text-xs">خرید: @Format.Price(cost)</div>
+              }
+            </td>
+            <td data-label="موجودی">
+              @if (canManage)
+              {
+                <form method="post" asp-page-handler="Stock" class="flex items-center gap-1" data-keep-enabled>
+                  <input type="hidden" name="id" value="@p.Id">
+                  <input type="number" name="stock" value="@p.Stock" min="0" max="1000000" class="a-input a-input-sm a-ltr" style="width:5rem" aria-label="موجودی @p.Name">
+                  <button type="submit" class="a-icon-btn" aria-label="ذخیره موجودی">@Icons.Svg("Check", null, 16)</button>
+                </form>
+              }
+              else
+              {
+                <span class="a-badge @stockCss">@p.Stock</span>
+              }
+            </td>
+            <td data-label="فروش" class="num">@Format.Number(p.SalesCount)<div class="a-muted text-xs">@Format.Number(p.ViewCount) بازدید</div></td>
+            <td data-label="وضعیت">
+              <span class="a-badge @(p.IsActive ? "a-badge-green" : "a-badge-gray")">@(p.IsActive ? "فعال" : "غیرفعال")</span>
+              @if (p.Stock <= 0) { <span class="a-badge a-badge-red">ناموجود</span> }
+            </td>
+            <td data-label="کامل بودن">
+              @if (p.Completeness is { } c)
+              {
+                var missing = string.Join("، ", c.Items.Where(x => !x.Done).Take(3).Select(x => x.Title));
+                <a href="/admin/products/edit/@p.Id#completeness" class="a-badge @ProductCompleteness.LevelCss(c.Level)" title="@(missing.Length > 0 ? "مانده: " + missing : "کامل است")">@Format.Number(c.Score)٪</a>
+              }
+            </td>
+            @if (canSupplier)
+            {
+              <td data-label="منبع">
+                @if (!string.IsNullOrEmpty(p.SupplierUrl))
+                {
+                  <a class="a-link text-xs" href="@p.SupplierUrl" target="_blank" rel="noopener noreferrer">@Icons.Svg("ArrowSquareOut", null, 14) @(p.SupplierName ?? "لینک")</a>
+                }
+                else
+                {
+                  <span class="a-badge a-badge-red">ندارد</span>
+                }
+              </td>
+            }
+            <td class="actions" data-label="">
+              <a class="a-icon-btn" href="/product/@p.Slug" target="_blank" rel="noopener" aria-label="مشاهده در فروشگاه">@Icons.Svg("Eye", null, 18)</a>
+              @if (canEdit) { <a class="a-icon-btn" href="/admin/products/edit/@p.Id" aria-label="ویرایش">@Icons.Svg("PencilSimple", null, 18)</a> }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Products.Items.Count == 0)
+    {
+      <div class="a-empty">محصولی یافت نشد.</div>
+    }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Products.Page, Model.Products.PageCount, Model.Products.Total)" />
+</div>

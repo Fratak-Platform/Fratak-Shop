@@ -1,0 +1,75 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.SecurityModel
+@using Fratak_Shop.Data.Entities.Admin
+@{
+    ViewData["Title"] = "رویدادهای امنیتی";
+    var request = HttpContext.Request;
+    int Stat(SecurityEventType t) => Model.Stats.GetValueOrDefault(t);
+}
+<div class="a-page-head">
+  <div>
+    <h2>رویدادهای امنیتی</h2>
+    <p class="a-muted text-sm mt-1">ورودهای موفق و ناموفق، قفل شدن حساب‌ها، تلاش برای دسترسی غیرمجاز به پنل و تغییر دسترسی‌ها در @Model.Days روز اخیر.</p>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <a class="a-stat" href="@AdminUi.With(request, ("type", SecurityEventType.LoginSucceeded.ToString()), ("page", null))"><div class="a-stat-label">ورود موفق</div><div class="a-stat-value">@Format.Number(Stat(SecurityEventType.LoginSucceeded))</div></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("type", SecurityEventType.LoginFailed.ToString()), ("page", null))"><div class="a-stat-label">ورود ناموفق</div><div class="a-stat-value">@Format.Number(Stat(SecurityEventType.LoginFailed) + Stat(SecurityEventType.OtpFailed))</div></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("type", SecurityEventType.LockedOut.ToString()), ("page", null))"><div class="a-stat-label">قفل شدن حساب</div><div class="a-stat-value">@Format.Number(Stat(SecurityEventType.LockedOut))</div></a>
+  <a class="a-stat" href="@AdminUi.With(request, ("type", SecurityEventType.AdminAccessDenied.ToString()), ("page", null))"><div class="a-stat-label">دسترسی غیرمجاز به پنل</div><div class="a-stat-value @(Stat(SecurityEventType.AdminAccessDenied) > 0 ? "text-red-600" : "")">@Format.Number(Stat(SecurityEventType.AdminAccessDenied))</div></a>
+</div>
+
+@if (Model.SuspiciousIps.Count > 0)
+{
+  <div class="a-alert a-alert-warn mb-4">
+    @Icons.Svg("Warning", "shrink-0", 20)
+    <div>
+      <b>آی‌پی‌های مشکوک (۵ ورود ناموفق یا بیشتر در ۲۴ ساعت):</b>
+      @foreach (var (ip, count) in Model.SuspiciousIps) { <a class="a-badge a-badge-red a-ltr" href="@AdminUi.With(request, ("q", ip), ("type", null), ("page", null))">@ip × @count</a> }
+      <div class="text-xs mt-1">محدودیت نرخ درخواست به‌صورت خودکار جلوی حملات حدس رمز را می‌گیرد؛ در صورت ادامه، آی‌پی را در <a class="a-link" href="/admin/system/firewall">فایروال سایت</a> مسدود کنید (یا مسدودسازی خودکار را روشن کنید).</div>
+    </div>
+  </div>
+}
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    @if (Model.UserId is not null) { <input type="hidden" name="user" value="@Model.UserId"> }
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="s-q">جست‌وجو</label><input id="s-q" name="q" value="@Model.Search" class="a-input" placeholder="موبایل، IP یا جزئیات"></div>
+    <div class="a-field"><label class="a-label" for="s-type">نوع رویداد</label>
+      <select id="s-type" name="type" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var t in Enum.GetValues<SecurityEventType>().Where(t => t != SecurityEventType.None)) { <option value="@t" selected="@(Model.Type == t)">@AdminUi.SecurityEvent(t)</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="s-days">بازه</label>
+      <select id="s-days" name="days" class="a-select" data-autosubmit>
+        @foreach (var (d, label) in new[] { (1, "۲۴ ساعت"), (7, "۷ روز"), (30, "۳۰ روز"), (90, "۹۰ روز"), (365, "یک سال") }) { <option value="@d" selected="@(Model.Days == d)">@label</option> }
+      </select></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/system/security">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>زمان</th><th>رویداد</th><th>کاربر</th><th>IP</th><th>دستگاه</th><th>جزئیات</th></tr></thead>
+      <tbody>
+        @foreach (var e in Model.Events.Items)
+        {
+          <tr>
+            <td data-label="زمان" class="nowrap text-xs">@Format.DateTime(e.CreatedAt)</td>
+            <td data-label="رویداد"><span class="a-badge @AdminUi.SecurityEventBadge(e.Type)">@AdminUi.SecurityEvent(e.Type)</span></td>
+            <td data-label="کاربر">
+              @if (e.UserId is not null && Model.Can(AdminPermissions.CustomersView)) { <a class="a-link a-ltr" href="/admin/customers/@e.UserId">@(e.Identifier ?? "مشاهده")</a> } else { <span class="a-ltr">@e.Identifier</span> }
+            </td>
+            <td data-label="IP" class="a-ltr text-xs"><a class="a-link" href="@AdminUi.With(request, ("q", e.IpAddress), ("page", null))">@e.IpAddress</a></td>
+            <td data-label="دستگاه" class="text-xs">@Display.Device(e.UserAgent)</td>
+            <td data-label="جزئیات" class="text-xs">@e.Details</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Events.Items.Count == 0) { <div class="a-empty">رویدادی ثبت نشده است.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Events.Page, Model.Events.PageCount, Model.Events.Total)" />
+</div>

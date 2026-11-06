@@ -1,0 +1,203 @@
+@page "/admin/products/site-import"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.SiteImportModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@*
+  درون‌ریزی گروهی محصولات از یک سایت دیگر (دور ۱۰): نشانی سایت ← خواندن همهٔ محصولات ← پیش‌نمایش و انتخاب ← ساخت پیش‌نویس‌های غیرفعال.
+  تصاویر روی سرور خودمان ذخیره می‌شوند؛ در پیش‌نمایش هم تصویر سایت مبدأ نمایش داده نمی‌شود (فقط تعداد).
+  منطق: SiteImport.cshtml.cs و Core/Services/Importing/SiteCatalogImport.cs.
+*@
+@{
+    ViewData["Title"] = "درون‌ریزی محصولات از سایت";
+    var c = Model.Catalog;
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/products" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>درون‌ریزی محصولات از سایت</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">نشانی یک فروشگاه اینترنتی را بدهید تا همهٔ محصولاتش با عنوان، توضیح، مشخصات و تصاویر خوانده شود. محصولات به‌صورت پیش‌نویس غیرفعال ساخته می‌شوند.</p>
+  </div>
+  <div class="a-btn-group">
+    <a href="/admin/products/edit" class="a-btn a-btn-light">@Icons.Svg("Plus", null, 18) محصول تکی</a>
+    @* دور ۱۹ (B20): بعد از درون‌ریزی، عکس/مشخصات/خلاصهٔ کالاهای ناقص با یک کلیک (در پس‌زمینه) تکمیل می‌شود. *@
+    <form method="post" asp-area="Admin" asp-page="/SmartContent/Index" asp-page-handler="CompleteAll" class="inline">
+      <button type="submit" class="a-btn">@Icons.Svg("MagicWand", null, 18) تکمیل هوشمند کالاهای ناقص</button>
+    </form>
+  </div>
+</div>
+
+@if (!Model.CanSupplier)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", null, 18) برای درون‌ریزی به دسترسی «اطلاعات تأمین‌کننده و قیمت خرید» هم نیاز دارید.</div>
+}
+
+<div class="grid gap-4 lg:grid-cols-3 mb-4">
+  <div class="a-card lg:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Storefront", null, 18) ۱. خواندن سایت</span></div>
+    <form method="post" asp-page-handler="Discover" class="a-card-body space-y-3">
+      <div class="a-form-grid cols-3">
+        <div class="span-2">
+          <label class="a-label" for="site-url">نشانی سایت یا صفحهٔ محصول</label>
+          <input id="site-url" name="SiteUrl" value="@Model.SiteUrl" class="a-input a-ltr" dir="ltr" placeholder="https://shop.example.com" required maxlength="500" autocomplete="off">
+        </div>
+        <div>
+          <label class="a-label" for="site-max">حداکثر تعداد محصول</label>
+          <select id="site-max" name="max" class="a-select">
+            <option value="50">۵۰</option>
+            <option value="200" selected>۲۰۰</option>
+            <option value="500">۵۰۰</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="a-btn" data-busy-text="در حال خواندن سایت…">@Icons.Svg("ArrowsClockwise", null, 18) خواندن محصولات</button>
+      <p class="a-help">بسته به اندازهٔ سایت ممکن است تا یک دقیقه طول بکشد. چیزی ذخیره نمی‌شود تا در مرحلهٔ بعد تأیید کنید.</p>
+    </form>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Info", null, 18) چطور کار می‌کند</span></div>
+    <ul class="a-card-body text-sm space-y-1 list-disc ps-8">
+      <li><b>ووکامرس</b> (بیشتر فروشگاه‌های وردپرسی ایران) و <b>شاپیفای</b> مستقیم از API عمومی‌شان خوانده می‌شوند.</li>
+      <li>سایت‌های دیگر: از نقشهٔ سایت (sitemap) و دادهٔ ساختاریافتهٔ محصول که برای گوگل گذاشته‌اند (تا @Format.Number(Fratak_Shop.Core.Services.Importing.SiteCatalogService.MaxHtmlPages) صفحه در هر بار).</li>
+      <li>تصاویر <b>دانلود و روی سرور خودمان</b> ذخیره می‌شوند؛ هیچ لینکی به تصویر سایت مبدأ نمی‌ماند. تصویرِ داخل متن توضیح حذف می‌شود.</li>
+      <li>نشانی صفحهٔ مبدأ «لینک منبع خرید» می‌شود تا بررسی خودکار قیمت و موجودی تأمین‌کننده هم کار کند.</li>
+      <li>متن کپی‌شده برای گوگل «محتوای تکراری» است؛ پیش از فعال کردن، توضیح را با ابزار سئوی محصول بازنویسی کنید.</li>
+    </ul>
+  </div>
+</div>
+
+@if (Model.Report.Count > 0)
+{
+  <div class="a-alert a-alert-warn mb-4">
+    <ul class="list-disc ps-5 space-y-1">@foreach (var line in Model.Report) { <li>@line</li> }</ul>
+  </div>
+}
+
+@if (c is not null && c.Products.Count > 0 && Model.Token is not null)
+{
+  var remaining = Enumerable.Range(0, c.Products.Count).Count(i => !Model.Imported.Contains(i) && !Model.Existing.Contains(i));
+  <form method="post" asp-page-handler="Import" class="a-card" data-bulk data-confirm="محصولات انتخاب‌شده به‌صورت پیش‌نویس غیرفعال ساخته شوند؟">
+    <input type="hidden" name="token" value="@Model.Token">
+    <input type="hidden" name="SiteUrl" value="@Model.SiteUrl">
+    <div class="a-card-head flex-wrap gap-2">
+      <span class="a-card-title">@Icons.Svg("Eye", null, 18) ۲. پیش‌نمایش: <span class="a-ltr">@c.BaseUrl</span></span>
+      <div class="a-chips">
+        <span class="a-badge a-badge-blue">@c.Platform</span>
+        <span class="a-badge a-badge-gray">@Format.Number(c.Products.Count) محصول@(c.Truncated ? "+" : "")</span>
+        @if (Model.Existing.Count > 0) { <span class="a-badge a-badge-yellow">@Format.Number(Model.Existing.Count) قبلاً در فروشگاه هست</span> }
+        @if (Model.Imported.Count > 0) { <span class="a-badge a-badge-green">@Format.Number(Model.Imported.Count) ساخته شد</span> }
+      </div>
+    </div>
+
+    @if (c.Problems.Count > 0)
+    {
+      <div class="px-4 pt-3 space-y-1">@foreach (var problem in c.Problems) { <p class="a-help">@Icons.Svg("Info", null, 14) @problem</p> }</div>
+    }
+
+    <div class="a-card-body a-form-grid cols-3 border-b">
+      <div>
+        <label class="a-label" for="imp-category">دسته</label>
+        <select id="imp-category" name="categoryId" class="a-select">
+          <option value="">خودکار (دسته‌بندی هوشمند)</option>
+          @foreach (var cat in Model.Categories) { <option value="@cat.Id">@cat.Name</option> }
+        </select>
+        <p class="a-help">لازم نیست انتخاب کنید: سیستم از روی نام کالا دستهٔ درست را پیدا می‌کند و برای کالاهای مهم یا هر ۳ کالای مشابه، دستهٔ تازه (با نام، نامک انگلیسی، توضیح و تصویر) می‌سازد. نام دستهٔ مبدأ و برند هم تطبیق داده می‌شود.</p>
+      </div>
+      <div>
+        <label class="a-label" for="imp-supplier">تأمین‌کننده</label>
+        <select id="imp-supplier" name="supplierId" class="a-select">
+          <option value="">بدون تأمین‌کننده</option>
+          @foreach (var s in Model.Suppliers) { <option value="@s.Id">@s.Name</option> }
+        </select>
+      </div>
+      <div>
+        <label class="a-label" for="imp-price">قیمت سایت مبدأ</label>
+        <select id="imp-price" name="priceMode" class="a-select">
+          <option value="3" selected>قیمت خرید است؛ قیمت فروش بر اساس قیمت بازار (پیشنهادی)</option>
+          <option value="1">قیمت خرید است (قیمت فروش با سود هدف تنظیمات)</option>
+          <option value="2">همان قیمت فروش است</option>
+        </select>
+        <p class="a-help mt-1">«بر اساس قیمت بازار»: محصول با قیمت سود هدف ساخته می‌شود و در پس‌زمینه قیمت همان کالا در ترب، دیجی‌کالا و باسلام بررسی و قیمت فروش مثل دکمهٔ «پیشنهاد قیمت فروش» تنظیم می‌شود (کمی ارزان‌تر از ارزان‌ترین رقیب، ولی هرگز کمتر از کمترین سود تنظیمات).</p>
+      </div>
+      <label class="a-check span-all"><input type="checkbox" name="withImages" value="true" checked><input type="hidden" name="withImages" value="false"> دانلود و ذخیرهٔ تصاویر روی سرور (حداکثر @Format.Number(SiteImportModel.MaxImagesPerProduct) تصویر برای هر محصول)</label>
+    </div>
+
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead>
+          <tr>
+            <th class="w-8"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th>
+            <th>محصول</th><th>قیمت مبدأ</th><th>مشخصات</th><th>تصویر</th><th>وضعیت</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (var i = 0; i < c.Products.Count; i++)
+          {
+            var p = c.Products[i];
+            var done = Model.Imported.Contains(i);
+            var exists = Model.Existing.Contains(i);
+            <tr class="@(done || exists ? "opacity-60" : "")">
+              <td><input type="checkbox" name="selected" value="@i" data-row-check aria-label="انتخاب @p.Name" disabled="@(done || exists)"></td>
+              <td data-label="محصول">
+                <div class="font-medium">@p.Name</div>
+                <div class="a-muted text-xs">@(p.Brand is null ? "" : p.Brand + " · ")@p.Category @(p.Sku is null ? "" : " · کد " + p.Sku)</div>
+                <a class="a-link text-xs a-ltr" href="@p.SourceUrl" target="_blank" rel="noopener noreferrer nofollow">صفحهٔ مبدأ</a>
+              </td>
+              <td data-label="قیمت مبدأ" class="num">@(p.Price is { } price ? Format.Price(price) : "—")</td>
+              <td data-label="مشخصات" class="num">@Format.Number(p.Attributes.Count)</td>
+              <td data-label="تصویر" class="num">@Format.Number(p.Images.Count)</td>
+              <td data-label="وضعیت">
+                @if (done) { <span class="a-badge a-badge-green">ساخته شد</span> }
+                else if (exists) { <span class="a-badge a-badge-yellow">قبلاً هست</span> }
+                else if (!p.InStock) { <span class="a-badge a-badge-gray">ناموجود در مبدأ</span> }
+                else { <span class="a-badge a-badge-sky">آماده</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 p-4 border-t">
+      <button type="submit" class="a-btn a-btn-success" disabled="@(remaining == 0 || !Model.CanSupplier)" data-busy-text="در حال ساخت محصولات و دانلود تصاویر…">@Icons.Svg("Check", null, 18) ساخت محصولات انتخاب‌شده</button>
+      <span class="a-help">هر بار حداکثر @Format.Number(SiteImportModel.MaxPerRun) محصول ساخته می‌شود؛ بقیه را با زدن دوبارهٔ دکمه بسازید. پیش‌نمایش تا ۶۰ دقیقه معتبر است. @Format.Number(remaining) محصول باقی مانده.</span>
+    </div>
+  </form>
+}
+
+@if (Model.Market is { } market && (market.Recent.Count > 0 || market.Pending > 0))
+{
+  @* مرحلهٔ سیزدهم: نتیجهٔ صف قیمت‌گذاری بازار (MarketPricingService / MarketPricingWorker). *@
+  <div class="a-card mt-4">
+    <div class="a-card-head">
+      <span class="a-card-title">@Icons.Svg("ChartLine", null, 18) قیمت‌گذاری بازار</span>
+      <span class="a-muted text-xs">در صف @Format.Number(market.Pending) · اعمال‌شده @Format.Number(market.Applied) · بدون قیمت بازار @Format.Number(market.Kept) · ردشده @Format.Number(market.Skipped)</span>
+    </div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead>
+          <tr><th>محصول</th><th>وضعیت</th><th>قیمت اولیه</th><th>ارزان‌ترین رقیب</th><th>قیمت پیشنهادی</th><th>توضیح</th></tr>
+        </thead>
+        <tbody>
+          @foreach (var row in market.Recent)
+          {
+            <tr>
+              <td data-label="محصول"><a class="a-link" href="/admin/products/edit/@row.ProductId">@row.ProductName</a></td>
+              <td data-label="وضعیت">
+                @if (row.Status == Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Applied) { <span class="a-badge a-badge-green">اعمال شد</span> }
+                else if (row.Status == Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Kept) { <span class="a-badge a-badge-gray">قیمت بازار نبود</span> }
+                else if (row.Status == Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Skipped) { <span class="a-badge a-badge-yellow">دست نخورد</span> }
+                else { <span class="a-badge a-badge-sky">در صف@(row.Attempts > 0 ? $" (تلاش {row.Attempts})" : "")</span> }
+              </td>
+              <td data-label="قیمت اولیه" class="num">@Format.Price(row.InitialPrice)</td>
+              <td data-label="ارزان‌ترین رقیب" class="num">@(row.LowestPrice is { } low ? Format.Price(low) : "—")@(row.OfferCount > 0 ? $" ({row.OfferCount} قیمت)" : "")</td>
+              <td data-label="قیمت پیشنهادی" class="num">@(row.SuggestedPrice is { } sug && row.Status != Fratak_Shop.Data.Entities.Products.MarketPriceCheckStatus.Pending ? Format.Price(sug) : "—")</td>
+              <td data-label="توضیح" class="text-xs a-muted">@row.Note</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

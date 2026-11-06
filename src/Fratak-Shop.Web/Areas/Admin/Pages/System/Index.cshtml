@@ -1,0 +1,200 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.IndexModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@{
+    ViewData["Title"] = "سلامت سامانه";
+    string Dot(HealthLevel level) => level switch { HealthLevel.Healthy => "dot-ok", HealthLevel.Warning => "dot-warn", _ => "dot-bad" };
+    var rt = Model.Runtime;
+    var requestPoints = Model.Minutes.Select(m => new Fratak_Shop.Core.DTOs.Admin.ChartPoint(Fratak_Shop.Core.Utilities.IranClock.ToLocal(m.Minute).ToString("HH:mm"), m.Requests, m.ServerErrors)).ToList();
+    var requestChart = new BarChartModel("درخواست در دقیقه", requestPoints, false, "خطای ۵xx");
+    var lastMinutes = Model.Minutes.TakeLast(5).ToList();
+    var avgMs = lastMinutes.Count == 0 || lastMinutes.Sum(m => m.Requests) == 0 ? 0 : lastMinutes.Sum(m => m.AverageMs * m.Requests) / lastMinutes.Sum(m => m.Requests);
+}
+<div class="a-page-head">
+  <div>
+    <h2>سلامت سامانه</h2>
+    <p class="a-muted text-sm mt-1">
+      @switch (Model.Overall)
+      {
+        case HealthLevel.Healthy: <span class="a-badge a-badge-green">همه چیز سالم است</span> break;
+        case HealthLevel.Warning: <span class="a-badge a-badge-yellow">نیاز به توجه</span> break;
+        default: <span class="a-badge a-badge-red">مشکل جدی</span> break;
+      }
+      · نسخه @rt.Version · محیط @rt.Environment · آخرین راه‌اندازی @AdminUi.Ago(rt.StartedAt)
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/healthz" target="_blank" rel="noopener">@Icons.Svg("Pulse", null, 18) /healthz</a>
+    @if (Model.Can(AdminPermissions.SystemManage))
+    {
+      <form method="post" asp-page-handler="ClearCache" data-confirm="کش صفحات و حافظه پاک شود؟ چند ثانیه سایت کمی کندتر می‌شود."><button class="a-btn a-btn-soft" type="submit">@Icons.Svg("ArrowsClockwise", null, 18) پاک‌سازی کش</button></form>
+    }
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <a class="a-stat" href="/admin/system/live"><div class="a-stat-label"><span class="a-live-dot"></span> آنلاین (۵ دقیقه اخیر)</div><div class="a-stat-value">@Format.Number(Model.Online)</div></a>
+  <a class="a-stat" href="/admin/system/errors"><div class="a-stat-label">خطا در ۲۴ ساعت</div><div class="a-stat-value @(Model.Errors.Last24Hours > 0 ? "text-red-600" : "")">@Format.Number(Model.Errors.Last24Hours)</div><div class="a-stat-sub">@Format.Number(Model.Errors.DistinctLast24Hours) نوع · @Format.Number(Model.Errors.Unresolved) حل‌نشده</div></a>
+  <div class="a-stat"><div class="a-stat-label">میانگین پاسخ (۵ دقیقه)</div><div class="a-stat-value">@avgMs.ToString("0") <small class="text-sm">ms</small></div><div class="a-stat-sub">@Format.Number(Model.TotalRequests) درخواست از زمان راه‌اندازی</div></div>
+  <div class="a-stat"><div class="a-stat-label">حافظه</div><div class="a-stat-value">@rt.WorkingSetMb.ToString("0") <small class="text-sm">MB</small></div><div class="a-stat-sub">Heap @rt.ManagedHeapMb.ToString("0") MB · GC2: @rt.Gen2</div></div>
+</div>
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) بررسی‌های سلامت</span></div>
+    <div class="a-card-body grid gap-2">
+      @foreach (var c in Model.Checks)
+      {
+        <div class="a-health">
+          <span class="a-dot @Dot(c.Level)"></span>
+          <div class="min-w-0">
+            <div class="font-semibold text-sm">@c.Name</div>
+            <div class="text-sm text-gray-600">@c.Summary</div>
+            @if (c.Hint is not null && c.Level != HealthLevel.Healthy) { <div class="a-help mt-1">راهنما: @c.Hint</div> }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartLine", null, 18) درخواست‌ها در ۶۰ دقیقه اخیر</span><span class="a-muted text-xs">ستون‌ها: تعداد · راهنما: خطای سرور</span></div>
+    <div class="a-card-body"><partial name="_BarChart" model="requestChart" /></div>
+  </div>
+</div>
+
+<div class="a-grid lg:grid-cols-3 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Monitor", null, 18) سرور و اجرا</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>فریم‌ورک</dt><dd class="a-ltr">@rt.Framework</dd>
+        <dt>سیستم‌عامل</dt><dd class="a-ltr">@rt.OS</dd>
+        <dt>ماشین</dt><dd class="a-ltr">@rt.Machine (@rt.Processors CPU)</dd>
+        <dt>مدت فعالیت</dt><dd>@AdminUi.Duration(rt.Uptime)</dd>
+        <dt>زمان پردازنده</dt><dd class="a-ltr">@rt.CpuSeconds s</dd>
+        <dt>Threads</dt><dd class="a-ltr">@rt.Threads (pool free @rt.ThreadPoolAvailable, queued @rt.PendingWorkItems)</dd>
+        <dt>GC</dt><dd class="a-ltr">@rt.GcMode · @rt.Gen0/@rt.Gen1/@rt.Gen2</dd>
+        <dt>لاگ خطا</dt><dd>@Format.Number(Model.ErrorsCaptured) ثبت@(Model.ErrorsDropped > 0 ? $" · {Model.ErrorsDropped} ازدست‌رفته" : "")</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Database", null, 18) پایگاه داده</span></div>
+    <div class="a-card-body">
+      @if (Model.Database.Error is not null) { <div class="a-alert a-alert-danger mb-3">@Model.Database.Error</div> }
+      <dl class="a-kv text-sm">
+        <dt>نام</dt><dd class="a-ltr">@Model.Database.DatabaseName</dd>
+        <dt>نسخه</dt><dd class="a-ltr text-xs">@Model.Database.ServerVersion</dd>
+        <dt>تأخیر</dt><dd class="a-ltr">@Model.Database.PingMilliseconds.ToString("0.0") ms</dd>
+        <dt>حجم داده / لاگ</dt><dd class="a-ltr">@Model.Database.DataSizeMb MB / @Model.Database.LogSizeMb MB</dd>
+        <dt>مایگریشن‌ها</dt><dd>@Model.Database.AppliedMigrations اعمال‌شده @if (Model.Database.PendingMigrations.Count > 0) { <span class="a-badge a-badge-red">@Model.Database.PendingMigrations.Count در انتظار</span> }</dd>
+        <dt>آخرین مایگریشن</dt><dd class="a-ltr text-xs">@Model.Database.LastMigration</dd>
+      </dl>
+      @if (Model.Database.LargestTables.Count > 0)
+      {
+        <div class="a-section-title mt-4 mb-2 text-sm font-semibold">بزرگ‌ترین جدول‌ها</div>
+        <ul class="text-xs space-y-1">
+          @foreach (var (table, rows) in Model.Database.LargestTables) { <li class="flex justify-between gap-2"><span class="a-ltr">@table</span><span class="num">@Format.Number(rows)</span></li> }
+        </ul>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) کارهای زمان‌بندی‌شده</span><a class="a-link text-xs" href="/admin/system/jobs">مدیریت کارها</a></div>
+    <ul class="divide-y divide-gray-100 text-sm">
+      @foreach (var j in Model.Jobs)
+      {
+        var late = j.LastSucceededAt is { } ok && DateTimeOffset.UtcNow - ok > j.ExpectedInterval * 3;
+        <li class="px-4 py-2.5">
+          <div class="flex items-center gap-2">
+            <span class="a-dot @(JobMonitor.IsPaused(j.Name) ? "dot-warn" : j.IsFailing ? "dot-bad" : late || j.LastStartedAt is null ? "dot-warn" : "dot-ok")"></span>
+            <b class="flex-1">@j.Name</b>
+            <span class="a-muted text-xs">@(j.LastSucceededAt is { } s ? AdminUi.Ago(s) : "هنوز اجرا نشده")</span>
+          </div>
+          <div class="a-muted text-xs mt-1">اجرا: @j.Runs · خطا: @j.Failures @(j.LastDurationMs is { } d ? $"· {d:0} ms" : "") @(j.LastCount is { } n ? $"· نتیجه: {n}" : "")</div>
+          @if (j.IsFailing) { <div class="text-xs text-red-600 mt-1 a-ltr text-right">@j.LastError</div> }
+        </li>
+      }
+      @if (Model.Jobs.Count == 0) { <li class="a-empty">کاری ثبت نشده است.</li> }
+    </ul>
+  </div>
+</div>
+
+@{
+    var pageHitRate = IndexModel.HitRate(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Hits, Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Misses);
+    var memoryHitRate = Model.MemoryStats is { } ms ? IndexModel.HitRate(ms.TotalHits, ms.TotalMisses) : null;
+}
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Lightning", null, 18) کش</span><span class="a-muted text-xs">از زمان آخرین راه‌اندازی</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>کش صفحات عمومی</dt><dd>@(pageHitRate is { } ph ? ph.ToString("0") + "٪ برخورد" : "هنوز درخواستی نیامده") · @Format.Number(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Hits) از کش / @Format.Number(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Misses) ساخته‌شده</dd>
+        <dt>خالی شدن کش صفحات</dt><dd>@Format.Number(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Evictions) بار @(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.LastEvictedAt is { } ev ? " · آخرین: " + AdminUi.Ago(ev) : "")</dd>
+        <dt>کش حافظه</dt><dd>@if (Model.MemoryStats is { } stats) { <span>@Format.Number(stats.CurrentEntryCount) مورد · @(memoryHitRate is { } mh ? mh.ToString("0") + "٪ برخورد" : "-")</span> } else { <span>آمار در دسترس نیست</span> }</dd>
+      </dl>
+      <p class="a-help mt-2">درصد برخورد بالا یعنی صفحه‌ها سریع و بدون فشار به پایگاه داده نمایش داده می‌شوند. با هر تغییر محصول، مطلب یا تنظیمات، کش صفحات خودکار خالی می‌شود.</p>
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Wrench", null, 18) ابزارهای فنی</span></div>
+    <div class="a-card-body grid sm:grid-cols-2 gap-2">
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/backups">@Icons.Svg("Database", null, 18) پشتیبان‌گیری</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/jobs">@Icons.Svg("ClockCounterClockwise", null, 18) کارهای پس‌زمینه</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/firewall">@Icons.Svg("Prohibit", null, 18) فایروال</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/alerts">@Icons.Svg("BellRinging", null, 18) هشدارها</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/sms">@Icons.Svg("ChatDots", null, 18) سرویس پیامک</a>
+      <a class="a-btn a-btn-light justify-start" href="/admin/system/logs">@Icons.Svg("Article", null, 18) گزارش‌های سرور</a>
+      @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light justify-start" href="/admin/settings?tab=ops">@Icons.Svg("Wrench", null, 18) حالت تعمیرات</a> }
+    </div>
+  </div>
+</div>
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Clock", null, 18) کندترین درخواست‌های اخیر</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>زمان</th><th>مسیر</th><th>کد</th><th>ms</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Slow)
+          {
+            <tr><td class="nowrap text-xs">@AdminUi.Ago(r.At)</td><td class="a-ltr text-xs">@r.Method @r.Path</td><td class="num">@r.StatusCode</td><td class="num">@r.Milliseconds.ToString("0")</td></tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Slow.Count == 0) { <div class="a-empty">درخواست کندی ثبت نشده است.</div> }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Warning", null, 18) درخواست‌های ناموفق اخیر (۴xx/۵xx)</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>زمان</th><th>مسیر</th><th>کد</th><th>Trace</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Failed)
+          {
+            <tr><td class="nowrap text-xs">@AdminUi.Ago(r.At)</td><td class="a-ltr text-xs">@r.Method @r.Path</td><td class="num"><span class="a-badge @(r.StatusCode >= 500 ? "a-badge-red" : "a-badge-yellow")">@r.StatusCode</span></td><td class="a-ltr text-xs">@if (r.TraceId is not null && r.StatusCode >= 500) { <a class="a-link" href="/admin/system/errors?q=@r.TraceId">@r.TraceId[..Math.Min(8, r.TraceId.Length)]</a> }</td></tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Failed.Count == 0) { <div class="a-empty">درخواست ناموفقی ثبت نشده است.</div> }
+    </div>
+  </div>
+</div>
+
+@if (Model.Can(AdminPermissions.SystemManage))
+{
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Trash", null, 18) نگهداری لاگ‌ها</span></div>
+    <form method="post" asp-page-handler="Purge" class="a-card-body a-filters" data-confirm="لاگ‌های قدیمی‌تر از بازه انتخابی برای همیشه حذف شوند؟" data-confirm-danger>
+      <div class="a-field"><label class="a-label" for="p-err">خطاهای قدیمی‌تر از (روز)</label><input id="p-err" type="number" name="errorDays" value="30" min="1" class="a-input a-ltr"></div>
+      <div class="a-field"><label class="a-label" for="p-aud">فعالیت و امنیت قدیمی‌تر از (روز)</label><input id="p-aud" type="number" name="auditDays" value="180" min="30" class="a-input a-ltr"></div>
+      <div class="a-filters-actions"><button class="a-btn a-btn-danger-soft" type="submit">حذف لاگ‌های قدیمی</button></div>
+    </form>
+    <div class="a-card-body pt-0"><p class="a-help">این کار به‌صورت خودکار هم روزانه بر اساس تنظیمات انجام می‌شود.</p></div>
+  </div>
+}

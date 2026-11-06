@@ -1,0 +1,83 @@
+@page "/admin/smart/brief"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.BriefModel
+@* خلاصهٔ روزانهٔ فروش: کارت‌های عددی، کارهای پیشنهادی و جدول‌های سفارش دوباره/راکد/زیر قیمت/جست‌وجوی بی‌نتیجه. *@
+@{
+    ViewData["Title"] = "خلاصهٔ روزانه";
+    var b = Model.Brief;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>خلاصهٔ روزانه</h2>
+    <p class="a-muted text-sm mt-1">آنچه امروز ارزش رسیدگی دارد، از روی دادهٔ واقعی فروش و انبار.</p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) محتوای هوشمند</a></div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">سفارش دیروز</div><div class="a-stat-value">@Format.Number(b.OrdersYesterday)</div><div class="a-stat-sub">@Format.Toman(b.RevenueYesterday)</div></div>
+  <div class="a-stat"><div class="a-stat-label">سفارش منتظر اقدام</div><div class="a-stat-value @(b.OrdersAwaitingAction > 0 ? "a-down" : "")">@Format.Number(b.OrdersAwaitingAction)</div></div>
+  <div class="a-stat"><div class="a-stat-label">محتوای منتظر تأیید</div><div class="a-stat-value">@Format.Number(b.SmartNeedsReview + b.InsightsPending)</div></div>
+  <div class="a-stat"><div class="a-stat-label">یادآوری ارسال‌شده (۳۰ روز)</div><div class="a-stat-value">@Format.Number(b.RemindersSent30Days)</div></div>
+</div>
+
+@if (b.Actions.Count > 0)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("ListChecks", null, 18) کارهای پیشنهادی امروز</h3></div>
+    <div class="a-card-body"><ul class="list-disc pr-5 a-stack text-sm">@foreach (var action in b.Actions) { <li>@action</li> }</ul></div>
+  </div>
+}
+
+<div class="grid lg:grid-cols-2 gap-4">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Package", null, 18) پیشنهاد سفارش دوباره</h3></div>
+    @if (b.Reorder.Count == 0) { <div class="a-empty">موجودی همه کافی است.</div> }
+    else
+    {
+      <div class="a-table-wrap"><table class="a-table a-table-cards">
+        <thead><tr><th>کالا</th><th>موجودی</th><th>روز باقی‌مانده</th><th>پیشنهاد</th></tr></thead>
+        <tbody>@foreach (var r in b.Reorder)
+        {
+          <tr><td data-label="کالا"><a class="a-link" href="/admin/products/edit/@r.ProductId">@r.Name</a></td><td data-label="موجودی">@Format.Number(r.Stock)</td><td data-label="روز باقی‌مانده">@Format.Number(r.DaysLeft)</td><td data-label="پیشنهاد">@Format.Number(r.SuggestedQuantity) عدد</td></tr>
+        }</tbody>
+      </table></div>
+    }
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) کالاهای راکد</h3></div>
+    @if (b.DeadStock.Count == 0) { <div class="a-empty">کالای راکدی نیست.</div> }
+    else
+    {
+      <div class="a-table-wrap"><table class="a-table a-table-cards">
+        <thead><tr><th>کالا</th><th>بدون فروش</th><th>سرمایهٔ خوابیده</th></tr></thead>
+        <tbody>@foreach (var d in b.DeadStock)
+        {
+          <tr><td data-label="کالا"><a class="a-link" href="/admin/products/edit/@d.ProductId">@d.Name</a></td><td data-label="بدون فروش"><span class="a-badge @(d.Critical ? "a-badge-red" : "a-badge-yellow")">@Format.Number(d.DaysWithoutSale) روز</span></td><td data-label="سرمایه">@Format.Toman(d.TiedCapital)</td></tr>
+        }</tbody>
+      </table></div>
+    }
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Warning", null, 18) فروش زیر قیمت خرید</h3></div>
+    @if (b.BelowCost.Count == 0) { <div class="a-empty">هیچ کالایی زیر قیمت خرید فروخته نمی‌شود.</div> }
+    else
+    {
+      <div class="a-table-wrap"><table class="a-table a-table-cards">
+        <thead><tr><th>کالا</th><th>قیمت فروش</th><th>قیمت خرید</th></tr></thead>
+        <tbody>@foreach (var c in b.BelowCost)
+        {
+          <tr><td data-label="کالا"><a class="a-link" href="/admin/products/edit/@c.ProductId">@c.Name</a></td><td data-label="فروش" class="a-down">@Format.Toman(c.SellingPrice)</td><td data-label="خرید">@Format.Toman(c.PurchasePrice)</td></tr>
+        }</tbody>
+      </table></div>
+    }
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) جست‌وجوهای بی‌نتیجه (۷ روز)</h3></div>
+    @if (b.UnmetSearches.Count == 0) { <div class="a-empty">جست‌وجوی بی‌نتیجه‌ای ثبت نشده.</div> }
+    else
+    {
+      <div class="a-card-body"><ul class="a-stack text-sm">@foreach (var (query, count) in b.UnmetSearches) { <li>«@query» · @Format.Number(count) بار</li> }</ul></div>
+    }
+  </div>
+</div>

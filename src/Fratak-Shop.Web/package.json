@@ -1,0 +1,12 @@
+{
+  "name": "fratak-shop-web",
+  "private": true,
+  "description": "Front-end build of the Fratak Shop storefront (Tailwind CSS).",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i Styles/tailwind.css -o wwwroot/assets/css/output.css",
+    "watch:css": "tailwindcss -c tailwind.config.js -i Styles/tailwind.css -o wwwroot/assets/css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.3"
+  }
+}

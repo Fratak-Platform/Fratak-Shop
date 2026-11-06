@@ -1,0 +1,24 @@
+@model BlogPostFilterData
+@{
+    var url = $"/blog/{Model.Slug}";
+}
+<div class="bg-white rounded-2xl border border-zinc-300 group flex flex-col">
+  <a href="@url" class="image-box">
+    <img class="rounded-t-2xl w-full aspect-video object-cover" src="@ImageHelper.Blog(Model.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Blog(Model.ImageName), Site.Settings.IsImageOptimizationEnabled, 960)" sizes="(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw" alt="@(Model.ImageAlt ?? Model.Title)" loading="lazy" decoding="async" />
+  </a>
+  <div class="p-2 md:p-4 mt-2 flex flex-col flex-1">
+    @if (!string.IsNullOrWhiteSpace(Model.CategoryPostDto?.Name))
+    {
+      <a href="/blog/category/@Model.CategoryPostDto.Slug" class="text-xs text-sky-500 mb-2">@Model.CategoryPostDto.Name</a>
+    }
+    <a href="@url" class="font-semibold text-zinc-800">
+      @Model.Title
+    </a>
+    <p class="mb-4 mt-5 text-zinc-600 flex-1">
+      @Format.Excerpt(Model.Excerpt ?? Model.Content, 120)
+    </p>
+    <a href="@url" class="flex items-center justify-center w-fit mx-auto text-blue-600 hover:text-blue-400 transition">
+      ادامه مطلب
+    </a>
+  </div>
+</div>

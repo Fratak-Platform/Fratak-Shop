@@ -1,0 +1,67 @@
+@page "/admin/orders/purchase-invoices"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.PurchaseInvoicesModel
+@{
+    ViewData["Title"] = "فاکتورهای خرید";
+    var request = HttpContext.Request;
+}
+<div class="a-page-head">
+  <div>
+    <h2>فاکتورهای خرید از تأمین‌کننده</h2>
+    <p class="a-muted text-sm mt-1">فاکتورهایی که هنگام آماده‌سازی سفارش‌ها بارگذاری شده‌اند؛ فقط برای مدیریت.</p>
+  </div>
+  <div class="a-btn-group">
+    <a href="/admin/orders?invoice=missing" class="a-btn a-btn-danger-soft">سفارش‌های بدون فاکتور</a>
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="f-q">جست‌وجو</label><input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="شماره سفارش، شماره فاکتور، تأمین‌کننده"></div>
+    <div class="a-field">
+      <label class="a-label" for="f-sup">تأمین‌کننده</label>
+      <select id="f-sup" name="supplier" class="a-select">
+        <option value="">همه</option>
+        @foreach (var s in Model.Suppliers)
+        {
+          <option value="@s.Id" selected="@(Model.Supplier == s.Id)">@s.Name</option>
+        }
+      </select>
+    </div>
+    <div class="a-field"><label class="a-label" for="f-from">از تاریخ</label><input id="f-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/08/01"></div>
+    <div class="a-field"><label class="a-label" for="f-to">تا تاریخ</label><input id="f-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/08/30"></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/orders/purchase-invoices">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>سفارش</th><th>تأمین‌کننده</th><th>شماره فاکتور</th><th>مبلغ</th><th>تاریخ خرید</th><th>ثبت</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var i in Model.Invoices.Items)
+        {
+          <tr>
+            <td data-label="سفارش"><a class="a-link a-ltr font-bold" href="/admin/orders/@i.OrderId#invoices">@i.OrderNumber</a></td>
+            <td data-label="تأمین‌کننده">@(i.SupplierName ?? "—")</td>
+            <td data-label="شماره فاکتور" class="a-ltr">@(i.InvoiceNumber ?? "—")</td>
+            <td data-label="مبلغ" class="num">@Format.Price(i.Amount)</td>
+            <td data-label="تاریخ خرید" class="nowrap">@Format.Date(i.PurchasedAt)</td>
+            <td data-label="ثبت">@i.UploadedByName<div class="a-muted text-xs">@Format.DateTime(i.CreatedAt)</div></td>
+            <td class="actions" data-label=""><a class="a-btn a-btn-light a-btn-xs" target="_blank" rel="noopener" href="/admin/orders/@i.OrderId?handler=InvoiceFile&invoiceId=@i.Id">@Icons.Svg("Eye", null, 14) فایل (@AdminUi.FileSize(i.SizeBytes))</a></td>
+          </tr>
+        }
+      </tbody>
+      @if (Model.Invoices.Items.Count > 0)
+      {
+        <tfoot><tr><td colspan="3" class="font-semibold">جمع این صفحه</td><td class="num font-bold">@Format.Price(Model.Invoices.Items.Sum(i => i.Amount))</td><td colspan="3"></td></tr></tfoot>
+      }
+    </table>
+    @if (Model.Invoices.Items.Count == 0)
+    {
+      <div class="a-empty">فاکتوری یافت نشد.</div>
+    }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Invoices.Page, Model.Invoices.PageCount, Model.Invoices.Total)" />
+</div>

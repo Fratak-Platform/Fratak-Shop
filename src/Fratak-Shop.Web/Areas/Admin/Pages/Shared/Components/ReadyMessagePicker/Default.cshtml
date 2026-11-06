@@ -1,0 +1,19 @@
+@model Fratak_Shop.Web.ViewComponents.ReadyMessagePickerModel
+@* انتخابگر پیام آماده – منطق در admin.js بخش «پیام آماده» (data-ready-pick). *@
+@if (Model.Items.Count == 0)
+{
+  <a class="a-help inline-flex items-center gap-1" href="/admin/ready-messages">@Icons.Svg("ChatCenteredText", null, 14) تعریف پیام آماده</a>
+}
+else
+{
+  <div class="flex items-center gap-2">
+    <span class="a-muted shrink-0">@Icons.Svg("ChatCenteredText", null, 18)</span>
+    <select class="a-select" data-ready-pick data-body-target="@Model.BodyTarget" data-title-target="@Model.TitleTarget" data-link-target="@Model.LinkTarget" aria-label="درج پیام آماده">
+      <option value="">درج پیام آماده…</option>
+      @foreach (var item in Model.Items)
+      {
+        <option value="@item.Id" data-body="@item.Body" data-title="@item.Title" data-link="@item.LinkUrl">@item.Name</option>
+      }
+    </select>
+  </div>
+}

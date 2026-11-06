@@ -1,4 +1,4 @@
-﻿using Fratak_Shop.Data.Entities.Comments;
+using Fratak_Shop.Data.Entities.Comments;
 
 namespace Fratak_Shop.Core.DTOs.Comments.Command;
 
@@ -15,4 +15,9 @@ public class CreateCommentCommand
     public string Content { get; set; } = null!;
     public byte? Rating { get; set; }
     public bool? IsRecommended { get; set; }
+
+    /// <summary>Already sanitized and stored review photos (files under /uploads/comments).</summary>
+    public List<CommentImageInput> Images { get; set; } = [];
 }
+
+public record CommentImageInput(string FileName, string ContentType, int SizeBytes);

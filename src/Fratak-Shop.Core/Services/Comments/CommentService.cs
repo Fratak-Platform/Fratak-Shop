@@ -1,15 +1,34 @@
-﻿using Fratak_Shop.Core.DTOs.Comments.Command;
+using Fratak_Shop.Core.DTOs.Comments.Command;
 using Fratak_Shop.Core.DTOs.Comments.Query;
 using Fratak_Shop.Core.Mappers.Comment;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Comments;
+using Fratak_Shop.Data.Entities.Orders;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Core.Services.Comments;
 
-public class CommentService(FratakShopDbContext context) : ICommentService
+public class CommentService(
+    FratakShopDbContext context,
+    Events.IShopEvents events,
+    Settings.IStoreSettingService settingService) : ICommentService
 {
+    /// <summary>Orders that count as a purchase of the product (verified-buyer badge, buyers-only reviews).</summary>
+    private static readonly OrderStatus[] PurchasedStatuses = [OrderStatus.Delivered];
+
+    public Task<bool> HasPurchasedAsync(Guid userId, Guid productId) =>
+        context.Orders.AnyAsync(o => o.UserId == userId
+                                     && PurchasedStatuses.Contains(o.Status)
+                                     && o.Items.Any(i => i.ProductId == productId));
+
+    public Task<bool> HasReviewedAsync(Guid userId, Guid productId) =>
+        context.Comments.AnyAsync(c => c.UserId == userId
+                                       && c.ProductId == productId
+                                       && c.ParentId == null
+                                       && c.Type == CommentType.Review
+                                       && c.Status != CommentStatus.Rejected);
+
     public async Task<OperationResult> CreateCommentAsync(CreateCommentCommand command)
     {
         if (command.UserId == Guid.Empty)
@@ -51,6 +70,34 @@ public class CommentService(FratakShopDbContext context) : ICommentService
                 return OperationResult.NotFound("مقاله مورد نظر یافت نشد.");
         }
 
+        var isProductReview = command.ProductId is not null && command.ParentId is null && command.Type == CommentType.Review;
+        var verifiedPurchase = false;
+        // Reviews and answers to product questions get the «خریدار» badge.
+        if (command.ProductId is not null && (command.Type == CommentType.Review || command.ParentId is not null))
+            verifiedPurchase = await HasPurchasedAsync(command.UserId, command.ProductId.Value);
+
+        if (isProductReview)
+        {
+            // One review per customer and product (a rejected one may be written again).
+            if (await HasReviewedAsync(command.UserId, command.ProductId!.Value))
+                return OperationResult.Error("شما قبلاً برای این محصول دیدگاه ثبت کرده‌اید.");
+
+            var settings = await settingService.GetAsync();
+            if (settings.IsReviewOnlyForBuyers && !verifiedPurchase)
+                return OperationResult.Error("فقط خریداران این محصول می‌توانند دیدگاه ثبت کنند.");
+
+            if (command.Images.Count > 0 && (!settings.IsReviewImageEnabled || command.Images.Count > Math.Max(0, settings.ReviewMaxImages)))
+                return OperationResult.Error($"حداکثر {Math.Max(0, settings.ReviewMaxImages)} تصویر برای هر دیدگاه قابل ارسال است.");
+        }
+        else if (command.Images.Count > 0)
+        {
+            return OperationResult.Error("ارسال تصویر فقط برای دیدگاه محصول امکان‌پذیر است.");
+        }
+
+        if (command.Images.Any(i => string.IsNullOrWhiteSpace(i.FileName) || i.FileName.Length > 100
+                                    || i.FileName.Contains('/') || i.FileName.Contains('\\') || i.FileName.Contains("..")))
+            return OperationResult.Error("تصویر ارسالی معتبر نیست.");
+
         if (command.ParentId is not null)
         {
             var parent = await context.Comments
@@ -77,6 +124,16 @@ public class CommentService(FratakShopDbContext context) : ICommentService
             Rating = command.Rating,
             IsRecommended = command.IsRecommended,
             Status = CommentStatus.Pending,
+            IsVerifiedPurchase = verifiedPurchase,
+            Images = command.Images
+                .Select((image, index) => new CommentImage
+                {
+                    FileName = image.FileName,
+                    ContentType = image.ContentType,
+                    SizeBytes = image.SizeBytes,
+                    DisplayOrder = index,
+                })
+                .ToList(),
         };
 
         context.Comments.Add(model);
@@ -148,6 +205,9 @@ public class CommentService(FratakShopDbContext context) : ICommentService
         comment.Status = CommentStatus.Approved;
         await context.SaveChangesAsync();
 
+        // Club points for approved product reviews.
+        await events.CommentApprovedAsync(comment.Id);
+
         return OperationResult.Success("کامنت با موفقیت تایید شد.");
     }
 
@@ -172,26 +232,62 @@ public class CommentService(FratakShopDbContext context) : ICommentService
         return comment?.Map();
     }
 
-    public async Task<List<CommentDto>> GetCommentsByPostAsync(Guid blogPostId)
+    public async Task<List<CommentDto>> GetCommentsByPostAsync(Guid blogPostId, bool onlyApproved = false)
     {
-        var comments = await context.Comments
-            .Include(c => c.Replies)
-            .Where(c => c.BlogPostId == blogPostId && c.ParentId == null)
+        var query = onlyApproved
+            ? context.Comments.Include(c => c.Replies
+                .Where(r => r.Status == CommentStatus.Approved)
+                .OrderBy(r => r.CreatedAt))
+            : context.Comments.Include(c => c.Replies.OrderBy(r => r.CreatedAt));
+
+        var comments = await query
+            .Where(c => c.BlogPostId == blogPostId
+                        && c.ParentId == null
+                        && (!onlyApproved || c.Status == CommentStatus.Approved))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
         return comments.Map();
     }
 
-    public async Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId)
+    public async Task<List<CommentDto>> GetCommentsByProductAsync(Guid productId, bool onlyApproved = false)
     {
-        var comments = await context.Comments
-            .Include(c => c.Replies)
-            .Where(c => c.ProductId == productId && c.ParentId == null)
+        var query = onlyApproved
+            ? context.Comments.Include(c => c.Replies
+                .Where(r => r.Status == CommentStatus.Approved)
+                .OrderBy(r => r.CreatedAt))
+            : context.Comments.Include(c => c.Replies.OrderBy(r => r.CreatedAt));
+
+        var comments = await query
+            .Include(c => c.Images)
+            .AsSplitQuery()
+            .Where(c => c.ProductId == productId
+                        && c.ParentId == null
+                        && (!onlyApproved || c.Status == CommentStatus.Approved))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
-        return comments.Map();
+        var result = comments.Map();
+
+        // Team answers first, then the most helpful customer answers.
+        var authorIds = result.SelectMany(c => c.Replies).Where(r => r.UserId.HasValue).Select(r => r.UserId!.Value).Distinct().ToList();
+        var staff = authorIds.Count == 0
+            ? new List<Guid>()
+            : await context.Users.Where(u => authorIds.Contains(u.Id) && (u.Role != Data.Entities.Users.UserRole.Customer || context.UserAdminRoles.Any(m => m.UserId == u.Id))).Select(u => u.Id).ToListAsync();
+
+        foreach (var comment in result)
+        {
+            foreach (var reply in comment.Replies)
+                reply.IsStaff = reply.UserId.HasValue && staff.Contains(reply.UserId.Value);
+
+            comment.Replies = comment.Replies
+                .OrderByDescending(r => r.IsStaff)
+                .ThenByDescending(r => r.HelpfulCount - r.NotHelpfulCount)
+                .ThenBy(r => r.CreatedAt)
+                .ToList();
+        }
+
+        return result;
     }
 
     public async Task<List<CommentDto>> GetRepliesAsync(Guid parentId)

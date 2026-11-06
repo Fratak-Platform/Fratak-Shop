@@ -16,6 +16,12 @@ public class UserDto : BaseDto
     public bool IsPhoneVerified { get; set; }
     public bool IsEmailVerified { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
+    public decimal WalletBalance { get; set; }
+    public bool HasPassword { get; set; }
+    public bool TwoFactorEnabled { get; set; }
+    public DateOnly? BirthDate { get; set; }
+    public int LoyaltyPoints { get; set; }
+    public string? ReferralCode { get; set; }
 
     public string? FullName => string.IsNullOrWhiteSpace(FirstName) && string.IsNullOrWhiteSpace(LastName)
         ? null
@@ -45,6 +51,9 @@ public class UserAddressDto : BaseDto
     public string PostalCode { get; set; } = null!;
     public string PhoneNumber { get; set; } = null!;
     public bool IsDefault { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public bool HasLocation => Latitude.HasValue && Longitude.HasValue;
 
     /// <summary>آدرس کامل به‌صورت یک متن.</summary>
     public string FullAddress =>

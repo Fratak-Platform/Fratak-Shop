@@ -1,0 +1,28 @@
+@model BarChartModel
+@{
+    var max = Model.Points.Count == 0 ? 0 : Model.Points.Max(p => p.Value);
+    var labelEvery = Math.Max(1, (int)Math.Ceiling(Model.Points.Count / 12d));
+}
+@if (Model.Points.Count == 0 || max == 0)
+{
+  <div class="a-empty">داده‌ای برای نمایش وجود ندارد.</div>
+}
+else
+{
+  <div class="a-chart" role="img" aria-label="@Model.Title">
+    @foreach (var point in Model.Points)
+    {
+      var height = max == 0 ? 0 : Math.Round(point.Value * 100 / max, 1);
+      <div class="a-chart-col">
+        <span class="tip">@point.Label: @(Model.Money ? Format.Toman(point.Value) : Format.Price(point.Value))@(Model.SecondaryLabel is not null ? $" · {Format.Price(point.Secondary)} {Model.SecondaryLabel}" : "")</span>
+        <div class="a-chart-bar" style="height:@(height.ToString(global::System.Globalization.CultureInfo.InvariantCulture))%"></div>
+      </div>
+    }
+  </div>
+  <div class="a-chart-labels" aria-hidden="true">
+    @for (var i = 0; i < Model.Points.Count; i++)
+    {
+      <span>@(i % labelEvery == 0 ? Model.Points[i].Label : "")</span>
+    }
+  </div>
+}

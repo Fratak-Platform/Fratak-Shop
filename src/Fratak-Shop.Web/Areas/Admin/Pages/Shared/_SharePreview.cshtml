@@ -1,0 +1,30 @@
+@model Fratak_Shop.Web.Infrastructure.SeoEngine.SharePreviewModel
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  پیش‌نمایش اشتراک لینک در پیام‌رسان‌ها و شبکه‌های اجتماعی (مرحلهٔ هفتم – فاز ۸ب).
+  دو شکل رایج: کارت بزرگ (تلگرام/ایکس/لینکدین: تصویر بالا) و کارت فشرده (واتس‌اپ: تصویر کنار متن).
+  داده از AnalyzeModel.BuildShareAsync می‌آید؛ همان og:title/og:description/og:image که سایت در head می‌گذارد.
+*@
+<div class="a-share-wrap">
+  <div class="a-share-card">
+    <div class="a-share-img"><img src="@Model.ImageUrl" alt="" loading="lazy"></div>
+    <div class="a-share-body">
+      <div class="a-share-host a-ltr">@Model.Host</div>
+      <div class="a-share-title">@SharePreviewModel.Cut(Model.Title, SharePreviewModel.TitleLimit)</div>
+      <div class="a-share-desc">@SharePreviewModel.Cut(Model.Description, SharePreviewModel.DescriptionLimit)</div>
+    </div>
+  </div>
+  <div class="a-share-card a-share-compact">
+    <div class="a-share-img"><img src="@Model.ImageUrl" alt="" loading="lazy"></div>
+    <div class="a-share-body">
+      <div class="a-share-title">@SharePreviewModel.Cut(Model.Title, 50)</div>
+      <div class="a-share-desc">@SharePreviewModel.Cut(Model.Description, 90)</div>
+      <div class="a-share-host a-ltr">@(Model.Host + Model.Path)</div>
+    </div>
+  </div>
+</div>
+<p class="a-help mt-2">
+  عنوان @Format.Number(Model.Title.Length) نویسه@(Model.TitleTooLong ? " (بیش از " + Format.Number(SharePreviewModel.TitleLimit) + "؛ کوتاه نمایش داده می‌شود)" : "") ·
+  توضیح @Format.Number(Model.Description.Length) نویسه@(Model.DescriptionTooLong ? " (بیش از " + Format.Number(SharePreviewModel.DescriptionLimit) + ")" : "") ·
+  برای متن جداگانهٔ شبکه‌های اجتماعی، فیلدهای «عنوان/توضیح Open Graph» را در ویرایش صفحه پر کنید.
+</p>

@@ -1,0 +1,572 @@
+@page "/admin/orders/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.DetailModel
+@using Fratak_Shop.Core.Services.Orders
+@{
+    var d = Model.Detail;
+    var o = d.Order;
+    ViewData["Title"] = $"سفارش {o.OrderNumber}";
+    var canManage = Model.Can(AdminPermissions.OrdersManage);
+    var canInvoice = Model.Can(AdminPermissions.PurchaseInvoices);
+    var canSeeInvoices = Model.CanAny(AdminPermissions.PurchaseInvoices, AdminPermissions.FinanceView, AdminPermissions.OrdersManage);
+    var needsInvoiceForProcessing = d.RequiresPurchaseInvoice && !Model.HasInvoice;
+    var profit = Model.HasInvoice ? o.PayableAmount - o.RefundedAmount - o.ShippingAmount - d.PurchaseCost : (decimal?)null;
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/orders" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2 class="a-ltr">@o.OrderNumber</h2>
+      <span class="a-badge @AdminUi.OrderStatusBadge(o.Status)">@AdminUi.OrderStatus(o.Status)</span>
+      <span class="a-badge @AdminUi.PaymentStatusBadge(o.PaymentStatus)">@Display.PaymentStatus(o.PaymentStatus)</span>
+      @if (needsInvoiceForProcessing && o.Status is OrderStatus.Confirmed or OrderStatus.Processing)
+      {
+        <span class="a-badge a-badge-red">@Icons.Svg("Receipt", null, 12) فاکتور خرید ثبت نشده</span>
+      }
+      <partial name="_SlaBadge" model="Model.Sla" />
+      @if (o.CreatedByStaffName is { } creator)
+      {
+        <span class="a-badge a-badge-purple" title="سفارش را کارمند در پنل ثبت کرده است">ثبت در پنل: @creator</span>
+      }
+    </div>
+    <p class="a-muted text-sm mt-1">ثبت: @Format.DateTime(o.CreatedAt) @(o.PaidAt is { } paid ? $" · پرداخت: {Format.DateTime(paid)}" : "") @(o.DeliveredAt is { } del ? $" · تحویل: {Format.DateTime(del)}" : "")</p>
+  </div>
+  <div class="a-btn-group no-print">
+    <a href="/profile/orders/@o.OrderNumber/invoice" class="a-btn a-btn-light" target="_blank" rel="noopener">@Icons.Svg("Printer", null, 18) فاکتور مشتری</a>
+    @if (o.UserId is { } uid && Model.Can(AdminPermissions.CustomersView))
+    {
+      <a href="/admin/customers/@uid" class="a-btn a-btn-light">@Icons.Svg("User", null, 18) پرونده مشتری</a>
+    }
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="xl:col-span-2 a-stack">
+
+    @* ── Workflow ──────────────────────────────────────────── *@
+    @if (canManage && d.NextStatuses.Count > 0)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ArrowsClockwise", null, 18) تغییر وضعیت</span></div>
+        <form method="post" asp-page-handler="Status" enctype="multipart/form-data" class="a-card-body" data-confirm="وضعیت سفارش تغییر کند؟ مشتری از تغییر باخبر می‌شود.">
+          <div class="a-form-grid cols-2">
+            <div class="a-field">
+              <label class="a-label" for="st-status">وضعیت جدید</label>
+              <select id="st-status" name="status" class="a-select" required>
+                @foreach (var next in d.NextStatuses)
+                {
+                  if (next is OrderStatus.Cancelled or OrderStatus.Returned && !Model.Can(AdminPermissions.OrdersCancel)) { continue; }
+                  <option value="@next">@AdminUi.OrderStatus(next)</option>
+                }
+              </select>
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="st-note">توضیح (در تاریخچه سفارش ثبت می‌شود)</label>
+              <input id="st-note" name="note" class="a-input" maxlength="500" placeholder="اختیاری">
+            </div>
+          </div>
+
+          @if (needsInvoiceForProcessing && d.NextStatuses.Contains(OrderStatus.Processing))
+          {
+            <div class="mt-4" data-show-when="#st-status=Processing">
+              <div class="a-alert a-alert-warn mb-3">
+                @Icons.Svg("Receipt", "shrink-0", 20)
+                <div>برای رفتن به «در حال آماده‌سازی» باید فاکتور خرید این سفارش از تأمین‌کننده را بارگذاری کنید. این فاکتور فقط برای مدیریت است و به مشتری نمایش داده نمی‌شود.</div>
+              </div>
+              @if (canInvoice)
+              {
+                <partial name="_InvoiceFields" model="Model" />
+              }
+              else
+              {
+                <p class="a-error">شما دسترسی ثبت فاکتور خرید ندارید؛ از همکار دارای این دسترسی بخواهید.</p>
+              }
+            </div>
+          }
+          <div class="mt-4 flex justify-end"><button type="submit" class="a-btn">ثبت وضعیت</button></div>
+        </form>
+      </div>
+    }
+
+    @* ── Items ─────────────────────────────────────────────── *@
+    <div class="a-card">
+      <div class="a-card-head">
+        <span class="a-card-title">@Icons.Svg("Package", null, 18) اقلام سفارش</span>
+        <span class="a-muted text-sm">@Format.Number(d.Items.Sum(i => i.Quantity)) کالا</span>
+      </div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>کالا</th><th>تعداد</th><th>قیمت واحد</th><th>تخفیف</th><th>جمع</th><th>منبع خرید</th></tr></thead>
+          <tbody>
+            @foreach (var item in d.Items)
+            {
+              <tr>
+                <td data-label="کالا">
+                  <div class="flex items-center gap-3">
+                    <img class="a-thumb" src="@ImageHelper.Product(item.ImageName)" alt="" loading="lazy">
+                    <div class="min-w-0">
+                      @if (item.ProductId is { } pid && Model.Can(AdminPermissions.ProductsView))
+                      {
+                        <a class="a-link font-semibold" href="/admin/products/edit/@pid">@item.ProductName</a>
+                      }
+                      else
+                      {
+                        <span class="font-semibold">@item.ProductName</span>
+                      }
+                      <div class="a-muted text-xs">کد: <span class="a-ltr">@item.SKU</span> @(item.CurrentStock is { } stock ? $"· موجودی فعلی: {stock}" : "")</div>
+                    </div>
+                  </div>
+                </td>
+                <td data-label="تعداد" class="num">@item.Quantity</td>
+                <td data-label="قیمت واحد" class="num">@Format.Price(item.UnitPrice)</td>
+                <td data-label="تخفیف" class="num">@Format.Price(item.DiscountAmount)</td>
+                <td data-label="جمع" class="num font-semibold">@Format.Price(item.TotalAmount)</td>
+                <td data-label="منبع خرید">
+                  @if (!string.IsNullOrEmpty(item.SupplierUrl))
+                  {
+                    <a href="@item.SupplierUrl" target="_blank" rel="noopener noreferrer" class="a-btn a-btn-soft a-btn-xs">@Icons.Svg("ArrowSquareOut", null, 14) خرید از @(item.SupplierName ?? "منبع")</a>
+                    if (!string.IsNullOrEmpty(item.SupplierSku))
+                    {
+                      <div class="a-muted text-xs mt-1">کد تأمین‌کننده: <span class="a-ltr">@item.SupplierSku</span></div>
+                    }
+                    if (!string.IsNullOrEmpty(item.SupplierNote))
+                    {
+                      <div class="a-muted text-xs mt-1">@item.SupplierNote</div>
+                    }
+                  }
+                  else
+                  {
+                    <span class="a-badge a-badge-red">لینک منبع ثبت نشده</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="a-card-body border-t border-gray-100">
+        <dl class="a-kv max-w-md mr-auto">
+          <dt>جمع کالاها</dt><dd class="num">@Format.Toman(o.SubtotalAmount)</dd>
+          @if (o.DiscountAmount > 0) { <dt>تخفیف محصولات</dt><dd class="num a-down">-@Format.Price(o.DiscountAmount)</dd> }
+          @if (o.CouponDiscountAmount > 0) { <dt>کوپن <span class="a-ltr">@o.CouponCode</span></dt><dd class="num a-down">-@Format.Price(o.CouponDiscountAmount)</dd> }
+          <dt>هزینه ارسال</dt><dd class="num">@Format.Price(o.ShippingAmount)</dd>
+          @if (o.WalletBonusAmount > 0) { <dt>از اعتبار هدیه</dt><dd class="num">@Format.Price(o.WalletBonusAmount)</dd> }
+          <dt class="font-bold text-gray-800">مبلغ قابل پرداخت</dt><dd class="num font-bold">@Format.Toman(o.PayableAmount)</dd>
+          @if (o.RefundedAmount > 0) { <dt>بازگشت وجه</dt><dd class="num a-down">-@Format.Price(o.RefundedAmount) (@Format.DateTime(o.RefundedAt))</dd> }
+          @if (canSeeInvoices && Model.HasInvoice)
+          {
+            <dt>بهای خرید (فاکتورها)</dt><dd class="num">@Format.Price(d.PurchaseCost)</dd>
+            <dt>سود ناخالص</dt><dd class="num font-bold @(profit >= 0 ? "a-up" : "a-down")">@Format.Price(profit ?? 0)</dd>
+          }
+        </dl>
+      </div>
+    </div>
+
+    @* ── Purchase invoices ─────────────────────────────────── *@
+    @if (canSeeInvoices)
+    {
+      <div class="a-card" id="invoices">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("Receipt", null, 18) فاکتورهای خرید از تأمین‌کننده <span class="a-badge a-badge-gray">فقط مدیریت</span></span>
+        </div>
+        @if (d.PurchaseInvoices.Count > 0)
+        {
+          <div class="a-table-wrap">
+            <table class="a-table a-table-cards">
+              <thead><tr><th>تأمین‌کننده</th><th>شماره</th><th>مبلغ</th><th>تاریخ خرید</th><th>ثبت‌کننده</th><th></th></tr></thead>
+              <tbody>
+                @foreach (var inv in d.PurchaseInvoices)
+                {
+                  <tr>
+                    <td data-label="تأمین‌کننده">@(inv.SupplierName ?? "—")</td>
+                    <td data-label="شماره" class="a-ltr">@(inv.InvoiceNumber ?? "—")</td>
+                    <td data-label="مبلغ" class="num">@Format.Price(inv.Amount)</td>
+                    <td data-label="تاریخ خرید" class="nowrap">@Format.Date(inv.PurchasedAt)</td>
+                    <td data-label="ثبت‌کننده">@inv.UploadedByName<div class="a-muted text-xs">@Format.DateTime(inv.CreatedAt)</div></td>
+                    <td class="actions" data-label="">
+                      <a class="a-btn a-btn-light a-btn-xs" href="/admin/orders/@o.Id?handler=InvoiceFile&invoiceId=@inv.Id" target="_blank" rel="noopener">@Icons.Svg("Eye", null, 14) مشاهده</a>
+                      <a class="a-btn a-btn-light a-btn-xs" href="/admin/orders/@o.Id?handler=InvoiceFile&invoiceId=@inv.Id&download=true">@Icons.Svg("Download", null, 14)</a>
+                      @if (canInvoice)
+                      {
+                        <form method="post" asp-page-handler="DeleteInvoice" class="inline" data-confirm="این فاکتور خرید حذف شود؟" data-confirm-danger>
+                          <input type="hidden" name="invoiceId" value="@inv.Id">
+                          <button type="submit" class="a-btn a-btn-danger-soft a-btn-xs" aria-label="حذف">@Icons.Svg("Trash", null, 14)</button>
+                        </form>
+                      }
+                    </td>
+                  </tr>
+                  if (!string.IsNullOrEmpty(inv.Notes))
+                  {
+                    <tr><td colspan="6" class="a-muted text-xs" data-label="">یادداشت: @inv.Notes</td></tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        else
+        {
+          <div class="a-card-body"><div class="a-alert a-alert-warn">@Icons.Svg("Warning", "shrink-0", 20) هنوز فاکتور خریدی برای این سفارش ثبت نشده است.</div></div>
+        }
+        @if (canInvoice && o.Status != OrderStatus.Cancelled)
+        {
+          <details class="a-details border-t border-gray-100" open="@(d.PurchaseInvoices.Count == 0)">
+            <summary class="a-card-body font-semibold a-link">@Icons.Svg("UploadSimple", null, 18) بارگذاری فاکتور خرید</summary>
+            <form method="post" asp-page-handler="Invoice" enctype="multipart/form-data" class="a-card-body pt-0">
+              <partial name="_InvoiceFields" model="Model" />
+              <div class="a-form-grid cols-2 mt-3">
+                <div class="a-field"><label class="a-label" for="inv-date">تاریخ خرید</label><input id="inv-date" name="purchasedAt" class="a-input a-ltr" placeholder="1404/08/03"></div>
+                <div class="a-field"><label class="a-label" for="inv-notes">یادداشت</label><input id="inv-notes" name="invoiceNotes" class="a-input" maxlength="1000"></div>
+              </div>
+              <div class="mt-3 flex justify-end"><button type="submit" class="a-btn">@Icons.Svg("UploadSimple", null, 18) ثبت فاکتور</button></div>
+            </form>
+          </details>
+        }
+      </div>
+    }
+
+    @* ── Messages with the customer ────────────────────────── *@
+    <div class="a-card" id="messages">
+      <div class="a-card-head">
+        <span class="a-card-title">@Icons.Svg("ChatDots", null, 18) پیام‌ها با مشتری</span>
+        @if (Model.Messages.Any(m => m.IsOpenQuestion))
+        {
+          <span class="a-badge a-badge-yellow">منتظر پاسخ مشتری</span>
+        }
+      </div>
+      <div class="a-card-body">
+        @if (Model.Messages.Count == 0)
+        {
+          <p class="a-muted text-sm">هنوز پیامی رد و بدل نشده است. پیام‌ها برای مشتری پیامک/اعلان می‌شوند و در صفحهٔ سفارش او نمایش داده می‌شوند.</p>
+        }
+        else
+        {
+          <div class="a-thread">
+            @foreach (var m in Model.Messages)
+            {
+              <div class="a-msg @(m.FromStaff ? "is-staff" : "is-customer")">
+                <div class="text-sm">@m.Body</div>
+                <div class="a-msg-meta">
+                  <span>@(m.FromStaff ? m.AuthorName : "مشتری")</span>
+                  <span>@Format.DateTime(m.CreatedAt)</span>
+                  @if (m.FromStaff)
+                  {
+                    <span>@(m.ReadByCustomerAt is null ? "دیده نشده" : "دیده شد")</span>
+                  }
+                  @if (m.Kind == OrderMessageKind.ItemUnavailable)
+                  {
+                    var (badge, decisionText) = m.Decision switch
+                    {
+                      OrderMessageDecision.Pending => ("a-badge-yellow", "منتظر تصمیم مشتری"),
+                      OrderMessageDecision.RemoveItem => ("a-badge-green", "مشتری: حذف کالا و ادامه"),
+                      OrderMessageDecision.CancelOrder => ("a-badge-red", "مشتری: لغو سفارش"),
+                      OrderMessageDecision.Withdrawn => ("a-badge-gray", "پس گرفته شد"),
+                      _ => ("a-badge-gray", ""),
+                    };
+                    <span class="a-badge @badge">@decisionText @(m.DecidedAt is { } at ? "· " + Format.DateTime(at) : "")</span>
+                    if (m.IsOpenQuestion && canManage)
+                    {
+                      <form method="post" asp-page-handler="Withdraw" class="inline" data-confirm="این سؤال پس گرفته شود؟ مشتری دیگر نمی‌تواند پاسخ دهد.">
+                        <input type="hidden" name="messageId" value="@m.Id">
+                        <button type="submit" class="a-btn a-btn-light a-btn-xs">پس گرفتن</button>
+                      </form>
+                    }
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (canManage && Model.CanAskCustomer)
+        {
+          <div class="a-divider"></div>
+          <form method="post" asp-page-handler="Message" class="a-stack">
+            <label class="a-label" for="msg-body">پیام به مشتری</label>
+            <textarea id="msg-body" name="body" class="a-textarea" rows="3" maxlength="2000" required placeholder="مثلاً: سفارش شما فردا تحویل پست می‌شود."></textarea>
+            <div><button type="submit" class="a-btn">@Icons.Svg("PaperPlaneTilt", null, 16) ارسال پیام</button></div>
+          </form>
+          <details class="mt-4">
+            <summary class="a-link cursor-pointer text-sm">کالایی ناموجود است؟ از مشتری بپرسید (حذف کالا یا لغو سفارش)</summary>
+            <form method="post" asp-page-handler="AskItem" class="a-form-grid cols-2 mt-3" data-confirm="سؤال برای مشتری ارسال شود؟ مشتری با پیامک خبردار می‌شود.">
+              <div class="a-field">
+                <label class="a-label" for="ask-item">کالا</label>
+                <select id="ask-item" name="orderItemId" class="a-select" required>
+                  @foreach (var item in d.Items)
+                  {
+                    <option value="@item.Id">@item.ProductName (× @item.Quantity)</option>
+                  }
+                </select>
+              </div>
+              <div class="a-field">
+                <label class="a-label" for="ask-body">توضیح اضافه (اختیاری)</label>
+                <input id="ask-body" name="body" class="a-input" maxlength="1000" placeholder="مثلاً: حدود دو هفته دیگر موجود می‌شود.">
+              </div>
+              <label class="a-check span-2">
+                <input type="checkbox" name="zeroStock" value="true" checked>
+                <span>موجودی این محصول در سایت هم صفر شود (تا دیگران سفارش ندهند)</span>
+              </label>
+              <input type="hidden" name="zeroStock" value="false">
+              <div class="span-2"><button type="submit" class="a-btn a-btn-soft">ارسال سؤال به مشتری</button></div>
+            </form>
+            <p class="a-help mt-2">اگر مشتری «حذف کالا» را انتخاب کند، مبالغ سفارش بازمحاسبه و در صورت پرداخت، مابه‌التفاوت به کیف پولش برمی‌گردد؛ «لغو سفارش» کل مبلغ را برمی‌گرداند.</p>
+          </details>
+        }
+      </div>
+    </div>
+
+    @* ── Timeline ──────────────────────────────────────────── *@
+    <div class="a-card" id="notes">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Note", null, 18) تاریخچه و یادداشت‌های داخلی</span></div>
+      <div class="a-card-body">
+        <form method="post" asp-page-handler="Note" class="flex gap-2 mb-5">
+          <input name="content" class="a-input" placeholder="یادداشت داخلی (مشتری نمی‌بیند)… با @@ همکار را خبر کنید" maxlength="2000" required data-mentions autocomplete="off">
+          <button type="submit" class="a-btn">ثبت</button>
+        </form>
+        @if (d.Notes.Count == 0)
+        {
+          <p class="a-muted text-sm">هنوز رویدادی ثبت نشده است.</p>
+        }
+        else
+        {
+          <div class="a-timeline">
+            @foreach (var note in d.Notes)
+            {
+              var css = note.Kind switch { OrderNoteKind.StatusChange => "is-status", OrderNoteKind.System => note.Content.StartsWith("فاکتور") ? "is-invoice" : "is-system", _ => "" };
+              <div class="a-timeline-item @css">
+                <div class="text-sm">@MentionHighlighter.Render(note.Content)</div>
+                <div class="a-muted text-xs mt-1">@(note.AuthorName ?? "سیستم") · @Format.DateTime(note.CreatedAt)</div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  @* ── Side column ────────────────────────────────────────── *@
+  <div class="a-stack">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("User", null, 18) مشتری</span>
+        @if (d.CustomerIsBlocked) { <span class="a-badge a-badge-red">مسدود</span> }
+      </div>
+      <div class="a-card-body">
+        <dl class="a-kv">
+          <dt>نام</dt><dd>@o.CustomerName</dd>
+          <dt>موبایل</dt><dd>@if (Pii.ShowContacts) { <a class="a-link a-ltr" href="tel:@o.CustomerPhone">@o.CustomerPhone</a> } else { <span class="a-ltr">@Pii.Phone(o.CustomerPhone)</span> }</dd>
+          @if (o.UserId is not null)
+          {
+            <dt>سفارش‌ها</dt><dd>@Format.Number(d.CustomerOrderCount)</dd>
+            <dt>مجموع خرید</dt><dd class="num">@Format.Toman(d.CustomerTotalSpent)</dd>
+          }
+        </dl>
+        @if (!string.IsNullOrWhiteSpace(o.CustomerNote))
+        {
+          <div class="a-alert a-alert-info mt-3 text-sm">@Icons.Svg("Chat", "shrink-0", 18) <div><b>یادداشت مشتری:</b> @o.CustomerNote</div></div>
+        }
+      </div>
+    </div>
+
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MapPin", null, 18) ارسال</span></div>
+      <div class="a-card-body">
+        <p class="text-sm leading-7">@o.ShippingProvince، @o.ShippingCity، @Pii.Address(o.ShippingAddress) @if (Pii.ShowContacts) { <span>@(o.ShippingBuildingNumber is null ? "" : $"، پلاک {o.ShippingBuildingNumber}") @(o.ShippingUnit is null ? "" : $"، واحد {o.ShippingUnit}")</span> }</p>
+        <dl class="a-kv mt-3">
+          <dt>کد پستی</dt><dd class="a-ltr">@(Pii.ShowContacts ? o.ShippingPostalCode : Fratak_Shop.Core.Services.Team.Masking.Dots)</dd>
+          <dt>تلفن گیرنده</dt><dd class="a-ltr">@Pii.Phone(o.ShippingPhone)</dd>
+          <dt>روش ارسال</dt><dd>@(o.ShippingMethod ?? "—")</dd>
+          @if (o.DeliveryTimeSlotTitle is not null) { <dt>بازه تحویل</dt><dd>@Format.Date(o.RequestedDeliveryDate) – @o.DeliveryTimeSlotTitle</dd> }
+          @if (Model.Estimate is { } est) { <dt>تحویل تخمینی</dt><dd>@Format.Date(est.From) تا @Format.Date(est.To)</dd> }
+          @if (Model.Sla is { } slaNow) { <dt>مرحلهٔ فعلی</dt><dd>@slaNow.StageTitle · مهلت تا @Format.DateTime(slaNow.Deadline)</dd> }
+        </dl>
+        @if (o.ShippingLatitude is { } lat && o.ShippingLongitude is { } lng)
+        {
+          var la = lat.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
+          var ln = lng.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
+          <a class="a-btn a-btn-light a-btn-sm mt-3" target="_blank" rel="noopener noreferrer"
+             href="@($"https://www.openstreetmap.org/?mlat={la}&mlon={ln}#map=17/{la}/{ln}")">@Icons.Svg("MapPin", null, 16) موقعیت روی نقشه</a>
+        }
+        <div class="a-divider"></div>
+        @if (canManage && o.Status is OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Confirmed or OrderStatus.Delivered)
+        {
+          var currentCarrier = Model.Shipment?.Carrier ?? ShippingCarrier.IranPost;
+          <form method="post" asp-page-handler="Tracking" id="shipment">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label class="a-label" for="carrier">شرکت حمل</label>
+                <select id="carrier" name="carrier" class="a-select">
+                  @foreach (var carrierOption in ShippingCarriers.All)
+                  {
+                    <option value="@((int)carrierOption)" selected="@(carrierOption == currentCarrier)">@ShippingCarriers.Title(carrierOption)@(ShippingCarriers.SupportsAutoTracking(carrierOption) ? " (رهگیری خودکار)" : "")</option>
+                  }
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="a-label" for="tracking">کد رهگیری مرسوله</label>
+                <div class="flex gap-2">
+                  <input id="tracking" name="trackingCode" value="@o.TrackingCode" class="a-input a-ltr" maxlength="100" required inputmode="text" autocomplete="off">
+                  <button type="submit" class="a-btn a-btn-soft">ذخیره</button>
+                </div>
+              </div>
+            </div>
+            <p class="a-help">با ثبت کد، سفارش آماده‌سازی‌شده خودکار «ارسال‌شده» می‌شود. برای «پست» وضعیت مرسوله چند بار در روز از سامانهٔ رهگیری پست خوانده می‌شود و با «تحویل به گیرنده» سفارش خودکار «تحویل‌شده» می‌شود.</p>
+          </form>
+        }
+        else if (!string.IsNullOrEmpty(o.TrackingCode))
+        {
+          <p class="text-sm" id="shipment">کد رهگیری: <span class="a-ltr font-semibold">@o.TrackingCode</span>@(Model.Shipment is { } shownShipment ? $" ({shownShipment.CarrierTitle})" : "")</p>
+        }
+      </div>
+    </div>
+
+    @if (Model.Shipment is { } ship)
+    {
+      <div class="a-card">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("Truck", null, 18) رهگیری مرسوله · @ship.CarrierTitle</span>
+          <span class="a-badge @AdminUi.ShipmentStateBadge(ship.State)">@ship.StateTitle</span>
+        </div>
+        <div class="a-card-body">
+          <dl class="a-kv">
+            <dt>کد رهگیری</dt><dd class="a-ltr">@ship.Code</dd>
+            @if (ship.LastStatus is not null) { <dt>آخرین وضعیت</dt><dd>@ship.LastStatus@(ship.LastLocation is null ? "" : $" · {ship.LastLocation}")</dd> }
+            @if (ship.DeliveredAt is { } deliveredAt) { <dt>تحویل</dt><dd>@Format.DateTime(deliveredAt)@(ship.AutoDelivered ? " · تأیید خودکار" : "")</dd> }
+            @if (ship.AutoTracking) { <dt>آخرین بررسی</dt><dd>@(ship.LastCheckedAt is { } checkedAt ? Format.Relative(checkedAt) : "هنوز بررسی نشده")</dd> }
+          </dl>
+          @if (ship.LastError is not null)
+          {
+            <div class="a-alert a-alert-warn mt-3 text-sm">@ship.LastError@(ship.FailureCount > 1 ? $" ({ship.FailureCount} بار پشت سر هم)" : "")</div>
+          }
+          @if (ship.Info.Count > 0)
+          {
+            <details class="mt-3">
+              <summary class="a-muted text-sm cursor-pointer">مشخصات مرسوله در سامانهٔ پست</summary>
+              <dl class="a-kv mt-2">
+                @foreach (var pair in ship.Info)
+                {
+                  <dt>@pair.Key</dt><dd>@pair.Value</dd>
+                }
+              </dl>
+            </details>
+          }
+          @if (ship.Events.Count > 0)
+          {
+            <div class="a-timeline mt-4">
+              @foreach (var ev in ship.Events)
+              {
+                var evCss = ev.Kind switch { PostEventKind.Delivered => "is-status", PostEventKind.Returned or PostEventKind.DeliveryFailed => "is-danger", PostEventKind.OutForDelivery => "is-invoice", _ => "is-system" };
+                <div class="a-timeline-item @evCss">
+                  <div class="text-sm">@ev.Status</div>
+                  <div class="a-muted text-xs mt-1">@(ev.Location ?? "")@(ev.Location is not null ? " · " : "")@(ev.OccurredAt is { } evAt ? Format.DateTime(evAt) : ev.RawTime)</div>
+                </div>
+              }
+            </div>
+          }
+          else if (ship.AutoTracking)
+          {
+            <p class="a-muted text-sm mt-3">هنوز رویدادی از سامانهٔ پست خوانده نشده است.</p>
+          }
+          <div class="a-btn-group mt-4">
+            @if (ship.PublicUrl is { } publicUrl)
+            {
+              <a class="a-btn a-btn-light a-btn-sm" href="@publicUrl" target="_blank" rel="noopener noreferrer">@Icons.Svg("ArrowSquareOut", null, 16) سایت پست</a>
+            }
+            @if (canManage && ship.AutoTracking)
+            {
+              <form method="post" asp-page-handler="TrackNow" class="inline">
+                <button type="submit" class="a-btn a-btn-soft a-btn-sm">@Icons.Svg("ArrowsClockwise", null, 16) بررسی همین حالا</button>
+              </form>
+              @if (ship.IsActive)
+              {
+                <form method="post" asp-page-handler="TrackPause" class="inline">
+                  <input type="hidden" name="paused" value="true">
+                  <button type="submit" class="a-btn a-btn-light a-btn-sm" data-confirm="رهگیری خودکار این مرسوله متوقف شود؟ (تحویل باید دستی ثبت شود)">توقف رهگیری</button>
+                </form>
+              }
+              else if (ship.State == ShipmentTrackingState.Stopped && o.Status == OrderStatus.Shipped)
+              {
+                <form method="post" asp-page-handler="TrackPause" class="inline">
+                  <input type="hidden" name="paused" value="false">
+                  <button type="submit" class="a-btn a-btn-light a-btn-sm">ادامهٔ رهگیری</button>
+                </form>
+              }
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("CreditCard", null, 18) پرداخت</span></div>
+      <div class="a-card-body">
+        <dl class="a-kv">
+          <dt>روش</dt><dd>@Display.PaymentMethod(o.PaymentMethod)</dd>
+          <dt>وضعیت</dt><dd><span class="a-badge @AdminUi.PaymentStatusBadge(o.PaymentStatus)">@Display.PaymentStatus(o.PaymentStatus)</span></dd>
+          @if (!string.IsNullOrEmpty(o.TransactionId)) { <dt>مرجع</dt><dd class="a-ltr">@o.TransactionId</dd> }
+          @if (o.PaymentDeadline is { } deadline && o.PaymentStatus != PaymentStatus.Paid) { <dt>مهلت پرداخت</dt><dd>@Format.DateTime(deadline)</dd> }
+        </dl>
+        @if (o.PaymentToken is { } payToken)
+        {
+          var payUrl = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/pay/{payToken}";
+          <div class="a-divider"></div>
+          <div id="payment-link">
+            <label class="a-label" for="pay-link">لینک پرداخت مشتری</label>
+            <div class="flex gap-2">
+              <input id="pay-link" class="a-input a-ltr a-input-sm" value="@payUrl" readonly>
+              <button type="button" class="a-btn a-btn-light a-btn-sm" data-copy="#pay-link">@Icons.Svg("Copy", null, 14) کپی</button>
+            </div>
+            @if (o.Status == OrderStatus.Pending && o.PaymentStatus != PaymentStatus.Paid && Model.CanAny(AdminPermissions.OrdersCreate, AdminPermissions.OrdersManage))
+            {
+              <form method="post" asp-page-handler="ResendLink" class="mt-2" data-confirm="لینک پرداخت دوباره پیامک و مهلت پرداخت تمدید شود؟">
+                <button type="submit" class="a-btn a-btn-soft a-btn-sm">@Icons.Svg("PaperPlaneTilt", null, 14) ارسال دوباره و تمدید مهلت</button>
+              </form>
+            }
+            <p class="a-help">پرداخت فقط از درگاه انجام و خودکار ثبت می‌شود؛ تا پرداخت نشود سفارش در صف آماده‌سازی قرار نمی‌گیرد.</p>
+          </div>
+        }
+        @if (canManage && o.PaymentStatus != PaymentStatus.Paid && o.PaymentMethod is PaymentMethod.CashOnDelivery or PaymentMethod.BankTransfer && o.Status is not (OrderStatus.Cancelled or OrderStatus.Returned))
+        {
+          <form method="post" asp-page-handler="CashPaid" class="mt-3" data-confirm="دریافت وجه این سفارش ثبت شود؟">
+            <label class="a-label" for="cash-ref">ثبت دریافت وجه (مرجع / شماره پیگیری)</label>
+            <div class="flex gap-2"><input id="cash-ref" name="reference" class="a-input a-ltr" maxlength="100"><button class="a-btn a-btn-success" type="submit">ثبت</button></div>
+          </form>
+        }
+        @if (d.Payments.Count > 0)
+        {
+          <div class="a-divider"></div>
+          <ul class="space-y-2 text-sm">
+            @foreach (var p in d.Payments)
+            {
+              <li class="flex items-center justify-between gap-2">
+                <span><span class="a-badge @AdminUi.TransactionBadge(p.Status)">@AdminUi.TransactionStatus(p.Status)</span> <span class="a-muted text-xs">@Format.DateTime(p.CreatedAt)</span></span>
+                <span class="num">@Format.Price(p.Amount) @(p.RefId is null ? "" : $"· {p.RefId}")</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+
+    @if (d.Returns.Count > 0 || d.Tickets.Count > 0)
+    {
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Lifebuoy", null, 18) پیگیری‌ها</span></div>
+        <ul class="divide-y divide-gray-100 text-sm">
+          @foreach (var r in d.Returns)
+          {
+            <li class="px-4 py-2.5 flex justify-between"><a class="a-link" href="/admin/returns?q=@r.Number">مرجوعی @r.Number</a><span class="num">@Format.Price(r.Amount)</span></li>
+          }
+          @foreach (var t in d.Tickets)
+          {
+            <li class="px-4 py-2.5"><a class="a-link" href="/admin/tickets?q=@t.Number">تیکت @t.Number</a> – @t.Subject</li>
+          }
+        </ul>
+      </div>
+    }
+
+    @if (o.CancelledAt is { } cancelled)
+    {
+      <div class="a-alert a-alert-danger">@Icons.Svg("XCircle", "shrink-0", 20)<div>لغو در @Format.DateTime(cancelled) @(o.CancellationReason is null ? "" : $"– {o.CancellationReason}")</div></div>
+    }
+  </div>
+</div>

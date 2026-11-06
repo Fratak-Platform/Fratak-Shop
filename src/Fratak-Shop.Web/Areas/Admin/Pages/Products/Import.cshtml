@@ -1,0 +1,121 @@
+@page "/admin/products/import"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.ImportModel
+@using Fratak_Shop.Core.Services.Products
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@*
+  ورود از اکسل (مرحلهٔ هفتم – فاز ۵): بارگذاری ← پیش‌نمایش تغییرها ← تأیید.
+*@
+@{
+    ViewData["Title"] = "ورود محصولات از اکسل";
+    var p = Model.Preview;
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/products" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>ورود محصولات از اکسل</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">قیمت، حراج، موجودی، وضعیت@(Model.CanSeeCost ? " و قیمت خرید" : "") محصولات موجود را با یک فایل به‌روز کنید. محصول جدید ساخته نمی‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    <a href="/admin/products/import?handler=Template" class="a-btn a-btn-light">@Icons.Svg("FileXls", null, 18) دریافت فایل نمونه (اکسل)</a>
+    <a href="/admin/products/import?handler=Template&format=csv" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) CSV</a>
+  </div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3 mb-4">
+  <div class="a-card lg:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("UploadSimple", null, 18) بارگذاری فایل</span></div>
+    <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" class="a-card-body space-y-3">
+      <input type="file" name="file" accept=".xlsx,.csv" required class="a-input">
+      <p class="a-help">حداکثر @Format.Number(5) مگابایت و @Format.Number(ProductImportRules.MaxLines) ردیف. بعد از بارگذاری، اول پیش‌نمایش نشان داده می‌شود و تا تأیید نکنید چیزی ذخیره نمی‌شود.</p>
+      <button type="submit" class="a-btn">@Icons.Svg("Eye", null, 18) بارگذاری و پیش‌نمایش</button>
+    </form>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Info", null, 18) قواعد فایل</span></div>
+    <ul class="a-card-body text-sm space-y-1 list-disc ps-8">
+      <li>ردیف اول سرستون است؛ ستون <b>«کد کالا»</b> الزامی است.</li>
+      <li>ستون‌های قابل ورود: قیمت، قیمت با تخفیف، موجودی، وضعیت@(Model.CanSeeCost ? "، قیمت خرید" : ""). ستون‌های دیگر (مثل نام) نادیده گرفته می‌شوند.</li>
+      <li>خانهٔ خالی یعنی «تغییر نکند». عدد ۰ در «قیمت با تخفیف» یعنی حذف حراج.</li>
+      <li>وضعیت: «فعال/غیرفعال»، «بله/خیر» یا ۱/۰.</li>
+      <li>اعداد فارسی و جداکنندهٔ هزارگان (۱۲٬۵۰۰) پذیرفته می‌شوند.</li>
+      <li>تغییر قیمت‌ها در «تغییر گروهی قیمت › تاریخچه» ثبت و قابل برگرداندن است؛ تغییر موجودی در «انبار › گردش موجودی» ثبت می‌شود.</li>
+    </ul>
+  </div>
+</div>
+
+@if (Model.Notes.Count > 0 || (Model.Parsed?.Errors.Count ?? 0) > 0)
+{
+  <div class="a-alert a-alert-warn mb-4">
+    <ul class="list-disc ps-5 space-y-1">
+      @foreach (var note in Model.Notes) { <li>@note</li> }
+      @if (Model.Parsed is not null)
+      {
+        foreach (var error in Model.Parsed.Errors.Take(50)) { <li>@error</li> }
+        if (Model.Parsed.Errors.Count > 50) { <li>و @Format.Number(Model.Parsed.Errors.Count - 50) خطای دیگر…</li> }
+      }
+    </ul>
+  </div>
+}
+
+@if (p is not null)
+{
+  <div class="a-card">
+    <div class="a-card-head flex-wrap gap-2">
+      <span class="a-card-title">@Icons.Svg("Eye", null, 18) پیش‌نمایش: @Model.FileName</span>
+      <div class="a-chips">
+        <span class="a-badge a-badge-green">@Format.Number(p.Changed) ردیف تغییر می‌کند</span>
+        <span class="a-badge a-badge-gray">@Format.Number(p.Unchanged) بدون تغییر</span>
+        @if (p.Failed > 0) { <span class="a-badge a-badge-red">@Format.Number(p.Failed) ردیف خطادار (اعمال نمی‌شود)</span> }
+      </div>
+    </div>
+    @if (Model.Parsed is not null)
+    {
+      <p class="a-help px-4 pt-3">ستون‌های شناسایی‌شده: @string.Join("، ", Model.Parsed.Columns.Select(ImportModel.ColumnTitle))</p>
+    }
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>ردیف</th><th>کد کالا</th><th>محصول</th><th>تغییرها</th><th>توضیح</th></tr></thead>
+        <tbody>
+          @foreach (var r in p.Rows.Where(x => x.Changes.Count > 0 || x.Error is not null || x.Warning is not null).Take(1000))
+          {
+            <tr class="@(r.Error is not null ? "bg-rose-50/60" : "")">
+              <td data-label="ردیف" class="num">@Format.Number(r.RowNumber)</td>
+              <td data-label="کد کالا" class="a-ltr">@r.Sku</td>
+              <td data-label="محصول">
+                @if (r.ProductId is { } pid) { <a class="a-link" href="/admin/products/edit/@pid" target="_blank" rel="noopener">@r.Name</a> }
+                else { <span>—</span> }
+              </td>
+              <td data-label="تغییرها">
+                @foreach (var c in r.Changes)
+                {
+                  <div class="text-sm"><span class="a-muted">@c.Field:</span> <span class="line-through a-muted">@c.Before</span> ← <b>@c.After</b></div>
+                }
+              </td>
+              <td data-label="توضیح" class="text-xs">
+                @if (r.Error is not null) { <span class="text-rose-700">@r.Error</span> }
+                @if (r.Warning is not null) { <span class="block text-amber-700">@r.Warning</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 p-4 border-t">
+      @if (p.Changed > 0 && Model.Token is not null)
+      {
+        <form method="post" asp-page-handler="Apply" data-confirm="تغییرهای @Format.Number(p.Changed) ردیف ذخیره شود؟">
+          <input type="hidden" name="token" value="@Model.Token">
+          <button type="submit" class="a-btn a-btn-success">@Icons.Svg("Check", null, 18) تأیید و اعمال @Format.Number(p.Changed) ردیف</button>
+        </form>
+        <span class="a-help">پیش‌نمایش تا ۳۰ دقیقه معتبر است. اگر در این فاصله محصولی تغییر کند، مقدار فایل جایگزین می‌شود.</span>
+      }
+      else
+      {
+        <span class="a-muted">ردیفی برای اعمال وجود ندارد.</span>
+      }
+    </div>
+  </div>
+}

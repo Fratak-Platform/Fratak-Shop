@@ -45,7 +45,8 @@ jobs:
       - name: Test
         run: |
           if find . -name "*.Tests.csproj" -not -path "./.git/*" | grep -q .; then
-            dotnet test Fratak-Shop.slnx --no-build --configuration Release --verbosity normal
+            # Unit tests only; the SQL Server integration tests run in the Verify workflow.
+            dotnet test Fratak-Shop.slnx --no-build --configuration Release --verbosity normal --filter "Category!=Integration&Category!=E2E" --logger "console;verbosity=normal"
           else
             echo "No test projects found; skipping tests."
           fi

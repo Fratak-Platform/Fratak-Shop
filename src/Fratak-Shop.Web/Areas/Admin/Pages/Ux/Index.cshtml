@@ -1,0 +1,103 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Ux.IndexModel
+@{
+    ViewData["Title"] = "میانبرهای من";
+}
+<div class="a-page-head">
+  <div>
+    <h2>میانبرهای من</h2>
+    <p class="a-muted text-sm mt-1">سنجاق‌ها، صفحه‌های اخیر و فیلترهای ذخیره‌شدهٔ شما. با <kbd class="a-kbd">Ctrl</kbd> + <kbd class="a-kbd">K</kbd> از هر صفحه‌ای جست‌وجو کنید.</p>
+  </div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <section class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("PushPin", null, 18) سنجاق‌شده‌ها</h3></div>
+    <div class="a-card-body">
+      @if (Model.Pins.Count == 0)
+      {
+        <p class="a-muted text-sm">هنوز صفحه‌ای سنجاق نکرده‌اید. روی ستارهٔ کنار عنوان هر صفحه بزنید.</p>
+      }
+      <ul class="a-stack">
+        @foreach (var pin in Model.Pins)
+        {
+          <li class="flex items-center gap-2">
+            @Icons.Svg(pin.Icon, "shrink-0 text-gray-400", 18)
+            <a class="a-link flex-1 truncate" href="@pin.Url">@pin.Title</a>
+            <form method="post" asp-page-handler="Pin" class="m-0">
+              <input type="hidden" name="url" value="@pin.Url"><input type="hidden" name="title" value="@pin.Title">
+              <button class="a-btn a-btn-xs a-btn-light" type="submit" aria-label="برداشتن سنجاق">@Icons.Svg("Trash", null, 14)</button>
+            </form>
+          </li>
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) صفحه‌های اخیر</h3></div>
+    <div class="a-card-body">
+      @if (Model.Recents.Count == 0)
+      {
+        <p class="a-muted text-sm">هنوز صفحه‌ای ثبت نشده است.</p>
+      }
+      <ul class="a-stack">
+        @foreach (var r in Model.Recents)
+        {
+          <li class="flex items-center gap-2"><a class="a-link flex-1 truncate" href="@r.Url">@r.Title</a><span class="a-muted text-xs">@Format.Relative(r.At)</span></li>
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Funnel", null, 18) فیلترهای ذخیره‌شده</h3></div>
+    <div class="a-card-body">
+      @if (Model.Filters.Count == 0)
+      {
+        <p class="a-muted text-sm">در صفحه‌های فهرست (مثل سفارش‌ها) فیلتر کنید و «ذخیرهٔ این فیلتر» را بزنید.</p>
+      }
+      @foreach (var (path, filters) in Model.Filters)
+      {
+        <div class="mb-3">
+          <div class="a-muted text-xs a-ltr mb-1">@path</div>
+          <ul class="a-stack">
+            @foreach (var f in filters)
+            {
+              <li class="flex items-center gap-2">
+                <a class="a-link flex-1 truncate" href="@(path + f.Query)">@f.Name</a>
+                <form method="post" asp-page-handler="DeleteFilter" class="m-0" data-confirm="فیلتر «@f.Name» حذف شود؟">
+                  <input type="hidden" name="path" value="@path"><input type="hidden" name="name" value="@f.Name">
+                  <button class="a-btn a-btn-xs a-btn-light" type="submit" aria-label="حذف فیلتر">@Icons.Svg("Trash", null, 14)</button>
+                </form>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("FloppyDisk", null, 18) پیش‌نویس‌های ذخیره‌نشده</h3></div>
+    <div class="a-card-body">
+      @if (Model.Drafts.Count == 0)
+      {
+        <p class="a-muted text-sm">فرم‌های ویرایش (محصول، مقاله، جدول‌ها) هنگام تایپ خودکار پیش‌نویس می‌سازند؛ بعد از ذخیرهٔ فرم پیش‌نویس حذف می‌شود.</p>
+      }
+      <ul class="a-stack">
+        @foreach (var d in Model.Drafts)
+        {
+          <li class="flex items-center gap-2">
+            @if (d.Url is not null) { <a class="a-link flex-1 truncate" href="@d.Url">@(d.Title ?? d.FormKey)</a> } else { <span class="flex-1 truncate">@(d.Title ?? d.FormKey)</span> }
+            <span class="a-muted text-xs nowrap">@Format.Relative(d.SavedAt)</span>
+            <form method="post" asp-page-handler="DeleteDraft" class="m-0" data-confirm="این پیش‌نویس دور انداخته شود؟ متن ذخیره‌نشده از بین می‌رود." data-confirm-danger>
+              <input type="hidden" name="key" value="@d.FormKey">
+              <button class="a-btn a-btn-xs a-btn-light" type="submit" aria-label="دور انداختن پیش‌نویس">@Icons.Svg("Trash", null, 14)</button>
+            </form>
+          </li>
+        }
+      </ul>
+    </div>
+  </section>
+</div>

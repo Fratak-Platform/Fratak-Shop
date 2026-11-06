@@ -5,6 +5,9 @@ namespace Fratak_Shop.Core.DTOs.Categories.Query;
 
 public class CategoryDto : BaseDto
 {
+    public Guid? ParentId { get; set; }
+    public string? ParentName { get; set; }
+    public string? ParentSlug { get; set; }
     public string Name { get; set; } = null!;
     public string Slug { get; set; } = null!;
     public string? Description { get; set; }

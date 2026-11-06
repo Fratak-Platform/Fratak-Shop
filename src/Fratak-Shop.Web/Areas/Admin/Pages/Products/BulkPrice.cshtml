@@ -1,0 +1,339 @@
+@page "/admin/products/bulk-price"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.BulkPriceModel
+@using Fratak_Shop.Core.Services.Products
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@*
+  تغییر گروهی قیمت (مرحلهٔ هفتم – فاز ۵).
+  گام ۱: محدوده (انتخاب‌شده‌ها یا فیلتر) · گام ۲: عملیات · گام ۳: پیش‌نمایش اثر و تأیید · تاریخچه با برگرداندن.
+  نمایش/پنهان شدن فیلدها با data-show-when (admin.js) و فیلتر گزینه‌های «نوع تغییر» با admin-catalog.js است.
+*@
+@{
+    ViewData["Title"] = "تغییر گروهی قیمت";
+    var f = Model.Form;
+    var p = Model.Preview;
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var cost = Model.CanSeeCost;
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/products" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>تغییر گروهی قیمت</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">قبل از ذخیره، اثر تغییر روی تک‌تک محصولات (قیمت قبلی ← جدید، سود و هشدار زیان) را می‌بینید. هر اعمال در تاریخچه می‌ماند و با یک کلیک برمی‌گردد.</p>
+  </div>
+  <div class="a-btn-group">
+    <a href="#history" class="a-btn a-btn-light">@Icons.Svg("ClockCounterClockwise", null, 18) تاریخچه</a>
+  </div>
+</div>
+
+<form method="post" id="bulk-price-form" data-bulk-price>
+  @foreach (var id in f.Ids)
+  {
+    <input type="hidden" name="Form.Ids" value="@id">
+  }
+  <input type="hidden" name="Form.Token" value="@f.Token">
+
+  <div class="grid gap-4 lg:grid-cols-2 mb-4">
+    @* ── گام ۱: محدوده ── *@
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Funnel", null, 18) ۱. کدام محصولات؟</span></div>
+      <div class="a-card-body space-y-3">
+        <div class="a-pills">
+          <label class="a-check"><input type="radio" name="Form.ScopeKind" value="selected" id="bp-scope-selected" checked="@(f.ScopeKind == "selected")" disabled="@(f.Ids.Count == 0)"> انتخاب‌شده‌ها در فهرست (@Format.Number(f.Ids.Count))</label>
+          <label class="a-check"><input type="radio" name="Form.ScopeKind" value="filter" id="bp-scope-filter" checked="@(f.ScopeKind != "selected")"> با فیلتر</label>
+        </div>
+        @if (f.Ids.Count == 0)
+        {
+          <p class="a-help">برای تغییر محصولات دلخواه، در <a class="a-link" href="/admin/products">فهرست محصولات</a> آن‌ها را تیک بزنید و «تغییر قیمت با پیش‌نمایش» را بزنید.</p>
+        }
+        <div class="a-form-grid cols-2" data-scope-filter>
+          <div class="a-field">
+            <label class="a-label" for="bp-cat">دسته</label>
+            <select id="bp-cat" name="Form.CategoryId" class="a-select">
+              <option value="">همهٔ دسته‌ها</option>
+              @foreach (var c in Model.Categories)
+              {
+                <option value="@c.Id" selected="@(f.CategoryId == c.Id)">@c.Name</option>
+              }
+            </select>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="bp-brand">برند</label>
+            <select id="bp-brand" name="Form.BrandId" class="a-select">
+              <option value="">همهٔ برندها</option>
+              @foreach (var b in Model.Brands)
+              {
+                <option value="@b.Id" selected="@(f.BrandId == b.Id)">@b.Name</option>
+              }
+            </select>
+          </div>
+          @if (cost)
+          {
+            <div class="a-field">
+              <label class="a-label" for="bp-supplier">تأمین‌کننده</label>
+              <select id="bp-supplier" name="Form.SupplierId" class="a-select">
+                <option value="">همه</option>
+                @foreach (var s in Model.Suppliers)
+                {
+                  <option value="@s.Id" selected="@(f.SupplierId == s.Id)">@s.Name</option>
+                }
+              </select>
+            </div>
+          }
+          <div class="a-field">
+            <label class="a-label" for="bp-q">نام یا کد کالا شامل</label>
+            <input id="bp-q" name="Form.Search" value="@f.Search" class="a-input" maxlength="100">
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="bp-stock">موجودی</label>
+            <select id="bp-stock" name="Form.Stock" class="a-select">
+              <option value="">همه</option>
+              <option value="in" selected="@(f.Stock == "in")">فقط موجودها</option>
+              <option value="out" selected="@(f.Stock == "out")">فقط ناموجودها</option>
+            </select>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="bp-state">وضعیت</label>
+            <select id="bp-state" name="Form.State" class="a-select">
+              <option value="">همه</option>
+              <option value="active" selected="@(f.State == "active")">فقط فعال‌ها</option>
+              <option value="inactive" selected="@(f.State == "inactive")">فقط غیرفعال‌ها</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    @* ── گام ۲: عملیات ── *@
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Calculator", null, 18) ۲. چه تغییری؟</span></div>
+      <div class="a-card-body a-form-grid cols-2" data-amount-words>
+        <div class="a-field">
+          <label class="a-label" for="bp-target">قیمت</label>
+          <select id="bp-target" name="Form.Target" class="a-select" data-bp-target>
+            <option value="0" selected="@(f.Target == BulkPriceTarget.Price)">قیمت فروش</option>
+            <option value="1" selected="@(f.Target == BulkPriceTarget.DiscountPrice)">حراج / قیمت تخفیف‌دار</option>
+            <option value="3" selected="@(f.Target == BulkPriceTarget.RemoveDiscount)">حذف تخفیف</option>
+            @if (cost) { <option value="2" selected="@(f.Target == BulkPriceTarget.PurchasePrice)">قیمت خرید</option> }
+          </select>
+        </div>
+        <div class="a-field" data-show-when="#bp-target=0|1|2">
+          <label class="a-label" for="bp-mode">نوع تغییر</label>
+          <select id="bp-mode" name="Form.Mode" class="a-select" data-bp-mode>
+            <option value="0" data-targets="0,2" selected="@(f.Mode == BulkPriceMode.Percent)">درصدی (+ افزایش، − کاهش)</option>
+            <option value="1" data-targets="0,1,2" selected="@(f.Mode == BulkPriceMode.Amount)">مبلغ ثابت (تومان)</option>
+            <option value="2" data-targets="0,1,2" selected="@(f.Mode == BulkPriceMode.Set)">قرار دادن مبلغ مشخص</option>
+            @if (cost) { <option value="3" data-targets="0" selected="@(f.Mode == BulkPriceMode.MarginOverPurchase)">قیمت خرید + درصد سود</option> }
+            <option value="4" data-targets="1" data-default-for="1" selected="@(f.Mode == BulkPriceMode.PercentOff)">درصد تخفیف از قیمت فروش</option>
+          </select>
+        </div>
+        <div class="a-field" data-show-when="#bp-mode=0|3|4" data-bp-value>
+          <label class="a-label" for="bp-percent">درصد</label>
+          <input id="bp-percent" type="number" name="Form.Percent" value="@(f.Percent?.ToString("0.##", inv))" step="0.5" min="-90" max="500" class="a-input a-ltr" placeholder="مثلاً 10 یا -5">
+          <p class="a-help">در حالت «درصدی» عدد منفی یعنی کاهش؛ مثلاً ‎-5 یعنی ۵٪ ارزان‌تر.</p>
+        </div>
+        <div class="a-field" data-show-when="#bp-mode=1|2" data-bp-value>
+          <label class="a-label" for="bp-amount">مبلغ (تومان)</label>
+          <input id="bp-amount" type="number" name="Form.Amount" value="@(f.Amount?.ToString("0", inv))" step="1" class="a-input a-ltr" placeholder="مثلاً 20000 یا -15000">
+          <p class="a-help">برای «مبلغ ثابت»: مثبت = افزایش، منفی = کاهش. برای حراج: مقدار تخفیف از قیمت فروش.</p>
+        </div>
+        <div class="a-field" data-show-when="#bp-target=0|1|2">
+          <label class="a-label" for="bp-round">گرد کردن</label>
+          <div class="flex gap-2">
+            <select id="bp-round" name="Form.RoundStep" class="a-select">
+              <option value="0" selected="@(f.RoundStep == 0)">بدون گرد کردن</option>
+              <option value="100" selected="@(f.RoundStep == 100)">۱۰۰ تومان</option>
+              <option value="1000" selected="@(f.RoundStep == 1000)">۱٬۰۰۰ تومان</option>
+              <option value="10000" selected="@(f.RoundStep == 10000)">۱۰٬۰۰۰ تومان</option>
+            </select>
+            <select name="Form.RoundDirection" class="a-select" aria-label="جهت گرد کردن">
+              <option value="0" selected="@(f.RoundDirection == BulkPriceRoundDirection.Nearest)">نزدیک‌ترین</option>
+              <option value="1" selected="@(f.RoundDirection == BulkPriceRoundDirection.Up)">رو به بالا</option>
+              <option value="2" selected="@(f.RoundDirection == BulkPriceRoundDirection.Down)">رو به پایین</option>
+            </select>
+          </div>
+        </div>
+        <div class="a-field span-all space-y-2">
+          <div data-show-when="#bp-target=0">
+            <label class="a-check"><input type="checkbox" name="Form.ScaleDiscount" value="true" checked="@f.ScaleDiscount"> حراج فعلی هم به همان نسبت تغییر کند</label>
+            <input type="hidden" name="Form.ScaleDiscount" value="false">
+          </div>
+          @if (cost)
+          {
+            <label class="a-check"><input type="checkbox" name="Form.SkipLoss" value="true" checked="@f.SkipLoss"> محصولاتی که با قیمت تازه زیان می‌دهند (کمتر از قیمت خرید) تغییر نکنند</label>
+          }
+          else
+          {
+            <input type="hidden" name="Form.SkipLoss" value="true">
+          }
+          <input type="hidden" name="Form.SkipLoss" value="false">
+        </div>
+        <div class="a-field span-all" data-show-when="#bp-target=1">
+          <div class="a-form-grid cols-2">
+            <div class="a-field">
+              <label class="a-label" for="bp-ds">شروع حراج (اختیاری)</label>
+              <input id="bp-ds" name="Form.DiscountStart" value="@f.DiscountStart" class="a-input a-ltr" data-jalali="datetime" placeholder="1404/08/10 18:00">
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="bp-de">پایان حراج (اختیاری)</label>
+              <input id="bp-de" name="Form.DiscountEnd" value="@f.DiscountEnd" class="a-input a-ltr" data-jalali="datetime" placeholder="1404/08/12 23:59">
+            </div>
+          </div>
+          <p class="a-help">با شروع و پایان، «حراج زمان‌دار» می‌سازید: قیمت حراج فقط در همین بازه به مشتری نشان داده می‌شود و بعدش خودکار به قیمت اصلی برمی‌گردد. بدون ساعت، شروع از ابتدای روز و پایان تا آخر روز است.</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 p-4 pt-0">
+        <button type="submit" asp-page-handler="Preview" class="a-btn" data-keep-enabled>@Icons.Svg("Eye", null, 18) پیش‌نمایش اثر</button>
+      </div>
+    </div>
+  </div>
+
+  @* ── گام ۳: پیش‌نمایش ── *@
+  @if (p is not null)
+  {
+    <div class="a-card mb-4" id="preview" data-bp-preview>
+      <div class="a-card-head flex-wrap gap-2">
+        <span class="a-card-title">@Icons.Svg("Eye", null, 18) ۳. پیش‌نمایش: @p.Title</span>
+        <div class="a-chips">
+          <span class="a-badge a-badge-gray">@Format.Number(p.Matched) محصول در محدوده</span>
+          <span class="a-badge a-badge-green">@Format.Number(p.Changed) تغییر می‌کند</span>
+          @if (p.WithWarnings > 0) { <span class="a-badge a-badge-yellow">@Format.Number(p.WithWarnings) با هشدار</span> }
+          @if (p.Skipped > 0) { <span class="a-badge a-badge-gray">@Format.Number(p.Skipped) بدون تغییر/رد شده</span> }
+        </div>
+      </div>
+      @if (p.Truncated)
+      {
+        <div class="a-alert a-alert-warn m-4">بیش از @Format.Number(BulkPriceRules.MaxProducts) محصول در محدوده است؛ فقط @Format.Number(BulkPriceRules.MaxProducts) محصول اول (به ترتیب نام) تغییر می‌کند. محدوده را کوچک‌تر کنید.</div>
+      }
+      <div class="a-filters px-4 pt-3">
+        <label class="a-check"><input type="checkbox" data-bp-hide-skipped checked> پنهان کردن ردیف‌های بدون تغییر</label>
+        <label class="a-check"><input type="checkbox" data-bp-only-warnings> فقط ردیف‌های دارای هشدار</label>
+      </div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead>
+            <tr>
+              <th>محصول</th><th>قیمت فروش</th><th>حراج</th>
+              @if (cost) { <th>قیمت خرید</th><th>سود</th> }
+              <th>قیمت نهایی مشتری</th><th>توضیح</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach (var r in p.Rows)
+            {
+              var finalDelta = r.NewFinal - r.OldFinal;
+              <tr class="@(r.IsSkipped ? "opacity-60" : r.Warnings.Count > 0 ? "bg-amber-50/60" : "")" data-bp-row data-skipped="@(r.IsSkipped ? "1" : "0")" data-warn="@(r.Warnings.Count > 0 ? "1" : "0")" hidden="@r.IsSkipped">
+                <td data-label="محصول">
+                  <a href="/admin/products/edit/@r.ProductId" class="flex items-center gap-2" target="_blank" rel="noopener">
+                    <img class="a-thumb" src="@ImageHelper.Sized(ImageHelper.Product(r.ImageName), 160)" alt="" loading="lazy">
+                    <span><span class="font-semibold">@r.Name</span><span class="block text-xs a-muted a-ltr">@r.Sku · موجودی @Format.Number(r.Stock)</span></span>
+                  </a>
+                </td>
+                <td data-label="قیمت فروش" class="nowrap">
+                  @if (r.New.Price != r.Old.Price)
+                  {
+                    <span class="a-muted line-through text-xs">@Format.Price(r.Old.Price)</span><br><b>@Format.Price(r.New.Price)</b>
+                  }
+                  else { <span>@Format.Price(r.Old.Price)</span> }
+                </td>
+                <td data-label="حراج" class="nowrap">
+                  @if (r.New.DiscountPrice != r.Old.DiscountPrice || r.New.DiscountStartAt != r.Old.DiscountStartAt || r.New.DiscountEndAt != r.Old.DiscountEndAt)
+                  {
+                    <span class="a-muted line-through text-xs">@(r.Old.DiscountPrice is { } od ? Format.Price(od) : "—")</span><br>
+                    <b>@(r.New.DiscountPrice is { } nd ? Format.Price(nd) : "بدون حراج")</b>
+                    if (r.New.DiscountEndAt is { } until) { <span class="block text-xs a-muted">تا @Format.DateTime(until)</span> }
+                  }
+                  else { <span>@(r.Old.DiscountPrice is { } d ? Format.Price(d) : "—")</span> }
+                </td>
+                @if (cost)
+                {
+                  <td data-label="قیمت خرید" class="nowrap">
+                    @if (r.New.PurchasePrice != r.Old.PurchasePrice)
+                    {
+                      <span class="a-muted line-through text-xs">@(r.Old.PurchasePrice is { } op ? Format.Price(op) : "—")</span><br><b>@(r.New.PurchasePrice is { } np ? Format.Price(np) : "—")</b>
+                    }
+                    else { <span>@(r.Old.PurchasePrice is { } pp ? Format.Price(pp) : "—")</span> }
+                  </td>
+                  <td data-label="سود" class="nowrap">@BulkPriceModel.MarginText(r.NewMarginPercent)</td>
+                }
+                <td data-label="قیمت نهایی مشتری" class="nowrap">
+                  <b>@Format.Price(r.NewFinal)</b>
+                  @if (finalDelta != 0) { <span class="block text-xs @BulkPriceModel.DeltaCss(finalDelta)">@Format.SignedPrice(finalDelta)</span> }
+                </td>
+                <td data-label="توضیح" class="text-xs">
+                  @if (r.SkipReason is not null) { <span class="a-muted">@r.SkipReason</span> }
+                  @foreach (var w in r.Warnings) { <span class="block text-amber-700">@Icons.Svg("Warning", "inline", 14) @w</span> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 p-4 border-t">
+        @if (p.Changed > 0)
+        {
+          <button type="submit" asp-page-handler="Apply" class="a-btn a-btn-success"
+                  data-confirm="قیمت @Format.Number(p.Changed) محصول تغییر کند؟ (از تاریخچه قابل برگرداندن است)">@Icons.Svg("Check", null, 18) اعمال روی @Format.Number(p.Changed) محصول</button>
+        }
+        else
+        {
+          <span class="a-muted">هیچ محصولی تغییر نمی‌کند؛ عملیات یا محدوده را عوض کنید.</span>
+        }
+        <span class="a-help">اگر قبل از تأیید، قیمت یا محدوده عوض شود، اعمال انجام نمی‌شود و پیش‌نمایش تازه نشان داده می‌شود.</span>
+      </div>
+    </div>
+  }
+</form>
+
+@* ── تاریخچه ── *@
+<div class="a-card" id="history">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) تاریخچهٔ تغییرهای گروهی قیمت</span></div>
+  @if (Model.Batches.Count == 0)
+  {
+    <div class="a-empty">هنوز تغییر گروهی ثبت نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>زمان</th><th>عملیات</th><th>منبع</th><th>تعداد</th><th>کاربر</th><th>وضعیت</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var b in Model.Batches)
+          {
+            <tr>
+              <td data-label="زمان" class="nowrap">@Format.DateTime(b.CreatedAt)</td>
+              <td data-label="عملیات">@b.Title</td>
+              <td data-label="منبع">@BulkPriceModel.SourceTitle(b.Source)</td>
+              <td data-label="تعداد" class="num">@Format.Number(b.AffectedCount)</td>
+              <td data-label="کاربر">@(b.CreatedByName ?? "—")</td>
+              <td data-label="وضعیت">
+                @if (b.RevertedAt is { } at)
+                {
+                  <span class="a-badge a-badge-gray">برگردانده شد</span>
+                  <span class="block text-xs a-muted">@Format.DateTime(at) – @b.RevertedByName</span>
+                  if (!string.IsNullOrEmpty(b.RevertNote)) { <span class="block text-xs a-muted">@b.RevertNote</span> }
+                }
+                else { <span class="a-badge a-badge-green">اعمال‌شده</span> }
+              </td>
+              <td data-label="">
+                @if (b.RevertedAt is null)
+                {
+                  <form method="post" asp-page-handler="Revert" data-confirm="قیمت‌های این دسته به مقدار قبلی برگردد؟ محصولاتی که بعداً دستی تغییر کرده‌اند دست نمی‌خورند." data-confirm-danger>
+                    <input type="hidden" name="batchId" value="@b.Id">
+                    <button type="submit" class="a-btn a-btn-xs a-btn-danger-soft">@Icons.Svg("ArrowCounterClockwise", null, 14) برگرداندن</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@section Scripts {
+  <script src="~/assets/js/admin-catalog.js" asp-append-version="true"></script>
+}

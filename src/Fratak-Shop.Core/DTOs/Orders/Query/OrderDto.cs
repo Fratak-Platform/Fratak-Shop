@@ -23,8 +23,31 @@ public class OrderDto : BaseDto
     public decimal ShippingAmount { get; set; }
     public decimal PayableAmount { get; set; }
 
+    public string? CouponCode { get; set; }
+    public decimal CouponDiscountAmount { get; set; }
+
     public string? ShippingMethod { get; set; }
+    public Guid? ShippingMethodId { get; set; }
     public DateTimeOffset? RequestedDeliveryDate { get; set; }
+    public Guid? DeliveryTimeSlotId { get; set; }
+    public string? DeliveryTimeSlotTitle { get; set; }
+
+    /// <summary>Unpaid online orders are cancelled automatically after this moment.</summary>
+    public DateTimeOffset? PaymentDeadline { get; set; }
+
+    public DateTimeOffset? CancelledAt { get; set; }
+    public OrderCancelledBy? CancelledBy { get; set; }
+    public string? CancellationReason { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public DateTimeOffset? RefundedAt { get; set; }
+
+    /// <summary>Part of the wallet payment made with promotional credit.</summary>
+    public decimal WalletBonusAmount { get; set; }
+    public decimal RefundedBonusAmount { get; set; }
+
+    /// <summary>Serial invoice number; null = pro-forma (not paid / delivered yet).</summary>
+    public string? InvoiceNumber { get; set; }
+    public DateTimeOffset? InvoiceIssuedAt { get; set; }
 
     public string CustomerName { get; set; } = null!;
     public string CustomerPhone { get; set; } = null!;
@@ -36,11 +59,17 @@ public class OrderDto : BaseDto
     public string? ShippingUnit { get; set; }
     public string ShippingPostalCode { get; set; } = null!;
     public string ShippingPhone { get; set; } = null!;
+    public decimal? ShippingLatitude { get; set; }
+    public decimal? ShippingLongitude { get; set; }
 
     public string? CustomerNote { get; set; }
     public DateTimeOffset? PaidAt { get; set; }
 
     public List<OrderItemDto> Items { get; set; } = [];
+
+    /// <summary>The order can still be paid online (pending, unpaid and not expired).</summary>
+    public bool IsAwaitingPayment(DateTimeOffset now) =>
+        OrderRules.IsPayable(Status, PaymentMethod, PaymentStatus, PaymentDeadline, now);
 }
 
 public class OrderItemDto : BaseDto
@@ -53,6 +82,9 @@ public class OrderItemDto : BaseDto
 
     /// <summary>اسلاگ محصول؛ اگر محصول حذف شده باشد خالی است.</summary>
     public string? ProductSlug { get; set; }
+
+    /// <summary>تصویر اصلی محصول؛ اگر محصول حذف شده باشد خالی است.</summary>
+    public string? ProductImageName { get; set; }
 
     public decimal UnitPrice { get; set; }
     public decimal DiscountAmount { get; set; }

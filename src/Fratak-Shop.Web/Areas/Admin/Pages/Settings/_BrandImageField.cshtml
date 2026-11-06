@@ -1,0 +1,21 @@
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.BrandImageField
+@* فیلد تصویر استودیوی لوگو: آدرس + بندانگشتی + انتخاب از کتابخانهٔ رسانه (editor.js) + پاک کردن (admin-brand.js). *@
+<div class="a-field">
+  <label class="a-label" for="@Model.Id">@Model.Label</label>
+  <div class="a-bl-image">
+    <span class="a-bl-thumb" data-bl-thumb="@Model.Id">
+      @if (!string.IsNullOrWhiteSpace(Model.Value))
+      {
+        <img src="@Model.Value" alt="">
+      }
+    </span>
+    <input id="@Model.Id" name="@Model.Name" value="@Model.Value" class="a-input a-ltr" dir="ltr" maxlength="500" placeholder="خالی = پیش‌فرض"
+           data-bl-image data-f="@(Model.IsPlace ? Model.Key : null)" data-g="@(Model.IsPlace ? null : Model.Key)">
+    <button type="button" class="a-btn a-btn-light a-btn-sm" data-media-pick="#@Model.Id">@Icons.Svg("Images", null, 16) کتابخانه</button>
+    <button type="button" class="a-icon-btn" data-bl-clear="#@Model.Id" title="پاک کردن (پیش‌فرض)" aria-label="پاک کردن">@Icons.Svg("Close", null, 16)</button>
+  </div>
+  @if (Model.Help is not null)
+  {
+    <p class="a-help">@Model.Help</p>
+  }
+</div>

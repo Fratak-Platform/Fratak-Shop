@@ -1,40 +1,100 @@
-@page
+@page "/login"
 @model LoginModel
 @{
-    ViewData["Title"] = "ورود";
     Layout = "_LayoutMinimal";
+    const string inputClass = "placeholder:text-right text-sm block w-full bg-zinc-50 rounded-xl border border-gray-300 px-4 py-4 text-gray-700 outline-none transition-all focus:border-sky-500 focus:outline-none";
+    const string tabClass = "flex-1 rounded-lg py-2 text-center text-sm transition";
+    var passwordMode = Model.IsPasswordMode;
 }
 
-
-
   <main class="max-w-[1600px] mx-auto">
-    <div class="flex justify-center items-center h-screen">
+    <div class="flex justify-center items-center min-h-screen py-10">
       <a class="absolute top-2 left-2 text-sm bg-sky-500 text-white rounded-md py-2 px-6" asp-page="/Index">
         صفحه اصلی
       </a>
       <div class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
-        <div class="mt-5 text-lg font-semibold text-zinc-800">
-          ورود به پنل کاربری  
-        </div>
-        <div class="my-4 text-xs text-zinc-500">
-          لطفا شماره موبایل و رمز عبور خود را وارد کنید
-        </div>
-        <input type="tel" placeholder="شماره همراه" name="" class="placeholder:text-right text-sm block w-full bg-zinc-50 mb-7 rounded-xl border border-gray-300 px-4 py-4 text-gray-700 outline-none transition-all focus:border-sky-500 focus:outline-none">
-        <input type="password" placeholder="رمز عبور" name="" class="placeholder:text-right text-sm block w-full bg-zinc-50 rounded-xl border border-gray-300 px-4 py-4 text-gray-700 outline-none transition-all focus:border-sky-500 focus:outline-none">
-        
-        <button class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
-          ورود
-        </button>
-        <div class="text-sm text-zinc-600 mt-4">
-          <span>
-            اکانت ندارید؟
-          </span>
-          <a asp-page="/Register" class="text-sky-500">
-            ثبت نام کنید
+        <a asp-page="/Index" class="flex justify-center" aria-label="@Site.Settings.SiteName">@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Auth))</a>
+        <h1 class="mt-5 text-lg font-semibold text-zinc-800">
+          ورود | ثبت نام
+        </h1>
+
+        @if (Model.PasswordEnabled && Model.OtpEnabled)
+        {
+        <nav class="mt-4 flex gap-x-2 rounded-xl bg-zinc-100 p-1" aria-label="روش ورود">
+          <a asp-page="/Login" asp-route-mode="otp" asp-route-returnUrl="@Model.ReturnUrl"
+             class="@tabClass @(passwordMode ? "text-zinc-500 hover:text-zinc-700" : "bg-white text-sky-600 shadow-sm font-semibold")"
+             aria-current="@(passwordMode ? null : "page")">
+            کد یک‌بار مصرف
           </a>
+          <a asp-page="/Login" asp-route-mode="password" asp-route-returnUrl="@Model.ReturnUrl"
+             class="@tabClass @(passwordMode ? "bg-white text-sky-600 shadow-sm font-semibold" : "text-zinc-500 hover:text-zinc-700")"
+             aria-current="@(passwordMode ? "page" : null)">
+            رمز عبور
+          </a>
+        </nav>
+        }
+
+        @if (passwordMode)
+        {
+          <form method="post" class="mt-2">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div class="my-4 text-xs text-zinc-500">
+              لطفا شماره موبایل و رمز عبور خود را وارد کنید
+            </div>
+            <partial name="_ValidationSummary" />
+            <input asp-for="Input.PhoneNumber" type="tel" placeholder="شماره همراه" autocomplete="username" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass mb-7">
+            <input asp-for="Input.Password" type="password" placeholder="رمز عبور" autocomplete="current-password" class="@inputClass">
+            @if (Model.Captcha is not null)
+            {
+              <partial name="_Captcha" model="Model.Captcha" />
+            }
+            <label class="flex items-center gap-x-2 mt-4 text-sm text-zinc-600 cursor-pointer">
+              <input asp-for="Input.RememberMe" type="checkbox" class="h-4 w-4 accent-sky-500">
+              مرا به خاطر بسپار
+            </label>
+            <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+              ورود
+            </button>
+            @if (Model.OtpEnabled)
+            {
+            <div class="mt-3 text-xs text-zinc-500">
+              رمز عبور ندارید یا فراموش کرده‌اید؟
+              <a asp-page="/Login" asp-route-mode="otp" asp-route-returnUrl="@Model.ReturnUrl" class="text-sky-500">با کد پیامکی وارد شوید</a>
+              و از بخش «رمز عبور» پروفایل، رمز جدید تعیین کنید.
+            </div>
+            }
+          </form>
+        }
+        else
+        {
+          <form method="post" asp-page-handler="SendCode" class="mt-2">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div class="my-4 text-xs text-zinc-500">
+              شماره موبایل خود را وارد کنید تا کد ورود برایتان پیامک شود. اگر حساب نداشته باشید، به صورت خودکار ساخته می‌شود.
+            </div>
+            <partial name="_ValidationSummary" />
+            <input asp-for="Otp.PhoneNumber" type="tel" placeholder="شماره همراه (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)" autocomplete="tel" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass">
+            @if (Model.Captcha is not null)
+            {
+              <partial name="_Captcha" model="Model.Captcha" />
+            }
+            <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+              دریافت کد ورود
+            </button>
+          </form>
+        }
+
+        <div class="text-sm text-zinc-600 mt-4 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span>ثبت نام با رمز عبور و ایمیل؟</span>
+          <a asp-page="/Register" asp-route-returnUrl="@Model.ReturnUrl" class="text-sky-500">فرم ثبت نام</a>
+          @if (Site.Settings.IsGuestOrderTrackingEnabled)
+          {
+            <span class="text-zinc-300" aria-hidden="true">|</span>
+            <a href="/track-order" class="text-sky-500">پیگیری سفارش بدون ورود</a>
+          }
         </div>
         <div class="mt-8 text-xs text-zinc-500">
-          ورود شما به معنای پذیرش <a class="text-sky-400 hover:text-sky-500 transition" href=""> قوانین و مقررات</a> هایپر استار میباشد.
+          ورود شما به معنای پذیرش <a class="text-sky-400 hover:text-sky-500 transition" href="/page/rules"> قوانین و مقررات</a> @Site.Settings.SiteName میباشد.
         </div>
       </div>
     </div>

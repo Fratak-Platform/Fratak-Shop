@@ -37,6 +37,18 @@ public class EditUserCommand
 /// دستور تغییر رمز عبور کاربر. کاربری که هنوز رمز ندارد می‌تواند بدون رمز فعلی
 /// رمز جدید ثبت کند.
 /// </summary>
+/// <summary>
+/// ویرایش اطلاعات شخصی توسط خود کاربر؛ نقش و شماره موبایل قابل تغییر نیستند.
+/// </summary>
+public class UpdateProfileCommand
+{
+    public Guid UserId { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? Email { get; set; }
+    public DateOnly? BirthDate { get; set; }
+}
+
 public class ChangePasswordCommand
 {
     public Guid UserId { get; set; }
