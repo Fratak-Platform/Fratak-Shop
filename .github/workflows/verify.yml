@@ -215,7 +215,6 @@ jobs:
           docker pull -q grafana/k6
 
       - name: Run load test
-        env:
         run: bash tools/load/run-load-test.sh out "Server=localhost,1433;Database=FratakShopLoad;User Id=sa;Password=Load_Test_Passw0rd!;TrustServerCertificate=True;MultipleActiveResultSets=true"
 
       - name: Report load test results

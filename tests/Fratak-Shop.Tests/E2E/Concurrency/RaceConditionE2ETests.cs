@@ -117,9 +117,17 @@ public class RaceConditionE2ETests(ShopApp app)
 
         try
         {
-            await Task.WhenAll(clients.Select(async c =>
+            // اول همهٔ مرورگرها فرم تسویه را باز می‌کنند، بعد هم‌زمان ثبت می‌کنند. اگر باز کردن و ثبت با هم موازی باشد، سفارش اولی
+            // سبد مشترک را خالی می‌کند و صفحهٔ تسویهٔ بقیه (درست) به سبد برمی‌گردد؛ آن وقت آزمون به‌جای کیف پول، زمان‌بندی را می‌سنجد.
+            var forms = new List<(ShopClient Client, (string Key, string Value)[] Fields)>();
+            foreach (var c in clients)
             {
-                using var response = await c.PlaceOrderAsync(PaymentMethod.Wallet);
+                var page = await c.GetPageAsync("/checkout");
+                forms.Add((c, TestData.CheckoutFields(page, PaymentMethod.Wallet).ToArray()));
+            }
+            await Task.WhenAll(forms.Select(async f =>
+            {
+                using var response = await f.Client.PostFormAsync("/checkout?handler=PlaceOrder", f.Fields);
             }));
 
             var balance = await app.WalletBalanceAsync(customer.Id);
