@@ -318,8 +318,13 @@ public static partial class SmartParsers
                                 _ => null,
                             }
                             : null;
-                        if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(value))
-                            list.Add((PersianText.Clean(name), PersianText.Clean(value)));
+                        // متن JSON ممکن است تگ HTML داشته باشد (مثلاً «<b>مشکی</b>» یا حتی کد مخرب): فقط متن آن نگه داشته می‌شود.
+                        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value))
+                            continue;
+                        var cleanName = PersianText.Clean(PersianText.HtmlToText(name));
+                        var cleanValue = PersianText.Clean(PersianText.HtmlToText(value));
+                        if (cleanName.Length > 0 && cleanValue.Length > 0)
+                            list.Add((cleanName, cleanValue));
                     }
                 }
             }

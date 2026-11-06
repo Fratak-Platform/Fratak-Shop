@@ -2,6 +2,7 @@ using System.Text.Json;
 using Fratak_Shop.Core.Services.Seo.Autopilot;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Smart;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.SeoEngine;
 using Fratak_Shop.Data.Entities.Smart;
 using Fratak_Shop.Web.Services;
@@ -346,9 +347,8 @@ public sealed class SmartOrchestrator(
             _ => null,
         };
         var written = await engine.WriteProductReviewAsync(productId, keep, await NotesAsync(productId, cancellationToken), cancellationToken);
-        if (!written.IsSuccess() || written.Data is null)
+        if (!written.IsSuccess() || written.Data is not { } draft)
             return new SmartOutcome(SmartTaskStatus.Skipped, written.Message ?? "نوشتن نقد و بررسی ممکن نشد.");
-        var draft = written.Data;
         var preview = new ReviewPreview
         {
             Html = draft.Html, Words = draft.Words, CurrentWords = state.Words, ScoreBefore = draft.ScoreBefore, ScoreAfter = draft.ScoreAfter,
