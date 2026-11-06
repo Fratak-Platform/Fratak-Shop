@@ -22,6 +22,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (command.PurchasePrice is < 0)
             return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
 
+        // دور ۱۹ (C27): محافظ سود – قیمت فروش/تخفیف کمتر از قیمت خرید ذخیره نمی‌شود (قابل خاموش کردن در تنظیمات هوشمند).
+        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss && await Smart.ProfitGuard.IsEnabledAsync(context))
+            return OperationResult.Error(loss);
+
         var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
         if (!categoryExists)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
@@ -105,6 +109,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
 
         if (command.PurchasePrice is < 0)
             return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
+
+        // دور ۱۹ (C27): محافظ سود – قیمت فروش/تخفیف کمتر از قیمت خرید ذخیره نمی‌شود (قابل خاموش کردن در تنظیمات هوشمند).
+        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss && await Smart.ProfitGuard.IsEnabledAsync(context))
+            return OperationResult.Error(loss);
 
         var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
         if (!categoryExists)

@@ -125,6 +125,13 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Seo.OgImageRenderer>();
         services.AddHostedService<Infrastructure.Seo.SeoAutopilotWorker>();
 
+        // دور نوزدهم (B/C، A31): محتوای هوشمند – منابع بیرونی مؤدب، عکس‌یاب، اجراکنندهٔ کارها، کارگر پس‌زمینه و دستیار محلی مدیر.
+        services.AddSingleton<Infrastructure.Smart.HelperBroker>();
+        services.AddScoped<Infrastructure.Smart.SmartSources>();
+        services.AddScoped<Infrastructure.Smart.SmartImageFinder>();
+        services.AddScoped<Infrastructure.Smart.SmartOrchestrator>();
+        services.AddHostedService<Infrastructure.Smart.SmartWorker>();
+
         // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.
         // RemoveAllLoggers: آدرس API ربات توکن را در خود دارد؛ لاگ پیش‌فرض HttpClient نباید آن را ثبت کند.
         services.AddHttpClient(Infrastructure.Insights.ReportDelivery.BotClientName, Infrastructure.Insights.ReportDelivery.Configure)

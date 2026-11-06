@@ -24,8 +24,25 @@ public class SearchModel(
     IProductFilterService filterService,
     Fratak_Shop.Core.Services.Searches.ISearchInsightsService insights,
     IPageMetaService pageMeta,
-    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLandingService landings) : ShopPageModel
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLandingService landings,
+    Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide) : ShopPageModel
 {
+    /// <summary>دور ۱۹ (C8): «کمکم کن انتخاب کنم» در صفحهٔ دسته – فقط با ?quiz=1 اجرا می‌شود (هزینهٔ پرس‌وجو برای بقیه صفر).</summary>
+    [FromQuery(Name = "quiz")]
+    public bool QuizOpen { get; set; }
+
+    /// <summary>سقف بودجهٔ انتخاب‌شده در پرسشنامه (تومان).</summary>
+    [FromQuery(Name = "budget")]
+    public decimal? QuizBudget { get; set; }
+
+    /// <summary>اولویت انتخاب‌شده: popular، cheap یا نام یک ویژگی عددی دسته.</summary>
+    [FromQuery(Name = "priority")]
+    public string? QuizPriority { get; set; }
+
+    public Fratak_Shop.Core.Services.Smart.QuizResult? Quiz { get; private set; }
+
+    public List<ProductFilterData> QuizPicks { get; private set; } = [];
+
     /// <summary>
     /// لینک‌های «خرید {دسته} زیر X تومان» از قیمت واقعی محصولات موجود دسته (فقط صفحهٔ اول دستهٔ بدون فیلتر).
     /// </summary>
@@ -33,6 +50,12 @@ public class SearchModel(
 
     /// <summary>Spelling suggestion when a text search found nothing.</summary>
     public string? DidYouMean { get; private set; }
+
+    /// <summary>دور ۱۹ (C15): عبارت اصلی کاربر وقتی با اصلاح چیدمان کیبورد جست‌وجو شد. مثال: «ihvni» (و Query = «هدفون»).</summary>
+    public string? CorrectedFrom { get; private set; }
+
+    /// <summary>دور ۱۹ (C16): پرفروش‌های موجود برای وقتی که جست‌وجو نتیجه ندارد.</summary>
+    public List<ProductFilterData> Suggestions { get; private set; } = [];
 
     /// <summary>Popular searches offered on an empty result.</summary>
     public IReadOnlyList<string> PopularSearches { get; private set; } = [];
@@ -184,11 +207,45 @@ public class SearchModel(
             await insights.LogAsync(Query, Result.EntityCount, visitor);
         }
 
+        // دور ۱۹ (C15): «ihvni» با کیبورد انگلیسی تایپ شده ولی منظور «هدفون» بوده ← یک بار با چیدمان درست جست‌وجو می‌شود
+        // و نتیجه با پیام شفاف («نتایج «هدفون» نمایش داده شد») نشان داده می‌شود. فقط وقتی نتیجهٔ اصلی خالی است (یک پرس‌وجوی اضافه).
+        if (Result.Data.Count == 0 && hasQuery && Fratak_Shop.Core.Services.Smart.KeyboardLayout.Swap(Query) is { } swapped
+            && !string.Equals(swapped, Query, StringComparison.Ordinal))
+        {
+            var originalGroups = filter.SearchTermGroups;
+            filter.Search = swapped;
+            filter.SearchTermGroups = await insights.ExpandAsync(swapped);
+            var corrected = await productService.GetProductByFilterAsync(filter);
+            if (corrected.Data.Count > 0)
+            {
+                Result = corrected;
+                CorrectedFrom = Query;
+                Query = swapped;
+            }
+            else
+            {
+                // جست‌وجوی جایگزین هم چیزی نداشت ← فیلتر به حالت اصلی برمی‌گردد تا فیلترهای کناری با عبارت کاربر ساخته شوند.
+                filter.Search = Query;
+                filter.SearchTermGroups = originalGroups;
+            }
+        }
+
         if (Result.Data.Count == 0)
         {
             if (hasQuery)
                 DidYouMean = await insights.DidYouMeanAsync(Query);
             PopularSearches = await insights.GetPopularAsync();
+            // دور ۱۹ (C16): صفحهٔ خالی نه – پرفروش‌های موجود (همان دسته اگر انتخاب شده) به‌عنوان پیشنهاد.
+            var fallback = await productService.GetProductByFilterAsync(new ProductFilterParams
+            {
+                CategorySlug = Category is null ? null : CategorySlug,
+                OnlyAvailable = true,
+                OnlyActive = true,
+                SortBy = ProductSortBy.BestSelling,
+                PageId = 1,
+                Take = 8,
+            });
+            Suggestions = fallback.Data;
         }
         if (attributes.Count > 0)
             Facets = await productService.GetSpecificationFacetsAsync(filter, attributes);
@@ -200,6 +257,17 @@ public class SearchModel(
             else if (BrandSlugs.Count > 0)
                 // No category: only the already selected brands stay visible, so they can be removed.
                 BrandFacets = (await productService.GetBrandFacetsAsync(filter)).Where(b => b.IsSelected).ToList();
+        }
+
+        if (QuizOpen && Category is not null)
+        {
+            var priority = QuizPriority is { Length: > 60 } ? null : QuizPriority;
+            Quiz = await buyerGuide.QuizAsync(Category.Id, QuizBudget is > 0 ? QuizBudget : null, priority, HttpContext.RequestAborted);
+            if ((QuizBudget is > 0 || !string.IsNullOrWhiteSpace(priority)) && Quiz.Picks.Count > 0)
+            {
+                var cards = await productService.GetCardsByIdsAsync(Quiz.Picks, onlyInStock: true);
+                QuizPicks = Quiz.Picks.Select(id => cards.FirstOrDefault(c => c.Id == id)).OfType<ProductFilterData>().ToList();
+            }
         }
 
         Categories = await categoryService.GetMenuCategoriesAsync();

@@ -159,6 +159,10 @@ public class AbandonedCartService(
             if (record.LastReminderAt is { } last && now - last < MinGapBetweenReminders)
                 continue;
 
+            // دور ۱۹ (C21): پیام تبلیغاتی در ساعت سکوت شبانه (۲۲ تا ۹ به وقت ایران) فرستاده نمی‌شود؛ صبح که کار دوباره اجرا شد می‌رود.
+            if (Fratak_Shop.Core.Services.Smart.CustomerQuietHours.IsQuiet(now))
+                continue;
+
             if (await SendReminderAsync(record, step))
                 sent++;
         }

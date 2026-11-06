@@ -1,0 +1,136 @@
+@page "/admin/smart/settings"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.SettingsModel
+@*
+  تنظیمات محتوای هوشمند: هر بخش یک کارت؛ پایین صفحه دستیار محلی (کلید و وضعیت).
+*@
+@{
+    ViewData["Title"] = "تنظیمات محتوای هوشمند";
+    var rules = Model.Options.ReplenishRules.ToDictionary(r => r.CategoryId, r => r.Days);
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تنظیمات محتوای هوشمند</h2>
+    <p class="a-muted text-sm mt-1">پیش‌فرض‌ها محتاطانه انتخاب شده‌اند؛ فقط اگر لازم است تغییر دهید. همهٔ کارها رایگان و بدون سرویس پولی انجام می‌شوند.</p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a></div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.NewHelperKey))
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", null, 16)
+    <span>کلید دستیار (فقط همین یک بار نمایش داده می‌شود): <code class="a-ltr select-all">@Model.NewHelperKey</code></span>
+  </div>
+}
+
+<form method="post" asp-page-handler="Save" class="a-stack">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) کلی</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.Enabled"> محتوای هوشمند روشن باشد (خاموش: هیچ کاری از صف اجرا نمی‌شود)</label>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="a-label" asp-for="Options.MinImageSide">حداقل ضلع عکس (پیکسل)</label><input class="a-input" asp-for="Options.MinImageSide" min="300" max="2000"></div>
+        <div><label class="a-label" asp-for="Options.MaxImageCandidates">حداکثر عکس بررسی‌شده برای هر کالا</label><input class="a-input" asp-for="Options.MaxImageCandidates" min="6" max="60"></div>
+        <div><label class="a-label" asp-for="Options.AutoImagesWhenFewerThan">افزودن خودکار عکس وقتی کالا کمتر از … عکس دارد</label><input class="a-input" asp-for="Options.AutoImagesWhenFewerThan" min="0" max="12"></div>
+        <div><label class="a-label" asp-for="Options.AutoImagesMax">حداکثر عکس خودکار در هر بار</label><input class="a-input" asp-for="Options.AutoImagesMax" min="0" max="8"></div>
+        <div><label class="a-label" asp-for="Options.AutoSpecMinSources">مشخصهٔ تازه با توافق چند منبع خودکار اضافه شود</label><input class="a-input" asp-for="Options.AutoSpecMinSources" min="2" max="5"></div>
+        <div><label class="a-label" asp-for="Options.AutoApproveInsightMinReviews">تأیید خودکار خلاصهٔ خرید از … نظر به بالا</label><input class="a-input" asp-for="Options.AutoApproveInsightMinReviews" min="3" max="500"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BlockBelowCost"> جلوگیری از ذخیرهٔ قیمت فروش کمتر از قیمت خرید (محافظ سود)</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.DeadStockWarnDays">هشدار کالای راکد بعد از … روز بدون فروش</label><input class="a-input" asp-for="Options.DeadStockWarnDays" min="14" max="365"></div>
+        <div><label class="a-label" asp-for="Options.DeadStockCriticalDays">راکد جدی بعد از … روز</label><input class="a-input" asp-for="Options.DeadStockCriticalDays" min="14" max="730"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Article", null, 18) بلاگ خودکار</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BlogPlanner"> تقویم محتوا خودکار پر شود (موضوع از دسته‌ها، کالاهای پرفروش و جست‌وجوهای مشتریان)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BlogAutoPublish"> مقالهٔ قبول‌شده در کنترل کیفیت خودکار منتشر شود (وگرنه پیش‌نویس می‌ماند)</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.BlogPostsPerWeek">مقاله در هفته (۰ = خاموش)</label><input class="a-input" asp-for="Options.BlogPostsPerWeek" min="0" max="7"></div>
+        <div><label class="a-label" asp-for="Options.BlogQualityMin">حداقل نمرهٔ کیفیت برای انتشار</label><input class="a-input" asp-for="Options.BlogQualityMin" min="50" max="100"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) یادآوری‌های مشتری</h3></div>
+    <div class="a-card-body a-stack">
+      <p class="a-muted text-sm">@Format.Number(Model.Reminders.Pending) در انتظار · @Format.Number(Model.Reminders.SentLast30Days) ارسال و @Format.Number(Model.Reminders.SkippedLast30Days) لغو خودکار در ۳۰ روز اخیر. هر مشتری حداکثر یک پیام در هفته؛ در ساعت سکوت هیچ پیامی فرستاده نمی‌شود.</p>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ReviewRequests"> درخواست نظر بعد از تحویل سفارش</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ReviewRequestSms"> درخواست نظر با پیامک هم فرستاده شود (فقط اگر مشتری پیامک تبلیغاتی را خاموش نکرده باشد)</label>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div><label class="a-label" asp-for="Options.ReviewRequestAfterDays">چند روز بعد از تحویل</label><input class="a-input" asp-for="Options.ReviewRequestAfterDays" min="1" max="60"></div>
+        <div><label class="a-label" asp-for="Options.QuietFromHour">سکوت از ساعت</label><input class="a-input" asp-for="Options.QuietFromHour" min="0" max="23"></div>
+        <div><label class="a-label" asp-for="Options.QuietToHour">تا ساعت</label><input class="a-input" asp-for="Options.QuietToHour" min="0" max="23"></div>
+      </div>
+      <div><label class="a-label" asp-for="Options.ReviewRequestTitle">عنوان اعلان درخواست نظر</label><input class="a-input" asp-for="Options.ReviewRequestTitle"></div>
+      <div><label class="a-label" asp-for="Options.ReviewRequestBody">متن اعلان درخواست نظر</label><textarea class="a-input" asp-for="Options.ReviewRequestBody" rows="2"></textarea></div>
+      <div><label class="a-label" asp-for="Options.ReviewRequestSmsText">متن پیامک درخواست نظر</label><textarea class="a-input" asp-for="Options.ReviewRequestSmsText" rows="2"></textarea></div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ReplenishReminders"> یادآوری تهیهٔ دوبارهٔ کالاهای مصرفی (فقط برای دسته‌هایی که پایین روز داده‌اید)</label>
+      <div><label class="a-label" asp-for="Options.ReplenishTitle">عنوان یادآوری تمدید</label><input class="a-input" asp-for="Options.ReplenishTitle"></div>
+      <div><label class="a-label" asp-for="Options.ReplenishBody">متن یادآوری تمدید</label><textarea class="a-input" asp-for="Options.ReplenishBody" rows="2"></textarea></div>
+      <div><label class="a-label" asp-for="Options.ReplenishSmsText">متن پیامک تمدید</label><textarea class="a-input" asp-for="Options.ReplenishSmsText" rows="2"></textarea></div>
+      <p class="a-muted text-xs">جای‌گذاری‌ها: <code>{ProductName}</code>، <code>{SiteName}</code>، <code>{Link}</code>، <code>{Days}</code></p>
+      @if (Model.Categories.Count > 0)
+      {
+        <details>
+          <summary class="cursor-pointer font-bold text-sm">دورهٔ مصرف هر دسته (روز؛ خالی یا ۰ = بدون یادآوری)</summary>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
+            @foreach (var c in Model.Categories)
+            {
+              <label class="flex items-center gap-2 text-sm">
+                <input type="hidden" name="ruleCategory" value="@c.Id">
+                <input type="number" name="ruleDays" value="@(rules.TryGetValue(c.Id, out var days) ? days : 0)" min="0" max="730" class="a-input w-24" aria-label="روز برای @c.Name">
+                <span>@c.Name</span>
+              </label>
+            }
+          </div>
+        </details>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Monitor", null, 18) دستیار محلی (اختیاری)</h3></div>
+    <div class="a-card-body a-stack">
+      <p class="a-muted text-sm">
+        اگر هاست به بعضی سایت‌ها دسترسی ندارد، برنامهٔ کوچک «Fratak-Helper» روی کامپیوتر خودتان درخواست‌ها را از طرف سایت می‌فرستد
+        و (اگر Ollama نصب باشد) متن‌ها را روان‌تر می‌کند. بدون آن هم همه‌چیز کار می‌کند.
+      </p>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.UseHelperFetch"> وقتی دستیار آنلاین است، دریافت صفحه‌ها از طریق آن انجام شود</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.UseHelperLlm"> روان‌سازی متن با مدل محلی دستیار (فقط اگر عددها و اسم‌ها دست نخورند)</label>
+    </div>
+  </div>
+
+  <div><button type="submit" class="a-btn">@Icons.Svg("Check", null, 16) ذخیرهٔ تنظیمات</button></div>
+</form>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) کلید دستیار</h3>
+    <span class="a-badge @(Model.HelperOnline ? "a-badge-green" : "a-badge-gray")">@(Model.HelperOnline ? "آنلاین" : "آفلاین")</span>
+  </div>
+  <div class="a-card-body a-stack">
+    <p class="text-sm">
+      @if (Model.Helper.HasKey)
+      {
+        <text>کلید فعال: <code class="a-ltr">…@Model.Helper.KeyHint</code>@(Model.Helper.Name is null ? "" : " · " + Model.Helper.Name)@(Model.Helper.LastSeenAt is { } seen ? " · آخرین اتصال " + AdminUi.Ago(seen) : "")</text>
+      }
+      else
+      {
+        <text>هنوز کلیدی ساخته نشده؛ بدون کلید هیچ دستیاری نمی‌تواند وصل شود.</text>
+      }
+    </p>
+    <p class="a-muted text-xs">نصب: پوشهٔ <code>tools/Fratak-Helper</code> را روی ویندوز کپی کنید و <code class="a-ltr">Fratak-Helper.ps1 -Site https://shop.fratak.ir -Key کلید</code> را اجرا کنید.</p>
+    <div class="flex gap-2">
+      <form method="post" asp-page-handler="Rotate"><button type="submit" class="a-btn a-btn-light">@Icons.Svg("Plus", null, 16) ساخت کلید تازه</button></form>
+      @if (Model.Helper.HasKey)
+      {
+        <form method="post" asp-page-handler="Revoke"><button type="submit" class="a-btn a-btn-light">@Icons.Svg("Prohibit", null, 16) باطل کردن کلید</button></form>
+      }
+    </div>
+  </div>
+</div>

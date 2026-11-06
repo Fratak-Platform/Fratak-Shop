@@ -308,6 +308,14 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     // مرحلهٔ پانزدهم: آخرین قیمت رقبای هر محصول (نمایش در فرم محصول و صفحهٔ «رصد قیمت رقبا»).
     public DbSet<Fratak_Shop.Data.Entities.Products.ProductCompetitorSnapshot> ProductCompetitorSnapshots { get; set; } = null!;
 
+    // دور نوزدهم: محتوای هوشمند و فروش هوشمند (Entities/Smart/SmartEntities.cs).
+    public DbSet<Fratak_Shop.Data.Entities.Smart.SmartTask> SmartTasks { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Smart.SmartResearchCache> SmartResearchCaches { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Smart.ProductInsight> ProductInsights { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Smart.BlogPlanItem> BlogPlanItems { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Smart.CustomerReminder> CustomerReminders { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Smart.SmartContentConfig> SmartContentConfigs { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

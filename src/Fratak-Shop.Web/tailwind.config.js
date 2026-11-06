@@ -40,6 +40,8 @@ module.exports = {
     "./wwwroot/assets/js/*.js",
     "./Areas/**/*.cshtml",
     "./Infrastructure/Admin/**/*.cs",
+    // دور ۱۹: HTML ساخته‌شده در Core (کارت محصول مقاله، «خلاصه در یک نگاه»).
+    "../Fratak-Shop.Core/Services/Smart/**/*.cs",
   ],
   // Classes used by the original template that are not referenced literally anymore.
   safelist: [

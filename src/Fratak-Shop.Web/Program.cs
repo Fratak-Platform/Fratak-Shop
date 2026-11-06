@@ -313,6 +313,8 @@ app.MapSeoEndpoints();
 Fratak_Shop.Web.Infrastructure.Seo.SeoFeedEndpoints.MapSeoAutopilotEndpoints(app);
 app.MapPwaEndpoints();
 app.MapStorefrontApi();
+// دور نوزدهم (A31): دستیار محلی مدیر (long-poll با کلید جداگانه).
+Fratak_Shop.Web.Infrastructure.Smart.HelperEndpoints.MapHelperEndpoints(app);
 Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoints(app);
 app.MapMediaEndpoints();
 Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Map(app);

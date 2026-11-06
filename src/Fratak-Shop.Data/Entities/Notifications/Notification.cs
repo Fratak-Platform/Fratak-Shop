@@ -181,6 +181,12 @@ public enum NotificationEvent
     AbandonedCartReminder = 90,
     BackInStock = 100,
     PriceDrop = 101,
+
+    /// <summary>دور ۱۹ (C19): چند روز بعد از تحویل، درخواست نظر دربارهٔ کالای خریداری‌شده.</summary>
+    ProductReviewRequest = 102,
+
+    /// <summary>دور ۱۹ (C20): یادآوری تهیهٔ دوبارهٔ کالای مصرفی (مثل فیلتر یا شارژ) پس از چرخهٔ مصرف معمول.</summary>
+    ReplenishReminder = 103,
     TicketCreated = 110,
     TicketReplied = 111,
 }

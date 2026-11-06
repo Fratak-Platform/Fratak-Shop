@@ -12,6 +12,9 @@
     var mainImage = images[0];
     var thumbs = images.Skip(1).Take(4).ToList();
     var specBoxes = p.Features.Take(6).ToList();
+    // دور ۱۹: «نگاه خریدار» (هر بخش بی‌داده پنهان می‌ماند).
+    var guide = Model.Guide;
+    var insight = guide.Insight;
     var returnUrl = $"/product/{p.Slug}";
     var inputClass = "focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none";
     var submitClass = "mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg";
@@ -189,6 +192,24 @@
           {
             <p class="text-zinc-600 text-sm leading-7 mb-4">@p.ShortDescription</p>
           }
+          @* دور ۱۹ (C1/C4): اطلاعات کلیدی خرید بالای صفحه – ویژگی‌های برجسته و «مناسب چه کسی است» از خلاصهٔ تأییدشده. *@
+          @if (guide.Highlights.Count > 0)
+          {
+            <ul class="mb-4 space-y-1.5 text-sm text-zinc-700" aria-label="ویژگی‌های برجسته">
+              @foreach (var highlight in guide.Highlights.Take(5))
+              {
+                <li class="flex items-start gap-x-2">@Icons.Svg("CheckCircle", "fill-emerald-500 shrink-0 mt-0.5", 16)<span>@highlight</span></li>
+              }
+            </ul>
+          }
+          @if (insight is { HasContent: true } && (insight.ForWhom.Count > 0 || insight.Cons.Count > 0))
+          {
+            <div class="mb-4 rounded-xl bg-sky-50 border border-sky-100 p-3 text-sm leading-7 text-zinc-700">
+              @if (insight.ForWhom.Count > 0) { <div><strong>مناسب برای:</strong> @string.Join("، ", insight.ForWhom.Take(3))</div> }
+              @if (insight.Cons.Count > 0) { <div><strong>پیش از خرید بدانید:</strong> @insight.Cons[0].Text</div> }
+              <a href="#insight" class="text-sky-600 text-xs">خلاصهٔ کامل نظر خریداران</a>
+            </div>
+          }
           <div class="flex gap-x-2 mt-2 pt-2 text-zinc-500 text-sm border-t leading-6">
             @Icons.Svg("Info", "fill-zinc-500 shrink-0", 24)
             درخواست مرجوع کردن کالا با دلیل "انصراف از خرید" تنها در صورتی قابل تایید است که کالا در شرایط اولیه باشد (در صورت پلمپ بودن، کالا نباید باز شده باشد).
@@ -294,6 +315,52 @@
               </button>
             }
           </div>
+          @* دور ۱۹: واقعیت‌های قیمت و تحویل – همه از دادهٔ واقعی؛ بدون شمارش معکوس یا کمیابی ساختگی (C18). *@
+          <div class="mt-3 space-y-2 text-xs text-zinc-600">
+            @if (p.IsInStock && guide.IsLowestIn30Days)
+            {
+              <div class="flex items-center gap-x-1.5 text-emerald-700">@Icons.Svg("TrendDown", "fill-emerald-600 shrink-0", 16) کمترین قیمت این کالا در ۳۰ روز گذشته</div>
+            }
+            else if (p.IsInStock && guide.LowestIn30Days is { } lowest && lowest < p.FinalPrice)
+            {
+              <div class="flex items-center gap-x-1.5">@Icons.Svg("Info", "fill-zinc-500 shrink-0", 16) کمترین قیمت ۳۰ روز گذشته: @Format.Toman(lowest)</div>
+            }
+            @if (p.IsInStock && guide.Torob is { } torob)
+            {
+              <div class="flex items-center gap-x-1.5">@Icons.Svg("CheckCircle", "fill-sky-500 shrink-0", 16) ارزان‌تر یا هم‌قیمت با @Format.Number(torob.SellerCount) فروشندهٔ دیگر در ترب (بررسی @Format.Date(torob.CheckedAt))</div>
+            }
+            @if (guide.Delivery.Count > 0)
+            {
+              <details class="rounded-lg border px-3 py-2">
+                <summary class="cursor-pointer">زمان واقعی رسیدن سفارش به استان‌ها</summary>
+                <ul class="mt-2 space-y-1">
+                  @foreach (var d in guide.Delivery.Take(31))
+                  {
+                    <li class="flex justify-between"><span>@d.Province</span><span>حدود @Format.Number(d.MedianDays) روز</span></li>
+                  }
+                </ul>
+                <p class="mt-2 text-zinc-400">میانهٔ سفارش‌های تحویل‌شدهٔ ۶ ماه اخیر (از پرداخت تا تحویل).</p>
+              </details>
+            }
+            @if (guide.ReturnDays > 0)
+            {
+              <div class="flex items-center gap-x-1.5">@Icons.Svg("Shield", "fill-zinc-500 shrink-0", 16) @Format.Number(guide.ReturnDays) روز مهلت بازگشت کالا</div>
+            }
+            @if (!p.IsInStock)
+            {
+              var alternatives = Model.RelatedProducts.Where(r => r.IsInStock).Take(3).ToList();
+              if (alternatives.Count > 0)
+              {
+                <div class="rounded-lg border px-3 py-2">
+                  <div class="font-semibold mb-1">جایگزین‌های موجود:</div>
+                  @foreach (var alt in alternatives)
+                  {
+                    <a class="flex justify-between gap-2 py-1 text-sky-600" href="/product/@alt.Slug"><span class="line-clamp-1">@alt.Name</span><span class="whitespace-nowrap text-zinc-600">@Format.Toman(alt.FinalPrice)</span></a>
+                  }
+                </div>
+              }
+            }
+          </div>
           <partial name="_ProductEngagement" model="Model" />
           @if (Model.FreeShippingFrom is { } freeFrom)
           {
@@ -317,6 +384,12 @@
             ویدیو
           </a>
         }
+        @if (insight is { HasContent: true })
+        {
+          <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#insight">
+            خلاصهٔ نظرها
+          </a>
+        }
         <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#proper">
           مشخصات
         </a>
@@ -327,6 +400,28 @@
           پرسش ها
         </a>
       </div>
+      @if (insight is { HasContent: true })
+      {
+        <div class="p-4 border-b" id="insight">
+          <span class="border-b-sky-300 border-b text-zinc-800">خلاصهٔ نظر خریداران</span>
+          <p class="mt-2 text-xs text-zinc-400">بر پایهٔ @Format.Number(insight.ReviewCount) نظر واقعی@(insight.Rating is { } avg ? " · میانگین " + avg.ToString("0.0") + " از ۵" : "")</p>
+          @if (!string.IsNullOrWhiteSpace(insight.Summary)) { <p class="mt-3 text-sm leading-7 text-zinc-700">@insight.Summary</p> }
+          <div class="grid md:grid-cols-2 gap-4 mt-4 text-sm">
+            @if (insight.Pros.Count > 0)
+            {
+              <div class="rounded-xl bg-emerald-50 p-3"><div class="font-semibold text-emerald-700 mb-2">نقاط قوت</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var pro in insight.Pros.Take(6)) { <li>+ @pro.Text</li> }</ul></div>
+            }
+            @if (insight.Cons.Count > 0)
+            {
+              <div class="rounded-xl bg-rose-50 p-3"><div class="font-semibold text-rose-700 mb-2">نقاط ضعف</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var con in insight.Cons.Take(6)) { <li>− @con.Text</li> }</ul></div>
+            }
+          </div>
+          @if (insight.NotFor.Count > 0) { <p class="mt-3 text-sm text-zinc-600"><strong>مناسب نیست برای:</strong> @string.Join("، ", insight.NotFor.Take(3))</p> }
+          @if (!string.IsNullOrWhiteSpace(insight.Verdict)) { <p class="mt-3 text-sm text-zinc-700"><strong>جمع‌بندی:</strong> @insight.Verdict</p> }
+        </div>
+      }
       @if (!string.IsNullOrWhiteSpace(p.Description))
       {
         <div class="p-4 border-b" id="description">
@@ -361,10 +456,64 @@
           }
         </div>
       </div>
+      @if (guide.Compatibility.Count > 0)
+      {
+        <div class="p-4 border-b" id="compatibility">
+          <span class="border-b-sky-300 border-b text-zinc-800">سازگاری و اتصال</span>
+          <ul class="mt-4 grid sm:grid-cols-2 gap-2 text-sm text-zinc-700">
+            @foreach (var c in guide.Compatibility)
+            {
+              <li class="rounded-lg bg-gray-50 px-3 py-2"><strong>@c.Key:</strong> @c.Value @if (!string.IsNullOrWhiteSpace(c.Note)) { <span class="block text-xs text-zinc-500">@c.Note</span> }</li>
+            }
+          </ul>
+        </div>
+      }
+      @if (guide.Compare is { } compare && compare.Rows.Count > 0)
+      {
+        <div class="p-4 border-b" id="quick-compare">
+          <span class="border-b-sky-300 border-b text-zinc-800">مقایسهٔ سریع با «@compare.OtherName»</span>
+          <div class="overflow-x-auto mt-4">
+            <table class="w-full text-sm text-zinc-700">
+              <thead><tr class="bg-gray-50"><th class="p-2 text-right">ویژگی</th><th class="p-2 text-right">این کالا</th><th class="p-2 text-right"><a class="text-sky-600" href="/product/@compare.OtherSlug">@compare.OtherName</a></th></tr></thead>
+              <tbody>
+                <tr class="border-t"><td class="p-2">قیمت</td><td class="p-2">@Format.Toman(p.FinalPrice)</td><td class="p-2">@Format.Toman(compare.OtherPrice)</td></tr>
+                @foreach (var row in compare.Rows.Take(8))
+                {
+                  <tr class="border-t"><td class="p-2">@row.Key</td><td class="p-2 @(row.Winner == 1 ? "font-semibold text-emerald-700" : "")">@row.Mine</td><td class="p-2 @(row.Winner == 2 ? "font-semibold text-emerald-700" : "")">@row.Other</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
       <div class="p-4 border-b" id="comments">
         <span class="border-b-sky-300 border-b text-zinc-800">
           دیدگاه ها
         </span>
+        @if (guide.Digest is { } digest)
+        {
+          <div class="mt-4 grid md:grid-cols-3 gap-4 text-sm">
+            <div class="rounded-xl bg-gray-50 p-3">
+              <div class="text-2xl font-bold text-zinc-800">@digest.Average.ToString("0.0") <span class="text-sm font-normal text-zinc-500">از ۵ · @Format.Number(digest.Count) نظر</span></div>
+              @for (var star = 5; star >= 1; star--)
+              {
+                var count = digest.Stars.Count >= star ? digest.Stars[star - 1] : 0;
+                var width = digest.Count > 0 ? (int)Math.Round(count * 100d / digest.Count) : 0;
+                <div class="flex items-center gap-2 text-xs text-zinc-500 mt-1"><span class="w-3">@star</span><progress class="h-1.5 flex-1" max="100" value="@width" aria-label="@star ستاره"></progress><span class="w-6 text-left">@Format.Number(count)</span></div>
+              }
+            </div>
+            @if (digest.Pros.Count > 0)
+            {
+              <div class="rounded-xl bg-emerald-50 p-3"><div class="font-semibold text-emerald-700 mb-1">بیشترین تعریف‌ها</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var pro in digest.Pros.Take(4)) { <li>@pro.Text <span class="text-xs text-zinc-400">(@Format.Number(pro.Mentions))</span></li> }</ul></div>
+            }
+            @if (digest.Cons.Count > 0)
+            {
+              <div class="rounded-xl bg-rose-50 p-3"><div class="font-semibold text-rose-700 mb-1">بیشترین گلایه‌ها</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var con in digest.Cons.Take(4)) { <li>@con.Text <span class="text-xs text-zinc-400">(@Format.Number(con.Mentions))</span></li> }</ul></div>
+            }
+          </div>
+        }
         <div class="lg:flex gap-5">
           <div class="lg:w-3/12 py-5">
             @if (p.ReviewCount > 0 && p.AverageRating > 0)
@@ -623,6 +772,19 @@
         </div>
       </div>
     </div>
+    @* C23: راهنماهای خرید وبلاگ که به این کالا یا دسته‌اش مربوط‌اند (فقط مقاله‌های منتشرشده؛ اگر نبود، چیزی نشان داده نمی‌شود). *@
+    @if (guide.Guides.Count > 0)
+    {
+      <section class="bg-white rounded-xl border mt-5 p-4" aria-labelledby="buyer-guides-title">
+        <h2 id="buyer-guides-title" class="text-sm font-bold text-zinc-800">قبل از خرید بخوانید</h2>
+        <ul class="mt-3 grid sm:grid-cols-2 gap-2 text-sm">
+          @foreach (var link in guide.Guides)
+          {
+            <li><a class="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-zinc-700 hover:text-sky-600" href="/blog/@link.Slug">@Icons.Svg("Article", "fill-sky-500 shrink-0", 16)<span>@link.Title</span></a></li>
+          }
+        </ul>
+      </section>
+    }
     <partial name="_ProductRail" model='new ProductRailModel("محصولات مرتبط", Model.RelatedProducts)' />
     <partial name="_ProductRail" model='new ProductRailModel("معمولاً با هم خریده می‌شوند", Model.BoughtTogether, "مشتریانی که این کالا را خریده‌اند، این محصولات را هم سفارش داده‌اند")' />
     <partial name="_ProductRail" model='new ProductRailModel("پیشنهاد برای شما", Model.ForYou, "بر اساس خریدها، علاقه‌مندی‌ها و بازدیدهای شما")' />

@@ -182,6 +182,24 @@
             </div>
           </div>
           <p class="text-xs text-zinc-500 px-2 mt-3">هزینه ارسال در مرحله بعد بر اساس روش ارسال محاسبه می‌شود.</p>
+          @* دور ۱۹ (C3): نوار پیشرفت ارسال رایگان – عدد واقعی تنظیمات؛ بدون فشار یا شمارش معکوس. *@
+          @if (Site.Settings.FreeShippingThreshold > 0)
+          {
+            var freeShip = Site.Settings.FreeShippingThreshold;
+            var remaining = freeShip - Model.PayableAfterCoupon;
+            var progress = (int)Math.Clamp(Math.Round(Model.PayableAfterCoupon * 100m / freeShip), 0, 100);
+            <div class="px-2 mt-3 text-xs text-zinc-600">
+              @if (remaining > 0)
+              {
+                <div>با @Format.Toman(remaining) خرید بیشتر، ارسال رایگان می‌شود.</div>
+              }
+              else
+              {
+                <div class="text-emerald-700">ارسال این سفارش (با روش‌های عادی) رایگان است.</div>
+              }
+              <progress class="w-full h-1.5 mt-1" max="100" value="@progress" aria-label="پیشرفت تا ارسال رایگان"></progress>
+            </div>
+          }
           @if (Site.Settings.IsCouponEnabled)
           {
             <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/cart")' />

@@ -43,6 +43,9 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "BackupRecord", "IpRule", "BotRule", "BackgroundJobSetting", "AlertRule", "AlertEvent",
         // دور هشتم: تنظیمات سرویس پیامک.
         "SmsProviderConfig",
+        // دور نوزدهم: صف و کش تحقیق هوشمند، تقویم محتوا، یادآوری‌های مشتری و تنظیمات هوشمند فقط در پنل‌اند.
+        // ProductInsight عمداً این‌جا نیست: جمع‌بندی تأییدشده در صفحهٔ محصول نمایش داده می‌شود و باید کش را تازه کند.
+        "SmartTask", "SmartResearchCache", "BlogPlanItem", "CustomerReminder", "SmartContentConfig",
     };
 
     // ── آمار کش صفحات از زمان روشن شدن سایت (کارت «کش» در /admin/system) ──

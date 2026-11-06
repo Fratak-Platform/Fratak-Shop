@@ -98,3 +98,13 @@
   dotnet publish src/Fratak-Shop.Web/Fratak-Shop.Web.csproj -c Release -o out -p:FratakPublishTarget=linux
   bash tools/load/run-load-test.sh out "Server=localhost,1433;Database=FratakShopLoad;User Id=sa;Password=...;TrustServerCertificate=True"
   ```
+
+## ۵. محتوای هوشمند روی هاست ضعیف (دور ۱۹)
+
+* `SmartWorker` کار سنگین است: فقط با اجازهٔ مدیر منابع (`ResourceGovernor`، وزن Heavy) اجرا می‌شود؛ در فشار بالا صبر می‌کند و هر بار
+  فقط یک کار برمی‌دارد (۹۰ ثانیه پس از شروع، مکث ۲۰/۶۰ ثانیه). دانلود عکس: حداکثر ۳ هم‌زمان، ۳۶ نامزد، ۵ مگابایت.
+* جدول‌های پس‌زمینهٔ هوشمند (`SmartTasks`، `SmartResearchCaches`، `SmartContentConfigs`، `BlogPlanItems`، `CustomerReminders`) در `PageCachePolicy.IgnoredTypes`
+  هستند تا نوشتن در صف، کش صفحه‌های عمومی را خالی نکند؛ فقط تغییر واقعی کالا/دسته/بلاگ کش را باطل می‌کند.
+* مسیر `/api/helper/*` (long-poll دستیار محلی) از کاهش بار (load shedding) و ثبت آنلاین‌ها مستثناست و محدودیت جداگانه دارد (۲۴۰ در دقیقه)؛
+  هر درخواست حداکثر ۲۵ ثانیه منتظر می‌ماند و نخ (thread) اشغال نمی‌کند.
+* راهنمای خریدار صفحهٔ محصول آمار تحویل را ۶ ساعت و راهنماهای بلاگ را ۳۰ دقیقه کش می‌کند و صفحه همچنان OutputCache می‌شود.

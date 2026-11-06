@@ -32,8 +32,15 @@ public class ProductModel(
     IProductAlertService alertService,
     ICommentEngagementService engagement,
     ISiteContext site,
-    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLinkTargetProvider linkTargets) : ShopPageModel
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLinkTargetProvider linkTargets,
+    Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide) : ShopPageModel
 {
+    /// <summary>
+    /// دور ۱۹ (C1–C17): «نگاه خریدار» – خلاصهٔ خرید تأییدشده، ویژگی‌های برجسته، کمترین قیمت ۳۰ روز، زمان تحویل واقعی،
+    /// سازگاری، خلاصهٔ نظرها، پرسش‌های رایج، مقایسهٔ سریع و مقاله‌های راهنما. هر بخش بی‌داده نمایش داده نمی‌شود.
+    /// </summary>
+    public Fratak_Shop.Core.Services.Smart.BuyerGuide Guide { get; private set; } = new();
+
     /// <summary>توضیح محصول برای نمایش: پاک‌سازی‌شده + لینک داخلی خودکار هنگام نمایش (متن ذخیره‌شده دست نمی‌خورد).</summary>
     public string DescriptionHtml { get; private set; } = string.Empty;
 
@@ -237,6 +244,7 @@ public class ProductModel(
             RecommendPercent = (int)Math.Round(withOpinion.Count(r => r.IsRecommended == true) * 100d / withOpinion.Count);
 
         RelatedProducts = await productService.GetRelatedProductsAsync(product.Id, 10);
+        Guide = await buyerGuide.ForProductAsync(product, Reviews, Questions, RelatedProducts, HttpContext.RequestAborted);
 
         if (CurrentUserId.HasValue)
             IsFavorite = await favoriteService.IsFavoriteAsync(CurrentUserId.Value, product.Id);

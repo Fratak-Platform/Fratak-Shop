@@ -246,6 +246,65 @@
             }
           }
         </form>
+        @* دور ۱۹ (C8): پرسشنامهٔ دوسؤالی انتخاب کالا در صفحهٔ دسته. *@
+        @if (Model.Category is { } quizCategory)
+        {
+          <div class="mt-4 rounded-xl border bg-white p-4" id="quiz">
+            @if (Model.Quiz is null)
+            {
+              <a class="text-sm text-sky-600 hover:underline" href="/category/@quizCategory.Slug?quiz=1#quiz" rel="nofollow">نمی‌دانید کدام را بخرید؟ با دو سؤال کمکتان می‌کنیم</a>
+            }
+            else if (Model.Quiz.Budgets.Count == 0)
+            {
+              <p class="text-sm text-zinc-500">برای پیشنهاد دقیق، کالای موجود کافی در این دسته نیست.</p>
+            }
+            else
+            {
+              <form method="get" action="/category/@quizCategory.Slug" class="flex flex-wrap items-end gap-3 text-sm">
+                <input type="hidden" name="quiz" value="1">
+                <label class="flex flex-col gap-1">بودجهٔ شما
+                  <select name="budget" class="rounded-lg border border-gray-300 px-2 py-1.5">
+                    <option value="">مهم نیست</option>
+                    @foreach (var budget in Model.Quiz.Budgets)
+                    {
+                      <option value="@budget.ToString(System.Globalization.CultureInfo.InvariantCulture)" selected="@(Model.QuizBudget == budget ? "selected" : null)">تا @Format.Toman(budget)</option>
+                    }
+                  </select>
+                </label>
+                <label class="flex flex-col gap-1">مهم‌ترین چیز برای شما
+                  <select name="priority" class="rounded-lg border border-gray-300 px-2 py-1.5">
+                    @foreach (var option in Model.Quiz.Priorities)
+                    {
+                      <option value="@option.Key" selected="@(Model.QuizPriority == option.Key ? "selected" : null)">@option.Label</option>
+                    }
+                  </select>
+                </label>
+                <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-white">پیشنهاد بده</button>
+              </form>
+              @if (Model.QuizPicks.Count > 0)
+              {
+                <p class="mt-4 text-sm text-zinc-600">@Model.Quiz.Explanation</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                  @foreach (var pick in Model.QuizPicks)
+                  {
+                    <partial name="_ProductGridCard" model="pick" />
+                  }
+                </div>
+              }
+              else if (Model.QuizBudget is > 0 || !string.IsNullOrWhiteSpace(Model.QuizPriority))
+              {
+                <p class="mt-4 text-sm text-zinc-600">@Model.Quiz.Explanation</p>
+              }
+            }
+          </div>
+        }
+        @if (Model.CorrectedFrom is { } typed)
+        {
+          <div class="mt-4 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-zinc-700">
+            نتایج «@Model.Query» نمایش داده شد (زبان کیبورد اشتباه بود). جست‌وجوی دقیق
+            <a class="text-sky-600 hover:underline" dir="ltr" href="/search?q=@Uri.EscapeDataString(typed)">@typed</a>
+          </div>
+        }
         @if (Model.Result.Data.Count == 0)
         {
           <div class="bg-white border rounded-xl p-10 text-center">
@@ -279,6 +338,16 @@
               <li>املای کلمات را بررسی کنید یا از کلمات کلی‌تر استفاده کنید.</li>
               <li>نام انگلیسی یا فارسی کالا را امتحان کنید (مثلاً «هندزفری» یا «earbuds»).</li>
             </ul>
+          </div>
+        }
+        @if (Model.Suggestions.Count > 0)
+        {
+          <h2 class="mt-8 text-zinc-800 font-semibold">شاید این‌ها به کارتان بیاید (پرفروش‌های موجود)</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-4">
+            @foreach (var suggested in Model.Suggestions)
+            {
+              <partial name="_ProductGridCard" model="suggested" />
+            }
           </div>
         }
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5">

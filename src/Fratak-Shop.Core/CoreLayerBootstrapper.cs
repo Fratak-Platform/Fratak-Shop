@@ -198,6 +198,17 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Orders.IOrderMessageService, Services.Orders.OrderMessageService>();
         services.AddScoped<Services.Orders.IStaffOrderService, Services.Orders.StaffOrderService>();
 
+        // دور نوزدهم (B/C): محتوای هوشمند، صف کارها، خلاصهٔ خرید، برنامهٔ بلاگ، یادآوری مشتری، نگاه خریدار و خلاصهٔ روزانه.
+        services.AddScoped<Services.Smart.ISmartConfigService, Services.Smart.SmartConfigService>();
+        services.AddScoped<Services.Smart.ISmartTaskQueue, Services.Smart.SmartTaskQueue>();
+        services.AddScoped<Services.Smart.ISmartResearchStore, Services.Smart.SmartResearchStore>();
+        services.AddScoped<Services.Smart.IProductInsightService, Services.Smart.ProductInsightService>();
+        services.AddScoped<Services.Smart.ISmartCatalogService, Services.Smart.SmartCatalogService>();
+        services.AddScoped<Services.Smart.IBlogPlanService, Services.Smart.BlogPlanService>();
+        services.AddScoped<Services.Smart.ICustomerReminderService, Services.Smart.CustomerReminderService>();
+        services.AddScoped<Services.Smart.IBuyerGuideService, Services.Smart.BuyerGuideService>();
+        services.AddScoped<Services.Smart.ISalesBriefService, Services.Smart.SalesBriefService>();
+
         return services;
     }
 }

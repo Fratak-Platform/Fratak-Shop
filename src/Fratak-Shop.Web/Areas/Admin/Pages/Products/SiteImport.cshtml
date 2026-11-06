@@ -21,6 +21,10 @@
   </div>
   <div class="a-btn-group">
     <a href="/admin/products/edit" class="a-btn a-btn-light">@Icons.Svg("Plus", null, 18) محصول تکی</a>
+    @* دور ۱۹ (B20): بعد از درون‌ریزی، عکس/مشخصات/خلاصهٔ کالاهای ناقص با یک کلیک (در پس‌زمینه) تکمیل می‌شود. *@
+    <form method="post" asp-area="Admin" asp-page="/SmartContent/Index" asp-page-handler="CompleteAll" class="inline">
+      <button type="submit" class="a-btn">@Icons.Svg("MagicWand", null, 18) تکمیل هوشمند کالاهای ناقص</button>
+    </form>
   </div>
 </div>
 

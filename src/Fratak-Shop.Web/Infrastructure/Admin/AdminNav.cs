@@ -47,6 +47,9 @@ public static class AdminNav
             new AdminNavItem("برندها", "/admin/manage/brands", "Tag", [P.CatalogManage]),
             new AdminNavItem("تأمین‌کنندگان", "/admin/manage/suppliers", "Factory", [P.SuppliersManage]),
             new AdminNavItem("ویدیوهای محصول", "/admin/manage/product-videos", "VideoCamera", [P.ProductsManage]),
+            // دور ۱۹: محتوای هوشمند (عکس، مشخصات، خلاصهٔ خرید، دسته‌ها و بلاگ خودکار).
+            new AdminNavItem("محتوای هوشمند", "/admin/smart", "MagicWand", [P.ProductsManage, P.CatalogManage, P.BlogPublish]),
+            new AdminNavItem("تکمیل هوشمند دسته‌ها", "/admin/smart/categories", "Stack", [P.CatalogManage]),
             new AdminNavItem("نظرات و پرسش‌ها", "/admin/comments", "ChatDots", [P.CommentsModerate], "comments")),
         new("پشتیبانی",
             new AdminNavItem("تیکت‌ها", "/admin/tickets", "Lifebuoy", [P.TicketsManage], "tickets"),
@@ -63,6 +66,7 @@ public static class AdminNav
             new AdminNavItem("عملکرد محصولات", "/admin/reports/products", "TrendUp", [P.ReportsView, P.FinanceView, P.MarketingManage]),
             new AdminNavItem("تقاضای مشتریان", "/admin/reports/demand", "MagnifyingGlass", [P.ReportsView, P.FinanceView, P.MarketingManage, P.ProductsManage]),
             new AdminNavItem("منبع ورودی و کمپین‌ها", "/admin/reports/campaigns", "Target", [P.ReportsView, P.FinanceView, P.MarketingManage]),
+            new AdminNavItem("خلاصهٔ روزانه", "/admin/smart/brief", "ListChecks", [P.ReportsView, P.ProductsManage]),
             new AdminNavItem("هدف فروش ماهانه", "/admin/reports/goals", "Trophy", [P.ReportsView, P.FinanceView, P.ExpensesManage]),
             new AdminNavItem("عملکرد کارکنان", "/admin/reports/staff", "UsersThree", [P.StaffManage, P.AuditView]),
             new AdminNavItem("گزارش‌های خودکار", "/admin/reports/scheduled", "PaperPlaneTilt", [P.FinanceView, P.SettingsManage])),
@@ -77,6 +81,7 @@ public static class AdminNav
             new AdminNavItem("سبدهای رهاشده", "/admin/abandoned-carts", "CartFull", [P.MarketingManage])),
         new("محتوا و سئو",
             new AdminNavItem("مقاله‌ها", "/admin/blog", "Article", [P.BlogWrite, P.BlogPublish], "drafts"),
+            new AdminNavItem("تقویم بلاگ خودکار", "/admin/smart/blog", "Sparkle", [P.BlogPublish]),
             new AdminNavItem("صفحات و محتوا", "/admin/content", "Notebook", [P.ContentManage]),
             new AdminNavItem("کتابخانهٔ رسانه", "/admin/media", "Images", [P.ContentManage, P.BlogWrite, P.ProductsManage, P.MarketingManage]),
             new AdminNavItem("سئو", "/admin/seo", "Globe", [P.SeoManage], "seo"),
@@ -97,6 +102,7 @@ public static class AdminNav
             new AdminNavItem("تنظیمات فروشگاه", "/admin/settings", "Gear", [P.SettingsManage]),
             // مرحلهٔ دوازدهم: لوگوی همهٔ محل‌ها + آیکون اپ.
             new AdminNavItem("استودیوی لوگو", "/admin/settings/brand", "Palette", [P.SettingsManage]),
+            new AdminNavItem("تنظیمات محتوای هوشمند", "/admin/smart/settings", "MagicWand", [P.SettingsManage]),
             new AdminNavItem("ارسال و تحویل", "/admin/manage/shipping-methods", "Truck", [P.ShippingManage]),
             new AdminNavItem("کارکنان و نقش‌ها", "/admin/staff", "UserGear", [P.StaffManage]),
             new AdminNavItem("همه جدول‌ها", "/admin/manage", "Sliders"),

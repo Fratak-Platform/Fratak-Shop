@@ -215,6 +215,8 @@ public static class JobWeights
         [Seo.SeoAutopilotWorker.JobName] = JobWeight.Heavy,
         [BackupWorker.JobName] = JobWeight.Heavy,
         [Insights.InsightsWorker.JobName] = JobWeight.Heavy,
+        // دور ۱۹: محتوای هوشمند (دانلود عکس، تحلیل تصویر، چند درخواست بیرونی برای هر کالا).
+        [Smart.SmartWorker.JobName] = JobWeight.Heavy,
 
         // حیاتی: صف‌های حافظه‌ای که معطل شدنشان داده از دست می‌دهد یا مشتری را منتظر می‌گذارد.
         [Analytics.AnalyticsFlushWorker.JobName] = JobWeight.Critical,

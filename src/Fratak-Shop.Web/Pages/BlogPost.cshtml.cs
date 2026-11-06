@@ -15,7 +15,8 @@ namespace Fratak_Shop.Web.Pages;
 
 [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.Name)]
 public class BlogPostModel(IPostService postService, ICommentService commentService, IPageMetaService pageMeta, ISiteContext site,
-    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLinkTargetProvider linkTargets) : ShopPageModel
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLinkTargetProvider linkTargets,
+    Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide) : ShopPageModel
 {
     /// <summary>متن مقاله برای نمایش: پاک‌سازی‌شده + لینک داخلی خودکار هنگام نمایش (متن ذخیره‌شده دست نمی‌خورد).</summary>
     public string BodyHtml { get; private set; } = string.Empty;
@@ -39,6 +40,14 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
         var (targets, maxLinks) = await linkTargets.ForRenderAsync(HttpContext.RequestAborted);
         BodyHtml = Fratak_Shop.Core.Services.Seo.Autopilot.InternalLinker.Link(Fratak_Shop.Core.Utilities.XssSecurity.SanitizeText(post.Content ?? string.Empty),
             Request.Path.Value ?? "/", targets, maxLinks);
+        // دور ۱۹ (B16/C22): کدهای کوتاه [[product:slug]] و [[price:slug]] ← کارت محصول با قیمت و موجودی «امروز».
+        // بعد از پاک‌سازی XSS اجرا می‌شود و همهٔ مقدارها encode می‌شوند؛ کالای حذف‌شده بی‌صدا کنار می‌رود (لینک شکسته نمی‌ماند).
+        var shortcodeSlugs = Fratak_Shop.Core.Services.Smart.BlogShortcodes.ProductSlugs(BodyHtml);
+        if (shortcodeSlugs.Count > 0)
+        {
+            var cards = await buyerGuide.CardsBySlugsAsync(shortcodeSlugs, HttpContext.RequestAborted);
+            BodyHtml = Fratak_Shop.Core.Services.Smart.BlogShortcodes.Render(BodyHtml, cards, ImageHelper.Product);
+        }
         Comments = await commentService.GetCommentsByPostAsync(post.Id, onlyApproved: true);
         LatestPosts = await postService.GetLatestPostsAsync(5, post.Id);
 
