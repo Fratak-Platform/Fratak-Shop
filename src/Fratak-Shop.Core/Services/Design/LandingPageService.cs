@@ -184,7 +184,7 @@ public sealed partial class LandingPageService(FratakShopDbContext context) : IL
     }
 
     /// <summary>
-    /// HTML امن صفحه: پاک‌سازی استاندارد سایت + حذف تگ body/head که GrapesJS دور خروجی می‌گذارد.
+    /// HTML امن صفحه: پاک‌سازی سایت (با نگه داشتن class و شناسهٔ خودکار GrapesJS – <see cref="XssSecurity.SanitizeLanding"/>) + حذف تگ body/head که GrapesJS دور خروجی می‌گذارد.
     /// مثال: «&lt;body id="x"&gt;&lt;h1 onclick="…"&gt;حراج&lt;/h1&gt;&lt;script&gt;…&lt;/script&gt;&lt;/body&gt;» ← «&lt;h1&gt;حراج&lt;/h1&gt;».
     /// </summary>
     public static string CleanHtml(string? html)
@@ -201,7 +201,7 @@ public sealed partial class LandingPageService(FratakShopDbContext context) : IL
         {
             // پاک‌ساز اصلی کافی است.
         }
-        return html.SanitizeText().Trim();
+        return html.SanitizeLanding().Trim();
     }
 
     /// <summary>تصویر اشتراک‌گذاری فقط مسیر محلی /uploads/… (بدون لینک بیرونی).</summary>

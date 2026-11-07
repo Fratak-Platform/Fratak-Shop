@@ -37,6 +37,8 @@ public static class CacheInvalidation
         ["BlogPost"] = [SitemapKey],
         ["BlogCategory"] = [SitemapKey],
         ["PageSeo"] = [SitemapKey],
+        // دور ۲۱: صفحهٔ کمپین تازه/منتشرشده باید بلافاصله در نقشهٔ سایت بیاید (و صفحهٔ پیش‌نویس یا حذف‌شده بیرون برود).
+        ["LandingPage"] = [SitemapKey],
         ["Menu"] = [CacheKeys.Menus],
         ["MenuItem"] = [CacheKeys.Menus],
         ["NotificationTemplate"] = [CacheKeys.NotificationTemplates],

@@ -25,6 +25,36 @@ public static partial class XssSecurity
         return sanitizer;
     }
 
+    // دور ۲۱ – صفحه‌ساز کمپین: ظاهر صفحه با کلاس‌ها (fs-lp-…) و شناسهٔ خودکار GrapesJS («#i3k9{…}») ساخته می‌شود؛ پاک‌ساز عمومی
+    // class و id را حذف می‌کند، پس این نمونهٔ جدا آن دو را نگه می‌دارد (بقیهٔ قواعد همان است: بدون اسکریپت، فرم، iframe و رویداد).
+    private static readonly HtmlSanitizer LandingSanitizer = CreateLandingSanitizer();
+
+    private static HtmlSanitizer CreateLandingSanitizer()
+    {
+        var sanitizer = CreateSanitizer();
+        sanitizer.AllowedAttributes.Add("class");
+        sanitizer.AllowedAttributes.Add("id");
+        // ضد «DOM clobbering»: شناسه‌ای مثل id="FratakModal" می‌تواند متغیر سراسری اسکریپت‌های سایت را بپوشاند؛ فقط الگوی خودکار
+        // GrapesJS («i» + حروف کوچک/رقم، مثل i3k9 یا ixp2-2) یا پیشوند «fs-» (لنگر دستی مثل fs-faq) پذیرفته می‌شود.
+        sanitizer.PostProcessDom += (_, e) =>
+        {
+            foreach (var element in e.Document.QuerySelectorAll("[id]").ToList())
+            {
+                if (!LandingIdRegex().IsMatch(element.Id ?? ""))
+                    element.RemoveAttribute("id");
+            }
+        };
+        return sanitizer;
+    }
+
+    /// <summary>
+    /// پاک‌سازی HTML صفحهٔ کمپین (دور ۲۱): مثل <see cref="SanitizeText"/> ولی class و id امن می‌مانند.
+    /// مثال: «&lt;section id="i3k9" class="fs-lp-hero" onclick="…"&gt;» ← «&lt;section id="i3k9" class="fs-lp-hero"&gt;»؛ id="FratakModal" ← حذف.
+    /// محل استفاده: Core/Services/Design/LandingPageService.CleanHtml.
+    /// </summary>
+    public static string SanitizeLanding(this string html) =>
+        string.IsNullOrEmpty(html) ? string.Empty : LandingSanitizer.Sanitize(html);
+
     /// <summary>Removes dangerous markup (scripts, event handlers, javascript: urls) and keeps safe HTML.</summary>
     public static string SanitizeText(this string text)
     {
@@ -60,4 +90,7 @@ public static partial class XssSecurity
 
     [GeneratedRegex(@"\s+", RegexOptions.Compiled, 250)]
     private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex(@"^(?:i[a-z0-9]{2,16}(?:-[0-9]{1,4})?|fs-[a-z0-9][a-z0-9-]{0,40})$", RegexOptions.CultureInvariant, 250)]
+    private static partial Regex LandingIdRegex();
 }

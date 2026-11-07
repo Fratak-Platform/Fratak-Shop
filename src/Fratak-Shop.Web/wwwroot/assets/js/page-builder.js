@@ -122,6 +122,10 @@
   });
 
   // ───────── بار کردن صفحه ─────────
+  // CSS ذخیره‌شده روی سرور محدود به «.fs-lp» شده («.fs-lp .x{}»)؛ در بوم ویرایشگر آن کلاس نیست، پس پیشوند برداشته می‌شود
+  // (موقع ذخیره دوباره اضافه می‌شود). مثال: «.fs-lp .fs-lp-title{color:red}» ← «.fs-lp-title{color:red}»؛ «.fs-lp{…}» ← «body{…}».
+  const unscope = (css) => css.replace(/\.fs-lp\s+(?=[^\s{,])/g, "").replace(/\.fs-lp(?=\s*[{,])/g, "body");
+
   let dirty = false;
   let ready = false;
   editor.on("load", async () => {
@@ -137,7 +141,7 @@
       }
       if (!loaded) {
         editor.setComponents(data.html || "");
-        editor.setStyle(data.css || "");
+        editor.setStyle(unscope(data.css || ""));
       }
       editor.UndoManager.clear();
     } catch (e) {
