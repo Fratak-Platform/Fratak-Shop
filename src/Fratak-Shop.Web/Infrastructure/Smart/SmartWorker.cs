@@ -1,4 +1,6 @@
+using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Smart;
+using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Smart;
 using Fratak_Shop.Web.Infrastructure.Admin;
 
@@ -119,6 +121,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             count += await PlanNightlyCompleteAsync(services, queue, options.NightlyCompletePerDay, DateTimeOffset.UtcNow, cancellationToken);
         if (options.Enabled)
             count += await CategorizeAsync(services, queue, cancellationToken);
+        if (options.Enabled && options.GrowthAutopilot)
+            count += await GrowAsync(services, options.BannerIdeasPerDay, DateTimeOffset.UtcNow, cancellationToken);
         await services.GetRequiredService<ISmartResearchStore>().PruneAsync(cancellationToken);
         await queue.PurgeAsync(cancellationToken);
         return count;
@@ -168,6 +172,52 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Smart categorization failed");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۱: «رشد خودکار» روزانه (هر ۶ ساعت بررسی می‌شود؛ در هر روز ایران فقط یک بار واقعاً اجرا می‌شود).
+    /// <list type="bullet">
+    /// <item>بازدید دیروز با میانهٔ روزهای قبل مقایسه می‌شود؛ سئوی ضعیف‌ترین صفحه‌ها بالا می‌رود و کالاهای پربازدیدِ ناقص به صف تکمیل می‌روند.</item>
+    /// <item>اگر بازدید کم بود: کار بیشتر (صفحهٔ بیشتر، مقالهٔ بعدی جلوتر) و ایدهٔ بنر دو برابر – ولی بنر هرگز بدون تأیید مدیر منتشر نمی‌شود.</item>
+    /// <item>ایده‌های بنر از دادهٔ واقعی (تخفیف‌ها، پرفروش‌ها، تازه‌ها، مناسبت‌ها) ساخته و در «طراحی ← پیشنهادها» منتظر تأیید می‌مانند.</item>
+    /// <item>نتیجه در جدول GrowthActions ثبت و به ادمین اعلان می‌شود (پنل ← رشد خودکار). خطا فقط ثبت می‌شود و بقیهٔ برنامه‌ریزی ادامه دارد.</item>
+    /// </list>
+    /// <para>force = دکمهٔ «اجرای دوباره الان» در صفحهٔ رشد خودکار (حتی اگر امروز اجرا شده باشد).</para>
+    /// مثال: دیروز ۴۰ بازدید و میانهٔ معمول ۱۲۰ ← «بازدید کم» ← ۲۰ صفحه بهبود سئو + ۶ کالا در صف + ۶ ایدهٔ بنر.
+    /// </summary>
+    public static async Task<int> GrowAsync(IServiceProvider services, int bannerIdeasPerDay, DateTimeOffset now, CancellationToken cancellationToken,
+        bool force = false)
+    {
+        try
+        {
+            var growth = services.GetRequiredService<IGrowthAutopilot>();
+            var report = await growth.RunDailyAsync(now, force, cancellationToken);
+            if (!report.Ran)
+                return 0;
+            var ideas = 0;
+            var wanted = report.BannerIdeas(bannerIdeasPerDay);
+            if (wanted > 0)
+            {
+                try
+                {
+                    ideas = await services.GetRequiredService<Fratak_Shop.Web.Infrastructure.Design.DesignStudio>().SuggestIdeasAsync(wanted, cancellationToken);
+                    if (ideas > 0)
+                        await growth.LogAsync(IranClock.Today(now), GrowthActionKind.BannerIdeas, ideas, null,
+                            $"{PersianText.Digits(ideas)} ایدهٔ بنر تازه منتظر تأیید است.", cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Banner ideas failed");
+                }
+            }
+            await services.GetRequiredService<SmartNotifier>().NotifyGrowthAsync(report, ideas);
+            return report.SeoLifted + report.ProductsQueued + ideas;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Growth autopilot failed");
             return 0;
         }
     }

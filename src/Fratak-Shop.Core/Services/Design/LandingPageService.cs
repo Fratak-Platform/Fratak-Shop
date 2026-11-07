@@ -20,7 +20,7 @@ public sealed record LandingSaveInput(Guid? Id, string Title, string? Slug, stri
 
 /// <summary>دادهٔ نمایش عمومی. Ended = زمان کمپین تمام شده (صفحه پیام پایان و لینک فروشگاه نشان می‌دهد، ۴۰۴ نمی‌دهد تا لینک‌های پخش‌شده نسوزند).</summary>
 public sealed record LandingView(Guid Id, string Slug, string Title, string? MetaTitle, string? MetaDescription, string? ImageUrl, string Html, string Css,
-    bool ShowHeader, bool ShowFooter, bool Ended, DateTimeOffset UpdatedAt);
+    bool ShowHeader, bool ShowFooter, bool Ended, DateTimeOffset UpdatedAt, DateTimeOffset? EndAt = null);
 
 /// <summary>
 /// صفحه‌ساز کمپین (دور ۲۱): ذخیره، نمایش عمومی و کدهای کوتاه کالا.
@@ -72,7 +72,7 @@ public sealed partial class LandingPageService(FratakShopDbContext context) : IL
         if (page is null)
             return null;
         return new LandingView(page.Id, page.Slug, page.Title, page.MetaTitle, page.MetaDescription, page.ImageUrl, page.Html ?? "", page.Css ?? "",
-            page.ShowHeader, page.ShowFooter, page.EndAt is { } end && end <= now, page.UpdatedAt);
+            page.ShowHeader, page.ShowFooter, page.EndAt is { } end && end <= now, page.UpdatedAt, page.EndAt);
     }
 
     public async Task<OperationResult<Guid>> SaveAsync(LandingSaveInput input, string? actor, CancellationToken cancellationToken = default)

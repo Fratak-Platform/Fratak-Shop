@@ -1,0 +1,194 @@
+@page "/admin/design/editor/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Design.EditorModel
+@using Fratak_Shop.Core.Services.Design
+@using Fratak_Shop.Data.Entities.Design
+@using Fratak_Shop.Data.Entities.Marketing
+@* ویرایشگر گرافیکی طرح: نوار بالا (ذخیره/انتشار/کاور)، ابزارها (راست)، بوم (وسط)، ویژگی‌های شیء انتخاب‌شده (چپ). رفتار: design-studio.js *@
+@{
+    ViewData["Title"] = "ویرایش طرح: " + Model.Doc.Title;
+    var d = Model.Doc;
+    var defaultPosition = Model.Preset?.Position ?? BannerPosition.HeroSlider;
+}
+@section Head {
+  <link rel="stylesheet" href="~/assets/css/design-studio.css" asp-append-version="true">
+}
+
+<div class="ds" data-design-studio
+     data-id="@d.Id"
+     data-doc-url="/admin/design/editor/@d.Id?handler=Doc"
+     data-base="/admin/design/editor/@d.Id"
+     data-kind="@d.Kind"
+     data-post="@Model.PostId">
+  <div class="ds-top">
+    <a class="a-btn a-btn-light a-btn-xs" href="/admin/design">@Icons.Svg("ArrowLeft", "rotate-180", 16) استودیو</a>
+    <input class="a-input ds-title" data-ds-title value="@d.Title" maxlength="200" aria-label="نام طرح">
+    <span class="a-muted text-xs" data-ds-size>@Format.Number(d.Width)×@Format.Number(d.Height)</span>
+    <div class="ds-top-actions">
+      <button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-undo title="برگرداندن (Ctrl+Z)">@Icons.Svg("ArrowCounterClockwise", null, 16)</button>
+      <button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-redo title="انجام دوباره (Ctrl+Y)">@Icons.Svg("ArrowCounterClockwise", "ds-flip", 16)</button>
+      <button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-download title="دانلود PNG">@Icons.Svg("Download", null, 16)</button>
+      <button type="button" class="a-btn a-btn-primary a-btn-xs" data-ds-save>@Icons.Svg("FloppyDisk", null, 16) ذخیره</button>
+      @if (d.Kind == DesignKind.Banner && Model.CanPublishBanner)
+      {
+        <button type="button" class="a-btn a-btn-success a-btn-xs" data-ds-open="publish">@Icons.Svg("Check", null, 16) انتشار به‌عنوان بنر</button>
+      }
+      @if (d.Kind == DesignKind.BlogCover && Model.CanCover && Model.PostId is not null)
+      {
+        <button type="button" class="a-btn a-btn-success a-btn-xs" data-ds-cover>@Icons.Svg("Check", null, 16) گذاشتن روی مقالهٔ «@Model.PostTitle»</button>
+      }
+    </div>
+  </div>
+
+  @if (Model.Mobile is not null)
+  {
+    <nav class="a-tabs ds-tabs" aria-label="نسخه‌ها">
+      <button type="button" class="a-tab is-active" data-ds-variant="desktop">@Icons.Svg("Monitor", null, 16) دسکتاپ @Format.Number(d.Width)×@Format.Number(d.Height)</button>
+      <button type="button" class="a-tab" data-ds-variant="mobile">@Icons.Svg("DeviceMobile", null, 16) موبایل @Format.Number(Model.Mobile.Width)×@Format.Number(Model.Mobile.Height)</button>
+      <button type="button" class="a-btn a-btn-light a-btn-xs mr-auto" data-ds-copy-desktop title="متن‌ها و رنگ‌های نسخهٔ دسکتاپ با قالب همین چیدمان">نسخهٔ موبایل از روی قالب</button>
+    </nav>
+  }
+
+  <div class="ds-body">
+    <aside class="ds-tools" aria-label="ابزارها">
+      <div class="ds-group">
+        <b>افزودن</b>
+        <button type="button" class="ds-tool" data-ds-add="headline">تیتر</button>
+        <button type="button" class="ds-tool" data-ds-add="text">متن</button>
+        <button type="button" class="ds-tool" data-ds-add="rect">مستطیل</button>
+        <button type="button" class="ds-tool" data-ds-add="rounded">کادر گرد</button>
+        <button type="button" class="ds-tool" data-ds-add="circle">دایره</button>
+        <button type="button" class="ds-tool" data-ds-add="triangle">مثلث</button>
+        <button type="button" class="ds-tool" data-ds-add="line">خط</button>
+      </div>
+      <div class="ds-group">
+        <b>نمونه‌های آماده</b>
+        <button type="button" class="ds-tool" data-ds-add="badge">نشان تخفیف</button>
+        <button type="button" class="ds-tool" data-ds-add="cta">دکمهٔ خرید</button>
+        <button type="button" class="ds-tool" data-ds-add="price">برچسب قیمت</button>
+        <button type="button" class="ds-tool" data-ds-add="ribbon">نوار «جدید»</button>
+        <button type="button" class="ds-tool" data-ds-add="kicker">برچسب بالای تیتر</button>
+      </div>
+      <div class="ds-group">
+        <b>عکس</b>
+        <button type="button" class="ds-tool" data-ds-open="images">@Icons.Svg("Image", null, 16) افزودن عکس</button>
+      </div>
+      <div class="ds-group">
+        <b>قالب</b>
+        <select class="a-input" data-ds-layout aria-label="چیدمان">
+          @foreach (var l in DesignTemplates.Layouts) { <option value="@l.Key">@l.Title</option> }
+          <option value="blank">خالی</option>
+        </select>
+        <select class="a-input" data-ds-palette aria-label="رنگ‌ها">
+          <option value="">رنگ خودکار</option>
+          @foreach (var c in DesignPalettes.All) { <option value="@c.Key">@c.Title</option> }
+        </select>
+        <button type="button" class="ds-tool" data-ds-template>اعمال قالب</button>
+      </div>
+      <div class="ds-group">
+        <b>پس‌زمینه</b>
+        <label class="ds-row">رنگ <input type="color" data-ds-bg value="#ffffff"></label>
+      </div>
+    </aside>
+
+    <div class="ds-stage" data-ds-stage>
+      <div class="ds-canvas-wrap" data-ds-wrap><canvas data-ds-canvas></canvas></div>
+      <p class="ds-hint">کشیدن = جابه‌جایی · گوشه‌ها = اندازه و چرخش · دوبار کلیک روی متن = ویرایش · Delete = حذف · Ctrl+D = تکثیر · کلیدهای جهت = جابه‌جایی دقیق</p>
+    </div>
+
+    <aside class="ds-props" data-ds-props aria-label="ویژگی‌ها">
+      <p class="a-muted text-sm" data-ds-empty>یک شیء را روی بوم انتخاب کنید.</p>
+      <div class="ds-prop-body" data-ds-prop-body hidden>
+        <div data-ds-only="text">
+          <label class="a-label">متن</label>
+          <textarea class="a-input" rows="3" data-ds-prop="text"></textarea>
+          <div class="ds-row">
+            <label>اندازه <input type="number" class="a-input ds-num" min="8" max="400" data-ds-prop="fontSize"></label>
+            <label>وزن
+              <select class="a-input" data-ds-prop="fontWeight">
+                <option value="400">معمولی</option><option value="600">نیمه‌پررنگ</option><option value="700">پررنگ</option><option value="900">خیلی پررنگ</option>
+              </select>
+            </label>
+          </div>
+          <div class="ds-row">
+            <button type="button" class="ds-tool" data-ds-align="right">راست</button>
+            <button type="button" class="ds-tool" data-ds-align="center">وسط</button>
+            <button type="button" class="ds-tool" data-ds-align="left">چپ</button>
+          </div>
+        </div>
+        <div class="ds-row">
+          <label>رنگ <input type="color" data-ds-prop="fill"></label>
+          <label>شفافیت <input type="range" min="0.1" max="1" step="0.05" data-ds-prop="opacity"></label>
+        </div>
+        <div class="ds-row" data-ds-only="rect">
+          <label>گردی گوشه <input type="number" class="a-input ds-num" min="0" max="500" data-ds-prop="rx"></label>
+        </div>
+        <div class="ds-row">
+          <label>رنگ حاشیه <input type="color" data-ds-prop="stroke"></label>
+          <label>ضخامت <input type="number" class="a-input ds-num" min="0" max="60" data-ds-prop="strokeWidth"></label>
+        </div>
+        <label class="ds-row"><input type="checkbox" data-ds-shadow> سایه</label>
+        <div class="ds-row ds-wrap">
+          <button type="button" class="ds-tool" data-ds-cmd="front">جلوتر</button>
+          <button type="button" class="ds-tool" data-ds-cmd="back">عقب‌تر</button>
+          <button type="button" class="ds-tool" data-ds-cmd="center-h">وسط افقی</button>
+          <button type="button" class="ds-tool" data-ds-cmd="center-v">وسط عمودی</button>
+          <button type="button" class="ds-tool" data-ds-cmd="duplicate">تکثیر</button>
+          <button type="button" class="ds-tool" data-ds-cmd="lock">قفل/باز</button>
+          <button type="button" class="ds-tool ds-danger" data-ds-cmd="delete">حذف</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  @* پنجرهٔ افزودن عکس: کالاهای فروشگاه / آپلود / اینترنت *@
+  <div class="ds-modal" data-ds-modal="images" hidden>
+    <div class="ds-modal-box" role="dialog" aria-modal="true" aria-label="افزودن عکس">
+      <div class="ds-modal-head"><b>افزودن عکس</b><button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-close>بستن</button></div>
+      <nav class="a-tabs">
+        <button type="button" class="a-tab is-active" data-ds-img-tab="shop">عکس کالاها</button>
+        <button type="button" class="a-tab" data-ds-img-tab="upload">آپلود</button>
+        <button type="button" class="a-tab" data-ds-img-tab="web">جست‌وجوی اینترنت</button>
+      </nav>
+      <div data-ds-img-pane="shop">
+        <div class="ds-row"><input class="a-input" data-ds-q="shop" placeholder="نام کالا…"><button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-search="shop">@Icons.Svg("MagnifyingGlass", null, 16)</button></div>
+        <div class="ds-grid" data-ds-results="shop"></div>
+      </div>
+      <div data-ds-img-pane="upload" hidden>
+        <input type="file" class="a-input" accept="image/jpeg,image/png,image/webp" data-ds-upload>
+        <p class="a-help">JPG، PNG یا WebP تا ۱۰ مگابایت؛ به WebP تبدیل و روی سایت خودتان ذخیره می‌شود.</p>
+      </div>
+      <div data-ds-img-pane="web" hidden>
+        <div class="ds-row"><input class="a-input" data-ds-q="web" placeholder="مثلاً: هدفون بی‌سیم"><button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-search="web">@Icons.Svg("MagnifyingGlass", null, 16)</button><button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-more hidden>نتایج بیشتر</button></div>
+        <p class="a-help">⚠️ فقط عکسی را استفاده کنید که اجازهٔ استفاده‌اش را دارید (مثلاً عکس رسمی سازندهٔ کالا). عکس انتخاب‌شده دانلود، پاک‌سازی و روی سایت خودتان ذخیره می‌شود.</p>
+        <div class="ds-grid" data-ds-results="web"></div>
+      </div>
+    </div>
+  </div>
+
+  @if (d.Kind == DesignKind.Banner && Model.CanPublishBanner)
+  {
+    <div class="ds-modal" data-ds-modal="publish" hidden>
+      <div class="ds-modal-box ds-modal-sm" role="dialog" aria-modal="true" aria-label="انتشار بنر">
+        <div class="ds-modal-head"><b>انتشار به‌عنوان بنر</b><button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-close>بستن</button></div>
+        <div class="a-stack">
+          <div><label class="a-label" for="ds-pos">جایگاه</label>
+            <select id="ds-pos" class="a-input" data-ds-pub="position">
+              <option value="1" selected="@(defaultPosition == BannerPosition.HeroSlider)">اسلایدر اصلی (بالای صفحه)</option>
+              <option value="2" selected="@(defaultPosition == BannerPosition.WideBanner)">بنر عریض (وسط صفحه)</option>
+              <option value="3" selected="@(defaultPosition == BannerPosition.PromoCard)">کارت تبلیغ</option>
+            </select>
+          </div>
+          <div><label class="a-label" for="ds-link">لینک (مثل /products?Discounted=true)</label><input id="ds-link" class="a-input" dir="ltr" maxlength="500" value="@d.LinkUrl" data-ds-pub="link"></div>
+          <div><label class="a-label" for="ds-btn">متن دکمه (اختیاری)</label><input id="ds-btn" class="a-input" maxlength="100" value="@d.ButtonText" data-ds-pub="button"></div>
+          <p class="a-help">اول طرح ذخیره می‌شود و بعد بنر فعال با همین تصویر روی سایت قرار می‌گیرد. ویرایش‌های بعدی طرح، عکس همان بنر را هم عوض می‌کند.</p>
+          <button type="button" class="a-btn a-btn-success" data-ds-publish>انتشار</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+@section Scripts {
+  <script src="~/assets/js/dependencies/fabric/fabric.min.js" asp-append-version="true"></script>
+  <script src="~/assets/js/design-studio.js" asp-append-version="true"></script>
+}

@@ -1,6 +1,7 @@
 /*
   صفحه‌های کمپین (دور ۲۱): شمارش معکوس واقعی تا «پایان کمپین».
   نشانه‌گذاری: <div class="fs-lp-countdown" data-fs-countdown="2026-11-30T23:59:00+03:30"> با خانه‌های <b data-u="d|h|m|s">.
+  - پایان از «پایان کمپین» صفحه (data-fs-end) خوانده می‌شود؛ صفحهٔ بی‌پایان ← شمارنده حذف می‌شود.
   - زمان از ساعت دستگاه کاربر و تاریخ ثابت پایان حساب می‌شود (با هر بار باز کردن صفحه از نو شروع نمی‌شود = بدون فوریت جعلی).
   - بعد از پایان، شمارنده با پیام «این کمپین به پایان رسید» جایگزین می‌شود.
   - ارقام فارسی؛ تب پنهان = به‌روزرسانی متوقف (مصرف باتری).
@@ -30,8 +31,15 @@
 
   function init() {
     var items = [];
+    // پایان واقعی از تنظیمات صفحه (data-fs-end) می‌آید، نه تاریخی که روز ساخت قالب در HTML نوشته شده.
+    var host = document.querySelector("[data-fs-end]");
+    var pageEnd = host ? host.getAttribute("data-fs-end") : null;
     document.querySelectorAll("[data-fs-countdown]").forEach(function (el) {
-      var end = Date.parse(el.getAttribute("data-fs-countdown") || "");
+      if (pageEnd === "none") {
+        el.remove();
+        return;
+      }
+      var end = Date.parse(pageEnd || el.getAttribute("data-fs-countdown") || "");
       if (isNaN(end)) {
         el.remove();
         return;

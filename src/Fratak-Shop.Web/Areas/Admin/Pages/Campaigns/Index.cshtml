@@ -1,0 +1,72 @@
+@page "/admin/campaigns"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Campaigns.IndexModel
+@using Fratak_Shop.Core.Services.Design
+@* فهرست صفحه‌های کمپین + ساخت از قالب. *@
+@{
+    ViewData["Title"] = "صفحه‌های کمپین";
+    var now = DateTimeOffset.UtcNow;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>صفحه‌های کمپین</h2>
+    <p class="a-muted text-sm mt-1">صفحه‌ساز کشیدنی برای حراج، معرفی کالا و مناسبت‌ها؛ واکنش‌گرا در موبایل، تبلت و دسکتاپ. فهرست کالاها با قیمت و موجودی امروز خودکار پر می‌شود.</p>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Plus", null, 18) صفحهٔ تازه از قالب</h3></div>
+  <form method="post" asp-page-handler="Create" class="a-card-body a-stack">
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      @foreach (var t in LandingTemplates.List)
+      {
+        <label class="flex items-start gap-2 border rounded-xl p-3 cursor-pointer hover:border-sky-400">
+          <input type="radio" name="template" value="@t.Key" checked="@(t.Key == "campaign")" class="mt-1">
+          <span class="text-sm"><b>@t.Title</b><br><span class="a-muted text-xs">@t.Description</span></span>
+        </label>
+      }
+    </div>
+    <div class="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+      <div><label class="a-label" for="lp-title">عنوان صفحه</label><input id="lp-title" name="title" maxlength="300" class="a-input" placeholder="مثلاً: حراج پاییزه"></div>
+      <button class="a-btn a-btn-primary" type="submit">ساخت و باز کردن صفحه‌ساز</button>
+    </div>
+  </form>
+</div>
+
+<div class="a-card">
+  @if (Model.Items.Count == 0)
+  {
+    <div class="a-empty">هنوز صفحه‌ای ساخته نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>عنوان</th><th>آدرس</th><th>وضعیت</th><th>زمان</th><th>آخرین ویرایش</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var p in Model.Items)
+          {
+            var ended = p.EndAt is { } e && e <= now;
+            var waiting = p.StartAt is { } s && s > now;
+            <tr>
+              <td data-label="عنوان" class="font-bold">@p.Title</td>
+              <td data-label="آدرس" class="a-ltr text-xs"><a class="text-sky-700" href="/campaign/@p.Slug" target="_blank" rel="noopener">/campaign/@p.Slug</a></td>
+              <td data-label="وضعیت">
+                @if (!p.IsActive) { <span class="a-badge a-badge-gray">پیش‌نویس</span> }
+                else if (ended) { <span class="a-badge a-badge-red">تمام‌شده</span> }
+                else if (waiting) { <span class="a-badge a-badge-yellow">منتظر شروع</span> }
+                else { <span class="a-badge a-badge-green">منتشرشده</span> }
+              </td>
+              <td data-label="زمان" class="text-xs">@(p.StartAt is null ? "" : "از " + Format.Date(p.StartAt)) @(p.EndAt is null ? "بدون پایان" : "تا " + Format.DateTime(p.EndAt))</td>
+              <td data-label="آخرین ویرایش" class="text-xs">@AdminUi.Ago(p.UpdatedAt) @p.UpdatedByName</td>
+              <td class="actions">
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/campaigns/edit/@p.Id">@Icons.Svg("PencilSimple", null, 16) صفحه‌ساز</a>
+                <form method="post" asp-page-handler="Delete" asp-route-id="@p.Id" class="inline"><button class="a-btn a-btn-light a-btn-xs" type="submit" data-confirm="صفحه به سطل بازیافت برود؟">@Icons.Svg("Trash", null, 16)</button></form>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

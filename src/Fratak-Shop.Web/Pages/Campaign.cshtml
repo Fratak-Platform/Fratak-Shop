@@ -12,7 +12,8 @@
     <style>@Html.Raw(landing.Css)</style>
   }
 }
-<main class="fs-lp@(landing.ShowHeader ? " fs-lp--with-header" : "")">
+@* data-fs-end: پایان واقعی کمپین برای شمارش معکوس (بدون پایان ← شمارش معکوس حذف می‌شود؛ فوریت جعلی نداریم). *@
+<main class="fs-lp@(landing.ShowHeader ? " fs-lp--with-header" : "")" data-fs-end="@(landing.EndAt?.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture) ?? "none")">
   @if (landing.Ended)
   {
     <section class="fs-lp-section">
