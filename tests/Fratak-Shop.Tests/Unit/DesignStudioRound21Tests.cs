@@ -486,6 +486,8 @@ public class DesignStudioRound21Tests
     [Theory]
     [InlineData("#fff", 255, 255, 255, 255)]
     [InlineData("#FF000080", 255, 0, 0, 128)]
+    [InlineData("#f008", 255, 0, 0, 136)]
+    [InlineData("#00ff00", 0, 255, 0, 255)]
     [InlineData("rgb(0, 128, 255)", 0, 128, 255, 255)]
     [InlineData("rgba(255,0,0,0.5)", 255, 0, 0, 128)]
     [InlineData("white", 255, 255, 255, 255)]

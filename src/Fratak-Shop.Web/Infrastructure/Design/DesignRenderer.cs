@@ -495,7 +495,16 @@ public sealed class DesignRenderer(IWebHostEnvironment environment, ILogger<Desi
                 return SKColors.Red;
         }
         if (value[0] == '#')
-            return SKColor.TryParse(value, out var hex) ? hex : null;
+        {
+            // CSS و Fabric آلفا را آخر می‌نویسند (#RRGGBBAA و #RGBA) ولی SKColor.TryParse آن را اول می‌خواند (#AARRGGBB)؛
+            // پس این دو شکل را به ترتیب Skia برمی‌گردانیم. مثال: «#FF000080» ← قرمزِ نیمه‌شفاف (نه آبیِ کم‌رنگ).
+            var digits = value[1..];
+            if (digits.Length == 8)
+                digits = digits[6..] + digits[..6];
+            else if (digits.Length == 4)
+                digits = digits[3..] + digits[..3];
+            return SKColor.TryParse("#" + digits, out var hex) ? hex : null;
+        }
         if (value.StartsWith("rgb", StringComparison.Ordinal))
         {
             var open = value.IndexOf('(');
