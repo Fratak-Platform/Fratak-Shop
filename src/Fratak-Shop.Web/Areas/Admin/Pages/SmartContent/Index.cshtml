@@ -35,6 +35,7 @@
   @if (Model.Can(AdminPermissions.CatalogManage)) { <a class="a-tab" href="/admin/smart/categories">دسته‌ها</a> }
   @if (Model.Can(AdminPermissions.BlogPublish)) { <a class="a-tab" href="/admin/smart/blog">تقویم بلاگ</a> }
   @if (Model.Can(AdminPermissions.ReportsView) || Model.Can(AdminPermissions.ProductsManage)) { <a class="a-tab" href="/admin/smart/brief">خلاصهٔ روزانه</a> }
+  @if (Model.Can(AdminPermissions.ReportsView) || Model.Can(AdminPermissions.MarketingManage) || Model.Can(AdminPermissions.SeoManage)) { <a class="a-tab" href="/admin/smart/growth">رشد خودکار</a> }
   @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-tab" href="/admin/smart/settings">تنظیمات</a> }
 </nav>
 

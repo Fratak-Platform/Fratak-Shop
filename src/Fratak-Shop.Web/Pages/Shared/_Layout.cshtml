@@ -36,7 +36,8 @@
 @* دور نوزدهم (A21): روی پروفایل منابع «ضعیف» اتصال زندهٔ مشتریان خاموش است (هر اتصال روی هاست اشتراکی یک درخواست باز نگه می‌دارد)؛
    شمارندهٔ اعلان‌ها با هر بار باز شدن صفحه به‌روز می‌شود. پنل کارکنان همیشه اتصال زنده دارد. *@
 @{ var liveEnabled = ViewContext.HttpContext.User.IsSignedIn() && Fratak_Shop.Web.Infrastructure.Ops.ResourceGovernor.Current.Budget.CustomerRealtime; }
-<body class="mx-auto bg-[#fcfcfc]" data-realtime="@(liveEnabled ? "1" : "0")">
+@* دور ۲۱: صفحه‌های کمپین می‌توانند هدر/فوتر را پنهان کنند (کلاس fs-no-header / fs-no-footer در landing.css). *@
+<body class="mx-auto bg-[#fcfcfc]@(ViewData["BodyClass"] is string bodyClass ? " " + bodyClass : "")" data-realtime="@(liveEnabled ? "1" : "0")">
   @await Component.InvokeAsync("Header")
   @if (Site.ShowAnnouncement)
   {

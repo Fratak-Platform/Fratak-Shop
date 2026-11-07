@@ -319,6 +319,11 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     // دور بیستم: بازخورد کارشناس روی عکس‌های پیشنهادی (فهرست سیاه + رتبهٔ منبع).
     public DbSet<Fratak_Shop.Data.Entities.Smart.SmartImageFeedback> SmartImageFeedbacks { get; set; } = null!;
 
+    // دور ۲۱: استودیوی طراحی (بنر/کاور)، صفحه‌ساز کمپین و گزارش رشد خودکار.
+    public DbSet<Fratak_Shop.Data.Entities.Design.DesignDoc> DesignDocs { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Design.LandingPage> LandingPages { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Smart.GrowthAction> GrowthActions { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

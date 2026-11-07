@@ -53,6 +53,12 @@ public interface IUploadStore
     /// مثال: <c>Duplicate(UploadArea.Products, ["a1.webp"])</c> ← <c>{ "a1.webp": "9f3c….webp" }</c>.
     /// </summary>
     Dictionary<string, string> Duplicate(UploadArea area, IEnumerable<string> fileNames);
+
+    /// <summary>
+    /// دور ۲۱: ذخیرهٔ تصویری که خود سرور ساخته (رندر طرح استودیو) یا مرورگر فرستاده، با همان پاک‌سازی و تبدیل WebP آپلودها.
+    /// مثال: <c>await SaveImageAsync(UploadArea.Banners, pngBytes)</c> ← «9f3c….webp» (خطا یا تصویر نامعتبر ← null).
+    /// </summary>
+    Task<StoredFile?> SaveImageAsync(UploadArea area, byte[] data, CancellationToken cancellationToken = default);
 }
 
 public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadStore> logger) : IUploadStore
@@ -119,6 +125,28 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
         }
 
         return (saved, null);
+    }
+
+    public async Task<StoredFile?> SaveImageAsync(UploadArea area, byte[] data, CancellationToken cancellationToken = default)
+    {
+        if (data.Length == 0 || data.Length > 15 * 1024 * 1024)
+            return null;
+        var image = Infrastructure.Media.WebPEncoder.FromUpload(data, out _, logger);
+        if (image is null)
+            return null;
+        var folder = Folder(area);
+        Directory.CreateDirectory(folder);
+        var name = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant() + image.Extension;
+        try
+        {
+            await File.WriteAllBytesAsync(Path.Combine(folder, name), image.Data, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogError(exception, "Saving a generated image of {Area} failed", area.Name);
+            return null;
+        }
+        return new StoredFile(name, image.ContentType, image.Data.Length, image.Width, image.Height);
     }
 
     public string? GetPath(UploadArea area, string fileName)

@@ -139,6 +139,17 @@ public sealed class SmartOptions
     /// </summary>
     public bool BlockBelowCost { get; set; } = true;
 
+    // ── رشد خودکار و استودیوی طراحی (دور ۲۱) ───────────────────────
+
+    /// <summary>
+    /// «رشد خودکار» روزانه: بالا بردن نمرهٔ سئوی ضعیف‌ترین صفحه‌های پربازدید، تکمیل کالاهای پربازدیدِ ناقص و اگر بازدید دیروز خیلی کمتر
+    /// از معمول بود، جلو انداختن مقالهٔ بعدی و ایدهٔ بنر بیشتر. همه در پنل ← محتوای هوشمند ← رشد خودکار گزارش می‌شود. پیش‌فرض روشن.
+    /// </summary>
+    public bool GrowthAutopilot { get; set; } = true;
+
+    /// <summary>حداکثر ایدهٔ بنر تازه در روز برای تأیید مدیر (۰ = خاموش، حداکثر ۶). ایده‌ها تا تأیید هیچ‌جای سایت دیده نمی‌شوند.</summary>
+    public int BannerIdeasPerDay { get; set; } = 3;
+
 
     /// <summary>
     /// مقدارهای خارج از بازه را اصلاح می‌کند تا یک عدد اشتباه در فرم، سایت را به خطر نیندازد.
@@ -152,6 +163,7 @@ public sealed class SmartOptions
         AutoImagesMax = Math.Clamp(AutoImagesMax, 0, 8);
         ImageCandidates = Math.Clamp(ImageCandidates, 6, 15);
         NightlyCompletePerDay = Math.Clamp(NightlyCompletePerDay, 0, 200);
+        BannerIdeasPerDay = Math.Clamp(BannerIdeasPerDay, 0, 6);
         AutoSpecMinSources = Math.Clamp(AutoSpecMinSources, 2, 5);
         AutoApproveInsightMinReviews = Math.Clamp(AutoApproveInsightMinReviews, 3, 500);
         BlogPostsPerWeek = Math.Clamp(BlogPostsPerWeek, 0, 7);

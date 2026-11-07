@@ -169,6 +169,31 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
         }
     }
 
+    /// <summary>
+    /// دور ۲۱ – رشد خودکار: ایده‌های بنر تازه ← یک اعلان برای مدیران بازاریابی (لینک فهرست ایده‌ها)؛ روز کم‌بازدید ← یک اعلان خلاصه
+    /// (روزهای عادی بی‌صدا تا زنگوله شلوغ نشود؛ گزارش کامل در صفحهٔ رشد خودکار هست).
+    /// </summary>
+    public async Task NotifyGrowthAsync(GrowthReport report, int bannerIdeas)
+    {
+        if (!report.Ran)
+            return;
+        try
+        {
+            if (bannerIdeas > 0)
+            {
+                await SendAsync(null, $"استودیوی طراحی: {PersianText.Digits(bannerIdeas)} ایدهٔ بنر تازه",
+                    "پیش‌نمایش آماده است؛ با یک کلیک تأیید کنید تا روی سایت برود، ویرایش کنید یا رد کنید.", "/admin/design?status=Suggested",
+                    AdminPermissions.MarketingManage);
+            }
+            if (report.Traffic.Low)
+                await SendAsync(null, "رشد خودکار: بازدید کمتر از معمول بود", Cut(report.Summary, 300), "/admin/smart/growth", AdminPermissions.ContentManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Growth notification failed");
+        }
+    }
+
     private async Task SendAsync(Guid? userId, string title, string? body, string url, string permission)
     {
         if (userId is { } id)

@@ -1,0 +1,33 @@
+@page "/campaign/{slug}"
+@model CampaignModel
+@* صفحهٔ کمپین ساخته‌شده با صفحه‌ساز پنل (دور ۲۱). CSS صفحه هنگام ذخیره محدود به «.fs-lp» و بدون «<» شده است. *@
+@{
+    Layout = "_Layout";
+    var landing = Model.Landing;
+}
+@section Head {
+  <link rel="stylesheet" href="~/assets/css/landing.css" asp-append-version="true">
+  @if (!string.IsNullOrWhiteSpace(landing.Css) && !landing.Ended)
+  {
+    <style>@Html.Raw(landing.Css)</style>
+  }
+}
+<main class="fs-lp@(landing.ShowHeader ? " fs-lp--with-header" : "")">
+  @if (landing.Ended)
+  {
+    <section class="fs-lp-section">
+      <div class="fs-lp-wrap">
+        <h1 class="fs-lp-title fs-lp-title--dark">@landing.Title</h1>
+        <p class="fs-lp-ended">این کمپین به پایان رسیده است. پیشنهادهای امروز فروشگاه را از دست ندهید.</p>
+        <p class="text-center mt-6"><a class="fs-lp-btn fs-lp-btn--accent" href="/products?Discounted=true&amp;Sort=MostDiscounted">تخفیف‌های امروز</a></p>
+      </div>
+    </section>
+  }
+  else
+  {
+    @Html.Raw(Model.BodyHtml)
+  }
+</main>
+@section Scripts {
+  <script src="~/assets/js/landing.js" asp-append-version="true" defer></script>
+}

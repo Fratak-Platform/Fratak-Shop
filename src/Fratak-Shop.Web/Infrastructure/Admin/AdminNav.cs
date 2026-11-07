@@ -67,6 +67,7 @@ public static class AdminNav
             new AdminNavItem("تقاضای مشتریان", "/admin/reports/demand", "MagnifyingGlass", [P.ReportsView, P.FinanceView, P.MarketingManage, P.ProductsManage]),
             new AdminNavItem("منبع ورودی و کمپین‌ها", "/admin/reports/campaigns", "Target", [P.ReportsView, P.FinanceView, P.MarketingManage]),
             new AdminNavItem("خلاصهٔ روزانه", "/admin/smart/brief", "ListChecks", [P.ReportsView, P.ProductsManage]),
+            new AdminNavItem("رشد خودکار", "/admin/smart/growth", "TrendUp", [P.ReportsView, P.MarketingManage, P.SeoManage]),
             new AdminNavItem("هدف فروش ماهانه", "/admin/reports/goals", "Trophy", [P.ReportsView, P.FinanceView, P.ExpensesManage]),
             new AdminNavItem("عملکرد کارکنان", "/admin/reports/staff", "UsersThree", [P.StaffManage, P.AuditView]),
             new AdminNavItem("گزارش‌های خودکار", "/admin/reports/scheduled", "PaperPlaneTilt", [P.FinanceView, P.SettingsManage])),
@@ -75,6 +76,9 @@ public static class AdminNav
             new AdminNavItem("کارت‌های هدیه", "/admin/gift-cards", "Gift", [P.GiftCardsManage]),
             new AdminNavItem("باشگاه مشتریان", "/admin/manage/loyalty-rewards", "Crown", [P.LoyaltyManage]),
             new AdminNavItem("بنرها", "/admin/manage/banners", "Image", [P.MarketingManage, P.ContentManage]),
+            // دور ۲۱: استودیوی طراحی (بنر، کاور مقاله، پست) و صفحه‌ساز کمپین.
+            new AdminNavItem("استودیوی طراحی", "/admin/design", "Palette", [P.MarketingManage, P.ContentManage, P.BlogPublish]),
+            new AdminNavItem("صفحه‌های کمپین", "/admin/campaigns", "Notebook", [P.MarketingManage, P.ContentManage]),
             new AdminNavItem("ارسال اعلان", "/admin/notifications", "Megaphone", [P.NotificationsSend]),
             new AdminNavItem("قالب‌های پیام رویدادها", "/admin/notifications/templates", "Bell", [P.NotificationsSend, P.SettingsManage]),
             new AdminNavItem("پیام‌های آماده", "/admin/ready-messages", "ChatCenteredText", [P.NotificationsSend, P.TicketsManage, P.CommentsModerate, P.MessagesManage, P.OrdersManage]),

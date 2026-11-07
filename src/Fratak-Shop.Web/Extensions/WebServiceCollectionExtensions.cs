@@ -131,6 +131,9 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<Infrastructure.Smart.SmartOrchestrator>();
         services.AddScoped<Infrastructure.Smart.SmartNotifier>();
         services.AddHostedService<Infrastructure.Smart.SmartWorker>();
+        // دور ۲۱: استودیوی طراحی (رندر سرور فقط برای ایده‌های هوشمند؛ ویرایشگر خودش در مرورگر تصویر می‌سازد).
+        services.AddSingleton<Infrastructure.Design.IDesignRenderer, Infrastructure.Design.DesignRenderer>();
+        services.AddScoped<Infrastructure.Design.DesignStudio>();
 
         // گزارش‌های خودکار (مرحلهٔ ۷ – فاز ۷ب): ارسال ایمیل/بله/تلگرام و سرویس پس‌زمینه.
         // RemoveAllLoggers: آدرس API ربات توکن را در خود دارد؛ لاگ پیش‌فرض HttpClient نباید آن را ثبت کند.

@@ -37,6 +37,9 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
+    <!-- دور ۲۱: شکل‌دهی متن فارسی (اتصال حروف) روی بنرهای ساخت سرور. نسخهٔ HarfBuzzSharp مطابق VERSIONS.txt خود SkiaSharp 3.116.1 است. -->
+    <PackageReference Include="SkiaSharp.HarfBuzz" Version="3.116.1" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.0.1" />
   </ItemGroup>
 
   <!-- Front-end build files (Tailwind) are development-only and are not published. -->
@@ -68,6 +71,8 @@
     <None Remove="App_Data\**" />
     <Content Update="wwwroot\uploads\**" CopyToPublishDirectory="Never" />
     <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <!-- دور ۲۱: قلم Vazirmatn (ارقام فارسی، مجوز OFL) برای رندر بنر در سرور؛ کنار برنامه کپی می‌شود (عمومی نیست). -->
+    <None Update="Assets\Fonts\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(FratakPublishTarget)' == ''">

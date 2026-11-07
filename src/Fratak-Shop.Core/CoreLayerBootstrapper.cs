@@ -210,6 +210,10 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Smart.ICustomerReminderService, Services.Smart.CustomerReminderService>();
         services.AddScoped<Services.Smart.IBuyerGuideService, Services.Smart.BuyerGuideService>();
         services.AddScoped<Services.Smart.ISalesBriefService, Services.Smart.SalesBriefService>();
+        // دور ۲۱: رشد خودکار روزانه، استودیوی طراحی (بنر/کاور بدون هوش مصنوعی بیرونی) و صفحه‌ساز کمپین.
+        services.AddScoped<Services.Smart.IGrowthAutopilot, Services.Smart.GrowthAutopilot>();
+        services.AddScoped<Services.Design.IDesignService, Services.Design.DesignService>();
+        services.AddScoped<Services.Design.ILandingPageService, Services.Design.LandingPageService>();
 
         return services;
     }

@@ -1,0 +1,139 @@
+@page "/admin/design"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Design.IndexModel
+@using Fratak_Shop.Core.Services.Design
+@using Fratak_Shop.Data.Entities.Design
+@using Fratak_Shop.Web.Infrastructure.Design
+@* استودیوی طراحی: ایده‌های هوشمند منتظر تأیید + طرح‌ها + فرم طرح تازه با اندازهٔ هر جایگاه. *@
+@{
+    ViewData["Title"] = "استودیوی طراحی";
+    var tabs = new (string? Key, string Title)[] { ("Suggested", "پیشنهادی"), ("Draft", "پیش‌نویس"), ("Published", "منتشرشده"), ("Rejected", "ردشده"), ("all", "همه") };
+    var active = Model.Status?.ToString() ?? "all";
+    string StatusText(DesignStatus s) => s switch { DesignStatus.Suggested => "پیشنهادی", DesignStatus.Published => "منتشرشده", DesignStatus.Rejected => "ردشده", _ => "پیش‌نویس" };
+    string KindText(DesignKind k) => k switch { DesignKind.Banner => "بنر", DesignKind.BlogCover => "کاور مقاله", DesignKind.Social => "شبکهٔ اجتماعی", _ => "آزاد" };
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>استودیوی طراحی</h2>
+    <p class="a-muted text-sm mt-1">بنر، کاور مقاله و پست با ویرایشگر کشیدنی — بدون هوش مصنوعی پولی. ایده‌ها از دادهٔ واقعی فروشگاه (تخفیف‌ها، پرفروش‌ها، کالاهای تازه و مناسبت‌ها) ساخته می‌شوند و فقط با تأیید شما روی سایت می‌روند.</p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Suggest" class="inline"><button class="a-btn a-btn-primary" type="submit">@Icons.Svg("MagicWand", null, 18) ساخت ایده الان</button></form>
+    <a class="a-btn a-btn-light" href="#new-design">@Icons.Svg("Plus", null, 18) طرح تازه</a>
+    <a class="a-btn a-btn-light" href="/admin/manage/banners">@Icons.Svg("Image", null, 18) بنرهای سایت</a>
+  </div>
+</div>
+
+@if (Model.PostId is not null)
+{
+  <div class="a-card mb-4"><div class="a-card-body text-sm">ساخت کاور برای مقالهٔ «<b>@Model.PostTitle</b>» — اندازهٔ ۱۲۰۰×۶۳۰ انتخاب شده و عنوان مقاله روی طرح می‌نشیند. بعد از ذخیره در ویرایشگر، «گذاشتن روی مقاله» را بزنید.</div></div>
+}
+
+<nav class="a-tabs mb-4" aria-label="وضعیت طرح‌ها">
+  @foreach (var tab in tabs)
+  {
+    <a class="a-tab @(active == tab.Key ? "is-active" : "")" href="/admin/design?status=@tab.Key">@(tab.Title) @if (tab.Key == "Suggested" && Model.Pending > 0) { <span class="a-badge a-badge-yellow">@Format.Number(Model.Pending)</span> }</a>
+  }
+</nav>
+
+@if (Model.Items.Count == 0)
+{
+  <div class="a-card"><div class="a-empty">@(Model.Status == DesignStatus.Suggested ? "ایدهٔ منتظری نیست. «ساخت ایده الان» را بزنید یا منتظر ایده‌های روزانه بمانید." : "طرحی در این بخش نیست.")</div></div>
+}
+else
+{
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    @foreach (var d in Model.Items)
+    {
+      var image = DesignStudio.Url(d.Kind, d.ImageName);
+      <div class="a-card flex flex-col">
+        <a href="/admin/design/editor/@d.Id" class="block bg-zinc-100 rounded-t-xl overflow-hidden" style="aspect-ratio:@d.Width / @d.Height">
+          @if (image is not null)
+          {
+            <img src="@image" alt="@d.Title" loading="lazy" class="w-full h-full object-contain">
+          }
+          else
+          {
+            <span class="flex h-full items-center justify-center text-xs text-zinc-500 p-4">پیش‌نمایش با اولین ذخیره در ویرایشگر ساخته می‌شود</span>
+          }
+        </a>
+        <div class="a-card-body flex flex-col gap-2 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <b class="text-sm">@d.Title</b>
+            <span class="a-badge a-badge-sky">@KindText(d.Kind)</span>
+            <span class="a-badge @(d.Status == DesignStatus.Published ? "a-badge-green" : d.Status == DesignStatus.Suggested ? "a-badge-yellow" : "a-badge-gray")">@StatusText(d.Status)</span>
+            @if (d.IsSmart) { <span class="a-badge a-badge-purple">هوشمند</span> }
+          </div>
+          <p class="a-muted text-xs">@Format.Number(d.Width)×@Format.Number(d.Height) · @AdminUi.Ago(d.UpdatedAt)@if (d.ExpiresAt is { } exp) { <text> · اعتبار تا @Format.Date(exp)</text> }</p>
+          @if (!string.IsNullOrWhiteSpace(d.IdeaNote))
+          {
+            <p class="text-xs text-zinc-600 leading-6">@d.IdeaNote</p>
+          }
+          <div class="a-btn-group mt-auto pt-2">
+            @if (d.Kind == DesignKind.Banner && d.Status != DesignStatus.Published && d.ImageName is not null && Model.CanPublishBanner)
+            {
+              <form method="post" asp-page-handler="Approve" asp-route-id="@d.Id" class="inline"><button class="a-btn a-btn-primary a-btn-xs" type="submit" data-confirm="این طرح به‌عنوان بنر فعال روی سایت قرار بگیرد؟">@Icons.Svg("Check", null, 16) تأیید و انتشار</button></form>
+            }
+            <a class="a-btn a-btn-light a-btn-xs" href="/admin/design/editor/@d.Id">@Icons.Svg("PencilSimple", null, 16) ویرایش</a>
+            @if (d.Status == DesignStatus.Suggested)
+            {
+              <form method="post" asp-page-handler="Reject" asp-route-id="@d.Id" class="inline"><button class="a-btn a-btn-light a-btn-xs" type="submit">رد</button></form>
+            }
+            @if (d.Status != DesignStatus.Published)
+            {
+              <form method="post" asp-page-handler="Delete" asp-route-id="@d.Id" class="inline"><button class="a-btn a-btn-light a-btn-xs" type="submit" data-confirm="طرح و تصویرش حذف شود؟">@Icons.Svg("Trash", null, 16)</button></form>
+            }
+            @if (d.BannerId is not null)
+            {
+              <a class="a-btn a-btn-soft a-btn-xs" href="/admin/manage/banners">بنر روی سایت</a>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}
+
+<div class="a-card mt-6" id="new-design">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Palette", null, 18) طرح تازه</h3></div>
+  <form method="post" asp-page-handler="Create" class="a-card-body a-stack">
+    @if (Model.PostId is not null) { <input type="hidden" name="post" value="@Model.PostId"> }
+    <div>
+      <span class="a-label">اندازه (جایگاه)</span>
+      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        @foreach (var p in DesignPresets.All.Where(p => p.Key != DesignPresets.HeroMobile))
+        {
+          <label class="flex items-start gap-2 border rounded-xl p-3 cursor-pointer hover:border-sky-400">
+            <input type="radio" name="preset" value="@p.Key" checked="@(p.Key == Model.SelectedPreset)" class="mt-1">
+            <span class="text-sm"><b>@p.Title</b><br><span class="a-muted text-xs">@(p.Key == DesignPresets.Free ? "عرض و ارتفاع دلخواه" : $"{Format.Number(p.Width)}×{Format.Number(p.Height)} · {p.Ratio}")</span><br><span class="a-muted text-xs">@p.Hint</span></span>
+          </label>
+        }
+      </div>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div><label class="a-label" for="d-layout">چیدمان</label>
+        <select id="d-layout" name="layout" class="a-input">
+          @foreach (var l in DesignTemplates.Layouts) { <option value="@l.Key">@l.Title</option> }
+          <option value="blank">صفحهٔ خالی</option>
+        </select>
+      </div>
+      <div><label class="a-label" for="d-w">عرض دلخواه (فقط «اندازهٔ آزاد»)</label><input id="d-w" name="width" type="number" min="200" max="4000" value="1200" class="a-input"></div>
+      <div><label class="a-label" for="d-h">ارتفاع دلخواه</label><input id="d-h" name="height" type="number" min="200" max="4000" value="800" class="a-input"></div>
+    </div>
+    <div>
+      <span class="a-label">رنگ‌ها</span>
+      <div class="flex flex-wrap gap-2">
+        <label class="flex items-center gap-2 border rounded-xl px-3 py-2 cursor-pointer"><input type="radio" name="palette" value="" checked> خودکار (متناسب با چیدمان)</label>
+        @foreach (var c in DesignPalettes.All)
+        {
+          <label class="flex items-center gap-2 border rounded-xl px-3 py-2 cursor-pointer">
+            <input type="radio" name="palette" value="@c.Key">
+            <span class="inline-block w-8 h-5 rounded" style="background:linear-gradient(135deg,@c.From,@c.To)"></span> @c.Title
+          </label>
+        }
+      </div>
+    </div>
+    <div><label class="a-label" for="d-title">نام طرح (اختیاری)</label><input id="d-title" name="title" maxlength="200" class="a-input" value="@Model.PostTitle"></div>
+    <div><button class="a-btn a-btn-primary" type="submit">@Icons.Svg("Plus", null, 18) ساخت و باز کردن ویرایشگر</button></div>
+  </form>
+</div>

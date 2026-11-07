@@ -31,6 +31,8 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         // داده‌های فقط پنل مدیریت: پیش‌نویس خودکار هر چند ثانیه ذخیره می‌شود و نباید کش صفحات عمومی را خالی کند.
         "EditDraft", "AuditLog", "ErrorLog", "SecurityLog", "StaffNotification", "AdminUserPreference", "AdminHelpArticle",
         "AdminRole", "AdminRolePermission", "UserAdminRole",
+        // دور ۲۱: طرح‌های استودیو و گزارش رشد خودکار فقط در پنل‌اند (انتشار بنر/کاور خودش Banner/BlogPost را عوض می‌کند و کش خالی می‌شود).
+        "DesignDoc", "GrowthAction",
         "OrderMessage", "CustomerTag", "CustomerNote", "OrderNote", "PurchaseInvoice",
         // گزارش بررسی تأمین‌کننده (تغییر واقعی موجودی روی خود Product ثبت می‌شود و کش را خالی می‌کند).
         "SupplierProductState", "SupplierSyncRun", "SupplierChange", "Supplier",

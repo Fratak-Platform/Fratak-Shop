@@ -249,6 +249,40 @@ public sealed class SmartImageFinder(
         return banner is null ? null : await StoreAsync(banner, target, cancellationToken);
     }
 
+    /// <summary>
+    /// دور ۲۱ – پنل «جست‌وجوی عکس» استودیوی طراحی: نتایج تصویر بینگ (فقط آدرس‌های سالم http/https؛ round = صفحهٔ بعدی نتایج).
+    /// چیزی دانلود نمی‌شود؛ مرورگر مدیر پیش‌نمایش را مستقیم نشان می‌دهد و فقط عکس انتخاب‌شده با <see cref="ImportAsync"/> وارد می‌شود.
+    /// </summary>
+    public async Task<List<ImageHit>> SearchWebAsync(string query, int round, CancellationToken cancellationToken)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length < 2)
+            return [];
+        if (query.Length > 80)
+            query = query[..80];
+        var hits = await sources.BingImageResultsAsync(query, round, cancellationToken);
+        return hits.Where(h => SmartParsers.CleanImageUrl(h.Url) is not null).Take(30).ToList();
+    }
+
+    /// <summary>
+    /// دور ۲۱: وارد کردن یک عکس انتخاب‌شده از اینترنت به پوشهٔ محلی (همان دانلود امن یابنده: سقف ۵ مگابایت، مسدود بودن آدرس‌های
+    /// داخلی شبکه، پاک‌سازی و WebP). عکس کوچک‌تر از <paramref name="minSide"/> پذیرفته نمی‌شود. خروجی null ← دانلود/تصویر نامعتبر.
+    /// مثال: ImportAsync("https://…/a.jpg", UploadArea.Content, 300) ← FoundImage("9f3c….webp", 1200, 800, "web", false, …).
+    /// </summary>
+    public async Task<FoundImage?> ImportAsync(string url, UploadArea area, int minSide, CancellationToken cancellationToken)
+    {
+        if (SmartParsers.CleanImageUrl(url) is null)
+            return null;
+        var bytes = await DownloadAsync(url, cancellationToken);
+        if (bytes is null)
+            return null;
+        var info = SmartImageAnalyzer.Analyze(bytes);
+        if (info is null || Math.Min(info.Width, info.Height) < minSide)
+            return null;
+        var name = await StoreAsync(bytes, area, cancellationToken);
+        return name is null ? null : new FoundImage(name, info.Width, info.Height, "web", false, url, unchecked((long)info.Hash));
+    }
+
     /// <summary>حذف فایل‌های پیشنهادی ردشده (فقط نام فایل معتبر داخل پوشهٔ محصولات).</summary>
     public void DeleteProductFiles(IEnumerable<string> names) => uploads.Delete(UploadArea.Products, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
 

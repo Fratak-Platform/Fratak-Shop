@@ -91,6 +91,15 @@ public class SitemapService(FratakShopDbContext context, IMemoryCache cache) : I
             .ToListAsync(cancellationToken);
         entries.AddRange(pages.Select(x => Entry($"/page/{x.Slug}", x.UpdatedAt, "monthly", 0.4m, x.Canonical, null)).OfType<SitemapEntry>());
 
+        // دور ۲۱: صفحه‌های کمپین فعال و در بازهٔ نمایش (کمپین تمام‌شده از نقشه بیرون می‌رود ولی آدرسش ۴۰۴ نمی‌دهد).
+        var campaigns = await context.LandingPages
+            .Where(x => x.IsActive && (x.StartAt == null || x.StartAt <= now) && (x.EndAt == null || x.EndAt > now))
+            .OrderByDescending(x => x.UpdatedAt)
+            .Take(200)
+            .Select(x => new { x.Slug, x.UpdatedAt })
+            .ToListAsync(cancellationToken);
+        entries.AddRange(campaigns.Select(x => new SitemapEntry($"/campaign/{x.Slug}", x.UpdatedAt, "daily", 0.6m)));
+
         IReadOnlyList<SitemapEntry> result = entries.Take(MaxUrls).ToList();
         cache.Set(CacheKey, result, TimeSpan.FromMinutes(10));
         return result;
