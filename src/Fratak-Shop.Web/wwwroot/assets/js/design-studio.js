@@ -451,7 +451,7 @@
     if (v) v.json = serialize();
   }
   async function switchVariant(name) {
-    if (name === state.variant || !state.variants[name]) return;
+    if (name === state.variant || !state.variants[name] || state.loading) return;
     keepCurrent();
     state.variant = name;
     const v = state.variants[name];
@@ -622,6 +622,14 @@
     return h ? h.text : "";
   }
 
+  /**
+   * صبر تا تمام شدن بارگذاری بوم (برگرداندن/قالب/تعویض نسخه).
+   * چرا: اگر «ذخیره» درست وسط بارگذاری زده شود، بوم لحظه‌ای خالی است و طرح خالی ذخیره می‌شد.
+   */
+  async function idle() {
+    for (let i = 0; state.loading && i < 200; i++) await new Promise((r) => setTimeout(r, 25));
+  }
+
   let saving = null;
   async function save(quiet) {
     if (saving) return saving;
@@ -629,6 +637,7 @@
       const btn = $("[data-ds-save]");
       btn.disabled = true;
       try {
+        await idle();
         keepCurrent();
         const form = new FormData();
         form.append("title", $("[data-ds-title]").value.trim());
@@ -658,6 +667,7 @@
   $("[data-ds-save]").addEventListener("click", () => save(false));
 
   $("[data-ds-download]").addEventListener("click", async () => {
+    await idle();
     const blob = await render(state.variant);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
