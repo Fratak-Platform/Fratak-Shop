@@ -14,8 +14,11 @@ public sealed record DigikalaHit(long Id, string Title, string? EnglishTitle);
 /// </summary>
 public sealed record ImageHit(string Url, string? Title, string? PageUrl);
 
-/// <summary>جزئیات کالای دیجی‌کالا: ردیف‌های مشخصات و آدرس تصویرها.</summary>
-public sealed record DigikalaDetails(IReadOnlyList<(string Key, string Value)> Specs, IReadOnlyList<string> Images);
+/// <summary>
+/// جزئیات کالای دیجی‌کالا: ردیف‌های مشخصات و آدرس تصویرها. دور ۲۲: Category = مسیر دستهٔ کالا در دیجی‌کالا
+/// (مثال: «زیبایی و سلامت > لوازم شخصی برقی > ماساژور») برای دسته‌بندی هوشمند؛ null اگر در پاسخ نبود.
+/// </summary>
+public sealed record DigikalaDetails(IReadOnlyList<(string Key, string Value)> Specs, IReadOnlyList<string> Images, string? Category = null);
 
 /// <summary>
 /// خواندن پاسخ منابع بیرونی برای محتوای هوشمند (B1–B13). همه «خالص» و بدون شبکه‌اند تا با نمونهٔ ثابت تست شوند.
@@ -91,7 +94,42 @@ public static partial class SmartParsers
             }
         }
         return new DigikalaDetails(specs.DistinctBy(s => SpecMerge.NormalizeKey(s.Item1)).Take(80).ToList(),
-            images.Select(CleanImageUrl).Where(u => u is not null).Select(u => u!).Distinct(StringComparer.OrdinalIgnoreCase).Take(12).ToList());
+            images.Select(CleanImageUrl).Where(u => u is not null).Select(u => u!).Distinct(StringComparer.OrdinalIgnoreCase).Take(12).ToList(),
+            DigikalaCategory(json));
+    }
+
+    /// <summary>
+    /// دور ۲۲: مسیر دستهٔ کالای دیجی‌کالا از پاسخ <c>v2/product/{id}/</c>. اول data.product.breadcrumb[]{title}
+    /// (بدون «دیجی‌کالا» و بدون خود نام کالا)، وگرنه data.product.category.title_fa به‌تنهایی.
+    /// مثال: breadcrumb [دیجی‌کالا، زیبایی و سلامت، لوازم شخصی برقی، ماساژور، «ماساژور گردن مدل X»] ← «زیبایی و سلامت > لوازم شخصی برقی > ماساژور».
+    /// پاسخ خراب ← null (هرگز استثنا نمی‌دهد).
+    /// </summary>
+    public static string? DigikalaCategory(string? json)
+    {
+        var root = Parse(json);
+        if (root is not { } doc)
+            return null;
+        using (doc)
+        {
+            if (Path(doc.RootElement, "data", "product") is not { ValueKind: JsonValueKind.Object } p)
+                return null;
+            var title = Str(p, "title_fa")?.Trim();
+            var parts = new List<string>();
+            if (Prop(p, "breadcrumb") is { ValueKind: JsonValueKind.Array } crumbs)
+            {
+                foreach (var crumb in crumbs.EnumerateArray())
+                {
+                    var name = crumb.ValueKind == JsonValueKind.Object ? Str(crumb, "title")?.Trim() : null;
+                    if (string.IsNullOrWhiteSpace(name) || name == title)
+                        continue;
+                    parts.Add(name);
+                }
+            }
+            var path = CategoryNames.Path(CategoryNames.Join(parts));
+            if (path.Count == 0 && Prop(p, "category") is { ValueKind: JsonValueKind.Object } category && Str(category, "title_fa") is { Length: > 1 } leaf)
+                path = CategoryNames.Path(leaf);
+            return path.Count == 0 ? null : CategoryNames.Join(path);
+        }
     }
 
     /// <summary>

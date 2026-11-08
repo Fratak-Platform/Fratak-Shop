@@ -170,6 +170,32 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
     }
 
     /// <summary>
+    /// دور ۲۲ – ورود هوشمند کالا: دستهٔ تازه ← اعلان «دسته‌بندی هوشمند»؛ کالای تازه‌ای که هیچ دسته‌ای برایش پیدا نشد ← اعلان با لینک
+    /// فهرست «کالاهای بدون دسته» (این کالاها تا دسته نگیرند منتشر نمی‌شوند). دورهای عادی بی‌صدا هستند تا زنگوله شلوغ نشود.
+    /// </summary>
+    public async Task NotifyIntakeAsync(IntakeReport report)
+    {
+        try
+        {
+            if (report.Created.Count > 0)
+            {
+                await SendAsync(null, $"دسته‌بندی هوشمند: {PersianText.Digits(report.Created.Count)} دستهٔ تازه",
+                    Cut("دسته‌های تازه: " + string.Join("، ", report.Created.Select(c => c.Name)), 300), "/admin/smart/categories", AdminPermissions.CatalogManage);
+            }
+            if (report.Unplaced.Count > 0)
+            {
+                await SendAsync(null, $"{PersianText.Digits(report.Unplaced.Count)} کالای تازه دسته نگرفت",
+                    "برای این کالاها دستهٔ مطمئنی پیدا نشد؛ یک دسته برایشان انتخاب کنید تا قابل انتشار شوند.", "/admin/products?missing=category",
+                    AdminPermissions.CatalogManage);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Smart intake notification failed");
+        }
+    }
+
+    /// <summary>
     /// دور ۲۱ – رشد خودکار: ایده‌های بنر تازه ← یک اعلان برای مدیران بازاریابی (لینک فهرست ایده‌ها)؛ روز کم‌بازدید ← یک اعلان خلاصه
     /// (روزهای عادی بی‌صدا تا زنگوله شلوغ نشود؛ گزارش کامل در صفحهٔ رشد خودکار هست).
     /// </summary>

@@ -65,6 +65,11 @@ public class CreateProductCommand
     /// <summary>«ناموجود دستی»: از بررسی خودکار تأمین‌کننده خارج شود (مرحلهٔ هفتم – فاز ۵).</summary>
     public bool ExcludeFromSupplierSync { get; set; }
 
+    /// <summary>
+    /// دور ۲۲: دستهٔ کالا در سایت مبدأ (درون‌ریزی). فقط شاهد دسته‌بندی هوشمند است؛ مثال: «لوازم جانبی موبایل > پاوربانک».
+    /// </summary>
+    public string? SourceCategory { get; set; }
+
     public List<ProductImageCommand> Images { get; set; } = [];
     public List<ProductFeatureCommand> Features { get; set; } = [];
 }

@@ -10,7 +10,19 @@ namespace Fratak_Shop.Core.Services.Smart;
 /// <param name="Important">کالای مهم/پرجست‌وجو: با اولین محصول هم دستهٔ خودش را می‌گیرد (منتظر ۳ کالای مشابه نمی‌ماند).</param>
 /// <param name="Keywords">عبارت‌هایی که اول نام محصول می‌آیند (نرمال‌شده). مثال: «گوشی»، «موبایل»، «iphone».</param>
 /// <param name="ParentHints">اگر دسته‌ای با این واژه‌ها در فروشگاه هست، دستهٔ تازه زیرمجموعهٔ آن ساخته می‌شود. مثال: «موبایل»، «دیجیتال».</param>
-public sealed record ProductType(string Key, string Name, bool Important, string[] Keywords, string[] ParentHints);
+public sealed record ProductType(string Key, string Name, bool Important, string[] Keywords, string[] ParentHints)
+{
+    /// <summary>
+    /// دور ۲۲: نام انگلیسی نوع از روی شناسه (برای «نام انگلیسی» کالا). مثال: «power-bank» ← «Power Bank»، «mobile-phone» ← «Mobile Phone».
+    /// </summary>
+    public string English => string.Join(' ', Key.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+
+    /// <summary>
+    /// دور ۲۲: واژهٔ اصلی نام نوع (بخش پیش از « و »). مثال: «هدفون و هدست» ← «هدفون»؛ «پاوربانک» ← «پاوربانک».
+    /// برای افزودن نوع کالا به نامی که فقط انگلیسی است («Redmi Buds 4» ← «هدفون Redmi Buds 4»).
+    /// </summary>
+    public string Head => Name.Split(" و ", 2, StringSplitOptions.TrimEntries)[0];
+}
 
 /// <summary>
 /// فرهنگ «نوع کالا» برای دسته‌بندی هوشمند، کاملاً داخلی و بدون سرویس بیرونی.
@@ -36,17 +48,17 @@ public static class ProductTypes
     [
         new("mobile-phone", "گوشی موبایل", true, ["گوشی موبایل", "گوشی هوشمند", "گوشی", "موبایل", "smartphone", "iphone", "آیفون"], Mobile),
         new("tablet", "تبلت", true, ["تبلت", "ipad", "آیپد", "tablet"], Mobile),
-        new("laptop", "لپ تاپ", true, ["لپ تاپ", "لپتاپ", "نوت بوک", "laptop", "notebook", "مک بوک", "macbook"], Computer),
+        new("laptop", "لپ‌تاپ", true, ["لپ تاپ", "لپتاپ", "نوت بوک", "laptop", "notebook", "مک بوک", "macbook"], Computer),
         new("smartwatch", "ساعت هوشمند", true, ["ساعت هوشمند", "smartwatch", "smart watch", "اسمارت واچ"], Digital),
-        new("smart-band", "مچ بند هوشمند", false, ["مچ بند هوشمند", "دستبند هوشمند", "smart band"], Digital),
-        new("wireless-earbuds", "هندزفری بی سیم", true, ["هندزفری بی سیم", "هندزفری بلوتوثی", "هندزفری بلوتوث", "ایرپاد", "ایربادز", "airpods", "earbuds"], Audio),
+        new("smart-band", "مچ‌بند هوشمند", false, ["مچ بند هوشمند", "دستبند هوشمند", "smart band"], Digital),
+        new("wireless-earbuds", "هندزفری بی‌سیم", true, ["هندزفری بی سیم", "هندزفری بلوتوثی", "هندزفری بلوتوث", "ایرپاد", "ایربادز", "airpods", "earbuds"], Audio),
         new("headphone", "هدفون و هدست", true, ["هدفون", "هدست", "headphone", "headset"], Audio),
         new("handsfree", "هندزفری", false, ["هندزفری", "ایرفون", "earphone"], Audio),
         new("power-bank", "پاوربانک", true, ["پاوربانک", "پاور بانک", "شارژر همراه", "power bank", "powerbank"], MobileAccessories),
         new("charger", "شارژر و آداپتور", false, ["شارژر دیواری", "شارژر فندکی", "شارژر", "آداپتور", "charger", "adapter", "کلگی"], MobileAccessories),
         new("cable", "کابل و تبدیل", false, ["کابل", "تبدیل", "cable"], MobileAccessories),
         new("phone-case", "قاب و کاور گوشی", false, ["قاب", "کاور", "گارد"], MobileAccessories),
-        new("screen-protector", "محافظ صفحه نمایش", false, ["محافظ صفحه", "گلس", "glass"], MobileAccessories),
+        new("screen-protector", "محافظ صفحه‌نمایش", false, ["محافظ صفحه", "گلس", "glass"], MobileAccessories),
         new("speaker", "اسپیکر", true, ["اسپیکر", "speaker", "بلندگو"], Audio),
         new("monitor", "مانیتور", true, ["مانیتور", "monitor"], Computer),
         new("television", "تلویزیون", true, ["تلویزیون", "تلوزیون"], Home),
@@ -62,19 +74,24 @@ public static class ProductTypes
         new("printer", "پرینتر", false, ["پرینتر", "چاپگر", "printer"], Computer),
         new("hair-dryer", "سشوار", false, ["سشوار"], Personal),
         new("shaver", "ماشین اصلاح", false, ["ماشین اصلاح", "ریش تراش", "موزن", "شیور", "trimmer"], Personal),
-        new("air-fryer", "سرخ کن", false, ["سرخ کن", "هواپز", "air fryer"], Home),
+        new("air-fryer", "سرخ‌کن", false, ["سرخ کن", "هواپز", "air fryer"], Home),
         new("vacuum-cleaner", "جاروبرقی", true, ["جاروبرقی", "جارو برقی", "جارو شارژی"], Home),
         new("refrigerator", "یخچال و فریزر", true, ["یخچال فریزر", "یخچال", "فریزر"], Home),
         new("washing-machine", "ماشین لباسشویی", true, ["ماشین لباسشویی", "لباسشویی"], Home),
-        new("tea-maker", "چای ساز و کتری برقی", false, ["چای ساز", "کتری برقی", "کتری"], Home),
-        new("coffee-maker", "قهوه ساز", false, ["قهوه ساز", "اسپرسو ساز"], Home),
-        new("blender", "مخلوط کن و غذاساز", false, ["مخلوط کن", "آبمیوه گیری", "غذاساز"], Home),
+        new("tea-maker", "چای‌ساز و کتری برقی", false, ["چای ساز", "کتری برقی", "کتری"], Home),
+        new("coffee-maker", "قهوه‌ساز", false, ["قهوه ساز", "اسپرسو ساز"], Home),
+        new("blender", "مخلوط‌کن و غذاساز", false, ["مخلوط کن", "آبمیوه گیری", "غذاساز"], Home),
         new("iron", "اتو", false, ["اتو بخار", "اتو"], Home),
         new("perfume", "عطر و ادکلن", false, ["عطر", "ادکلن", "ادو پرفیوم", "ادوپرفیوم", "ادو تویلت", "بادی اسپلش"], Personal),
         new("wristwatch", "ساعت مچی", false, ["ساعت مچی", "ساعت"], Fashion),
-        new("bag", "کیف و کوله", false, ["کوله پشتی", "کوله", "کیف"], Fashion),
+        new("bag", "کیف و کوله‌پشتی", false, ["کوله پشتی", "کوله", "کیف"], Fashion),
         new("shoes", "کفش", false, ["کفش", "کتانی", "صندل"], Fashion),
-        new("toy", "اسباب بازی", false, ["اسباب بازی", "عروسک", "لگو"], ["اسباب بازی", "کودک"]),
+        // دور ۲۲: نوع‌های تازه (نمونهٔ پیام کاربر: ماساژور گردن، سه‌راهی برق). «ماساژ» تنها عمداً کلیدواژه نیست («روغن ماساژ» ماساژور نیست).
+        new("massager", "ماساژور", false, ["ماساژور", "ماساژر", "ماساژ دهنده", "ماساژدهنده", "تفنگ ماساژ", "massager", "massage gun"], ["لوازم شخصی برقی", "سلامت", "لوازم شخصی", "زیبایی"]),
+        new("power-strip", "سه‌راهی و چندراهی برق", false, ["سه راهی برق", "چند راهی برق", "چندراهی برق", "سه راهی", "چندراهی", "چند راهی", "محافظ برق", "power strip"], ["لوازم برقی", "برق", "کالای دیجیتال", "دیجیتال"]),
+        new("hair-straightener", "اتو مو و حالت‌دهنده", false, ["اتو مو", "اتوی مو", "اتو موی", "بابلیس", "حالت دهنده مو", "فر کننده مو"], Personal),
+        new("flashlight", "چراغ قوه", false, ["چراغ قوه", "چراغ پیشانی", "flashlight"], ["لوازم برقی", "ابزار"]),
+        new("toy", "اسباب‌بازی", false, ["اسباب بازی", "عروسک", "لگو"], ["اسباب بازی", "کودک"]),
     ];
 
     /// <summary>واژه‌های بی‌معنی که گاهی پیش از نوع کالا می‌آیند و نباید «نوع» حساب شوند.</summary>

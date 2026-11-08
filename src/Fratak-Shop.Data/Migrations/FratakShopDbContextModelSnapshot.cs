@@ -866,6 +866,10 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<string>("ImageOptionsJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -4786,6 +4790,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("CategorySource")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -4859,6 +4866,13 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<DateTimeOffset?>("SmartIntakeAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SourceCategory")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
                     b.Property<int>("StockQuantity")
                         .HasColumnType("int");
 
@@ -4903,6 +4917,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("Slug")
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("SmartIntakeAt")
+                        .HasFilter("[SmartIntakeAt] IS NULL");
 
                     b.HasIndex("SupplierId");
 

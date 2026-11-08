@@ -26,9 +26,13 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss && await Smart.ProfitGuard.IsEnabledAsync(context))
             return OperationResult.Error(loss);
 
-        var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
-        if (!categoryExists)
+        var category = await context.Categories.Where(x => x.Id == command.CategoryId).Select(x => new { x.IsSystem }).FirstOrDefaultAsync();
+        if (category is null)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
+
+        // دور ۲۲: هیچ کالای منتشرشده‌ای بدون دسته نیست («دسته‌بندی نشده» فقط جای انتظار کالای پیش‌نویس است).
+        if (command.IsActive && category.IsSystem)
+            return OperationResult.Error(PublishWithoutCategory);
 
         if (command.BrandId.HasValue && !await context.Brands.AnyAsync(x => x.Id == command.BrandId.Value))
             return OperationResult.NotFound("برند مورد نظر یافت نشد.");
@@ -80,6 +84,7 @@ public class ProductService(FratakShopDbContext context) : IProductService
             SupplierSku = Clean(command.SupplierSku),
             SupplierNote = Clean(command.SupplierNote),
             ExcludeFromSupplierSync = command.ExcludeFromSupplierSync,
+            SourceCategory = Smart.CategoryNames.Truncate(command.SourceCategory, 300),
             Images = BuildImages(command.Images),
             Features = BuildFeatures(command.Features),
         };
@@ -114,9 +119,13 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss && await Smart.ProfitGuard.IsEnabledAsync(context))
             return OperationResult.Error(loss);
 
-        var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
-        if (!categoryExists)
+        var category = await context.Categories.Where(x => x.Id == command.CategoryId).Select(x => new { x.IsSystem }).FirstOrDefaultAsync();
+        if (category is null)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
+
+        // دور ۲۲: کالای «دسته‌بندی نشده» منتشر نمی‌شود (اول دسته را انتخاب کنید یا بگذارید دسته‌بندی هوشمند پیدایش کند).
+        if (command.IsActive && category.IsSystem)
+            return OperationResult.Error(PublishWithoutCategory);
 
         if (command.BrandId.HasValue && !await context.Brands.AnyAsync(x => x.Id == command.BrandId.Value))
             return OperationResult.NotFound("برند مورد نظر یافت نشد.");
@@ -142,6 +151,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (supplierError is not null)
             return OperationResult.Error(supplierError);
 
+        // دور ۲۲: ادمین دسته را عوض کرد ← تصمیم او قطعی است و دسته‌بندی هوشمند دیگر این کالا را جابه‌جا نمی‌کند
+        // (مگر دوباره به «دسته‌بندی نشده» برگردد).
+        if (product.CategoryId != command.CategoryId)
+            product.CategorySource = ProductCategorySource.Manual;
         product.CategoryId = command.CategoryId;
         product.BrandId = command.BrandId;
         product.Name = command.Name.Trim();
@@ -197,6 +210,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (product is null)
             return OperationResult.NotFound("محصول مورد نظر یافت نشد.");
 
+        // دور ۲۲: انتشار کالای بدون دسته ممنوع است (غیرفعال کردن همیشه آزاد است).
+        if (isActive && !product.IsActive && await context.Categories.AnyAsync(c => c.Id == product.CategoryId && c.IsSystem))
+            return OperationResult.Error(PublishWithoutCategory);
+
         product.IsActive = isActive;
 
         if (isActive && product.PublishedAt is null)
@@ -207,6 +224,42 @@ public class ProductService(FratakShopDbContext context) : IProductService
         return OperationResult.Success(isActive
             ? "محصول فعال شد."
             : "محصول غیرفعال شد.");
+    }
+
+    /// <summary>
+    /// پیام خطای «انتشار بدون دسته» (دور ۲۲). در ساخت، ویرایش، فعال‌سازی تکی و گروهی یکسان است.
+    /// </summary>
+    public const string PublishWithoutCategory = "کالای «دسته‌بندی نشده» منتشر نمی‌شود؛ اول دستهٔ آن را انتخاب کنید (یا چند دقیقه صبر کنید تا دسته‌بندی هوشمند آن را در دستهٔ درست بگذارد).";
+
+    /// <summary>بیشترین تعداد کالا در یک «تغییر گروهی تأمین‌کننده» (همهٔ نتایج فیلتر).</summary>
+    public const int MaxSupplierBatch = 5000;
+
+    /// <summary>
+    /// دور ۲۲: تغییر گروهی تأمین‌کنندهٔ چند کالا یا همهٔ نتایج یک فیلتر. <paramref name="supplierId"/> = null یعنی «بدون تأمین‌کننده».
+    /// به‌صورت تکه‌های ۵۰۰تایی با ExecuteUpdate (بدون بارگذاری کالاها در حافظه) انجام می‌شود تا روی هاست ضعیف هم سریع باشد.
+    /// مثال: ۱۲۰۰ کالای فیلتر «برند شیائومی» ← ۳ دستور UPDATE. خروجی: تعداد کالای تغییرکرده.
+    /// <para>محل استفاده: صفحهٔ «محصولات» پنل (Products/Index، عملیات گروهی).</para>
+    /// </summary>
+    public async Task<OperationResult<int>> ChangeSupplierAsync(IReadOnlyCollection<Guid> productIds, Guid? supplierId)
+    {
+        var ids = productIds.Distinct().Take(MaxSupplierBatch).ToList();
+        if (ids.Count == 0)
+            return OperationResult<int>.Error("هیچ محصولی انتخاب نشده است.");
+        if (supplierId is { } sid && !await context.Suppliers.AnyAsync(s => s.Id == sid))
+            return OperationResult<int>.NotFound("تأمین‌کنندهٔ انتخاب‌شده یافت نشد.");
+
+        var changed = 0;
+        var now = DateTimeOffset.UtcNow;
+        foreach (var chunk in ids.Chunk(500))
+        {
+            changed += await context.Products
+                .Where(p => chunk.Contains(p.Id) && p.SupplierId != supplierId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.SupplierId, supplierId).SetProperty(p => p.UpdatedAt, now));
+        }
+
+        return OperationResult<int>.Success(changed, supplierId is null
+            ? $"تأمین‌کنندهٔ {changed} محصول برداشته شد."
+            : $"تأمین‌کنندهٔ {changed} محصول تغییر کرد.");
     }
 
     public async Task<OperationResult> UpdateStockAsync(Guid id, int stockQuantity)

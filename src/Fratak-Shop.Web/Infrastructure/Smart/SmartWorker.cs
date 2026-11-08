@@ -11,6 +11,8 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <list type="bullet">
 /// <item>هر ۲۰ ثانیه (صف خالی: هر ۶۰ ثانیه) یک کار از صف هوشمند برمی‌دارد و با <see cref="SmartOrchestrator"/> اجرا می‌کند؛
 /// خطا ← تلاش دوباره با فاصلهٔ فزاینده (حداکثر ۳ بار، بعد «ناموفق» با پیام خطا در پنل).</item>
+/// <item>دور ۲۲ – هر ۳ دقیقه: «ورود هوشمند کالا» (<see cref="IProductIntakeService"/>): کالای تازه دسته می‌گیرد (با کمک دستهٔ همان کالا
+/// در دیجی‌کالا)، «تکمیل هوشمند» در صف می‌رود و کالای تازه‌منتشرشده سئو می‌گیرد.</item>
 /// <item>هر ۳۰ دقیقه: یادآوری‌های مشتری (درخواست نظر و تمدید کالای مصرفی، با سکوت شبانه).</item>
 /// <item>هر ۶ ساعت: تکمیل تقویم محتوای ۴ هفتهٔ آینده و گذاشتن مقاله‌های سررسیده در صف؛ تکمیل خودکار شبانهٔ کالاهای ناقص
 /// (حداکثر NightlyCompletePerDay در ۲۴ ساعت، هر کالا حداکثر یک بار در ۳۰ روز)؛ پاک‌سازی کش تحقیق و کارهای قدیمی.</item>
@@ -24,22 +26,26 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     public const string JobName = "محتوای هوشمند";
     public const string ReminderJobName = "یادآوری‌های مشتری";
     public const string PlannerJobName = "برنامه‌ریز محتوای هوشمند";
+    public const string IntakeJobName = "ورود هوشمند کالا";
 
     private static readonly TimeSpan BusyDelay = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan Lease = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ReminderEvery = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan PlannerEvery = TimeSpan.FromHours(6);
+    private static readonly TimeSpan IntakeEvery = TimeSpan.FromMinutes(3);
 
     private readonly string _workerId = Environment.MachineName + ":" + Environment.ProcessId;
     private DateTimeOffset _lastReminders = DateTimeOffset.MinValue;
     private DateTimeOffset _lastPlanner = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastIntake = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         JobMonitor.Register(JobName, TimeSpan.FromHours(12));
         JobMonitor.Register(ReminderJobName, TimeSpan.FromHours(2));
         JobMonitor.Register(PlannerJobName, TimeSpan.FromHours(12));
+        JobMonitor.Register(IntakeJobName, TimeSpan.FromHours(1));
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(90), stoppingToken);
@@ -63,6 +69,11 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
                         var result = await sp.GetRequiredService<ICustomerReminderService>().RunAsync(DateTimeOffset.UtcNow, stoppingToken);
                         return result.Sent + result.Scheduled;
                     });
+                }
+                if (now - _lastIntake >= IntakeEvery)
+                {
+                    _lastIntake = now;
+                    await RunScopedAsync(IntakeJobName, sp => IntakeAsync(sp, DateTimeOffset.UtcNow, stoppingToken));
                 }
                 if (now - _lastPlanner >= PlannerEvery)
                 {
@@ -98,6 +109,27 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     {
         using var scope = scopeFactory.CreateScope();
         return await JobMonitor.TrackAsync(job, () => run(scope.ServiceProvider));
+    }
+
+    /// <summary>
+    /// دور ۲۲: یک دور «ورود هوشمند کالا». دستهٔ کالا در سایت دیگر با <see cref="SmartSources.SourceCategoryAsync"/> پرسیده می‌شود
+    /// (مؤدبانه و کش‌شده). کالای بی‌دسته‌مانده ← اعلان به ادمین با لینک فهرست «بدون دسته». خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> IntakeAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sources = services.GetRequiredService<SmartSources>();
+            var report = await services.GetRequiredService<IProductIntakeService>()
+                .RunAsync(now, sources.SourceCategoryAsync, null, ProductIntakeService.DefaultTake, cancellationToken);
+            await services.GetRequiredService<SmartNotifier>().NotifyIntakeAsync(report);
+            return report.Examined + report.Seo;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Smart product intake failed");
+            return 0;
+        }
     }
 
     /// <summary>برنامه‌ریزی تقویم، صف کردن مقاله‌های سررسیده، تکمیل شبانهٔ کالاها و پاک‌سازی.</summary>

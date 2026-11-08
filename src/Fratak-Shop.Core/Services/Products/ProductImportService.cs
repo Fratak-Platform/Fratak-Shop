@@ -168,11 +168,12 @@ public sealed class ProductImportService(FratakShopDbContext context, IBulkPrice
     public async Task<ProductImportPreview> PreviewAsync(IReadOnlyList<ProductImportLine> lines, CancellationToken cancellationToken = default)
     {
         var products = await LoadAsync(lines, tracking: false, cancellationToken);
+        var hidden = await SystemCategoriesAsync(cancellationToken);
         var rows = new List<ProductImportPreviewRow>(lines.Count);
         foreach (var line in lines)
         {
             products.TryGetValue(line.Sku, out var product);
-            var (changes, error, warning) = Compare(line, product);
+            var (changes, error, warning) = Compare(line, product, hidden);
             rows.Add(new ProductImportPreviewRow(line.RowNumber, line.Sku, product?.Id, product?.Name, changes, error, warning));
         }
 
@@ -186,6 +187,7 @@ public sealed class ProductImportService(FratakShopDbContext context, IBulkPrice
     public async Task<OperationResult> ApplyAsync(IReadOnlyList<ProductImportLine> lines, string fileName, Guid? userId, string? userName)
     {
         var products = await LoadAsync(lines, tracking: true, CancellationToken.None);
+        var hidden = await SystemCategoriesAsync(CancellationToken.None);
         var priceChanged = new List<(Product Product, PriceSnapshot Old)>();
         var changed = 0;
         var failed = 0;
@@ -197,7 +199,7 @@ public sealed class ProductImportService(FratakShopDbContext context, IBulkPrice
                 failed++;
                 continue;
             }
-            var (changes, error, _) = Compare(line, product);
+            var (changes, error, _) = Compare(line, product, hidden);
             if (error is not null)
             {
                 failed++;
@@ -231,11 +233,15 @@ public sealed class ProductImportService(FratakShopDbContext context, IBulkPrice
     /// <summary>
     /// مقایسهٔ یک ردیف با محصول فعلی: فهرست تغییرها، خطا (اعمال نمی‌شود) و هشدار (اعمال می‌شود).
     /// </summary>
-    private static (List<ProductImportFieldChange> Changes, string? Error, string? Warning) Compare(ProductImportLine line, Product? product)
+    private static (List<ProductImportFieldChange> Changes, string? Error, string? Warning) Compare(ProductImportLine line, Product? product, IReadOnlySet<Guid> systemCategories)
     {
         var changes = new List<ProductImportFieldChange>();
         if (product is null)
             return (changes, "محصولی با این کد کالا پیدا نشد.", null);
+
+        // دور ۲۲: کالای «دسته‌بندی نشده» با فایل اکسل هم منتشر نمی‌شود.
+        if (line.IsActive == true && !product.IsActive && systemCategories.Contains(product.CategoryId))
+            return (changes, ProductService.PublishWithoutCategory, null);
 
         var price = line.Price ?? product.Price;
         // ۰ در ستون حراج یعنی حذف حراج.
@@ -289,6 +295,10 @@ public sealed class ProductImportService(FratakShopDbContext context, IBulkPrice
         if (line.IsActive is { } active)
             product.IsActive = active;
     }
+
+    /// <summary>دور ۲۲: شناسهٔ دسته‌های سیستمی («دسته‌بندی نشده»)؛ معمولاً فقط یک ردیف.</summary>
+    private async Task<IReadOnlySet<Guid>> SystemCategoriesAsync(CancellationToken cancellationToken) =>
+        (await context.Categories.Where(c => c.IsSystem).Select(c => c.Id).ToListAsync(cancellationToken)).ToHashSet();
 
     private async Task<Dictionary<string, Product>> LoadAsync(IReadOnlyList<ProductImportLine> lines, bool tracking, CancellationToken cancellationToken)
     {

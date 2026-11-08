@@ -112,6 +112,28 @@ public class Product : BaseEntity
     /// </summary>
     public int SalesCount { get; set; }
 
+    // ── دور ۲۲: ورود هوشمند کالا (دسته‌بندی ← تکمیل اطلاعات) ──
+
+    /// <summary>
+    /// زمانی که «ورود هوشمند» این کالا انجام شد (دسته‌بندی + گذاشتن «تکمیل هوشمند» در صف). null یعنی کالا تازه است و کارگر هوشمند
+    /// چند دقیقه بعد از ساخت سراغش می‌رود (فرقی نمی‌کند از پنل ساخته شده باشد، از سایت دیگر درون‌ریزی شده یا کپی شده باشد).
+    /// <para>محل استفاده: ProductIntakeService (لایهٔ Core) و SmartWorker. کالاهای موجود هنگام مهاجرت «انجام‌شده» علامت خوردند تا صف شلوغ نشود.</para>
+    /// </summary>
+    public DateTimeOffset? SmartIntakeAt { get; set; }
+
+    /// <summary>
+    /// دستهٔ همین کالا در سایت مبدأ یا فروشگاه‌های بزرگ (مسیر با « > »). مثال: «زیبایی و سلامت > لوازم شخصی برقی > ماساژور».
+    /// فقط شاهدی برای دسته‌بندی هوشمند است و هرگز در سایت نمایش داده نمی‌شود.
+    /// </summary>
+    [MaxLength(300)]
+    public string? SourceCategory { get; set; }
+
+    /// <summary>
+    /// دستهٔ فعلی را چه کسی گذاشته؟ Manual (پیش‌فرض: ادمین یا دادهٔ قدیمی؛ دسته‌بندی هوشمند هرگز جابه‌جایش نمی‌کند)،
+    /// Smart (دستهٔ دقیق را سیستم پیدا کرد)، General (سیستم کالا را موقتاً در دستهٔ کلی‌تر گذاشت؛ با جمع شدن کالاهای مشابه به زیر‌دستهٔ دقیق می‌رود).
+    /// </summary>
+    public ProductCategorySource CategorySource { get; set; }
+
     [ForeignKey(nameof(CategoryId))]
     public Category Category { get; set; } = null!;
 
@@ -127,4 +149,19 @@ public class Product : BaseEntity
     public List<Comment> Comments { get; set; } = [];
 
     public List<Favorite> Favorites { get; set; } = [];
+}
+
+/// <summary>
+/// منبع دستهٔ کالا (دور ۲۲). مثال: ماساژور تنها ← General در «لوازم شخصی برقی»؛ با رسیدن سومین ماساژور ← Smart در زیر‌دستهٔ «ماساژور».
+/// </summary>
+public enum ProductCategorySource
+{
+    /// <summary>ادمین انتخاب کرده (یا دادهٔ پیش از دور ۲۲).</summary>
+    Manual = 0,
+
+    /// <summary>دسته‌بندی هوشمند دستهٔ دقیق را پیدا یا ساخت.</summary>
+    Smart = 1,
+
+    /// <summary>دسته‌بندی هوشمند کالا را در دستهٔ کلی‌تر گذاشت (کالای مشابه کافی برای دستهٔ اختصاصی نبود).</summary>
+    General = 2,
 }

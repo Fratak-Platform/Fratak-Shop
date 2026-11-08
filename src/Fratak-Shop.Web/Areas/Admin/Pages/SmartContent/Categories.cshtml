@@ -9,7 +9,7 @@
 <div class="a-page-head">
   <div>
     <h2>تکمیل هوشمند دسته‌ها</h2>
-    <p class="a-muted text-sm mt-1">توضیح خریدمحور (برندها، بازهٔ قیمت، نکته‌های انتخاب و پرسش‌های رایج) و بنر بدون متن از عکس بهترین کالاها. دسته‌های کمتر از ۳ کالا متن نمی‌گیرند تا محتوای کم‌ارزش ساخته نشود.
+    <p class="a-muted text-sm mt-1">توضیح خریدمحور (برندها، بازهٔ قیمت، نکته‌های انتخاب و پرسش‌های رایج) و ۴ تصویر پیشنهادی (بنر بدون متن از عکس کالاهای همان دسته؛ یکی خودکار فعال می‌شود و شما می‌توانید دیگری را انتخاب یا حذف کنید). دسته‌های کمتر از ۳ کالا متن نمی‌گیرند تا محتوای کم‌ارزش ساخته نشود.
       کالای درون‌ریزی‌شدهٔ بدون دسته خودکار دسته می‌گیرد؛ کالاهای مهم (مثل گوشی) و هر ۳ کالای مشابه دستهٔ تازه با نامک انگلیسی می‌سازند.</p>
   </div>
   <div class="a-btn-group">
@@ -37,7 +37,44 @@
               <td data-label="دسته" class="font-bold">@c.Name</td>
               <td data-label="کالا">@Format.Number(c.Products)</td>
               <td data-label="توضیح">@(c.HasDescription ? "✓" : "—")</td>
-              <td data-label="تصویر">@(c.HasImage ? "✓" : "—")</td>
+              <td data-label="تصویر">
+                @{ Model.ImageStates.TryGetValue(c.Id, out var imgState); var options = imgState?.Options ?? Array.Empty<string>(); }
+                @if (options.Count == 0)
+                {
+                  if (!string.IsNullOrWhiteSpace(imgState?.ImageName))
+                  {
+                    <img src="@ImageHelper.Category(imgState.ImageName)" alt="تصویر دستهٔ @c.Name" class="a-cat-thumb-img is-active" loading="lazy" width="96" height="48">
+                  }
+                  else
+                  {
+                    <span class="a-muted">—</span>
+                  }
+                }
+                else
+                {
+                  <div class="a-cat-thumbs">
+                    @foreach (var option in options)
+                    {
+                      var active = option == imgState!.ImageName;
+                      <div class="a-cat-thumb">
+                        <img src="@ImageHelper.Category(option)" alt="تصویر پیشنهادی دستهٔ @c.Name" class="a-cat-thumb-img @(active ? "is-active" : null)" loading="lazy" width="96" height="48">
+                        <div class="a-cat-thumb-actions">
+                          @if (active)
+                          {
+                            <span class="a-badge a-badge-blue">فعال</span>
+                          }
+                          else
+                          {
+                            <form method="post" asp-page-handler="ChooseImage" class="inline"><input type="hidden" name="id" value="@c.Id"><input type="hidden" name="option" value="@option"><button type="submit" class="a-btn a-btn-xs a-btn-light" title="این تصویر روی سایت برود">انتخاب</button></form>
+                          }
+                          <form method="post" asp-page-handler="DeleteImage" class="inline"><input type="hidden" name="id" value="@c.Id"><input type="hidden" name="option" value="@option"><button type="submit" class="a-btn a-btn-xs a-btn-danger" title="حذف این تصویر" data-confirm="این تصویر پیشنهادی حذف شود؟">حذف</button></form>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <form method="post" asp-page-handler="DeleteImage" class="inline"><input type="hidden" name="id" value="@c.Id"><input type="hidden" name="all" value="true"><button type="submit" class="a-btn a-btn-xs a-btn-light mt-1" data-confirm="همهٔ تصویرهای پیشنهادی این دسته حذف شوند؟ دیگر خودکار ساخته نمی‌شوند (با «پیشنهاد دوباره» می‌توانید دوباره بسازید).">حذف همه</button></form>
+                }
+              </td>
               <td data-label="آخرین کار" class="text-xs">
                 @if (last is not null)
                 {
@@ -47,7 +84,12 @@
                 }
               </td>
               <td data-label="">
-                <form method="post" asp-page-handler="Run" class="inline"><input type="hidden" name="id" value="@c.Id"><button type="submit" class="a-btn a-btn-xs a-btn-soft" disabled="@(c.Products < 3 ? "disabled" : null)">@Icons.Svg("MagicWand", null, 14) تکمیل</button></form>
+                @* دور ۲۲: دستهٔ کوچک هم «تکمیل» می‌گیرد (تصویرهای پیشنهادی)؛ متن فقط با ۳ کالا و بیشتر نوشته می‌شود. *@
+                <form method="post" asp-page-handler="Run" class="inline"><input type="hidden" name="id" value="@c.Id"><button type="submit" class="a-btn a-btn-xs a-btn-soft" disabled="@(c.Products == 0 ? "disabled" : null)">@Icons.Svg("MagicWand", null, 14) تکمیل</button></form>
+                @if (c.Products > 0)
+                {
+                  <form method="post" asp-page-handler="Resuggest" class="inline"><input type="hidden" name="id" value="@c.Id"><button type="submit" class="a-btn a-btn-xs a-btn-light" title="تصویر انتخاب‌شده می‌ماند و بقیه با گزینه‌های تازه عوض می‌شوند">@Icons.Svg("ArrowsClockwise", null, 14) پیشنهاد دوبارهٔ تصویر</button></form>
+                }
               </td>
             </tr>
           }

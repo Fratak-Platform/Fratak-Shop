@@ -494,6 +494,9 @@ public class DemoDataSeeder(FratakShopDbContext context, IOrderService orderServ
             PublishedAt = DateTimeOffset.UtcNow.AddDays(-sales % 30),
             ViewCount = views,
             SalesCount = sales,
+            // دور ۲۲: کالای نمونه کامل است؛ «ورود هوشمند» (دسته‌بندی + صف تکمیل) لازم ندارد.
+            SmartIntakeAt = DateTimeOffset.UtcNow,
+            CategorySource = ProductCategorySource.Manual,
             Images = images.Select((image, index) => new ProductImage
             {
                 ImageName = Img + image,

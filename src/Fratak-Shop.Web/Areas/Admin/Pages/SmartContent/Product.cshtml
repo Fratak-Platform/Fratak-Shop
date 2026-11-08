@@ -106,6 +106,15 @@
         </div>
       </div>
     }
+    @if (ProductModel.HasPendingIdentity(result))
+    {
+      var identity = result.Identity!;
+      <div class="a-card-body">
+        <h4 class="font-bold mb-1">@Icons.Svg("Sparkle", null, 16) نام پیشنهادی</h4>
+        <p class="a-muted text-xs mb-2">نام فعلی: «@identity.BaseName» · @string.Join("، ", identity.Changes)</p>
+        <label class="a-check text-sm"><input type="checkbox" name="identity" value="true" autocomplete="off"> نام کالا به «<b>@identity.Name</b>» تغییر کند (نامک و آدرس صفحه عوض نمی‌شود)</label>
+      </div>
+    }
     @if (ProductModel.HasPendingReview(result))
     {
       var review = result.Review!;

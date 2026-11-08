@@ -77,6 +77,10 @@ public sealed class ProductCloneService(FratakShopDbContext context) : IProductC
             ExcludeFromSupplierSync = source.ExcludeFromSupplierSync,
             IsActive = false,
             PublishedAt = null,
+            // دور ۲۲: کپی، الگوی ادمین برای کالای مشابه است؛ ورود هوشمند (اصلاح نام و تکمیل) رویش اجرا نمی‌شود تا کار ادمین را به هم نزند.
+            SmartIntakeAt = DateTimeOffset.UtcNow,
+            CategorySource = source.CategorySource,
+            SourceCategory = source.SourceCategory,
         };
 
         foreach (var image in source.Images.OrderBy(i => i.DisplayOrder))

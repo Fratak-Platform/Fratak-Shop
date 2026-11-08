@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Fratak_Shop.Core.Services.Pricing;
 using Fratak_Shop.Core.Services.Seo.Autopilot;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Smart;
@@ -32,6 +33,24 @@ public sealed class SmartTaskResult
 
     /// <summary>پیش‌نمایش «توضیحات محصول» (دور بیستم)؛ null یعنی این کار متنی ننوشت.</summary>
     public ReviewPreview? Review { get; set; }
+
+    /// <summary>دور ۲۲: پیشنهاد «نام بهینه / نام انگلیسی / نامک» (برای کالای منتشرشده فقط پیشنهاد؛ برای پیش‌نویس خودکار اعمال‌شده).</summary>
+    public IdentitySuggestion? Identity { get; set; }
+}
+
+/// <summary>
+/// دور ۲۲: پیشنهاد هویت کالا. Applied=true یعنی خودکار اعمال شد (کالای هرگز منتشرنشده)؛ وگرنه کارشناس در صفحهٔ «محتوای هوشمند ← محصول»
+/// دکمهٔ «اعمال نام پیشنهادی» را می‌زند. BaseName = نام کالا هنگام ساخت پیشنهاد؛ اگر تا زمان تأیید نام عوض شده باشد اعمال نمی‌شود.
+/// مثال: Name=«هدفون بی‌سیم شیائومی مدل Redmi Buds 4»، BaseName=«خرید هدفون بی سیم شیائومی Redmi Buds 4 اورجینال».
+/// </summary>
+public sealed class IdentitySuggestion
+{
+    public string? Name { get; set; }
+    public string? EnglishName { get; set; }
+    public string? Slug { get; set; }
+    public string BaseName { get; set; } = "";
+    public List<string> Changes { get; set; } = [];
+    public bool Applied { get; set; }
 }
 
 /// <summary>
@@ -95,6 +114,9 @@ public sealed class SmartOrchestrator(
     ISeoEngineService engine,
     SmartSources sources,
     SmartImageFinder images,
+    ISmartCategoryService categorizer,
+    ISmartTaskQueue queue,
+    IMarketPricingService pricing,
     ILogger<SmartOrchestrator> logger)
 {
     public const string Actor = "دستیار هوشمند";
@@ -115,7 +137,7 @@ public sealed class SmartOrchestrator(
             SmartTaskKind.ProductSpecs when task.TargetId is { } id => await ProductSpecsAsync(id, cancellationToken),
             SmartTaskKind.ProductInsight when task.TargetId is { } id => await ProductInsightAsync(id, cancellationToken),
             SmartTaskKind.ProductComplete when task.TargetId is { } id => await ProductCompleteAsync(id, cancellationToken),
-            SmartTaskKind.CategoryComplete when task.TargetId is { } id => await CategoryAsync(id, cancellationToken),
+            SmartTaskKind.CategoryComplete when task.TargetId is { } id => await CategoryAsync(id, task.PayloadJson, cancellationToken),
             SmartTaskKind.BlogArticle when task.TargetId is { } id => await BlogArticleAsync(id, cancellationToken),
             SmartTaskKind.BlogImage when task.TargetId is { } id => await BlogImageAsync(id, task.PayloadJson, cancellationToken),
             _ => new SmartOutcome(SmartTaskStatus.Skipped, "نوع کار یا هدف نامعتبر است."),
@@ -269,6 +291,7 @@ public sealed class SmartOrchestrator(
                     merged.Reviews = Math.Max(merged.Reviews, part.Reviews);
                     merged.InsightApproved |= part.InsightApproved;
                     merged.Review ??= part.Review;
+                    merged.Identity ??= part.Identity;
                     merged.ImageRound = Math.Max(merged.ImageRound, part.ImageRound);
                 }
             }
@@ -279,24 +302,163 @@ public sealed class SmartOrchestrator(
             }
         }
 
+        // دور ۲۲ – ترتیب «تکمیل هوشمند»: اول دسته (همه‌چیز بعدی از نوع/دستهٔ کالا کمک می‌گیرد)، بعد نام/نام انگلیسی/نامک، عکس، مشخصات،
+        // خلاصهٔ خرید، توضیح کوتاه (از مشخصات تازه)، توضیحات کامل، قیمت هوشمند و در آخر سئو (فقط کالای منتشرشده).
+        if (subject.CategoryIsSystem || CategoryClassifier.IsCatchAll(subject.CategoryName))
+            await Step("دسته", () => CategorizeOneAsync(productId, cancellationToken));
+        await Step("نام و نامک", () => IdentityAsync(productId, cancellationToken));
         if (subject.ImageNames.Count < Math.Max(1, options.AutoImagesWhenFewerThan))
             await Step("عکس", () => ProductImagesAsync(productId, manual: false, round: 0, cancellationToken));
         await Step("مشخصات", () => ProductSpecsAsync(productId, cancellationToken));
         await Step("خلاصهٔ خرید", () => ProductInsightAsync(productId, cancellationToken));
+        await Step("توضیح کوتاه", () => ShortDescriptionAsync(productId, cancellationToken));
         // توضیحات محصول بعد از مشخصات و خلاصهٔ خرید (از داده‌های تازهٔ آن‌ها استفاده می‌کند) و پیش از سئوی خودکار
         // (تا خلبان عنوان/متا را با متن نهایی بسنجد).
         if (options.AutoReview)
             await Step("توضیحات محصول", () => ProductReviewAsync(productId, cancellationToken));
-        try
+        await Step("قیمت", () => PriceAsync(productId, cancellationToken));
+        // خواستهٔ کاربر: فیلدهای سئو بعد از انتشار پر شوند. کالای پیش‌نویس ← سئو منتظر می‌ماند؛ لحظهٔ انتشار، ذخیرهٔ کالا
+        // خلبان سئو را خبر می‌کند (SeoChangeFeed) و ورود هوشمند هم کالای تازه‌منتشرشدهٔ بی‌متا را جا نمی‌اندازد.
+        if (subject.IsActive)
         {
-            await seo.ProcessAsync(SeoEntityKind.Product, productId, cancellationToken);
-            merged.Steps.Add("سئو: عنوان، توضیح متا و متن جایگزین بررسی و تکمیل شد.");
+            try
+            {
+                await seo.ProcessAsync(SeoEntityKind.Product, productId, cancellationToken);
+                merged.Steps.Add("سئو: عنوان، توضیح متا و متن جایگزین بررسی و تکمیل شد.");
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Autopilot SEO failed for {Product}", productId);
+            }
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        else
         {
-            logger.LogWarning(exception, "Autopilot SEO failed for {Product}", productId);
+            merged.Steps.Add("سئو: کالا هنوز منتشر نشده؛ فیلدهای سئو بعد از انتشار خودکار پر می‌شوند.");
         }
         return new SmartOutcome(needsReview ? SmartTaskStatus.NeedsReview : SmartTaskStatus.Applied, string.Join(" | ", merged.Steps), JsonSerializer.Serialize(merged, Json));
+    }
+
+    // ───────────────────────────── دور ۲۲: دسته، هویت، توضیح کوتاه، قیمت ─────────────────────────────
+
+    /// <summary>
+    /// کالای «دسته‌بندی نشده/سایر» همین حالا دسته‌بندی می‌شود (همان قواعد بازبینی خودکار؛ دستهٔ تازه فقط اگر واقعاً لازم باشد).
+    /// دستهٔ تازه ← «تکمیل دسته» (متن و ۴ تصویر پیشنهادی) در صف. پیدا نشد ← کالا بی‌دسته می‌ماند و قابل انتشار نیست.
+    /// </summary>
+    private async Task<SmartOutcome> CategorizeOneAsync(Guid productId, CancellationToken cancellationToken)
+    {
+        var report = await categorizer.RunAsync([productId], 1, cancellationToken);
+        foreach (var category in report.Created)
+        {
+            await queue.EnqueueAsync(SmartTaskKind.CategoryComplete, SmartTarget.Category, category.Id, category.Name, SmartPriority.Batch,
+                null, null, Actor, cancellationToken);
+        }
+        if (report.Moved == 0)
+            return new SmartOutcome(SmartTaskStatus.NeedsReview, "دستهٔ مطمئنی پیدا نشد؛ یک دسته انتخاب کنید (کالای بی‌دسته منتشر نمی‌شود).");
+        var subject = await catalog.GetProductAsync(productId, cancellationToken);
+        return new SmartOutcome(SmartTaskStatus.Applied, $"کالا به دستهٔ «{subject?.CategoryName}» رفت"
+            + (report.Created.Count > 0 ? " (دستهٔ تازه)." : report.General > 0 ? " (دستهٔ کلی؛ با کالاهای مشابه بیشتر، دستهٔ اختصاصی ساخته می‌شود)." : "."));
+    }
+
+    /// <summary>
+    /// نام بهینه، نام انگلیسی و نامک (<see cref="ProductNaming"/>):
+    /// <list type="bullet">
+    /// <item>کالای هرگز منتشرنشده ← خودکار اعمال (آدرسش هنوز جایی ثبت نشده).</item>
+    /// <item>کالای منتشرشده ← نام انگلیسی خالی خودکار پر می‌شود؛ تغییر نام فقط «پیشنهاد» برای تأیید کارشناس؛ نامک هرگز (آدرس گوگل عوض نمی‌شود).</item>
+    /// </list>
+    /// نام انگلیسی فقط از عنوان انگلیسی واقعی همین کالا در دیجی‌کالا یا واژه‌های لاتین خود نام ساخته می‌شود (هرگز ترجمهٔ حدسی).
+    /// </summary>
+    private async Task<SmartOutcome> IdentityAsync(Guid productId, CancellationToken cancellationToken)
+    {
+        var subject = await catalog.GetProductAsync(productId, cancellationToken);
+        if (subject is null)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "محصول پیدا نشد.");
+        var type = ProductTypes.Detect(subject.Name) ?? (subject.CategoryIsSystem ? null : ProductTypes.DetectHead(subject.CategoryName));
+        var refined = ProductNaming.Refine(subject.Name, type, subject.BrandEnglishName);
+        string? english = null;
+        if (string.IsNullOrWhiteSpace(subject.EnglishName))
+        {
+            var hit = await sources.FindDigikalaAsync(subject, cancellationToken);
+            english = ProductNaming.EnglishName(refined.Name, subject.BrandEnglishName, type, hit?.EnglishTitle);
+        }
+        var slug = subject.NeverPublished ? ProductNaming.Slug(refined.Name, english ?? subject.EnglishName) : null;
+        if (slug == subject.Slug)
+            slug = null;
+        if (!refined.Changed && english is null && slug is null)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "نام، نام انگلیسی و نامک مناسب بود.");
+
+        var suggestion = new IdentitySuggestion { BaseName = subject.Name, Changes = refined.Changes.ToList() };
+        if (subject.NeverPublished)
+        {
+            var applied = await catalog.ApplyIdentityAsync(productId, refined.Changed ? refined.Name : null, english, slug, subject.Name,
+                cancellationToken: cancellationToken);
+            suggestion.Applied = true;
+            suggestion.Name = applied.Name ? refined.Name : null;
+            suggestion.EnglishName = applied.EnglishName ? english : null;
+            suggestion.Slug = applied.Slug;
+            if (!applied.Any)
+                return new SmartOutcome(SmartTaskStatus.Skipped, "تغییری لازم نشد (نام در این فاصله عوض شده بود یا نامک تکراری بود).");
+            var parts = new List<string>();
+            if (applied.Name)
+                parts.Add($"نام ← «{refined.Name}»");
+            if (applied.EnglishName)
+                parts.Add($"نام انگلیسی ← «{english}»");
+            if (applied.Slug is not null)
+                parts.Add($"نامک ← {applied.Slug}");
+            return new SmartOutcome(SmartTaskStatus.Applied, string.Join("؛ ", parts) + ".", JsonSerializer.Serialize(new SmartTaskResult { Identity = suggestion }, Json));
+        }
+
+        // منتشرشده: نام انگلیسی خالی بی‌خطر است (آدرس و عنوان صفحه عوض نمی‌شود)؛ تغییر نام فقط با تأیید.
+        var englishApplied = english is not null
+                             && (await catalog.ApplyIdentityAsync(productId, null, english, null, subject.Name, cancellationToken: cancellationToken)).EnglishName;
+        if (!refined.Changed)
+        {
+            return englishApplied
+                ? new SmartOutcome(SmartTaskStatus.Applied, $"نام انگلیسی ← «{english}».")
+                : new SmartOutcome(SmartTaskStatus.Skipped, "نام مناسب بود.");
+        }
+        suggestion.Name = refined.Name;
+        suggestion.EnglishName = englishApplied ? english : null;
+        return new SmartOutcome(SmartTaskStatus.NeedsReview,
+            $"نام پیشنهادی: «{refined.Name}» ({string.Join("، ", refined.Changes)}); کالا منتشر شده، پس بعد از تأیید شما اعمال می‌شود."
+            + (englishApplied ? $" نام انگلیسی «{english}» ثبت شد." : ""),
+            JsonSerializer.Serialize(new SmartTaskResult { Identity = suggestion }, Json));
+    }
+
+    /// <summary>
+    /// توضیح کوتاه (خواستهٔ کاربر: هر کالا باید داشته باشد) فقط از واقعیت‌های ثبت‌شده (<see cref="ShortDescriptionWriter"/>).
+    /// توضیح موجود هرگز عوض نمی‌شود؛ واقعیت کافی نبود ← خالی می‌ماند (متن پوچ بدتر از نبودن است).
+    /// </summary>
+    private async Task<SmartOutcome> ShortDescriptionAsync(Guid productId, CancellationToken cancellationToken)
+    {
+        var subject = await catalog.GetProductAsync(productId, cancellationToken);
+        if (subject is null)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "محصول پیدا نشد.");
+        if (!string.IsNullOrWhiteSpace(subject.ShortDescription))
+            return new SmartOutcome(SmartTaskStatus.Skipped, "توضیح کوتاه دارد.");
+        var text = ShortDescriptionWriter.Write(subject.Name, subject.BrandName, subject.CategoryIsSystem ? null : subject.CategoryName, subject.Features,
+            subject.WarrantyTitle);
+        if (text is null || !await catalog.FillShortDescriptionAsync(productId, text, cancellationToken))
+            return new SmartOutcome(SmartTaskStatus.Skipped, "مشخصات کافی برای نوشتن توضیح کوتاه واقعی نبود؛ بعد از تکمیل مشخصات دوباره امتحان می‌شود.");
+        return new SmartOutcome(SmartTaskStatus.Applied, $"«{text}»");
+    }
+
+    /// <summary>
+    /// قیمت هوشمند: فقط برای کالای هرگز منتشرنشده که قیمت خرید دارد و قبلاً قیمت‌گذاری بازار نشده (کالای منتشرشده قیمتش را مدیر
+    /// تعیین کرده و «مقایسهٔ قیمت رقبا» جداگانه پیشنهاد می‌دهد). همان صف قیمت‌گذاری درون‌ریزی: قیمت بازار با محافظ سود.
+    /// </summary>
+    private async Task<SmartOutcome> PriceAsync(Guid productId, CancellationToken cancellationToken)
+    {
+        var subject = await catalog.GetProductAsync(productId, cancellationToken);
+        if (subject is null)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "محصول پیدا نشد.");
+        if (!subject.NeverPublished)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "کالا منتشر شده؛ قیمت فقط با «مقایسهٔ قیمت رقبا» پیشنهاد می‌شود.");
+        if (subject.PurchasePrice is not > 0m)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "قیمت خرید ثبت نشده؛ قیمت‌گذاری هوشمند بدون آن انجام نمی‌شود (محافظ سود).");
+        if (await catalog.HasMarketPriceCheckAsync(productId, cancellationToken))
+            return new SmartOutcome(SmartTaskStatus.Skipped, "قیمت بازار قبلاً بررسی شده (یا در صف است).");
+        await pricing.EnqueueAsync(productId, subject.SearchQuery, subject.Price, subject.PurchasePrice, cancellationToken);
+        return new SmartOutcome(SmartTaskStatus.Applied, "بررسی قیمت بازار (ترب و دیجی‌کالا) در صف رفت؛ قیمت با حفظ سود تنظیم می‌شود.");
     }
 
     // ───────────────────────────── توضیحات محصول ─────────────────────────────
@@ -423,28 +585,77 @@ public sealed class SmartOrchestrator(
 
     // ───────────────────────────── دسته ─────────────────────────────
 
-    private async Task<SmartOutcome> CategoryAsync(Guid categoryId, CancellationToken cancellationToken)
+    /// <summary>
+    /// تکمیل دسته: توضیح و پرسش‌های رایج از دادهٔ واقعی (متن موجود هرگز جایگزین نمی‌شود) + دور ۲۲: «۴ تصویر پیشنهادی».
+    /// <list type="bullet">
+    /// <item>بار اول (فهرست پیشنهاد هنوز ساخته نشده): ۴ بنر از عکس کالاهای دسته؛ اگر دسته تصویر ندارد اولی خودکار تصویر دسته می‌شود.</item>
+    /// <item>ادمین همه را حذف کرده (فهرست خالی) ← دیگر خودکار ساخته نمی‌شود (تصمیم انسان محترم است).</item>
+    /// <item>بار «پیشنهاد دوباره» (payload {"images":1}): فقط تصویرها؛ تصویر انتخاب‌شده می‌ماند و بقیه با گزینه‌های تازه عوض می‌شوند
+    /// (فایل‌های قبلی انتخاب‌نشده پاک می‌شوند). گزینهٔ تازه‌ای نبود ← هیچ چیز عوض نمی‌شود.</item>
+    /// </list>
+    /// </summary>
+    private async Task<SmartOutcome> CategoryAsync(Guid categoryId, string? payloadJson, CancellationToken cancellationToken)
     {
         var subject = await catalog.GetCategoryAsync(categoryId, cancellationToken);
         if (subject is null)
             return new SmartOutcome(SmartTaskStatus.Skipped, "دسته پیدا نشد.");
-        var text = string.IsNullOrWhiteSpace(subject.Description) || string.IsNullOrWhiteSpace(subject.FaqJson) ? CategoryWriter.Write(subject) : null;
-        string? image = null;
-        if (string.IsNullOrWhiteSpace(subject.ImageName) && subject.ProductImageNames.Count > 0)
-            image = await images.BannerFromProductImageAsync(subject.ProductImageNames[0], UploadArea.Categories, cancellationToken);
-        if (text is null && image is null)
-            return new SmartOutcome(SmartTaskStatus.Skipped, subject.ProductCount < 3 ? "دسته کمتر از ۳ کالای موجود دارد؛ متن نوشته نشد." : "توضیح و تصویر دسته از قبل کامل بود.");
-        var changed = await catalog.ApplyCategoryAsync(categoryId, text?.Html, image, text?.FaqJson, overwrite: false, cancellationToken);
-        try
+        var imagesOnly = PayloadInt(payloadJson, "images") == 1;
+        var text = !imagesOnly && (string.IsNullOrWhiteSpace(subject.Description) || string.IsNullOrWhiteSpace(subject.FaqJson)) ? CategoryWriter.Write(subject) : null;
+        var added = await CategoryImagesAsync(subject, imagesOnly, cancellationToken);
+        if (text is null && added == 0)
         {
-            await seo.ProcessAsync(SeoEntityKind.Category, categoryId, cancellationToken);
+            return new SmartOutcome(SmartTaskStatus.Skipped, imagesOnly
+                ? "تصویر پیشنهادی تازه‌ای پیدا نشد (عکس کالای متفاوت دیگری در این دسته نیست)."
+                : subject.ProductCount < 3 ? "دسته کمتر از ۳ کالای موجود دارد؛ متن نوشته نشد و تصویر پیشنهادی هم از قبل بود (یا عکسی نبود)." : "توضیح و تصویرهای دسته از قبل کامل بود.");
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        var changed = text is null ? 0 : await catalog.ApplyCategoryAsync(categoryId, text.Html, null, text.FaqJson, overwrite: false, cancellationToken);
+        if (changed > 0 || added > 0)
         {
-            logger.LogWarning(exception, "Autopilot SEO failed for category {Category}", categoryId);
+            try
+            {
+                await seo.ProcessAsync(SeoEntityKind.Category, categoryId, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Autopilot SEO failed for category {Category}", categoryId);
+            }
         }
-        return new SmartOutcome(changed > 0 ? SmartTaskStatus.Applied : SmartTaskStatus.Skipped,
-            $"{(text is null ? "" : $"توضیح {Core.Services.Seo.Engine.PersianText.Digits(text.Words)} کلمه‌ای و پرسش‌های رایج")}{(text is not null && image is not null ? " + " : "")}{(image is null ? "" : "بنر بدون متن")} ذخیره شد.");
+        var parts = new List<string>();
+        if (text is not null && changed > 0)
+            parts.Add($"توضیح {PersianText.Digits(text.Words)} کلمه‌ای و پرسش‌های رایج ذخیره شد");
+        if (added > 0)
+            parts.Add($"{PersianText.Digits(added)} تصویر پیشنهادی ساخته شد (یکی فعال است؛ از «تکمیل هوشمند دسته‌ها» عوض یا حذف کنید)");
+        return new SmartOutcome(parts.Count > 0 ? SmartTaskStatus.Applied : SmartTaskStatus.Skipped, parts.Count > 0 ? string.Join("؛ ", parts) + "." : "تغییری لازم نشد.");
+    }
+
+    /// <summary>ساخت/تازه کردن تصویرهای پیشنهادی یک دسته (جزئیات در <see cref="CategoryAsync"/>). خروجی: تعداد تصویر تازه.</summary>
+    private async Task<int> CategoryImagesAsync(SmartCategorySubject subject, bool resuggest, CancellationToken cancellationToken)
+    {
+        var state = await catalog.GetCategoryImagesAsync(subject.Id, cancellationToken);
+        if (state is null || subject.ProductImageNames.Count == 0)
+            return 0;
+        if (!resuggest && state.Options is not null)
+            return 0;
+        var previous = state.Options ?? [];
+        var keep = new List<string>();
+        if (resuggest && state.ImageName is { } chosen && previous.Contains(chosen, StringComparer.Ordinal))
+            keep.Add(chosen);
+        var fresh = await images.CategoryOptionsAsync(subject.ProductImageNames, CategoryImages.Max - keep.Count, previous, cancellationToken);
+        if (fresh.Count == 0)
+        {
+            // بار اول و هیچ بنری ساخته نشد ← فهرست را دست نمی‌زنیم تا دفعهٔ بعد (با عکس‌های بیشتر) دوباره امتحان شود.
+            return 0;
+        }
+        var all = keep.Concat(fresh).ToList();
+        if (!await catalog.SaveCategoryImageOptionsAsync(subject.Id, all, cancellationToken))
+        {
+            images.DeleteCategoryFiles(fresh);
+            return 0;
+        }
+        var stale = previous.Where(o => !all.Contains(o, StringComparer.Ordinal) && !string.Equals(o, state.ImageName, StringComparison.Ordinal)).ToList();
+        if (stale.Count > 0)
+            images.DeleteCategoryFiles(stale);
+        return fresh.Count;
     }
 
     // ───────────────────────────── مقاله ─────────────────────────────

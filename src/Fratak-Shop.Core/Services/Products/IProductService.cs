@@ -12,6 +12,9 @@ public interface IProductService
     Task<OperationResult> ChangeProductActivationAsync(Guid id, bool isActive);
     Task<OperationResult> UpdateStockAsync(Guid id, int stockQuantity);
 
+    /// <summary>دور ۲۲: تغییر گروهی تأمین‌کننده (null = بدون تأمین‌کننده). خروجی: تعداد کالای تغییرکرده.</summary>
+    Task<OperationResult<int>> ChangeSupplierAsync(IReadOnlyCollection<Guid> productIds, Guid? supplierId);
+
     Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams);
 
     /// <summary>Value counts of filterable specifications for the current listing filters.</summary>

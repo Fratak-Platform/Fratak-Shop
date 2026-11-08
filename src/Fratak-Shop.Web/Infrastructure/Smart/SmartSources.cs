@@ -13,7 +13,7 @@ public sealed record SpecRow(string Key, string Value);
 /// جزئیات کش‌شدهٔ کالا (دیجی‌کالا یا صفحهٔ فروشگاه). دور ۲۱: Text = متن «توضیحات» صفحه برای تحقیق
 /// (<see cref="ProductResearch"/>)؛ ردیف‌های قدیمی کش این فیلد را ندارند (null).
 /// </summary>
-public sealed record CachedProductDetails(List<SpecRow> Specs, List<string> Images, string? Text = null);
+public sealed record CachedProductDetails(List<SpecRow> Specs, List<string> Images, string? Text = null, string? Category = null);
 
 /// <summary>
 /// دور بیستم: یک فروشگاه در نتایج جست‌وجو. Match = شباهت عنوان نتیجه با کالای ما (۰ تا ۱).
@@ -131,7 +131,7 @@ public sealed class SmartSources(
 
     public async Task<CachedProductDetails?> DigikalaDetailsAsync(long id, CancellationToken cancellationToken)
     {
-        var key = "dk:product:v2:" + id; // v2 (دور ۲۱): متن معرفی هم کش می‌شود
+        var key = "dk:product:v3:" + id; // v2 (دور ۲۱): متن معرفی هم کش می‌شود؛ v3 (دور ۲۲): مسیر دستهٔ کالا هم
         var cached = await store.GetAsync<CachedProductDetails>(key, cancellationToken);
         if (cached is not null)
             return cached;
@@ -140,9 +140,25 @@ public sealed class SmartSources(
             return null;
         var details = SmartParsers.DigikalaProduct(body);
         var result = new CachedProductDetails(details.Specs.Select(s => new SpecRow(s.Key, s.Value)).ToList(), details.Images.ToList(),
-            ProductResearch.DigikalaText(body));
+            ProductResearch.DigikalaText(body), details.Category);
         await store.SetAsync(key, "digikala", result, DetailsTtl, cancellationToken);
         return result;
+    }
+
+    /// <summary>
+    /// دور ۲۲: «سایت‌های دیگر این کالا را در کدام دسته گذاشته‌اند؟» — همین کالا در دیجی‌کالا پیدا می‌شود (همان تطبیق سخت‌گیرانهٔ
+    /// <see cref="FindDigikalaAsync"/>) و مسیر دستهٔ آن برگردانده می‌شود. مثال: «ماساژور گردن برقی مدل X5» ←
+    /// «زیبایی و سلامت > لوازم شخصی برقی > ماساژور». پیدا نشد/منبع در استراحت ← null. نتیجه ۳۰ روز کش می‌شود.
+    /// <para>محل استفاده: ورود هوشمند کالا (<see cref="IProductIntakeService"/>) از SmartWorker.</para>
+    /// </summary>
+    public async Task<string?> SourceCategoryAsync(IntakeProduct product, CancellationToken cancellationToken)
+    {
+        var subject = new SmartProductSubject(product.Id, product.Name, product.EnglishName, "", "", null, null, null, product.BrandEnglishName,
+            Guid.Empty, null, null, null, 0, [], [], 0, null, false);
+        var hit = await FindDigikalaAsync(subject, cancellationToken);
+        if (hit is null)
+            return null;
+        return (await DigikalaDetailsAsync(hit.Id, cancellationToken))?.Category;
     }
 
     public async Task<List<SourceReview>> DigikalaReviewsAsync(long id, CancellationToken cancellationToken)

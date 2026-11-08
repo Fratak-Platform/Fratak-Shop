@@ -36,6 +36,11 @@
   <a class="a-pill @(Model.Stock == "out" ? "is-active" : "")" href="@AdminUi.With(request, ("stock", "out"))">ناموجود<b>@Format.Number(Model.Counts["out"])</b></a>
   <a class="a-pill @(Model.Stock == "low" ? "is-active" : "")" href="@AdminUi.With(request, ("stock", "low"))">رو به اتمام (≤ @Model.LowStockThreshold)<b>@Format.Number(Model.Counts["low"])</b></a>
   <a class="a-pill @(Model.State == "inactive" ? "is-active" : "")" href="@AdminUi.With(request, ("state", "inactive"))">غیرفعال<b>@Format.Number(Model.Counts["inactive"])</b></a>
+  @if (Model.Counts["category"] > 0 || Model.Missing == "category")
+  {
+    @* دور ۲۲: کالای بی‌دسته منتشر نمی‌شود؛ دسته‌بندی هوشمند چند دقیقه بعد از ورود کالا خودکار دسته می‌دهد. *@
+    <a class="a-pill @(Model.Missing == "category" ? "is-active" : "")" href="@AdminUi.With(request, ("missing", "category"))" title="کالای بدون دسته قابل انتشار نیست">بدون دسته<b>@Format.Number(Model.Counts["category"])</b></a>
+  }
   @if (canSupplier)
   {
     <a class="a-pill @(Model.Missing == "source" ? "is-active" : "")" href="@AdminUi.With(request, ("missing", "source"))">بدون لینک منبع<b>@Format.Number(Model.Counts["source"])</b></a>
@@ -92,6 +97,8 @@
         <option value="">—</option>
         <option value="image" selected="@(Model.Missing == "image")">بدون تصویر</option>
         <option value="seo" selected="@(Model.Missing == "seo")">بدون توضیحات متا (سئو)</option>
+        <option value="category" selected="@(Model.Missing == "category")">بدون دسته</option>
+        <option value="short" selected="@(Model.Missing == "short")">بدون توضیح کوتاه</option>
         @if (canSupplier)
         {
           <option value="source" selected="@(Model.Missing == "source")">بدون لینک منبع</option>
@@ -116,6 +123,32 @@
   </form>
 </div>
 
+@if (canManage && canSupplier && Model.Products.Total > 0)
+{
+  @* دور ۲۲: تغییر تأمین‌کنندهٔ همهٔ محصولات همین فهرست (همهٔ صفحه‌ها) با همان فیلترهای فعلی. *@
+  <details class="a-card mb-4">
+    <summary class="a-card-body cursor-pointer font-semibold">@Icons.Svg("Truck", null, 16) تغییر تأمین‌کنندهٔ همهٔ @Format.Number(Model.Products.Total) محصول این فهرست</summary>
+    <form method="post" asp-page-handler="SupplierAll" class="a-card-body flex flex-wrap items-end gap-2">
+      <input type="hidden" name="q" value="@Model.Search">
+      <input type="hidden" name="category" value="@Model.Category">
+      <input type="hidden" name="brand" value="@Model.Brand">
+      <input type="hidden" name="supplier" value="@Model.Supplier">
+      <input type="hidden" name="state" value="@Model.State">
+      <input type="hidden" name="stock" value="@Model.Stock">
+      <input type="hidden" name="missing" value="@Model.Missing">
+      <div class="a-field">
+        <label class="a-label" for="supplier-all">تأمین‌کنندهٔ تازه</label>
+        <select id="supplier-all" name="supplierTarget" class="a-select" required>
+          <option value="">— انتخاب کنید —</option>
+          <option value="none">بدون تأمین‌کننده</option>
+          @foreach (var s in Model.Suppliers) { <option value="@s.Id">@s.Name</option> }
+        </select>
+      </div>
+      <button type="submit" class="a-btn" data-confirm="تأمین‌کنندهٔ همهٔ @Format.Number(Model.Products.Total) محصول این فهرست (همهٔ صفحه‌ها) تغییر کند؟">اعمال روی همه</button>
+    </form>
+  </details>
+}
+
 <div class="a-card" data-bulk>
   @if (canManage)
   {
@@ -124,8 +157,19 @@
       <select name="action" id="bulk-action" class="a-select a-input-sm" style="width:auto">
         <option value="activate">فعال‌سازی</option>
         <option value="deactivate">غیرفعال‌سازی</option>
+        <option value="smart">تکمیل هوشمند</option>
+        @if (canSupplier) { <option value="supplier">تغییر تأمین‌کننده</option> }
         @if (Model.Can(AdminPermissions.ProductsDelete)) { <option value="delete">حذف</option> }
       </select>
+      @if (canSupplier)
+      {
+        @* دور ۲۲: مقصد «تغییر تأمین‌کننده» (فقط وقتی همان عملیات انتخاب شده استفاده می‌شود). *@
+        <select name="supplierTarget" class="a-select a-input-sm" style="width:auto" aria-label="تأمین‌کنندهٔ مقصد">
+          <option value="">— تأمین‌کنندهٔ مقصد —</option>
+          <option value="none">بدون تأمین‌کننده</option>
+          @foreach (var s in Model.Suppliers) { <option value="@s.Id">@s.Name</option> }
+        </select>
+      }
       <button type="submit" class="a-btn a-btn-sm" data-confirm="عملیات روی محصولات انتخاب‌شده انجام شود؟">اعمال</button>
       @* تغییر قیمت همیشه با پیش‌نمایش اثر انجام می‌شود (صفحهٔ «تغییر گروهی قیمت»). *@
       <button type="submit" class="a-btn a-btn-sm a-btn-light" formaction="/admin/products/bulk-price?handler=Select" data-keep-enabled>@Icons.Svg("Calculator", null, 16) تغییر قیمت با پیش‌نمایش</button>

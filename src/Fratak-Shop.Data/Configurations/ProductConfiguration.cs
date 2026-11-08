@@ -30,6 +30,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasIndex(p => p.CategoryId);
 
+        // دور ۲۲: کارگر هوشمند هر چند دقیقه «کالاهای تازه» را می‌خواند؛ نمایهٔ فیلترشده فقط ردیف‌های منتظر را دارد (کوچک و سریع).
+        builder.HasIndex(p => p.SmartIntakeAt).HasFilter("[SmartIntakeAt] IS NULL");
+
         builder.Property(p => p.Price)
             .HasPrecision(18, 0);
 

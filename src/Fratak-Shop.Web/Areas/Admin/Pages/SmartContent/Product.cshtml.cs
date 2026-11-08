@@ -65,7 +65,7 @@ public class ProductModel(
         foreach (var row in History.Where(r => r.Status == SmartTaskStatus.NeedsReview))
         {
             var result = SmartUi.Result(await queue.GetResultJsonAsync(row.Id, ct));
-            if (result is not null && (PendingSpecs(result).Any() || result.PendingImages.Count > 0 || HasPendingReview(result)))
+            if (result is not null && (PendingSpecs(result).Any() || result.PendingImages.Count > 0 || HasPendingReview(result) || HasPendingIdentity(result)))
                 Pending.Add((row, result));
         }
         return Page();
@@ -77,6 +77,9 @@ public class ProductModel(
 
     /// <summary>آیا این نتیجه پیش‌نمایش «توضیحات محصول» اعمال‌نشده دارد؟</summary>
     public static bool HasPendingReview(SmartTaskResult result) => result.Review is { Applied: false } r && !string.IsNullOrWhiteSpace(r.Html);
+
+    /// <summary>دور ۲۲: آیا این نتیجه «نام پیشنهادی» اعمال‌نشده (برای کالای منتشرشده) دارد؟</summary>
+    public static bool HasPendingIdentity(SmartTaskResult result) => result.Identity is { Applied: false, Name.Length: > 2 };
 
     /// <summary>HTML امن پیش‌نمایش (دوباره پاک‌سازی می‌شود؛ ستون نتیجه هم نباید راه XSS باشد).</summary>
     public static string SafePreview(ReviewPreview review) => review.Html.SanitizeText();
@@ -107,7 +110,8 @@ public class ProductModel(
     /// refetch="true" (دکمهٔ «رد همهٔ عکس‌ها و جست‌وجوی دوباره»): همهٔ عکس‌ها رد و دور بعدی جست‌وجو در صف گذاشته می‌شود.</para>
     /// <para>reviewMode: replace = جایگزین متن فعلی؛ append = افزودن زیر متن فعلی؛ هر چیز دیگر = رد پیش‌نمایش.</para>
     /// </summary>
-    public async Task<IActionResult> OnPostApplyAsync(Guid id, Guid taskId, string[]? specs, string[]? imageNames, string? reviewMode, string? refetch)
+    public async Task<IActionResult> OnPostApplyAsync(Guid id, Guid taskId, string[]? specs, string[]? imageNames, string? reviewMode, string? refetch,
+        string? identity = null)
     {
         var ct = HttpContext.RequestAborted;
         var (row, result) = await LoadPendingAsync(id, taskId, ct);
@@ -145,9 +149,19 @@ public class ProductModel(
         if (reviewNote is { Ok: false })
             ErrorMessage = reviewNote.Value.Message;
 
-        if (specsAdded + imagesAdded > 0)
+        // دور ۲۲: نام پیشنهادی فقط با تیک کارشناس و فقط اگر نام کالا از زمان پیشنهاد عوض نشده باشد.
+        var renamed = false;
+        if (identity == "true" && HasPendingIdentity(result))
+        {
+            renamed = (await catalog.ApplyIdentityAsync(id, result.Identity!.Name, null, null, result.Identity.BaseName, cancellationToken: ct)).Name;
+            if (!renamed)
+                ErrorMessage = "نام کالا بعد از ساخت این پیشنهاد عوض شده؛ نام پیشنهادی اعمال نشد.";
+        }
+
+        if (specsAdded + imagesAdded > 0 || renamed)
             await autopilot.ProcessAsync(SeoEntityKind.Product, id, ct);
-        var parts = $"{Format.Number(specsAdded)} مشخصه و {Format.Number(imagesAdded)} عکس اعمال شد" + (reviewNote is { Ok: true } ok ? "؛ " + ok.Message : "");
+        var parts = $"{Format.Number(specsAdded)} مشخصه و {Format.Number(imagesAdded)} عکس اعمال شد" + (reviewNote is { Ok: true } ok ? "؛ " + ok.Message : "")
+                    + (renamed ? "؛ نام کالا به‌روز شد" : "");
         await queue.MarkReviewedAsync(taskId, $"بازبینی {ActorName}: {parts}.", ct);
 
         if (again)

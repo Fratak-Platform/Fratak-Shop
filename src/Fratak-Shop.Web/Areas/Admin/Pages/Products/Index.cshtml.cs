@@ -2,10 +2,13 @@ using Fratak_Shop.Core.DTOs.Admin;
 using Fratak_Shop.Core.Services.Admin;
 using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Core.Services.Settings;
+using Fratak_Shop.Core.Services.Smart;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Brands;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Data.Entities.Smart;
+using Fratak_Shop.Web.Helpers;
 using Fratak_Shop.Web.Infrastructure.Admin;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -37,8 +40,11 @@ public sealed class AdminProductRow
 }
 
 [AdminPermission(AdminPermissions.ProductsView, AdminPermissions.SeoManage)]
-public class IndexModel(IAdminDataService data, IProductService products, IStoreSettingService settings) : AdminPageModel
+public class IndexModel(IAdminDataService data, IProductService products, IStoreSettingService settings, ISmartTaskQueue smartQueue) : AdminPageModel
 {
+    /// <summary>دور ۲۲: سقف «تغییر تأمین‌کنندهٔ همهٔ نتایج فیلتر» در یک بار (برای فروشگاه‌های بزرگ‌تر فیلتر را محدودتر کنید).</summary>
+    public const int MaxSupplierAll = 50_000;
+
     [BindProperty(SupportsGet = true, Name = "q")] public string? Search { get; set; }
     [BindProperty(SupportsGet = true)] public Guid? Category { get; set; }
     [BindProperty(SupportsGet = true)] public Guid? Brand { get; set; }
@@ -79,6 +85,8 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             ["out"] = await all.CountAsync(p => p.IsActive && p.StockQuantity <= 0),
             ["low"] = await all.CountAsync(p => p.IsActive && p.StockQuantity > 0 && p.StockQuantity <= LowStockThreshold),
             ["source"] = await all.CountAsync(p => p.SupplierUrl == null || p.SupplierUrl == ""),
+            // دور ۲۲: کالای «دسته‌بندی نشده» قابل انتشار نیست؛ این عدد باید صفر بماند (دسته‌بندی هوشمند خودکار کمک می‌کند).
+            ["category"] = await all.CountAsync(p => p.Category.IsSystem),
         };
 
         var categories = await data.Query<Category>().OrderBy(c => c.Name).Select(c => new { c.Id, c.Name, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null }).ToListAsync();
@@ -120,7 +128,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
     }
 
     [AdminPermission(AdminPermissions.ProductsManage)]
-    public async Task<IActionResult> OnPostBulkAsync(List<Guid> ids, string action)
+    public async Task<IActionResult> OnPostBulkAsync(List<Guid> ids, string action, string? supplierTarget = null)
     {
         ids = ids.Distinct().Take(200).ToList();
         if (ids.Count == 0)
@@ -140,6 +148,29 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
                 SuccessMessage = $"{done} محصول {(action == "activate" ? "فعال" : "غیرفعال")} شد.";
                 break;
 
+            case "smart":
+                // دور ۲۲: «تکمیل هوشمند» گروهی (همان دکمهٔ «پیشنهاد هوشمند» هر کالا، برای چند کالا با هم).
+                var names = await data.Query<Product>().Where(p => ids.Contains(p.Id)).Select(p => new { p.Id, p.Name }).ToListAsync();
+                foreach (var item in names)
+                {
+                    await smartQueue.EnqueueAsync(SmartTaskKind.ProductComplete, SmartTarget.Product, item.Id, item.Name, SmartPriority.Batch, null, ActorId, ActorName,
+                        HttpContext.RequestAborted);
+                    done++;
+                }
+                SuccessMessage = $"تکمیل هوشمند {Format.Number(done)} محصول در صف رفت؛ نتیجهٔ هر کدام اعلان می‌شود.";
+                break;
+
+            case "supplier":
+                if (!Can(AdminPermissions.ProductsSupplier))
+                    return Redirect("/admin/denied?need=" + AdminPermissions.ProductsSupplier);
+                if (!TryParseSupplierTarget(supplierTarget, out var target))
+                {
+                    ErrorMessage = "تأمین‌کنندهٔ مقصد را انتخاب کنید.";
+                    break;
+                }
+                ShowResult(await products.ChangeSupplierAsync(ids, target));
+                break;
+
             case "delete":
                 if (!Can(AdminPermissions.ProductsDelete))
                     return Redirect("/admin/denied?need=" + AdminPermissions.ProductsDelete);
@@ -157,6 +188,62 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
         return BackToList();
     }
 
+    /// <summary>
+    /// دور ۲۲: تغییر تأمین‌کنندهٔ «همهٔ محصولات همین فهرست» (همهٔ صفحه‌ها، با همان فیلترهای فعلی که در فرم پنهان فرستاده می‌شوند).
+    /// supplierTarget: شناسهٔ تأمین‌کننده یا «none» = بدون تأمین‌کننده. حداکثر <see cref="MaxSupplierAll"/> کالا در یک بار.
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostSupplierAllAsync(string? supplierTarget)
+    {
+        if (!Can(AdminPermissions.ProductsSupplier))
+            return Redirect("/admin/denied?need=" + AdminPermissions.ProductsSupplier);
+        if (!TryParseSupplierTarget(supplierTarget, out var target))
+        {
+            ErrorMessage = "تأمین‌کنندهٔ مقصد را انتخاب کنید.";
+            return BackToList();
+        }
+        LowStockThreshold = (await settings.GetAsync()).LowStockThreshold;
+        var ids = await Filter().OrderBy(p => p.Id).Select(p => p.Id).Take(MaxSupplierAll + 1).ToListAsync();
+        if (ids.Count == 0)
+        {
+            ErrorMessage = "محصولی در این فهرست نیست.";
+            return BackToList();
+        }
+        if (ids.Count > MaxSupplierAll)
+        {
+            ErrorMessage = $"این فهرست بیش از {Format.Number(MaxSupplierAll)} محصول دارد؛ با فیلتر (دسته، برند …) محدودترش کنید.";
+            return BackToList();
+        }
+        var changed = 0;
+        foreach (var chunk in ids.Chunk(ProductService.MaxSupplierBatch))
+        {
+            var result = await products.ChangeSupplierAsync(chunk, target);
+            if (!result.IsSuccess())
+            {
+                ShowResult(result);
+                return BackToList();
+            }
+            changed += result.Data;
+        }
+        SuccessMessage = target is null
+            ? $"تأمین‌کنندهٔ {Format.Number(changed)} محصول برداشته شد."
+            : $"تأمین‌کنندهٔ {Format.Number(changed)} محصول تغییر کرد (از {Format.Number(ids.Count)} محصول فهرست؛ بقیه از قبل همین تأمین‌کننده را داشتند).";
+        return BackToList();
+    }
+
+    /// <summary>«none» ← null (بدون تأمین‌کننده)؛ شناسهٔ معتبر ← همان؛ خالی/نامعتبر ← false. مثال: «none» ← (true، null).</summary>
+    public static bool TryParseSupplierTarget(string? value, out Guid? supplierId)
+    {
+        supplierId = null;
+        if (string.Equals(value, "none", StringComparison.Ordinal))
+            return true;
+        if (Guid.TryParse(value, out var id) && id != Guid.Empty)
+        {
+            supplierId = id;
+            return true;
+        }
+        return false;
+    }
 
     private IQueryable<Product> Filter()
     {
@@ -194,6 +281,8 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             "image" => query.Where(p => !p.Images.Any()),
             "seo" => query.Where(p => p.Seo == null || p.Seo.MetaDescription == null || p.Seo.MetaDescription == ""),
             "cost" => query.Where(p => p.PurchasePrice == null),
+            "category" => query.Where(p => p.Category.IsSystem),
+            "short" => query.Where(p => p.ShortDescription == null || p.ShortDescription == ""),
             _ => query,
         };
         return query;

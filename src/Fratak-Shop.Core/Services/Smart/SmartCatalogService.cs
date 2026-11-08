@@ -14,8 +14,15 @@ namespace Fratak_Shop.Core.Services.Smart;
 public sealed record SmartProductSubject(
     Guid Id, string Name, string? EnglishName, string Slug, string Sku, string? Gtin, string? Mpn, string? BrandName, string? BrandEnglishName,
     Guid CategoryId, string? CategoryName, string? SupplierUrl, string? ShortDescription, int DescriptionLength,
-    IReadOnlyList<SeoFeature> Features, IReadOnlyList<string> ImageNames, decimal FinalPrice, decimal? PurchasePrice, bool IsActive)
+    IReadOnlyList<SeoFeature> Features, IReadOnlyList<string> ImageNames, decimal FinalPrice, decimal? PurchasePrice, bool IsActive,
+    decimal Price = 0, DateTimeOffset? PublishedAt = null, string? WarrantyTitle = null, bool CategoryIsSystem = false, string? SourceCategory = null)
 {
+    /// <summary>
+    /// دور ۲۲: کالا هنوز هیچ‌وقت منتشر نشده (پیش‌نویس تازه). فقط در این حالت نام/نامک خودکار عوض می‌شود و قیمت هوشمند خودکار است؛
+    /// کالای منتشرشده آدرس و نامش در گوگل ثبت شده و فقط «پیشنهاد» می‌گیرد.
+    /// </summary>
+    public bool NeverPublished => !IsActive && PublishedAt is null;
+
     /// <summary>
     /// عبارت جست‌وجو برای منابع: نام انگلیسی (اگر هست) دقیق‌تر است؛ وگرنه نام فارسی. مثال: «Xiaomi Redmi Buds 4».
     /// </summary>
@@ -108,7 +115,48 @@ public interface ISmartCatalogService
 
     /// <summary>دور بیستم: وضعیت متن توضیحات محصول برای تصمیم «توضیحات محصول» (null = محصول پیدا نشد).</summary>
     Task<ProductBodyState?> GetBodyStateAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۲: اعمال «هویت» پیشنهادی کالا (نام بهینه، نام انگلیسی، نامک). هر بخش جداگانه و فقط با شرط ایمن:
+    /// نام فقط اگر هنوز همان <paramref name="expectedName"/> است (کسی در این فاصله عوضش نکرده)؛ نام انگلیسی فقط اگر خالی است
+    /// (مگر <paramref name="overwriteEnglish"/>)؛ نامک فقط برای کالای هرگز منتشرنشده و یکتا. خروجی: چه چیزهایی عوض شد.
+    /// </summary>
+    Task<IdentityApplied> ApplyIdentityAsync(Guid productId, string? name, string? englishName, string? slug, string expectedName, bool overwriteEnglish = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۲: این کالا قبلاً «قیمت‌گذاری بازار» داشته (در صف یا انجام‌شده)؟ تا قیمت دوباره خودکار عوض نشود.</summary>
+    Task<bool> HasMarketPriceCheckAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۲: تصویر فعلی و تصویرهای پیشنهادی یک دسته (null = دسته پیدا نشد).</summary>
+    Task<CategoryImageState?> GetCategoryImagesAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۲: تصویرهای پیشنهادی همهٔ دسته‌ها (برای جدول صفحهٔ دسته‌های هوشمند).</summary>
+    Task<Dictionary<Guid, CategoryImageState>> ListCategoryImagesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۲: ذخیرهٔ فهرست تصویرهای پیشنهادی (حداکثر ۴). اگر دسته تصویر ندارد اولی خودکار تصویر دسته می‌شود («یکی پیش‌فرض تأیید»).
+    /// خروجی true اگر ذخیره شد.
+    /// </summary>
+    Task<bool> SaveCategoryImageOptionsAsync(Guid categoryId, IReadOnlyList<string> options, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۲: انتخاب یکی از تصویرهای پیشنهادی به‌عنوان تصویر دسته (فقط نام موجود در فهرست پذیرفته می‌شود).</summary>
+    Task<bool> ChooseCategoryImageAsync(Guid categoryId, string option, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۲: حذف یک تصویر پیشنهادی (<paramref name="option"/>) یا همه (null). اگر تصویر فعلی دسته حذف شد، پیشنهاد بعدی جایش می‌نشیند
+    /// (یا بدون تصویر). خروجی: نام فایل‌هایی که باید از دیسک پاک شوند (فقط فایل‌های همین فهرست).
+    /// </summary>
+    Task<IReadOnlyList<string>> RemoveCategoryImagesAsync(Guid categoryId, string? option, CancellationToken cancellationToken = default);
 }
+
+/// <summary>نتیجهٔ <see cref="ISmartCatalogService.ApplyIdentityAsync"/>: کدام بخش‌ها عوض شدند. Slug = نامک تازه (یا null).</summary>
+public sealed record IdentityApplied(bool Name, bool EnglishName, string? Slug)
+{
+    public bool Any => Name || EnglishName || Slug is not null;
+}
+
+/// <summary>تصویر فعلی دسته و تصویرهای پیشنهادی. Options = null یعنی هنوز پیشنهادی ساخته نشده؛ [] یعنی ادمین همه را حذف کرده.</summary>
+public sealed record CategoryImageState(Guid Id, string Name, string? ImageName, IReadOnlyList<string>? Options);
 
 public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCatalogService
 {
@@ -125,6 +173,7 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
                 x.CategoryId, CategoryName = x.Category.Name, x.SupplierUrl, x.ShortDescription,
                 DescriptionLength = x.Description == null ? 0 : x.Description.Length,
                 x.Price, x.DiscountPrice, x.DiscountStartAt, x.DiscountEndAt, x.PurchasePrice, x.IsActive,
+                x.PublishedAt, x.WarrantyTitle, CategoryIsSystem = x.Category.IsSystem, x.SourceCategory,
             })
             .FirstOrDefaultAsync(cancellationToken);
         if (p is null)
@@ -137,7 +186,8 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         var discounted = p.DiscountPrice is > 0 && p.DiscountPrice < p.Price
                          && (p.DiscountStartAt == null || p.DiscountStartAt <= now) && (p.DiscountEndAt == null || p.DiscountEndAt >= now);
         return new SmartProductSubject(p.Id, p.Name, p.EnglishName, p.Slug, p.SKU, p.Gtin, p.Mpn, p.BrandName, p.BrandEnglish, p.CategoryId, p.CategoryName,
-            p.SupplierUrl, p.ShortDescription, p.DescriptionLength, features, images, discounted ? p.DiscountPrice!.Value : p.Price, p.PurchasePrice, p.IsActive);
+            p.SupplierUrl, p.ShortDescription, p.DescriptionLength, features, images, discounted ? p.DiscountPrice!.Value : p.Price, p.PurchasePrice, p.IsActive,
+            p.Price, p.PublishedAt, p.WarrantyTitle, p.CategoryIsSystem, p.SourceCategory);
     }
 
     public async Task<int> AddProductImagesAsync(Guid productId, IReadOnlyList<(string FileName, string Alt)> images, CancellationToken cancellationToken = default)
@@ -253,12 +303,14 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             return null;
         var count = await context.Products.CountAsync(p => p.CategoryId == categoryId && p.IsActive, cancellationToken);
         var products = await GetBlogProductsAsync(categoryId, null, 8, cancellationToken);
+        // دور ۲۲: تصویر کالاهای پیش‌نویس هم حساب می‌شود (دستهٔ تازه‌ساخته هنوز کالای فعال ندارد ولی باید تصویر پیشنهادی بگیرد)؛
+        // اولویت با کالای فعال و موجود و پرفروش. هر کالا فقط عکس اصلی (یا اولین عکس) خودش ← تصویرها از کالاهای متفاوت‌اند.
         var images = await context.Products
-            .Where(p => p.CategoryId == categoryId && p.IsActive && p.StockQuantity > 0)
-            .OrderByDescending(p => p.SalesCount)
-            .Select(p => p.Images.Where(i => i.IsPrimary).Select(i => i.ImageName).FirstOrDefault())
-            .Where(name => name != null)
-            .Take(8).ToListAsync(cancellationToken);
+            .Where(p => p.CategoryId == categoryId)
+            .OrderByDescending(p => p.IsActive && p.StockQuantity > 0).ThenByDescending(p => p.SalesCount).ThenByDescending(p => p.CreatedAt)
+            .Select(p => p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault())
+            .Where(name => name != null && !name.StartsWith("http") && !name.StartsWith("/"))
+            .Take(12).ToListAsync(cancellationToken);
         return new SmartCategorySubject(c.Id, c.Name, c.Slug, c.Description, c.ImageName, c.Faq, count, products, images.Select(i => i!).ToList());
     }
 
@@ -465,6 +517,123 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             .Select(g => new { Source = g.Key, Total = g.Count(), Approved = g.Count(f => f.Approved) })
             .ToListAsync(cancellationToken);
         return rows.ToDictionary(r => r.Source, r => SmartImageRules.SourceScore(r.Approved, r.Total), StringComparer.Ordinal);
+    }
+
+    public async Task<IdentityApplied> ApplyIdentityAsync(Guid productId, string? name, string? englishName, string? slug, string expectedName, bool overwriteEnglish = false,
+        CancellationToken cancellationToken = default)
+    {
+        var product = await context.Products.AsTracking().FirstOrDefaultAsync(p => p.Id == productId, cancellationToken);
+        if (product is null)
+            return new IdentityApplied(false, false, null);
+        bool nameChanged = false, englishChanged = false;
+        string? newSlug = null;
+
+        var cleanName = name?.Trim();
+        if (!string.IsNullOrWhiteSpace(cleanName) && cleanName.Length is >= 3 and <= 250 && cleanName != product.Name
+            && string.Equals(product.Name, expectedName, StringComparison.Ordinal))
+        {
+            product.Name = cleanName;
+            nameChanged = true;
+        }
+
+        var cleanEnglish = englishName?.Trim();
+        if (!string.IsNullOrWhiteSpace(cleanEnglish) && cleanEnglish.Length <= 250 && cleanEnglish != product.EnglishName
+            && (overwriteEnglish || string.IsNullOrWhiteSpace(product.EnglishName)))
+        {
+            product.EnglishName = cleanEnglish;
+            englishChanged = true;
+        }
+
+        // نامک فقط برای پیش‌نویسی که هرگز منتشر نشده (آدرسش هیچ‌جا ثبت نشده) و فقط انگلیسی تمیز.
+        if (!string.IsNullOrWhiteSpace(slug) && EnglishSlug.IsEnglish(slug) && slug.Length <= 200 && !product.IsActive && product.PublishedAt is null
+            && !string.Equals(slug, product.Slug, StringComparison.Ordinal))
+        {
+            var taken = await context.Products.IgnoreQueryFilters().Where(p => p.Id != productId && p.Slug.StartsWith(slug)).Select(p => p.Slug)
+                .ToListAsync(cancellationToken);
+            var set = taken.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var unique = EnglishSlug.Unique(slug, set.Contains, 200);
+            if (unique != product.Slug)
+            {
+                product.Slug = unique;
+                newSlug = unique;
+            }
+        }
+
+        if (nameChanged || englishChanged || newSlug is not null)
+        {
+            // نام عوض شد ← متن جایگزین عکس اصلی هم اگر همان نام قبلی بود، به‌روز می‌شود (alt درست برای سئو).
+            if (nameChanged)
+            {
+                await context.ProductImages.Where(i => i.ProductId == productId && i.AltText == expectedName)
+                    .ExecuteUpdateAsync(s => s.SetProperty(i => i.AltText, cleanName), cancellationToken);
+            }
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        context.ChangeTracker.Clear();
+        return new IdentityApplied(nameChanged, englishChanged, newSlug);
+    }
+
+    public Task<bool> HasMarketPriceCheckAsync(Guid productId, CancellationToken cancellationToken = default) =>
+        context.MarketPriceChecks.AnyAsync(c => c.ProductId == productId, cancellationToken);
+
+    public async Task<CategoryImageState?> GetCategoryImagesAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        var row = await context.Categories.Where(c => c.Id == categoryId).Select(c => new { c.Id, c.Name, c.ImageName, c.ImageOptionsJson })
+            .FirstOrDefaultAsync(cancellationToken);
+        return row is null ? null : new CategoryImageState(row.Id, row.Name, row.ImageName, CategoryImages.Parse(row.ImageOptionsJson));
+    }
+
+    public async Task<Dictionary<Guid, CategoryImageState>> ListCategoryImagesAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await context.Categories.Select(c => new { c.Id, c.Name, c.ImageName, c.ImageOptionsJson }).Take(500).ToListAsync(cancellationToken);
+        return rows.ToDictionary(r => r.Id, r => new CategoryImageState(r.Id, r.Name, r.ImageName, CategoryImages.Parse(r.ImageOptionsJson)));
+    }
+
+    public async Task<bool> SaveCategoryImageOptionsAsync(Guid categoryId, IReadOnlyList<string> options, CancellationToken cancellationToken = default)
+    {
+        var category = await context.Categories.AsTracking().FirstOrDefaultAsync(c => c.Id == categoryId, cancellationToken);
+        if (category is null)
+            return false;
+        var clean = options.Where(CategoryImages.IsSafeName).Distinct(StringComparer.Ordinal).Take(CategoryImages.Max).ToList();
+        category.ImageOptionsJson = CategoryImages.Serialize(clean);
+        if (string.IsNullOrWhiteSpace(category.ImageName) && clean.Count > 0)
+            category.ImageName = clean[0];
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return true;
+    }
+
+    public async Task<bool> ChooseCategoryImageAsync(Guid categoryId, string option, CancellationToken cancellationToken = default)
+    {
+        var category = await context.Categories.AsTracking().FirstOrDefaultAsync(c => c.Id == categoryId, cancellationToken);
+        var options = CategoryImages.Parse(category?.ImageOptionsJson);
+        if (category is null || options is null || !options.Contains(option, StringComparer.Ordinal))
+            return false;
+        if (category.ImageName != option)
+        {
+            category.ImageName = option;
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        context.ChangeTracker.Clear();
+        return true;
+    }
+
+    public async Task<IReadOnlyList<string>> RemoveCategoryImagesAsync(Guid categoryId, string? option, CancellationToken cancellationToken = default)
+    {
+        var category = await context.Categories.AsTracking().FirstOrDefaultAsync(c => c.Id == categoryId, cancellationToken);
+        var options = CategoryImages.Parse(category?.ImageOptionsJson);
+        if (category is null || options is null || options.Count == 0)
+            return [];
+        var removed = option is null ? options.ToList() : options.Where(o => string.Equals(o, option, StringComparison.Ordinal)).ToList();
+        if (removed.Count == 0)
+            return [];
+        var remaining = options.Except(removed, StringComparer.Ordinal).ToList();
+        category.ImageOptionsJson = CategoryImages.Serialize(remaining);
+        if (category.ImageName is { } current && removed.Contains(current, StringComparer.Ordinal))
+            category.ImageName = remaining.FirstOrDefault();
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return removed;
     }
 
     public async Task<ProductBodyState?> GetBodyStateAsync(Guid productId, CancellationToken cancellationToken = default)

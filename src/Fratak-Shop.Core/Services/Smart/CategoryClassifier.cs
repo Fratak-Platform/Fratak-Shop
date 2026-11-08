@@ -161,7 +161,7 @@ public sealed class CategoryClassifier
     {
         var brands = brandNames.SelectMany(b => PersianText.Tokenize(b)).ToHashSet(StringComparer.Ordinal);
         var byType = new Dictionary<string, List<Guid>>(StringComparer.Ordinal);
-        var byHead = new Dictionary<string, List<(Guid Id, string? Second)>>(StringComparer.Ordinal);
+        var byHead = new Dictionary<string, List<(Guid Id, string? Second, string Surface)>>(StringComparer.Ordinal);
         foreach (var (id, name) in products)
         {
             if (ProductTypes.Detect(name) is { } type)
@@ -181,7 +181,7 @@ public sealed class CategoryClassifier
             var head = PersianText.Stem(words[start]);
             if (!byHead.TryGetValue(head, out var members))
                 byHead[head] = members = [];
-            members.Add((id, second));
+            members.Add((id, second, words[start]));
         }
 
         var clusters = new List<ProductCluster>();
@@ -195,11 +195,20 @@ public sealed class CategoryClassifier
             if (members.Count < minSize)
                 continue;
             var seconds = members.Select(m => m.Second).Distinct().ToList();
-            var name = seconds.Count == 1 && seconds[0] is { } shared ? head + " " + shared : head;
+            // دور ۲۲: نام دسته از «شکل واقعی» واژه ساخته می‌شود نه ریشهٔ بریده‌شده (ریشه‌یاب «شکلات» را «شکل» می‌کند).
+            // پرتکرارترین شکل نوشتاری اعضا انتخاب می‌شود. مثال: «شکلات تلخ …» ×۳ ← «شکلات تلخ» (نه «شکل تلخ»).
+            var surface = members.GroupBy(m => m.Surface, StringComparer.Ordinal).OrderByDescending(g => g.Count()).ThenBy(g => g.Key.Length).First().Key;
+            var name = seconds.Count == 1 && seconds[0] is { } shared ? surface + " " + shared : surface;
             clusters.Add(new ProductCluster(name, null, members.Select(m => m.Id).ToList()));
         }
         return clusters.OrderByDescending(c => c.ProductIds.Count).ToList();
     }
+
+    /// <summary>
+    /// دور ۲۲: واژهٔ صفت/رنگ/عمومی است (هرگز به‌تنهایی نام دسته نمی‌شود)؟ مثال: «مشکی» ← بله؛ «لیوان» ← خیر.
+    /// <para>محل استفاده: <see cref="CategoryNames.Proper"/>.</para>
+    /// </summary>
+    public static bool IsAdjective(string word) => NotAName.Contains(word) || NotAName.Contains(PersianText.Stem(word));
 
     // واژهٔ قابل‌قبول برای نام دسته: فارسی، حداقل ۲ حرف، نه برند، نه صفت/رنگ، نه عدد.
     private static bool IsNameWord(string word, HashSet<string> brands) =>

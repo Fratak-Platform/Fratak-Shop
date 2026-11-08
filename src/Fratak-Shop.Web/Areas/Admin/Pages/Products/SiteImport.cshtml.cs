@@ -282,6 +282,8 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
             SupplierSku = item.Sku,
             SupplierNote = item.InStock ? "درون‌ریزی از سایت" : "درون‌ریزی از سایت – در مبدأ ناموجود بود",
             Features = features,
+            // دور ۲۲: مسیر دستهٔ سایت مبدأ (مثلاً «لوازم شخصی > ماساژور») – بهترین سرنخ دسته‌بندی هوشمند.
+            SourceCategory = item.Category,
         };
     }
 

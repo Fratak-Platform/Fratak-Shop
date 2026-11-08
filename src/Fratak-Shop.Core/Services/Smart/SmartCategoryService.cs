@@ -14,14 +14,17 @@ public sealed record CreatedCategory(Guid Id, string Name, string Slug, int Prod
 /// <summary>
 /// گزارش یک دور دسته‌بندی هوشمند. مثال: Examined=40، Moved=31، Created=[«پاوربانک» ۶ کالا]، Waiting=9 (هنوز مشابه کافی ندارند).
 /// </summary>
-public sealed record CategorizeReport(int Examined, int Moved, IReadOnlyList<CreatedCategory> Created, int Waiting)
+/// <param name="Unplaced">دور ۲۲: شناسهٔ کالاهایی که هنوز «دسته‌بندی نشده» مانده‌اند (برای اعلان به ادمین؛ این کالاها منتشر نمی‌شوند).</param>
+/// <param name="General">دور ۲۲: چند کالا موقتاً در دستهٔ کلی‌تر رفتند (کالای مشابه کافی برای دستهٔ اختصاصی نبود).</param>
+public sealed record CategorizeReport(int Examined, int Moved, IReadOnlyList<CreatedCategory> Created, int Waiting,
+    IReadOnlyList<Guid>? Unplaced = null, int General = 0)
 {
     public static readonly CategorizeReport Empty = new(0, 0, [], 0);
 
-    /// <summary>متن کوتاه برای اعلان/پیام. مثال: «۳۱ کالا دسته گرفت؛ ۱ دستهٔ تازه: پاوربانک».</summary>
+    /// <summary>متن کوتاه برای اعلان/پیام. مثال: «۳۱ کالا دسته گرفت (۲ کالا در دستهٔ کلی‌تر)؛ ۱ دستهٔ تازه: پاوربانک».</summary>
     public string Summary => Moved == 0 && Created.Count == 0
         ? (Waiting > 0 ? $"{PersianText.Digits(Waiting)} کالا هنوز مشابه کافی برای ساخت دسته ندارد." : "کالای بی‌دسته‌ای نبود.")
-        : $"{PersianText.Digits(Moved)} کالا دسته گرفت{(Created.Count > 0 ? $"؛ {PersianText.Digits(Created.Count)} دستهٔ تازه: {string.Join("، ", Created.Select(c => c.Name))}" : "")}.";
+        : $"{PersianText.Digits(Moved)} کالا دسته گرفت{(General > 0 ? $" ({PersianText.Digits(General)} کالا در دستهٔ کلی‌تر)" : "")}{(Created.Count > 0 ? $"؛ {PersianText.Digits(Created.Count)} دستهٔ تازه: {string.Join("، ", Created.Select(c => c.Name))}" : "")}.";
 }
 
 /// <summary>
@@ -109,11 +112,13 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
             .Select(c => c.Id).ToHashSet();
         var targets = categories.Where(c => !catchAll.Contains(c.Id)).ToList();
 
-        var query = context.Products.Where(p => catchAll.Contains(p.CategoryId));
+        // نامزدها: کالاهای «دسته‌بندی نشده/سایر» + (دور ۲۲) کالاهایی که سیستم موقتاً در دستهٔ کلی گذاشته بود (شاید حالا دستهٔ دقیق داشته باشند).
+        var query = context.Products.Where(p => catchAll.Contains(p.CategoryId) || p.CategorySource == ProductCategorySource.General);
         if (productIds is not null)
             query = query.Where(p => productIds.Contains(p.Id));
         var candidates = await query.OrderByDescending(p => p.CreatedAt).Take(Math.Clamp(max, 1, 2000))
-            .Select(p => new { p.Id, p.Name, p.CategoryId, p.IsActive }).ToListAsync(cancellationToken);
+            .Select(p => new Candidate(p.Id, p.Name, p.CategoryId, p.IsActive, p.SourceCategory, p.CategorySource))
+            .ToListAsync(cancellationToken);
         if (candidates.Count == 0)
             return CategorizeReport.Empty;
 
@@ -125,51 +130,67 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
         var byCategory = names.GroupBy(n => n.CategoryId).ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Name).Take(200).ToList());
         var classifier = CategoryClassifier.Train(targets.Select(t => new CategorySample(t.Id, t.Name, byCategory.GetValueOrDefault(t.Id) ?? [])));
         var demanded = await DemandedTypesAsync();
+        var brands = await context.Brands.Select(b => b.Name).Take(2000).ToListAsync(cancellationToken);
 
-        var moves = new Dictionary<Guid, Guid>();
+        var moves = new Dictionary<Guid, Move>();
         var created = new Dictionary<string, (Category Entity, int Count)>(StringComparer.Ordinal);
-        var leftovers = new List<(Guid Id, string Name)>();
-        foreach (var product in candidates)
+        var leftovers = new List<Candidate>();
+        foreach (var product in candidates.Where(c => catchAll.Contains(c.CategoryId)))
         {
             var type = ProductTypes.Detect(product.Name);
-            var existing = type is null ? null : targets.FirstOrDefault(t => ProductTypes.NameMatches(type, t.Name, t.Slug));
-            if (existing is not null)
+            if (type is not null && targets.FirstOrDefault(t => ProductTypes.NameMatches(type, t.Name, t.Slug)) is { } typed)
             {
-                moves[product.Id] = existing.Id;
+                moves[product.Id] = new Move(typed.Id, ProductCategorySource.Smart);
                 continue;
             }
             // نوع مهم یا پرجست‌وجو: دستهٔ اختصاصی خودش (زیرمجموعهٔ والد مناسب) – در دستهٔ کلی‌تری مثل «لوازم جانبی» گم نمی‌شود.
             if (type is not null && (type.Important || demanded.Contains(type.Key)))
             {
                 var entity = await NewCategoryAsync(created, type.Name, type.Key, ParentFor(type, product.CategoryId, categories, catchAll), product.IsActive, cancellationToken);
-                moves[product.Id] = entity.Id;
+                moves[product.Id] = new Move(entity.Id, ProductCategorySource.Smart);
                 continue;
             }
-            var guess = classifier.Classify(product.Name);
-            if (CategoryClassifier.IsConfident(guess))
+            if (Decide(product, type, targets, categories, catchAll, classifier) is { } found)
             {
-                moves[product.Id] = guess!.CategoryId;
+                moves[product.Id] = found;
                 continue;
             }
-            leftovers.Add((product.Id, product.Name));
+            leftovers.Add(product);
         }
 
-        // خوشه‌بندی باقی‌مانده‌ها: فقط این دور (کالاهایی که قبلاً هم بی‌دسته مانده‌اند همین‌جا دوباره بررسی می‌شوند).
-        var waiting = leftovers.Count;
+        // خوشه‌بندی باقی‌مانده‌ها (≥ ۳ کالای مشابه ← دستهٔ اختصاصی با نام درست؛ نام نصفه/تبلیغاتی ← خوشه رد می‌شود).
         if (leftovers.Count >= CategoryClassifier.MinClusterSize)
         {
-            var brands = await context.Brands.Select(b => b.Name).Take(2000).ToListAsync(cancellationToken);
-            foreach (var cluster in CategoryClassifier.Cluster(leftovers, brands))
+            foreach (var cluster in CategoryClassifier.Cluster(leftovers.Select(l => (l.Id, l.Name)), brands))
             {
-                var firstSource = candidates.First(c => c.Id == cluster.ProductIds[0]).CategoryId;
-                var anyActive = candidates.Any(c => cluster.ProductIds.Contains(c.Id) && c.IsActive);
-                var parent = cluster.Type is null ? ParentFromSource(firstSource, categories, catchAll) : ParentFor(cluster.Type, firstSource, categories, catchAll);
-                var entity = await NewCategoryAsync(created, cluster.Name, cluster.Type?.Key, parent, anyActive, cancellationToken);
-                foreach (var id in cluster.ProductIds)
-                    moves[id] = entity.Id;
-                waiting -= cluster.ProductIds.Count;
+                var members = leftovers.Where(l => cluster.ProductIds.Contains(l.Id)).ToList();
+                var name = cluster.Type?.Name ?? CategoryNames.Proper(SharedLeaf(members) ?? cluster.Name, brands);
+                if (name is null)
+                    continue;
+                var firstSource = members[0].CategoryId;
+                var parent = PathParent(members, targets)
+                             ?? (cluster.Type is null ? ParentFromSource(firstSource, categories, catchAll) : ParentFor(cluster.Type, firstSource, categories, catchAll));
+                var entity = await NewCategoryAsync(created, name, cluster.Type?.Key, parent, members.Any(m => m.IsActive), cancellationToken);
+                foreach (var member in members)
+                    moves[member.Id] = new Move(entity.Id, ProductCategorySource.Smart);
             }
+            leftovers.RemoveAll(l => moves.ContainsKey(l.Id));
         }
+
+        // کالای تک با مسیر دستهٔ سایت دیگر ← دستهٔ «کلی» همان مسیر (مثلاً «لوازم شخصی برقی» برای یک ماساژور)، نه دستهٔ اختصاصی برای یک کالا.
+        foreach (var group in leftovers.Select(l => (Product: l, General: GeneralLevel(l.SourceCategory, brands))).Where(x => x.General is not null)
+                     .GroupBy(x => x.General!.Value.Name, StringComparer.Ordinal))
+        {
+            var (name, parentName) = group.First().General!.Value;
+            var parent = parentName is null ? null : targets.FirstOrDefault(t => CategoryNames.Same(parentName, t.Name, t.Slug))?.Id;
+            var entity = await NewCategoryAsync(created, name, null, parent, group.Any(x => x.Product.IsActive), cancellationToken);
+            foreach (var (product, _) in group)
+                moves[product.Id] = new Move(entity.Id, ProductCategorySource.General);
+        }
+
+        // بازبینی کالاهای «دستهٔ کلی»: دستهٔ دقیق پیدا شد یا حالا ≥ ۳ کالای هم‌نوع جمع شده ← زیر‌دستهٔ اختصاصی.
+        await SplitGeneralsAsync(candidates.Where(c => !catchAll.Contains(c.CategoryId) && c.Source == ProductCategorySource.General).ToList(),
+            targets, moves, created, brands, cancellationToken);
 
         if (created.Count > 0)
             await context.SaveChangesAsync(cancellationToken);
@@ -179,18 +200,147 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
         foreach (var group in moves.GroupBy(m => m.Value))
         {
             var ids = group.Select(g => g.Key).ToList();
-            moved += await context.Products.Where(p => ids.Contains(p.Id) && catchAll.Contains(p.CategoryId))
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.CategoryId, group.Key).SetProperty(p => p.UpdatedAt, now), cancellationToken);
+            var (target, source) = group.Key;
+            // فقط کالاهایی که هنوز در «سایر/بی‌دسته» یا «دستهٔ کلی سیستم» هستند (ادمین در همین فاصله دسته را عوض کرده باشد ← دست نمی‌خورد).
+            moved += await context.Products
+                .Where(p => ids.Contains(p.Id) && (catchAll.Contains(p.CategoryId) || p.CategorySource == ProductCategorySource.General))
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.CategoryId, target).SetProperty(p => p.CategorySource, source).SetProperty(p => p.UpdatedAt, now), cancellationToken);
         }
         if (moved > 0)
             DataChangeNotifier.Publish(typeof(Product), typeof(Category));
 
         var result = created.Values.Select(c => new CreatedCategory(c.Entity.Id, c.Entity.Name, c.Entity.Slug,
-            moves.Count(m => m.Value == c.Entity.Id), c.Entity.ParentId)).ToList();
-        return new CategorizeReport(candidates.Count, moved, result, Math.Max(0, waiting));
+            moves.Count(m => m.Value.Target == c.Entity.Id), c.Entity.ParentId)).ToList();
+        var unplaced = candidates.Where(c => catchAll.Contains(c.CategoryId) && !moves.ContainsKey(c.Id)).Select(c => c.Id).ToList();
+        var general = moves.Count(m => m.Value.Source == ProductCategorySource.General);
+        return new CategorizeReport(candidates.Count, moved, result, unplaced.Count, unplaced, general);
     }
 
     private sealed record CategoryRow(Guid Id, string Name, string Slug, Guid? ParentId, bool IsActive, bool IsSystem);
+
+    /// <summary>کالای نامزد دسته‌بندی. Source = منبع دستهٔ فعلی (Manual/Smart/General).</summary>
+    private sealed record Candidate(Guid Id, string Name, Guid CategoryId, bool IsActive, string? SourceCategory, ProductCategorySource Source);
+
+    /// <summary>تصمیم جابه‌جایی: دستهٔ مقصد و اینکه دقیق است (Smart) یا کلی (General).</summary>
+    private readonly record struct Move(Guid Target, ProductCategorySource Source);
+
+    /// <summary>
+    /// تصمیم برای یک کالای بی‌دسته با دسته‌های موجود (بدون ساخت دستهٔ تازه). پیش از این، نوع کالا با دستهٔ هم‌نوع موجود
+    /// (پاوربانک ← «پاوربانک») و نوع مهم (دستهٔ اختصاصی) بررسی شده‌اند. ترتیب:
+    /// <list type="number">
+    /// <item>دسته‌بند آماری مطمئن ← دقیق.</item>
+    /// <item>مسیر دستهٔ سایت دیگر: آخرین بخش (برگ) با دستهٔ موجود یکی بود ← دقیق؛ بخش بالاتر ← کلی.
+    /// مثال: «زیبایی و سلامت > لوازم شخصی برقی > ماساژور» و دستهٔ «لوازم شخصی برقی» موجود ← کلی.</item>
+    /// <item>نوع شناخته‌شده و دستهٔ والد مناسب موجود (ماساژور ← «لوازم شخصی») ← کلی.</item>
+    /// </list>
+    /// </summary>
+    private static Move? Decide(Candidate product, ProductType? type, List<CategoryRow> targets, List<CategoryRow> categories, HashSet<Guid> catchAll,
+        CategoryClassifier classifier)
+    {
+        var guess = classifier.Classify(product.Name);
+        if (CategoryClassifier.IsConfident(guess))
+            return new Move(guess!.CategoryId, ProductCategorySource.Smart);
+
+        var path = CategoryNames.Path(product.SourceCategory);
+        for (var i = path.Count - 1; i >= 0; i--)
+        {
+            if (targets.FirstOrDefault(t => CategoryNames.Same(path[i], t.Name, t.Slug)) is { } match)
+                return new Move(match.Id, i == path.Count - 1 ? ProductCategorySource.Smart : ProductCategorySource.General);
+        }
+
+        if (type is not null && ParentFor(type, product.CategoryId, categories, catchAll) is { } parent)
+            return new Move(parent, ProductCategorySource.General);
+        return null;
+    }
+
+    /// <summary>
+    /// دستهٔ «کلی» از مسیر سایت دیگر برای کالای تک: بخش دوم مسیرهای ۳+ بخشی، بخش اول مسیرهای ۲ بخشی (برگ هرگز؛ دستهٔ یک‌کالایی نمی‌سازیم).
+    /// والد = بخش بالاتر (اگر در فروشگاه هست). نام باید از دروازهٔ کیفیت <see cref="CategoryNames.Proper"/> بگذرد.
+    /// مثال: «زیبایی و سلامت > لوازم شخصی برقی > ماساژور» ← («لوازم شخصی برقی»، والد «زیبایی و سلامت»)؛ «ماساژور» تنها ← null.
+    /// </summary>
+    public static (string Name, string? Parent)? GeneralLevel(string? sourceCategory, IEnumerable<string>? brands = null)
+    {
+        var path = CategoryNames.Path(sourceCategory);
+        if (path.Count < 2)
+            return null;
+        var index = path.Count >= 3 ? 1 : 0;
+        // از سطح انتخاب‌شده به بالا: اولین نامی که درست و کامل است.
+        for (var i = index; i >= 0; i--)
+        {
+            if (CategoryNames.Proper(path[i], brands) is { } name)
+                return (name, i > 0 ? path[i - 1] : null);
+        }
+        return null;
+    }
+
+    /// <summary>برگ مشترک مسیر همهٔ اعضای یک خوشه (برای نام درست‌تر دسته). مثال: سه کالا با برگ «ماساژور» ← «ماساژور».</summary>
+    private static string? SharedLeaf(List<Candidate> members)
+    {
+        var leaves = members.Select(m => CategoryNames.Path(m.SourceCategory)).Select(p => p.Count > 0 ? p[^1] : null).ToList();
+        if (leaves.Any(l => l is null))
+            return null;
+        var first = leaves[0]!;
+        return leaves.All(l => CategoryNames.Same(l, first)) ? first : null;
+    }
+
+    /// <summary>والد دستهٔ تازهٔ خوشه از مسیر مشترک: بخش پیش از برگ در اولین عضو، اگر در فروشگاه هست.</summary>
+    private static Guid? PathParent(List<Candidate> members, List<CategoryRow> targets)
+    {
+        var path = CategoryNames.Path(members[0].SourceCategory);
+        for (var i = path.Count - 2; i >= 0; i--)
+        {
+            if (targets.FirstOrDefault(t => CategoryNames.Same(path[i], t.Name, t.Slug)) is { } match)
+                return match.Id;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// بازبینی کالاهای «دستهٔ کلی» (هر بار دسته‌بندی، از جمله بازبینی روزانه). گروه‌بندی بر اساس (دستهٔ فعلی، نوع کالا یا برگ مسیر):
+    /// <list type="bullet">
+    /// <item>دستهٔ دقیق همان نوع حالا در فروشگاه هست (مثلاً ادمین «ماساژور» را ساخت) ← همه به آن می‌روند (دقیق).</item>
+    /// <item>≥ ۳ کالای هم‌نوع در یک دستهٔ کلی ← زیر‌دستهٔ اختصاصی زیر همان دستهٔ کلی ساخته و کالاها منتقل می‌شوند.</item>
+    /// <item>کمتر از ۳ ← همان‌جا می‌مانند (دستهٔ یک‌کالایی ساخته نمی‌شود).</item>
+    /// </list>
+    /// مثال: ۳ ماساژور در «لوازم شخصی برقی» ← دستهٔ «ماساژور» زیر «لوازم شخصی برقی».
+    /// </summary>
+    private async Task SplitGeneralsAsync(List<Candidate> generals, List<CategoryRow> targets, Dictionary<Guid, Move> moves,
+        Dictionary<string, (Category Entity, int Count)> created, IReadOnlyList<string> brands, CancellationToken cancellationToken)
+    {
+        if (generals.Count == 0)
+            return;
+        var keyed = generals.Select(g =>
+        {
+            var type = ProductTypes.Detect(g.Name);
+            var path = CategoryNames.Path(g.SourceCategory);
+            var leaf = path.Count > 0 ? CategoryNames.Proper(path[^1], brands) : null;
+            var name = type?.Name ?? leaf;
+            return (Product: g, Type: type, Name: name);
+        }).Where(x => x.Name is not null).ToList();
+
+        foreach (var group in keyed.GroupBy(x => (x.Product.CategoryId, Key: x.Type?.Key ?? PersianText.Normalize(x.Name))))
+        {
+            var current = targets.FirstOrDefault(t => t.Id == group.Key.CategoryId);
+            var first = group.First();
+            // دستهٔ فعلی خودش همین نوع است (مثلاً دستهٔ کلی «ماساژور» نام گرفته) ← کاری نیست.
+            if (current is not null && (CategoryNames.Same(first.Name, current.Name, current.Slug)
+                                        || first.Type is not null && ProductTypes.NameMatches(first.Type, current.Name, current.Slug)))
+                continue;
+
+            var exact = targets.FirstOrDefault(t => t.Id != group.Key.CategoryId
+                                                    && (first.Type is not null ? ProductTypes.NameMatches(first.Type, t.Name, t.Slug) : CategoryNames.Same(first.Name, t.Name, t.Slug)));
+            Guid? target = exact?.Id;
+            if (target is null && group.Count() >= CategoryClassifier.MinClusterSize)
+            {
+                var entity = await NewCategoryAsync(created, first.Name!, first.Type?.Key, group.Key.CategoryId, group.Any(x => x.Product.IsActive), cancellationToken);
+                target = entity.Id;
+            }
+            if (target is not { } id)
+                continue;
+            foreach (var item in group)
+                moves[item.Product.Id] = new Move(id, ProductCategorySource.Smart);
+        }
+    }
 
     /// <summary>
     /// دستهٔ ساخته‌شدهٔ خودکار که حالا کالای فعال دارد ← فعال (نمایش در سایت). مثال: پاوربانک‌های درون‌ریزی‌شده بعد از

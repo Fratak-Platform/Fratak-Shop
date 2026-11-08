@@ -982,3 +982,10 @@ html[data-theme="dark"] .a-smart-chips .a-chip.is-main { color: #85C4FF; }
   .a-smart-body { padding: 10px; }
   .a-smart-option { flex-direction: column; align-items: stretch; }
 }
+
+/* دور ۲۲: تصویرهای پیشنهادی دسته (صفحهٔ تکمیل هوشمند دسته‌ها) */
+.a-cat-thumbs { display: flex; flex-wrap: wrap; gap: .5rem; }
+.a-cat-thumb { display: flex; flex-direction: column; gap: .25rem; width: 96px; }
+.a-cat-thumb-img { display: block; width: 96px; height: 48px; object-fit: cover; border-radius: 8px; border: 2px solid var(--a-border); background: var(--a-bg); }
+.a-cat-thumb-img.is-active { border-color: var(--a-primary); box-shadow: 0 0 0 2px var(--a-primary-soft); }
+.a-cat-thumb-actions { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }

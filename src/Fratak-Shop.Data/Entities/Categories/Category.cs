@@ -23,6 +23,13 @@ public class Category : BaseEntity
     [MaxLength(250)]
     public string? ImageName { get; set; }
 
+    /// <summary>
+    /// دور ۲۲: تا ۴ تصویر پیشنهادی دسته (فهرست JSON نام فایل‌ها در پوشهٔ تصویر دسته‌ها). اولی خودکار تصویر دسته می‌شود؛
+    /// ادمین در «تکمیل هوشمند دسته‌ها» می‌تواند یکی دیگر را انتخاب یا هر کدام را حذف کند. مثال: ["a.webp","b.webp"].
+    /// </summary>
+    [MaxLength(2000)]
+    public string? ImageOptionsJson { get; set; }
+
     public int DisplayOrder { get; set; }
 
     public bool IsActive { get; set; } = true;

@@ -250,6 +250,57 @@ public sealed class SmartImageFinder(
     }
 
     /// <summary>
+    /// دور ۲۲: «۴ تصویر پیشنهادی دسته». از عکس کالاهای خود دسته (هر کالا یک عکس؛ کالای فعال و پرفروش جلوتر) تا <paramref name="want"/>
+    /// بنر بدون متن ساخته می‌شود. عکس کالای تکراری/خیلی شبیه (dHash) کنار می‌رود تا گزینه‌ها واقعاً متفاوت باشند.
+    /// <para>
+    /// «پیشنهاد دوباره»: <paramref name="avoid"/> = تصویرهای پیشنهادی فعلی. چون ساخت بنر قطعی است (یک عکس ← همیشه همان بنر)،
+    /// بنری که شبیه یکی از این‌ها باشد کنار می‌رود و فقط گزینهٔ تازه برمی‌گردد.
+    /// </para>
+    /// <para>هیچ دانلودی از اینترنت نیست (فقط عکس‌های محلی همین فروشگاه) ← سریع، امن و بدون مشکل حق نشر.</para>
+    /// مثال: ۱۰ عکس کالا، want=4، avoid=[۴ بنر قبلی] ← ۴ بنر از عکس‌های پنجم به بعد.
+    /// </summary>
+    public async Task<List<string>> CategoryOptionsAsync(IReadOnlyList<string> productImageNames, int want, IReadOnlyList<string>? avoid,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<string>();
+        if (productImageNames.Count == 0 || want <= 0)
+            return results;
+        var avoidHashes = new List<ulong>();
+        foreach (var name in avoid ?? [])
+        {
+            var existing = uploads.GetPath(UploadArea.Categories, Path.GetFileName(name));
+            if (existing is not null && File.Exists(existing) && SmartImageAnalyzer.Analyze(await File.ReadAllBytesAsync(existing, cancellationToken)) is { } info)
+                avoidHashes.Add(info.Hash);
+        }
+        var sourceHashes = new List<ulong>();
+        foreach (var name in productImageNames.Distinct(StringComparer.Ordinal).Take(12))
+        {
+            if (results.Count >= want)
+                break;
+            var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(name));
+            if (path is null || !File.Exists(path))
+                continue;
+            var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+            if (bytes.Length > MaxImageBytes || SmartImageAnalyzer.Analyze(bytes) is not { } source || sourceHashes.Any(h => ImageHash.IsDuplicate(h, source.Hash)))
+                continue;
+            sourceHashes.Add(source.Hash);
+            var banner = BannerGenerator.Create(bytes);
+            if (banner is null)
+                continue;
+            if (avoidHashes.Count > 0 && SmartImageAnalyzer.Analyze(banner) is { } made && avoidHashes.Any(h => ImageHash.IsDuplicate(h, made.Hash)))
+                continue;
+            var stored = await StoreAsync(banner, UploadArea.Categories, cancellationToken);
+            if (stored is not null)
+                results.Add(stored);
+        }
+        return results;
+    }
+
+    /// <summary>حذف فایل‌های تصویر دسته (فقط نام فایل ساده داخل پوشهٔ دسته‌ها).</summary>
+    public void DeleteCategoryFiles(IEnumerable<string> names) =>
+        uploads.Delete(UploadArea.Categories, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
+
+    /// <summary>
     /// دور ۲۱ – پنل «جست‌وجوی عکس» استودیوی طراحی: نتایج تصویر بینگ (فقط آدرس‌های سالم http/https؛ round = صفحهٔ بعدی نتایج).
     /// چیزی دانلود نمی‌شود؛ مرورگر مدیر پیش‌نمایش را مستقیم نشان می‌دهد و فقط عکس انتخاب‌شده با <see cref="ImportAsync"/> وارد می‌شود.
     /// </summary>
