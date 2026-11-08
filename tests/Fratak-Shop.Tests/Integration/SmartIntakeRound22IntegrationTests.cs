@@ -114,6 +114,7 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
 
         // ۵) بعد از گرفتن دستهٔ واقعی ← انتشار مجاز و تاریخ انتشار ثبت می‌شود.
         await context.Products.Where(p => p.Id == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.CategoryId, real));
+        context.ChangeTracker.Clear(); // ExecuteUpdate ردیف ردگیری‌شده را تازه نمی‌کند (در برنامهٔ واقعی هر درخواست زمینهٔ تازه دارد)
         Assert.True((await products.ChangeProductActivationAsync(id, true)).IsSuccess());
         var row = await context.Products.Where(p => p.Id == id).Select(p => new { p.IsActive, p.PublishedAt }).SingleAsync();
         Assert.True(row.IsActive);
