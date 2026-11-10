@@ -57,7 +57,44 @@ public static partial class AssistantNlu
     private static readonly string[] CartShowWords = ["سبد من", "سبدم", "سبد خریدم", "سبد خرید من", "نمایش سبد", "توی سبد", "تو سبد", "داخل سبد", "سبد خرید", "سبد"];
     private static readonly string[] AddressWords = ["آدرس", "ادرس", "آدرسم", "ادرسم", "آدرسهام", "نشانی"];
     private static readonly string[] CompareWords = ["مقایسه", "فرق", "تفاوت", "کدوم بهتره", "کدام بهتر", "بهتره یا"];
-    private static readonly string[] HelpWords = ["راهنما", "کمک", "چیکار میتونی", "چه کار میتونی", "چکار میکنی", "چه کمکی", "help"];
+    private static readonly string[] HelpWords = ["راهنما", "کمک", "چیکار میتونی", "چه کار میتونی", "چکار میکنی", "چه کمکی", "help", "تو کی هستی", "کی هستی", "معرفی کن خودت", "خودتو معرفی", "خودت رو معرفی", "اسمت چیه"];
+
+    // ── دور ۲۴ ──
+    /// <summary>«در موردش بگو»، «توضیح بده»، «معرفیش کن» ← معرفی کالای در حال گفت‌وگو (موضوع about).</summary>
+    private static readonly string[] AboutWords =
+    [
+        "در موردش", "درموردش", "دربارش", "درباره اش", "دربارهاش", "راجع بهش", "راجبش", "راجب بهش", "توضیح بده", "توضیح بدید", "توضیح بیشتر", "توضیحش",
+        "بیشتر بگو", "بیشتر بگید", "بیشتر توضیح", "معرفیش", "معرفی کن", "معرفی کنید", "اطلاعات بیشتر", "اطلاعاتش", "چجوریه", "چه جوریه", "چطوریه",
+        "ارزش خرید", "ارزششو داره", "ارزشش رو داره", "نقد و بررسی", "بررسیش", "خلاصه", "خوبه یا نه",
+    ];
+
+    /// <summary>«بازش کن»، «برو به سبد»، «صفحه‌اش رو نشون بده» ← رفتن زنده به یک صفحه.</summary>
+    private static readonly string[] NavigateWords =
+    [
+        "بازش کن", "بازش کنید", "باز کن", "صفحش", "صفحه اش", "صفحه محصول", "صفحه کالا", "ببرم", "منو ببر", "برو به", "برو تو", "برم به", "بریم به",
+        "بریم سبد", "برو سبد", "لینکش", "لینک صفحه", "نشونم بده صفحه", "ببرش",
+    ];
+
+    /// <summary>ورود، ثبت‌نام و فراموشی رمز (رمز هرگز در چت گرفته نمی‌شود).</summary>
+    private static readonly string[] LoginWords =
+    [
+        "ورود", "وارد شم", "وارد بشم", "وارد شوم", "وارد حسابم", "لاگین", "login", "ثبت نام", "ثبتنام", "عضویت", "عضو شم", "عضو بشم", "رمز عبور",
+        "رمزم", "رمزمو", "پسورد", "حساب کاربری", "اکانت", "کد ورود", "کد پیامکی",
+    ];
+
+    /// <summary>تخفیف، حراج، کد تخفیف، امتیاز باشگاه ← پیشنهادهای واقعی فروشگاه.</summary>
+    private static readonly string[] OfferWords =
+    [
+        "تخفیف", "تخفیفی", "تخفیفات", "تخفیفها", "حراج", "جشنواره", "کد تخفیف", "کوپن", "آف", "پیشنهاد ویژه", "ارزونتر", "ارزانتر", "امتیاز باشگاه",
+        "امتیازم", "امتیازهام", "باشگاه مشتریان", "ارسال رایگان",
+    ];
+
+    /// <summary>«کمکم کن انتخاب کنم»، «نمی‌دونم چی بخرم» ← کالایاب مرحله‌ای.</summary>
+    private static readonly string[] FinderWords =
+    [
+        "کمکم کن انتخاب", "کمکم کنید انتخاب", "کمک کن انتخاب", "انتخاب کنم", "نمیدونم چی بخرم", "نمی دونم چی بخرم", "نمیدانم چه بخرم", "چی بخرم",
+        "چی پیشنهاد میدی", "چی پیشنهاد میدید", "مشاوره خرید", "مشاوره", "راهنمایی خرید", "راهنمای خرید", "کالایاب", "برای هدیه", "هدیه چی",
+    ];
 
     /// <summary>
     /// واژه‌های فرمان افزودن/حذف که نباید جزو نام کالا در «Query» بمانند (فقط این دو نیت از Query برای پیدا کردن کالا استفاده می‌کنند).
@@ -94,6 +131,13 @@ public static partial class AssistantNlu
         "شماره", "سلام", "درود", "ممنون", "مرسی", "خرید", "بخرم", "تهیه", "لازم", "دارم", "میفروشید", "فروشید", "جنس", "مدل", "یکی", "چندتا", "سبد", "؟",
         "خیلی", "خوب", "خوبی", "بهترین", "ارزان", "ارزون", "چیزی", "مناسب",
         "چقدره", "کجاست", "چیا", "هستن", "هستند", "داریم",
+        // دور ۲۴: واژه‌های گفت‌وگو که هرگز نام کالا نیستند (تا «در موردش بگو» یا «باشه» به «کالای درخواستی» تبدیل نشود).
+        "مورد", "موردش", "درباره", "دربارش", "دربارهاش", "راجع", "راجب", "راجبش", "بهش", "توضیح", "توضیحش", "بیشتر", "بیشتری", "معرفی", "معرفیش",
+        "اطلاعات", "اطلاعاتش", "اطلاعاتی", "کامل", "کاملتر", "بزن", "بکن", "بهم", "میتونی", "میتونید", "میتونین", "تونی", "میدی", "میدید", "باشه", "اوکی",
+        "ok", "خب", "حالا", "پس", "اینم", "اونم", "اونی", "همون", "همونو", "همونی", "ارزش", "ارزششو", "ارزشش", "چجوریه", "جوریه", "چطوریه", "خلاصه",
+        "نه", "آره", "اره", "بله", "نخیر", "حتما", "حتماً", "عالی", "شاید", "واقعا", "جدی", "نمیدونم", "دونم", "هیچی", "اصلا", "باز", "بازش", "ببر",
+        "ببرم", "برو", "بریم", "صفحش", "لینک", "لینکش", "تخفیف", "تخفیفی", "تخفیفات", "تخفیفها", "حراج", "کوپن", "جشنواره", "پیشنهاد",
+        "بررسی", "بررسیش", "نقد", "بدم", "بگیرم", "کدوم", "کدام", "نظرت", "نظر", "خودت", "لطف",
     };
 
     private static readonly Dictionary<string, int> OrdinalWords = new(StringComparer.Ordinal)
@@ -114,7 +158,7 @@ public static partial class AssistantNlu
     public static readonly AssistantTopic[] Topics =
     [
         new("price", "قیمت", ["قیمت", "قیمتش", "چنده", "چقدره", "چقدر", "چند"], []),
-        new("stock", "موجودی", ["موجود", "موجوده", "موجودی", "دارید", "دارین", "تموم شده", "ناموجود"], []),
+        new("stock", "موجودی", ["موجود", "موجوده", "موجودی", "دارید", "دارین", "داریم", "تموم شده", "ناموجود"], []),
         new("warranty", "گارانتی", ["گارانتی", "گارانتیش", "ضمانت", "وارانتی"], ["گارانتی", "ضمانت"]),
         new("shipping", "ارسال و تحویل", ["ارسال", "تحویل", "پست", "پیک", "کی میرسه", "کی می رسه", "چند روزه", "چند روز", "هزینه ارسال"], [], true),
         new("return", "مرجوعی", ["مرجوع", "مرجوعی", "برگشت", "پس بدم", "پس بدهم", "تعویض", "عودت"], [], true),
@@ -131,6 +175,8 @@ public static partial class AssistantNlu
         new("power", "توان", ["توان", "وات", "قدرت", "مصرف برق"], ["توان", "وات", "قدرت", "مصرف"]),
         new("compat", "سازگاری", ["سازگار", "سازگاری", "میخوره", "پشتیبانی میکنه", "پشتیبانی می کنه"], ["سازگار", "پشتیبانی"]),
         new("model", "مدل", ["کد مدل", "مدلش"], ["مدل"]),
+        // دور ۲۴: «در موردش بگو» ← معرفی کامل کالا (قیمت، موجودی، چند مشخصهٔ کلیدی و خلاصهٔ توضیحات).
+        new("about", "معرفی کالا", AboutWords, []),
     ];
 
     private static readonly AssistantTopic StockTopic = Topics.First(t => t.Key == "stock");
@@ -176,7 +222,7 @@ public static partial class AssistantNlu
         var ordinal = Ordinal(tokens);
         var topic = BestTopic(padded, tokens);
         // واژهٔ مشخصه بدون نشانهٔ پرسش یعنی جست‌وجو: «شارژر سامسونگ» ← جست‌وجو (نه پرسش باتری)؛ «کابل شارژ دارید» ← موجودی.
-        if (topic is { StoreLevel: false } && topic.Key is not ("price" or "stock") && !IsQuestion(text, tokens, topic))
+        if (topic is { StoreLevel: false } && topic.Key is not ("price" or "stock" or "about") && !IsQuestion(text, tokens, topic))
             topic = HasAny(padded, tokens, StockTopic.Words) ? StockTopic : null;
         var query = BuildQuery(tokens, topic);
 
@@ -185,6 +231,10 @@ public static partial class AssistantNlu
 
         if (tokens.Length == 0)
             return orderNumber is null ? Result(AssistantIntent.Help) : Result(AssistantIntent.Track);
+
+        // دور ۲۴: «منو علی صدا کن» / «رسمی صحبت کن».
+        if (AssistantPersona.ParsePreference(text ?? "") is not null)
+            return Result(AssistantIntent.Preference);
 
         // سلام/تشکر خالی (بدون درخواست دیگر).
         if (HasAny(padded, tokens, Greetings) && tokens.All(t => Greetings.Contains(t) || GreetingFillers.Contains(t) || Fillers.Contains(t)))
@@ -195,8 +245,14 @@ public static partial class AssistantNlu
         // «پشتیبان/پشتیبانی» تنها ← درخواست پشتیبان؛ ولی «از بلوتوث ۵ پشتیبانی می‌کنه؟» پرسش سازگاری است.
         if (HasAny(padded, tokens, HumanWords) || (tokens.Contains("پشتیبان") || tokens.Contains("پشتیبانی")) && topic?.Key != "compat")
             return Result(AssistantIntent.Human);
+        // دور ۲۴: ورود/ثبت‌نام (پیش از پیگیری، چون «ورود به حساب» با «سفارش‌های من» قاطی نشود).
+        if (HasAny(padded, tokens, LoginWords) && !HasAny(padded, tokens, CheckoutWords))
+            return Result(AssistantIntent.Login);
         if (orderNumber is not null || HasAny(padded, tokens, TrackWords))
             return Result(AssistantIntent.Track);
+        // دور ۲۴: «برو به سبد»، «بازش کن»، «صفحه‌اش رو نشون بده».
+        if (HasAny(padded, tokens, NavigateWords))
+            return Result(AssistantIntent.Navigate);
         if (HasAny(padded, tokens, CheckoutWords))
             return Result(AssistantIntent.Checkout);
         if (HasAny(padded, tokens, RemoveWords))
@@ -207,10 +263,16 @@ public static partial class AssistantNlu
             return Result(AssistantIntent.CartShow);
         if (HasAny(padded, tokens, AddressWords) && topic?.Key != "contact")
             return Result(AssistantIntent.Address);
+        // دور ۲۴: کالایاب پیش از «مقایسه» و «راهنما» («کمکم کن انتخاب کنم» راهنمای عمومی نیست).
+        if (HasAny(padded, tokens, FinderWords))
+            return Result(AssistantIntent.Finder);
         if (HasAny(padded, tokens, CompareWords))
             return Result(AssistantIntent.Compare);
-        if (tokens.Length <= 5 && HasAny(padded, tokens, HelpWords) && topic is null)
+        if (tokens.Length <= 6 && HasAny(padded, tokens, HelpWords) && (topic is null || topic.Key == "about" && (tokens.Contains("خودت") || tokens.Contains("خودتو"))))
             return Result(AssistantIntent.Help);
+        // دور ۲۴: تخفیف و پیشنهاد ویژه (قیمت یک کالای مشخص همچنان «پرسش قیمت» است).
+        if (HasAny(padded, tokens, OfferWords) && topic?.Key is null or "price" or "stock" && !(topic?.Key == "price" && query.Length > 0))
+            return Result(AssistantIntent.Offers);
         if (topic is not null)
             return Result(AssistantIntent.ProductQuestion, topic.Key);
         if (!shopCue && (tokens.Any(OffTopicWords.Contains) || HasAny(padded, tokens, OffTopicPhrases)))
@@ -239,6 +301,26 @@ public static partial class AssistantNlu
         value = PhoneRegex().Replace(value, "***");
         return NationalIdRegex().Replace(value, "***");
     }
+
+    /// <summary>
+    /// دور ۲۴: شمارهٔ موبایل داخل پیام (برای پر کردن کادر صفحهٔ ورود؛ هرگز ذخیره نمی‌شود). مثال: «با ۰۹۱۲۱۲۳۴۵۶۷ وارد شم» ← «09121234567»؛ نبود ← null.
+    /// </summary>
+    public static string? Phone(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return null;
+        var digits = PersianText.Normalize(text);
+        var match = PhoneRegex().Match(digits);
+        if (!match.Success)
+            return null;
+        var value = match.Value;
+        return "0" + value[^10..];
+    }
+
+    /// <summary>
+    /// دور ۲۴: پیام فقط واژهٔ گفت‌وگوست و نام کالایی ندارد؟ مثال: «باشه»، «در موردش بگو»، «نه ممنون» ← true؛ «پاوربانک» ← false.
+    /// </summary>
+    public static bool IsConversational(string? text) => Words(text).Count == 0;
 
     /// <summary>واژه‌های معنادار برای مقایسهٔ دو متن (برای تطبیق پرسش با «پرسش‌های متداول»).</summary>
     public static HashSet<string> Words(string? text) =>

@@ -60,6 +60,7 @@ public static class AdminNav
             new AdminNavItem("تقویم بلاگ خودکار", "/admin/smart/blog", "Sparkle", [P.BlogPublish]),
             new AdminNavItem("رشد خودکار", "/admin/smart/growth", "TrendUp", [P.ReportsView, P.MarketingManage, P.SeoManage]),
             new AdminNavItem("دستیار فروشگاه", "/admin/smart/assistant", "Robot", [P.ProductsManage, P.ReportsView, P.MarketingManage, P.TicketsManage]),
+            new AdminNavItem("گفت‌وگو با کارشناس", "/admin/smart/assistant/handoffs", "Chat", [P.TicketsManage, P.MessagesManage]),
             new AdminNavItem("تنظیمات هوشمند", "/admin/smart/settings", "Gear", [P.SettingsManage])),
         new("محتوا و سئو",
             new AdminNavItem("مقاله‌ها", "/admin/blog", "Article", [P.BlogWrite, P.BlogPublish], "drafts"),

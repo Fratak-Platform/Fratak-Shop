@@ -42,8 +42,8 @@
               لطفا شماره موبایل و رمز عبور خود را وارد کنید
             </div>
             <partial name="_ValidationSummary" />
-            <input asp-for="Input.PhoneNumber" type="tel" placeholder="شماره همراه" autocomplete="username" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass mb-7">
-            <input asp-for="Input.Password" type="password" placeholder="رمز عبور" autocomplete="current-password" class="@inputClass">
+            <input asp-for="Input.PhoneNumber" data-assistant="login-phone" type="tel" placeholder="شماره همراه" autocomplete="username" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass mb-7">
+            <input asp-for="Input.Password" data-assistant="login-password" type="password" placeholder="رمز عبور" autocomplete="current-password" class="@inputClass">
             @if (Model.Captcha is not null)
             {
               <partial name="_Captcha" model="Model.Captcha" />
@@ -73,7 +73,7 @@
               شماره موبایل خود را وارد کنید تا کد ورود برایتان پیامک شود. اگر حساب نداشته باشید، به صورت خودکار ساخته می‌شود.
             </div>
             <partial name="_ValidationSummary" />
-            <input asp-for="Otp.PhoneNumber" type="tel" placeholder="شماره همراه (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)" autocomplete="tel" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass">
+            <input asp-for="Otp.PhoneNumber" data-assistant="otp-phone" type="tel" placeholder="شماره همراه (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)" autocomplete="tel" inputmode="numeric" maxlength="11" dir="ltr" class="@inputClass">
             @if (Model.Captcha is not null)
             {
               <partial name="_Captcha" model="Model.Captcha" />

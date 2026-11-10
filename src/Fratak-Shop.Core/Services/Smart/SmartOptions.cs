@@ -173,6 +173,20 @@ public sealed class SmartOptions
     /// </summary>
     public bool BannerAbTest { get; set; } = true;
 
+    // ── دستیار فروشگاه (دور ۲۴) ───────────────────────────────────
+
+    /// <summary>
+    /// دور ۲۴: نام دستیار هوشمند که در ویجت و معرفی دیده می‌شود (حداکثر ۲۰ نویسه؛ پیش‌فرض «آوا»).
+    /// مثال: «آوا» ← «سلام! من آوا هستم، دستیار هوشمند فراتک.»
+    /// </summary>
+    public string AssistantName { get; set; } = "آوا";
+
+    /// <summary>دور ۲۴: حباب خوش‌آمد کوتاه کنار دکمهٔ دستیار (فقط یک بار در هر نشست مرورگر). پیش‌فرض روشن.</summary>
+    public bool AssistantGreeting { get; set; } = true;
+
+    /// <summary>دور ۲۴: «گفت‌وگو با کارشناس» از داخل چت (اعلان به کارشناسان پشتیبانی). خاموش ← فقط شماره و تیکت نشان داده می‌شود.</summary>
+    public bool AssistantHandoff { get; set; } = true;
+
 
     /// <summary>
     /// مقدارهای خارج از بازه را اصلاح می‌کند تا یک عدد اشتباه در فرم، سایت را به خطر نیندازد.
@@ -213,6 +227,7 @@ public sealed class SmartOptions
         ReplenishTitle = Limit(ReplenishTitle, 150, "وقت تهیهٔ دوبارهٔ «{ProductName}» است؟");
         ReplenishBody = Limit(ReplenishBody, 600, "اگر لازم دارید، دوباره سفارش دهید.");
         ReplenishSmsText = Limit(ReplenishSmsText, 300, "");
+        AssistantName = Limit(AssistantName, 20, "آوا");
         return this;
     }
 

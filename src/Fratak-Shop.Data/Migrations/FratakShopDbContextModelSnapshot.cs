@@ -662,6 +662,105 @@ namespace Fratak_Shop.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Assistant.AssistantHandoff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("LastMessageAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PageUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("SessionKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("StaffName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid?>("StaffUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("UnreadForStaff")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionKey", "Status");
+
+                    b.HasIndex("Status", "LastMessageAt");
+
+                    b.ToTable("AssistantHandoffs");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Assistant.AssistantHandoffMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("FromStaff")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("HandoffId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HandoffId", "CreatedAt");
+
+                    b.ToTable("AssistantHandoffMessages");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Assistant.AssistantMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -719,6 +818,46 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("Intent", "CreatedAt");
 
                     b.ToTable("AssistantMessages");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Assistant.AssistantProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CallMe")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Register")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("Tone")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("AssistantProfiles");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Blogs.BlogCategory", b =>
@@ -10272,6 +10411,17 @@ namespace Fratak_Shop.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Assistant.AssistantHandoffMessage", b =>
+                {
+                    b.HasOne("Fratak_Shop.Data.Entities.Assistant.AssistantHandoff", "Handoff")
+                        .WithMany("Messages")
+                        .HasForeignKey("HandoffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Handoff");
+                });
+
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Admin.AdminRolePermission", b =>
                 {
                     b.HasOne("Fratak_Shop.Data.Entities.Admin.AdminRole", "Role")
@@ -12844,6 +12994,11 @@ namespace Fratak_Shop.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Assistant.AssistantHandoff", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Admin.AdminRole", b =>

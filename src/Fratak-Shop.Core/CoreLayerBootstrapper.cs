@@ -55,6 +55,9 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IBannerService, BannerService>();
         // دور ۲۳: دستیار فروشگاه (چت‌بات بدون هوش مصنوعی بیرونی).
         services.AddScoped<Services.Assistant.IAssistantService, Services.Assistant.AssistantService>();
+        // دور ۲۴: دانش عمومی سایت برای دستیار (کش ۱۰ دقیقه‌ای) و «گفت‌وگو با کارشناس».
+        services.AddScoped<Services.Assistant.IAssistantKnowledge, Services.Assistant.AssistantKnowledge>();
+        services.AddScoped<Services.Assistant.IAssistantHandoffService, Services.Assistant.AssistantHandoffService>();
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserAddressService, UserAddressService>();

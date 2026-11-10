@@ -66,6 +66,12 @@ public class AssistantModel(IAssistantService assistant) : AdminPageModel
         AssistantIntent.Demand => "کالای ناموجود",
         AssistantIntent.Human => "درخواست پشتیبان",
         AssistantIntent.Thanks => "تشکر",
+        AssistantIntent.Navigate => "رفتن به صفحه",
+        AssistantIntent.Login => "کمک برای ورود",
+        AssistantIntent.Offers => "تخفیف‌ها",
+        AssistantIntent.Finder => "کالایاب",
+        AssistantIntent.Preference => "سلیقهٔ گفت‌وگو",
+        AssistantIntent.Handoff => "گفت‌وگو با کارشناس",
         _ => "نامشخص",
     };
 }

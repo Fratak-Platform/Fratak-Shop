@@ -18,7 +18,7 @@
     <div class="flex flex-col md:flex-row gap-5">
       <form method="post" asp-page-handler="PlaceOrder" id="checkoutForm" class="md:w-8/12 bg-white border rounded-xl shadow-lg p-4" data-checkout-form>
         @* address *@
-        <section class="p-2 sm:p-4 mb-8">
+        <section class="p-2 sm:p-4 mb-8" data-assistant="address">
           <div class="@sectionTitle">
             <h2>آدرس تحویل سفارش</h2>
             <a href="/profile/addresses?new=1" data-ui="modal-open" data-arg="showEditAddress" class="text-base font-normal text-sky-700">افزودن آدرس جدید</a>
@@ -178,7 +178,7 @@
       </form>
 
       <aside class="bg-white border rounded-xl shadow-lg p-4 md:w-4/12 h-fit md:sticky md:top-36">
-        <div class="p-3" data-checkout-summary data-items="@cart.PayableAmount" data-wallet="@Model.WalletBalance" data-coupon="@(Model.Coupon?.ItemsDiscount ?? 0)"
+        <div class="p-3" data-assistant="order-summary" data-checkout-summary data-items="@cart.PayableAmount" data-wallet="@Model.WalletBalance" data-coupon="@(Model.Coupon?.ItemsDiscount ?? 0)"
              data-cod-max="@settings.CashOnDeliveryMaxAmount">
           <div class="flex gap-x-1 justify-between items-center text-zinc-600 px-2 py-3 font-semibold">
             <div>قیمت کالاها (@cart.TotalQuantity)</div>
@@ -217,7 +217,7 @@
           {
             <p class="text-xs text-red-500 px-2 mt-3">حداقل مبلغ سفارش @Format.Toman(Model.MinimumOrderAmount) است.</p>
           }
-          <button type="submit" form="checkoutForm" class="mx-auto block text-center w-full px-2 py-3 mt-6 bg-sky-500 hover:bg-sky-400 disabled:bg-gray-300 transition text-gray-100 rounded-lg"
+          <button type="submit" form="checkoutForm" data-assistant="pay-button" class="mx-auto block text-center w-full px-2 py-3 mt-6 bg-sky-500 hover:bg-sky-400 disabled:bg-gray-300 transition text-gray-100 rounded-lg"
                   disabled="@(Model.Addresses.Count == 0 || Model.ShippingOptions.Count == 0 || Model.PaymentChoices.Count == 0 || Model.IsBelowMinimum ? "disabled" : null)">
             ثبت سفارش و پرداخت
           </button>

@@ -327,6 +327,11 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     // ── دور ۲۳: دستیار فروشگاه ──
     public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantMessage> AssistantMessages { get; set; } = null!;
 
+    // دور ۲۴: سلیقهٔ گفت‌وگو و «گفت‌وگو با کارشناس».
+    public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantProfile> AssistantProfiles { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantHandoff> AssistantHandoffs { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantHandoffMessage> AssistantHandoffMessages { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

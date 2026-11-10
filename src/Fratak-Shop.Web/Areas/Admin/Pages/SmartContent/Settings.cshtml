@@ -77,6 +77,18 @@
   </div>
 
   <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Chat", null, 18) دستیار هوشمند فروشگاه</h3></div>
+    <div class="a-card-body a-stack">
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.AssistantName">نام دستیار (حداکثر ۲۰ نویسه)</label><input class="a-input" asp-for="Options.AssistantName" maxlength="20"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantGreeting"> حباب خوش‌آمد کوتاه کنار دکمهٔ دستیار (یک بار در هر بازدید)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantHandoff"> «گفت‌وگو با کارشناس» از داخل چت (اعلان به کارشناسان پشتیبانی)</label>
+      <p class="a-muted text-xs">پیام‌های کارشناس: <a class="text-sky-700" href="/admin/smart/assistant/handoffs">گفت‌وگوهای کارشناس</a> · گزارش: <a class="text-sky-700" href="/admin/smart/assistant">دستیار فروشگاه</a></p>
+    </div>
+  </div>
+
+  <div class="a-card">
     <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) یادآوری‌های مشتری</h3></div>
     <div class="a-card-body a-stack">
       <p class="a-muted text-sm">@Format.Number(Model.Reminders.Pending) در انتظار · @Format.Number(Model.Reminders.SentLast30Days) ارسال و @Format.Number(Model.Reminders.SkippedLast30Days) لغو خودکار در ۳۰ روز اخیر. هر مشتری حداکثر یک پیام در هفته؛ در ساعت سکوت هیچ پیامی فرستاده نمی‌شود.</p>
