@@ -304,6 +304,9 @@
     body.append("extra", readMoney($("#pa-extra")) || "0");
     body.append("query", query);
     body.append("lookup", costsOnly ? "false" : "true");
+    // دور ۲۳ (مورد ۶۹): دستهٔ انتخاب‌شده در فرم ← کف سود همان دسته (اگر تعیین شده باشد) اعمال می‌شود.
+    const category = document.getElementById("p-cat");
+    if (category && category.value) body.append("categoryId", category.value);
     excluded.forEach((id) => body.append("exclude", id));
     included.forEach((id) => body.append("include", id));
     status(costsOnly ? "در حال محاسبه…"

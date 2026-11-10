@@ -116,6 +116,8 @@ public sealed class MarketPricingService(
             var lookup = await competitors.SearchAsync(job.Query, cancellationToken);
             var store = await settings.GetAsync(cancellationToken);
             var costs = PricingCosts.From(store);
+            // دور ۲۳ (مورد ۶۹): کف سود دستهٔ کالا (فقط بالاتر از کف سراسری).
+            costs = costs with { MinMarginPercent = await CategoryMargins.ForCategoryAsync(context, costs.MinMarginPercent, product.CategoryId, cancellationToken) };
             var purchase = product.PurchasePrice ?? job.PurchasePrice ?? 0;
             // مرحلهٔ پانزدهم: داوری با نام کالا (عنوان نامشابه/لوازم جانبی کنار می‌رود) و بدون قیمت فروشگاه خودمان.
             var ownShops = ProductCompetitorService.OwnShops(store);

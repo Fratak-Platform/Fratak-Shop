@@ -228,7 +228,31 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Image hash backfill failed");
         }
         count += await PlanOccasionCouponsAsync(services, now, cancellationToken);
+        count += await RefreshOldPostsAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastBlogRefreshTicks;
+
+    /// <summary>
+    /// دور ۲۳ (مورد ۳۶): به‌روزرسانی مقاله‌های قدیمی که کالاهایشان ناموجود شده (روزی یک بار، حداکثر ۳ مقاله).
+    /// منطق: <see cref="Fratak_Shop.Core.Services.Blogs.BlogRefresh"/>. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> RefreshOldPostsAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var last = Interlocked.Read(ref _lastBlogRefreshTicks);
+        if (last != 0 && now.UtcTicks - last < TimeSpan.FromHours(24).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastBlogRefreshTicks, now.UtcTicks);
+        try
+        {
+            return await services.GetRequiredService<Fratak_Shop.Core.Services.Blogs.IBlogRefreshService>().RefreshAsync(now, 3, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Old blog post refresh failed");
+            return 0;
+        }
     }
 
     private static long _lastCouponTicks;

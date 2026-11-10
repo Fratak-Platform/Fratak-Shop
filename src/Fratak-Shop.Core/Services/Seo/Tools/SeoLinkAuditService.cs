@@ -132,6 +132,11 @@ public sealed class SeoLinkAuditService(
             config.LinkCheckSummary = Cut(result.Message, 500);
             await context.SaveChangesAsync(cancellationToken);
 
+            // دور ۲۳ (مورد ۲۴ – «بدون صف دستی»): در اجرای خودکار، لینک داخلی ریدایرکت‌دار به آدرس نهایی و لینک داخلی ۴۰۴ (غیر از تصویر)
+            // به متن ساده تبدیل می‌شود. لینک بیرونی و تصویر برای تصمیم مدیر می‌ماند (حذف خودکار تصویر ممکن است متن را خراب کند).
+            if (!manual)
+                await AutoFixAsync(cancellationToken);
+
             var serious = await context.SeoLinkIssues.AsNoTracking()
                 .CountAsync(i => !i.IsIgnored && (i.Problem == SeoLinkProblem.NotFound || i.Problem == SeoLinkProblem.Gone), cancellationToken);
             if (result.New > 0 || manual)
@@ -146,6 +151,35 @@ public sealed class SeoLinkAuditService(
         finally
         {
             Gate.Release();
+        }
+    }
+
+    /// <summary>بیشترین اصلاح خودکار در هر اجرا (هر اصلاح یک ذخیره است؛ هاست ضعیف).</summary>
+    public const int AutoFixPerRun = 200;
+
+    /// <summary>
+    /// دور ۲۳: اصلاح خودکار امن. ریدایرکت داخلی ← آدرس نهایی (<see cref="FixRedirectsAsync"/>)؛ ۴۰۴/حذف‌شدهٔ داخلی غیرتصویری ← برداشتن لینک
+    /// با حفظ متن (<see cref="FixAsync"/> با آدرس null). موارد «نادیده گرفته‌شده» دست نمی‌خورند. خطا فقط ثبت می‌شود.
+    /// </summary>
+    private async Task AutoFixAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await context.SeoLinkIssues.AnyAsync(i => !i.IsIgnored && i.IsInternal && i.Problem == SeoLinkProblem.Redirected && i.SuggestedUrl != null, cancellationToken))
+                await FixRedirectsAsync(cancellationToken);
+            var broken = await context.SeoLinkIssues.AsNoTracking()
+                .Where(i => !i.IsIgnored && i.IsInternal && !i.IsImage && (i.Problem == SeoLinkProblem.NotFound || i.Problem == SeoLinkProblem.Gone))
+                .OrderBy(i => i.FirstSeenAt)
+                .Select(i => i.Id)
+                .Take(AutoFixPerRun)
+                .ToListAsync(cancellationToken);
+            foreach (var id in broken)
+                await FixAsync(id, null, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            context.ChangeTracker.Clear();
+            logger.LogWarning(ex, "Automatic link fix failed");
         }
     }
 

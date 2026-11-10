@@ -24,7 +24,14 @@ public sealed record BlogPlanRow(Guid Id, DateTimeOffset PlannedFor, BlogArticle
 /// </summary>
 public static class BlogPlanner
 {
-    public static List<PlanIdea> Propose(IReadOnlyList<PlannerCategory> categories, IReadOnlyCollection<string> takenTopics, IReadOnlyList<string> demandQueries, int count)
+    /// <summary>کمترین فاصله تا مناسبت (روز) برای پیشنهاد مقالهٔ مناسبتی؛ کمتر از این، مقاله دیر منتشر و دیده می‌شود.</summary>
+    public const int OccasionMinDaysLeft = 10;
+
+    /// <param name="occasions">دور ۲۳ (مورد ۳۸): مناسبت‌های پیش رو (از <see cref="Seo.Autopilot.SeoCalendar"/>). برای هر مناسبتی که دست‌کم
+    /// <see cref="OccasionMinDaysLeft"/> روز تا آن مانده، یک «راهنمای خرید {دسته} برای {مناسبت}» با کالاهای واقعی همان دسته پیشنهاد می‌شود
+    /// (دسته‌ها به نوبت). مثال: شب یلدا، ۲۰ روز مانده، دستهٔ «هدفون» ← «راهنمای خرید هدفون برای شب یلدا».</param>
+    public static List<PlanIdea> Propose(IReadOnlyList<PlannerCategory> categories, IReadOnlyCollection<string> takenTopics, IReadOnlyList<string> demandQueries, int count,
+        IReadOnlyList<Seo.Autopilot.SeoOccasion>? occasions = null)
     {
         var taken = new HashSet<string>(takenTopics.Select(PersianText.Normalize), StringComparer.Ordinal);
         var ideas = new List<PlanIdea>();
@@ -41,6 +48,24 @@ public static class BlogPlanner
             TryAdd(new PlanIdea(BlogArticleType.BuyingGuide, $"راهنمای خرید {PersianText.Clean(query)}", $"راهنمای خرید {PersianText.Clean(query)}", category.Id, [], "demand"));
             if (ideas.Count >= count)
                 return ideas;
+        }
+
+        // ۱.۵) دور ۲۳ (مورد ۳۸): مناسبت‌های پیش رو ← راهنمای خرید دسته برای همان مناسبت (فقط اگر وقت نوشتن و دیده شدن باشد).
+        if (eligible.Count > 0 && occasions is not null)
+        {
+            var ordered = eligible.OrderByDescending(c => c.InStock).ToList();
+            var turn = 0;
+            foreach (var occasion in occasions.Where(o => o.DaysLeft >= OccasionMinDaysLeft).OrderBy(o => o.DaysLeft))
+            {
+                var label = PersianText.Clean(occasion.Name.Split('(')[0]);
+                if (label.Length == 0)
+                    continue;
+                var category = ordered[turn++ % ordered.Count];
+                var topic = $"راهنمای خرید {PersianText.Clean(category.Name)} برای {label}";
+                TryAdd(new PlanIdea(BlogArticleType.BuyingGuide, topic, topic, category.Id, [], "occasion"));
+                if (ideas.Count >= count)
+                    return ideas;
+            }
         }
 
         // ۲) چرخهٔ انواع برای هر دسته. دور ۲۳: به جای فهرست کلی «پیشنهاد خرید …»، «معرفی ویژهٔ» یک کالای واقعی پرفروش همان دسته
@@ -182,7 +207,8 @@ public sealed class BlogPlanService(FratakShopDbContext context) : IBlogPlanServ
         // موضوع منتشرشده با عنوان کامل مقایسه نمی‌شود؛ «۵ پیشنهاد خرید X» در عنوان «۵ پیشنهاد خرید X ۱۴۰۵؛ …» هم تکراری حساب شود.
         var takenTopics = taken.Concat(taken.Select(t => t.Split('؛')[0].Trim())).ToList();
         var stripped = takenTopics.Select(t => System.Text.RegularExpressions.Regex.Replace(t, @"\s*[۰-۹0-9]{4}\s*$", "", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(100))).ToList();
-        var ideas = BlogPlanner.Propose(planner, stripped, demand, needed);
+        var occasions = Seo.Autopilot.SeoCalendar.Upcoming(IranClock.Today(now), Array.Empty<string>(), 45);
+        var ideas = BlogPlanner.Propose(planner, stripped, demand, needed, occasions);
         if (ideas.Count == 0)
             return 0;
 

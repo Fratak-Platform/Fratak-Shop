@@ -945,6 +945,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<bool>("IsSystem")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("MinMarginPercent")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(250)

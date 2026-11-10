@@ -433,6 +433,7 @@ public class SupplierSyncService(
         var ids = chunk.Select(c => c.Id).ToList();
         var products = await context.Products.AsTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
         var now = DateTimeOffset.UtcNow;
+        Dictionary<Guid, Pricing.CategoryMarginNode>? marginNodes = null; // دور ۲۳: فقط وقتی قیمتی عوض شود خوانده می‌شود
 
         foreach (var candidate in chunk)
         {
@@ -474,7 +475,11 @@ public class SupplierSyncService(
                         {
                             // دور ۱۰: قیمت خرید تازه + قیمت فروش طبق سیاست تنظیمات (تاریخچهٔ قیمت را DbContext خودکار ثبت می‌کند).
                             var newCost = decision.NewValue ?? 0;
-                            var priced = SupplierRepricing.Calculate(product.PurchasePrice, newCost, product.Price, product.DiscountPrice, policy.Reprice ?? SupplierRepricePolicy.Default);
+                            // دور ۲۳ (مورد ۶۹): کف سود دستهٔ کالا (و دسته‌های بالادستی) – فقط بالاتر از کف سراسری.
+                            var basePolicy = policy.Reprice ?? SupplierRepricePolicy.Default;
+                            marginNodes ??= await Pricing.CategoryMargins.NodesAsync(context, cancellationToken);
+                            var categoryPolicy = basePolicy with { MinMarginPercent = Pricing.CategoryMargins.Effective(basePolicy.MinMarginPercent, product.CategoryId, marginNodes) };
+                            var priced = SupplierRepricing.Calculate(product.PurchasePrice, newCost, product.Price, product.DiscountPrice, categoryPolicy);
                             product.PurchasePrice = newCost;
                             product.Price = priced.Price;
                             product.DiscountPrice = priced.DiscountPrice;

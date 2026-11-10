@@ -151,7 +151,9 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
 
         var settings = await storeSettings.GetAsync(HttpContext.RequestAborted);
         var costs = PricingCosts.From(settings);
-        var categoryNames = await data.Query<Category>().Select(c => new { c.Id, c.Name }).ToListAsync();
+        var categoryNames = await data.Query<Category>().Select(c => new { c.Id, c.Name, c.ParentId, c.MinMarginPercent }).ToListAsync();
+        // دور ۲۳ (مورد ۶۹): کف سود هر دسته در قیمت پیشنهادی درون‌ریزی.
+        var marginNodes = categoryNames.ToDictionary(c => c.Id, c => new CategoryMarginNode(c.ParentId, c.MinMarginPercent));
         var brandNames = await data.Query<Brand>().Select(b => new { b.Id, b.Name }).ToListAsync();
 
         if (priceMode is not (PriceModeTarget or PriceModeSource or PriceModeMarket))
@@ -178,8 +180,9 @@ public class SiteImportModel(ISiteCatalogService catalog, IProductService produc
                 imagesFailed += failedCount;
             }
 
-            var command = BuildCommand(item, priceMode, costs, supplierId,
-                categoryNames.FirstOrDefault(c => Same(c.Name, item.Category))?.Id ?? fallbackCategory,
+            var rowCategory = categoryNames.FirstOrDefault(c => Same(c.Name, item.Category))?.Id ?? fallbackCategory;
+            var rowCosts = costs with { MinMarginPercent = CategoryMargins.Effective(costs.MinMarginPercent, rowCategory, marginNodes) };
+            var command = BuildCommand(item, priceMode, rowCosts, supplierId, rowCategory,
                 brandNames.FirstOrDefault(b => Same(b.Name, item.Brand))?.Id);
             command.Slug = await UniqueSlugAsync(EditModel.Slugify(item.Name));
             command.Images = savedNames.Select((name, i) => new ProductImageCommand { ImageName = name, AltText = command.Name, DisplayOrder = i + 1, IsPrimary = i == 0 }).ToList();

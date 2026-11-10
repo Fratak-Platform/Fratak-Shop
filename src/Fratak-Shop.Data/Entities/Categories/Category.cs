@@ -36,6 +36,13 @@ public class Category : BaseEntity
     [MaxLength(40)]
     public string? IconKey { get; set; }
 
+    /// <summary>
+    /// دور ۲۳ (مورد ۶۹): کمترین سود این دسته (درصد روی هزینه). خالی ← کف سراسری تنظیمات. زیردسته‌ها از والد ارث می‌برند و
+    /// همیشه بیشترینِ کف سراسری و کف دسته‌های بالادستی اعمال می‌شود (کف دسته هیچ‌وقت سود را پایین‌تر از کف سراسری نمی‌برد).
+    /// مثال: کف سراسری ۵٪، «گوشی» ۸٪ ← «گوشی سامسونگ» (بدون مقدار) ۸٪. محل استفاده: CategoryMargins.
+    /// </summary>
+    public int? MinMarginPercent { get; set; }
+
     public int DisplayOrder { get; set; }
 
     public bool IsActive { get; set; } = true;

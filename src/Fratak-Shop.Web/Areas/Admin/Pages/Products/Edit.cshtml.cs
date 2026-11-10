@@ -359,7 +359,7 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     /// </summary>
     [AdminPermission(AdminPermissions.ProductsManage)]
     public async Task<IActionResult> OnPostSuggestPriceAsync(Guid? id, decimal purchase, decimal extra, string? query, bool lookup = true,
-        string[]? exclude = null, string[]? include = null)
+        string[]? exclude = null, string[]? include = null, Guid? categoryId = null)
     {
         if (purchase <= 0 || purchase > 100_000_000_000m)
             return new JsonResult(new { ok = false, message = "قیمت خرید را وارد کنید (عددی بزرگ‌تر از صفر)." });
@@ -399,6 +399,17 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         var review = new Fratak_Shop.Core.Services.Pricing.OfferReviewOptions(query, excluded, included, ownShops);
 
         var costs = Fratak_Shop.Core.Services.Pricing.PricingCosts.From(settings);
+        // دور ۲۳ (مورد ۶۹): کف سود دسته (دستهٔ فرم، یا دستهٔ ذخیره‌شدهٔ کالا) – فقط بالاتر از کف سراسری.
+        categoryId ??= id is { } owner ? await data.Query<Product>().Where(p => p.Id == owner).Select(p => (Guid?)p.CategoryId).FirstOrDefaultAsync(cancellationToken) : null;
+        if (categoryId is not null)
+        {
+            var nodes = await data.Query<Category>().Select(c => new { c.Id, c.ParentId, c.MinMarginPercent }).ToListAsync(cancellationToken);
+            costs = costs with
+            {
+                MinMarginPercent = Fratak_Shop.Core.Services.Pricing.CategoryMargins.Effective(costs.MinMarginPercent, categoryId,
+                    nodes.ToDictionary(c => c.Id, c => new Fratak_Shop.Core.Services.Pricing.CategoryMarginNode(c.ParentId, c.MinMarginPercent))),
+            };
+        }
         var s = Fratak_Shop.Core.Services.Pricing.PriceAdvisor.Suggest(purchase, extra, costs, found, review);
 
         // اولین جست‌وجو (بدون حذف/حساب‌کردن کارمند) برای کارت «قیمت رقبا» ذخیره می‌شود.

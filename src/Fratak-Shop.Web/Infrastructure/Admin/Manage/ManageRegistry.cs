@@ -92,6 +92,11 @@ public static class ManageRegistry
                     Help = "نام آیکن (مثل DeviceMobile، Headset، Cpu، Plug، Lightning، Home، Gift)؛ خالی ← دستیار هوشمند از روی نوع دسته انتخاب می‌کند",
                 },
                 new("Description", "توضیحات", MKind.TextArea) { Wide = true, Rows = 4 },
+                new("MinMarginPercent", "کمترین سود دسته (٪)", MKind.Int)
+                {
+                    Ltr = true, Placeholder = "8",
+                    Help = "خالی = کف سود سراسری تنظیمات. فقط می‌تواند سود را بالاتر ببرد؛ زیردسته‌ها ارث می‌برند. در پیشنهاد قیمت و قیمت‌گذاری خودکار تأمین‌کننده اعمال می‌شود.",
+                },
                 Order(), Active(),
             ],
             Children = [("ویژگی‌های فیلتر", "filter-attributes")],
