@@ -137,10 +137,13 @@ public class ProductModel(
         var imagesAdded = 0;
         if (approved.Count > 0)
         {
-            var alts = approved.Select((img, i) => (img.FileName, Alt: i == 0 ? row.TargetTitle ?? "" : $"{row.TargetTitle} – نمای {PersianText.Digits(i + 1)}")).ToList();
+            // دور ۲۳ (مورد ۲۷): عکس تأییدشده نام انگلیسی خوانا از روی نامک کالا می‌گیرد (سئوی تصویر).
+            var slug = (await catalog.GetProductAsync(id, ct))?.Slug;
+            var named = images.SeoRename(approved.Select(f => f.FileName).ToList(), slug);
+            var alts = named.Select((name, i) => (FileName: name, Alt: i == 0 ? row.TargetTitle ?? "" : $"{row.TargetTitle} – نمای {PersianText.Digits(i + 1)}")).ToList();
             imagesAdded = await catalog.AddProductImagesAsync(id, alts, ct);
             if (imagesAdded < approved.Count)
-                images.DeleteProductFiles(approved.Skip(imagesAdded).Select(f => f.FileName));
+                images.DeleteProductFiles(named.Skip(imagesAdded));
         }
         await catalog.RecordImageFeedbackAsync(id, Feedback(approved, rejected), ct);
         images.DeleteProductFiles(rejected.Select(f => f.FileName));

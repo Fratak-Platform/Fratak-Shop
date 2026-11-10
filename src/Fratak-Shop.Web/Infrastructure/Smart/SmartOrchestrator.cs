@@ -168,11 +168,13 @@ public sealed class SmartOrchestrator(
         var pending = found.Except(auto).ToList();
         if (auto.Count > 0)
         {
-            var alts = auto.Select((f, i) => (f.FileName, Alt: i == 0 ? subject.Name : $"{subject.Name} – نمای {Core.Services.Seo.Engine.PersianText.Digits(i + 1)}")).ToList();
+            // دور ۲۳ (مورد ۲۷): نام انگلیسی خوانا از روی نامک کالا برای عکس‌هایی که مستقیم اضافه می‌شوند.
+            var named = images.SeoRename(auto.Select(f => f.FileName).ToList(), subject.Slug);
+            var alts = named.Select((name, i) => (FileName: name, Alt: i == 0 ? subject.Name : $"{subject.Name} – نمای {Core.Services.Seo.Engine.PersianText.Digits(i + 1)}")).ToList();
             var added = await catalog.AddProductImagesAsync(productId, alts, cancellationToken);
-            result.AddedImages.AddRange(auto.Take(added));
+            result.AddedImages.AddRange(auto.Take(added).Select((f, i) => f with { FileName = named[i] }));
             if (added < auto.Count)
-                images.DeleteProductFiles(auto.Skip(added).Select(f => f.FileName));
+                images.DeleteProductFiles(named.Skip(added));
         }
         result.PendingImages.AddRange(pending);
         var summary = found.Count == 0

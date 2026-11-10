@@ -138,18 +138,22 @@ public static class BannerGenerator
 /// <para>دور بیستم (همه اختیاری تا نتیجه‌های قدیمی صف هم خوانده شوند): Url = آدرس اصلی تصویر (برای فهرست سیاه)، Hash = dHash،
 /// PageUrl = صفحه‌ای که تصویر در آن بود، Title = عنوان آن صفحه/کارت، Score = امتیاز رتبه‌بندی (۰ تا ۱).</para>
 /// </summary>
+/// <para>دور ۲۳: Model = نتیجهٔ بررسی خودکار مدل منبع (<see cref="ImageModelCheck"/>)؛ نتیجه‌های قدیمی ← Unknown.</para>
 public sealed record FoundImage(string FileName, int Width, int Height, string Source, bool Trusted,
-    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0);
+    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0, ModelVerdict Model = ModelVerdict.Unknown);
 
 /// <summary>یک نامزد تصویر پیش از دانلود (داخلی یابنده و آزمون‌ها).</summary>
-public sealed record ImageCandidate(string Url, string Source, bool Trusted, double Match, string? Title = null, string? PageUrl = null)
+/// <remarks>دور ۲۳: Model = بررسی خودکار مدل منبع؛ «همان مدل» ۰٫۰۵ امتیاز بیشتر می‌گیرد (نامزد «مدل دیگر» اصلاً ساخته نمی‌شود).</remarks>
+public sealed record ImageCandidate(string Url, string Source, bool Trusted, double Match, string? Title = null, string? PageUrl = null,
+    ModelVerdict Model = ModelVerdict.Unknown)
 {
     /// <summary>
     /// امتیاز رتبه‌بندی: ۶۰٪ سابقهٔ تأیید منبع (از تصمیم‌های کارشناس) + ۴۰٪ شباهت عنوان به کالای ما + ۰٫۱ برای منبع «همان کالا».
     /// مثال: دیجی‌کالا با سابقهٔ ۰٫۸ و شباهت ۱ ← ۰٫۹۸؛ بینگ ناشناس (۰٫۴۵) با شباهت ۰٫۵ ← ۰٫۴۷.
     /// </summary>
     public double Score(IReadOnlyDictionary<string, double>? sourceScores) =>
-        Math.Round(SmartImageRules.ScoreOf(Source, sourceScores) * 0.6 + Math.Clamp(Match, 0, 1) * 0.4 + (Trusted ? 0.1 : 0), 4);
+        Math.Round(SmartImageRules.ScoreOf(Source, sourceScores) * 0.6 + Math.Clamp(Match, 0, 1) * 0.4 + (Trusted ? 0.1 : 0)
+                   + (Model == ModelVerdict.Same ? 0.05 : 0), 4);
 }
 
 /// <summary>
@@ -189,9 +193,12 @@ public sealed class SmartImageFinder(
         var scores = await catalog.ImageSourceScoresAsync(cancellationToken);
         var candidates = new List<ImageCandidate>();
 
+        // دور ۲۳: مدل هر منبع خودکار بررسی می‌شود (عنوان + ردیف «مدل» مشخصات همان صفحه). منبعِ «مدل دیگر» کنار می‌رود.
+        ModelVerdict Verify(string? text) => ImageModelCheck.Check(subject.Name, subject.EnglishName + " " + subject.Mpn, text);
         var hit = await sources.FindDigikalaAsync(subject, cancellationToken);
-        if (hit is not null && await sources.DigikalaDetailsAsync(hit.Id, cancellationToken) is { } details)
-            candidates.AddRange(details.Images.Select(u => new ImageCandidate(u, "digikala", true, 1, hit.Title)));
+        var digikalaVerdict = hit is null ? ModelVerdict.Unknown : Verify(hit.Title + " " + hit.EnglishTitle);
+        if (hit is not null && digikalaVerdict != ModelVerdict.Different && await sources.DigikalaDetailsAsync(hit.Id, cancellationToken) is { } details)
+            candidates.AddRange(details.Images.Select(u => new ImageCandidate(u, "digikala", true, 1, hit.Title, null, digikalaVerdict)));
         if (!string.IsNullOrWhiteSpace(subject.SupplierUrl))
         {
             var (_, images) = await sources.PageAsync(subject.SupplierUrl, cancellationToken);
@@ -203,9 +210,13 @@ public sealed class SmartImageFinder(
         // منابع عمومی همیشه جست‌وجو می‌شوند (کارشناس از بین ۱۰ تا ۱۵ نامزد انتخاب می‌کند)، ولی فقط با عنوان مطمئن.
         foreach (var shop in await sources.SerpShopHitsAsync(subject.SearchQuery, 4, ShopTitleMatch, cancellationToken))
         {
-            var (_, images) = await sources.PageAsync(shop.Url, cancellationToken);
+            var (specs, images) = await sources.PageAsync(shop.Url, cancellationToken);
+            var model = string.Join(' ', specs.Where(s => ImageModelCheck.IsModelKey(s.Key)).Select(s => s.Value).Take(3));
+            var verdict = Verify(shop.Title + " " + model);
+            if (verdict == ModelVerdict.Different)
+                continue;
             var key = SmartImageRules.SourceKey("serp", shop.Url);
-            candidates.AddRange(images.Take(3).Select(u => new ImageCandidate(u, key, false, shop.Match, shop.Title, shop.Url)));
+            candidates.AddRange(images.Take(3).Select(u => new ImageCandidate(u, key, false, shop.Match, shop.Title, shop.Url, verdict)));
         }
         foreach (var image in await sources.BingImageResultsAsync(subject.SearchQuery, round, cancellationToken))
         {
@@ -213,8 +224,9 @@ public sealed class SmartImageFinder(
                 continue;
             var match = Math.Max(SmartParsers.TitleMatch(subject.Name, image.Title),
                 string.IsNullOrWhiteSpace(subject.EnglishName) ? 0 : SmartParsers.TitleMatch(subject.SearchQuery, image.Title));
-            if (match >= BingTitleMatch)
-                candidates.Add(new ImageCandidate(image.Url, SmartImageRules.SourceKey("bing", image.PageUrl ?? image.Url), false, match, image.Title, image.PageUrl));
+            var bingVerdict = Verify(image.Title);
+            if (match >= BingTitleMatch && bingVerdict != ModelVerdict.Different)
+                candidates.Add(new ImageCandidate(image.Url, SmartImageRules.SourceKey("bing", image.PageUrl ?? image.Url), false, match, image.Title, image.PageUrl, bingVerdict));
         }
 
         var ranked = Rank(candidates, blacklist, scores, Math.Clamp(options.MaxImageCandidates, 6, 36));
@@ -335,6 +347,37 @@ public sealed class SmartImageFinder(
     }
 
     /// <summary>حذف فایل‌های پیشنهادی ردشده (فقط نام فایل معتبر داخل پوشهٔ محصولات).</summary>
+    /// <summary>
+    /// دور ۲۳ (مورد ۲۷): نام انگلیسی و خوانا برای عکس‌های <b>تأییدشده</b> کالا (سئوی تصویر). فایل در همان پوشه جابه‌جا می‌شود.
+    /// مثال: («9f3c….webp»، «samsung-galaxy-a55») ← «samsung-galaxy-a55-1a2b3c4d.webp». اگر نامک لاتین نباشد یا جابه‌جایی
+    /// خطا بدهد، نام قبلی می‌ماند (هیچ عکسی گم نمی‌شود). خروجی هم‌ترتیب ورودی است.
+    /// </summary>
+    public List<string> SeoRename(IReadOnlyList<string> names, string? slug)
+    {
+        var result = new List<string>(names.Count);
+        foreach (var name in names)
+        {
+            var source = uploads.GetPath(UploadArea.Products, name);
+            var target = SeoImageName.Build(slug, Path.GetExtension(name));
+            if (source is null || target is null)
+            {
+                result.Add(name);
+                continue;
+            }
+            try
+            {
+                File.Move(source, Path.Combine(Path.GetDirectoryName(source)!, target), overwrite: false);
+                result.Add(target);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                logger.LogWarning(exception, "Image {File} could not be renamed", name);
+                result.Add(name);
+            }
+        }
+        return result;
+    }
+
     public void DeleteProductFiles(IEnumerable<string> names) => uploads.Delete(UploadArea.Products, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
 
     private async Task<List<FoundImage>> DownloadAndStoreAsync(List<ImageCandidate> candidates, List<ulong> existing, ImageBlacklist blacklist,
@@ -375,7 +418,7 @@ public sealed class SmartImageFinder(
                     continue;
                 hashes.Add(info.Hash);
                 results.Add(new FoundImage(name, info.Width, info.Height, candidate.Source, candidate.Trusted,
-                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores)));
+                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores), candidate.Model));
             }
         }
         return results;

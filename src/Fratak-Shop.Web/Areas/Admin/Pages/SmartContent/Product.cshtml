@@ -91,6 +91,8 @@
               <label class="a-check text-xs"><input type="checkbox" name="imageNames" value="@img.FileName" data-gallery-check autocomplete="off"> انتخاب</label>
               <div class="a-img-meta a-muted">
                 <span class="a-badge @(img.Trusted ? "a-badge-green" : "a-badge-gray")">@img.Source</span>
+                @* دور ۲۳: بررسی خودکار مدل منبع (عنوان + ردیف «مدل» مشخصات همان صفحه). عکس «مدل دیگر» اصلاً پیشنهاد نمی‌شود. *@
+                <span class="a-badge @(img.Model == Fratak_Shop.Core.Services.Smart.ModelVerdict.Same ? "a-badge-green" : "a-badge-gray")" title="کد مدل منبع با کالای ما مقایسه شد؛ تأیید نهایی با شماست">@Fratak_Shop.Core.Services.Smart.ImageModelCheck.Label(img.Model)</span>
                 <span class="a-ltr">@Format.Number(img.Width)×@Format.Number(img.Height)</span>
                 @if (img.Score > 0)
                 {
