@@ -79,6 +79,9 @@ public sealed class AssistantHandoffService(
     /// <summary>بعد از این مدت بی‌پیامی گفت‌وگو خودکار بسته می‌شود.</summary>
     public static readonly TimeSpan IdleClose = TimeSpan.FromHours(24);
 
+    /// <summary>نام نویسندهٔ پیام‌های مشتری (پیام پیش‌زمینهٔ دستیار «دستیار» است و در سقف پیام شمرده نمی‌شود).</summary>
+    public const string CustomerAuthor = "مشتری";
+
     /// <summary>مسیر پنل.</summary>
     public const string AdminUrl = "/admin/smart/assistant/handoffs";
 
@@ -155,10 +158,11 @@ public sealed class AssistantHandoffService(
         if (handoff is null)
             return false;
         var hourAgo = DateTimeOffset.UtcNow.AddHours(-1);
-        var recent = await context.AssistantHandoffMessages.CountAsync(m => m.HandoffId == handoff.Id && !m.FromStaff && m.CreatedAt >= hourAgo, cancellationToken);
+        // فقط پیام‌های خود مشتری شمرده می‌شود (نه پیام پیش‌زمینه‌ای که دستیار هنگام باز شدن گذاشته).
+        var recent = await context.AssistantHandoffMessages.CountAsync(m => m.HandoffId == handoff.Id && !m.FromStaff && m.AuthorName == CustomerAuthor && m.CreatedAt >= hourAgo, cancellationToken);
         if (recent >= MaxCustomerPerHour)
             return false;
-        context.AssistantHandoffMessages.Add(new AssistantHandoffMessage { HandoffId = handoff.Id, FromStaff = false, AuthorName = "مشتری", Text = text });
+        context.AssistantHandoffMessages.Add(new AssistantHandoffMessage { HandoffId = handoff.Id, FromStaff = false, AuthorName = CustomerAuthor, Text = text });
         handoff.LastMessageAt = DateTimeOffset.UtcNow;
         handoff.UnreadForStaff++;
         await context.SaveChangesAsync(cancellationToken);
@@ -176,9 +180,10 @@ public sealed class AssistantHandoffService(
             .FirstOrDefaultAsync(cancellationToken);
         if (handoff is null)
             return new HandoffPollDto(false, null, []);
-        var after = DateTimeOffset.FromUnixTimeMilliseconds(Math.Clamp(afterUnixMs, 0, 253402300799999));
+        // «At» پیام‌ها تا میلی‌ثانیه گرد شده ولی زمان ذخیره‌شده دقیق‌تر است؛ پس «بعد از» یعنی از میلی‌ثانیهٔ بعد (وگرنه آخرین پیام هر بار تکرار می‌شد).
+        var after = DateTimeOffset.FromUnixTimeMilliseconds(Math.Clamp(afterUnixMs, 0, 253402300799998) + 1);
         var messages = await context.AssistantHandoffMessages.AsNoTracking()
-            .Where(m => m.HandoffId == handoff.Id && m.FromStaff && m.CreatedAt > after)
+            .Where(m => m.HandoffId == handoff.Id && m.FromStaff && m.CreatedAt >= after)
             .OrderBy(m => m.CreatedAt)
             .Select(m => new HandoffMessageDto(m.Id, m.FromStaff, m.AuthorName, m.Text, m.CreatedAt))
             .Take(20)
