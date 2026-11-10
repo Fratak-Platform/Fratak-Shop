@@ -252,12 +252,12 @@ public class SeoRound24Tests
         Assert.Equal("ایمالز – صوتی‌شاپ", offers[0].Shop);
         Assert.Equal(2_950_000m, offers[0].Price);
         Assert.Equal(CompetitorPriceService.Emalls, offers[0].Source);
-        Assert.Equal("https://emalls.ir/~id~123", offers[0].Link);
+        Assert.Equal("https://emalls.ir/~id~123", offers[0].Url);
         Assert.Equal("هدفون هایلو T15", offers[0].Title);
         Assert.Equal("ایمالز", offers[1].Shop); // نام فروشگاه فقط عدد ← بدون نام
         Assert.Equal(1_850_000m, offers[1].Price);
-        Assert.StartsWith("https://emalls.ir/", offers[1].Link);
-        Assert.Contains("~id~77", offers[1].Link);
+        Assert.StartsWith("https://emalls.ir/", offers[1].Url);
+        Assert.Contains("~id~77", offers[1].Url);
     }
 
     [Fact]
@@ -280,8 +280,8 @@ public class SeoRound24Tests
         Assert.Equal(2, offers.Count);
         Assert.Equal(1_200_000m, offers[0].Price);
         Assert.Equal("هدفون T15", offers[0].Title);
-        Assert.Contains("~id~55", offers[0].Link);
-        Assert.Null(offers[1].Link); // پیوند javascript: هرگز ذخیره نمی‌شود
+        Assert.Contains("~id~55", offers[0].Url);
+        Assert.Null(offers[1].Url); // پیوند javascript: هرگز ذخیره نمی‌شود
     }
 
     [Theory]
