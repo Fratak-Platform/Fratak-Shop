@@ -158,7 +158,7 @@ public class Round23RulesTests
         // دستهٔ کوچک، پوشش کم، همه یکسان، مقدار زیاد/بلند، کلید شناسه، فیلتر موجود ← هیچ.
         Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(5, memory, none));
         Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(20, memory, none));
-        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(8, Rows("رنگ", "مشکی", "مشکی", "مشکی", "مشکی", "مشکی", "مشکی", "مشکی", "سفید", "مشکی", "مشکی"), none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(8, Rows("رنگ", Enumerable.Repeat("مشکی", 11).Append("سفید").ToArray()), none));
         Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(20, Rows("رنگ", Enumerable.Range(0, 20).Select(i => "رنگ " + i).ToArray()), none));
         Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(6, Rows("توضیحات", "a", "b", "a", "b", "a", "b"), none));
         Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(6, Rows("جنس", new string('x', 60), "چرم", "پارچه", "چرم", "پارچه", "چرم"), none));
