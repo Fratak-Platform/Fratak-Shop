@@ -261,9 +261,10 @@ public static partial class AssistantNlu
             return Result(AssistantIntent.Preference);
 
         // سلام/تشکر خالی (بدون درخواست دیگر).
-        if (HasAny(padded, tokens, Greetings) && tokens.All(t => Greetings.Contains(t) || GreetingFillers.Contains(t) || Fillers.Contains(t)))
+        // دور ۲۵: عبارت‌های چندبخشی («صبح بخیر»، «دمت گرم»، «دستت درد نکنه») اول کامل حذف می‌شوند و بعد بقیهٔ واژه‌ها بررسی می‌شود.
+        if (HasAny(padded, tokens, Greetings) && Courtesy(padded, Greetings))
             return Result(AssistantIntent.Greeting);
-        if (tokens.Length <= 6 && HasAny(padded, tokens, ThanksWords) && query.Length == 0)
+        if (tokens.Length <= 6 && HasAny(padded, tokens, ThanksWords) && (query.Length == 0 || Courtesy(padded, ThanksWords.Concat(Greetings))))
             return Result(AssistantIntent.Thanks);
 
         // «پشتیبان/پشتیبانی» تنها ← درخواست پشتیبان؛ ولی «از بلوتوث ۵ پشتیبانی می‌کنه؟» پرسش سازگاری است.
@@ -272,6 +273,9 @@ public static partial class AssistantNlu
         // دور ۲۴: ورود/ثبت‌نام (پیش از پیگیری، چون «ورود به حساب» با «سفارش‌های من» قاطی نشود).
         if (HasAny(padded, tokens, LoginWords) && !HasAny(padded, tokens, CheckoutWords))
             return Result(AssistantIntent.Login);
+        // دور ۲۵: «سفارشمو نهایی کن» یعنی تسویه، نه پیگیری (مگر نشانهٔ واقعی پیگیری یا رفتن به صفحه‌ای در پیام باشد).
+        if (orderNumber is null && HasAny(padded, tokens, CheckoutWords) && !HasAny(padded, tokens, TrackCues) && !HasAny(padded, tokens, NavigateWords))
+            return Result(AssistantIntent.Checkout);
         if (orderNumber is not null || HasAny(padded, tokens, TrackWords))
             return Result(AssistantIntent.Track);
         // دور ۲۴: «برو به سبد»، «بازش کن»، «صفحه‌اش رو نشون بده».
@@ -279,6 +283,9 @@ public static partial class AssistantNlu
             return Result(AssistantIntent.Navigate);
         if (HasAny(padded, tokens, CheckoutWords))
             return Result(AssistantIntent.Checkout);
+        // دور ۲۵: «آدرس جدید اضافه کنم» دربارهٔ آدرس است، نه سبد خرید (وقتی واژهٔ «سبد» در پیام نیست).
+        if (HasAny(padded, tokens, AddressWords) && topic?.Key != "contact" && !tokens.Any(t => t.StartsWith("سبد", StringComparison.Ordinal)))
+            return Result(AssistantIntent.Address);
         if (HasAny(padded, tokens, RemoveWords))
             return Result(AssistantIntent.CartRemove);
         if (HasAny(padded, tokens, AddWords))
@@ -455,6 +462,26 @@ public static partial class AssistantNlu
     }
 
     private static bool HasAny(string padded, string[] tokens, IEnumerable<string> words) => words.Any(w => Has(padded, tokens, w));
+
+    /// <summary>نشانه‌های قطعی پیگیری (برای اینکه «نهایی کن» با «سفارشم کجاست» قاطی نشود).</summary>
+    private static readonly string[] TrackCues = ["پیگیری", "رهگیری", "وضعیت", "کجاست", "کجاس", "نرسیده", "نیومده", "کی میرسه", "ارسال شد"];
+
+    /// <summary>
+    /// دور ۲۵: پیام فقط تعارف است؟ عبارت‌های <paramref name="phrases"/> (بلندترها اول) از متن حذف می‌شوند؛
+    /// اگر چیزی جز واژه‌های پرکننده/احوال‌پرسی نماند ← true.
+    /// مثال: («صبح بخیر»، سلام‌ها) ← true؛ («دستت درد نکنه»، تشکرها) ← true؛ («ممنون پاوربانک میخوام»، تشکرها) ← false.
+    /// </summary>
+    private static bool Courtesy(string padded, IEnumerable<string> phrases)
+    {
+        var rest = padded;
+        foreach (var phrase in phrases.OrderByDescending(p => p.Length))
+        {
+            var needle = " " + phrase + " ";
+            while (rest.Contains(needle, StringComparison.Ordinal))
+                rest = rest.Replace(needle, " ", StringComparison.Ordinal);
+        }
+        return rest.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(t => GreetingFillers.Contains(t) || Fillers.Contains(t));
+    }
 
     /// <summary>
     /// واژهٔ چندبخشی ← وجود عبارت کامل؛ واژهٔ ≤۳ نویسه ← فقط واژهٔ کامل؛ بقیه ← شروع یک واژه (برای پسوندها: «سبدم»، «گارانتیش»).

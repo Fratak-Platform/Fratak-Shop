@@ -280,7 +280,7 @@ public static partial class AssistantSlotParser
             var token = tokens[i];
 
             // «بین ۲ و ۳ میلیون» / «بین ۲ تا ۳ میلیون» / «از ۲ تا ۳ میلیون»
-            if (token is "بین" or "از" && TryAmount(tokens, i + 1, out var a) && a.End < tokens.Length && tokens[a.End] is "تا" or "و"
+            if (token is "بین" or "از" && TryAmount(tokens, i + 1, out var a, rangeStart: true) && a.End < tokens.Length && tokens[a.End] is "تا" or "و"
                 && TryAmount(tokens, a.End + 1, out var b) && (token == "بین" || tokens[a.End] == "تا"))
             {
                 var inherited = !a.HasUnit && b.HasUnit ? b.Multiplier : (decimal?)null;
@@ -296,7 +296,7 @@ public static partial class AssistantSlotParser
             }
 
             // «۲ تا ۳ میلیون» (بدون «بین/از»؛ عدد دوم باید واحد داشته باشد تا با «۲ تا هدفون» قاطی نشود)
-            if (IsDigits(token) && TryAmount(tokens, i, out var first) && !first.HasUnit && first.End < tokens.Length && tokens[first.End] == "تا"
+            if (IsDigits(token) && TryAmount(tokens, i, out var first, rangeStart: true) && !first.HasUnit && first.End < tokens.Length && tokens[first.End] == "تا"
                 && TryAmount(tokens, first.End + 1, out var second) && (Pricey(second) || hasBudgetWord && second.HasUnit))
             {
                 var low = first.Toman(second.HasUnit ? second.Multiplier : null);
@@ -412,7 +412,7 @@ public static partial class AssistantSlotParser
     /// خواندن مبلغ از اندیس i: عدد (رقمی یا حروفی + «و نیم»)، واحد اختیاری، «و» + عدد دوم (مثل «۲ میلیون و ۵۰۰ هزار»)، تومان/ریال اختیاری.
     /// عدد حروفی («دو»، «پونصد») فقط وقتی واحد دارد پذیرفته می‌شود تا «یه هدفون» عدد حساب نشود.
     /// </summary>
-    private static bool TryAmount(string[] tokens, int i, out Amount amount)
+    private static bool TryAmount(string[] tokens, int i, out Amount amount, bool rangeStart = false)
     {
         amount = default;
         if (i >= tokens.Length)
@@ -492,7 +492,9 @@ public static partial class AssistantSlotParser
         if (wordNumber && !hasUnit && !hasCurrency)
             return false;
         // «۲۰ هزار میلی آمپر»، «۱۰ وات»: اندازه است نه قیمت.
-        if (!hasCurrency && at < tokens.Length && Measures.Contains(tokens[at]))
+        // دور ۲۵: «تا» بعد از عدد اول بازه («بین ۵ تا ۸ میلیون») شمارنده نیست، رابط بازه است (rangeStart)؛
+        // ولی «۲ تا هدفون» همچنان تعداد است چون بعد از «تا» مبلغی نمی‌آید.
+        if (!hasCurrency && at < tokens.Length && Measures.Contains(tokens[at]) && !(rangeStart && tokens[at] == "تا"))
             return false;
         amount = new Amount(raw, multiplier, at, hasUnit, hasCurrency, adjective, currency);
         return true;

@@ -49,9 +49,14 @@ public sealed partial class AssistantVocabulary
     {
         var catalog = catalogTexts.SelectMany(Tokens).Where(t => t.Length >= 3).Distinct(StringComparer.Ordinal).Take(MaxCatalogWords).ToList();
         HasCatalog = catalog.Count > 0;
-        _words = new HashSet<string>(AssistantNlu.Lexicon, StringComparer.Ordinal);
-        _words.UnionWith(AssistantSlotParser.Lexicon);
-        _words.UnionWith(AssistantLanguage.CommonWords);
+        // همهٔ واژه‌ها با همان نرمال‌سازی پیام مشتری ذخیره می‌شوند (مثلاً «شیائومی» ← «شیایومی»)؛
+        // وگرنه واژهٔ درست پس از نرمال‌سازی «ناآشنا» دیده و به اشتباه «اصلاح» می‌شد.
+        _words = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var word in AssistantNlu.Lexicon.Concat(AssistantSlotParser.Lexicon).Concat(AssistantLanguage.CommonWords))
+        {
+            _words.Add(word);
+            _words.Add(PersianText.Normalize(word));
+        }
         _words.UnionWith(catalog);
         _byFirst = _words.Where(w => w.Length >= 3).GroupBy(w => w[0]).ToDictionary(g => g.Key, g => g.ToArray());
     }
