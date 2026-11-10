@@ -27,6 +27,7 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
         ("auto", "تغییرهای خودکار"),
         ("history", "رسیدگی‌شده"),
         ("runs", "اجراها"),
+        ("reliability", "اعتبار تأمین‌کننده‌ها"),
     ];
 
     [BindProperty(SupportsGet = true)] public string Tab { get; set; } = "pending";
@@ -48,6 +49,9 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
 
     public SupplierSyncDashboard Dashboard { get; private set; } = null!;
     public PagedList<SupplierChangeRow> Changes { get; private set; } = new([], 0, 1, 50);
+
+    /// <summary>دور ۲۳ (مورد ۷۴): اعتبار تأمین‌کننده‌ها (زبانهٔ reliability).</summary>
+    public IReadOnlyList<SupplierReliabilityRow> Reliability { get; private set; } = [];
     public bool RunQueued => queue.HasPending;
 
     public async Task OnGetAsync([FromQuery(Name = "page")] int pageNumber = 1)
@@ -61,6 +65,10 @@ public class SupplierSyncModel(ISupplierSyncService sync, SupplierSyncQueue queu
                 StateFilter = "all";
             StateCounts = await sync.CountStatesAsync(HttpContext.RequestAborted);
             States = await sync.ListStatesAsync(new SupplierStateQuery(StateFilter, Search, ClampPage(pageNumber)), HttpContext.RequestAborted);
+        }
+        else if (Tab == "reliability")
+        {
+            Reliability = await sync.GetReliabilityAsync(HttpContext.RequestAborted);
         }
         else if (Tab != "runs")
         {

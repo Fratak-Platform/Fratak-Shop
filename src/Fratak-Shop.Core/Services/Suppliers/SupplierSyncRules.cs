@@ -266,3 +266,80 @@ public static class SupplierSyncSchedule
     public static bool IsDue(DateTimeOffset now, int runsPerDay, DateTimeOffset? lastScheduledStart) =>
         lastScheduledStart is null || lastScheduledStart.Value < LatestSlot(now, runsPerDay);
 }
+
+/// <summary>
+/// دور ۲۳ (مورد ۷۰): «بررسی تطبیقی» – در اجرای زمان‌بندی‌شده، کالای پایدار یا مشکل‌دار کمتر بررسی می‌شود تا درخواست‌ها
+/// (و خطر بسته شدن دسترسی توسط سایت منبع و فشار روی هاست) کم شود؛ کالای پرتغییر و کالای در حال فروش همیشه بررسی می‌شود.
+/// <para>قانون‌ها (کمینهٔ فاصله از آخرین بررسی):</para>
+/// <list type="bullet">
+/// <item>هرگز بررسی نشده ← همین حالا.</item>
+/// <item>خطای پیاپی ≥ ۳ ← ۱۲ ساعت (صفحهٔ خراب را مدام نکوبیم).</item>
+/// <item>در منبع «پیدا نشد» ← ۲۴ ساعت.</item>
+/// <item>ما موجودی داریم (در حال فروش) ← اگر در ۷ روز اخیر تغییری داشته همین حالا، وگرنه ۶ ساعت.</item>
+/// <item>ما موجودی نداریم و منبع هم ناموجود است ← ۱۲ ساعت (برگشت به موجودی فقط پیشنهاد است و فوری نیست).</item>
+/// <item>بقیه ← همین حالا.</item>
+/// </list>
+/// <para>اجرای دستی (دکمهٔ «بررسی الان» کارمند) هیچ کالایی را رد نمی‌کند. استفاده: SupplierSyncService.ProcessAsync.</para>
+/// </summary>
+public static class SupplierAdaptiveSync
+{
+    /// <summary>کمینهٔ فاصلهٔ بررسی. مثال: کالای در حال فروش که ۳۰ روز تغییری نداشته ← ۶ ساعت.</summary>
+    public static TimeSpan MinInterval(SupplierItemStatus status, DateTimeOffset? checkedAt, int consecutiveErrors, DateTimeOffset? lastChangeAt,
+        int ourStock, DateTimeOffset now)
+    {
+        if (checkedAt is null)
+            return TimeSpan.Zero;
+        if (consecutiveErrors >= 3)
+            return TimeSpan.FromHours(12);
+        if (status == SupplierItemStatus.NotFound)
+            return TimeSpan.FromHours(24);
+        if (ourStock > 0)
+            return lastChangeAt is { } changed && now - changed < TimeSpan.FromDays(7) ? TimeSpan.Zero : TimeSpan.FromHours(6);
+        if (status == SupplierItemStatus.OutOfStock)
+            return TimeSpan.FromHours(12);
+        return TimeSpan.Zero;
+    }
+
+    /// <summary>آیا این نوبت باید رد شود؟ (فقط اجرای زمان‌بندی‌شده). مثال: آخرین بررسی ۲ ساعت پیش و کمینه ۶ ساعت ← true.</summary>
+    public static bool Skip(SupplierItemStatus status, DateTimeOffset? checkedAt, int consecutiveErrors, DateTimeOffset? lastChangeAt,
+        int ourStock, DateTimeOffset now)
+    {
+        var interval = MinInterval(status, checkedAt, consecutiveErrors, lastChangeAt, ourStock, now);
+        return interval > TimeSpan.Zero && checkedAt is { } at && now - at < interval;
+    }
+}
+
+/// <summary>یک ردیف «اعتبار تأمین‌کننده».</summary>
+/// <param name="SupplierId">null یعنی کالاهایی که تأمین‌کنندهٔ تعریف‌شده ندارند (فقط لینک).</param>
+public sealed record SupplierReliabilityRow(Guid? SupplierId, string Name, int Products, int InStock, int OutOfStock, int NotFound, int Errors,
+    int PriceChanges30Days, int Score, string Verdict);
+
+/// <summary>
+/// دور ۲۳ (مورد ۷۴): امتیاز اعتبار تأمین‌کننده (۰ تا ۱۰۰) از دادهٔ واقعی بررسی‌ها – بدون حدس.
+/// <para>فرمول: ۵۰٪ نسبت «موجود» به کالاهای بررسی‌شده + ۳۵٪ نبودِ مشکل (پیدا نشد/خطا) + ۱۵٪ ثبات قیمت
+/// (تغییر قیمت در ۳۰ روز به ازای هر کالا؛ ۲ تغییر یا بیشتر = بی‌ثبات کامل).</para>
+/// <para>مثال: ۱۰ کالا، ۹ موجود، ۱ ناموجود، بدون مشکل، ۲ تغییر قیمت ← ۴۵ + ۳۵ + ۱۳٫۵ ≈ ۹۴ «خوب».</para>
+/// <para>کمتر از ۵ کالای بررسی‌شده ← «دادهٔ کم» (قضاوت نمی‌کنیم). نمایش: پنل ← بررسی تأمین‌کننده ← «اعتبار تأمین‌کننده‌ها».</para>
+/// </summary>
+public static class SupplierReliability
+{
+    /// <summary>کمترین تعداد کالای بررسی‌شده برای قضاوت.</summary>
+    public const int MinProducts = 5;
+
+    /// <summary>امتیاز. ورودی‌ها تعداد کالاها بر اساس آخرین وضعیت هستند.</summary>
+    public static int Score(int inStock, int outOfStock, int notFound, int errors, int priceChanges30Days)
+    {
+        var checkedCount = inStock + outOfStock + notFound + errors;
+        if (checkedCount <= 0)
+            return 0;
+        var available = (double)inStock / checkedCount;
+        var problems = (double)(notFound + errors) / checkedCount;
+        var volatility = Math.Min(1d, priceChanges30Days / (2d * checkedCount));
+        var score = 50 * available + 35 * (1 - problems) + 15 * (1 - volatility);
+        return (int)Math.Round(Math.Clamp(score, 0, 100), MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>برچسب فارسی. مثال: (۹۳، ۱۰) ← «خوب»؛ (۹۰، ۳) ← «دادهٔ کم».</summary>
+    public static string Verdict(int score, int checkedProducts) =>
+        checkedProducts < MinProducts ? "دادهٔ کم" : score >= 80 ? "خوب" : score >= 60 ? "متوسط" : "ضعیف";
+}

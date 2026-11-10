@@ -164,6 +164,9 @@ public interface ISupplierSyncService
     Task<OperationResult> RejectAsync(IReadOnlyList<Guid> changeIds, Guid userId, string userName);
 
     Task<SupplierProductStatusDto?> GetProductStatusAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۳ (مورد ۷۴): اعتبار هر تأمین‌کننده از آخرین وضعیت کالاها و تغییر قیمت‌های ۳۰ روز اخیر (<see cref="SupplierReliability"/>).</summary>
+    Task<IReadOnlyList<SupplierReliabilityRow>> GetReliabilityAsync(CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -204,7 +207,7 @@ public class SupplierSyncService(
 
     // ── اجرا ────────────────────────────────────────────────────────────
 
-    private sealed record Candidate(Guid Id, string Url, SupplierSyncMode Mode);
+    private sealed record Candidate(Guid Id, string Url, SupplierSyncMode Mode, int Stock = 0);
 
     /// <summary>آخرین رسیدگی کارمند به یک نوع تغییر برای یک محصول (برای جلوگیری از پیشنهاد تکراری).</summary>
     private sealed record DecidedInfo(SupplierChangeStatus Status, decimal? NewValue, DateTimeOffset? DecidedAt);
@@ -300,11 +303,40 @@ public class SupplierSyncService(
             .Where(p => p.SupplierUrl != null && p.SupplierUrl != "" && !p.ExcludeFromSupplierSync
                         && (p.SupplierId == null || (p.Supplier!.IsActive && p.Supplier.SyncMode != SupplierSyncMode.Disabled)))
             .OrderBy(p => p.SupplierId).ThenBy(p => p.Id)
-            .Select(p => new Candidate(p.Id, p.SupplierUrl!, p.Supplier == null ? SupplierSyncMode.Auto : p.Supplier.SyncMode))
+            .Select(p => new Candidate(p.Id, p.SupplierUrl!, p.Supplier == null ? SupplierSyncMode.Auto : p.Supplier.SyncMode, p.StockQuantity))
             .Take(MaxProducts)
             .ToListAsync(cancellationToken);
 
         var states = await context.SupplierProductStates.AsTracking().ToDictionaryAsync(s => s.ProductId, cancellationToken);
+
+        // دور ۲۳ (مورد ۷۰): بررسی تطبیقی – فقط در اجرای زمان‌بندی‌شده کالای پایدار/مشکل‌دار این نوبت رد می‌شود (SupplierAdaptiveSync).
+        var skipped = 0;
+        var reachedLimit = candidates.Count >= MaxProducts;
+        if (run.Trigger == SupplierSyncTrigger.Scheduled && states.Count > 0)
+        {
+            var changeSince = DateTimeOffset.UtcNow.AddDays(-7);
+            var recentlyChanged = (await context.SupplierChanges.AsNoTracking()
+                    .Where(c => c.CreatedAt >= changeSince)
+                    .GroupBy(c => c.ProductId)
+                    .Select(g => new { ProductId = g.Key, Last = g.Max(c => c.CreatedAt) })
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.ProductId, x => x.Last);
+            var clock = DateTimeOffset.UtcNow;
+            var kept = new List<Candidate>(candidates.Count);
+            foreach (var candidate in candidates)
+            {
+                // لینک عوض‌شده (ResolvedUrl با لینک فعلی فرق دارد) هرگز رد نمی‌شود.
+                if (states.TryGetValue(candidate.Id, out var known) && (known.ResolvedUrl is null || known.ResolvedUrl == candidate.Url)
+                    && SupplierAdaptiveSync.Skip(known.Status, known.CheckedAt, known.ConsecutiveErrors,
+                        recentlyChanged.TryGetValue(candidate.Id, out var last) ? last : null, candidate.Stock, clock))
+                {
+                    skipped++;
+                    continue;
+                }
+                kept.Add(candidate);
+            }
+            candidates = kept;
+        }
         var pending = (await context.SupplierChanges.AsTracking()
                 .Where(c => c.Status == SupplierChangeStatus.Pending)
                 .ToListAsync(cancellationToken))
@@ -366,7 +398,12 @@ public class SupplierSyncService(
             }
         }
 
-        run.Message = candidates.Count >= MaxProducts ? $"فقط {MaxProducts:N0} محصول اول بررسی شد." : null;
+        var notes = new List<string>(2);
+        if (reachedLimit)
+            notes.Add($"فقط {MaxProducts:N0} محصول اول بررسی شد.");
+        if (skipped > 0)
+            notes.Add($"{skipped:N0} کالای پایدار یا مشکل‌دار طبق بررسی تطبیقی در این نوبت بررسی نشد.");
+        run.Message = notes.Count == 0 ? null : string.Join(" ", notes);
     }
 
     /// <summary>
@@ -672,6 +709,42 @@ public class SupplierSyncService(
             problems,
             byKind,
             runs);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SupplierReliabilityRow>> GetReliabilityAsync(CancellationToken cancellationToken = default)
+    {
+        // فقط شمارش‌های گروهی در SQL (سبک حتی با هزاران کالا).
+        var statuses = await context.SupplierProductStates.AsNoTracking()
+            .Where(s => s.CheckedAt != null)
+            .GroupBy(s => new { s.Product.SupplierId, s.Status })
+            .Select(g => new { g.Key.SupplierId, g.Key.Status, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        var since = DateTimeOffset.UtcNow.AddDays(-30);
+        var priceChanges = (await context.SupplierChanges.AsNoTracking()
+                .Where(c => c.Kind == SupplierChangeKind.PriceChange && c.CreatedAt >= since)
+                .GroupBy(c => c.Product.SupplierId)
+                .Select(g => new { SupplierId = g.Key, Count = g.Count() })
+                .ToListAsync(cancellationToken))
+            .ToDictionary(x => x.SupplierId ?? Guid.Empty, x => x.Count);
+        var names = await context.Suppliers.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+
+        var rows = new List<SupplierReliabilityRow>();
+        foreach (var group in statuses.GroupBy(x => x.SupplierId))
+        {
+            int Of(SupplierItemStatus status) => group.Where(x => x.Status == status).Sum(x => x.Count);
+            var inStock = Of(SupplierItemStatus.InStock);
+            var outOfStock = Of(SupplierItemStatus.OutOfStock);
+            var notFound = Of(SupplierItemStatus.NotFound);
+            var errors = group.Sum(x => x.Count) - inStock - outOfStock - notFound;
+            var checkedCount = inStock + outOfStock + notFound + errors;
+            var changes = priceChanges.TryGetValue(group.Key ?? Guid.Empty, out var count) ? count : 0;
+            var score = SupplierReliability.Score(inStock, outOfStock, notFound, errors, changes);
+            var name = group.Key is { } id && names.TryGetValue(id, out var supplierName) ? supplierName : "بدون تأمین‌کنندهٔ تعریف‌شده (فقط لینک)";
+            rows.Add(new SupplierReliabilityRow(group.Key, name, checkedCount, inStock, outOfStock, notFound, errors, changes, score,
+                SupplierReliability.Verdict(score, checkedCount)));
+        }
+        return rows.OrderBy(r => r.Products < SupplierReliability.MinProducts).ThenBy(r => r.Score).ToList();
     }
 
     public async Task<PagedList<SupplierChangeRow>> ListChangesAsync(SupplierChangeQuery query, CancellationToken cancellationToken = default)

@@ -116,7 +116,40 @@
   }
 </nav>
 
-@if (Model.Tab == "runs")
+@if (Model.Tab == "reliability")
+{
+  @* دور ۲۳ (مورد ۷۴): اعتبار تأمین‌کننده – از آخرین وضعیت واقعی کالاها؛ کمتر از ۵ کالا = «دادهٔ کم». *@
+  <div class="a-card" id="supplier-reliability">
+    <p class="a-muted text-sm mb-3">امتیاز از ۱۰۰: نیمی از «موجود بودن» کالاها در منبع، ۳۵٪ از نبودِ مشکل (پیدا نشد / خطای خواندن) و ۱۵٪ از ثبات قیمت در ۳۰ روز اخیر. بدترین‌ها اول آمده‌اند.</p>
+    @if (Model.Reliability.Count == 0)
+    {
+      <div class="a-empty">هنوز کالایی از تأمین‌کننده‌ها بررسی نشده است.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>تأمین‌کننده</th><th>امتیاز</th><th>کالاهای بررسی‌شده</th><th>موجود / ناموجود</th><th>پیدا نشد / خطا</th><th>تغییر قیمت ۳۰ روز</th></tr></thead>
+          <tbody>
+            @foreach (var r in Model.Reliability)
+            {
+              var css = r.Verdict == "خوب" ? "a-badge-green" : r.Verdict == "متوسط" ? "a-badge-yellow" : r.Verdict == "ضعیف" ? "a-badge-red" : "a-badge-gray";
+              <tr>
+                <td data-label="تأمین‌کننده">@r.Name</td>
+                <td data-label="امتیاز"><span class="a-badge @css">@Format.Number(r.Score) – @r.Verdict</span></td>
+                <td data-label="کالاهای بررسی‌شده" class="num">@Format.Number(r.Products)</td>
+                <td data-label="موجود / ناموجود" class="num">@Format.Number(r.InStock) / @Format.Number(r.OutOfStock)</td>
+                <td data-label="پیدا نشد / خطا" class="num">@Format.Number(r.NotFound) / @Format.Number(r.Errors)</td>
+                <td data-label="تغییر قیمت ۳۰ روز" class="num">@Format.Number(r.PriceChanges30Days)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}
+else if (Model.Tab == "runs")
 {
   <div class="a-card">
     <div class="a-table-wrap">
