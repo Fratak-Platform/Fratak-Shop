@@ -74,7 +74,7 @@
     <div class="lg:col-span-2"><label class="a-label" for="b-topic">عنوان دلخواه مقاله</label><input id="b-topic" name="topic" class="a-input" maxlength="200" required placeholder="مثلاً ۵ پیشنهاد خرید هدفون بی‌سیم برای ورزش"><p class="a-help">همین عنوان روی مقاله می‌نشیند؛ متن از کالاهای واقعی همان دسته نوشته می‌شود.</p></div>
     <div><label class="a-label" for="b-type">نوع</label>
       <select id="b-type" name="type" class="a-input">
-        @foreach (var t in new[] { BlogArticleType.BuyingGuide, BlogArticleType.BestPicks, BlogArticleType.Comparison, BlogArticleType.HowTo, BlogArticleType.Review })
+        @foreach (var t in new[] { BlogArticleType.CategoryGuide, BlogArticleType.Campaign, BlogArticleType.News, BlogArticleType.Review, BlogArticleType.BuyingGuide, BlogArticleType.Comparison, BlogArticleType.BestPicks, BlogArticleType.HowTo })
         {
           <option value="@t">@SmartUi.ArticleTypeTitle(t)</option>
         }

@@ -75,10 +75,11 @@ public class Round23BlogTests
         Assert.Equal("راهنمای خرید هدفون برای شب یلدا", occasional[0].Topic);
         Assert.Equal(headphones.Id, occasional[0].CategoryId);
         Assert.Equal("راهنمای خرید پاوربانک برای سپندارمذگان", occasional[1].Topic); // پرانتز حذف، دسته‌ها به نوبت
-        Assert.All(occasional, i => Assert.Equal(BlogArticleType.BuyingGuide, i.Type));
+        Assert.All(occasional, i => Assert.Equal(BlogArticleType.Campaign, i.Type)); // دور ۲۶: مقالهٔ مناسبتی = نوع «کمپین»
         Assert.All(occasional, i => Assert.Equal(i.Topic, i.Keyword)); // کلیدواژه در عنوان هست (شرط نویسنده)
         Assert.DoesNotContain(ideas, i => i.Topic.Contains("روز دانشجو", StringComparison.Ordinal));
-        Assert.DoesNotContain(ideas, i => i.CategoryId == thin.Id); // دستهٔ کم‌کالا هرگز
+        // دور ۲۶: دستهٔ تک‌کالا هم ایدهٔ دسته‌ای می‌گیرد، ولی راهنمای خرید (نیازمند ≥ ۲ کالا) نه.
+        Assert.DoesNotContain(ideas, i => i.CategoryId == thin.Id && i.Type == BlogArticleType.BuyingGuide);
         Assert.DoesNotContain(ideas, i => i.Topic.Contains("بهترین", StringComparison.Ordinal));
     }
 

@@ -53,7 +53,10 @@ public static class SmartUi
         BlogArticleType.BestPicks => "بهترین‌ها",
         BlogArticleType.Comparison => "مقایسه",
         BlogArticleType.HowTo => "آموزشی",
-        BlogArticleType.Review => "بررسی",
+        BlogArticleType.Review => "معرفی کالا",
+        BlogArticleType.CategoryGuide => "معرفی دسته",
+        BlogArticleType.Campaign => "کمپین",
+        BlogArticleType.News => "خبر",
         _ => "—",
     };
 

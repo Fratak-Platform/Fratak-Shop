@@ -12,6 +12,17 @@ namespace Fratak_Shop.Data.Entities.Design;
 //   • LandingPage  ← Core/Services/Design/LandingPageService.cs، صفحه‌ساز پنل /admin/campaigns و صفحهٔ عمومی /campaign/{slug}
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// <summary>
+/// دور ۲۶ – حرکت بنر («گیف»): None = ثابت، Soft = یک بار ورود نرم عنصرها، Loop = ورود/خروج پیوسته (چرخهٔ ۹ ثانیه‌ای).
+/// برای کاربرانی که «کاهش حرکت» را در سیستم‌شان روشن کرده‌اند همیشه ثابت نشان داده می‌شود.
+/// </summary>
+public enum BannerMotion : byte
+{
+    None = 0,
+    Soft = 1,
+    Loop = 2,
+}
+
 /// <summary>نوع طرح؛ اندازهٔ پیش‌فرض از روی نوع و «جایگاه» انتخاب می‌شود (DesignPresets).</summary>
 public enum DesignKind : byte
 {
@@ -85,6 +96,9 @@ public class DesignDoc : BaseEntity
     /// برای همین سامانه هر ایدهٔ اسلایدر را در دو قاب می‌سازد و ویرایشگر هر دو را با زبانه نشان می‌دهد.
     /// </summary>
     public string? MobileJson { get; set; }
+
+    /// <summary>دور ۲۶ – حرکت بنر در سایت (ثابت / ورود نرم / ورود و خروج پیوسته).</summary>
+    public BannerMotion Animation { get; set; }
 
     [MaxLength(200)]
     public string? MobileImageName { get; set; }

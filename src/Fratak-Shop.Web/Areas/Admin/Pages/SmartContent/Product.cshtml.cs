@@ -99,7 +99,8 @@ public class ProductModel(
             "review" => SmartTaskKind.ProductReview,
             _ => SmartTaskKind.ProductComplete,
         };
-        await queue.EnqueueAsync(taskKind, SmartTarget.Product, id, subject.Name, SmartPriority.Manual, null, ActorId, ActorName, ct);
+        // دور ۲۶: بار {"manual":1} یعنی «مدیر خودش خواست» ← دستیار هرگز با «لازم نیست» رد نمی‌کند (تحقیق عمیق‌تر و پیشنهاد نسخهٔ تازه).
+        await queue.EnqueueAsync(taskKind, SmartTarget.Product, id, subject.Name, SmartPriority.Manual, "{\"manual\":1}", ActorId, ActorName, ct);
         SuccessMessage = $"«{SmartUi.KindTitle(taskKind)}» در صف قرار گرفت و معمولاً کمتر از یک دقیقه طول می‌کشد. صفحه را چند لحظه بعد تازه کنید.";
         return RedirectToPage(new { id });
     }

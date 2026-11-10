@@ -130,13 +130,16 @@ public sealed class SmartOrchestrator(
 
     public async Task<SmartOutcome> RunAsync(ClaimedSmartTask task, CancellationToken cancellationToken)
     {
+        // دور ۲۶: کاری که مدیر خودش از صفحهٔ کالا خواسته (بار {"manual":1}) هرگز با «لازم نیست» رد نمی‌شود: تحقیق عمیق‌تر،
+        // و اگر متن/مشخصهٔ انسانی هست، نسخهٔ تازه «پیشنهاد» می‌شود (بدون دست زدن به متن فعلی تا تأیید مدیر).
+        var manual = PayloadInt(task.PayloadJson, "manual") == 1;
         return task.Kind switch
         {
             SmartTaskKind.ProductImages when task.TargetId is { } id => await ProductImagesAsync(id, manual: true, PayloadInt(task.PayloadJson, "round"), cancellationToken),
-            SmartTaskKind.ProductReview when task.TargetId is { } id => await ProductReviewAsync(id, cancellationToken),
-            SmartTaskKind.ProductSpecs when task.TargetId is { } id => await ProductSpecsAsync(id, cancellationToken),
-            SmartTaskKind.ProductInsight when task.TargetId is { } id => await ProductInsightAsync(id, cancellationToken),
-            SmartTaskKind.ProductComplete when task.TargetId is { } id => await ProductCompleteAsync(id, cancellationToken),
+            SmartTaskKind.ProductReview when task.TargetId is { } id => await ProductReviewAsync(id, manual, cancellationToken),
+            SmartTaskKind.ProductSpecs when task.TargetId is { } id => await ProductSpecsAsync(id, manual, cancellationToken),
+            SmartTaskKind.ProductInsight when task.TargetId is { } id => await ProductInsightAsync(id, manual, cancellationToken),
+            SmartTaskKind.ProductComplete when task.TargetId is { } id => await ProductCompleteAsync(id, manual, cancellationToken),
             SmartTaskKind.CategoryComplete when task.TargetId is { } id => await CategoryAsync(id, task.PayloadJson, cancellationToken),
             SmartTaskKind.BlogArticle when task.TargetId is { } id => await BlogArticleAsync(id, cancellationToken),
             SmartTaskKind.BlogImage when task.TargetId is { } id => await BlogImageAsync(id, task.PayloadJson, cancellationToken),
@@ -186,13 +189,20 @@ public sealed class SmartOrchestrator(
 
     // ───────────────────────────── مشخصات ─────────────────────────────
 
-    private async Task<SmartOutcome> ProductSpecsAsync(Guid productId, CancellationToken cancellationToken)
+    /// <summary>
+    /// مشخصات از دیجی‌کالا (همان کالا)، صفحهٔ تأمین‌کننده و فروشگاه‌های نتایج جست‌وجو؛ ادغام با رأی منابع.
+    /// <para>دور ۲۶: درخواست دستی ← فروشگاه‌های بیشتر (۲ برابر) و هرگز «کامل بود» نمی‌گوید: نتیجهٔ تحقیق (چند منبع، چند ردیف) گزارش می‌شود.
+    /// کالای هرگز منتشرنشده: ردیف تازه از منبع مطمئن (دیجی‌کالا یا تأمین‌کننده) با یک منبع هم خودکار اضافه می‌شود تا کالا بدون دخالت
+    /// انسان به «آمادهٔ انتشار» برسد (مدیر پیش از انتشار همه را می‌بیند). تغییر مقدار فعلی همیشه فقط پیشنهاد است.</para>
+    /// </summary>
+    private async Task<SmartOutcome> ProductSpecsAsync(Guid productId, bool manual, CancellationToken cancellationToken)
     {
         var subject = await catalog.GetProductAsync(productId, cancellationToken);
         if (subject is null)
             return new SmartOutcome(SmartTaskStatus.Skipped, "محصول پیدا نشد.");
         var options = await config.GetAsync(cancellationToken);
         var observations = new List<SpecObservation>();
+        var deep = manual || subject.NeverPublished;
 
         var hit = await sources.FindDigikalaAsync(subject, cancellationToken);
         if (hit is not null && await sources.DigikalaDetailsAsync(hit.Id, cancellationToken) is { } details)
@@ -202,14 +212,22 @@ public sealed class SmartOrchestrator(
             var (specs, _) = await sources.PageAsync(subject.SupplierUrl, cancellationToken);
             observations.AddRange(specs.Select(s => new SpecObservation("supplier", s.Key, s.Value)));
         }
-        foreach (var url in await sources.SerpShopsAsync(subject.SearchQuery, SpecShopsMax, cancellationToken))
+        var trusted = observations.ToList();
+        var shops = 0;
+        foreach (var url in await sources.SerpShopsAsync(subject.SearchQuery, deep ? SpecShopsMax * 2 : SpecShopsMax, cancellationToken))
         {
             var (specs, _) = await sources.PageAsync(url, cancellationToken);
             var host = new Uri(url).Host;
+            if (specs.Count > 0)
+                shops++;
             observations.AddRange(specs.Select(s => new SpecObservation(host, s.Key, s.Value)));
         }
         if (observations.Count == 0)
-            return new SmartOutcome(SmartTaskStatus.Skipped, "هیچ منبعی مشخصات این کالا را نداشت (یا موقتاً در دسترس نبود).");
+        {
+            return new SmartOutcome(SmartTaskStatus.Skipped, manual
+                ? "در دیجی‌کالا، صفحهٔ تأمین‌کننده و نتایج جست‌وجو مشخصاتی برای همین کالا پیدا نشد (یا منبع‌ها موقتاً در دسترس نبودند)؛ با نام انگلیسی/مدل دقیق‌تر دوباره امتحان کنید."
+                : "هیچ منبعی مشخصات این کالا را نداشت (یا موقتاً در دسترس نبود).");
+        }
 
         var filterKeys = await catalog.FilterKeysAsync(subject.CategoryId, cancellationToken);
         var merged = SpecMerge.Merge(observations)
@@ -219,6 +237,16 @@ public sealed class SmartOrchestrator(
             .Where(s => s.Diff != SpecDiffKind.Same)
             .ToList();
         var auto = suggestions.Where(s => s.AutoApplicable).ToList();
+        if (subject.NeverPublished && trusted.Count > 0)
+        {
+            // ردیف تازه از منبع مطمئن (فقط افزودن؛ هرگز تغییر مقدار فعلی) برای کالای پیش‌نویس.
+            var trustedMerged = SpecMerge.Merge(trusted).Select(m => m with { Key = SpecMerge.AlignToFilterKey(m.Key, filterKeys) }).ToList();
+            var extra = SpecMerge.Diff(trustedMerged, subject.Features.Select(f => (f.Key, f.Value)), 1)
+                .Where(s => s.AutoApplicable && auto.All(a => !string.Equals(a.Key, s.Key, StringComparison.Ordinal)))
+                .ToList();
+            auto.AddRange(extra);
+            suggestions = suggestions.Where(s => extra.All(e => !string.Equals(e.Key, s.Key, StringComparison.Ordinal))).Concat(extra).ToList();
+        }
         var result = new SmartTaskResult();
         if (auto.Count > 0)
         {
@@ -229,13 +257,18 @@ public sealed class SmartOrchestrator(
         var summary = $"{Core.Services.Seo.Engine.PersianText.Digits(result.SpecsAdded)} ردیف مشخصات (با توافق چند منبع) اضافه شد؛ {Core.Services.Seo.Engine.PersianText.Digits(result.Specs.Count)} پیشنهاد منتظر تأیید.";
         var status = result.Specs.Count > 0 ? SmartTaskStatus.NeedsReview : result.SpecsAdded > 0 ? SmartTaskStatus.Applied : SmartTaskStatus.Skipped;
         if (status == SmartTaskStatus.Skipped)
-            summary = "مشخصات فعلی کامل بود؛ چیز تازه‌ای پیدا نشد.";
+        {
+            // دور ۲۶: به‌جای «لازم نبود» نتیجهٔ واقعی تحقیق گزارش می‌شود (کار انجام شد؛ همهٔ مقدارها با منابع یکی بود).
+            var sourceCount = observations.Select(o => o.Source).Distinct(StringComparer.Ordinal).Count();
+            summary = $"تحقیق انجام شد: {PersianText.Digits(merged.Count)} مشخصه از {PersianText.Digits(sourceCount)} منبع بررسی شد و همه با مشخصات فعلی کالا یکی بود (مشخصات تأیید شد).";
+            status = manual ? SmartTaskStatus.Applied : SmartTaskStatus.Skipped;
+        }
         return new SmartOutcome(status, summary, JsonSerializer.Serialize(result, Json));
     }
 
     // ───────────────────────────── خلاصهٔ خرید ─────────────────────────────
 
-    private async Task<SmartOutcome> ProductInsightAsync(Guid productId, CancellationToken cancellationToken)
+    private async Task<SmartOutcome> ProductInsightAsync(Guid productId, bool manual, CancellationToken cancellationToken)
     {
         var subject = await catalog.GetProductAsync(productId, cancellationToken);
         if (subject is null)
@@ -246,7 +279,12 @@ public sealed class SmartOrchestrator(
         if (hit is not null)
             reviews.AddRange(await sources.DigikalaReviewsAsync(hit.Id, cancellationToken));
         if (reviews.Count < 3)
-            return new SmartOutcome(SmartTaskStatus.Skipped, "نظر کافی (دست‌کم ۳) برای جمع‌بندی پیدا نشد.");
+        {
+            // نظر ساختگی هرگز نوشته نمی‌شود؛ پیام روشن می‌گوید چه چیزی کم است.
+            return new SmartOutcome(SmartTaskStatus.Skipped, manual
+                ? $"برای خلاصهٔ خرید دست‌کم ۳ نظر واقعی لازم است؛ این کالا {PersianText.Digits(reviews.Count)} نظر دارد (سایت ما + دیجی‌کالا). با رسیدن نظرها خودکار ساخته می‌شود."
+                : "نظر کافی (دست‌کم ۳) برای جمع‌بندی پیدا نشد.");
+        }
 
         var draft = ReviewSynthesis.Build(new InsightSubject(subject.Id, subject.Name, subject.BrandName, subject.CategoryName, subject.Features), reviews);
         if (!draft.HasContent)
@@ -268,7 +306,7 @@ public sealed class SmartOrchestrator(
 
     // ───────────────────────────── تکمیل یک‌کلیکی ─────────────────────────────
 
-    private async Task<SmartOutcome> ProductCompleteAsync(Guid productId, CancellationToken cancellationToken)
+    private async Task<SmartOutcome> ProductCompleteAsync(Guid productId, bool manual, CancellationToken cancellationToken)
     {
         var subject = await catalog.GetProductAsync(productId, cancellationToken);
         if (subject is null)
@@ -311,13 +349,14 @@ public sealed class SmartOrchestrator(
         await Step("نام و نامک", () => IdentityAsync(productId, cancellationToken));
         if (subject.ImageNames.Count < Math.Max(1, options.AutoImagesWhenFewerThan))
             await Step("عکس", () => ProductImagesAsync(productId, manual: false, round: 0, cancellationToken));
-        await Step("مشخصات", () => ProductSpecsAsync(productId, cancellationToken));
-        await Step("خلاصهٔ خرید", () => ProductInsightAsync(productId, cancellationToken));
+        await Step("مشخصات", () => ProductSpecsAsync(productId, manual, cancellationToken));
+        await Step("خلاصهٔ خرید", () => ProductInsightAsync(productId, manual, cancellationToken));
         await Step("توضیح کوتاه", () => ShortDescriptionAsync(productId, cancellationToken));
         // توضیحات محصول بعد از مشخصات و خلاصهٔ خرید (از داده‌های تازهٔ آن‌ها استفاده می‌کند) و پیش از سئوی خودکار
         // (تا خلبان عنوان/متا را با متن نهایی بسنجد).
-        if (options.AutoReview)
-            await Step("توضیحات محصول", () => ProductReviewAsync(productId, cancellationToken));
+        // دور ۲۶: درخواست دستی و کالای پیش‌نویس (مسیر «آمادهٔ انتشار») همیشه توضیحات می‌گیرند، حتی اگر نوشتن خودکار خاموش باشد.
+        if (options.AutoReview || manual || subject.NeverPublished)
+            await Step("توضیحات محصول", () => ProductReviewAsync(productId, manual, cancellationToken));
         await Step("قیمت", () => PriceAsync(productId, cancellationToken));
         // خواستهٔ کاربر: فیلدهای سئو بعد از انتشار پر شوند. کالای پیش‌نویس ← سئو منتظر می‌ماند؛ لحظهٔ انتشار، ذخیرهٔ کالا
         // خلبان سئو را خبر می‌کند (SeoChangeFeed) و ورود هوشمند هم کالای تازه‌منتشرشدهٔ بی‌متا را جا نمی‌اندازد.
@@ -475,14 +514,24 @@ public sealed class SmartOrchestrator(
     /// <item>متن انسانی بلند ← Propose (فقط پیشنهاد).</item>
     /// </list>
     /// </summary>
-    public static (ReviewAction Action, string Reason) DecideReview(ProductBodyState state)
+    /// <param name="state">وضعیت متن فعلی صفحه.</param>
+    /// <param name="manual">دور ۲۶: مدیر خودش خواسته ← هرگز Skip نیست؛ متن برگردانده/ویرایش‌شده ← Propose (نسخهٔ تازه فقط پیشنهاد می‌شود).</param>
+    public static (ReviewAction Action, string Reason) DecideReview(ProductBodyState state, bool manual = false)
     {
         if (state.RolledBack)
-            return (ReviewAction.Skip, "کارشناس آخرین «توضیحات محصول» هوشمند را برگردانده است؛ دستیار دوباره چیزی نمی‌نویسد.");
+        {
+            return manual
+                ? (ReviewAction.Propose, "به درخواست شما نسخهٔ تازه نوشته شد؛ چون قبلاً متن هوشمند را برگردانده بودید، فقط پیشنهاد است و متن فعلی دست نمی‌خورد.")
+                : (ReviewAction.Skip, "کارشناس آخرین «توضیحات محصول» هوشمند را برگردانده است؛ دستیار دوباره چیزی نمی‌نویسد.");
+        }
         if (state.WrittenBySmart)
             return (ReviewAction.Regenerate, "متن فعلی را دستیار نوشته؛ با داده‌های تازه به‌روز می‌شود.");
         if (state.HasMarker)
-            return (ReviewAction.Skip, "متن «توضیحات محصول» را کارشناس ویرایش کرده است؛ دستیار به آن دست نمی‌زند.");
+        {
+            return manual
+                ? (ReviewAction.Propose, "به درخواست شما نسخهٔ تازه نوشته شد؛ متن ویرایش‌شدهٔ کارشناس تا تأیید شما دست نمی‌خورد.")
+                : (ReviewAction.Skip, "متن «توضیحات محصول» را کارشناس ویرایش کرده است؛ دستیار به آن دست نمی‌زند.");
+        }
         if (state.Words < ThinBodyWords)
             return (ReviewAction.Write, "توضیحات کالا کم است؛ توضیحات محصول حرفه‌ای اضافه می‌شود.");
         return (ReviewAction.Propose, "کالا توضیحات انسانی بلند دارد؛ توضیحات محصول فقط پیشنهاد می‌شود.");
@@ -493,12 +542,12 @@ public sealed class SmartOrchestrator(
     /// اعمال خودکار فقط وقتی: تصمیم Write/Regenerate باشد و پیش‌نویس از همهٔ دروازه‌های ضد جریمه بگذرد (Safe). وگرنه پیش‌نمایش برای کارشناس.
     /// خلاصهٔ خرید تأییدشده (مزایا/معایب از نظر خریداران) هم در متن می‌آید.
     /// </summary>
-    private async Task<SmartOutcome> ProductReviewAsync(Guid productId, CancellationToken cancellationToken)
+    private async Task<SmartOutcome> ProductReviewAsync(Guid productId, bool manual, CancellationToken cancellationToken)
     {
         var state = await catalog.GetBodyStateAsync(productId, cancellationToken);
         if (state is null)
             return new SmartOutcome(SmartTaskStatus.Skipped, "محصول پیدا نشد.");
-        var (action, reason) = DecideReview(state);
+        var (action, reason) = DecideReview(state, manual);
         if (action == ReviewAction.Skip)
             return new SmartOutcome(SmartTaskStatus.Skipped, reason);
 
@@ -508,7 +557,14 @@ public sealed class SmartOrchestrator(
             ReviewAction.Regenerate => ContentWriter.HumanPart(state.Html),
             _ => null,
         };
-        var written = await engine.WriteProductReviewAsync(productId, keep, await NotesAsync(productId, cancellationToken), cancellationToken);
+        var notes = await NotesAsync(productId, cancellationToken);
+        var written = await engine.WriteProductReviewAsync(productId, keep, notes, cancellationToken);
+        if ((!written.IsSuccess() || written.Data is null) && manual)
+        {
+            // دور ۲۶: مشخصات برای نوشتن کم بود ← اول تحقیق مشخصات (عمیق) و یک بار دیگر نوشتن.
+            await ProductSpecsAsync(productId, manual: true, cancellationToken);
+            written = await engine.WriteProductReviewAsync(productId, keep, notes, cancellationToken);
+        }
         if (!written.IsSuccess() || written.Data is not { } draft)
             return new SmartOutcome(SmartTaskStatus.Skipped, written.Message ?? "نوشتن توضیحات محصول ممکن نشد.");
         var preview = new ReviewPreview
@@ -527,7 +583,11 @@ public sealed class SmartOrchestrator(
             if (applied.IsSuccess())
             {
                 if (!applied.Data)
-                    return new SmartOutcome(SmartTaskStatus.Skipped, "توضیحات محصول هوشمند به‌روز است؛ تغییری لازم نبود.");
+                {
+                    // متن تازه با داده‌های فعلی دقیقاً همان متن روی صفحه شد (کار انجام شده؛ چیزی برای جایگزینی نبود).
+                    return new SmartOutcome(manual ? SmartTaskStatus.Applied : SmartTaskStatus.Skipped,
+                        $"توضیحات محصول دوباره با تازه‌ترین داده‌ها نوشته شد ({PersianText.Digits(draft.Words)} واژه) و با متن روی صفحه یکی بود.");
+                }
                 preview.Applied = true;
                 preview.Html = "";
                 return new SmartOutcome(SmartTaskStatus.Applied,
@@ -672,15 +732,24 @@ public sealed class SmartOrchestrator(
         {
             var options = await config.GetAsync(cancellationToken);
             var products = await catalog.GetBlogProductsAsync(row.CategoryId, BlogPlanService.ParseIds(row.ProductIds), 8, cancellationToken);
-            var minimum = row.Type == BlogArticleType.Comparison ? 2 : row.Type == BlogArticleType.Review ? 1 : 3;
+            // دور ۲۶: مقالهٔ دسته/کمپین/خبر/نگهداری با ۱ کالای موجود هم نوشته می‌شود؛ راهنمای خرید و فهرست ۲ و مقایسه ۲.
+            var minimum = row.Type switch
+            {
+                BlogArticleType.Comparison or BlogArticleType.BuyingGuide or BlogArticleType.BestPicks => 2,
+                _ => 1,
+            };
             if (products.Count(p => p.InStock) < minimum)
             {
                 await plan.MarkAsync(planId, BlogPlanStatus.Skipped, note: "کالای موجود کافی برای این مقاله نبود.", cancellationToken: cancellationToken);
                 return new SmartOutcome(SmartTaskStatus.Skipped, "کالای موجود کافی برای این مقاله نبود.");
             }
             var category = row.CategoryId is { } cid ? await catalog.GetCategoryAsync(cid, cancellationToken) : null;
+            // دور ۲۶ – تحقیق پیش از نوشتن: جست‌وجوهای واقعی مرتبط مردم (پیشنهاد جست‌وجوی موتورها، کش ۷ روزه) برای بخش
+            // «دیگران چه جست‌وجو می‌کنند» و آدرس صفحهٔ کمپین برای مقالهٔ کمپین.
+            var related = await sources.RelatedSearchesAsync(row.Keyword ?? category?.Name ?? row.Topic, cancellationToken);
+            var campaignUrl = row.Type == BlogArticleType.Campaign ? await catalog.CampaignUrlAsync(row.Topic, cancellationToken) : null;
             var article = BlogWriter.Write(new BlogBrief(row.Type, row.Topic, row.Keyword, category?.Name, category?.Slug, products, DateTimeOffset.UtcNow,
-                CustomTitle: row.Origin == "manual" ? row.Topic : null));
+                CustomTitle: row.Origin == "manual" ? row.Topic : null, Related: related, LinkUrl: campaignUrl));
             var (titles, hashes) = await catalog.ExistingPostsAsync(cancellationToken);
             var report = BlogWriter.Check(article, titles, products.Select(p => p.Name), hashes, Math.Clamp(options.BlogQualityMin, 50, 100));
             var publish = report.Passed && options.BlogAutoPublish;

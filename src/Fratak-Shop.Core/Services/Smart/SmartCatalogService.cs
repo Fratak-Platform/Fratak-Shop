@@ -95,6 +95,12 @@ public interface ISmartCatalogService
 
     Task<SmartCategorySubject?> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// دور ۲۶: آدرس صفحهٔ ویژهٔ (فرود) فعالی که عنوانش همان عنوان کمپین مقاله است ← «/campaign/{slug}»؛ نبود ← null.
+    /// مثال: «جشنوارهٔ پاییزه» ← «/campaign/autumn-sale».
+    /// </summary>
+    Task<string?> CampaignUrlAsync(string title, CancellationToken cancellationToken = default);
+
     /// <summary>پر کردن توضیح/تصویر/پرسش‌های دسته. هر بخش فقط اگر خالی است، مگر overwrite=true (تأیید کارشناس).</summary>
     Task<int> ApplyCategoryAsync(Guid categoryId, string? descriptionHtml, string? imageName, string? faqJson, bool overwrite, CancellationToken cancellationToken = default);
 
@@ -402,6 +408,16 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         return rows.Select(r => new IncompleteProduct(r.Id, r.Name, r.Images, r.Features, r.HasShort, r.HasInsight, r.CreatedAt, r.IsActive,
             (r.Images < 2 ? 1 : 0) + (r.Features < 4 ? 1 : 0) + (r.HasShort ? 0 : 1) + (r.NoCategory ? 1 : 0) + (r.NoEnglish ? 1 : 0) + (r.ShortBody ? 1 : 0)
             + (!r.HasInsight && r.Reviews >= 3 ? 1 : 0))).ToList();
+    }
+
+    public async Task<string?> CampaignUrlAsync(string title, CancellationToken cancellationToken = default)
+    {
+        title = (title ?? "").Trim();
+        if (title.Length == 0)
+            return null;
+        var slug = await context.LandingPages.Where(l => l.IsActive && l.Title == title)
+            .OrderByDescending(l => l.CreatedAt).Select(l => l.Slug).FirstOrDefaultAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(slug) ? null : "/campaign/" + slug;
     }
 
     public async Task<SmartCategorySubject?> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default)

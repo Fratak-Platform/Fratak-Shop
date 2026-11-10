@@ -34,6 +34,12 @@ public class Banner : BaseEntity
     public string? LinkUrl { get; set; }
 
     /// <summary>
+    /// دور ۲۶ – نسخهٔ «زنده» (متحرک) بنر: HTML امن ساخته‌شده از طرح (متن رمزگذاری‌شده، رنگ‌های اعتبارسنجی‌شده، فقط تصویرهای محلی).
+    /// null ← همان تصویر WebP نشان داده می‌شود. فقط سامانه (DesignLive) آن را می‌سازد؛ ورودی آزاد کاربر نیست.
+    /// </summary>
+    public string? LiveHtml { get; set; }
+
+    /// <summary>
     /// Place of the banner on the storefront.
     /// </summary>
     public BannerPosition Position { get; set; } = BannerPosition.HeroSlider;

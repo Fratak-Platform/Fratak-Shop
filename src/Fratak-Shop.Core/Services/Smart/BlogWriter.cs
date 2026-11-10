@@ -16,8 +16,10 @@ public sealed record BlogProduct(
 /// سفارش نوشتن یک مقاله. مثال: (BestPicks، «۵ پیشنهاد خرید هدفون بی‌سیم»، دستهٔ «هدفون»، ۵ محصول).
 /// <para>دور ۲۱: <paramref name="CustomTitle"/> = عنوانی که ادمین خودش نوشته (ایدهٔ دستی)؛ همان عنوان مقاله می‌شود.</para>
 /// </summary>
+/// <para>دور ۲۶: <paramref name="Related"/> = جست‌وجوهای واقعی مرتبط مردم (پیشنهاد جست‌وجوی گوگل/بینگ، «تحقیق پیش از نوشتن»)؛
+/// <paramref name="LinkUrl"/> = آدرس صفحهٔ کمپین برای مقالهٔ کمپین (فقط مسیر داخلی).</para>
 public sealed record BlogBrief(BlogArticleType Type, string Topic, string? Keyword, string? CategoryName, string? CategorySlug, IReadOnlyList<BlogProduct> Products, DateTimeOffset Now,
-    string? CustomTitle = null);
+    string? CustomTitle = null, IReadOnlyList<string>? Related = null, string? LinkUrl = null);
 
 /// <summary>مقالهٔ آماده: عنوان، خلاصه، HTML (با کدهای کوتاه محصول) و کلمهٔ کلیدی.</summary>
 public sealed record BlogArticle(string Title, string Excerpt, string Html, string Keyword, IReadOnlyList<string> ProductSlugs);
@@ -45,6 +47,10 @@ public static class BlogWriter
             BlogArticleType.Comparison when products.Count >= 2 => Comparison(brief, products[0], products[1]),
             BlogArticleType.Review when products.Count >= 1 => Review(brief, products[0]),
             BlogArticleType.BestPicks => BestPicks(brief, products),
+            BlogArticleType.CategoryGuide => CategoryGuide(brief, products),
+            BlogArticleType.HowTo => CareGuide(brief, products),
+            BlogArticleType.Campaign => Campaign(brief, products),
+            BlogArticleType.News => News(brief, products),
             _ => BuyingGuide(brief, products),
         };
     }
@@ -95,6 +101,256 @@ public static class BlogWriter
             : Spun(seed + "z", $"اگر [وقت مقایسه ندارید|فرصت بررسی همه را ندارید]، {E(Short(best))} [کم‌ریسک‌ترین|مطمئن‌ترین] انتخاب این فهرست است. برای بودجهٔ محدودتر{(value is null ? "" : $" {E(Short(value))}")} را ببینید و [در نهایت|در آخر] مدلی را بردارید که [با نیاز اصلی‌تان|با نوع استفادهٔ شما] جور است.")));
 
         return Finish(title, keyword, html, ranked, $"{PersianText.Digits(ranked.Count)} پیشنهاد خرید {cat} با مقایسهٔ مشخصات، نقاط قوت و ضعف، قیمت روز و اینکه هر کدام مناسب چه کسی است.");
+    }
+
+    // ───────────────────────────── دور ۲۶: معرفی دسته ─────────────────────────────
+
+    /// <summary>
+    /// معرفی کامل یک دسته (نوع پرتکرار مقاله‌ها): انواع بر اساس مشخصهٔ متمایزکننده (یا برند)، مناسب چه کسانی است، مشخصات مهم،
+    /// بازهٔ قیمت، مدل‌های موجود، جست‌وجوهای مرتبط مردم و پرسش‌های رایج. همهٔ عددها و نام‌ها از دادهٔ واقعی فروشگاه است.
+    /// </summary>
+    private static BlogArticle CategoryGuide(BlogBrief brief, List<BlogProduct> products)
+    {
+        var cat = Category(brief);
+        var seed = brief.Topic + cat + "cg";
+        var keyword = Keyword(brief, $"انواع {cat}");
+        var title = Title(brief, $"{keyword} و کاربرد هر کدام؛ راهنمای کامل {PersianYear(brief.Now)}");
+        var html = new StringBuilder();
+        var brands = products.Select(p => p.BrandName).Where(b => !string.IsNullOrWhiteSpace(b)).Select(b => b!).Distinct(StringComparer.Ordinal).Take(6).ToList();
+        var ranked = products.OrderByDescending(Score).Take(6).ToList();
+
+        Tldr(html, [
+            $"{PersianText.Digits(products.Count)} مدل {E(cat)} همین حالا در فروشگاه موجود است.",
+            products.Count > 0 ? $"بازهٔ قیمت: از {PersianText.Money(products.Min(p => p.FinalPrice))} تا {PersianText.Money(products.Max(p => p.FinalPrice))} تومان." : null,
+            brands.Count > 0 ? $"برندهای موجود: {E(PersianText.JoinList(brands))}." : null,
+            ranked.Count > 0 ? $"پرامتیازترین مدل موجود: {E(Short(ranked[0]))}." : null,
+        ]);
+        html.Append(P(Spun(seed + "i", $"[اگر تازه می‌خواهید {cat} بخرید|اگر دنبال {cat} مناسب هستید]، [اول باید بدانید چه انواعی وجود دارد|بهتر است اول انواع آن را بشناسید] و [هر کدام به چه کاری می‌آید|هر نوع برای چه استفاده‌ای ساخته شده]. [در این مقاله|این‌جا] {cat} را [به زبان ساده|ساده و کاربردی] معرفی کرده‌ایم و [برای هر بخش|کنار هر توضیح] مثال واقعی از مدل‌های موجود فروشگاه آورده‌ایم.")));
+
+        // انواع: مشخصه‌ای که بین مدل‌ها مقدارهای متفاوت دارد (مثلاً «نوع اتصال: بی‌سیم/باسیم»)؛ نبود ← بر اساس برند.
+        html.Append(H2($"انواع {cat}"));
+        var groups = products.SelectMany(p => p.Features.Select(f => (Product: p, f.Key, f.Value)))
+            .Where(x => x.Value.Length is > 0 and <= 40)
+            .GroupBy(x => x.Key, StringComparer.Ordinal)
+            .Select(g => (Key: g.Key, Values: g.GroupBy(x => x.Value, StringComparer.Ordinal).Where(v => v.Any()).ToList()))
+            .Where(g => g.Values.Count is >= 2 and <= 5)
+            .OrderByDescending(g => g.Values.Sum(v => v.Count()))
+            .FirstOrDefault();
+        if (groups.Key is not null)
+        {
+            html.Append(P(Spun(seed + "t", $"[مهم‌ترین تفاوت|اصلی‌ترین فرق] مدل‌های {cat} [در «{E(Safe(groups.Key))}» است|به «{E(Safe(groups.Key))}» برمی‌گردد]. [مدل‌های موجود را|کالاهای فروشگاه را] بر همین اساس [دسته‌بندی کرده‌ایم|گروه‌بندی کرده‌ایم]:")));
+            foreach (var value in groups.Values.Take(5))
+            {
+                var members = value.Select(v => v.Product).DistinctBy(p => p.Id).ToList();
+                html.Append(H3($"{E(cat)} با {E(Safe(groups.Key))} {E(Safe(value.Key))}"));
+                html.Append(P(Spun(seed + value.Key, $"[{PersianText.Digits(members.Count)} مدل|تعداد {PersianText.Digits(members.Count)} مدل] از کالاهای موجود [این ویژگی را دارند|در این گروه‌اند]؛ [مثل|از جمله] {E(PersianText.JoinList(members.Take(3).Select(Short).ToList()))}. قیمت این گروه از {PersianText.Money(members.Min(m => m.FinalPrice))} تومان شروع می‌شود.")));
+            }
+        }
+        else if (brands.Count >= 2)
+        {
+            html.Append(P(Spun(seed + "b", $"[مدل‌های موجود|کالاهای این دسته] [بیشتر از نظر برند و قیمت با هم فرق دارند|از برندهای مختلف و در بازه‌های قیمتی متفاوت‌اند]:")));
+            foreach (var brand in brands.Take(5))
+            {
+                var members = products.Where(p => string.Equals(p.BrandName, brand, StringComparison.Ordinal)).ToList();
+                html.Append(H3($"{E(cat)} {E(brand)}"));
+                html.Append(P($"{PersianText.Digits(members.Count)} مدل موجود؛ از {PersianText.Money(members.Min(m => m.FinalPrice))} تومان. نمونه: {E(Short(members[0]))}."));
+            }
+        }
+        else
+        {
+            html.Append(P(Spun(seed + "n", $"[{cat}‌ها|مدل‌های {cat}] [در اندازه، توان و امکانات|از نظر امکانات و کیفیت ساخت] [با هم فرق دارند|متفاوت‌اند]. [برای انتخاب درست|پیش از خرید] [مشخصات ثبت‌شدهٔ هر مدل را|جدول مشخصات هر کالا را] [کنار هم بگذارید|با هم مقایسه کنید] و [به نوع استفادهٔ خودتان فکر کنید|ببینید کدام با نیاز شما جور است].")));
+        }
+
+        html.Append(H2($"{cat} برای چه کسانی مناسب است؟"));
+        var audiences = products.SelectMany(p => p.ForWhom).GroupBy(a => a, StringComparer.Ordinal).OrderByDescending(g => g.Count()).Select(g => g.Key).Take(5).ToList();
+        if (audiences.Count > 0)
+        {
+            html.Append(P(Spun(seed + "a", "[بر اساس نظر خریداران|از روی تجربهٔ خریداران قبلی]، [این گروه‌ها بیشترین رضایت را داشته‌اند|این‌ها بیشترین استفاده را می‌برند]:")));
+            html.Append(Ul(audiences.Select(E)));
+        }
+        else
+        {
+            html.Append(P(Spun(seed + "a", $"[هر کسی که|کسانی که] [در کار روزمره|در خانه یا محل کار] به {cat} نیاز دارند [می‌توانند از مدل‌های ساده و اقتصادی شروع کنند|با یک مدل ساده و مقرون‌به‌صرفه هم راه می‌افتند]؛ [برای استفادهٔ زیاد یا حرفه‌ای|اگر استفادهٔ سنگین‌تری دارید] [مدل‌های قوی‌تر و بادوام‌تر|مدل‌های حرفه‌ای‌تر] [انتخاب بهتری‌اند|ارزش بیشتری دارند].")));
+        }
+
+        BuyingTips(html, cat, products, seed, 4);
+        PriceSection(html, cat, products, seed);
+
+        if (ranked.Count > 0)
+        {
+            html.Append(H2($"مدل‌های موجود {cat} در فروشگاه"));
+            foreach (var product in ranked.Take(4))
+            {
+                html.Append(H3(E(Short(product))));
+                html.Append(P(Line(product, seed)));
+                html.Append(Card(product));
+            }
+        }
+        RelatedSearches(html, brief, cat);
+        Faq(html, cat, products, seed);
+        html.Append(H2("جمع‌بندی"));
+        html.Append(P(Spun(seed + "z", $"[{cat} را|انتخاب {cat} را] [با شناخت انواع آن|وقتی انواعش را بشناسید] [ساده‌تر|راحت‌تر] انجام می‌دهید: [نوع مناسب کار خود را پیدا کنید|اول نوع مناسب را مشخص کنید]، [مشخصات کلیدی را مقایسه کنید|مشخصات مهم را کنار هم بگذارید] و [از بین مدل‌های موجود|بین کالاهای موجود] [گزینه‌ای را بردارید که با بودجه‌تان جور است|مدلی را بخرید که با بودجه و نیازتان هماهنگ است].")));
+        return Finish(title, keyword, html, ranked, $"{keyword}: معرفی ساده، کاربرد هر نوع، مشخصات مهم، بازهٔ قیمت و مدل‌های موجود در فروشگاه.");
+    }
+
+    /// <summary>
+    /// دور ۲۶ – نکات نگهداری و استفادهٔ درست از یک دسته: توصیه‌های عمومی و بی‌خطر (همیشه با ارجاع به دفترچهٔ سازنده) + مدل‌های موجود.
+    /// هیچ ادعای فنی خاصی که از داده درنیاید نوشته نمی‌شود.
+    /// </summary>
+    private static BlogArticle CareGuide(BlogBrief brief, List<BlogProduct> products)
+    {
+        var cat = Category(brief);
+        var seed = brief.Topic + cat + "care";
+        var keyword = Keyword(brief, $"نگهداری {cat}");
+        var title = Title(brief, $"نکات {keyword}؛ کارهایی که عمر آن را بیشتر می‌کند");
+        var html = new StringBuilder();
+        var ranked = products.OrderByDescending(Score).Take(4).ToList();
+        var warranty = products.Count(p => p.Features.Any(f => f.Key.Contains("گارانتی", StringComparison.Ordinal)));
+        Tldr(html, [
+            "دفترچهٔ راهنمای سازنده مهم‌ترین مرجع نگهداری است؛ نکته‌های این مقاله عمومی‌اند.",
+            "تمیزکاری منظم، دوری از رطوبت و گرمای زیاد و استفادهٔ درست، بیشترین اثر را روی عمر کالا دارند.",
+            warranty > 0 ? $"{PersianText.Digits(warranty)} مدل موجود اطلاعات گارانتی ثبت‌شده دارند؛ شرایط گارانتی را نگه دارید." : null,
+            ranked.Count > 0 ? $"مدل پیشنهادی موجود: {E(Short(ranked[0]))}." : null,
+        ]);
+        html.Append(P(Spun(seed + "i", $"[{cat} خوب|یک {cat} باکیفیت] [وقتی بیشترین ارزش را دارد|زمانی ارزش خریدش را نشان می‌دهد] که [سال‌ها درست کار کند|مدت زیادی سالم بماند]. [بیشتر خرابی‌ها|بخش بزرگی از مشکلات] [از استفاده یا نگهداری نادرست می‌آید|به نگهداری نادرست برمی‌گردد]؛ [این‌جا|در این مقاله] [ساده‌ترین کارهایی را|کارهای ساده‌ای را] [که عمر {cat} را بیشتر می‌کند|که به سالم ماندن {cat} کمک می‌کند] [جمع کرده‌ایم|آورده‌ایم].")));
+        html.Append(H2("پیش از اولین استفاده"));
+        html.Append(Ul([
+            Spun(seed + "f1", "[دفترچهٔ راهنما را|راهنمای سازنده را] [کامل بخوانید|یک بار با دقت بخوانید]؛ [هر مدل|هر سازنده] [توصیه‌های خاص خودش را دارد|نکته‌های مخصوص خودش را دارد]."),
+            Spun(seed + "f2", "[برگهٔ گارانتی و فاکتور خرید را|فاکتور و کارت گارانتی را] [نگه دارید|جای امن بگذارید]."),
+            Spun(seed + "f3", "[سلامت ظاهری کالا و اقلام جعبه را|سالم بودن کالا و کامل بودن اقلام همراه را] [همان روز تحویل بررسی کنید|هنگام تحویل بررسی کنید]."),
+        ]));
+        html.Append(H2("نگهداری روزانه"));
+        html.Append(P(Spun(seed + "d", $"[{cat} را|کالا را] [در جای خشک و خنک|دور از رطوبت و گرمای زیاد] [نگه دارید|قرار دهید]، [مرتب و با روش توصیه‌شدهٔ سازنده تمیز کنید|طبق راهنما تمیز کنید] و [از ضربه و فشار بی‌مورد دور نگه دارید|مراقب ضربه و افتادن باشید]. [اگر کالا برقی است|برای کالاهای برقی]، [فقط از شارژر و کابل مناسب استفاده کنید|از آداپتور و کابل استاندارد استفاده کنید].")));
+        html.Append(H2($"اشتباه‌هایی که عمر {cat} را کم می‌کند"));
+        html.Append(Ul([
+            Spun(seed + "m1", "[استفادهٔ بیش از توان|کار کشیدن بیش از ظرفیت] [و نادیده گرفتن محدودیت‌های اعلام‌شده|بدون توجه به محدودیت‌های سازنده]"),
+            Spun(seed + "m2", "[تمیز کردن با مواد نامناسب|استفاده از شوینده‌های تند و نامناسب]"),
+            Spun(seed + "m3", "[نگهداری در جای مرطوب یا خیلی گرم|رها کردن کالا در رطوبت یا آفتاب مستقیم]"),
+            Spun(seed + "m4", "[تعمیر سرخود در دورهٔ گارانتی|باز کردن کالا پیش از تماس با گارانتی]"),
+        ]));
+        html.Append(H2("چه زمانی باید تعمیر یا تعویض کرد؟"));
+        html.Append(P(Spun(seed + "r", "[اگر کارکرد کالا|وقتی عملکرد کالا] [به‌طور محسوس افت کرد|آشکارا ضعیف شد]، [صدا، بو یا گرمای غیرعادی داشت|نشانهٔ غیرعادی مثل بو یا گرمای زیاد دیدید] [یا آسیب ظاهری جدی دید|یا آسیب جدی خورد]، [استفاده را متوقف کنید|دیگر از آن استفاده نکنید] و [با گارانتی یا پشتیبانی تماس بگیرید|از گارانتی یا پشتیبانی کمک بخواهید].")));
+        if (ranked.Count > 0)
+        {
+            html.Append(H2($"اگر می‌خواهید {cat} تازه بخرید"));
+            foreach (var product in ranked.Take(3))
+            {
+                html.Append(H3(E(Short(product))));
+                html.Append(P(Line(product, seed)));
+                html.Append(Card(product));
+            }
+        }
+        RelatedSearches(html, brief, cat);
+        Faq(html, cat, products, seed);
+        html.Append(H2("جمع‌بندی"));
+        html.Append(P(Spun(seed + "z", $"[نگهداری درست|مراقبت ساده و منظم] [عمر {cat} را|طول عمر کالا را] [به‌طور محسوسی بیشتر می‌کند|چند برابر می‌کند]: [راهنمای سازنده|دفترچهٔ راهنما] را جدی بگیرید، [تمیز و خشک نگه دارید|از رطوبت و گرما دورش کنید] و [در دورهٔ گارانتی سرخود تعمیر نکنید|برای هر ایراد اول سراغ گارانتی بروید].")));
+        return Finish(title, keyword, html, ranked, $"نکات {keyword}: کارهای پیش از اولین استفاده، نگهداری روزانه، اشتباه‌های رایج و زمان تعمیر یا تعویض.");
+    }
+
+    /// <summary>
+    /// دور ۲۶ – مقالهٔ کمپین/جشنواره: معرفی کمپین (عنوان واقعی صفحهٔ ویژه یا مناسبت)، پیشنهادهای موجود، روش هوشمندانهٔ خرید
+    /// (هشدار ارزانی علاقه‌مندی‌ها، امتیاز باشگاه) و لینک صفحهٔ کمپین. هیچ تخفیف یا مهلتی که در داده نیست ادعا نمی‌شود.
+    /// </summary>
+    private static BlogArticle Campaign(BlogBrief brief, List<BlogProduct> products)
+    {
+        var cat = Category(brief);
+        var seed = brief.Topic + cat + "cmp";
+        var keyword = Keyword(brief, brief.Topic);
+        var title = Title(brief, PersianText.Clean(brief.Topic));
+        var html = new StringBuilder();
+        var picks = Diverse(products, 6);
+        var link = brief.LinkUrl is { Length: > 1 } url && url.StartsWith('/') && !url.StartsWith("//", StringComparison.Ordinal) ? url : null;
+        Tldr(html, [
+            $"{E(Safe(PersianText.Clean(brief.Topic)))}: {PersianText.Digits(picks.Count)} پیشنهاد موجود از {E(cat)}.",
+            picks.Count > 0 ? $"ارزان‌ترین پیشنهاد: {E(Short(picks.OrderBy(p => p.FinalPrice).First()))}." : null,
+            "قیمت‌ها هنگام باز کردن صفحه زنده خوانده می‌شوند.",
+            link is null ? null : $"همهٔ پیشنهادها در <a href=\"{E(link)}\">صفحهٔ ویژهٔ کمپین</a>.",
+        ]);
+        html.Append(P(Spun(seed + "i", $"[فرصت‌های خرید|کمپین‌های فروش] [وقتی واقعاً به‌صرفه‌اند|زمانی ارزش دارند] که [بدانید چه می‌خواهید|از قبل بدانید چه نیازی دارید]. [در این مقاله|این‌جا] [پیشنهادهای موجود {cat} را|گزینه‌های موجود {cat} را] [برای «{E(Safe(PersianText.Clean(brief.Topic)))}»|به مناسبت «{E(Safe(PersianText.Clean(brief.Topic)))}»] [کنار هم گذاشته‌ایم|جمع کرده‌ایم] تا [سریع‌تر و مطمئن‌تر انتخاب کنید|راحت‌تر تصمیم بگیرید].")));
+        html.Append(H2("چطور از این فرصت بهترین استفاده را ببرید؟"));
+        html.Append(Ul([
+            Spun(seed + "t1", "[پیش از خرید|قبل از شروع]، [فهرست نیازهای واقعی‌تان را بنویسید|بنویسید دقیقاً چه لازم دارید] تا [خرید هیجانی نکنید|وسوسهٔ خرید اضافه سراغتان نیاید]."),
+            Spun(seed + "t2", "[کالاهای مورد علاقه را|کالاهایی که می‌خواهید] [به «علاقه‌مندی‌ها» اضافه کنید|در علاقه‌مندی‌ها ذخیره کنید]؛ [اگر ارزان‌تر شوند|با کاهش قیمت] [خبرتان می‌کنیم|به شما اطلاع می‌دهیم]."),
+            Spun(seed + "t3", "[امتیاز باشگاه مشتریان را|امتیازهای باشگاه را] [فراموش نکنید|در نظر بگیرید]؛ [با هر خرید امتیاز می‌گیرید|هر خرید امتیاز تازه می‌آورد]."),
+            Spun(seed + "t4", "[مشخصات و گارانتی را|مشخصات فنی و شرایط گارانتی را] [مثل همیشه بررسی کنید|حتی در تخفیف هم بررسی کنید]؛ [قیمت پایین‌تر|تخفیف] [نباید جای کیفیت را بگیرد|نباید باعث انتخاب اشتباه شود]."),
+        ]));
+        if (picks.Count > 0)
+        {
+            ComparisonTable(html, picks, $"پیشنهادهای {cat} در یک نگاه");
+            html.Append(H2("معرفی پیشنهادها"));
+            foreach (var product in picks)
+            {
+                html.Append(H3(E(Short(product))));
+                ProductSection(html, product, seed);
+            }
+        }
+        if (link is not null)
+        {
+            html.Append(H2("همهٔ پیشنهادهای کمپین"));
+            html.Append(P($"فهرست کامل و به‌روز پیشنهادها در <a href=\"{E(link)}\">صفحهٔ ویژهٔ «{E(Safe(PersianText.Clean(brief.Topic)))}»</a> است."));
+        }
+        RelatedSearches(html, brief, cat);
+        Faq(html, cat, products, seed);
+        html.Append(H2("جمع‌بندی"));
+        html.Append(P(Spun(seed + "z", $"[یک خرید خوب|خرید هوشمندانه] [در کمپین‌ها|در فصل تخفیف‌ها] [یعنی|یعنی همین که] [کالای درست را با قیمت مناسب بخرید|کالای مناسب نیازتان را به‌صرفه بخرید]. [از پیشنهادهای بالا|از بین گزینه‌های بالا] [مدلی را انتخاب کنید|گزینه‌ای را بردارید] که [با کاربرد و بودجهٔ شما جور است|به کار شما می‌آید].")));
+        return Finish(title, keyword, html, picks, $"{PersianText.Clean(brief.Topic)}: پیشنهادهای موجود {cat}، مقایسهٔ سریع، نکته‌های خرید هوشمندانه و قیمت روز.");
+    }
+
+    /// <summary>
+    /// دور ۲۶ – خبر واقعی فروشگاه: کالاهای تازهٔ یک دسته (ورودی = همان کالاهای تازه). عنوان با نام ماه؛ هر کالا با ویژگی برجسته و کارت.
+    /// </summary>
+    private static BlogArticle News(BlogBrief brief, List<BlogProduct> products)
+    {
+        var cat = Category(brief);
+        var seed = brief.Topic + cat + "news";
+        var keyword = Keyword(brief, $"تازه‌های {cat}");
+        var title = Title(brief, PersianText.Clean(brief.Topic));
+        var html = new StringBuilder();
+        var fresh = products.Take(6).ToList();
+        Tldr(html, [
+            $"{PersianText.Digits(fresh.Count)} مدل تازه به دستهٔ {E(cat)} اضافه شد.",
+            fresh.Count > 0 ? $"بازهٔ قیمت تازه‌واردها: از {PersianText.Money(fresh.Min(p => p.FinalPrice))} تا {PersianText.Money(fresh.Max(p => p.FinalPrice))} تومان." : null,
+            fresh.Count > 0 ? $"نخستین تازه‌وارد: {E(Short(fresh[0]))}." : null,
+            "همه موجودند و قیمت‌ها زنده از فروشگاه خوانده می‌شوند.",
+        ]);
+        html.Append(P(Spun(seed + "i", $"[فهرست {cat}‌های فروشگاه|ویترین {cat}] [تازه‌تر شد|به‌روز شد]. [در این خبر|این‌جا] [مدل‌های تازه‌وارد را|کالاهای تازه را] [معرفی می‌کنیم|یکی‌یکی معرفی کرده‌ایم]، [ویژگی برجستهٔ هر کدام را|نقطهٔ قوت هر مدل را] می‌گوییم و [می‌گوییم مناسب چه کسانی‌اند|نشان می‌دهیم به کار چه کسانی می‌آیند].")));
+        ComparisonTable(html, fresh, $"تازه‌های {cat} در یک نگاه");
+        foreach (var product in fresh)
+        {
+            html.Append(H2(E(Short(product))));
+            ProductSection(html, product, seed);
+        }
+        BuyingTips(html, cat, products, seed, 3);
+        RelatedSearches(html, brief, cat);
+        Faq(html, cat, products, seed);
+        html.Append(H2("جمع‌بندی"));
+        html.Append(P(Spun(seed + "z", $"[تازه‌واردهای {cat}|مدل‌های تازه] [گزینه‌های بیشتری|حق انتخاب بیشتری] [برای بودجه‌ها و نیازهای مختلف|برای سلیقه‌ها و بودجه‌های مختلف] [آورده‌اند|فراهم کرده‌اند]. [برای خبر شدن از تازه‌ها|اگر می‌خواهید از کالاهای تازه باخبر شوید]، [بلاگ و صفحهٔ دسته را دنبال کنید|سری به صفحهٔ دسته بزنید].")));
+        return Finish(title, keyword, html, fresh, $"{PersianText.Clean(brief.Topic)}: معرفی مدل‌های تازه، ویژگی برجستهٔ هر کدام، مقایسهٔ سریع و قیمت روز.");
+    }
+
+    /// <summary>بخش قیمت و بودجه (مشترک چند نوع مقاله).</summary>
+    private static void PriceSection(StringBuilder html, string cat, List<BlogProduct> products, string seed)
+    {
+        if (products.Count == 0)
+            return;
+        var sorted = products.OrderBy(p => p.FinalPrice).ToList();
+        html.Append(H2($"قیمت {cat} چقدر است؟"));
+        html.Append(P(Spun(seed + "price", $"[قیمت {cat}‌های موجود در فروشگاه|بازهٔ قیمت مدل‌های موجود] [در حال حاضر|امروز] از {PersianText.Money(sorted[0].FinalPrice)} تا {PersianText.Money(sorted[^1].FinalPrice)} تومان است{(sorted.Count >= 3 ? $" و [قیمت میانه|مدل‌های میان‌رده] حدود {PersianText.Money(sorted[sorted.Count / 2].FinalPrice)} تومان است" : "")}. [قیمت بالاتر|مدل گران‌تر] [لزوماً انتخاب بهتری برای شما نیست|همیشه بهترین انتخاب نیست]؛ [اول نیازتان را مشخص کنید|ابتدا ویژگی‌های لازم را فهرست کنید].")));
+    }
+
+    /// <summary>
+    /// دور ۲۶ – «تحقیق پیش از نوشتن»: جست‌وجوهای واقعی مرتبط مردم (از پیشنهاد جست‌وجوی موتورها) به‌صورت لینک جست‌وجوی خود فروشگاه.
+    /// فهرست خالی ← بخشی اضافه نمی‌شود. مثال: «هدفون بی سیم ارزان» ← لینک /search?q=…
+    /// </summary>
+    private static void RelatedSearches(StringBuilder html, BlogBrief brief, string cat)
+    {
+        var related = (brief.Related ?? Array.Empty<string>()).Select(PersianText.Clean).Where(r => r.Length is >= 3 and <= 60)
+            .Distinct(StringComparer.Ordinal).Take(6).ToList();
+        if (related.Count == 0)
+            return;
+        html.Append(H2($"دیگران دربارهٔ {cat} چه جست‌وجو می‌کنند؟"));
+        html.Append(P("این‌ها جست‌وجوهای پرتکرار مردم دربارهٔ همین موضوع است؛ با کلیک، نتیجهٔ همان جست‌وجو را در فروشگاه می‌بینید:"));
+        html.Append(Ul(related.Select(r => $"<a href=\"/search?q={Uri.EscapeDataString(r)}\">{E(r)}</a>")));
     }
 
     // ───────────────────────────── راهنمای خرید ─────────────────────────────
@@ -628,6 +884,9 @@ public static class BlogWriter
         var options = Spin.Expand(pattern, 32);
         return Spin.Tidy(options.Count == 0 ? pattern : SmartText.Pick(seed, options.ToArray()));
     }
+
+    /// <summary>دور ۲۶: حذف نویسه‌های الگوی تنوع ([ | ] { }) از متن داده‌ای که داخل الگو می‌نشیند (مقدار مشخصه، عنوان کمپین).</summary>
+    private static string Safe(string text) => new(text.Select(c => c is '[' or ']' or '|' or '{' or '}' ? ' ' : c).ToArray());
 
     private static string Fill(string text, string name) => text.Replace("{N}", name, StringComparison.Ordinal).Replace("{S}", name, StringComparison.Ordinal);
 

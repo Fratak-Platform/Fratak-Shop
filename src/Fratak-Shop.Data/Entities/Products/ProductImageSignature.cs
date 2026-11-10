@@ -27,6 +27,16 @@ public class ProductImageSignature : BaseEntity
     [MaxLength(32)]
     public byte[] Colors { get; set; } = [];
 
+    /// <summary>
+    /// دور ۲۶: جفت هش شکل (dHash + pHash) همهٔ عکس‌های کالا (هر عکس ۱۶ بایت، حداکثر ۶ عکس) تا عکس غیراصلی هم پیدا شود.
+    /// null = امضای قدیمی (دوباره ساخته می‌شود).
+    /// </summary>
+    [MaxLength(128)]
+    public byte[]? Hashes { get; set; }
+
+    /// <summary>دور ۲۶: تعداد عکس‌های کالا هنگام ساخت امضا؛ عکس اضافه/حذف شود ← امضا دوباره ساخته می‌شود.</summary>
+    public int ImageCount { get; set; }
+
     /// <summary>زمان ساخت امضا.</summary>
     public DateTimeOffset ComputedAt { get; set; }
 }

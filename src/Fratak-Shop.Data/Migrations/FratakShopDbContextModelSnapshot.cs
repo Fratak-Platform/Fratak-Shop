@@ -1694,6 +1694,9 @@ namespace Fratak_Shop.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte>("Animation")
+                        .HasColumnType("tinyint");
+
                     b.Property<Guid?>("BannerId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2601,6 +2604,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LiveHtml")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uniqueidentifier");
@@ -5264,6 +5270,16 @@ namespace Fratak_Shop.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("MarketCategory")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("SmartReadyAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("SmartReadyCheckedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<Guid?>("BrandId")
                         .HasColumnType("uniqueidentifier");
 
@@ -5726,6 +5742,13 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.Property<long>("Hash")
                         .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Hashes")
+                        .HasMaxLength(128)
+                        .HasColumnType("varbinary(128)");
+
+                    b.Property<int>("ImageCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("ImageName")
                         .IsRequired()

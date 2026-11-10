@@ -33,7 +33,8 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "SAMEORIGIN";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()";
+            // دور ۲۶: میکروفون و دوربین فقط برای خود سایت (جست‌وجوی صوتی و عکس)؛ قبلاً «()» بود و مرورگر جست‌وجوی صوتی را بی‌صدا رد می‌کرد.
+            headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), interest-cohort=()";
             headers["Cross-Origin-Opener-Policy"] = "same-origin";
             if (!headers.ContainsKey("Content-Security-Policy"))
                 headers["Content-Security-Policy"] = ContentSecurityPolicy;

@@ -194,7 +194,7 @@ public class AnnouncementAndBlogRound21Tests
             new(Guid.NewGuid(), "هدفون", 12, [(Guid.NewGuid(), "هدفون سونی"), (Guid.NewGuid(), "هدفون انکر")]),
             new(Guid.NewGuid(), "پاوربانک", 3, []),
         };
-        var ideas = BlogPlanner.Propose(categories, [], ["هدفون بی سیم"], 6);
+        var ideas = BlogPlanner.Propose(categories, [], ["هدفون بی سیم"], 12); // دور ۲۶: «معرفی دسته» و «نگهداری» هم در چرخه‌اند
         Assert.NotEmpty(ideas);
         Assert.DoesNotContain(ideas, i => i.Topic.Contains("بهترین", StringComparison.Ordinal));
         // دور ۲۳: تقاضای واقعی ← راهنمای خرید؛ به جای فهرست کلی، «معرفی ویژهٔ» یک کالای واقعی پرفروش.

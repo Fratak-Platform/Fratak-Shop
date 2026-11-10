@@ -25,8 +25,16 @@ public static class ImageSignature
     /// <summary>تعداد خانه‌های هیستوگرام رنگ.</summary>
     public const int Bins = 32;
 
-    /// <summary>امضای یک تصویر.</summary>
-    public sealed record Signature(long Hash, byte[] Colors);
+    /// <summary>
+    /// امضای یک تصویر. Hash = هش تفاضلی (dHash)؛ دور ۲۶: PHash = هش ادراکی DCT (در برابر فشرده‌سازی، تغییر اندازه و کمی برش مقاوم‌تر).
+    /// </summary>
+    public sealed record Signature(long Hash, byte[] Colors, long PHash = 0);
+
+    /// <summary>
+    /// دور ۲۶: امضای ذخیره‌شدهٔ یک کالا برای مقایسه: شکل همهٔ عکس‌های کالا (هر عکس یک جفت dHash/pHash) + رنگ عکس اصلی.
+    /// مثال: کالایی با ۳ عکس ← Shapes با ۳ جفت؛ مشتری عکس دوم را بفرستد هم پیدا می‌شود.
+    /// </summary>
+    public sealed record Stored(Guid ProductId, IReadOnlyList<(long DHash, long PHash)> Shapes, byte[] Colors);
 
     /// <summary>
     /// امضای بایت‌های یک تصویر (JPEG/PNG/WebP/GIF). تصویر خراب، خیلی بزرگ یا غیرتصویری ← null (هرگز استثنا نمی‌دهد).
@@ -45,8 +53,11 @@ public static class ImageSignature
             var info = codec.Info;
             if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxPixels)
                 return null;
-            using var bitmap = DecodeSmall(codec);
-            return bitmap is null ? null : Compute(bitmap);
+            using var decoded = DecodeSmall(codec);
+            if (decoded is null)
+                return null;
+            using var bitmap = Orient(decoded, codec.EncodedOrigin);
+            return Compute(bitmap);
         }
         catch (Exception)
         {
@@ -54,8 +65,253 @@ public static class ImageSignature
         }
     }
 
-    /// <summary>امضای یک تصویر بازشده.</summary>
+    /// <summary>
+    /// امضای یک تصویر بازشده. دور ۲۶: اول حاشیهٔ یک‌رنگ دور تصویر (سفید/شفاف/هر رنگ یکدست؛ مثلاً حاشیهٔ اسکرین‌شات یا
+    /// پس‌زمینهٔ عکس کالا) بریده می‌شود تا «همان عکس» با حاشیهٔ متفاوت هم یکی دیده شود. بعد dHash، pHash و رنگ ساخته می‌شوند.
+    /// </summary>
     public static Signature? Compute(SKBitmap bitmap)
+    {
+        if (bitmap.Width <= 0 || bitmap.Height <= 0)
+            return null;
+        var box = TrimBox(bitmap);
+        if (box == new SKRectI(0, 0, bitmap.Width, bitmap.Height))
+            return ComputeRaw(bitmap);
+        using var trimmed = new SKBitmap();
+        if (!bitmap.ExtractSubset(trimmed, box))
+            return ComputeRaw(bitmap);
+        return ComputeRaw(trimmed);
+    }
+
+    /// <summary>
+    /// دور ۲۶ – چند امضا برای عکس مشتری: (۱) بعد از بریدن حاشیه، (۲) کل قاب، (۳) وسط تصویر (۷۰٪) برای عکسی که دور کالا شلوغ است
+    /// (مثلاً عکس گوشی از روی میز). امتیاز نهایی = بهترین تطبیق میان این‌ها. تصویر نامعتبر ← فهرست خالی.
+    /// </summary>
+    public static List<Signature> ComputeVariants(byte[] data)
+    {
+        var list = new List<Signature>();
+        if (data is null || data.Length == 0 || data.Length > MaxBytes * 4)
+            return list;
+        try
+        {
+            using var stream = new SKMemoryStream(data);
+            using var codec = SKCodec.Create(stream);
+            if (codec is null)
+                return list;
+            var info = codec.Info;
+            if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxPixels)
+                return list;
+            using var decoded = DecodeSmall(codec);
+            if (decoded is null)
+                return list;
+            using var bitmap = Orient(decoded, codec.EncodedOrigin);
+            if (Compute(bitmap) is { } trimmed)
+                list.Add(trimmed);
+            if (ComputeRaw(bitmap) is { } full && list.All(x => x.PHash != full.PHash || x.Hash != full.Hash))
+                list.Add(full);
+            var w = bitmap.Width;
+            var h = bitmap.Height;
+            var center = new SKRectI((int)(w * 0.15), (int)(h * 0.15), (int)Math.Ceiling(w * 0.85), (int)Math.Ceiling(h * 0.85));
+            if (center.Width >= 8 && center.Height >= 8)
+            {
+                using var middle = new SKBitmap();
+                if (bitmap.ExtractSubset(middle, center) && ComputeRaw(middle) is { } mid)
+                    list.Add(mid);
+            }
+        }
+        catch (Exception)
+        {
+            list.Clear();
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// دور ۲۶: کادر محتوای واقعی تصویر بعد از کنار گذاشتن حاشیهٔ یکدست. رنگ پس‌زمینه از ۴ گوشه حدس زده می‌شود (اگر گوشه‌ها
+    /// هم‌رنگ نباشند یعنی حاشیه‌ای نیست ← کل تصویر). پیکسل شفاف مثل سفید حساب می‌شود. کادر خیلی کوچک (کمتر از ۴٪) ← کل تصویر.
+    /// مثال: کالای قرمز وسط بوم سفید ۲۰۰×۲۰۰ ← فقط کادر دور کالا.
+    /// </summary>
+    public static SKRectI TrimBox(SKBitmap bitmap)
+    {
+        var w = bitmap.Width;
+        var h = bitmap.Height;
+        var all = new SKRectI(0, 0, w, h);
+        if (w < 8 || h < 8)
+            return all;
+        var corners = new[] { Flat(bitmap.GetPixel(0, 0)), Flat(bitmap.GetPixel(w - 1, 0)), Flat(bitmap.GetPixel(0, h - 1)), Flat(bitmap.GetPixel(w - 1, h - 1)) };
+        var bg = corners[0];
+        if (corners.Any(c => Distance(c, bg) > 60))
+            return all;
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (var y = 0; y < h; y++)
+        {
+            for (var x = 0; x < w; x++)
+            {
+                if (Distance(Flat(bitmap.GetPixel(x, y)), bg) <= 48)
+                    continue;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+        if (maxX < 0)
+            return all;
+        var box = new SKRectI(Math.Max(0, minX - 1), Math.Max(0, minY - 1), Math.Min(w, maxX + 2), Math.Min(h, maxY + 2));
+        if ((long)box.Width * box.Height < (long)w * h * 0.04 || box.Width < 8 || box.Height < 8)
+            return all;
+        return box;
+    }
+
+    /// <summary>
+    /// دور ۲۶: هش ادراکی (pHash): تصویر ۳۲×۳۲ خاکستری ← تبدیل کسینوسی (DCT) ← ۸×۸ فرکانس پایین؛ هر بیت = بزرگ‌تر از میانه.
+    /// برخلاف dHash، فشرده‌سازی JPEG/WebP و تغییر اندازه تقریباً عوضش نمی‌کند. مثال: همان عکس با کیفیت ۵۰٪ ← فاصلهٔ همینگ معمولاً کمتر از ۶.
+    /// </summary>
+    public static long PerceptualHash(SKBitmap bitmap)
+    {
+        var sampling = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear);
+        using var small = bitmap.Resize(new SKImageInfo(32, 32, SKColorType.Rgba8888, SKAlphaType.Unpremul), sampling);
+        if (small is null)
+            return 0;
+        const int n = 32;
+        var pixels = new double[n, n];
+        for (var y = 0; y < n; y++)
+            for (var x = 0; x < n; x++)
+                pixels[y, x] = Gray(small.GetPixel(x, y));
+        // DCT جداپذیر: اول ردیف‌ها بعد ستون‌ها؛ فقط ۸ ضریب اول لازم است.
+        var rows = new double[n, 8];
+        for (var y = 0; y < n; y++)
+            for (var u = 0; u < 8; u++)
+            {
+                double sum = 0;
+                for (var x = 0; x < n; x++)
+                    sum += pixels[y, x] * Cos[u, x];
+                rows[y, u] = sum;
+            }
+        var coeffs = new double[64];
+        for (var v = 0; v < 8; v++)
+            for (var u = 0; u < 8; u++)
+            {
+                double sum = 0;
+                for (var y = 0; y < n; y++)
+                    sum += rows[y, u] * Cos[v, y];
+                coeffs[v * 8 + u] = sum;
+            }
+        // میانه بدون ضریب DC (روشنایی کل تصویر)
+        var sorted = coeffs.Skip(1).OrderBy(c => c).ToArray();
+        var median = (sorted[31] + sorted[32]) / 2;
+        long hash = 0;
+        for (var i = 0; i < 64; i++)
+        {
+            if (coeffs[i] > median)
+                hash |= 1L << i;
+        }
+        return hash;
+    }
+
+    private static readonly double[,] Cos = BuildCos();
+
+    private static double[,] BuildCos()
+    {
+        var table = new double[8, 32];
+        for (var u = 0; u < 8; u++)
+            for (var x = 0; x < 32; x++)
+                table[u, x] = Math.Cos((2 * x + 1) * u * Math.PI / 64);
+        return table;
+    }
+
+    /// <summary>
+    /// دور ۲۶: امتیاز شباهت با امضای ذخیره‌شدهٔ یک کالا (۰ تا ۱): بهترین تطبیق میان همهٔ عکس‌های کالا و همهٔ نسخه‌های عکس مشتری.
+    /// شکل (۶۵٪) = ۶۰٪ pHash + ۴۰٪ dHash (هر کدام با سقف فاصلهٔ ۴۰ بیت) و رنگ (۳۵٪) از عکس اصلی.
+    /// مثال: همان عکس ← حدود ۱؛ دو عکس بی‌ربط ← حدود ۰٫۳.
+    /// </summary>
+    public static double Score(IReadOnlyList<Signature> queries, Stored candidate)
+    {
+        double best = 0;
+        foreach (var query in queries)
+        {
+            var color = ColorSimilarity(query.Colors, candidate.Colors);
+            foreach (var (dHash, pHash) in candidate.Shapes)
+            {
+                var shapeD = Math.Clamp(1 - Hamming(query.Hash, dHash) / 40.0, 0, 1);
+                var shapeP = Math.Clamp(1 - Hamming(query.PHash, pHash) / 40.0, 0, 1);
+                var score = 0.65 * (0.6 * shapeP + 0.4 * shapeD) + 0.35 * color;
+                if (score > best)
+                    best = score;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// دور ۲۶: بسته‌بندی جفت هش‌های چند عکس در یک آرایهٔ بایت (هر عکس ۱۶ بایت؛ حداکثر <see cref="MaxShapes"/> عکس) برای ستون Hashes.
+    /// </summary>
+    public static byte[] Pack(IEnumerable<(long DHash, long PHash)> shapes)
+    {
+        var list = shapes.Take(MaxShapes).ToList();
+        var bytes = new byte[list.Count * 16];
+        for (var i = 0; i < list.Count; i++)
+        {
+            BitConverter.TryWriteBytes(bytes.AsSpan(i * 16, 8), list[i].DHash);
+            BitConverter.TryWriteBytes(bytes.AsSpan(i * 16 + 8, 8), list[i].PHash);
+        }
+        return bytes;
+    }
+
+    /// <summary>باز کردن <see cref="Pack"/>. ورودی خالی/خراب ← فهرست خالی.</summary>
+    public static List<(long DHash, long PHash)> Unpack(byte[]? bytes)
+    {
+        var list = new List<(long, long)>();
+        if (bytes is null)
+            return list;
+        for (var i = 0; i + 16 <= bytes.Length && list.Count < MaxShapes; i += 16)
+            list.Add((BitConverter.ToInt64(bytes, i), BitConverter.ToInt64(bytes, i + 8)));
+        return list;
+    }
+
+    /// <summary>بیشترین عکس هر کالا که امضای شکل می‌گیرد.</summary>
+    public const int MaxShapes = 6;
+
+    /// <summary>
+    /// دور ۲۶: اعمال جهت EXIF (عکس گوشی معمولاً چرخیده ذخیره می‌شود و فقط برچسب جهت دارد). بدون این، عکس عمودی گوشی
+    /// خوابیده دیده می‌شد و هیچ کالایی پیدا نمی‌شد. خروجی همیشه بیت‌مپ تازه است (ورودی دست نمی‌خورد).
+    /// </summary>
+    public static SKBitmap Orient(SKBitmap source, SKEncodedOrigin origin)
+    {
+        var w = source.Width;
+        var h = source.Height;
+        var swap = origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom;
+        var result = new SKBitmap(swap ? h : w, swap ? w : h, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+        using var canvas = new SKCanvas(result);
+        canvas.Clear(SKColors.Transparent);
+        var matrix = origin switch
+        {
+            SKEncodedOrigin.TopRight => new SKMatrix(-1, 0, w, 0, 1, 0, 0, 0, 1),
+            SKEncodedOrigin.BottomRight => new SKMatrix(-1, 0, w, 0, -1, h, 0, 0, 1),
+            SKEncodedOrigin.BottomLeft => new SKMatrix(1, 0, 0, 0, -1, h, 0, 0, 1),
+            SKEncodedOrigin.LeftTop => new SKMatrix(0, 1, 0, 1, 0, 0, 0, 0, 1),
+            SKEncodedOrigin.RightTop => new SKMatrix(0, -1, h, 1, 0, 0, 0, 0, 1),
+            SKEncodedOrigin.RightBottom => new SKMatrix(0, -1, h, -1, 0, w, 0, 0, 1),
+            SKEncodedOrigin.LeftBottom => new SKMatrix(0, 1, 0, -1, 0, w, 0, 0, 1),
+            _ => SKMatrix.Identity,
+        };
+        canvas.SetMatrix(matrix);
+        canvas.DrawBitmap(source, 0, 0);
+        canvas.Flush();
+        return result;
+    }
+
+    /// <summary>رنگ با شفافیت ← رنگ روی زمینهٔ سفید (برای حدس پس‌زمینه).</summary>
+    private static (int R, int G, int B) Flat(SKColor c)
+    {
+        var a = c.Alpha / 255.0;
+        return ((int)(c.Red * a + 255 * (1 - a)), (int)(c.Green * a + 255 * (1 - a)), (int)(c.Blue * a + 255 * (1 - a)));
+    }
+
+    private static int Distance((int R, int G, int B) a, (int R, int G, int B) b) =>
+        Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B);
+
+    /// <summary>امضای خام (بدون بریدن حاشیه).</summary>
+    private static Signature? ComputeRaw(SKBitmap bitmap)
     {
         if (bitmap.Width <= 0 || bitmap.Height <= 0)
             return null;
@@ -90,7 +346,7 @@ public static class ImageSignature
                 total++;
             }
         }
-        return new Signature(hash, Normalize(counts, total));
+        return new Signature(hash, Normalize(counts, total), PerceptualHash(bitmap));
     }
 
     /// <summary>

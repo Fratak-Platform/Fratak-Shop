@@ -34,8 +34,12 @@ public class BlogModel(IBlogPlanService plan, ISmartTaskQueue queue, ISmartConfi
     {
         var ct = HttpContext.RequestAborted;
         var options = await config.GetAsync(ct);
-        var added = await plan.PlanAsync(Math.Max(1, options.BlogPostsPerWeek), ct);
-        SuccessMessage = added == 0 ? "تقویم ۴ هفتهٔ آینده پر است (یا موضوع تازهٔ کافی پیدا نشد)." : $"{Format.Number(added)} ایدهٔ تازه به تقویم اضافه شد.";
+        // دور ۲۶: پیام دقیق (باگ قبلی: بعد از حذف همهٔ ایده‌ها هم «تقویم پر است» نشان داده می‌شد).
+        var result = await plan.PlanDetailedAsync(Math.Max(1, options.BlogPostsPerWeek), ct);
+        if (result.Added > 0 || result.Needed <= 0)
+            SuccessMessage = result.Message;
+        else
+            ErrorMessage = result.Message;
         return BackToList();
     }
 

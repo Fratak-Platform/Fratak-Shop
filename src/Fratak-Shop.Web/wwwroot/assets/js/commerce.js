@@ -429,6 +429,28 @@
 
   // ── جست‌وجوی صوتی (پیشنهاد ۲۳) – موتور تشخیص گفتار خود مرورگر ──
 
+  // دور ۲۶: جست‌وجوی صوتی درست شد. علت خرابی: سرآیند Permissions-Policy میکروفون را برای خود سایت هم بسته بود («microphone=()»)
+  // و مرورگر بدون هیچ پیامی رد می‌کرد. حالا: پیام «در حال شنیدن…»، پیام روشن برای هر خطا (اجازه، اینترنت، سکوت) و توقف خودکار بعد از ۱۰ ثانیه.
+  function voiceError(code) {
+    switch (code) {
+      case "not-allowed":
+      case "service-not-allowed":
+        return window.isSecureContext === false
+          ? "جست‌وجوی صوتی فقط روی نشانی امن (https) کار می‌کند."
+          : "اجازهٔ میکروفون داده نشده است؛ از نماد قفل کنار نشانی سایت اجازه دهید.";
+      case "network":
+        return "سرویس تشخیص گفتار مرورگر در دسترس نیست؛ اتصال اینترنت را بررسی کنید یا تایپ کنید.";
+      case "audio-capture":
+        return "میکروفونی پیدا نشد.";
+      case "no-speech":
+        return "صدایی شنیده نشد؛ دوباره امتحان کنید.";
+      case "language-not-supported":
+        return "مرورگر شما گفتار فارسی را پشتیبانی نمی‌کند.";
+      default:
+        return "صدا تشخیص داده نشد؛ دوباره امتحان کنید.";
+    }
+  }
+
   function setupVoice() {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const buttons = document.querySelectorAll("[data-voice-search]");
@@ -437,35 +459,55 @@
       button.classList.remove("hidden");
       button.classList.add("flex");
       let active = null;
-      button.addEventListener("click", () => {
+      let timer = 0;
+      button.addEventListener("click", (event) => {
+        event.preventDefault(); // دکمه داخل فرم است؛ نباید فرم خالی ارسال شود
         if (active) { active.stop(); return; }
         const form = button.closest("form");
         const input = form && form.querySelector("input[name='q']");
         if (!input) return;
-        const rec = new Recognition();
+        let rec;
+        try { rec = new Recognition(); } catch (e) { toast(voiceError(""), "warning"); return; }
         rec.lang = "fa-IR";
-        rec.interimResults = false;
+        rec.interimResults = true; // متن در حال گفتن داخل کادر دیده می‌شود
+        rec.continuous = false;
         rec.maxAlternatives = 1;
         active = rec;
+        let finalText = "";
         button.classList.add("fc-listening");
         button.setAttribute("aria-pressed", "true");
+        const placeholder = input.getAttribute("placeholder") || "";
+        input.setAttribute("placeholder", "در حال شنیدن… بگویید چه می‌خواهید");
         rec.onresult = (e) => {
-          const text = e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript.trim() : "";
+          let interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const part = e.results[i][0] ? e.results[i][0].transcript : "";
+            if (e.results[i].isFinal) finalText += part; else interim += part;
+          }
+          input.value = (finalText + interim).trim().slice(0, 100);
+        };
+        rec.onerror = (e) => {
+          if (e.error !== "aborted") toast(voiceError(e.error), "warning");
+        };
+        rec.onend = () => {
+          clearTimeout(timer);
+          active = null;
+          button.classList.remove("fc-listening");
+          button.setAttribute("aria-pressed", "false");
+          input.setAttribute("placeholder", placeholder);
+          const text = (finalText || "").trim();
           if (text) {
             input.value = text.slice(0, 100);
             if (form.requestSubmit) form.requestSubmit(); else form.submit();
           }
         };
-        rec.onerror = (e) => {
-          if (e.error === "not-allowed" || e.error === "service-not-allowed") toast("اجازهٔ میکروفون داده نشده است.", "warning");
-          else if (e.error !== "aborted" && e.error !== "no-speech") toast("صدا تشخیص داده نشد؛ دوباره امتحان کنید.", "warning");
-        };
-        rec.onend = () => {
-          active = null;
-          button.classList.remove("fc-listening");
-          button.setAttribute("aria-pressed", "false");
-        };
-        try { rec.start(); } catch (e) { rec.onend(); }
+        try {
+          rec.start();
+          timer = setTimeout(() => { try { rec.stop(); } catch (e) { /* قبلاً تمام شده */ } }, 10000);
+        } catch (e) {
+          toast(voiceError(""), "warning");
+          rec.onend();
+        }
       });
     });
   }

@@ -298,6 +298,42 @@ public sealed class SmartSources(
         return hits;
     }
 
+    /// <summary>
+    /// دور ۲۶ – «تحقیق پیش از نوشتن مقاله»: جست‌وجوهای واقعی مرتبط مردم برای یک موضوع (پیشنهاد جست‌وجوی موتورها، رایگان).
+    /// خود عبارت و پیشنهادهای خیلی کوتاه/بلند کنار می‌روند؛ نتیجه ۷ روز کش می‌شود. شکست ← فهرست خالی.
+    /// مثال: «هدفون بی سیم» ← [«هدفون بی سیم ارزان»، «هدفون بی سیم سامسونگ» …].
+    /// </summary>
+    public async Task<List<string>> RelatedSearchesAsync(string query, CancellationToken cancellationToken)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length < 2)
+            return [];
+        if (query.Length > 80)
+            query = query[..80];
+        var key = "suggest:" + query;
+        var cached = await store.GetAsync<List<string>>(key, cancellationToken);
+        if (cached is not null)
+            return cached;
+        try
+        {
+            var result = await web.SuggestAsync(query, cancellationToken);
+            if (!result.Ok || result.Value is null)
+                return [];
+            var normalized = PersianText.Normalize(query);
+            var list = result.Value
+                .Select(PersianText.Clean)
+                .Where(x => x.Length is >= 3 and <= 60 && PersianText.Normalize(x) != normalized)
+                .Distinct(StringComparer.Ordinal).Take(8).ToList();
+            await store.SetAsync(key, "suggest", list, SearchTtl, cancellationToken);
+            return list;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogDebug(exception, "Related searches failed for {Query}", query);
+            return [];
+        }
+    }
+
     /// <summary>تصویرهای جست‌وجوی تصویر بینگ (B1).</summary>
     public async Task<List<string>> BingImagesAsync(string query, CancellationToken cancellationToken)
     {

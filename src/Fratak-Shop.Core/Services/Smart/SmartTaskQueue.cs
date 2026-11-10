@@ -115,8 +115,19 @@ public sealed class SmartTaskQueue(FratakShopDbContext context) : ISmartTaskQueu
             // کار تکراری ساخته نمی‌شود؛ ولی اگر ادمین دستی خواسته، اولویت بالا می‌رود.
             if (existing.Status == SmartTaskStatus.Queued && priority > existing.Priority)
             {
-                await context.SmartTasks.Where(t => t.Id == existing.Id)
-                    .ExecuteUpdateAsync(s => s.SetProperty(t => t.Priority, priority), cancellationToken);
+                // دور ۲۶: درخواست دستی بار خودش ({"manual":1}) را هم روی کار در صف می‌نشاند تا با «لازم نیست» رد نشود.
+                if (payloadJson is not null)
+                {
+                    var requester = Limit(userName, 150);
+                    await context.SmartTasks.Where(t => t.Id == existing.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(t => t.Priority, priority).SetProperty(t => t.PayloadJson, payloadJson)
+                            .SetProperty(t => t.RequestedById, userId).SetProperty(t => t.RequestedByName, requester), cancellationToken);
+                }
+                else
+                {
+                    await context.SmartTasks.Where(t => t.Id == existing.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(t => t.Priority, priority), cancellationToken);
+                }
             }
             return existing.Id;
         }
