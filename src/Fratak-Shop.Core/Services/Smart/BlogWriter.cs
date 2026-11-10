@@ -229,21 +229,43 @@ public static class BlogWriter
 
     // ───────────────────────────── بررسی یک محصول ─────────────────────────────
 
+    /// <summary>
+    /// بررسی/معرفی یک کالای واقعی (دور ۲۳ – «نمایش ویژهٔ کالا»): نام و دستهٔ واقعی، مشخصات برجستهٔ ثبت‌شده و معنای هر کدام.
+    /// ادعای «از نگاه خریداران» فقط وقتی نوشته می‌شود که واقعاً نظر خریدار (یا جمع‌بندی نظرها) وجود دارد؛ وگرنه عنوان «مشخصات کلیدی و ویژگی‌های برجسته» است
+    /// و هیچ بخش خالی «نقاط قوت و ضعف» نمی‌آید. مثال عنوان بدون نظر: «بررسی هدفون سونی WH-1000XM5؛ مشخصات کلیدی و ویژگی‌های برجسته».
+    /// </summary>
     private static BlogArticle Review(BlogBrief brief, BlogProduct product)
     {
         var seed = product.Slug + "rv";
         var keyword = Keyword(brief, $"بررسی {Short(product)}");
-        var title = $"{keyword}؛ نقاط قوت و ضعف از نگاه خریداران";
+        var hasOpinions = product.ReviewCount >= 3 || product.Pros.Count > 0 || product.Cons.Count > 0;
+        var title = hasOpinions ? $"{keyword}؛ نقاط قوت و ضعف از نگاه خریداران" : $"{keyword}؛ مشخصات کلیدی و ویژگی‌های برجسته";
         var html = new StringBuilder();
         var facts = Facts(product).ToList();
+        var highlights = facts.Select(SpecKnowledge.Highlight).Where(h => h is not null).Select(h => h!).Distinct().Take(4).ToList();
+        // نویسه‌های الگوی تنوع ([ | ] { }) از نام دسته حذف می‌شوند تا الگو را نشکنند.
+        var category = string.IsNullOrWhiteSpace(brief.CategoryName) ? null
+            : PersianText.Clean(new string(brief.CategoryName.Select(c => c is '[' or ']' or '|' or '{' or '}' ? ' ' : c).ToArray()));
 
-        Tldr(html, [
-            product.Pros.Count > 0 ? $"مهم‌ترین نقطهٔ قوت: {E(product.Pros[0])}." : null,
-            product.Cons.Count > 0 ? $"مهم‌ترین ضعف: {E(product.Cons[0])}." : "ایراد تکرارشونده‌ای در نظرها دیده نشده است.",
-            product.ForWhom.Count > 0 ? $"مناسب برای: {E(product.ForWhom[0])}." : null,
-            product.ReviewCount >= 3 ? $"امتیاز خریداران: {RatingText(product)}." : null,
-        ]);
-        html.Append(P(Spun(seed + "i", $"در این بررسی، {E(Short(product))} را [از روی مشخصات فنی|بر پایهٔ مشخصات ثبت‌شده] و [تجربهٔ خریداران واقعی|نظر کسانی که آن را خریده‌اند] بررسی کرده‌ایم تا [بدانید به کارتان می‌آید یا نه|ببینید با نیازتان جور است یا نه].")));
+        Tldr(html, hasOpinions
+            ? new string?[]
+            {
+                product.Pros.Count > 0 ? $"مهم‌ترین نقطهٔ قوت: {E(product.Pros[0])}." : null,
+                product.Cons.Count > 0 ? $"مهم‌ترین ضعف: {E(product.Cons[0])}." : "ایراد تکرارشونده‌ای در نظرها دیده نشده است.",
+                product.ForWhom.Count > 0 ? $"مناسب برای: {E(product.ForWhom[0])}." : null,
+                product.ReviewCount >= 3 ? $"امتیاز خریداران: {RatingText(product)}." : null,
+            }
+            : new string?[]
+            {
+                category is null ? null : $"دسته: {E(category)}.",
+                highlights.Count > 0 ? $"ویژگی‌های برجسته: {E(PersianText.JoinList(highlights.Take(3).ToList()))}." : null,
+                facts.Count > 0 ? $"{E(facts[0].Key)}: {E(facts[0].Value)}." : null,
+                product.ForWhom.Count > 0 ? $"مناسب برای: {E(product.ForWhom[0])}." : null,
+            });
+        var place = category is null ? "" : $" از دستهٔ {E(category)}";
+        html.Append(P(hasOpinions
+            ? Spun(seed + "i", $"در این بررسی، {E(Short(product))}{place} را [از روی مشخصات فنی|بر پایهٔ مشخصات ثبت‌شده] و [تجربهٔ خریداران واقعی|نظر کسانی که آن را خریده‌اند] بررسی کرده‌ایم تا [بدانید به کارتان می‌آید یا نه|ببینید با نیازتان جور است یا نه].")
+            : Spun(seed + "i", $"در این معرفی، {E(Short(product))}{place} را [از روی مشخصات فنی ثبت‌شده|بر پایهٔ مشخصات واقعی همین کالا] بررسی کرده‌ایم تا [بدانید به کارتان می‌آید یا نه|ببینید با نیازتان جور است یا نه].")));
         html.Append(Card(product));
 
         html.Append(H2("مشخصات کلیدی و معنای آن‌ها"));
@@ -255,14 +277,25 @@ public static class BlogWriter
         if (facts.Count == 0)
             html.Append(P("مشخصات فنی این کالا در صفحهٔ محصول به‌طور کامل آمده است."));
 
-        html.Append(H2("نقاط قوت و ضعف"));
-        Points(html, product);
+        if (hasOpinions)
+        {
+            html.Append(H2("نقاط قوت و ضعف"));
+            Points(html, product);
+        }
+        else if (highlights.Count > 0)
+        {
+            html.Append(H2("ویژگی‌های برجسته"));
+            html.Append(Ul(highlights.Select(E)));
+        }
         html.Append(H2("مناسب چه کسانی است؟"));
         html.Append(product.ForWhom.Count > 0 ? Ul(product.ForWhom.Select(E)) : P("برای استفادهٔ روزمره و عمومی مناسب است."));
         Faq(html, Category(brief), [product], seed);
         html.Append(H2("جمع‌بندی"));
         html.Append(P(Line(product, seed)));
-        return Finish(title, keyword, html, [product], $"{keyword}: مشخصات کلیدی به زبان ساده، نقاط قوت و ضعف از نظر خریداران و اینکه مناسب چه کسی است.");
+        var excerpt = hasOpinions
+            ? $"{keyword}: مشخصات کلیدی به زبان ساده، نقاط قوت و ضعف از نظر خریداران و اینکه مناسب چه کسی است."
+            : $"{keyword}: مشخصات کلیدی به زبان ساده، ویژگی‌های برجسته و اینکه مناسب چه کسی است.";
+        return Finish(title, keyword, html, [product], excerpt);
     }
 
     // ───────────────────────────── بخش‌های مشترک ─────────────────────────────

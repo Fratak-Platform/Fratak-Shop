@@ -19,7 +19,7 @@ public sealed record BlogPlanRow(Guid Id, DateTimeOffset PlannedFor, BlogArticle
 /// <summary>
 /// برنامه‌ریز تقویم محتوای بلاگ (B18) – بخش خالص و قطعی (بدون دیتابیس) برای آزمون‌پذیری.
 /// <para>قاعده‌ها: فقط دسته‌هایی که دست‌کم ۳ کالای موجود دارند (مقاله بدون کالای واقعی ارزشی ندارد)؛ انواع مقاله
-/// به نوبت (بهترین‌ها ← راهنمای خرید ← مقایسه)؛ موضوع تکراری (در برنامه یا منتشرشده) پیشنهاد نمی‌شود؛ جست‌وجوهای پرتکرار
+/// به نوبت (دور ۲۳: معرفی ویژهٔ یک کالای واقعی ← راهنمای خرید ← مقایسه ← معرفی کالای دوم؛ بدون فهرست کلی «بهترین‌ها»)؛ موضوع تکراری (در برنامه یا منتشرشده) پیشنهاد نمی‌شود؛ جست‌وجوهای پرتکرار
 /// کاربران که به نام یک دسته می‌خورند اولویت دارند («تقاضای واقعی»).</para>
 /// </summary>
 public static class BlogPlanner
@@ -37,20 +37,26 @@ public static class BlogPlanner
             var category = eligible.FirstOrDefault(c => normalized.Contains(PersianText.Normalize(c.Name), StringComparison.Ordinal));
             if (category is null)
                 continue;
-            TryAdd(new PlanIdea(BlogArticleType.BestPicks, $"{PersianText.Digits(Math.Min(5, category.InStock))} پیشنهاد خرید {PersianText.Clean(query)}", $"خرید {PersianText.Clean(query)}", category.Id, [], "demand"));
+            // دور ۲۳: تقاضای واقعی ← راهنمای خرید (نه فهرست کلی «پیشنهاد خرید»).
+            TryAdd(new PlanIdea(BlogArticleType.BuyingGuide, $"راهنمای خرید {PersianText.Clean(query)}", $"راهنمای خرید {PersianText.Clean(query)}", category.Id, [], "demand"));
             if (ideas.Count >= count)
                 return ideas;
         }
 
-        // ۲) چرخهٔ انواع برای هر دسته.
-        foreach (var round in new[] { BlogArticleType.BestPicks, BlogArticleType.BuyingGuide, BlogArticleType.Comparison })
+        // ۲) چرخهٔ انواع برای هر دسته. دور ۲۳: به جای فهرست کلی «پیشنهاد خرید …»، «معرفی ویژهٔ» یک کالای واقعی پرفروش همان دسته
+        // (نام، دسته و مشخصات برجستهٔ واقعی؛ BlogArticleType.Review). نوبت چهارم = معرفی دومین کالای پرفروش.
+        var rounds = new (BlogArticleType Type, int Pick)[] { (BlogArticleType.Review, 0), (BlogArticleType.BuyingGuide, 0), (BlogArticleType.Comparison, 0), (BlogArticleType.Review, 1) };
+        foreach (var (round, pick) in rounds)
         {
             foreach (var category in eligible.OrderByDescending(c => c.InStock))
             {
                 var name = PersianText.Clean(category.Name);
                 var idea = round switch
                 {
-                    BlogArticleType.BestPicks => new PlanIdea(round, $"{PersianText.Digits(Math.Min(5, category.InStock))} پیشنهاد خرید {name}", $"خرید {name}", category.Id, [], "auto"),
+                    BlogArticleType.Review when category.TopProducts.Count > pick => new PlanIdea(round,
+                        $"معرفی و بررسی {Short(category.TopProducts[pick].Name)}", $"بررسی {Short(category.TopProducts[pick].Name)}",
+                        category.Id, [category.TopProducts[pick].Id], "auto"),
+                    BlogArticleType.Review => null,
                     BlogArticleType.BuyingGuide => new PlanIdea(round, $"راهنمای خرید {name}", $"راهنمای خرید {name}", category.Id, [], "auto"),
                     _ when category.TopProducts.Count >= 2 => new PlanIdea(round,
                         $"مقایسه {Short(category.TopProducts[0].Name)} و {Short(category.TopProducts[1].Name)}",

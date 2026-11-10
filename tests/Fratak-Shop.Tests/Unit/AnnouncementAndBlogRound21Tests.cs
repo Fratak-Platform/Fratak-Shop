@@ -197,8 +197,41 @@ public class AnnouncementAndBlogRound21Tests
         var ideas = BlogPlanner.Propose(categories, [], ["هدفون بی سیم"], 6);
         Assert.NotEmpty(ideas);
         Assert.DoesNotContain(ideas, i => i.Topic.Contains("بهترین", StringComparison.Ordinal));
-        Assert.Contains(ideas, i => i.Topic == "۵ پیشنهاد خرید هدفون بی سیم" && i.Origin == "demand");
-        Assert.Contains(ideas, i => i.Topic == "۳ پیشنهاد خرید پاوربانک");
-        Assert.All(ideas.Where(i => i.Type == BlogArticleType.BestPicks), i => Assert.StartsWith("خرید ", i.Keyword));
+        // دور ۲۳: تقاضای واقعی ← راهنمای خرید؛ به جای فهرست کلی، «معرفی ویژهٔ» یک کالای واقعی پرفروش.
+        Assert.Contains(ideas, i => i.Topic == "راهنمای خرید هدفون بی سیم" && i.Origin == "demand" && i.Type == BlogArticleType.BuyingGuide);
+        Assert.Contains(ideas, i => i.Type == BlogArticleType.Review && i.Topic == "معرفی و بررسی هدفون سونی" && i.Keyword == "بررسی هدفون سونی"
+                                    && i.ProductIds.Count == 1 && i.ProductIds[0] == categories[0].TopProducts[0].Id);
+        Assert.Contains(ideas, i => i.Type == BlogArticleType.Review && i.Topic == "معرفی و بررسی هدفون انکر");
+        Assert.Contains(ideas, i => i.Topic == "راهنمای خرید پاوربانک");
+        Assert.DoesNotContain(ideas, i => i.Type == BlogArticleType.BestPicks);
+        Assert.DoesNotContain(ideas, i => i.Type == BlogArticleType.Review && i.CategoryId == categories[1].Id); // دستهٔ بدون کالای پرفروش
+    }
+    [Fact]
+    public void Product_spotlight_without_reviews_never_claims_buyer_opinions()
+    {
+        var product = new BlogProduct(Guid.NewGuid(), "هدفون بی سیم سونی مدل X5", "sony-x5", "سونی", 4_500_000, true, 0, 0, 2,
+            [new SeoFeature("عمر باتری", "30 ساعت"), new SeoFeature("نسخه بلوتوث", "5.3"), new SeoFeature("حذف نویز", "دارد")], [], [], []);
+        var article = BlogWriter.Write(new BlogBrief(BlogArticleType.Review, "معرفی و بررسی هدفون بی سیم سونی مدل X5", "بررسی هدفون بی سیم سونی مدل X5",
+            "هدفون", "headphones", [product], Now));
+
+        Assert.Contains("مشخصات کلیدی و ویژگی‌های برجسته", article.Title);
+        Assert.DoesNotContain("از نگاه خریداران", article.Title + article.Excerpt);
+        Assert.DoesNotContain("خریداران واقعی", article.Html);
+        Assert.DoesNotContain("نقاط قوت و ضعف", article.Html);
+        Assert.DoesNotContain("در نظرها", article.Html);
+        Assert.Contains("از دستهٔ هدفون", article.Html);
+        Assert.Contains("عمر باتری", article.Html);
+        Assert.Contains("[[product:sony-x5]]", article.Html);
+        Assert.Equal(new[] { "sony-x5" }, article.ProductSlugs.ToArray());
+        Assert.Empty(ContentQualityGate.Issues(article.Html, style: false));
+    }
+
+    [Fact]
+    public void Product_spotlight_with_real_opinions_keeps_pros_and_cons()
+    {
+        var article = BlogWriter.Write(new BlogBrief(BlogArticleType.Review, "بررسی", null, "هدفون", "headphones", [Product(1, "سونی", 3_000_000)], Now));
+        Assert.Contains("از نگاه خریداران", article.Title);
+        Assert.Contains("نقاط قوت و ضعف", article.Html);
+        Assert.Contains("صدای شفاف", article.Html);
     }
 }
