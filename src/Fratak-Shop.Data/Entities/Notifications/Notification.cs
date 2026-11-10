@@ -187,6 +187,9 @@ public enum NotificationEvent
 
     /// <summary>دور ۱۹ (C20): یادآوری تهیهٔ دوبارهٔ کالای مصرفی (مثل فیلتر یا شارژ) پس از چرخهٔ مصرف معمول.</summary>
     ReplenishReminder = 103,
+
+    /// <summary>دور ۲۵: به پرسشی که مشتری در بخش «پرسش و پاسخ» کالا ثبت کرده بود پاسخ داده شد (اعلان سایت + پوش؛ بدون پیامک).</summary>
+    QuestionAnswered = 104,
     TicketCreated = 110,
     TicketReplied = 111,
 }

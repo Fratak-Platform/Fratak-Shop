@@ -39,7 +39,7 @@
   var MAX_LOG = 40;
   var GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   var FLOW = /^finder(?::[a-z0-9-]{0,100})?(?::\d)?(?::[a-z]{2,8})?$/;
-  var TARGETS = ["add-to-cart", "cart-summary", "checkout-button", "address", "order-summary", "pay-button", "login-phone", "login-password", "otp-phone"];
+  var TARGETS = ["add-to-cart", "cart-summary", "checkout-button", "address", "order-summary", "pay-button", "login-phone", "login-password", "otp-phone", "order-cancel", "order-return", "order-invoice"];
   var FILLABLE = ["login-phone", "otp-phone"];
   var STEP_TTL = 3 * 60 * 1000;
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -259,6 +259,8 @@
         img.height = 100;
         card.appendChild(img);
       }
+      // دور ۲۵: برچسب کوتاه مشاور خرید روی کارت (مثلاً «بیشترین رضایت»).
+      if (typeof c.note === "string" && c.note && c.note.length <= 40) card.appendChild(el("span", "fs-as-note", c.note));
       var name = el("a", "fs-as-name", c.name || "");
       if (url) name.href = url;
       card.appendChild(name);
@@ -318,11 +320,39 @@
 
   function scrollDown() { log.scrollTop = log.scrollHeight; }
 
+  // ── دور ۲۵: نظر مشتری دربارهٔ پاسخ (👍/👎) ───────────────────
+  // فقط برای پاسخ‌های ربات که شناسه دارند؛ بعد از رأی، دکمه‌ها جای خود را به «ممنون» می‌دهند و رأی در تاریخچه می‌ماند.
+  function renderFeedback(entry) {
+    if (!entry || entry.me || entry.staff || !GUID.test(entry.id || "")) return null;
+    var box = el("div", "fs-as-fb");
+    function thanks(helpful) {
+      while (box.firstChild) box.removeChild(box.firstChild);
+      box.appendChild(el("span", null, helpful ? "ممنون از نظرتان 🌱" : "ممنون؛ برای بهتر شدن جواب‌ها بررسی می‌شود."));
+    }
+    if (typeof entry.fb === "boolean") { thanks(entry.fb); return box; }
+    box.appendChild(el("span", null, "جواب مفید بود؟"));
+    [[true, "👍", "بله، مفید بود"], [false, "👎", "نه، مفید نبود"]].forEach(function (item) {
+      var b = el("button", null, item[1]);
+      b.type = "button";
+      b.setAttribute("aria-label", item[2]);
+      b.addEventListener("click", function () {
+        entry.fb = item[0];
+        write(LOG_KEY, history);
+        thanks(item[0]);
+        postJson("/api/assistant/feedback", { id: entry.id, session: sessionId(), helpful: item[0] }, false).catch(function () { });
+      });
+      box.appendChild(b);
+    });
+    return box;
+  }
+
   function render(entry) {
     var node = bubbleNode(entry);
     log.appendChild(node);
     if (entry.cards && entry.cards.length) log.appendChild(renderCards(entry.cards));
     if (entry.actions && entry.actions.length) log.appendChild(renderActions(entry.actions));
+    var fb = renderFeedback(entry);
+    if (fb) log.appendChild(fb);
     scrollDown();
     return node;
   }
@@ -337,6 +367,8 @@
       span.textContent = full;
       if (entry.cards && entry.cards.length) log.appendChild(renderCards(entry.cards));
       if (entry.actions && entry.actions.length) log.appendChild(renderActions(entry.actions));
+      var fb = renderFeedback(entry);
+      if (fb) log.appendChild(fb);
       scrollDown();
     }
     if (reduced || panel.hidden || full.length < 2) { finish(); return; }
@@ -488,7 +520,7 @@
         if (cards.length) write(LAST_KEY, cards.map(function (c) { return c.id; }).filter(function (id) { return GUID.test(id || ""); }).slice(0, 6));
         if (typeof data.query === "string" && data.query) write(QUERY_KEY, data.query.slice(0, 100));
         if (data.style && typeof data.style === "object") write(STYLE_KEY, { callMe: data.style.callMe || null, tone: Number(data.style.tone) || 0, register: Number(data.style.register) || 0 }, "local");
-        addBot({ text: data.text || "", cards: cards, actions: actions });
+        addBot({ text: data.text || "", cards: cards, actions: actions, id: GUID.test(data.messageId || "") ? data.messageId : null });
         if (data.lookup) poll(data.lookup, render({ text: "لطفاً چند لحظه صبر کنید…" }), 0);
         if (data.cartChanged) document.dispatchEvent(new CustomEvent("fs:cart-changed"));
         if (data.handoff) startHandoff();

@@ -123,6 +123,11 @@
       <div><label class="a-label" asp-for="Options.ReplenishBody">متن یادآوری تمدید</label><textarea class="a-input" asp-for="Options.ReplenishBody" rows="2"></textarea></div>
       <div><label class="a-label" asp-for="Options.ReplenishSmsText">متن پیامک تمدید</label><textarea class="a-input" asp-for="Options.ReplenishSmsText" rows="2"></textarea></div>
       <p class="a-muted text-xs">جای‌گذاری‌ها: <code>{ProductName}</code>، <code>{SiteName}</code>، <code>{Link}</code>، <code>{Days}</code></p>
+      @* دور ۲۵ (الف): اعلان ارزان شدن کالاهای «علاقه‌مندی‌ها». *@
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.FavoritePriceAlert"> وقتی کالای «علاقه‌مندی‌ها»ی مشتری ارزان شد خبرش کن (اعلان سایت و پوش؛ هر کالا حداکثر هفته‌ای یک‌بار، هر مشتری حداکثر ۲ اعلان در روز)</label>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div><label class="a-label" asp-for="Options.FavoritePriceDropPercent">کمترین درصد کاهش قیمت</label><input class="a-input" asp-for="Options.FavoritePriceDropPercent" min="3" max="50"></div>
+      </div>
       @if (Model.Categories.Count > 0)
       {
         <details>

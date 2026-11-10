@@ -126,6 +126,13 @@ public static class NotificationPlaceholders
         new("ItemName", "نام کالای ناموجود", "کابل شارژ تایپ‌سی"),
     ]);
 
+    private static readonly NotificationPlaceholderGroup QuestionGroup = new("پرسش و پاسخ کالا",
+    [
+        new("ProductName", "نام محصول", "هندزفری بلوتوثی هایلو T15"),
+        new("Question", "پرسش مشتری (کوتاه‌شده)", "با آیفون ۱۳ سازگار است؟"),
+        new("Answer", "پاسخ (کوتاه‌شده)", "بله، با همهٔ گوشی‌های بلوتوث‌دار کار می‌کند."),
+    ]);
+
     private static readonly NotificationPlaceholderGroup Ticket = new("تیکت پشتیبانی",
     [
         new("TicketNumber", "شمارهٔ تیکت", "T-1024"),
@@ -173,6 +180,7 @@ public static class NotificationPlaceholders
         NotificationEvent.PriceDrop => "کاهش قیمت محصول",
         NotificationEvent.ProductReviewRequest => "درخواست نظر دربارهٔ کالای خریداری‌شده",
         NotificationEvent.ReplenishReminder => "یادآوری تهیهٔ دوبارهٔ کالای مصرفی",
+        NotificationEvent.QuestionAnswered => "پاسخ به پرسش کالا",
         NotificationEvent.TicketCreated => "ثبت تیکت",
         NotificationEvent.TicketReplied => "پاسخ به تیکت",
         _ => @event.ToString(),
@@ -186,6 +194,7 @@ public static class NotificationPlaceholders
         >= 30 and < 50 => "کیف پول و کارت هدیه",
         >= 50 and < 70 => "باشگاه مشتریان",
         >= 70 and < 90 => "امنیت حساب",
+        104 => "پشتیبانی",
         >= 90 and < 110 => "بازاریابی",
         >= 110 and < 120 => "پشتیبانی",
         _ => "عمومی",
@@ -220,6 +229,7 @@ public static class NotificationPlaceholders
             NotificationEvent.AbandonedCartReminder => Cart,
             NotificationEvent.BackInStock or NotificationEvent.PriceDrop or NotificationEvent.ProductReviewRequest or NotificationEvent.ReplenishReminder => Product,
             NotificationEvent.TicketCreated or NotificationEvent.TicketReplied => Ticket,
+            NotificationEvent.QuestionAnswered => QuestionGroup,
             NotificationEvent.OrderFeedbackRequest => Feedback,
             NotificationEvent.OrderPaymentLink => PaymentLink,
             NotificationEvent.OrderMessage => OrderMessageGroup,

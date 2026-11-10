@@ -1,6 +1,7 @@
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.DTOs.Settings;
 using Fratak_Shop.Core.DTOs.Shopping.Command;
+using Fratak_Shop.Core.Services.Orders;
 using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Core.Services.Searches;
 using Fratak_Shop.Core.Services.Seo.Engine;
@@ -10,6 +11,7 @@ using Fratak_Shop.Core.Services.Smart;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Assistant;
+using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Loyalty;
 using Fratak_Shop.Data.Entities.Marketing;
 using Fratak_Shop.Data.Entities.Orders;
@@ -68,8 +70,8 @@ public sealed record AssistantStyle(string? CallMe, AssistantTone Tone, int Regi
 /// <summary>دور ۲۴: پرسش‌های پیشنهادی یک صفحه + نام و معرفی دستیار (برای ویجت).</summary>
 public sealed record AssistantSuggestion(string Name, string Intro, IReadOnlyList<AssistantAction> Chips, bool Greeting, bool HandoffEnabled);
 
-/// <summary>کارت کالا در پاسخ دستیار.</summary>
-public sealed record AssistantCard(Guid Id, string Name, string Url, string? ImageUrl, decimal Price, decimal FinalPrice, int DiscountPercent, bool InStock);
+/// <summary>کارت کالا در پاسخ دستیار. دور ۲۵: Note = برچسب کوتاه مشاور خرید روی کارت (مثلاً «بیشترین رضایت»).</summary>
+public sealed record AssistantCard(Guid Id, string Name, string Url, string? ImageUrl, decimal Price, decimal FinalPrice, int DiscountPercent, bool InStock, string? Note = null);
 
 /// <summary>دکمهٔ پاسخ: یا لینک (Url) یا پیامی که با زدنش فرستاده می‌شود (Say).</summary>
 /// <remarks>دور ۲۴: Flow = وضعیت جریان دکمه‌ای (مثلاً کالایاب) که با زدن دکمه همراه پیام برمی‌گردد.</remarks>
@@ -100,6 +102,9 @@ public sealed record AssistantReply(
 
     /// <summary>دور ۲۴: گفت‌وگو با کارشناس باز است (ویجت شروع به گرفتن پیام‌های کارشناس می‌کند).</summary>
     public bool Handoff { get; init; }
+
+    /// <summary>دور ۲۵: شناسهٔ پیام ثبت‌شده (برای دکمه‌های 👍/👎)؛ ثبت نشد ← null.</summary>
+    public Guid? MessageId { get; init; }
 }
 
 /// <summary>شمارش یک گروه در پنل. مثال: («باتری»، ۱۲).</summary>
@@ -155,6 +160,12 @@ public interface IAssistantService
 
     /// <summary>دور ۲۴: آموزش دوبارهٔ مدل نیت پیام از پیام‌های واقعی ۹۰ روز اخیر (نگه‌داری شبانه). خروجی: تعداد نمونهٔ واقعی.</summary>
     Task<int> RetrainIntentModelAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۵: نظر مشتری دربارهٔ یک پاسخ (👍 = true، 👎 = false). فقط پیام همان گفت‌وگو (SessionKey) و تا ۲۴ ساعت. خروجی: ثبت شد؟
+    /// پاسخ‌های 👎 در پنل «آموزش دستیار» نشان داده می‌شوند تا کارکنان جواب درست را یاد بدهند.
+    /// </summary>
+    Task<bool> FeedbackAsync(Guid messageId, string sessionKey, bool helpful, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -169,7 +180,10 @@ public sealed class AssistantService(
     ISmartTaskQueue? queue = null,
     ISmartConfigService? smart = null,
     IAssistantKnowledge? knowledge = null,
-    IAssistantHandoffService? handoffs = null) : IAssistantService
+    IAssistantHandoffService? handoffs = null,
+    IOrderService? orderActions = null,
+    IReturnService? returns = null,
+    IAssistantTeachingService? teachings = null) : IAssistantService
 {
     /// <summary>نام انجام‌دهندهٔ کارهایی که دستیار در صف هوشمند می‌گذارد.</summary>
     public const string Actor = "دستیار فروشگاه";
@@ -195,7 +209,10 @@ public sealed class AssistantService(
     {
         // موبایل/کارت/ایمیل از همان ابتدا پوشانده می‌شود تا نه در جست‌وجو، نه در «کالاهای درخواستی» و نه در گزارش بماند.
         var text = AssistantNlu.Mask(AssistantNlu.Cut(request.Text));
-        var parse = AssistantNlu.Parse(text);
+        // دور ۲۵: فهم در یک جا – اصلاح غلط تایپی/فینگلیش/محاوره، خواسته‌های خرید (بودجه، مرتب‌سازی…) و نیت.
+        var understood = AssistantUnderstanding.Understand(text, await VocabularyAsync(cancellationToken));
+        var parse = understood.Parse;
+        var said = understood.Prepared.Text;
         var store = await settings.GetAsync(cancellationToken);
         var options = smart is null ? new SmartOptions().Normalize() : await smart.GetAsync(cancellationToken);
         var (voice, style) = await VoiceAsync(request, text, cancellationToken);
@@ -213,13 +230,29 @@ public sealed class AssistantService(
             return handoffReply;
         }
 
+        // دور ۲۵: جوابی که کارکنان برای همین پرسش یاد داده‌اند (پیش از قانون‌ها؛ دکمه‌های کارت و جریان کالایاب دست نمی‌خورند).
+        AssistantTaught? taught = null;
+        if (teachings is not null && request.Flow is null && request.ActionProductId is null)
+        {
+            try
+            {
+                taught = await teachings.MatchAsync(said, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Assistant teaching match failed");
+            }
+        }
+
         // دور ۲۴: مدل یادگیرنده فقط وقتی قانون‌ها پیام را «جست‌وجو» دیده‌اند نظر دوم می‌دهد (مثلاً «میشه با یه نفر حرف بزنم» ← پشتیبان).
-        var intent = parse.Intent;
+        var intent = understood.Route;
         var finder = AssistantFinder.Parse(request.Flow);
         var learnedRoute = false;
         if (finder is not null)
             intent = AssistantIntent.Finder;
-        else if (intent == AssistantIntent.Search && !Similar(parse) && AssistantIntentModel.Suggest(text) is { } learned)
+        else if (taught?.Intent is { } taughtIntent)
+            intent = taughtIntent;
+        else if (intent == AssistantIntent.Search && !Similar(parse) && !understood.Slots.Strong && AssistantIntentModel.Suggest(said) is { } learned)
         {
             intent = learned;
             learnedRoute = true;
@@ -234,6 +267,7 @@ public sealed class AssistantService(
         {
             outcome = intent switch
             {
+                _ when taught is { Intent: null } => Taught(taught),
                 _ when similarBase is { } baseId => await SimilarAsync(baseId, voice, cancellationToken),
                 AssistantIntent.Greeting => Greeting(voice, store.SiteName, options.AssistantName),
                 AssistantIntent.Thanks => Simple(AssistantIntent.Thanks, voice.Thanks()),
@@ -249,13 +283,18 @@ public sealed class AssistantService(
                 AssistantIntent.CartRemove => await CartRemoveAsync(request, parse, voice),
                 AssistantIntent.Checkout => await CheckoutAsync(request, voice, store.FreeShippingThreshold, cancellationToken),
                 AssistantIntent.Address => await AddressAsync(request.UserId, voice, cancellationToken),
-                AssistantIntent.Compare => await CompareAsync(request, text, parse, last, cancellationToken),
+                AssistantIntent.Compare => await CompareAsync(request, said, parse, last, cancellationToken),
                 AssistantIntent.Navigate => await NavigateAsync(request, parse, last, voice, store.FreeShippingThreshold, cancellationToken),
                 AssistantIntent.Login => Login(request, text, voice),
                 AssistantIntent.Offers => await OffersAsync(request, parse, voice, store.FreeShippingThreshold, cancellationToken),
                 AssistantIntent.Finder => await FinderAsync(finder ?? new FinderState(null, null, null), parse, voice, cancellationToken),
                 AssistantIntent.ProductQuestion => await QuestionAsync(request, parse, last, voice, store, cancellationToken),
-                _ => await SearchAsync(text, parse, request, voice, cancellationToken),
+                // دور ۲۵: مشاور خرید و کارهای بعد از خرید.
+                AssistantIntent.Advisor => await AdvisorAsync(understood, request, voice, cancellationToken),
+                AssistantIntent.OrderCancel => await CancelOrderAsync(request, parse, voice, store, cancellationToken),
+                AssistantIntent.OrderReturn => await ReturnOrderAsync(request, parse, voice, store, cancellationToken),
+                AssistantIntent.Invoice => await InvoiceAsync(request, parse, voice, cancellationToken),
+                _ => await SearchAsync(said, parse, request, voice, cancellationToken),
             };
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -266,14 +305,17 @@ public sealed class AssistantService(
 
         if (learnedRoute)
             outcome = outcome with { Topic = LearnedTopic };
-        await LogAsync(request, text, outcome, cancellationToken);
+        else if (taught is not null && outcome.Topic is null)
+            outcome = outcome with { Topic = TaughtTopic };
+        var messageId = await LogAsync(request, text, outcome, cancellationToken);
         var reply = outcome.Reply;
         return reply with
         {
             Steps = AssistantGuide.Clean(reply.Steps),
             Style = reply.Style ?? style,
             // حافظهٔ گفت‌وگو: آخرین عبارت جست‌وجو (برای «داریم؟» یا «ارزون‌ترش» در پیام بعد).
-            Query = reply.Query ?? (outcome.Query is { Length: >= 2 } q && reply.Intent is AssistantIntent.Search or AssistantIntent.Demand or AssistantIntent.ProductQuestion ? q : request.LastQuery),
+            Query = reply.Query ?? (outcome.Query is { Length: >= 2 } q && reply.Intent is AssistantIntent.Search or AssistantIntent.Demand or AssistantIntent.ProductQuestion or AssistantIntent.Advisor ? q : request.LastQuery),
+            MessageId = messageId,
         };
     }
 
@@ -774,7 +816,11 @@ public sealed class AssistantService(
             .Select(m => new { m.Text, m.Intent })
             .Take(20_000)
             .ToListAsync(cancellationToken);
-        var count = AssistantIntentModel.Retrain(rows.Select(r => (r.Text, r.Intent)));
+        var examples = rows.Select(r => (r.Text, r.Intent)).ToList();
+        // دور ۲۵: آموزش‌های کارکنان که «کار» دارند (مثلاً «بسته‌ام نیومده» ← پیگیری) هم نمونهٔ مطمئن هستند.
+        if (teachings is not null)
+            examples.AddRange(await teachings.ExamplesAsync(cancellationToken));
+        var count = AssistantIntentModel.Retrain(examples);
         logger.LogInformation("Assistant intent model retrained with {Count} real messages", count);
         return count;
     }
@@ -1011,10 +1057,12 @@ public sealed class AssistantService(
         }
 
         var card = ToCard(product);
-        AssistantReply Reply(string text, AssistantLookupNeed? lookup = null) =>
-            new(text, [card], [], AssistantIntent.ProductQuestion, lookup);
+        // دور ۲۵: وقتی جواب در دادهٔ ما نیست، مشتری می‌تواند همین سؤال را در بخش «پرسش و پاسخ» کالا از فروشنده بپرسد.
+        var askSeller = new AssistantAction("پرسیدن از فروشنده", $"/product/{product.Slug}#quest");
+        AssistantReply Reply(string text, AssistantLookupNeed? lookup = null, bool ask = false) =>
+            new(text, [card], ask ? new List<AssistantAction> { askSeller } : new List<AssistantAction>(), AssistantIntent.ProductQuestion, lookup);
         Outcome Done(string text) => new(Reply(text), product.Id, true, topic.Title, parse.Query);
-        Outcome Gap(string text, AssistantLookupNeed? lookup = null) => new(Reply(text, lookup), product.Id, false, topic.Title, parse.Query);
+        Outcome Gap(string text, AssistantLookupNeed? lookup = null) => new(Reply(text, lookup, ask: true), product.Id, false, topic.Title, parse.Query);
 
         switch (topic.Key)
         {
@@ -1022,6 +1070,18 @@ public sealed class AssistantService(
                 return Done(PriceText(product) + " " + StockText(product));
             case "stock":
                 return Done(StockText(product));
+        }
+
+        // دور ۲۵: «کیفیتش چطوره؟»، «نظر خریدارا چیه؟» ← خلاصهٔ واقعی نظر خریداران (نه جست‌وجوی اینترنت).
+        if (topic.Key == "reviews")
+        {
+            var summary = AssistantReviews.Summarize(await ReviewsOfAsync(product.Id, cancellationToken));
+            if (AssistantReviews.Text(summary, product.Name, summary.Aspects.Any(a => a.Key == "quality") && parse.Normalized.Contains("کیفیت", StringComparison.Ordinal) ? "quality" : null) is { } reviewText)
+                return Done(reviewText) with { Reply = Reply(reviewText) with { Actions = [new("همهٔ نظرها", $"/product/{product.Slug}#comments")] } };
+            if (await AnsweredQuestionAsync(product.Id, request.Text, cancellationToken) is { } earlier)
+                return Done($"این سؤال قبلاً پرسیده شده: «{earlier.Question}»\nپاسخ فروشنده: {earlier.Answer}");
+            return new Outcome(Reply($"هنوز نظری برای «{product.Name}» ثبت نشده است{voice.Comma}. {(product.SalesCount > 0 ? "این کالا فروش داشته ولی خریداران هنوز نظر نداده‌اند. " : "")}می‌توانید سؤالتان را از فروشنده بپرسید.", ask: true),
+                product.Id, true, topic.Title, parse.Query);
         }
 
         var facts = await context.Products.AsNoTracking()
@@ -1066,6 +1126,18 @@ public sealed class AssistantService(
             .ToList();
         if (matched.Count > 0)
             return Done($"«{product.Name}» – " + string.Join("؛ ", matched.Select(f => $"{f.Key}: {f.Value}")));
+
+        // دور ۲۵: جواب از «پرسش و پاسخ» تأییدشدهٔ همین کالا (فروشنده قبلاً به سؤال مشابه جواب داده).
+        if (await AnsweredQuestionAsync(product.Id, request.Text, cancellationToken) is { } answered)
+            return Done($"این سؤال قبلاً پرسیده شده: «{answered.Question}»\nپاسخ فروشنده: {answered.Answer}");
+
+        // دور ۲۵: صدا/نمایشگر/دوربین/باتری… که در مشخصات نیست ← اگر خریداران دربارهٔ همین جنبه نظر داده‌اند، خلاصهٔ همان.
+        if (AssistantReviews.Aspects.Any(a => a.Key == topic.Key))
+        {
+            var summary = AssistantReviews.Summarize(await ReviewsOfAsync(product.Id, cancellationToken));
+            if (summary.Aspects.Any(a => a.Key == topic.Key) && AssistantReviews.Text(summary, product.Name, topic.Key) is { } aspectText)
+                return Done($"«{topic.Title}» در مشخصات ثبت نشده، ولی خریداران نوشته‌اند:\n" + aspectText);
+        }
 
         // گارانتی و اصالت از اینترنت پرسیده نمی‌شود (به فروشنده بستگی دارد)؛ مشخصات فنی را در پس‌زمینه جست‌وجو می‌کنیم.
         if (topic.Key is "warranty" or "original")
@@ -1422,6 +1494,405 @@ public sealed class AssistantService(
         return new Outcome(new AssistantReply(string.Join("\n", lines), [ToCard(a), ToCard(b)], [], AssistantIntent.Compare), Query: parse.Query);
     }
 
+    // ── دور ۲۵: مشاور خرید (لایهٔ ۳) ─────────────────────────────
+
+    /// <summary>
+    /// واژه‌های آشنای فروشگاه (نام کالاها، دسته‌ها و برندها) برای اصلاح غلط تایپی. هر ۱۰ دقیقه از نو؛ خطا ← واژه‌نامهٔ پایه.
+    /// </summary>
+    private async Task<AssistantVocabulary> VocabularyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await cache.GetOrCreateAsync(VocabularyKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+                entry.Size = 1;
+                var names = await context.Products.AsNoTracking().Where(p => p.IsActive).OrderByDescending(p => p.SalesCount).Select(p => p.Name).Take(5000).ToListAsync(cancellationToken);
+                var categories = await context.Categories.AsNoTracking().Where(c => c.IsActive).Select(c => c.Name).Take(2000).ToListAsync(cancellationToken);
+                var brands = await context.Brands.AsNoTracking().Select(b => b.Name).Take(2000).ToListAsync(cancellationToken);
+                return new AssistantVocabulary(names.Concat(categories).Concat(brands));
+            }) ?? AssistantVocabulary.Base;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Assistant vocabulary failed");
+            return AssistantVocabulary.Base;
+        }
+    }
+
+    /// <summary>کلید حافظهٔ موقت واژه‌های فروشگاه.</summary>
+    public const string VocabularyKey = CacheInvalidation.AssistantVocabularyKey;
+
+    /// <summary>
+    /// مشاور خرید: «بهترین هدفون بلوتوثی زیر ۲ میلیون برای ورزش».
+    /// ۱. تا ۲۴ نامزد با همان موتور جست‌وجو و فیلتر بودجه/تخفیف/مرتب‌سازی (موجودها اول).
+    /// ۲. نبود نتیجه ← «منظورتان … بود؟» ← بدون بودجه (و صادقانه گفته می‌شود) ← دسته ← همان جست‌وجوی معمولی.
+    /// ۳. امتیاز (موجودی، رضایت، فروش، تخفیف، کاربرد) و ۳ پیشنهاد با دلیل، نکتهٔ منفی و برچسب روی کارت.
+    /// ۴. دکمه‌های بازهٔ قیمت، «ارزان‌ترین»، «مقایسهٔ دو گزینهٔ اول» و «دیدن همه».
+    /// </summary>
+    private async Task<Outcome> AdvisorAsync(AssistantUnderstood understood, AssistantRequest request, AssistantVoice voice, CancellationToken cancellationToken)
+    {
+        var slots = understood.Slots;
+        var query = understood.ProductQuery.Trim();
+        // «کالاهای پرفروش»، «محصولات ارزون» ← نام کالا ندارد؛ فهرست مرتب‌شدهٔ کل فروشگاه.
+        if (query is "کالا" or "کالاها" or "کالاهای" or "محصول" or "محصولات" or "جنس" or "اجناس" or "چیزی" or "یه چیزی")
+            query = "";
+        var purpose = AssistantSlotParser.Purpose(slots.Purpose);
+        var sort = slots.Sort ?? ProductSortBy.BestSelling;
+        var groups = query.Length >= 2 ? await insights.ExpandAsync(query) : null;
+
+        async Task<List<ProductFilterData>> Load(string? q, IReadOnlyList<IReadOnlyList<string>>? g, decimal? min, decimal? max, bool discounted)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var filter = new ProductFilterParams
+            {
+                Search = string.IsNullOrWhiteSpace(q) ? null : q,
+                SearchTermGroups = string.IsNullOrWhiteSpace(q) ? null : g,
+                OnlyActive = true,
+                OnlyAvailable = string.IsNullOrWhiteSpace(q) ? true : null,
+                OnlyDiscounted = discounted ? true : null,
+                MinPrice = min,
+                MaxPrice = max,
+                SortBy = sort,
+                PageId = 1,
+                Take = 24,
+            };
+            return (await products.GetProductByFilterAsync(filter)).Data.ToList();
+        }
+
+        var used = query;
+        var found = await Load(query, groups, slots.MinPrice, slots.MaxPrice, slots.Discounted);
+        string? note = null;
+        if (found.Count == 0 && query.Length >= 2 && await insights.DidYouMeanAsync(query) is { } corrected && corrected != query)
+        {
+            var retry = await Load(corrected, await insights.ExpandAsync(corrected), slots.MinPrice, slots.MaxPrice, slots.Discounted);
+            if (retry.Count > 0)
+            {
+                found = retry;
+                used = corrected;
+                note = $"منظورتان «{corrected}» بود؟ ";
+            }
+        }
+        var relaxed = false;
+        if (found.Count == 0 && (slots.HasBudget || slots.Discounted) && used.Length >= 2)
+        {
+            found = await Load(used, used == query ? groups : await insights.ExpandAsync(used), null, null, false);
+            relaxed = found.Count > 0;
+        }
+        if (found.Count == 0)
+        {
+            // هیچ کالایی با این نام نیست ← همان مسیر جست‌وجوی معمولی (دسته، مقاله، «کالای درخواستی»…).
+            var plain = understood.Parse with { Query = query, Intent = AssistantIntent.Search };
+            return await SearchAsync(understood.Prepared.Text, plain, request, voice, cancellationToken);
+        }
+
+        var picks = AssistantAdvisor.Pick(found, purpose, keepOrder: slots.Sort is not null, relaxed ? slots.MaxPrice : null);
+        var budget = AssistantSlotParser.BudgetLabel(slots.MinPrice, slots.MaxPrice);
+        var what = used.Length >= 2 ? $"«{used}»" : "کالاهای فروشگاه";
+        var criteria = new List<string>();
+        if (budget.Length > 0 && !relaxed)
+            criteria.Add(slots.Approximate && slots.MinPrice is { } a && slots.MaxPrice is { } b ? "حدود " + AssistantFinder.Short((a + b) / 2) : budget);
+        if (slots.Discounted && !relaxed)
+            criteria.Add("تخفیف‌دار");
+        if (purpose is not null)
+            criteria.Add("برای " + purpose.Title);
+        var sortTitle = slots.Sort switch
+        {
+            ProductSortBy.Cheapest => "ارزان‌ترین",
+            ProductSortBy.MostExpensive => "گران‌ترین",
+            ProductSortBy.BestSelling => "پرفروش‌ترین",
+            ProductSortBy.Newest => "جدیدترین",
+            ProductSortBy.MostDiscounted => "پرتخفیف‌ترین",
+            _ => null,
+        };
+        var head = sortTitle is not null
+            ? $"{sortTitle} {what}{(criteria.Count > 0 ? " (" + string.Join("، ", criteria) + ")" : "")}:"
+            : AssistantVariety.Pick(understood.Prepared.Text,
+                $"با توجه به خواستهٔ شما{(criteria.Count > 0 ? " (" + string.Join("، ", criteria) + ")" : "")}، این‌ها را برای {what} پیشنهاد می‌کنم{voice.Comma}:",
+                $"بهترین گزینه‌های {what}{(criteria.Count > 0 ? " " + string.Join("، ", criteria) : "")} از نظر رضایت خریداران، فروش و قیمت:",
+                $"{what}{(criteria.Count > 0 ? " " + string.Join("، ", criteria) : "")} – پیشنهاد من به ترتیب امتیاز:");
+        var lines = new List<string>();
+        if (relaxed)
+        {
+            var condition = slots.HasBudget ? "این بودجه" : "این شرط";
+            lines.Add(used.Length >= 2
+                ? $"با {condition} «{used}» پیدا نکردم{voice.Comma}؛ نزدیک‌ترین گزینه‌ها (بدون شرط بودجه/تخفیف):"
+                : $"با {condition} کالایی پیدا نکردم{voice.Comma}؛ نزدیک‌ترین گزینه‌ها:");
+        }
+        lines.Add((note ?? "") + head);
+        lines.AddRange(picks.Select((p, i) => AssistantAdvisor.Line(i + 1, p)));
+        if (picks.All(p => !p.Product.IsInStock))
+            lines.Add("هیچ‌کدام فعلاً موجود نیست؛ در صفحهٔ کالا «خبرم کن» را بزنید تا موجود شد خبرتان کنیم.");
+
+        var actions = new List<AssistantAction>();
+        var target = used.Length >= 2 ? used : null;
+        if (!slots.HasBudget || relaxed)
+            foreach (var (min, max) in AssistantAdvisor.Bands(found.Select(p => p.FinalPrice)))
+            {
+                var label = AssistantSlotParser.BudgetLabel(min, max);
+                actions.Add(new(label, Say: $"{target ?? "کالا"} {label}"));
+            }
+        if (slots.Sort != ProductSortBy.Cheapest && target is not null)
+            actions.Add(new("ارزان‌ترین‌ها", Say: $"ارزانترین {target}{(slots.MaxPrice is { } cap && !relaxed ? " زیر " + AssistantFinder.Short(cap) : "")}"));
+        if (picks.Count >= 2)
+            actions.Add(new("مقایسهٔ دو گزینهٔ اول", Say: "مقایسه اولی و دومی"));
+        var link = new List<string>();
+        if (target is not null)
+            link.Add("q=" + Uri.EscapeDataString(target));
+        if (!relaxed && slots.MinPrice is { } low)
+            link.Add("MinPrice=" + low.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+        if (!relaxed && slots.MaxPrice is { } high)
+            link.Add("MaxPrice=" + high.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+        if (!relaxed && slots.Discounted)
+            link.Add("Discounted=true");
+        link.Add("Sort=" + (int)sort);
+        actions.Add(new("دیدن همه", "/search?" + string.Join("&", link)));
+
+        var cards = picks.Select(p => ToCard(p.Product) with { Note = p.Badge }).ToList();
+        var reply = new AssistantReply(string.Join("\n", lines), cards, actions.Take(6).ToList(), AssistantIntent.Advisor);
+        return new Outcome(reply, picks.Count == 1 ? picks[0].Product.Id : null, true, purpose?.Title ?? (slots.HasBudget ? "بودجه" : sortTitle), target);
+    }
+
+    // ── دور ۲۵: نظر خریداران و پرسش و پاسخ (لایهٔ ۴) ──────────────
+
+    /// <summary>دیدگاه‌های تأییدشدهٔ یک کالا (حداکثر ۶۰ تای اخیر) برای خلاصه.</summary>
+    private async Task<IReadOnlyList<ReviewInput>> ReviewsOfAsync(Guid productId, CancellationToken cancellationToken) =>
+        (await context.Comments.AsNoTracking()
+            .Where(c => c.ProductId == productId && c.Type == CommentType.Review && c.Status == CommentStatus.Approved && c.ParentId == null)
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new { c.Content, c.Rating, c.IsRecommended })
+            .Take(60)
+            .ToListAsync(cancellationToken))
+        .Select(c => new ReviewInput(c.Content, c.Rating, c.IsRecommended))
+        .ToList();
+
+    /// <summary>
+    /// جواب از «پرسش و پاسخ» تأییدشدهٔ همان کالا: پرسشی که شباهتش با پیام ≥ ۰٫۵ باشد و پاسخ تأییدشده داشته باشد.
+    /// مثال: پیام «با آیفون سازگاره؟» و پرسش قبلی «روی آیفون ۱۳ کار می‌کند؟» با پاسخ فروشنده ← همان پاسخ.
+    /// </summary>
+    private async Task<(string Question, string Answer)?> AnsweredQuestionAsync(Guid productId, string text, CancellationToken cancellationToken)
+    {
+        var rows = await context.Comments.AsNoTracking()
+            .Where(c => c.ProductId == productId && c.Type == CommentType.Question && c.Status == CommentStatus.Approved && c.ParentId == null)
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new
+            {
+                c.Content,
+                Answer = c.Replies.Where(r => r.Status == CommentStatus.Approved).OrderBy(r => r.CreatedAt).Select(r => r.Content).FirstOrDefault(),
+            })
+            .Take(50)
+            .ToListAsync(cancellationToken);
+        var best = rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Answer))
+            .Select(r => new { r.Content, r.Answer, Score = AssistantNlu.Similarity(text, r.Content) })
+            .Where(r => r.Score >= 0.5)
+            .OrderByDescending(r => r.Score)
+            .FirstOrDefault();
+        if (best is null)
+            return null;
+        return (PersianText.Truncate(PersianText.HtmlToText(best.Content).Trim(), 160), PersianText.Truncate(PersianText.HtmlToText(best.Answer!).Trim(), 400));
+    }
+
+    // ── دور ۲۵: کارهای بعد از خرید (لایهٔ ۶) ─────────────────────
+
+    /// <summary>پاسخ «اول وارد شوید» با راهنمای زنده تا صفحهٔ ورود و بازگشت به <paramref name="back"/>.</summary>
+    private static Outcome LoginFirst(AssistantIntent intent, string back, string text) =>
+        new(new AssistantReply(text, [], [new("ورود به حساب", "/login?returnUrl=" + Uri.EscapeDataString(back))], intent)
+        {
+            Steps = AssistantGuide.Login(back, null, withCode: true),
+        });
+
+    private static string OrderUrl(string orderNumber) => "/profile/orders/" + orderNumber.ToLowerInvariant();
+
+    /// <summary>
+    /// لغو سفارش با تأیید خود مشتری. مراحل: فهرست سفارش‌های قابل لغو (پیش از آماده‌سازی) ← «مطمئنید؟» با دکمهٔ «بله، لغو شود»
+    /// ← لغو واقعی با همان سرویس سایت (مبلغ پرداختی به کیف پول برمی‌گردد). سفارش در حال آماده‌سازی/ارسال‌شده ← توضیح و راه درست (پشتیبانی/مرجوعی).
+    /// </summary>
+    private async Task<Outcome> CancelOrderAsync(AssistantRequest request, AssistantParse parse, AssistantVoice voice, StoreSettingDto store, CancellationToken cancellationToken)
+    {
+        if (request.UserId is not { } userId)
+            return LoginFirst(AssistantIntent.OrderCancel, "/profile/orders", "برای لغو سفارش اول وارد حساب شوید؛ بعد از ورود دوباره بنویسید «لغو سفارش» تا سفارش‌های قابل لغو را نشانتان بدهم.");
+        if (!store.AllowCustomerCancellation)
+            return Simple(AssistantIntent.OrderCancel, "لغو سفارش از طریق سایت فعلاً غیرفعال است؛ لطفاً با پشتیبانی تماس بگیرید.", [new("گفت‌وگو با کارشناس", Say: "میخوام با کارشناس صحبت کنم")]);
+
+        var number = parse.OrderNumber;
+        var orders = await context.Orders.AsNoTracking()
+            .Where(o => o.UserId == userId && (number == null || o.OrderNumber == number))
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(number is null ? 10 : 1)
+            .Select(o => new { o.Id, o.OrderNumber, o.Status, o.PaymentStatus, o.PayableAmount })
+            .ToListAsync(cancellationToken);
+        if (number is not null && orders.Count == 0)
+            return Simple(AssistantIntent.OrderCancel, $"سفارشی با شمارهٔ {number} در حساب شما پیدا نشد{voice.Comma}.", [new("سفارش‌های من", "/profile/orders")]);
+        if (orders.Count == 0)
+            return Simple(AssistantIntent.OrderCancel, $"هنوز سفارشی ثبت نکرده‌اید{voice.Comma}.", Suggestions());
+
+        var chosen = number is not null ? orders[0] : null;
+        var cancellable = orders.Where(o => OrderRules.IsCancellableByCustomer(o.Status)).Take(4).ToList();
+        if (chosen is null && cancellable.Count == 1)
+            chosen = cancellable[0];
+        if (chosen is null)
+        {
+            if (cancellable.Count == 0)
+                return Simple(AssistantIntent.OrderCancel,
+                    "سفارش قابل لغوی ندارید؛ فقط سفارش‌هایی که آماده‌سازی‌شان شروع نشده از سایت لغو می‌شوند. سفارش ارسال‌شده را بعد از تحویل می‌توانید مرجوع کنید.",
+                    [new("پیگیری سفارش", Say: "سفارشم کجاست"), new("گفت‌وگو با کارشناس", Say: "میخوام با کارشناس صحبت کنم")]);
+            var list = cancellable.Select(o => $"• {o.OrderNumber} – {PersianText.Money(o.PayableAmount)} تومان ({StatusText(o.Status, o.PaymentStatus)})");
+            return Simple(AssistantIntent.OrderCancel, $"این سفارش‌ها هنوز قابل لغو هستند{voice.Comma}؛ کدام را لغو کنم؟\n" + string.Join("\n", list),
+                cancellable.Select(o => new AssistantAction("لغو " + o.OrderNumber, Say: "لغو سفارش " + o.OrderNumber)).ToList());
+        }
+
+        var orderUrl = OrderUrl(chosen.OrderNumber);
+        if (!OrderRules.IsCancellableByCustomer(chosen.Status))
+        {
+            var why = chosen.Status switch
+            {
+                OrderStatus.Processing => "در حال آماده‌سازی است و از این مرحله فقط پشتیبانی می‌تواند لغوش کند.",
+                OrderStatus.Shipped => "ارسال شده است؛ بعد از تحویل اگر نخواستید می‌توانید درخواست مرجوعی ثبت کنید.",
+                OrderStatus.Delivered => "تحویل شده است؛ برای پس دادن، درخواست مرجوعی ثبت کنید.",
+                OrderStatus.Cancelled => "قبلاً لغو شده است.",
+                _ => "دیگر قابل لغو نیست.",
+            };
+            var next = chosen.Status is OrderStatus.Shipped or OrderStatus.Delivered
+                ? new AssistantAction("درخواست مرجوعی", Say: "مرجوع سفارش " + chosen.OrderNumber)
+                : new AssistantAction("گفت‌وگو با کارشناس", Say: "میخوام با کارشناس صحبت کنم");
+            return Simple(AssistantIntent.OrderCancel, $"سفارش {chosen.OrderNumber} {why}", [next, new("جزئیات سفارش", orderUrl)]);
+        }
+
+        var paid = chosen.PaymentStatus == PaymentStatus.Paid;
+        var confirmed = parse.Normalized.Split(' ').Any(t => t is "تایید" or "تاييد" or "تائید");
+        if (confirmed && number is not null)
+        {
+            if (orderActions is null)
+                return Simple(AssistantIntent.OrderCancel, "لغو از اینجا در دسترس نیست؛ از صفحهٔ سفارش «لغو سفارش» را بزنید.", [new("جزئیات سفارش", orderUrl)]);
+            var result = await orderActions.CancelOrderByCustomerAsync(chosen.Id, userId, "لغو به درخواست مشتری از طریق دستیار فروشگاه");
+            if (!result.IsSuccess())
+                return Simple(AssistantIntent.OrderCancel, result.Message ?? "لغو سفارش ممکن نشد.", [new("جزئیات سفارش", orderUrl), new("گفت‌وگو با کارشناس", Say: "میخوام با کارشناس صحبت کنم")]);
+            return Simple(AssistantIntent.OrderCancel,
+                $"سفارش {chosen.OrderNumber} لغو شد{voice.Comma}." + (paid ? $" مبلغ {PersianText.Money(chosen.PayableAmount)} تومان به کیف پول شما برگشت." : ""),
+                [new("سفارش‌های من", "/profile/orders"), new("ادامهٔ خرید", Say: "کالاهای پرفروش")]);
+        }
+
+        // مرحلهٔ تأیید: لغو هرگز بدون «بله» خود مشتری انجام نمی‌شود.
+        var refund = paid ? $" مبلغ پرداختی ({PersianText.Money(chosen.PayableAmount)} تومان) به کیف پول شما برمی‌گردد." : "";
+        return new Outcome(new AssistantReply($"مطمئنید سفارش {chosen.OrderNumber} لغو شود{voice.Comma}؟{refund}", [],
+            [new("بله، لغو شود", Say: "تایید لغو سفارش " + chosen.OrderNumber), new("نه، منصرف شدم", Say: "ممنون"), new("جزئیات سفارش", orderUrl)], AssistantIntent.OrderCancel)
+        {
+            Steps = request.PagePath == orderUrl
+                ? new List<AssistantStep> { AssistantGuide.Point("order-cancel", "از اینجا هم می‌توانید لغو کنید") }
+                : new List<AssistantStep>(),
+        });
+    }
+
+    /// <summary>
+    /// مرجوعی: سفارش‌های تحویل‌شده‌ای که هنوز در مهلت مرجوعی‌اند (با همان قانون‌های سایت) ← فرم «درخواست مرجوعی» همان سفارش.
+    /// ثبت نهایی (انتخاب کالا و دلیل) را خود مشتری در فرم انجام می‌دهد.
+    /// </summary>
+    private async Task<Outcome> ReturnOrderAsync(AssistantRequest request, AssistantParse parse, AssistantVoice voice, StoreSettingDto store, CancellationToken cancellationToken)
+    {
+        if (request.UserId is not { } userId)
+            return LoginFirst(AssistantIntent.OrderReturn, "/profile/orders", "برای ثبت مرجوعی اول وارد حساب شوید؛ بعد از ورود سفارش‌های قابل مرجوعی را نشانتان می‌دهم.");
+        if (!store.IsReturnEnabled)
+            return Simple(AssistantIntent.OrderReturn, "ثبت آنلاین مرجوعی فعلاً فعال نیست؛ لطفاً با پشتیبانی تماس بگیرید.", [new("گفت‌وگو با کارشناس", Say: "میخوام با کارشناس صحبت کنم")]);
+        if (returns is null)
+            return Simple(AssistantIntent.OrderReturn, "درخواست مرجوعی را از صفحهٔ سفارش ثبت کنید.", [new("سفارش‌های من", "/profile/orders")]);
+
+        List<string> numbers;
+        if (parse.OrderNumber is { } given)
+            numbers = [given];
+        else
+            numbers = await context.Orders.AsNoTracking()
+                .Where(o => o.UserId == userId && o.Status == OrderStatus.Delivered)
+                .OrderByDescending(o => o.CreatedAt)
+                .Select(o => o.OrderNumber)
+                .Take(3)
+                .ToListAsync(cancellationToken);
+        if (numbers.Count == 0)
+            return Simple(AssistantIntent.OrderReturn, $"سفارش تحویل‌شده‌ای در حساب شما نیست{voice.Comma}؛ مرجوعی بعد از تحویل سفارش ممکن است." +
+                (store.ReturnWindowDays > 0 ? $" مهلت آن {PersianText.Digits(store.ReturnWindowDays)} روز پس از تحویل است." : ""), [new("پیگیری سفارش", Say: "سفارشم کجاست")]);
+
+        var eligible = new List<(string Number, DateTimeOffset? Deadline)>();
+        string? reason = null;
+        foreach (var number in numbers)
+        {
+            var check = await returns.GetEligibilityAsync(userId, number);
+            if (check.IsEligible)
+                eligible.Add((check.OrderNumber ?? number, check.Deadline));
+            else
+                reason ??= check.Reason;
+        }
+        if (eligible.Count == 0)
+            return Simple(AssistantIntent.OrderReturn, (reason ?? "این سفارش قابل مرجوعی نیست.") + " اگر سؤالی دارید با کارشناس صحبت کنید.",
+                [new("مرجوعی‌های من", "/profile/returns"), new("گفت‌وگو با کارشناس", Say: "میخوام با کارشناس صحبت کنم")]);
+        if (eligible.Count == 1)
+        {
+            var (number, deadline) = eligible[0];
+            var until = deadline is { } d ? $" (تا {SeoDate(d)})" : "";
+            return new Outcome(new AssistantReply($"سفارش {number} قابل مرجوعی است{until}{voice.Comma}. در فرم، کالا و دلیل مرجوعی را انتخاب و ثبت کنید؛ مبلغ پس از بررسی به کیف پولتان برمی‌گردد.", [],
+                [new("ثبت درخواست مرجوعی", "/profile/returns/new/" + number.ToLowerInvariant()), new("شرایط مرجوعی", Say: "شرایط مرجوعی چیه")], AssistantIntent.OrderReturn)
+            {
+                Steps = [AssistantGuide.Go(OrderUrl(number)), AssistantGuide.Point("order-return", "این دکمه فرم مرجوعی را باز می‌کند")],
+            });
+        }
+        return Simple(AssistantIntent.OrderReturn, "این سفارش‌ها قابل مرجوعی هستند؛ کدام؟\n" + string.Join("\n", eligible.Select(e => "• " + e.Number + (e.Deadline is { } d ? $" (تا {SeoDate(d)})" : ""))),
+            eligible.Select(e => new AssistantAction("مرجوعی " + e.Number, "/profile/returns/new/" + e.Number.ToLowerInvariant())).ToList());
+    }
+
+    /// <summary>فاکتور: صفحهٔ فاکتور (پیش‌فاکتور یا فاکتور رسمی) با دکمهٔ PDF؛ چند سفارش ← انتخاب.</summary>
+    private async Task<Outcome> InvoiceAsync(AssistantRequest request, AssistantParse parse, AssistantVoice voice, CancellationToken cancellationToken)
+    {
+        if (request.UserId is not { } userId)
+            return LoginFirst(AssistantIntent.Invoice, "/profile/orders", "برای دیدن فاکتور اول وارد حساب شوید.");
+        var number = parse.OrderNumber;
+        var orders = await context.Orders.AsNoTracking()
+            .Where(o => o.UserId == userId && (number == null || o.OrderNumber == number) && (number != null || o.Status != OrderStatus.Cancelled))
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(3)
+            .Select(o => new { o.OrderNumber, o.InvoiceNumber, o.CreatedAt })
+            .ToListAsync(cancellationToken);
+        if (orders.Count == 0)
+            return Simple(AssistantIntent.Invoice, number is null ? $"هنوز سفارشی ندارید{voice.Comma}." : $"سفارشی با شمارهٔ {number} در حساب شما پیدا نشد.", [new("سفارش‌های من", "/profile/orders")]);
+        if (orders.Count == 1)
+        {
+            var order = orders[0];
+            var kind = string.IsNullOrEmpty(order.InvoiceNumber) ? "پیش‌فاکتور" : "فاکتور";
+            return new Outcome(new AssistantReply($"{kind} سفارش {order.OrderNumber} آماده است{voice.Comma}؛ در صفحهٔ فاکتور دکمهٔ دریافت PDF و چاپ هست.", [],
+                [new($"مشاهدهٔ {kind} و PDF", OrderUrl(order.OrderNumber) + "/invoice")], AssistantIntent.Invoice)
+            {
+                Steps = [AssistantGuide.Go(OrderUrl(order.OrderNumber)), AssistantGuide.Point("order-invoice", "فاکتور و PDF از اینجا")],
+            });
+        }
+        return Simple(AssistantIntent.Invoice, "فاکتور کدام سفارش را می‌خواهید؟",
+            orders.Select(o => new AssistantAction($"فاکتور {o.OrderNumber} ({SeoDate(o.CreatedAt)})", OrderUrl(o.OrderNumber) + "/invoice")).ToList());
+    }
+
+    // ── دور ۲۵: نظر مشتری دربارهٔ پاسخ و آموزش‌ها (لایهٔ ۷) ────────
+
+    /// <summary>پاسخ آموزش‌داده‌شده توسط کارکنان (متن + لینک اختیاری).</summary>
+    private static Outcome Taught(AssistantTaught taught)
+    {
+        var actions = new List<AssistantAction>();
+        if (AssistantGuide.IsLocalUrl(taught.Url))
+            actions.Add(new("مشاهده", taught.Url));
+        return new Outcome(new AssistantReply(taught.Answer ?? "", [], actions, AssistantIntent.Help), Topic: TaughtTopic);
+    }
+
+    /// <summary>برچسب پیام‌هایی که با «آموزش کارکنان» جواب گرفته‌اند (در گزارش پنل).</summary>
+    public const string TaughtTopic = "آموزش کارکنان";
+
+    /// <inheritdoc />
+    public async Task<bool> FeedbackAsync(Guid messageId, string sessionKey, bool helpful, CancellationToken cancellationToken = default)
+    {
+        if (messageId == Guid.Empty || string.IsNullOrWhiteSpace(sessionKey))
+            return false;
+        // فقط پیام همین گفت‌وگو و فقط تا ۲۴ ساعت (کسی نمی‌تواند به پیام دیگران رأی بدهد).
+        var since = DateTimeOffset.UtcNow.AddDays(-1);
+        var count = await context.AssistantMessages
+            .Where(m => m.Id == messageId && m.SessionKey == sessionKey && m.CreatedAt >= since)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.Helpful, helpful), cancellationToken);
+        return count > 0;
+    }
+
     // ── ثبت، گزارش و خوراک تکمیل هوشمند ────────────────────────
 
     private static string? Cut(string? value, int max)
@@ -1430,15 +1901,18 @@ public sealed class AssistantService(
         return string.IsNullOrEmpty(value) ? null : value.Length > max ? value[..max] : value;
     }
 
-    private async Task LogAsync(AssistantRequest request, string text, Outcome outcome, CancellationToken cancellationToken)
+    /// <summary>ثبت پیام (متن پوشانده‌شده) برای گزارش پنل. خروجی (دور ۲۵): شناسهٔ ردیف برای 👍/👎؛ خطا ← null.</summary>
+    private async Task<Guid?> LogAsync(AssistantRequest request, string text, Outcome outcome, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
-            return;
+            return null;
         var productId = outcome.ProductId ?? outcome.Reply.Lookup?.ProductId;
+        var id = Guid.NewGuid();
         try
         {
             context.AssistantMessages.Add(new AssistantMessage
             {
+                Id = id,
                 SessionKey = Cut(request.SessionKey, 32) ?? "unknown",
                 UserId = request.UserId,
                 Text = Cut(AssistantNlu.Mask(text), 500)!,
@@ -1449,14 +1923,17 @@ public sealed class AssistantService(
                 Query = Cut(outcome.Query, 200),
             });
             await context.SaveChangesAsync(cancellationToken);
-            if (!outcome.Answered && productId is { } id && outcome.Reply.Intent == AssistantIntent.ProductQuestion)
-                await MaybeFeedAsync(id, cancellationToken);
+            context.ChangeTracker.Clear();
+            if (!outcome.Answered && productId is { } gapProduct && outcome.Reply.Intent == AssistantIntent.ProductQuestion)
+                await MaybeFeedAsync(gapProduct, cancellationToken);
+            return id;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // ثبت گزارش هرگز نباید پاسخ مشتری را خراب کند.
             context.ChangeTracker.Clear();
             logger.LogWarning(exception, "Assistant message log failed");
+            return null;
         }
     }
 

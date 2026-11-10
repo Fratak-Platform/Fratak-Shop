@@ -43,3 +43,12 @@ public class AssistantHandoffMessageConfiguration : IEntityTypeConfiguration<Ass
         builder.HasIndex(m => new { m.HandoffId, m.CreatedAt });
     }
 }
+
+/// <summary>دور ۲۵: آموزش‌های فعال سریع خوانده می‌شوند (حافظهٔ ۵ دقیقه‌ای در AssistantTeachings).</summary>
+public class AssistantTeachingConfiguration : IEntityTypeConfiguration<AssistantTeaching>
+{
+    public void Configure(EntityTypeBuilder<AssistantTeaching> builder)
+    {
+        builder.HasIndex(t => t.IsActive);
+    }
+}

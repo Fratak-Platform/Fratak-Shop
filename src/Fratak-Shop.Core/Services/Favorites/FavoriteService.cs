@@ -22,8 +22,10 @@ public class FavoriteService(FratakShopDbContext context) : IFavoriteService
         if (!userExists)
             return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
 
-        var productExists = await context.Products.AnyAsync(x => x.Id == command.ProductId);
-        if (!productExists)
+        var product = await context.Products.Where(x => x.Id == command.ProductId)
+            .Select(p => new { p.Price, p.DiscountPrice, p.DiscountStartAt, p.DiscountEndAt })
+            .FirstOrDefaultAsync();
+        if (product is null)
             return OperationResult.NotFound("محصول مورد نظر یافت نشد.");
 
         var exists = await context.Favorites.AnyAsync(x => x.UserId == command.UserId && x.ProductId == command.ProductId);
@@ -34,6 +36,8 @@ public class FavoriteService(FratakShopDbContext context) : IFavoriteService
         {
             UserId = command.UserId,
             ProductId = command.ProductId,
+            // دور ۲۵ (الف): قیمت نهایی همین لحظه؛ اگر بعداً به اندازهٔ کافی ارزان شد خبر می‌دهیم.
+            WatchPrice = FratakShopDbContext.FinalPrice(product.Price, product.DiscountPrice, product.DiscountStartAt, product.DiscountEndAt, DateTimeOffset.UtcNow) is var price && price > 0 ? price : (decimal?)null,
         };
 
         context.Favorites.Add(model);

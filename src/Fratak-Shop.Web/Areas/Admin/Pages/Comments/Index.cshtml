@@ -129,6 +129,17 @@
                   <summary class="a-link text-sm cursor-pointer">@Icons.Svg("Reply", null, 16) پاسخ فروشگاه</summary>
                   <form method="post" asp-page-handler="Reply" asp-route-id="@c.Id" class="mt-2">
                     <div class="mb-2">@await Component.InvokeAsync("ReadyMessagePicker", new { scope = Fratak_Shop.Data.Entities.Notifications.ReadyMessageScope.Comment, bodyTarget = "#reply-" + c.Id.ToString("N") })</div>
+                    @* دور ۲۵: پیش‌نویس هوشمند پاسخ پرسش (مشخصات کالا، پرسش مشابه، نظر خریداران)؛ کلیک ← درج در کادر پاسخ، هرگز خودکار منتشر نمی‌شود. *@
+                    @if (Model.Drafts.TryGetValue(c.Id, out var drafts))
+                    {
+                      <div class="mb-2 flex flex-wrap items-center gap-1.5" data-qa-drafts>
+                        <span class="a-muted text-xs">@Icons.Svg("Lightbulb", null, 14) پیش‌نویس:</span>
+                        @foreach (var draft in drafts)
+                        {
+                          <button type="button" class="a-btn a-btn-light a-btn-xs" data-fill-target="#reply-@c.Id.ToString("N")" data-fill-text="@draft.Body" title="@draft.Source">@draft.Title</button>
+                        }
+                      </div>
+                    }
                     <textarea id="reply-@c.Id.ToString("N")" name="content" class="a-textarea" rows="3" maxlength="3000" required placeholder="پاسخ شما با نام فروشگاه منتشر می‌شود"></textarea>
                     <div class="mt-2 flex justify-end"><button class="a-btn a-btn-sm" type="submit">انتشار پاسخ</button></div>
                   </form>

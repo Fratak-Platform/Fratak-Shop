@@ -13,6 +13,9 @@ public static class CacheInvalidation
     public const string SitemapKey = "core:sitemap";
     public const string SearchSynonymsKey = "core:search-synonyms";
     public const string SearchVocabularyKey = "core:search-vocabulary";
+
+    /// <summary>دور ۲۵: واژه‌های کاتالوگ دستیار (اصلاح غلط تایپی نام کالا) – همان AssistantService.VocabularyKey.</summary>
+    public const string AssistantVocabularyKey = "assistant:vocab";
     public const string PopularSearchesKey = "core:popular-searches";
     public const string SupportDepartmentsKey = "core:support-departments";
     public const string ReturnReasonsKey = "core:return-reasons";
@@ -31,9 +34,9 @@ public static class CacheInvalidation
         ["HomeSection"] = [CacheKeys.HomeSections],
         ["FaqItem"] = [CacheKeys.FaqGroups],
         ["FaqCategory"] = [CacheKeys.FaqGroups],
-        ["Category"] = [CacheKeys.MenuCategories, CacheKeys.FilterAttributes, SitemapKey, SearchVocabularyKey],
-        ["Brand"] = [SitemapKey, SearchVocabularyKey],
-        ["Product"] = [SitemapKey, SearchVocabularyKey],
+        ["Category"] = [CacheKeys.MenuCategories, CacheKeys.FilterAttributes, SitemapKey, SearchVocabularyKey, AssistantVocabularyKey],
+        ["Brand"] = [SitemapKey, SearchVocabularyKey, AssistantVocabularyKey],
+        ["Product"] = [SitemapKey, SearchVocabularyKey, AssistantVocabularyKey],
         ["BlogPost"] = [SitemapKey],
         ["BlogCategory"] = [SitemapKey],
         ["PageSeo"] = [SitemapKey],

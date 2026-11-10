@@ -33,9 +33,11 @@ public static class AssistantIntentModel
     /// نظر مدل دربارهٔ یک پیام یا null (نامطمئن، یا نیتی که مجاز نیست، یا «جست‌وجو»).
     /// <para>مثال: «سفارشم هنوز نیومده» ← Track؛ «یه هدفون خوب» ← null (جست‌وجو کار خود موتور جست‌وجوست).</para>
     /// </summary>
-    public static AssistantIntent? Suggest(string text)
+    public static AssistantIntent? Suggest(string text) => Suggest(text, Current);
+
+    /// <summary>دور ۲۵: همان <see cref="Suggest(string)"/> با یک مدل مشخص (برای تست و ارزیابی بدون دست زدن به مدل سراسری).</summary>
+    public static AssistantIntent? Suggest(string text, NaiveBayesText model)
     {
-        var model = Current;
         // بیشتر واژه‌ها باید برای مدل آشنا باشند؛ واژهٔ ناآشنا معمولاً نام کالاست و حدس زدن دربارهٔ آن خطرناک است.
         if (model.KnownWordRatio(text) < 0.6)
             return null;

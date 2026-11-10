@@ -39,6 +39,12 @@ public interface IShopEvents
 
     Task CommentApprovedAsync(Guid commentId);
 
+    /// <summary>
+    /// دور ۲۵: پاسخی (تأییدشده) به یک «پرسش» کالا ثبت شد ← اعلان به پرسش‌کننده (سایت + پوش، بدون پیامک).
+    /// اگر پرسش‌کننده خودش جواب داده یا پرسش کاربر ندارد، اعلانی نمی‌رود.
+    /// </summary>
+    Task QuestionAnsweredAsync(Guid replyId);
+
     Task SecurityEventAsync(Guid userId, NotificationEvent @event);
 
     Task GiftCardPurchasedAsync(Guid userId, string reference, decimal amount);
@@ -196,6 +202,48 @@ public class ShopEvents(
 
         await Loyalty.AwardAsync(comment.UserId.Value, LoyaltyAction.ProductReview, $"review:{commentId:N}",
             description: $"دیدگاه برای «{comment.ProductName}»");
+    });
+
+    public Task QuestionAnsweredAsync(Guid replyId) => RunAsync(nameof(QuestionAnsweredAsync), async () =>
+    {
+        var reply = await context.Comments.AsNoTracking()
+            .Where(c => c.Id == replyId && c.Status == CommentStatus.Approved && c.ParentId != null)
+            .Select(c => new
+            {
+                c.UserId,
+                c.Content,
+                AskerId = c.Parent!.UserId,
+                ParentType = c.Parent.Type,
+                ParentStatus = c.Parent.Status,
+                Question = c.Parent.Content,
+                ProductName = c.Product != null ? c.Product.Name : null,
+                ProductSlug = c.Product != null ? c.Product.Slug : null,
+            })
+            .FirstOrDefaultAsync();
+        // فقط پرسش کالا، با پرسش‌کنندهٔ عضو، که خودش جواب نداده باشد.
+        if (reply is null || reply.ParentType != CommentType.Question || reply.ParentStatus == CommentStatus.Rejected
+            || reply.AskerId is not { } askerId || reply.UserId == askerId || reply.ProductSlug is null)
+            return;
+
+        static string Short(string value, int max)
+        {
+            var clean = string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+            return clean.Length <= max ? clean : clean[..(max - 1)] + "…";
+        }
+
+        await Notifications.NotifyAsync(new NotificationRequest
+        {
+            UserId = askerId,
+            Event = NotificationEvent.QuestionAnswered,
+            Category = NotificationCategory.Support,
+            LinkUrl = "/product/" + reply.ProductSlug + "#quest",
+            Values =
+            {
+                ["ProductName"] = reply.ProductName ?? "",
+                ["Question"] = Short(reply.Question, 80),
+                ["Answer"] = Short(reply.Content, 160),
+            },
+        });
     });
 
     public Task SecurityEventAsync(Guid userId, NotificationEvent @event) => RunAsync(nameof(SecurityEventAsync), () =>

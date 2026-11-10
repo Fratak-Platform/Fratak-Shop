@@ -38,7 +38,8 @@ public sealed class AdminCommentRow
 public sealed record AdminCommentReply(Guid Id, string AuthorName, string Content, CommentStatus Status, DateTimeOffset CreatedAt);
 
 [AdminPermission(AdminPermissions.CommentsModerate)]
-public partial class IndexModel(IAdminDataService data, ICommentService comments, ISiteContext site, IReviewSentimentService sentiment) : AdminPageModel
+public partial class IndexModel(IAdminDataService data, ICommentService comments, ISiteContext site, IReviewSentimentService sentiment,
+    Fratak_Shop.Core.Services.Events.IShopEvents events, IQuestionAnswerAdvisor advisor) : AdminPageModel
 {
     /// <summary>برچسب‌هایی مثل {FirstName} در پاسخ آماده (فقط برچسب‌های بی‌خطر برای نمایش عمومی جایگزین می‌شوند).</summary>
     [global::System.Text.RegularExpressions.GeneratedRegex(@"\{([A-Za-z]+)\}")]
@@ -60,6 +61,9 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
 
     /// <summary>دور ۲۴ (پیشنهاد ۵۴): احساس هر دیدگاه این صفحه (نشان «منفی/مثبت» و موضوع شکایت).</summary>
     public Dictionary<Guid, Fratak_Shop.Core.Services.Learning.SentimentResult> Sentiments { get; private set; } = [];
+
+    /// <summary>دور ۲۵: پیش‌نویس‌های پاسخ هوشمند برای پرسش‌های بی‌پاسخ همین صفحه (کلید = شناسهٔ پرسش).</summary>
+    public IReadOnlyDictionary<Guid, IReadOnlyList<QuestionAnswerSuggestion>> Drafts { get; private set; } = new Dictionary<Guid, IReadOnlyList<QuestionAnswerSuggestion>>();
 
     public async Task OnGetAsync()
     {
@@ -129,6 +133,9 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
         Items = new PagedList<AdminCommentRow>(rows, total, pageNumber, PageSize);
         Sentiments = await sentiment.AnalyzeAsync(rows.Where(r => r.Type != CommentType.Question)
             .Select(r => (r.Id, (string?)((r.Title + " " + r.Content).Trim()), r.Rating, r.IsRecommended)), HttpContext.RequestAborted);
+        var open = rows.Where(r => r.Type == CommentType.Question && r.ParentId is null && r.Replies.All(x => x.Status != CommentStatus.Approved)).Select(r => r.Id).ToList();
+        if (open.Count > 0)
+            Drafts = await advisor.SuggestAsync(open, HttpContext.RequestAborted);
     }
 
     public async Task<IActionResult> OnPostModerateAsync(Guid id, string action)
@@ -192,7 +199,7 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
         if (parent.Status != CommentStatus.Approved)
             await comments.ApproveCommentAsync(parent.Id);
 
-        var result = await data.AddAsync(new Comment
+        var reply = new Comment
         {
             UserId = ActorId,
             ProductId = parent.ProductId,
@@ -203,9 +210,15 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
             AuthorPhone = Access.PhoneNumber,
             Content = content,
             Status = CommentStatus.Approved,
-        });
+        };
+        var result = await data.AddAsync(reply);
         if (Succeeded(result))
+        {
             SuccessMessage = "پاسخ فروشگاه منتشر شد.";
+            // دور ۲۵: پاسخ به پرسش کالا ← اعلان به پرسش‌کننده (سایت + پوش).
+            if (parent.Type == CommentType.Question)
+                await events.QuestionAnsweredAsync(reply.Id);
+        }
         else
             ErrorMessage = result.Message ?? "ثبت پاسخ ناموفق بود.";
         return BackToList();

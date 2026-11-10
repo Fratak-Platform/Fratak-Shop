@@ -170,7 +170,7 @@ public static partial class AssistantEndpoints
             return Results.Ok(new
             {
                 text = reply.Text,
-                cards = reply.Cards.Select(c => new { id = c.Id, name = c.Name, url = c.Url, image = c.ImageUrl, price = c.Price, finalPrice = c.FinalPrice, discount = c.DiscountPercent, inStock = c.InStock }),
+                cards = reply.Cards.Select(c => new { id = c.Id, name = c.Name, url = c.Url, image = c.ImageUrl, price = c.Price, finalPrice = c.FinalPrice, discount = c.DiscountPercent, inStock = c.InStock, note = c.Note }),
                 actions = Actions(reply.Actions),
                 intent = reply.Intent.ToString(),
                 lookup = token,
@@ -180,7 +180,25 @@ public static partial class AssistantEndpoints
                 query = reply.Query,
                 style = reply.Style is { } st ? new { callMe = st.CallMe, tone = (int)st.Tone, register = st.Register } : null,
                 handoff = reply.Handoff,
+                // دور ۲۵: شناسهٔ پیام برای دکمه‌های 👍/👎.
+                messageId = reply.MessageId,
             });
+        }).DisableAntiforgery();
+
+        // دور ۲۵: نظر مشتری دربارهٔ یک پاسخ. بدنه: {"id":"…","session":"…","helpful":true}؛ هدر ضدجعل لازم.
+        // فقط پیام همان گفت‌وگو (session) و تا ۲۴ ساعت ثبت می‌شود؛ پاسخ: {saved:true|false}.
+        app.MapPost("/api/assistant/feedback", async (HttpContext http, IAntiforgery antiforgery, IAssistantService assistant) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            if (http.Request.ContentLength is > MaxBody)
+                return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            if (!await antiforgery.IsRequestValidAsync(http))
+                return Results.BadRequest(new { error = "نشست شما منقضی شده است؛ صفحه را دوباره بارگذاری کنید." });
+            var input = await ReadAsync<AssistantFeedbackInput>(http);
+            if (input is not { Id: { } id, Helpful: { } helpful } || input.Session is not { } session || !SessionRegex().IsMatch(session))
+                return Results.BadRequest(new { error = "درخواست نامعتبر است." });
+            var saved = await assistant.FeedbackAsync(id, session, helpful, http.RequestAborted);
+            return Results.Ok(new { saved });
         }).DisableAntiforgery();
 
         // دور ۲۴: پرسش‌های پیشنهادی صفحه + نام و معرفی دستیار. مثال: GET /api/assistant/suggest?page=%2Fproduct%2Fx&product={id}
@@ -245,6 +263,9 @@ public static partial class AssistantEndpoints
     public sealed record AssistantInput(string? Text, string? Session, Guid? ProductId, List<Guid>? Last, Guid? Action,
         string? LastQuery = null, string? Page = null, string? Flow = null, AssistantStyleInput? Style = null);
 
+    /// <summary>دور ۲۵: بدنهٔ نظر مشتری دربارهٔ پاسخ. مثال: {"id":"3f2…","session":"abc12345","helpful":false}.</summary>
+    public sealed record AssistantFeedbackInput(Guid? Id, string? Session, bool? Helpful);
+
     /// <summary>سلیقهٔ گفت‌وگوی مهمان از حافظهٔ مرورگر. مثال: {"callMe":"علی","tone":0,"register":2}.</summary>
     public sealed record AssistantStyleInput(string? CallMe, int? Tone, int? Register);
 
@@ -273,7 +294,10 @@ public static partial class AssistantEndpoints
         actions.Select(a => new { label = a.Label, url = SafeUrl(a.Url), say = a.Say, flow = AssistantFinder.Parse(a.Flow) is null ? null : a.Flow });
 
     /// <summary>خواندن بدنه با سقف ۴ کیلوبایت. بدنهٔ خراب ← null.</summary>
-    private static async Task<AssistantInput?> ReadAsync(HttpContext http)
+    private static Task<AssistantInput?> ReadAsync(HttpContext http) => ReadAsync<AssistantInput>(http);
+
+    /// <summary>خواندن بدنهٔ JSON از نوع دلخواه با سقف ۴ کیلوبایت (دور ۲۵: برای نظر مشتری هم). بدنهٔ خراب ← null.</summary>
+    private static async Task<T?> ReadAsync<T>(HttpContext http) where T : class
     {
         var buffer = new byte[MaxBody + 1];
         var total = 0;
@@ -284,7 +308,7 @@ public static partial class AssistantEndpoints
             return null;
         try
         {
-            return JsonSerializer.Deserialize<AssistantInput>(buffer.AsSpan(0, total), JsonSerializerOptions.Web);
+            return JsonSerializer.Deserialize<T>(buffer.AsSpan(0, total), JsonSerializerOptions.Web);
         }
         catch (JsonException)
         {

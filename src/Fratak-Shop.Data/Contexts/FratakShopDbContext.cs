@@ -334,6 +334,9 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantHandoff> AssistantHandoffs { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantHandoffMessage> AssistantHandoffMessages { get; set; } = null!;
 
+    /// <summary>دور ۲۵: جواب‌هایی که کارکنان به دستیار یاد داده‌اند (صفحهٔ «آموزش دستیار»).</summary>
+    public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantTeaching> AssistantTeachings { get; set; } = null!;
+
     // دور ۲۴ (بستهٔ B): رتبه‌بندی یادگیرنده، جست‌وجوی تصویری و تضمین قیمت.
     public DbSet<Fratak_Shop.Data.Entities.Searches.SearchClickStat> SearchClickStats { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Products.ProductImageSignature> ProductImageSignatures { get; set; } = null!;

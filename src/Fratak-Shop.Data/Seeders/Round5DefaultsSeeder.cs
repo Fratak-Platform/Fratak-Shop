@@ -75,6 +75,8 @@ public static class Round5DefaultsSeeder
             Template(NotificationEvent.OrderFeedbackRequest, "از خرید {OrderNumber} راضی بودید؟", "با ثبت امتیاز تجربه خرید به ما کمک کنید بهتر شویم{Points}.", "ثبت امتیاز"),
             Template(NotificationEvent.TicketCreated, "تیکت {TicketNumber} ثبت شد", "درخواست «{Subject}» دریافت شد و کارشناسان ما به‌زودی پاسخ می‌دهند.", "مشاهده تیکت", push: false),
             Template(NotificationEvent.TicketReplied, "پاسخ جدید برای تیکت {TicketNumber}", "به درخواست «{Subject}» پاسخ داده شد.", "مشاهده پاسخ", push: true),
+            // دور ۲۵: پاسخ به پرسش کالا (اعلان سایت + پوش؛ پیامک خاموش).
+            Template(NotificationEvent.QuestionAnswered, "به پرسش شما دربارهٔ «{ProductName}» پاسخ داده شد", "پرسش «{Question}» پاسخ گرفت: {Answer}", "دیدن پاسخ", push: true),
         };
 
         var missing = templates.Where(t => !existing.Contains(t.Event)).ToList();

@@ -202,11 +202,16 @@ public class CommentService(
         if (comment == null)
             return OperationResult.NotFound("کامنت مورد نظر یافت نشد.");
 
+        var wasApproved = comment.Status == CommentStatus.Approved;
         comment.Status = CommentStatus.Approved;
         await context.SaveChangesAsync();
 
         // Club points for approved product reviews.
         await events.CommentApprovedAsync(comment.Id);
+
+        // دور ۲۵: پاسخ تازه‌تأییدشده به یک پرسش کالا ← اعلان به پرسش‌کننده (تأیید دوباره اعلان تکراری نمی‌فرستد).
+        if (comment.ParentId is not null && !wasApproved)
+            await events.QuestionAnsweredAsync(comment.Id);
 
         return OperationResult.Success("کامنت با موفقیت تایید شد.");
     }

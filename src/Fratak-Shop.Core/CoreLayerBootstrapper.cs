@@ -51,6 +51,10 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IFaqItemService, FaqItemService>();
         services.AddScoped<ICommentService, CommentService>();
         services.AddScoped<Services.Comments.IReviewSentimentService, Services.Comments.ReviewSentimentService>();
+        // دور ۲۵: پیش‌نویس هوشمند پاسخ پرسش کالا در پنل.
+        services.AddScoped<IQuestionAnswerAdvisor, QuestionAnswerAdvisor>();
+        // دور ۲۵ (الف): اعلان ارزان شدن کالاهای علاقه‌مندی.
+        services.AddScoped<Services.Favorites.IFavoritePriceWatch, Services.Favorites.FavoritePriceWatch>();
         services.AddScoped<Services.Orders.IOrderRiskService, Services.Orders.OrderRiskService>();
         services.AddScoped<Services.Insights.IAnomalyService, Services.Insights.AnomalyService>();
         services.AddScoped<Services.Marketing.IWinBackService, Services.Marketing.WinBackService>();
@@ -62,6 +66,8 @@ public static class CoreLayerBootstrapper
         // دور ۲۴: دانش عمومی سایت برای دستیار (کش ۱۰ دقیقه‌ای) و «گفت‌وگو با کارشناس».
         services.AddScoped<Services.Assistant.IAssistantKnowledge, Services.Assistant.AssistantKnowledge>();
         services.AddScoped<Services.Assistant.IAssistantHandoffService, Services.Assistant.AssistantHandoffService>();
+        // دور ۲۵: جواب‌هایی که کارکنان به دستیار یاد می‌دهند.
+        services.AddScoped<Services.Assistant.IAssistantTeachingService, Services.Assistant.AssistantTeachingService>();
         // دور ۲۴ (بستهٔ B): رتبه‌بندی یادگیرندهٔ جست‌وجو، تضمین قیمت، آمار واقعی خرید و «سفارش دوباره».
         services.AddScoped<Services.Searches.ISearchLearningService, Services.Searches.SearchLearningService>();
         services.AddScoped<Services.Marketing.IPriceMatchService, Services.Marketing.PriceMatchService>();

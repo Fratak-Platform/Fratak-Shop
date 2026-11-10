@@ -16,6 +16,7 @@
   </div>
   <div class="a-btn-group">
     <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/handoffs">گفت‌وگوهای کارشناس</a>
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/teach">آموزش دستیار</a>
     @foreach (var d in new[] { 7, 30, 90 })
     {
       <a class="a-btn @(Model.Days == d ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/smart/assistant?days=@d">@PersianText.Digits(d) روز</a>

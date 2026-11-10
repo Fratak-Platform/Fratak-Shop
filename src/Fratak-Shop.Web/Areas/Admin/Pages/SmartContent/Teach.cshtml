@@ -1,0 +1,132 @@
+@page "/admin/smart/assistant/teach"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.TeachModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@using Fratak_Shop.Core.Services.Seo.Engine
+@using Fratak_Shop.Data.Entities.Assistant
+@* دور ۲۵: «آموزش دستیار» – پیشنهادها (بی‌جواب یا 👎)، فرم آموزش و فهرست آموزش‌ها. *@
+@{
+    ViewData["Title"] = "آموزش دستیار";
+    var editing = Model.Editing;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>آموزش دستیار</h2>
+    <p class="a-muted text-sm mt-1">پرسش‌هایی که دستیار جواب نداد یا مشتری برایشان 👎 زد این‌جا می‌آیند. برای هر کدام یک جواب ثابت یا یک کار تعیین کنید؛ از همان لحظه پیام‌های خیلی شبیه همین جواب را می‌گیرند.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant">گزارش دستیار</a>
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-2">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Lightbulb", null, 18) پیشنهاد برای آموزش (۳۰ روز اخیر)</h3></div>
+    @if (Model.Candidates.Count == 0)
+    {
+      <div class="a-empty">پیام بی‌جواب یا ناراضی تازه‌ای نیست.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>پیام مشتری</th><th>تکرار</th><th>👎</th><th>آخرین بار</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var c in Model.Candidates)
+            {
+              <tr>
+                <td data-label="پیام مشتری">@c.Text</td>
+                <td data-label="تکرار">@PersianText.Digits(c.Count)</td>
+                <td data-label="👎">@PersianText.Digits(c.Unhelpful)</td>
+                <td data-label="آخرین بار">@AdminUi.Ago(c.Last)</td>
+                <td data-label=""><a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/teach?q=@Uri.EscapeDataString(c.Text)#form">آموزش</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <form method="post" asp-page-handler="Save" class="a-card" id="form">
+    <div class="a-card-head">
+      <h3 class="a-card-title">@Icons.Svg("Brain", null, 18) @(editing is null ? "آموزش تازه" : "ویرایش آموزش")</h3>
+      @if (editing is not null)
+      {
+        <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/teach">انصراف</a>
+      }
+    </div>
+    <div class="a-card-body a-form-grid">
+      @if (editing is not null)
+      {
+        <input type="hidden" name="id" value="@editing.Id">
+      }
+      <div class="a-field">
+        <label class="a-label req" for="teach-question">پرسش مشتری</label>
+        <input id="teach-question" class="a-input" name="question" maxlength="300" required value="@Model.Question" placeholder="مثلاً: ارسال به کیش دارید؟">
+        <p class="a-muted text-xs mt-1">پیام‌های خیلی شبیه (با واژه‌های تقریباً یکسان) همین جواب را می‌گیرند.</p>
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="teach-answer">جواب دستیار</label>
+        <textarea id="teach-answer" class="a-textarea" name="answer" rows="4" maxlength="1000" placeholder="جواب کوتاه و مؤدبانه. اگر «کار» انتخاب کنید می‌توانید این را خالی بگذارید.">@editing?.Answer</textarea>
+      </div>
+      <div class="a-form-grid cols-2">
+        <div class="a-field">
+          <label class="a-label" for="teach-url">لینک (اختیاری)</label>
+          <input id="teach-url" class="a-input a-ltr" name="url" maxlength="300" value="@editing?.Url" placeholder="/faq">
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="teach-intent">یا این کار را انجام بده</label>
+          <select id="teach-intent" class="a-select" name="intent">
+            <option value="">— فقط همین جواب —</option>
+            @foreach (var intent in TeachModel.Intents)
+            {
+              <option value="@intent" selected="@(editing?.Intent == intent)">@AssistantModel.IntentTitle(intent)</option>
+            }
+          </select>
+        </div>
+      </div>
+      <label class="a-check text-sm"><input type="checkbox" name="isActive" value="true" checked="@(editing?.IsActive ?? true)"><input type="hidden" name="isActive" value="false"> فعال</label>
+      <div class="flex justify-end"><button class="a-btn" type="submit">@(editing is null ? "ثبت آموزش" : "ذخیرهٔ تغییرات")</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><h3 class="a-card-title">آموزش‌های ثبت‌شده (@PersianText.Digits(Model.Items.Count))</h3></div>
+  @if (Model.Items.Count == 0)
+  {
+    <div class="a-empty">هنوز آموزشی ثبت نشده.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>پرسش</th><th>جواب / کار</th><th>استفاده</th><th>وضعیت</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var t in Model.Items)
+          {
+            <tr>
+              <td data-label="پرسش">@t.Question</td>
+              <td data-label="جواب / کار">
+                @if (t.Intent is { } taughtIntent)
+                {
+                  <span class="a-badge a-badge-gray">@AssistantModel.IntentTitle(taughtIntent)</span>
+                }
+                <span class="text-sm">@PersianText.Truncate(t.Answer ?? "", 120)</span>
+              </td>
+              <td data-label="استفاده">@PersianText.Digits(t.HitCount)@(t.LastHitAt is { } hit ? " · " + AdminUi.Ago(hit) : "")</td>
+              <td data-label="وضعیت"><span class="a-badge @(t.IsActive ? "a-badge-green" : "a-badge-gray")">@(t.IsActive ? "فعال" : "خاموش")</span></td>
+              <td data-label="">
+                <div class="flex flex-wrap gap-2">
+                  <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/teach?id=@t.Id#form">ویرایش</a>
+                  <form method="post" asp-page-handler="Delete" asp-route-id="@t.Id" data-confirm="این آموزش حذف شود؟"><button class="a-btn a-btn-light a-btn-sm" type="submit">حذف</button></form>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

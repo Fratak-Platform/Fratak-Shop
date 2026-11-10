@@ -40,6 +40,9 @@ public static class AssistantGuide
         "login-phone",      // Pages/Login.cshtml – موبایل (ورود با رمز)
         "login-password",   // Pages/Login.cshtml – رمز
         "otp-phone",        // Pages/Login.cshtml – موبایل (ورود با کد پیامکی)
+        "order-cancel",     // Pages/Profile/OrderDetail.cshtml – لغو سفارش (دور ۲۵)
+        "order-return",     // Pages/Profile/OrderDetail.cshtml – درخواست مرجوعی (دور ۲۵)
+        "order-invoice",    // Pages/Profile/OrderDetail.cshtml – فاکتور و PDF (دور ۲۵)
     };
 
     private static readonly HashSet<string> Kinds = new(StringComparer.Ordinal) { "go", "point", "fill", "focus" };

@@ -72,6 +72,11 @@ public class AssistantModel(IAssistantService assistant) : AdminPageModel
         AssistantIntent.Finder => "کالایاب",
         AssistantIntent.Preference => "سلیقهٔ گفت‌وگو",
         AssistantIntent.Handoff => "گفت‌وگو با کارشناس",
+        // دور ۲۵
+        AssistantIntent.OrderCancel => "لغو سفارش",
+        AssistantIntent.OrderReturn => "مرجوعی",
+        AssistantIntent.Invoice => "فاکتور",
+        AssistantIntent.Advisor => "مشاور خرید",
         _ => "نامشخص",
     };
 }

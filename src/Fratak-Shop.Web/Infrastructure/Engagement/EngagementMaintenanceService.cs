@@ -54,6 +54,9 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
     private async Task RunOnceAsync(CancellationToken token)
     {
         await RunAsync("Product alerts", sp => sp.GetRequiredService<IProductAlertService>().ProcessAsync(token), token);
+        // دور ۲۵ (الف): کالای «علاقه‌مندی‌ها» ارزان شد ← اعلان (بعد از «خبرم کن» تا اعلان تکراری نرود).
+        await RunAsync("Favorite price watch", async sp =>
+            (await sp.GetRequiredService<Fratak_Shop.Core.Services.Favorites.IFavoritePriceWatch>().ProcessAsync(DateTimeOffset.UtcNow, token)).Notified, token);
         await RunAsync("SEO traffic flush", sp => sp.GetRequiredService<ISeoTrafficService>().FlushAsync(token), token);
         // دور ۲۴: امضای تصویر کالاها برای «جست‌وجو با عکس» (هر نوبت حداکثر ۴۰ کالا؛ فقط وقتی قابلیت روشن است).
         await RunAsync("Image search signatures", async sp =>

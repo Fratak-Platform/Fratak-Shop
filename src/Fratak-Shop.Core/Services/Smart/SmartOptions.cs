@@ -136,6 +136,12 @@ public sealed class SmartOptions
     /// <summary>ساعت پایان سکوت شبانه.</summary>
     public int QuietToHour { get; set; } = 9;
 
+    /// <summary>دور ۲۵ (الف): وقتی کالای «علاقه‌مندی‌ها»ی مشتری ارزان شد خبرش کنیم (اعلان سایت + پوش؛ بدون پیامک).</summary>
+    public bool FavoritePriceAlert { get; set; } = true;
+
+    /// <summary>دور ۲۵ (الف): کمترین درصد کاهش قیمت برای اعلان علاقه‌مندی‌ها (۳ تا ۵۰؛ پیش‌فرض ۵).</summary>
+    public int FavoritePriceDropPercent { get; set; } = 5;
+
     // ── مدیریت (C24–C27) ──────────────────────────────────────────
 
     /// <summary>کالای موجودی که این تعداد روز فروش نداشته «کم‌گردش» است (C25).</summary>
@@ -251,6 +257,7 @@ public sealed class SmartOptions
         ReviewRequestAfterDays = Math.Clamp(ReviewRequestAfterDays, 1, 60);
         QuietFromHour = Math.Clamp(QuietFromHour, 0, 23);
         QuietToHour = Math.Clamp(QuietToHour, 0, 23);
+        FavoritePriceDropPercent = Math.Clamp(FavoritePriceDropPercent, 3, 50);
         DeadStockWarnDays = Math.Clamp(DeadStockWarnDays, 14, 365);
         DeadStockCriticalDays = Math.Clamp(DeadStockCriticalDays, DeadStockWarnDays, 730);
         WinBackPercent = Math.Clamp(WinBackPercent, 5, 20);

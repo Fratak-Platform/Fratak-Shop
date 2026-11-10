@@ -29,7 +29,18 @@ public class AssistantRound24IntegrationTests(SqlServerFixture db)
     private const string Letters = "ابپتثجچحخدذرزسشصضطظعغفقکگلمنوی";
 
     /// <summary>واژهٔ فارسی تصادفی و یکتا (با «ژ» در پایان تا با واژهٔ واقعی یکی نشود).</summary>
-    private static string Word() => new string(Enumerable.Range(0, 6).Select(_ => Letters[Random.Shared.Next(Letters.Length)]).ToArray()) + "ژ";
+    // دور ۲۵: حرف تکراری پشت‌سرهم ساخته نمی‌شود (دستیار «ببب» را به «ب» کوتاه می‌کند و واژهٔ تصادفی عوض می‌شد).
+    private static string Word()
+    {
+        var letters = new char[6];
+        for (var i = 0; i < letters.Length; i++)
+        {
+            do
+                letters[i] = Letters[Random.Shared.Next(Letters.Length)];
+            while (i > 0 && letters[i] == letters[i - 1]);
+        }
+        return new string(letters) + "ژ";
+    }
 
     private static string NewSession() => "r24" + Guid.NewGuid().ToString("N")[..20];
 

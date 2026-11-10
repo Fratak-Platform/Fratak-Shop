@@ -175,6 +175,11 @@ public static partial class AssistantNlu
         new("power", "توان", ["توان", "وات", "قدرت", "مصرف برق"], ["توان", "وات", "قدرت", "مصرف"]),
         new("compat", "سازگاری", ["سازگار", "سازگاری", "میخوره", "پشتیبانی میکنه", "پشتیبانی می کنه"], ["سازگار", "پشتیبانی"]),
         new("model", "مدل", ["کد مدل", "مدلش"], ["مدل"]),
+        // دور ۲۵: پرسش‌هایی که جوابشان بیشتر در «نظر خریداران» است (AssistantReviews) تا در مشخصات.
+        new("reviews", "نظر خریداران", ["کیفیت", "کیفیتش", "کیفیتشو", "نظرات", "نظر خریداران", "نظر خریدارا", "نظر مشتریان", "نظر مشتریا", "نظر بقیه", "کسی خریده", "کسی گرفته", "راضی هستن", "راضی بودن", "رضایت"], []),
+        new("sound", "صدا", ["صدا", "صداش", "صدای", "کیفیت صدا", "بلندی صدا", "باس", "میکروفون", "میکروفونش"], ["صدا", "بلندگو", "میکروفون", "درایور", "باس", "فرکانس"]),
+        new("screen", "نمایشگر", ["نمایشگر", "نمایشگرش", "صفحه نمایش", "صفحه نمایشش", "رزولوشن", "اینچ"], ["نمایشگر", "صفحه نمایش", "رزولوشن", "اینچ"]),
+        new("camera", "دوربین", ["دوربین", "دوربینش", "عکاسی", "مگاپیکسل", "فیلمبرداری"], ["دوربین", "مگاپیکسل", "عکس", "فیلم"]),
         // دور ۲۴: «در موردش بگو» ← معرفی کامل کالا (قیمت، موجودی، چند مشخصهٔ کلیدی و خلاصهٔ توضیحات).
         new("about", "معرفی کالا", AboutWords, []),
     ];
@@ -186,6 +191,25 @@ public static partial class AssistantNlu
         "چقدر", "چقدره", "چنده", "چند", "چیه", "چی", "چه", "چطور", "چطوره", "آیا", "ایا", "داره", "دارد", "هست", "هستش", "است", "کدام", "کدوم",
         "مگه", "میشه", "میکنه", "میخوره", "بگو", "بگید", "بگین", "این", "اینو", "همین", "اون", "اونو", "سنگینه", "اصله",
     };
+
+    /// <summary>
+    /// دور ۲۵: همهٔ واژه‌هایی که این فایل می‌شناسد (فهرست‌های نیت، موضوع‌ها، پرکننده‌ها و ترتیبی‌ها).
+    /// کاربرد: <see cref="AssistantLanguage"/> واژه‌ای را که اینجا (یا در نام کالاها) هست «غلط تایپی» حساب نمی‌کند
+    /// و غلط‌ها را فقط به یکی از همین واژه‌ها اصلاح می‌کند. مثال: «باطری» ← «باتری».
+    /// </summary>
+    public static IReadOnlySet<string> Lexicon => LexiconSet.Value;
+
+    private static readonly Lazy<HashSet<string>> LexiconSet = new(() =>
+    {
+        var lists = new IEnumerable<string>[]
+        {
+            Greetings, GreetingFillers, ThanksWords, HumanWords, TrackWords, CheckoutWords, RemoveWords, AddWords, CartShowWords, AddressWords,
+            CompareWords, HelpWords, AboutWords, NavigateWords, LoginWords, OfferWords, FinderWords, ShopCues, OffTopicWords, OffTopicPhrases,
+            Fillers, OrdinalWords.Keys, NumberWords.Keys, QuestionWords, Topics.SelectMany(t => t.Words),
+        };
+        return lists.SelectMany(l => l).SelectMany(w => PersianText.Normalize(w).Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .Where(w => w.Length >= 2).ToHashSet(StringComparer.Ordinal);
+    });
 
     /// <summary>بریدن پیام به حداکثر طول. مثال: متن ۴۰۰ نویسه‌ای ← ۳۰۰ نویسهٔ اول.</summary>
     public static string Cut(string? text)
