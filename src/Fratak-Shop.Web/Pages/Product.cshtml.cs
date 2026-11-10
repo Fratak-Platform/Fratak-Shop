@@ -87,8 +87,10 @@ public class ProductModel(
 
     public async Task<IActionResult> OnGetAsync(string slug)
     {
-        if (!await LoadAsync(slug))
+        if (!await LoadAsync(slug, allowPreview: true))
             return NotFound();
+        if (!Product.IsActive)
+            StaffPreview.Mark(HttpContext, ViewData, "پیش‌نمایش – این کالا منتشر نشده (غیرفعال) است");
 
         if (site.Settings.IsRecommendationEnabled)
         {
@@ -203,10 +205,14 @@ public class ProductModel(
         return Redirect($"/product/{slug}#quest");
     }
 
-    private async Task<bool> LoadAsync(string slug)
+    private async Task<bool> LoadAsync(string slug, bool allowPreview = false)
     {
         var product = await productService.GetProductBySlugAsync(slug);
-        if (product is null || !product.IsActive)
+        if (product is null)
+            return false;
+        // دور ۲۳: کالای غیرفعال فقط برای کارمند کالا/سئو (پیش‌نمایش)؛ مشتری ۴۰۴ می‌گیرد.
+        if (!product.IsActive && !(allowPreview && await StaffPreview.AllowedAsync(HttpContext, Fratak_Shop.Core.Services.Admin.AdminPermissions.ProductsView,
+                Fratak_Shop.Core.Services.Admin.AdminPermissions.ProductsManage, Fratak_Shop.Core.Services.Admin.AdminPermissions.SeoManage)))
             return false;
 
         Product = product;

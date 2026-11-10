@@ -307,7 +307,7 @@ public class SmartImageRulesTests
 
         var high = new SmartOptions { ImageCandidates = 99, NightlyCompletePerDay = 100_000, AutoImagesWhenFewerThan = 50, AutoImagesMax = 50, MaxImageCandidates = 500 }.Normalize();
         Assert.Equal(15, high.ImageCandidates);
-        Assert.Equal(200, high.NightlyCompletePerDay);
+        Assert.Equal(500, high.NightlyCompletePerDay); // دور ۲۳: سقف ۵۰۰
         Assert.Equal(12, high.AutoImagesWhenFewerThan);
         Assert.Equal(8, high.AutoImagesMax);
         Assert.Equal(60, high.MaxImageCandidates);

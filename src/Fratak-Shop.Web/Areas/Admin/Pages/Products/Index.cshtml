@@ -36,6 +36,11 @@
   <a class="a-pill @(Model.Stock == "out" ? "is-active" : "")" href="@AdminUi.With(request, ("stock", "out"))">ناموجود<b>@Format.Number(Model.Counts["out"])</b></a>
   <a class="a-pill @(Model.Stock == "low" ? "is-active" : "")" href="@AdminUi.With(request, ("stock", "low"))">رو به اتمام (≤ @Model.LowStockThreshold)<b>@Format.Number(Model.Counts["low"])</b></a>
   <a class="a-pill @(Model.State == "inactive" ? "is-active" : "")" href="@AdminUi.With(request, ("state", "inactive"))">غیرفعال<b>@Format.Number(Model.Counts["inactive"])</b></a>
+  @if (Model.Counts["ready"] > 0 || Model.Missing == "ready")
+  {
+    @* دور ۲۳: پیش‌نویس‌های کامل؛ سیستم خودش منتشر نمی‌کند، مدیر با یک کلیک منتشر می‌کند. *@
+    <a class="a-pill @(Model.Missing == "ready" ? "is-active" : "")" href="@AdminUi.With(request, ("missing", "ready"))" title="پیش‌نویس کامل: دسته، موجودی، قیمت، عکس، توضیحات، خلاصه، مشخصات و نام انگلیسی دارد">آمادهٔ انتشار<b>@Format.Number(Model.Counts["ready"])</b></a>
+  }
   @if (Model.Counts["category"] > 0 || Model.Missing == "category")
   {
     @* دور ۲۲: کالای بی‌دسته منتشر نمی‌شود؛ دسته‌بندی هوشمند چند دقیقه بعد از ورود کالا خودکار دسته می‌دهد. *@
@@ -99,6 +104,7 @@
         <option value="seo" selected="@(Model.Missing == "seo")">بدون توضیحات متا (سئو)</option>
         <option value="category" selected="@(Model.Missing == "category")">بدون دسته</option>
         <option value="short" selected="@(Model.Missing == "short")">بدون توضیح کوتاه</option>
+        <option value="ready" selected="@(Model.Missing == "ready")">آمادهٔ انتشار</option>
         @if (canSupplier)
         {
           <option value="source" selected="@(Model.Missing == "source")">بدون لینک منبع</option>
@@ -147,6 +153,14 @@
       <button type="submit" class="a-btn" data-confirm="تأمین‌کنندهٔ همهٔ @Format.Number(Model.Products.Total) محصول این فهرست (همهٔ صفحه‌ها) تغییر کند؟">اعمال روی همه</button>
     </form>
   </details>
+}
+
+@if (canManage && Model.Missing == "ready" && Model.Counts["ready"] > 0)
+{
+  <form method="post" asp-page-handler="PublishReady" class="a-card mb-4 flex flex-wrap items-center justify-between gap-3">
+    <span>@Format.Number(Model.Counts["ready"]) پیش‌نویس کامل منتظر انتشار شماست. سیستم هیچ کالایی را خودش منتشر نمی‌کند.</span>
+    <button type="submit" class="a-btn a-btn-success" data-confirm="همهٔ کالاهای آمادهٔ انتشار (حداکثر ۲۰۰) منتشر شوند؟">انتشار همهٔ آماده‌ها</button>
+  </form>
 }
 
 <div class="a-card" data-bulk>
@@ -240,6 +254,7 @@
             <td data-label="وضعیت">
               <span class="a-badge @(p.IsActive ? "a-badge-green" : "a-badge-gray")">@(p.IsActive ? "فعال" : "غیرفعال")</span>
               @if (p.Stock <= 0) { <span class="a-badge a-badge-red">ناموجود</span> }
+              @if (p.Ready) { <span class="a-badge a-badge-blue" title="پیش‌نویس کامل؛ با «فعال‌سازی» منتشر کنید">آمادهٔ انتشار</span> }
             </td>
             <td data-label="کامل بودن">
               @if (p.Completeness is { } c)

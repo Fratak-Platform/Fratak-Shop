@@ -622,6 +622,11 @@ public sealed class SeoAutopilotService(
         if (page is null)
             return OperationResult<bool>.NotFound("محصول پیدا نشد.");
 
+        // دور ۲۳: دروازهٔ کیفیت – بخش بی‌جا (مثل اشاره به «دسته‌بندی نشده») حذف؛ اگر باز هم ایراد ماند، ذخیره نمی‌شود.
+        html = Fratak_Shop.Core.Services.Smart.ContentQualityGate.Clean(html);
+        if (Fratak_Shop.Core.Services.Smart.ContentQualityGate.Issues(html, style: false) is { Count: > 0 } issues)
+            return OperationResult<bool>.Error("متن از بررسی کیفیت نگذشت: " + string.Join(" ", issues));
+
         // همان مرتب‌سازی شبانهٔ خلبان (ترتیب تیترها، سرستون جدول، alt …) همین حالا؛ پس شب‌های بعد متن عوض نمی‌شود.
         var final = HtmlSeoFixer.Fix(html, new HtmlFixContext(page.Name, host?.Host)).Html;
         if (final.Length > page.BodyMaxLength)

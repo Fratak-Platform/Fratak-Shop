@@ -30,6 +30,12 @@ public class Category : BaseEntity
     [MaxLength(2000)]
     public string? ImageOptionsJson { get; set; }
 
+    /// <summary>
+    /// دور ۲۳: نام آیکون دسته (از مجموعهٔ آیکون‌های سایت). خالی ← سیستم خودش انتخاب می‌کند (CategoryIcons). مثال: «DeviceMobile».
+    /// </summary>
+    [MaxLength(40)]
+    public string? IconKey { get; set; }
+
     public int DisplayOrder { get; set; }
 
     public bool IsActive { get; set; } = true;

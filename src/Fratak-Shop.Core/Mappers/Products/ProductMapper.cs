@@ -17,8 +17,9 @@ public static class ProductMapper
             IsDeleted = product.IsDeleted,
             DeletedAt = product.DeletedAt,
             CategoryId = product.CategoryId,
-            CategoryName = product.Category?.Name,
-            CategorySlug = product.Category?.Slug,
+            // دور ۲۳: دستهٔ سیستمی («دسته‌بندی نشده») هرگز در صفحه/متن/لینک نمی‌آید (صفحه‌اش وجود ندارد).
+            CategoryName = product.Category is { IsSystem: false } ? product.Category.Name : null,
+            CategorySlug = product.Category is { IsSystem: false } ? product.Category.Slug : null,
             BrandId = product.BrandId,
             BrandName = product.Brand?.Name,
             BrandEnglishName = product.Brand?.EnglishName,
@@ -78,8 +79,9 @@ public static class ProductMapper
             IsDeleted = product.IsDeleted,
             DeletedAt = product.DeletedAt,
             CategoryId = product.CategoryId,
-            CategoryName = product.Category?.Name,
-            CategorySlug = product.Category?.Slug,
+            // دور ۲۳: دستهٔ سیستمی («دسته‌بندی نشده») هرگز در صفحه/متن/لینک نمی‌آید (صفحه‌اش وجود ندارد).
+            CategoryName = product.Category is { IsSystem: false } ? product.Category.Name : null,
+            CategorySlug = product.Category is { IsSystem: false } ? product.Category.Slug : null,
             BrandId = product.BrandId,
             BrandName = product.Brand?.Name,
             BrandSlug = product.Brand?.Slug,

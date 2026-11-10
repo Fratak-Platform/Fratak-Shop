@@ -49,7 +49,12 @@ public sealed record ProductBodyState(string Html, int Words, bool WrittenBySmar
 public sealed record ImageFeedbackItem(string? Url, long Hash, string? Source, bool Approved);
 
 /// <summary>یک ردیف «ناقص» برای دکمهٔ «تکمیل هوشمند همهٔ ناقص‌ها» (B20).</summary>
-public sealed record IncompleteProduct(Guid Id, string Name, int Images, int Features, bool HasShortDescription, bool HasInsight, DateTimeOffset CreatedAt);
+/// <summary>
+/// کالای ناقص برای صف «تکمیل همیشگی». دور ۲۳: کالای منتشرنشده هم می‌آید (<paramref name="IsActive"/> = false) و
+/// <paramref name="Missing"/> تعداد کمبودهاست (برای اولویت: هرچه بیشتر، زودتر).
+/// </summary>
+public sealed record IncompleteProduct(Guid Id, string Name, int Images, int Features, bool HasShortDescription, bool HasInsight, DateTimeOffset CreatedAt,
+    bool IsActive = true, int Missing = 0);
 
 /// <summary>
 /// خواندن/نوشتن دادهٔ کاتالوگ برای امکانات هوشمند (لایهٔ هسته؛ صفحه‌های پنل مستقیم به دیتابیس دست نمی‌زنند).
@@ -80,6 +85,13 @@ public interface ISmartCatalogService
     Task<List<string>> FilterKeysAsync(Guid categoryId, CancellationToken cancellationToken = default);
 
     Task<List<IncompleteProduct>> ListIncompleteAsync(int take = 200, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۳ – ترمیم متن‌های قدیمی: کالا/مقاله/دسته‌ای که در متنش «دسته‌بندی نشده»، «uncategorized» یا لینک به دستهٔ سیستمی هست
+    /// با <see cref="ContentQualityGate.Clean"/> تمیز و ذخیره می‌شود. خروجی: شناسهٔ کالاهای ترمیم‌شده (برای «تکمیل هوشمند» دوباره) و
+    /// تعداد مقاله/دستهٔ ترمیم‌شده. استفاده: برنامه‌ریز کارگر هوشمند (هر ۶ ساعت). مثال: توضیح «… در دستهٔ دسته‌بندی نشده …» ← آن بند حذف.
+    /// </summary>
+    Task<ContentRepairResult> RepairForbiddenTextAsync(int max = 100, CancellationToken cancellationToken = default);
 
     Task<SmartCategorySubject?> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default);
 
@@ -158,8 +170,90 @@ public sealed record IdentityApplied(bool Name, bool EnglishName, string? Slug)
 /// <summary>تصویر فعلی دسته و تصویرهای پیشنهادی. Options = null یعنی هنوز پیشنهادی ساخته نشده؛ [] یعنی ادمین همه را حذف کرده.</summary>
 public sealed record CategoryImageState(Guid Id, string Name, string? ImageName, IReadOnlyList<string>? Options);
 
+/// <summary>نتیجهٔ ترمیم متن‌ها: کالاهای تمیزشده (برای تکمیل دوباره) + تعداد مقاله و دستهٔ تمیزشده.</summary>
+public sealed record ContentRepairResult(IReadOnlyList<Guid> Products, int Posts, int Categories)
+{
+    public int Total => Products.Count + Posts + Categories;
+}
+
 public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCatalogService
 {
+    // عبارت‌های جست‌وجو در پایگاه داده (LIKE)؛ نسخهٔ دقیق‌تر با یکسان‌سازی فارسی در ContentQualityGate.HasForbidden دوباره سنجیده می‌شود.
+    private static readonly string[] RepairNeedles = ["دسته بندی نشده", "دسته‌بندی نشده", "دسته‌بندی‌نشده", "بدون دسته", "uncategorized"];
+
+    public async Task<ContentRepairResult> RepairForbiddenTextAsync(int max = 100, CancellationToken cancellationToken = default)
+    {
+        max = Math.Clamp(max, 1, 500);
+        var (n0, n1, n2, n3, n4) = (RepairNeedles[0], RepairNeedles[1], RepairNeedles[2], RepairNeedles[3], RepairNeedles[4]);
+
+        var products = await context.Products.AsTracking()
+            .Where(p => (p.Description != null && (p.Description.Contains(n0) || p.Description.Contains(n1) || p.Description.Contains(n2) || p.Description.Contains(n3) || p.Description.Contains(n4)))
+                        || (p.ShortDescription != null && (p.ShortDescription.Contains(n0) || p.ShortDescription.Contains(n1) || p.ShortDescription.Contains(n2) || p.ShortDescription.Contains(n3) || p.ShortDescription.Contains(n4)))
+                        || (p.Seo != null && p.Seo.MetaDescription != null && (p.Seo.MetaDescription.Contains(n0) || p.Seo.MetaDescription.Contains(n1) || p.Seo.MetaDescription.Contains(n2) || p.Seo.MetaDescription.Contains(n4)))
+                        || (p.Seo != null && p.Seo.Title != null && (p.Seo.Title.Contains(n0) || p.Seo.Title.Contains(n1) || p.Seo.Title.Contains(n2) || p.Seo.Title.Contains(n4))))
+            .OrderByDescending(p => p.IsActive).ThenByDescending(p => p.ViewCount).Take(max).ToListAsync(cancellationToken);
+        var repaired = new List<Guid>();
+        foreach (var product in products)
+        {
+            var changed = false;
+            product.Description = CleanField(product.Description, ref changed);
+            product.ShortDescription = CleanField(product.ShortDescription, ref changed);
+            if (product.Seo is not null)
+            {
+                product.Seo.MetaDescription = CleanField(product.Seo.MetaDescription, ref changed);
+                product.Seo.Title = CleanField(product.Seo.Title, ref changed);
+            }
+            if (changed)
+                repaired.Add(product.Id);
+        }
+
+        var posts = await context.BlogPosts.AsTracking()
+            .Where(b => b.Content.Contains(n0) || b.Content.Contains(n1) || b.Content.Contains(n2) || b.Content.Contains(n4) || b.Content.Contains("/category/uncategorized")
+                        || (b.Excerpt != null && (b.Excerpt.Contains(n0) || b.Excerpt.Contains(n1) || b.Excerpt.Contains(n2) || b.Excerpt.Contains(n4))))
+            .Take(max).ToListAsync(cancellationToken);
+        var postCount = 0;
+        foreach (var post in posts)
+        {
+            var changed = false;
+            post.Content = CleanField(post.Content, ref changed) ?? "";
+            post.Excerpt = CleanField(post.Excerpt, ref changed);
+            if (changed)
+                postCount++;
+        }
+
+        var categories = await context.Categories.AsTracking()
+            .Where(c => !c.IsSystem && c.Description != null && (c.Description.Contains(n0) || c.Description.Contains(n1) || c.Description.Contains(n2) || c.Description.Contains(n4)))
+            .Take(max).ToListAsync(cancellationToken);
+        var categoryCount = 0;
+        foreach (var category in categories)
+        {
+            var changed = false;
+            category.Description = CleanField(category.Description, ref changed);
+            if (changed)
+                categoryCount++;
+        }
+
+        if (repaired.Count + postCount + categoryCount > 0)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            DataChangeNotifier.Publish(typeof(Product), typeof(BlogPost), typeof(Data.Entities.Categories.Category));
+        }
+        context.ChangeTracker.Clear();
+        return new ContentRepairResult(repaired, postCount, categoryCount);
+    }
+
+    /// <summary>تمیز کردن یک فیلد فقط اگر واقعاً ایراد قطعی دارد؛ نتیجهٔ خالی ← null (تا نویسندهٔ هوشمند دوباره بنویسد).</summary>
+    private static string? CleanField(string? value, ref bool changed)
+    {
+        if (string.IsNullOrWhiteSpace(value) || ContentQualityGate.Issues(value, style: false).Count == 0)
+            return value;
+        var cleaned = ContentQualityGate.Clean(value);
+        if (string.Equals(cleaned, value, StringComparison.Ordinal))
+            return value;
+        changed = true;
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+    }
+
     public const string GuideCategorySlug = "buying-guide";
 
     public async Task<SmartProductSubject?> GetProductAsync(Guid productId, CancellationToken cancellationToken = default)
@@ -185,7 +279,7 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         var now = DateTimeOffset.UtcNow;
         var discounted = p.DiscountPrice is > 0 && p.DiscountPrice < p.Price
                          && (p.DiscountStartAt == null || p.DiscountStartAt <= now) && (p.DiscountEndAt == null || p.DiscountEndAt >= now);
-        return new SmartProductSubject(p.Id, p.Name, p.EnglishName, p.Slug, p.SKU, p.Gtin, p.Mpn, p.BrandName, p.BrandEnglish, p.CategoryId, p.CategoryName,
+        return new SmartProductSubject(p.Id, p.Name, p.EnglishName, p.Slug, p.SKU, p.Gtin, p.Mpn, p.BrandName, p.BrandEnglish, p.CategoryId, p.CategoryIsSystem ? null : p.CategoryName,
             p.SupplierUrl, p.ShortDescription, p.DescriptionLength, features, images, discounted ? p.DiscountPrice!.Value : p.Price, p.PurchasePrice, p.IsActive,
             p.Price, p.PublishedAt, p.WarrantyTitle, p.CategoryIsSystem, p.SourceCategory);
     }
@@ -275,23 +369,39 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         context.ProductFilterAttributes.Where(a => a.IsActive && (a.CategoryId == categoryId || a.CategoryId == null))
             .Select(a => a.FeatureKey).Distinct().ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// دور ۲۳ – «تکمیل همیشگی»: همهٔ کالاهای ناقص، چه منتشرشده چه منتشرنشده.
+    /// <list type="bullet">
+    /// <item>ناقص یعنی: بی‌دسته (دستهٔ سیستمی)، بدون نام انگلیسی، کمتر از ۲ عکس، کمتر از ۴ مشخصه، بدون توضیح کوتاه،
+    /// توضیحات کمتر از ۶۰۰ نویسه، یا (فقط وقتی دست‌کم ۳ نظر تأییدشده دارد) بدون «خلاصهٔ خرید».</item>
+    /// <item>ترتیب: کالای منتشرنشده اول (باید آمادهٔ انتشار شود)، بعد پربازدیدترها، بعد تازه‌ترها.</item>
+    /// </list>
+    /// مثال: پیش‌نویس تازه با یک عکس و بدون توضیحات ← در صدر فهرست.
+    /// </summary>
     public async Task<List<IncompleteProduct>> ListIncompleteAsync(int take = 200, CancellationToken cancellationToken = default)
     {
         var rows = await context.Products
-            .Where(p => p.IsActive)
             .Select(p => new
             {
-                p.Id, p.Name, p.CreatedAt,
+                p.Id, p.Name, p.CreatedAt, p.IsActive, p.ViewCount,
                 Images = context.ProductImages.Count(i => i.ProductId == p.Id),
                 Features = context.ProductFeatures.Count(f => f.ProductId == p.Id),
                 HasShort = p.ShortDescription != null && p.ShortDescription != "",
                 HasInsight = context.ProductInsights.Any(i => i.ProductId == p.Id),
+                Reviews = context.Comments.Count(c => c.ProductId == p.Id && c.Type == CommentType.Review && c.Status == CommentStatus.Approved),
+                NoCategory = p.Category.IsSystem,
+                NoEnglish = p.EnglishName == null || p.EnglishName == "",
+                ShortBody = p.Description == null || p.Description.Length < 600,
             })
-            .Where(p => p.Images < 2 || p.Features < 4 || !p.HasShort || !p.HasInsight)
-            .OrderByDescending(p => p.CreatedAt)
+            .Where(p => p.Images < 2 || p.Features < 4 || !p.HasShort || p.NoCategory || p.NoEnglish || p.ShortBody || (!p.HasInsight && p.Reviews >= 3))
+            .OrderBy(p => p.IsActive)
+            .ThenByDescending(p => p.ViewCount)
+            .ThenByDescending(p => p.CreatedAt)
             .Take(Math.Clamp(take, 1, 1000))
             .ToListAsync(cancellationToken);
-        return rows.Select(r => new IncompleteProduct(r.Id, r.Name, r.Images, r.Features, r.HasShort, r.HasInsight, r.CreatedAt)).ToList();
+        return rows.Select(r => new IncompleteProduct(r.Id, r.Name, r.Images, r.Features, r.HasShort, r.HasInsight, r.CreatedAt, r.IsActive,
+            (r.Images < 2 ? 1 : 0) + (r.Features < 4 ? 1 : 0) + (r.HasShort ? 0 : 1) + (r.NoCategory ? 1 : 0) + (r.NoEnglish ? 1 : 0) + (r.ShortBody ? 1 : 0)
+            + (!r.HasInsight && r.Reviews >= 3 ? 1 : 0))).ToList();
     }
 
     public async Task<SmartCategorySubject?> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default)

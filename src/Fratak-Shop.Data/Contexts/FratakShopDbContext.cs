@@ -324,6 +324,9 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Design.LandingPage> LandingPages { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.GrowthAction> GrowthActions { get; set; } = null!;
 
+    // ── دور ۲۳: دستیار فروشگاه ──
+    public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantMessage> AssistantMessages { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

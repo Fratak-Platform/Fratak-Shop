@@ -37,7 +37,8 @@ public interface ILandingPageService
 
     Task<LandingPage?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<LandingView?> GetPublicAsync(string slug, DateTimeOffset now, CancellationToken cancellationToken = default);
+    /// <summary>صفحهٔ عمومی کمپین. includeHidden (دور ۲۳، فقط پیش‌نمایش کارمند) ← غیرفعال/شروع‌نشده هم برگردانده می‌شود.</summary>
+    Task<LandingView?> GetPublicAsync(string slug, DateTimeOffset now, CancellationToken cancellationToken = default, bool includeHidden = false);
 
     Task<OperationResult<Guid>> SaveAsync(LandingSaveInput input, string? actor, CancellationToken cancellationToken = default);
 
@@ -61,12 +62,12 @@ public sealed partial class LandingPageService(FratakShopDbContext context) : IL
     public Task<LandingPage?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.LandingPages.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
-    public async Task<LandingView?> GetPublicAsync(string slug, DateTimeOffset now, CancellationToken cancellationToken = default)
+    public async Task<LandingView?> GetPublicAsync(string slug, DateTimeOffset now, CancellationToken cancellationToken = default, bool includeHidden = false)
     {
         if (!EnglishSlug.IsEnglish(slug) || slug.Length > 200)
             return null;
         var page = await context.LandingPages.AsNoTracking()
-            .Where(p => p.Slug == slug && p.IsActive && (p.StartAt == null || p.StartAt <= now))
+            .Where(p => p.Slug == slug && (includeHidden || (p.IsActive && (p.StartAt == null || p.StartAt <= now))))
             .Select(p => new { p.Id, p.Slug, p.Title, p.MetaTitle, p.MetaDescription, p.ImageUrl, p.Html, p.Css, p.ShowHeader, p.ShowFooter, p.EndAt, p.UpdatedAt })
             .FirstOrDefaultAsync(cancellationToken);
         if (page is null)

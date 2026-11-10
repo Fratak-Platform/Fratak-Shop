@@ -54,7 +54,7 @@ public interface ISmartCategoryService
     Task<CategorizeReport> RunAsync(IReadOnlyCollection<Guid>? productIds = null, int max = 300, CancellationToken cancellationToken = default);
 }
 
-public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsService insights) : ISmartCategoryService
+public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryService
 {
     /// <summary>نامک ثابت دستهٔ سیستمی.</summary>
     public const string UncategorizedSlug = "uncategorized";
@@ -129,7 +129,6 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
             .Take(8000).Select(p => new { p.CategoryId, p.Name }).ToListAsync(cancellationToken);
         var byCategory = names.GroupBy(n => n.CategoryId).ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Name).Take(200).ToList());
         var classifier = CategoryClassifier.Train(targets.Select(t => new CategorySample(t.Id, t.Name, byCategory.GetValueOrDefault(t.Id) ?? [])));
-        var demanded = await DemandedTypesAsync();
         var brands = await context.Brands.Select(b => b.Name).Take(2000).ToListAsync(cancellationToken);
 
         var moves = new Dictionary<Guid, Move>();
@@ -143,10 +142,13 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
                 moves[product.Id] = new Move(typed.Id, ProductCategorySource.Smart);
                 continue;
             }
-            // نوع مهم یا پرجست‌وجو: دستهٔ اختصاصی خودش (زیرمجموعهٔ والد مناسب) – در دستهٔ کلی‌تری مثل «لوازم جانبی» گم نمی‌شود.
-            if (type is not null && (type.Important || demanded.Contains(type.Key)))
+            // دور ۲۳: هر نوع شناخته‌شده (حتی تک‌کالا) دستهٔ دقیق خودش را زیر خانوادهٔ درست می‌گیرد («جزئی‌تر شدن» دسته‌ها).
+            // دستهٔ کم‌کالا (کمتر از ۳ کالای فعال) تا پر شدن از نقشهٔ سایت و ایندکس گوگل بیرون می‌ماند (CategoryVisibility) ← بی‌خطر برای سئو.
+            if (type is not null)
             {
-                var entity = await NewCategoryAsync(created, type.Name, type.Key, ParentFor(type, product.CategoryId, categories, catchAll), product.IsActive, cancellationToken);
+                var parentId = ParentFor(type, product.CategoryId, categories, catchAll)
+                               ?? await FamilyParentAsync(type, categories, created, product.IsActive, cancellationToken);
+                var entity = await NewCategoryAsync(created, type.Name, type.Key, parentId, product.IsActive, cancellationToken);
                 moves[product.Id] = new Move(entity.Id, ProductCategorySource.Smart);
                 continue;
             }
@@ -177,15 +179,33 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
             leftovers.RemoveAll(l => moves.ContainsKey(l.Id));
         }
 
-        // کالای تک با مسیر دستهٔ سایت دیگر ← دستهٔ «کلی» همان مسیر (مثلاً «لوازم شخصی برقی» برای یک ماساژور)، نه دستهٔ اختصاصی برای یک کالا.
-        foreach (var group in leftovers.Select(l => (Product: l, General: GeneralLevel(l.SourceCategory, brands))).Where(x => x.General is not null)
-                     .GroupBy(x => x.General!.Value.Name, StringComparer.Ordinal))
+        // کالای تک با مسیر دستهٔ سایت دیگر (دور ۲۳): برگ مسیر اگر نام درست و کاملی است ← دستهٔ دقیق زیر دستهٔ «کلی» همان مسیر
+        // (مثلاً «ماساژور» زیر «لوازم شخصی برقی»)؛ برگ ناجور ← فقط دستهٔ کلی (بعداً با کالاهای بیشتر دقیق می‌شود).
+        foreach (var group in leftovers.Select(l => (Product: l, General: GeneralLevel(l.SourceCategory, brands), Leaf: LeafName(l.SourceCategory, brands)))
+                     .Where(x => x.General is not null || x.Leaf is not null)
+                     .GroupBy(x => (x.General?.Name ?? "") + "|" + (x.Leaf ?? ""), StringComparer.Ordinal))
         {
-            var (name, parentName) = group.First().General!.Value;
-            var parent = parentName is null ? null : targets.FirstOrDefault(t => CategoryNames.Same(parentName, t.Name, t.Slug))?.Id;
-            var entity = await NewCategoryAsync(created, name, null, parent, group.Any(x => x.Product.IsActive), cancellationToken);
-            foreach (var (product, _) in group)
-                moves[product.Id] = new Move(entity.Id, ProductCategorySource.General);
+            var first = group.First();
+            Guid? generalId = null;
+            if (first.General is { } general)
+            {
+                var parent = general.Parent is null ? null : targets.FirstOrDefault(t => CategoryNames.Same(general.Parent, t.Name, t.Slug))?.Id;
+                generalId = targets.FirstOrDefault(t => CategoryNames.Same(general.Name, t.Name, t.Slug))?.Id
+                            ?? (await NewCategoryAsync(created, general.Name, null, parent, group.Any(x => x.Product.IsActive), cancellationToken)).Id;
+            }
+            var exactLeaf = first.Leaf is not null && (first.General is null || !CategoryNames.Same(first.Leaf, first.General.Value.Name));
+            Guid targetId;
+            if (exactLeaf)
+            {
+                targetId = targets.FirstOrDefault(t => CategoryNames.Same(first.Leaf, t.Name, t.Slug))?.Id
+                           ?? (await NewCategoryAsync(created, first.Leaf!, null, generalId, group.Any(x => x.Product.IsActive), cancellationToken)).Id;
+            }
+            else if (generalId is { } onlyGeneral)
+                targetId = onlyGeneral;
+            else
+                continue;
+            foreach (var item in group)
+                moves[item.Product.Id] = new Move(targetId, exactLeaf ? ProductCategorySource.Smart : ProductCategorySource.General);
         }
 
         // بازبینی کالاهای «دستهٔ کلی»: دستهٔ دقیق پیدا شد یا حالا ≥ ۳ کالای هم‌نوع جمع شده ← زیر‌دستهٔ اختصاصی.
@@ -330,7 +350,8 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
             var exact = targets.FirstOrDefault(t => t.Id != group.Key.CategoryId
                                                     && (first.Type is not null ? ProductTypes.NameMatches(first.Type, t.Name, t.Slug) : CategoryNames.Same(first.Name, t.Name, t.Slug)));
             Guid? target = exact?.Id;
-            if (target is null && group.Count() >= CategoryClassifier.MinClusterSize)
+            // دور ۲۳: حتی یک کالا ← زیردستهٔ دقیق (دستهٔ کم‌کالا تا پر شدن noindex و بیرون از نقشهٔ سایت می‌ماند).
+            if (target is null)
             {
                 var entity = await NewCategoryAsync(created, first.Name!, first.Type?.Key, group.Key.CategoryId, group.Any(x => x.Product.IsActive), cancellationToken);
                 target = entity.Id;
@@ -356,22 +377,6 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
     }
 
     /// <summary>
-    /// نوع‌هایی که مشتری‌ها زیاد جست‌وجو کرده‌اند (از جست‌وجوهای پرتکرار فروشگاه) ← «نیاز کاربر»؛ مثل نوع مهم فوراً دسته می‌گیرند.
-    /// مثال: «پاوربانک» در جست‌وجوهای پرتکرار ← اولین پاوربانک درون‌ریزی‌شده دستهٔ «پاوربانک» را می‌سازد.
-    /// </summary>
-    private async Task<HashSet<string>> DemandedTypesAsync()
-    {
-        try
-        {
-            return (await insights.GetPopularAsync()).Select(ProductTypes.Detect).Where(t => t is not null).Select(t => t!.Key).ToHashSet(StringComparer.Ordinal);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            return [];
-        }
-    }
-
-    /// <summary>
     /// والد دستهٔ تازهٔ یک نوع: اول دستهٔ والد مبدأ اگر کالا از «سایر X» آمده، بعد اولین دستهٔ سطح‌بالای فعال که نامش یکی از
     /// <see cref="ProductType.ParentHints"/> را دارد. مثال: گوشی + دستهٔ «موبایل و تبلت» موجود ← زیرمجموعهٔ «موبایل و تبلت».
     /// </summary>
@@ -379,6 +384,10 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
     {
         if (ParentFromSource(sourceCategory, categories, catchAll) is { } fromSource)
             return fromSource;
+        // دور ۲۳: اول خانوادهٔ دقیق (نام کامل برابر؛ «لوازم جانبی خودرو» با «لوازم جانبی» یکی گرفته نمی‌شود).
+        if (CategoryFamilies.For(type) is { } family
+            && categories.FirstOrDefault(c => !catchAll.Contains(c.Id) && CategoryFamilies.Match(c.Name, c.Slug) == family) is { } exact)
+            return exact.Id;
         foreach (var hint in type.ParentHints)
         {
             var normalizedHint = PersianText.Normalize(hint);
@@ -395,6 +404,30 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
     {
         var source = categories.FirstOrDefault(c => c.Id == sourceCategory);
         return source is { IsSystem: false, ParentId: { } parentId } && !catchAll.Contains(parentId) ? parentId : null;
+    }
+
+    /// <summary>
+    /// دور ۲۳: خانوادهٔ (دستهٔ اصلی) یک نوع کالا؛ اگر در فروشگاه نیست ساخته می‌شود. مثال: اولین ماساژور ← «لوازم شخصی برقی»
+    /// (سطح بالا) ساخته و «ماساژور» زیر آن می‌رود. نوع بدون خانواده ← null (دسته سطح بالا می‌شود).
+    /// </summary>
+    private async Task<Guid?> FamilyParentAsync(ProductType type, List<CategoryRow> categories, Dictionary<string, (Category Entity, int Count)> created,
+        bool active, CancellationToken cancellationToken)
+    {
+        if (CategoryFamilies.For(type) is not { } family)
+            return null;
+        if (categories.FirstOrDefault(c => !c.IsSystem && CategoryFamilies.Match(c.Name, c.Slug) == family) is { } existing)
+            return existing.Id;
+        return (await NewCategoryAsync(created, family.Name, family.Key, null, active, cancellationToken)).Id;
+    }
+
+    /// <summary>
+    /// دور ۲۳: نام «برگ» مسیر دستهٔ سایت دیگر اگر درست و کامل است (برای دستهٔ دقیق تک‌کالا). مثال: «زیبایی > لوازم شخصی برقی > ماساژور»
+    /// ← «ماساژور»؛ برگ نصفه/تبلیغاتی («حراج ویژه») ← null.
+    /// </summary>
+    public static string? LeafName(string? sourceCategory, IEnumerable<string>? brands = null)
+    {
+        var path = CategoryNames.Path(sourceCategory);
+        return path.Count == 0 ? null : CategoryNames.Proper(path[^1], brands);
     }
 
     /// <summary>
@@ -424,7 +457,8 @@ public class SmartCategoryService(FratakShopDbContext context, ISearchInsightsSe
             ParentId = parentId,
             IsActive = active,
             IsAutoCreated = true,
-            DisplayOrder = 500,
+            DisplayOrder = parentId is null ? 100 : 500,
+            IconKey = CategoryIcons.For(display, key),
         };
         context.Categories.Add(entity);
         created[display] = (entity, 1);

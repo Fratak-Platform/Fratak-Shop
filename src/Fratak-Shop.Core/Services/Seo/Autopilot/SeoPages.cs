@@ -156,7 +156,7 @@ public static class SeoPages
                     Name = p.Name,
                     Path = "/product/" + p.Slug,
                     IsLive = p.IsActive,
-                    CategoryName = p.Category?.Name,
+                    CategoryName = p.Category is { IsSystem: false } category ? category.Name : null, // دور ۲۳: «دسته‌بندی نشده» هرگز در متن
                     BrandName = p.Brand?.Name,
                     PublishedAt = p.PublishedAt,
                     InStock = p.StockQuantity > 0,

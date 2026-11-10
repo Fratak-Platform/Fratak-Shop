@@ -39,6 +39,11 @@
 @* دور ۲۱: صفحه‌های کمپین می‌توانند هدر/فوتر را پنهان کنند (کلاس fs-no-header / fs-no-footer در landing.css). *@
 <body class="mx-auto bg-[#fcfcfc]@(ViewData["BodyClass"] is string bodyClass ? " " + bodyClass : "")" data-realtime="@(liveEnabled ? "1" : "0")">
   @await Component.InvokeAsync("Header")
+  @if (ViewData[Fratak_Shop.Web.Infrastructure.StaffPreview.ViewDataKey] is string previewNote)
+  {
+    @* دور ۲۳: نوار پیش‌نمایش کارکنان (پیش‌نویس/غیرفعال)؛ مشتری هرگز این صفحه را نمی‌بیند. *@
+    <div role="status" data-staff-preview style="position:fixed;bottom:0;inset-inline:0;z-index:60;background:#f59e0b;color:#111827;text-align:center;font-weight:700;padding:.5rem 1rem;font-size:.875rem">@previewNote</div>
+  }
   @if (Site.ShowAnnouncement)
   {
     @* The header (with the announcement bar) is fixed: keep the page content below it. *@

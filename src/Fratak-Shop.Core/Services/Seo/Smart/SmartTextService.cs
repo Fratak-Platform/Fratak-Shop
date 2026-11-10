@@ -218,7 +218,7 @@ public sealed class SmartTextService(
                     .Select(p => new
                     {
                         p.WarrantyTitle, p.WarrantyMonths, p.StockQuantity,
-                        Category = p.Category!.Name, Brand = p.Brand != null ? p.Brand.Name : null,
+                        Category = p.Category!.IsSystem ? null : p.Category.Name, Brand = p.Brand != null ? p.Brand.Name : null,
                         Features = p.Features.OrderBy(f => f.DisplayOrder).Select(f => new { f.Key, f.Value }).Take(30).ToList(),
                     })
                     .FirstOrDefaultAsync(cancellationToken);

@@ -174,8 +174,9 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
     // ── دستهٔ کلی برای کالای تک و زیر‌دستهٔ اختصاصی ──────────────────
 
     [SqlFact]
-    public async Task A_lone_product_goes_to_a_general_category_and_moves_once_an_exact_one_exists()
+    public async Task A_lone_product_gets_its_exact_leaf_category_under_the_general_one()
     {
+        // دور ۲۳: حتی یک کالا دستهٔ دقیق (برگ مسیر) می‌گیرد؛ دستهٔ کلی والد آن می‌شود.
         await using var scope = db.Scope();
         var service = scope.ServiceProvider.GetRequiredService<ISmartCategoryService>();
         var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
@@ -187,33 +188,50 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
         var first = await service.RunAsync([lone], 10);
         Assert.Equal(1, first.Examined);
         Assert.Equal(1, first.Moved);
-        Assert.Equal(1, first.General);
-        var row = await context.Products.Where(p => p.Id == lone).Select(p => new { p.CategoryId, p.CategorySource, CategoryName = p.Category.Name }).SingleAsync();
-        Assert.Equal(general, row.CategoryName); // دستهٔ کلی، نه «برگ» برای یک کالا
-        Assert.Equal(ProductCategorySource.General, row.CategorySource);
+        Assert.Equal(0, first.General);
+        var row = await context.Products.Where(p => p.Id == lone)
+            .Select(p => new { p.CategoryId, p.CategorySource, CategoryName = p.Category.Name, p.Category.ParentId, p.Category.IconKey }).SingleAsync();
+        Assert.Equal(leaf, row.CategoryName);
+        Assert.Equal(ProductCategorySource.Smart, row.CategorySource);
+        Assert.False(string.IsNullOrWhiteSpace(row.IconKey));
+        var generalId = await context.Categories.Where(c => c.Name == general).Select(c => c.Id).SingleAsync();
+        Assert.Equal(generalId, row.ParentId);
         Assert.Contains(first.Created, c => c.Id == row.CategoryId && c.Products == 1);
-        Assert.False(await context.Categories.AnyAsync(c => c.Name == leaf));
+        Assert.Contains(first.Created, c => c.Id == generalId);
 
-        // هنوز دستهٔ دقیقی نیست و کالا تنهاست ← همان‌جا می‌ماند (دستهٔ یک‌کالایی ساخته نمی‌شود).
-        var second = await service.RunAsync([lone], 10);
-        Assert.Equal(1, second.Examined);
-        Assert.Equal(0, second.Moved);
-        Assert.False(await context.Categories.AnyAsync(c => c.Name == leaf));
-
-        // ادمین دستهٔ دقیق را ساخت ← کالا به آن می‌رود (دقیق).
-        var exact = await AddCategoryAsync(context, leaf);
-        var third = await service.RunAsync([lone], 10);
-        Assert.Equal(1, third.Moved);
-        var moved = await context.Products.Where(p => p.Id == lone).Select(p => new { p.CategoryId, p.CategorySource }).SingleAsync();
-        Assert.Equal(exact, moved.CategoryId);
-        Assert.Equal(ProductCategorySource.Smart, moved.CategorySource);
-
-        // کالای دقیق‌شده دیگر نامزد نیست.
+        // کالای دقیق‌شده دیگر نامزد نیست و اجرای دوباره دستهٔ تکراری نمی‌سازد.
         Assert.Equal(0, (await service.RunAsync([lone], 10)).Examined);
+        Assert.Equal(1, await context.Categories.CountAsync(c => c.Name == leaf));
     }
 
     [SqlFact]
-    public async Task Three_products_with_the_same_leaf_in_a_general_category_get_their_own_subcategory()
+    public async Task A_lone_product_with_a_promotional_leaf_goes_to_the_general_category_until_an_exact_one_exists()
+    {
+        await using var scope = db.Scope();
+        var service = scope.ServiceProvider.GetRequiredService<ISmartCategoryService>();
+        var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+        var bucket = await service.EnsureUncategorizedAsync();
+
+        var (top, general) = (Word("بالا"), Word("کلی"));
+        var lone = await AddProductAsync(context, bucket, Word("ابزار") + " " + Word("مدل"), $"{top} > {general} > حراج ویژه");
+
+        var first = await service.RunAsync([lone], 10);
+        Assert.Equal(1, first.General);
+        var row = await context.Products.Where(p => p.Id == lone).Select(p => new { p.CategorySource, CategoryName = p.Category.Name }).SingleAsync();
+        Assert.Equal(general, row.CategoryName); // برگ تبلیغاتی دسته نمی‌شود
+        Assert.Equal(ProductCategorySource.General, row.CategorySource);
+        Assert.False(await context.Categories.AnyAsync(c => c.Name == "حراج ویژه"));
+
+        // دور بعد: هنوز نشانهٔ دقیق‌تری نیست ← همان‌جا می‌ماند و دستهٔ تکراری ساخته نمی‌شود (هر ساعت دوباره بررسی می‌شود).
+        var second = await service.RunAsync([lone], 10);
+        Assert.Equal(1, second.Examined);
+        Assert.Equal(0, second.Moved);
+        Assert.Empty(second.Created);
+        Assert.Equal(1, await context.Categories.CountAsync(c => c.Name == general));
+    }
+
+    [SqlFact]
+    public async Task Three_products_with_the_same_leaf_share_one_exact_subcategory_under_the_general_one()
     {
         await using var scope = db.Scope();
         var service = scope.ServiceProvider.GetRequiredService<ISmartCategoryService>();
@@ -226,15 +244,9 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
         for (var i = 0; i < 3; i++)
             ids.Add(await AddProductAsync(context, bucket, Word("کالا") + " " + Word("نوع"), path));
 
-        // دور اول: نام‌ها شبیه هم نیستند (خوشه نمی‌سازند) ← همه به دستهٔ کلی.
         var first = await service.RunAsync(ids, 10);
-        Assert.Equal(3, first.General);
+        Assert.Equal(3, first.Moved);
         var generalId = await context.Categories.Where(c => c.Name == general).Select(c => c.Id).SingleAsync();
-        Assert.All(await context.Products.Where(p => ids.Contains(p.Id)).Select(p => p.CategoryId).ToListAsync(), c => Assert.Equal(generalId, c));
-
-        // دور دوم (مثل بازبینی روزانه): ۳ کالای هم‌برگ ← زیر‌دستهٔ اختصاصی زیر همان دستهٔ کلی.
-        var second = await service.RunAsync(ids, 10);
-        Assert.Equal(3, second.Moved);
         var sub = await context.Categories.SingleAsync(c => c.Name == leaf);
         Assert.Equal(generalId, sub.ParentId);
         Assert.True(sub.IsAutoCreated);
@@ -245,6 +257,7 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
             Assert.Equal(sub.Id, r.CategoryId);
             Assert.Equal(ProductCategorySource.Smart, r.CategorySource);
         });
+        Assert.Equal(0, (await service.RunAsync(ids, 10)).Examined);
     }
 
     // ── ورود هوشمند ──────────────────────────────────────────────────
@@ -289,13 +302,14 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
             Assert.Equal(3, report.Queued);
             Assert.Equal(failing, Assert.Single(report.Unplaced));
             Assert.Contains(report.Created, c => c.Name == general);
+            Assert.Contains(report.Created, c => c.Name == leaf);
             Assert.False(string.IsNullOrWhiteSpace(report.Summary));
 
             var rows = await context.Products.Where(p => ids.Contains(p.Id))
                 .Select(p => new { p.Id, p.CategoryId, CategoryName = p.Category.Name, p.CategorySource, p.SourceCategory, p.SmartIntakeAt })
                 .ToDictionaryAsync(p => p.Id);
-            Assert.Equal(general, rows[found].CategoryName);
-            Assert.Equal(ProductCategorySource.General, rows[found].CategorySource);
+            Assert.Equal(leaf, rows[found].CategoryName); // دور ۲۳: دستهٔ دقیق حتی برای یک کالا
+            Assert.Equal(ProductCategorySource.Smart, rows[found].CategorySource);
             Assert.Equal($"{top} > {general} > {leaf}", rows[found].SourceCategory); // «خانه» حذف شد
             Assert.Equal(bucket, rows[failing].CategoryId);
             Assert.Equal(manualCategory, rows[manual].CategoryId);

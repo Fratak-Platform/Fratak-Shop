@@ -70,10 +70,20 @@ public sealed class SmartOptions
     public bool AutoReview { get; set; } = true;
 
     /// <summary>
-    /// دور بیستم: هر شب حداکثر چند محصول ناقص خودکار «تکمیل هوشمند» شوند (۰ = خاموش؛ پیش‌فرض ۲۰). محصولی که در ۳۰ روز گذشته
-    /// تکمیل شده دوباره انتخاب نمی‌شود.
+    /// دور ۲۳: «تکمیل پیوسته» – در ۲۴ ساعت حداکثر چند کالای ناقص خودکار «تکمیل هوشمند» شوند (۰ = خاموش؛ پیش‌فرض ۱۲۰، حداکثر ۵۰۰).
+    /// کارگر هر ۱۵ دقیقه سهمی از این سقف را در صف می‌گذارد (نه فقط شب‌ها). کالایی که در ۷ روز گذشته تکمیل شده دوباره انتخاب نمی‌شود.
+    /// (نام قدیمی «شبانه» برای سازگاری با تنظیمات ذخیره‌شده مانده است.)
     /// </summary>
-    public int NightlyCompletePerDay { get; set; } = 20;
+    public int NightlyCompletePerDay { get; set; } = 120;
+
+    /// <summary>
+    /// نسخهٔ تنظیمات ذخیره‌شده (برای ارتقای خودکار پیش‌فرض‌های قدیمی). مثال: تنظیمات دور ۲۰ با «۲۰ کالا در روز» (پیش‌فرض قدیم)
+    /// ← بار اول بعد از دور ۲۳ به ۱۲۰ می‌رسد؛ عددی که مدیر خودش تغییر داده بود دست نمی‌خورد.
+    /// </summary>
+    public int OptionsVersion { get; set; }
+
+    /// <summary>نسخهٔ فعلی تنظیمات.</summary>
+    public const int CurrentVersion = 23;
 
     /// <summary>دور بیستم: برای هر نتیجهٔ کار هوشمند اعلان پنل (با لینک مستقیم به همان بخش) فرستاده شود.</summary>
     public bool NotifyResults { get; set; } = true;
@@ -162,7 +172,13 @@ public sealed class SmartOptions
         AutoImagesWhenFewerThan = Math.Clamp(AutoImagesWhenFewerThan, 0, 12);
         AutoImagesMax = Math.Clamp(AutoImagesMax, 0, 8);
         ImageCandidates = Math.Clamp(ImageCandidates, 6, 15);
-        NightlyCompletePerDay = Math.Clamp(NightlyCompletePerDay, 0, 200);
+        if (OptionsVersion < CurrentVersion)
+        {
+            if (NightlyCompletePerDay == 20)
+                NightlyCompletePerDay = 120;
+            OptionsVersion = CurrentVersion;
+        }
+        NightlyCompletePerDay = Math.Clamp(NightlyCompletePerDay, 0, 500);
         BannerIdeasPerDay = Math.Clamp(BannerIdeasPerDay, 0, 6);
         AutoSpecMinSources = Math.Clamp(AutoSpecMinSources, 2, 5);
         AutoApproveInsightMinReviews = Math.Clamp(AutoApproveInsightMinReviews, 3, 500);

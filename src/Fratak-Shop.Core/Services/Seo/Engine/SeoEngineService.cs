@@ -1183,7 +1183,8 @@ public sealed partial class SeoEngineService(
             {
                 p.Id, p.Name, p.EnglishName, p.Slug, p.ShortDescription, p.Description, p.CreatedAt, p.ViewCount, p.StockQuantity,
                 p.WarrantyTitle, p.WarrantyMonths, p.DiscountPrice,
-                CategoryName = p.Category.Name, CategorySlug = p.Category.Slug,
+                // دور ۲۳: دستهٔ سیستمی «دسته‌بندی نشده» صفحهٔ عمومی ندارد؛ در متن و لینک نمی‌آید.
+                CategoryName = p.Category.IsSystem ? null : p.Category.Name, CategorySlug = p.Category.IsSystem ? null : p.Category.Slug,
                 BrandName = p.Brand != null ? p.Brand.Name : null,
                 BrandEnglish = p.Brand != null ? p.Brand.EnglishName : null,
                 BrandSlug = p.Brand != null ? p.Brand.Slug : null,

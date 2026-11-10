@@ -258,7 +258,7 @@ public sealed class TorobFeedService(FratakShopDbContext context) : ITorobFeedSe
             CurrentPrice = available ? (long)decimal.Round(final) : 0,
             OldPrice = available && product.HasActiveDiscount(moment) ? (long)decimal.Round(product.Price) : null,
             Availability = available,
-            CategoryName = product.Category is null ? null : Cut(product.Category.Name, 200),
+            CategoryName = product.Category is null || product.Category.IsSystem ? null : Cut(product.Category.Name, 200),
             ImageLinks = images,
             ShortDesc = shortText.Length == 0 ? null : PersianText.Truncate(shortText, 500),
             Spec = spec,

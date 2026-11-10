@@ -45,7 +45,7 @@
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.NotifyResults"> نتیجهٔ هر کار هوشمند با اعلان (زنگوله و پوش) و لینک مستقیم به همان بخش خبر داده شود</label>
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="a-label" asp-for="Options.ImageCandidates">تعداد عکس پیشنهادی برای انتخاب (۶ تا ۱۵)</label><input class="a-input" asp-for="Options.ImageCandidates" min="6" max="15"></div>
-        <div><label class="a-label" asp-for="Options.NightlyCompletePerDay">تکمیل خودکار شبانه: حداکثر کالا در روز (۰ = خاموش)</label><input class="a-input" asp-for="Options.NightlyCompletePerDay" min="0" max="200"></div>
+        <div><label class="a-label" asp-for="Options.NightlyCompletePerDay">تکمیل پیوسته: حداکثر کالا در ۲۴ ساعت (۰ = خاموش)</label><input class="a-input" asp-for="Options.NightlyCompletePerDay" min="0" max="500"><input type="hidden" asp-for="Options.OptionsVersion"></div>
       </div>
       <p class="a-muted text-xs">تکمیل شبانه با پایین‌ترین اولویت و فقط وقتی سرور آزاد است اجرا می‌شود؛ هر کالا حداکثر یک بار در ۳۰ روز. عکس ردشده دیگر هرگز برای همان کالا نمی‌آید و منابعی که عکس‌هایشان بیشتر رد می‌شود خودکار عقب می‌روند.</p>
     </div>

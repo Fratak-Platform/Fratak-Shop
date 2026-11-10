@@ -3,6 +3,7 @@ using Fratak_Shop.Core.Services.Smart;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.Smart;
 using Fratak_Shop.Web.Infrastructure.Admin;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Web.Infrastructure.Smart;
 
@@ -14,8 +15,12 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <item>دور ۲۲ – هر ۳ دقیقه: «ورود هوشمند کالا» (<see cref="IProductIntakeService"/>): کالای تازه دسته می‌گیرد (با کمک دستهٔ همان کالا
 /// در دیجی‌کالا)، «تکمیل هوشمند» در صف می‌رود و کالای تازه‌منتشرشده سئو می‌گیرد.</item>
 /// <item>هر ۳۰ دقیقه: یادآوری‌های مشتری (درخواست نظر و تمدید کالای مصرفی، با سکوت شبانه).</item>
-/// <item>هر ۶ ساعت: تکمیل تقویم محتوای ۴ هفتهٔ آینده و گذاشتن مقاله‌های سررسیده در صف؛ تکمیل خودکار شبانهٔ کالاهای ناقص
-/// (حداکثر NightlyCompletePerDay در ۲۴ ساعت، هر کالا حداکثر یک بار در ۳۰ روز)؛ پاک‌سازی کش تحقیق و کارهای قدیمی.</item>
+/// <item>دور ۲۳ – هر ۱۵ دقیقه: «تکمیل پیوسته» کالاها و پیش‌نویس‌های ناقص (شبانه‌روزی، بدون دکمهٔ مدیر؛ سقف NightlyCompletePerDay
+/// در ۲۴ ساعت، هر کالا حداکثر یک بار در ۷ روز).</item>
+/// <item>دور ۲۳ – هر ساعت: دسته‌بندی هوشمند کالاهای بی‌دسته/کلی و «ممیز درخت» (<see cref="ICategoryTreeService"/>): یکی کردن
+/// دسته‌های تکراری با ۳۰۱، جابه‌جایی دستهٔ جای‌غلط، شکستن دستهٔ شلوغ، پنهان کردن دستهٔ خالی.</item>
+/// <item>هر ۶ ساعت: تقویم محتوای ۴ هفتهٔ آینده و مقاله‌های سررسیده؛ رشد خودکار؛ ترمیم متن‌های قدیمی («دسته‌بندی نشده»)؛
+/// خلاصهٔ «آمادهٔ انتشار» برای مدیر؛ پاک‌سازی کش تحقیق و کارهای قدیمی.</item>
 /// <item>بعد از هر نتیجه (یا شکست نهایی): اعلان به ادمین با لینک مستقیم به بخش بازبینی (<see cref="SmartNotifier"/>).</item>
 /// </list>
 /// <para>همه از مدیر منابع می‌گذرند (کار هوشمند «سنگین» است: یکی‌یکی و فقط وقتی سرور زیر فشار نیست – A1)
@@ -27,6 +32,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     public const string ReminderJobName = "یادآوری‌های مشتری";
     public const string PlannerJobName = "برنامه‌ریز محتوای هوشمند";
     public const string IntakeJobName = "ورود هوشمند کالا";
+    public const string ContinuousJobName = "تکمیل پیوستهٔ کالاها";
+    public const string CategorizeJobName = "دسته‌بندی و ممیزی درخت دسته‌ها";
 
     private static readonly TimeSpan BusyDelay = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(60);
@@ -34,11 +41,15 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     private static readonly TimeSpan ReminderEvery = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan PlannerEvery = TimeSpan.FromHours(6);
     private static readonly TimeSpan IntakeEvery = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan ContinuousEvery = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan CategorizeEvery = TimeSpan.FromHours(1);
 
     private readonly string _workerId = Environment.MachineName + ":" + Environment.ProcessId;
     private DateTimeOffset _lastReminders = DateTimeOffset.MinValue;
     private DateTimeOffset _lastPlanner = DateTimeOffset.MinValue;
     private DateTimeOffset _lastIntake = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastContinuous = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastCategorize = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -46,6 +57,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         JobMonitor.Register(ReminderJobName, TimeSpan.FromHours(2));
         JobMonitor.Register(PlannerJobName, TimeSpan.FromHours(12));
         JobMonitor.Register(IntakeJobName, TimeSpan.FromHours(1));
+        JobMonitor.Register(ContinuousJobName, TimeSpan.FromHours(1));
+        JobMonitor.Register(CategorizeJobName, TimeSpan.FromHours(3));
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(90), stoppingToken);
@@ -74,6 +87,16 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
                 {
                     _lastIntake = now;
                     await RunScopedAsync(IntakeJobName, sp => IntakeAsync(sp, DateTimeOffset.UtcNow, stoppingToken));
+                }
+                if (now - _lastCategorize >= CategorizeEvery)
+                {
+                    _lastCategorize = now;
+                    await RunScopedAsync(CategorizeJobName, sp => CategorizeHourlyAsync(sp, DateTimeOffset.UtcNow, stoppingToken));
+                }
+                if (now - _lastContinuous >= ContinuousEvery)
+                {
+                    _lastContinuous = now;
+                    await RunScopedAsync(ContinuousJobName, sp => ContinuousAsync(sp, DateTimeOffset.UtcNow, stoppingToken));
                 }
                 if (now - _lastPlanner >= PlannerEvery)
                 {
@@ -149,10 +172,10 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
                 count++;
             }
         }
-        if (options.Enabled && options.NightlyCompletePerDay > 0)
-            count += await PlanNightlyCompleteAsync(services, queue, options.NightlyCompletePerDay, DateTimeOffset.UtcNow, cancellationToken);
         if (options.Enabled)
-            count += await CategorizeAsync(services, queue, cancellationToken);
+            count += await RepairContentAsync(services, queue, cancellationToken);
+        if (options.Enabled)
+            await NotifyReadyAsync(services, DateTimeOffset.UtcNow, cancellationToken);
         if (options.Enabled && options.GrowthAutopilot)
             count += await GrowAsync(services, options.BannerIdeasPerDay, DateTimeOffset.UtcNow, cancellationToken);
         await services.GetRequiredService<ISmartResearchStore>().PruneAsync(cancellationToken);
@@ -161,18 +184,101 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     }
 
     /// <summary>
-    /// تکمیل خودکار شبانه (بخش F): ادمین لازم نیست دکمه بزند؛ هر ۶ ساعت تا سقف روزانه کالای ناقص (کم‌عکس، کم‌مشخصات، بدون خلاصه) با
-    /// اولویت «شبانه» (پایین‌ترین؛ کار دستی همیشه جلوتر) در صف می‌رود. کالایی که در ۳۰ روز گذشته تکمیل (یا تلاش) شده دوباره نمی‌آید
-    /// تا منابع بیرونی و هاست بی‌دلیل درگیر نشوند. مثال: سقف ۲۰ و ۱۲ کار در ۲۴ ساعت گذشته ← ۸ کالای تازه.
+    /// دور ۲۳ – «تکمیل پیوسته» (هر ۱۵ دقیقه): سهمی از سقف روزانه را صف می‌کند تا کالاها و پیش‌نویس‌ها شبانه‌روز، بدون دکمهٔ مدیر،
+    /// کامل شوند. سهم هر دور = بیشترِ ۳ و (سقف روزانه ÷ ۲۴). مثال: سقف ۱۲۰ ← هر دور حداکثر ۵ کالا (و هرگز بیش از ۱۲۰ در ۲۴ ساعت).
+    /// </summary>
+    public static async Task<int> ContinuousAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
+        if (!options.Enabled || options.NightlyCompletePerDay <= 0)
+            return 0;
+        var perRun = Math.Max(3, options.NightlyCompletePerDay / 24);
+        return await PlanNightlyCompleteAsync(services, services.GetRequiredService<ISmartTaskQueue>(), options.NightlyCompletePerDay, now, cancellationToken, perRun);
+    }
+
+    /// <summary>
+    /// دور ۲۳ – هر ساعت: دسته‌بندی هوشمند (کالای بی‌دسته/کلی) و بعد ممیز درخت دسته‌ها. هر دو جدا محافظت می‌شوند تا خطای یکی دیگری را
+    /// متوقف نکند. نتیجهٔ مهم (یکی شدن، جابه‌جایی، پنهان شدن) به مدیر اعلان می‌شود.
+    /// </summary>
+    public static async Task<int> CategorizeHourlyAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
+        if (!options.Enabled)
+            return 0;
+        var count = await CategorizeAsync(services, services.GetRequiredService<ISmartTaskQueue>(), cancellationToken);
+        try
+        {
+            var report = await services.GetRequiredService<ICategoryTreeService>().AuditAsync(now, cancellationToken);
+            await services.GetRequiredService<SmartNotifier>().NotifyTreeAsync(report);
+            count += report.Merged + report.Reparented + report.Split + report.Hidden;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Category tree audit failed");
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// دور ۲۳: ترمیم متن‌های قدیمی که «دسته‌بندی نشده» یا لینک به دستهٔ سیستمی دارند (<see cref="ISmartCatalogService.RepairForbiddenTextAsync"/>)
+    /// و صف «تکمیل هوشمند» برای همان کالاها تا متن کامل و درست دوباره نوشته شود. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> RepairContentAsync(IServiceProvider services, ISmartTaskQueue queue, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await services.GetRequiredService<ISmartCatalogService>().RepairForbiddenTextAsync(100, cancellationToken);
+            foreach (var id in result.Products)
+            {
+                await queue.EnqueueAsync(SmartTaskKind.ProductComplete, SmartTarget.Product, id, "ترمیم متن", SmartPriority.Batch,
+                    userName: SmartOrchestrator.Actor, cancellationToken: cancellationToken);
+            }
+            return result.Total;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Smart content repair failed");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۳: روزی یک بار (اولین دور برنامه‌ریز بعد از ۹ صبح ایران) اگر پیش‌نویس «آمادهٔ انتشار» هست، اعلان با لینک فیلتر همان فهرست.
+    /// سیستم هرگز خودش منتشر نمی‌کند.
+    /// </summary>
+    private static async Task NotifyReadyAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var local = IranClock.ToLocal(now);
+            if (local.Hour < 9 || local.Hour >= 15)
+                return;
+            var count = await services.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>().Products
+                .CountAsync(Fratak_Shop.Core.Services.Products.ProductCompleteness.ReadyToPublish, cancellationToken);
+            await services.GetRequiredService<SmartNotifier>().NotifyReadyAsync(count);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Ready-to-publish digest failed");
+        }
+    }
+
+    /// <summary>
+    /// تکمیل خودکار (بخش F، دور ۲۳ پیوسته): تا سقف ۲۴ ساعت کالای ناقص (پیش‌نویس‌ها اول، بعد پربازدیدها) با اولویت «شبانه»
+    /// (پایین‌ترین؛ کار دستی همیشه جلوتر) در صف می‌رود. کالایی که در ۷ روز گذشته تکمیل (یا تلاش) شده دوباره نمی‌آید تا منابع بیرونی و
+    /// هاست بی‌دلیل درگیر نشوند. <paramref name="perRun"/> = سقف همین دور (null = همهٔ جای خالی روز).
+    /// مثال: سقف ۲۰ و ۱۲ کار در ۲۴ ساعت گذشته ← ۸ کالای تازه (با perRun = ۵ ← فقط ۵).
     /// </summary>
     public static async Task<int> PlanNightlyCompleteAsync(IServiceProvider services, ISmartTaskQueue queue, int perDay, DateTimeOffset now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int? perRun = null)
     {
         var done = (await queue.RecentTargetsAsync(SmartTaskKind.ProductComplete, now.AddHours(-24), SmartPriority.Nightly, cancellationToken)).Count;
-        var room = Math.Clamp(perDay, 0, 200) - done;
+        var room = Math.Clamp(perDay, 0, 500) - done;
+        if (perRun is { } cap)
+            room = Math.Min(room, Math.Max(1, cap));
         if (room <= 0)
             return 0;
-        var recent = (await queue.RecentTargetsAsync(SmartTaskKind.ProductComplete, now.AddDays(-30), cancellationToken: cancellationToken)).ToHashSet();
+        var recent = (await queue.RecentTargetsAsync(SmartTaskKind.ProductComplete, now.AddDays(-7), cancellationToken: cancellationToken)).ToHashSet();
         var candidates = await services.GetRequiredService<ISmartCatalogService>().ListIncompleteAsync(Math.Min(1000, recent.Count + room * 3), cancellationToken);
         var count = 0;
         foreach (var product in candidates.Where(p => !recent.Contains(p.Id)).Take(room))
@@ -185,8 +291,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     }
 
     /// <summary>
-    /// دور ۲۱: بازبینی خودکار دسته‌ها (هر ۶ ساعت): کالاهای «دسته‌بندی نشده» و «سایر» دسته می‌گیرند، کالاهای مهم و خوشه‌های ≥۳ دستهٔ
-    /// تازه می‌سازند و برای هر دستهٔ تازه «تکمیل دسته» (توضیح، پرسش‌های رایج، تصویر) با اولویت شبانه صف می‌شود. خطا فقط ثبت می‌شود.
+    /// بازبینی خودکار دسته‌ها (دور ۲۳: هر ساعت): کالاهای «دسته‌بندی نشده»، «سایر» و «دستهٔ کلی» دستهٔ دقیق می‌گیرند (حتی تک‌کالا) و برای
+    /// هر دستهٔ تازه «تکمیل دسته» (توضیح، پرسش‌های رایج، تصویر) با اولویت شبانه صف می‌شود. خطا فقط ثبت می‌شود.
     /// </summary>
     private static async Task<int> CategorizeAsync(IServiceProvider services, ISmartTaskQueue queue, CancellationToken cancellationToken)
     {

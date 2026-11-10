@@ -22,6 +22,12 @@ public class ProductImage : BaseEntity
 
     public bool IsPrimary { get; set; }
 
+    /// <summary>
+    /// دور ۲۳: «اثر انگشت» تصویر (dHash ۶۴ بیتی). دو عکس با فاصلهٔ همینگ کم یکی‌اند ← عکس تکراری برای همین کالا رد می‌شود و
+    /// گزارش «عکس مشترک بین کالاها» ساخته می‌شود. null = هنوز محاسبه نشده (کارگر هوشمند کم‌کم پر می‌کند).
+    /// </summary>
+    public long? Hash { get; set; }
+
     [ForeignKey(nameof(ProductId))]
     public Product Product { get; set; } = null!;
 }

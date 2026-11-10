@@ -31,6 +31,14 @@ public class CampaignModel(ILandingPageService landings, IBuyerGuideService buye
     {
         var ct = HttpContext.RequestAborted;
         var landing = await landings.GetPublicAsync(slug, DateTimeOffset.UtcNow, ct);
+        // دور ۲۳: کمپین غیرفعال یا هنوز شروع‌نشده ← فقط پیش‌نمایش کارمند بازاریابی/محتوا.
+        var preview = false;
+        if (landing is null && await StaffPreview.AllowedAsync(HttpContext, Fratak_Shop.Core.Services.Admin.AdminPermissions.MarketingManage,
+                Fratak_Shop.Core.Services.Admin.AdminPermissions.ContentManage))
+        {
+            landing = await landings.GetPublicAsync(slug, DateTimeOffset.UtcNow, ct, includeHidden: true);
+            preview = landing is not null;
+        }
         if (landing is null)
             return NotFound();
         Landing = landing;
@@ -58,6 +66,8 @@ public class CampaignModel(ILandingPageService landings, IBuyerGuideService buye
         };
         pageMeta.Apply(ViewData, seo, landing.Title, landing.MetaDescription, landing.ImageUrl);
         pageMeta.AddBreadcrumbs(ViewData, (landing.Title, null));
+        if (preview)
+            StaffPreview.Mark(HttpContext, ViewData, "پیش‌نمایش – این کمپین فعال نیست یا هنوز شروع نشده است");
         return Page();
     }
 }

@@ -33,7 +33,13 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
     public async Task<IActionResult> OnGetAsync(string slug)
     {
         var post = await postService.GetPostByAsync(slug);
-        if (post is null || !post.IsPublished || post.PublishedAt > DateTimeOffset.UtcNow)
+        if (post is null)
+            return NotFound();
+        // دور ۲۳: پیش‌نویس/زمان‌بندی‌شده برای مشتری ۴۰۴ است؛ کارمند محتوا همان صفحه را با نوار «پیش‌نمایش» می‌بیند.
+        var preview = !post.IsPublished || post.PublishedAt > DateTimeOffset.UtcNow;
+        if (preview && !await StaffPreview.AllowedAsync(HttpContext, Fratak_Shop.Core.Services.Admin.AdminPermissions.BlogWrite,
+                Fratak_Shop.Core.Services.Admin.AdminPermissions.BlogPublish, Fratak_Shop.Core.Services.Admin.AdminPermissions.ContentManage,
+                Fratak_Shop.Core.Services.Admin.AdminPermissions.SeoManage))
             return NotFound();
 
         Post = post;
@@ -51,7 +57,8 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
         Comments = await commentService.GetCommentsByPostAsync(post.Id, onlyApproved: true);
         LatestPosts = await postService.GetLatestPostsAsync(5, post.Id);
 
-        await postService.AddPostVisitAsync(post.Id);
+        if (!preview)
+            await postService.AddPostVisitAsync(post.Id);
 
         pageMeta.Apply(ViewData, post.Seo, post.Title, post.Excerpt ?? Format.Excerpt(post.Content, 160),
             ImageHelper.Blog(post.ImageName), "article");
@@ -61,6 +68,8 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
         else
             pageMeta.AddBreadcrumbs(ViewData, ("وبلاگ", "/blog"), (post.Title, null));
 
+        if (preview)
+            StaffPreview.Mark(HttpContext, ViewData, post.IsPublished ? "پیش‌نمایش – زمان انتشار این مقاله هنوز نرسیده است" : "پیش‌نمایش – این مقاله هنوز منتشر نشده است");
         return Page();
     }
 

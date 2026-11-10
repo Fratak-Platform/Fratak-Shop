@@ -170,6 +170,44 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
     }
 
     /// <summary>
+    /// دور ۲۳ – ممیز درخت دسته‌ها: فقط وقتی کاری واقعاً انجام شده (یکی شدن، جابه‌جایی، شکستن، پنهان شدن) اعلان می‌دهد؛ دور بی‌تغییر بی‌صداست.
+    /// لینک: صفحهٔ دسته‌بندی هوشمند. مثال: «۲ دستهٔ تکراری یکی شد (با ریدایرکت ۳۰۱)؛ ۳ دسته به جای درست درخت رفت.»
+    /// </summary>
+    public async Task NotifyTreeAsync(TreeAuditReport report)
+    {
+        if (!report.Any)
+            return;
+        try
+        {
+            var details = report.Notes.Count == 0 ? "" : " " + string.Join(" ", report.Notes.Take(6));
+            await SendAsync(null, "ممیزی درخت دسته‌ها", Cut(report.Summary + details, 300), "/admin/smart/categories", AdminPermissions.CatalogManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Category tree notification failed");
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۳ – خلاصهٔ روزانهٔ «آمادهٔ انتشار»: اگر پیش‌نویس کاملی منتظر است، یک اعلان با لینک فیلتر همان فهرست
+    /// (/admin/products?missing=ready). سیستم هرگز خودش منتشر نمی‌کند. صفر ← بی‌صدا.
+    /// </summary>
+    public async Task NotifyReadyAsync(int count)
+    {
+        if (count <= 0)
+            return;
+        try
+        {
+            await SendAsync(null, $"{PersianText.Digits(count)} کالا آمادهٔ انتشار است",
+                "پیش‌نویس‌های کامل (دسته، عکس، توضیحات، مشخصات، موجودی) منتظر انتشار شما هستند.", "/admin/products?missing=ready", AdminPermissions.ProductsManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Ready-to-publish notification failed");
+        }
+    }
+
+    /// <summary>
     /// دور ۲۲ – ورود هوشمند کالا: دستهٔ تازه ← اعلان «دسته‌بندی هوشمند»؛ کالای تازه‌ای که هیچ دسته‌ای برایش پیدا نشد ← اعلان با لینک
     /// فهرست «کالاهای بدون دسته» (این کالاها تا دسته نگیرند منتشر نمی‌شوند). دورهای عادی بی‌صدا هستند تا زنگوله شلوغ نشود.
     /// </summary>

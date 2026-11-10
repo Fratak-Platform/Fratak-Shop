@@ -45,6 +45,28 @@ public class Banner : BaseEntity
     public DateTimeOffset? EndAt { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// دور ۲۳: کالای اصلی بنر (اختیاری). کالا ناموجود یا غیرفعال شود ← بنر خودکار نمایش داده نمی‌شود (پنهان، نه حذف) تا مشتری به
+    /// کالای ناموجود نرسد. مثال: بنر «پاوربانک ۲۰ هزار با ۱۵٪ تخفیف».
+    /// </summary>
+    public Guid? ProductId { get; set; }
+
+    /// <summary>دور ۲۳: دستهٔ بنر «سربرگ دسته» (Position = CategoryHeader)؛ بالای صفحهٔ همان دسته.</summary>
+    public Guid? CategoryId { get; set; }
+
+    /// <summary>
+    /// دور ۲۳ – آزمون A/B: بنرهای هم‌گروه (همان مقدار) در یک جایگاه به نوبت نمایش داده می‌شوند و نرخ کلیک (Clicks ÷ Views) مقایسه می‌شود.
+    /// خالی = بنر عادی. مثال: «yalda-1405» برای سه نسخهٔ طراحی یک ایده.
+    /// </summary>
+    [MaxLength(60)]
+    public string? VariantGroup { get; set; }
+
+    /// <summary>دور ۲۳: تعداد نمایش (تقریبی؛ گروهی در حافظه جمع و دوره‌ای در پایگاه داده افزوده می‌شود).</summary>
+    public int Views { get; set; }
+
+    /// <summary>دور ۲۳: تعداد کلیک (از مسیر /b/{id} که بعد از شمارش به لینک بنر می‌رود).</summary>
+    public int Clicks { get; set; }
 }
 
 public enum BannerPosition
@@ -53,4 +75,5 @@ public enum BannerPosition
     HeroSlider = 1,       // اسلایدر اصلی صفحه نخست
     WideBanner = 2,       // بنر تمام‌عرض میان صفحه نخست
     PromoCard = 3,        // کارت‌های تبلیغاتی دوتایی صفحه نخست
+    CategoryHeader = 4,   // دور ۲۳: سربرگ صفحهٔ دسته (۱۹۲۰×۳۰۰)
 }

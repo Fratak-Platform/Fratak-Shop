@@ -37,6 +37,9 @@ public sealed class AdminProductRow
 
     /// <summary>امتیاز کامل بودن (مرحلهٔ هفتم)؛ بعد از کوئری اصلی برای ردیف‌های همین صفحه پر می‌شود.</summary>
     public CompletenessResult? Completeness { get; set; }
+
+    /// <summary>دور ۲۳: پیش‌نویس «آمادهٔ انتشار» (<see cref="ProductCompleteness.ReadyToPublish"/>)؛ برچسب سبز در ستون وضعیت.</summary>
+    public bool Ready { get; set; }
 }
 
 [AdminPermission(AdminPermissions.ProductsView, AdminPermissions.SeoManage)]
@@ -74,8 +77,12 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
         var ids = rows.Select(r => r.Id).ToList();
         var inputs = await data.Query<Product>().Where(p => ids.Contains(p.Id)).Select(ProductCompleteness.Projection).ToListAsync();
         var scores = inputs.ToDictionary(i => i.ProductId, ProductCompleteness.Evaluate);
+        var ready = (await data.Query<Product>().Where(p => ids.Contains(p.Id)).Where(ProductCompleteness.ReadyToPublish).Select(p => p.Id).ToListAsync()).ToHashSet();
         foreach (var row in rows)
+        {
             row.Completeness = scores.GetValueOrDefault(row.Id);
+            row.Ready = ready.Contains(row.Id);
+        }
 
         var all = data.Query<Product>();
         Counts = new Dictionary<string, int>
@@ -87,6 +94,8 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             ["source"] = await all.CountAsync(p => p.SupplierUrl == null || p.SupplierUrl == ""),
             // دور ۲۲: کالای «دسته‌بندی نشده» قابل انتشار نیست؛ این عدد باید صفر بماند (دسته‌بندی هوشمند خودکار کمک می‌کند).
             ["category"] = await all.CountAsync(p => p.Category.IsSystem),
+            // دور ۲۳: پیش‌نویس‌های کامل که فقط منتظر انتشار مدیرند (سیستم خودش منتشر نمی‌کند).
+            ["ready"] = await all.CountAsync(ProductCompleteness.ReadyToPublish),
         };
 
         var categories = await data.Query<Category>().OrderBy(c => c.Name).Select(c => new { c.Id, c.Name, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null }).ToListAsync();
@@ -189,6 +198,26 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
     }
 
     /// <summary>
+    /// دور ۲۳: «انتشار همهٔ آماده‌ها» – همهٔ پیش‌نویس‌های «آمادهٔ انتشار» (حداکثر ۲۰۰ در هر بار) با همان مسیر انتشار عادی
+    /// (<see cref="IProductService.ChangeProductActivationAsync"/>؛ محافظ دسته و ثبت تاریخچه سر جایش است) منتشر می‌شوند.
+    /// فقط با کلیک و تأیید مدیر؛ هیچ انتشار خودکاری در کار نیست.
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostPublishReadyAsync()
+    {
+        var ids = await data.Query<Product>().Where(ProductCompleteness.ReadyToPublish).OrderByDescending(p => p.CreatedAt).Select(p => p.Id).Take(200).ToListAsync();
+        var done = 0;
+        foreach (var id in ids)
+            if (Succeeded(await products.ChangeProductActivationAsync(id, true)))
+                done++;
+        if (ids.Count == 0)
+            ErrorMessage = "کالای آمادهٔ انتشاری نیست.";
+        else
+            SuccessMessage = $"{Format.Number(done)} کالای آماده منتشر شد.";
+        return BackToList();
+    }
+
+    /// <summary>
     /// دور ۲۲: تغییر تأمین‌کنندهٔ «همهٔ محصولات همین فهرست» (همهٔ صفحه‌ها، با همان فیلترهای فعلی که در فرم پنهان فرستاده می‌شوند).
     /// supplierTarget: شناسهٔ تأمین‌کننده یا «none» = بدون تأمین‌کننده. حداکثر <see cref="MaxSupplierAll"/> کالا در یک بار.
     /// </summary>
@@ -283,6 +312,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             "cost" => query.Where(p => p.PurchasePrice == null),
             "category" => query.Where(p => p.Category.IsSystem),
             "short" => query.Where(p => p.ShortDescription == null || p.ShortDescription == ""),
+            "ready" => query.Where(ProductCompleteness.ReadyToPublish),
             _ => query,
         };
         return query;

@@ -98,6 +98,21 @@ public static class ProductCompleteness
         p.PurchasePrice != null,
         p.Id);
 
+    /// <summary>
+    /// دور ۲۳ – «آمادهٔ انتشار»: پیش‌نویسی که هرگز منتشر نشده و همهٔ چیزهای لازم برای یک صفحهٔ فروش خوب را دارد:
+    /// دستهٔ واقعی (نه «دسته‌بندی نشده»)، موجودی و قیمت، حداقل یک عکس، توضیحات ۶۰۰+ نویسه، خلاصهٔ ۵۰+ نویسه، ۳+ مشخصه و نام انگلیسی.
+    /// <para>سیستم هرگز خودش منتشر نمی‌کند؛ این فقط برچسب و فیلتر «آمادهٔ انتشار» در فهرست محصولات است تا مدیر با یک کلیک منتشر کند.
+    /// کالایی که قبلاً منتشر و بعد عمداً غیرفعال شده (PublishedAt دارد) آماده حساب نمی‌شود.</para>
+    /// استفاده: <c>query.Where(ProductCompleteness.ReadyToPublish)</c> در فهرست محصولات و خلاصهٔ روزانهٔ کارگر هوشمند.
+    /// </summary>
+    public static readonly Expression<Func<Product, bool>> ReadyToPublish = p =>
+        !p.IsActive && p.PublishedAt == null && !p.Category.IsSystem
+        && p.StockQuantity > 0 && p.Price > 0 && p.Images.Any()
+        && p.Description != null && p.Description.Length >= 600
+        && p.ShortDescription != null && p.ShortDescription.Length >= 50
+        && p.Features.Count >= 3
+        && p.EnglishName != null && p.EnglishName != "";
+
     /// <summary>کلاس رنگ نشان برای سطح (پنل مدیریت).</summary>
     public static string LevelCss(string level) => level switch
     {
