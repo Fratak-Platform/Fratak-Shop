@@ -22,10 +22,24 @@ public static class ProductSearch
     public static Expression<Func<Product, bool>> MatchesAny(IReadOnlyCollection<string> alternatives)
     {
         Expression<Func<Product, bool>>? result = null;
-        foreach (var alternative in alternatives.Where(a => !string.IsNullOrWhiteSpace(a)).Distinct(StringComparer.OrdinalIgnoreCase).Take(6))
+        foreach (var alternative in WithHalfSpace(alternatives.Where(a => !string.IsNullOrWhiteSpace(a)).Distinct(StringComparer.OrdinalIgnoreCase).Take(6)).Take(8))
             result = result is null ? Matches(alternative) : Or(result, Matches(alternative));
 
         return result ?? (_ => true);
+    }
+
+    /// <summary>
+    /// دور ۲۳: عبارت چندواژه‌ای هم با فاصله و هم با نیم‌فاصله جست‌وجو می‌شود، چون نام کالاها نیم‌فاصله دارند ولی متن جست‌وجو یکسان‌سازی شده است.
+    /// مثال: «لپ تاپ» ← «لپ تاپ» و «لپ‌تاپ»؛ «ماوس» ← فقط «ماوس».
+    /// </summary>
+    public static IEnumerable<string> WithHalfSpace(IEnumerable<string> alternatives)
+    {
+        foreach (var alternative in alternatives)
+        {
+            yield return alternative;
+            if (alternative.Contains(' ', StringComparison.Ordinal))
+                yield return alternative.Replace(' ', '\u200C');
+        }
     }
 
     public static IQueryable<Product> Apply(IQueryable<Product> query, IReadOnlyList<IReadOnlyList<string>> termGroups)

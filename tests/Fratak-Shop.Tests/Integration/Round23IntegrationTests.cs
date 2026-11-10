@@ -207,4 +207,52 @@ public class Round23IntegrationTests(SqlServerFixture db)
             await CleanupAsync(context, [root.Id, sub.Id], products.Select(p => p.Id));
         }
     }
+    [SqlFact]
+    public async Task Useful_specs_become_category_filters_once()
+    {
+        await using var scope = db.Scope();
+        var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
+        var facets = scope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Products.ISpecFacetService>();
+        var key = Key();
+        var since = DateTimeOffset.UtcNow.AddSeconds(-5);
+        var specKey = "ظرفیت آزمون " + key;
+        var category = new Category { Name = "دستهٔ فیلتر " + key, Slug = "r23-sf-" + key };
+        context.Categories.Add(category);
+        var products = Enumerable.Range(0, 7).Select(i => NewProduct(category.Id, key + i, 100_000 + i)).ToList();
+        context.Products.AddRange(products);
+        var values = new[] { "64 گیگابایت", "128 گیگابایت", "256 گیگابایت" };
+        for (var i = 0; i < products.Count; i++)
+        {
+            context.ProductFeatures.Add(new ProductFeature { ProductId = products[i].Id, Key = specKey, Value = values[i % 3], DisplayOrder = 1 });
+            context.ProductFeatures.Add(new ProductFeature { ProductId = products[i].Id, Key = "مدل", Value = "M-" + key + i, DisplayOrder = 2 });
+        }
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        try
+        {
+            await facets.SyncAsync();
+            var ours = await context.ProductFilterAttributes.Where(f => f.CategoryId == category.Id).ToListAsync();
+            var facet = Assert.Single(ours);
+            Assert.Equal(specKey, facet.FeatureKey);
+            Assert.StartsWith(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.SlugPrefix, facet.Slug, StringComparison.Ordinal);
+            Assert.False(facet.ShowWithoutCategory);
+
+            // دور دوم چیزی تکراری نمی‌سازد؛ فیلتری که مدیر خاموش کرده دوباره ساخته نمی‌شود.
+            await context.ProductFilterAttributes.Where(f => f.Id == facet.Id).ExecuteUpdateAsync(u => u.SetProperty(f => f.IsActive, false));
+            await facets.SyncAsync();
+            Assert.Equal(1, await context.ProductFilterAttributes.CountAsync(f => f.CategoryId == category.Id));
+
+            var filters = await scope.ServiceProvider.GetRequiredService<Fratak_Shop.Core.Services.Products.IProductFilterService>().GetAttributesAsync(category.Slug);
+            Assert.DoesNotContain(filters, f => f.FeatureKey == specKey);
+        }
+        finally
+        {
+            context.ChangeTracker.Clear();
+            await context.ProductFilterAttributes.IgnoreQueryFilters()
+                .Where(f => f.CategoryId == category.Id || (f.Slug.StartsWith("spec-") && f.CreatedAt >= since)).ExecuteDeleteAsync();
+            var ids = products.Select(p => p.Id).ToList();
+            await context.ProductFeatures.IgnoreQueryFilters().Where(f => ids.Contains(f.ProductId)).ExecuteDeleteAsync();
+            await CleanupAsync(context, [category.Id], ids);
+        }
+    }
 }

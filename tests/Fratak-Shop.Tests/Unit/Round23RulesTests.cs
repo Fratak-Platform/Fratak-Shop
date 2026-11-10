@@ -116,6 +116,68 @@ public class Round23RulesTests
         Assert.False(CategoryTreeService.IsAncestor(list, a.Id, y.Id));
     }
 
+    [Fact]
+    public void Category_synonyms_are_clean_disjoint_groups()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var set in Fratak_Shop.Core.Services.Searches.CategorySynonyms.Sets)
+        {
+            var members = set.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            Assert.InRange(members.Length, 2, 6);
+            foreach (var member in members)
+                Assert.True(seen.Add(Fratak_Shop.Core.Utilities.SearchText.Normalize(member)), $"«{member}» در دو گروه آمده است.");
+        }
+
+        var map = Fratak_Shop.Core.Services.Searches.SearchInsightsService.BuildSynonymMap(Fratak_Shop.Core.Services.Searches.CategorySynonyms.Sets);
+        Assert.Contains("ماوس", map["موس"]);
+        Assert.Contains("تلویزیون", map["تلوزیون"]);
+        Assert.Contains("لپ تاپ", map["لپتاپ"]);
+        Assert.False(map.ContainsKey("آیفون")); // برند/مدل هم‌معنی دسته نیست
+    }
+
+    [Fact]
+    public void Phrase_alternatives_also_match_half_space_names()
+    {
+        Assert.Equal(new[] { "لپ تاپ", "لپ\u200Cتاپ", "ماوس" }, Fratak_Shop.Core.Utilities.ProductSearch.WithHalfSpace(new[] { "لپ تاپ", "ماوس" }).ToArray());
+    }
+
+    private static List<Fratak_Shop.Core.Services.Products.SpecFeatureRow> Rows(string key, params string[] values) =>
+        values.Select(v => new Fratak_Shop.Core.Services.Products.SpecFeatureRow(Guid.NewGuid(), key, v)).ToList();
+
+    [Fact]
+    public void Spec_facets_are_planned_only_when_they_help_buyers()
+    {
+        var none = new HashSet<string>();
+        var memory = Rows("حافظه داخلی", "64", "128", "256", "128", "64", "256", "128", "64");
+        var plan = Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(10, memory, none);
+        var only = Assert.Single(plan);
+        Assert.Equal("حافظه داخلی", only.Key);
+        Assert.Equal(8, only.Coverage);
+        Assert.Equal(3, only.DistinctValues);
+
+        // دستهٔ کوچک، پوشش کم، همه یکسان، مقدار زیاد/بلند، کلید شناسه، فیلتر موجود ← هیچ.
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(5, memory, none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(20, memory, none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(8, Rows("رنگ", "مشکی", "مشکی", "مشکی", "مشکی", "مشکی", "مشکی", "مشکی", "سفید", "مشکی", "مشکی"), none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(20, Rows("رنگ", Enumerable.Range(0, 20).Select(i => "رنگ " + i).ToArray()), none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(6, Rows("توضیحات", "a", "b", "a", "b", "a", "b"), none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(6, Rows("جنس", new string('x', 60), "چرم", "پارچه", "چرم", "پارچه", "چرم"), none));
+        Assert.Empty(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Plan(10, memory, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "حافظه داخلی" }));
+        Assert.True(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.IsStopKey("مدل"));
+        Assert.True(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.IsStopKey("ابعاد بسته‌بندی"));
+        Assert.False(Fratak_Shop.Core.Services.Products.SpecFacetPlanner.IsStopKey("حافظه داخلی"));
+    }
+
+    [Fact]
+    public void Spec_facet_slug_is_stable_latin_and_short()
+    {
+        var category = Guid.NewGuid();
+        var slug = Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Slug("حافظه داخلی", category);
+        Assert.Equal(slug, Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Slug(" حافظه داخلی ", category));
+        Assert.NotEqual(slug, Fratak_Shop.Core.Services.Products.SpecFacetPlanner.Slug("حافظه داخلی", Guid.NewGuid()));
+        Assert.Matches("^spec-[0-9a-f]{12}$", slug);
+    }
+
     // ── منوی دسته‌ها ────────────────────────────────────────────
 
     private static CategoryDto Root(string name, int order = 0, bool system = false, params SubCategoryDto[] subs) =>

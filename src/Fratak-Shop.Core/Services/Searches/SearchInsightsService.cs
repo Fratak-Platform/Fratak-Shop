@@ -182,7 +182,8 @@ public class SearchInsightsService(FratakShopDbContext context, IStoreSettingSer
         {
             entry.AbsoluteExpirationRelativeToNow = CacheKeys.DefaultLifetime;
             var sets = await context.SearchSynonyms.Where(s => s.IsActive).Select(s => s.Terms).ToListAsync();
-            return BuildSynonymMap(sets);
+            // دور ۲۳: هم‌معنی‌های داخلی نام دسته‌ها (موس = ماوس …) کنار هم‌معنی‌های پنل؛ واژهٔ مشترک اجتماع هر دو را می‌گیرد.
+            return BuildSynonymMap(sets.Concat(CategorySynonyms.Sets));
         }) ?? [];
 
     /// <summary>Parses "a, b, c" sets into a lookup (public for the tests).</summary>

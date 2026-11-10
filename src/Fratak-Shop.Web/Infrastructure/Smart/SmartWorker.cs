@@ -216,7 +216,32 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         {
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Category tree audit failed");
         }
+        count += await SyncSpecFacetsAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastSpecFacetsTicks;
+
+    /// <summary>
+    /// دور ۲۳ – فیلتر مشخصات خودکار (<see cref="Fratak_Shop.Core.Services.Products.ISpecFacetService"/>): حداکثر هر ۶ ساعت یک بار
+    /// (خواندن مشخصات همهٔ کالاها سبک نیست). فیلتر موجود هرگز تغییر نمی‌کند؛ فقط فیلترهای مفید تازه ساخته می‌شوند. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> SyncSpecFacetsAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var last = Interlocked.Read(ref _lastSpecFacetsTicks);
+        if (last != 0 && now.UtcTicks - last < TimeSpan.FromHours(6).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastSpecFacetsTicks, now.UtcTicks);
+        try
+        {
+            var report = await services.GetRequiredService<Fratak_Shop.Core.Services.Products.ISpecFacetService>().SyncAsync(cancellationToken);
+            return report.Created;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Spec facet sync failed");
+            return 0;
+        }
     }
 
     /// <summary>
