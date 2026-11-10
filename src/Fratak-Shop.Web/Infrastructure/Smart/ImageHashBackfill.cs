@@ -1,0 +1,67 @@
+using Fratak_Shop.Core.Services.Smart;
+using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Web.Services;
+using Microsoft.EntityFrameworkCore;
+
+namespace Fratak_Shop.Web.Infrastructure.Smart;
+
+/// <summary>
+/// دور ۲۳ (مورد ۱۲): پر کردن کم‌کم «اثر انگشت» عکس‌های کالا (ستون ProductImages.Hash) و حذف نرم عکس تکراری همان کالا.
+/// <para>چرا کم‌کم؟ خواندن فایل و محاسبهٔ dHash برای هزاران عکس روی هاست ضعیف سنگین است؛ هر ساعت فقط <see cref="PerRun"/> عکس.</para>
+/// <para>فایل گم‌شده یا خراب ← Hash = ۰ (یعنی «نامعلوم»؛ دیگر دوباره خوانده نمی‌شود و هرگز تکراری حساب نمی‌شود).</para>
+/// <para>تکراری‌ها با <see cref="ImageDuplicates.Redundant"/> پیدا و حذف نرم می‌شوند (فایل روی دیسک می‌ماند؛ از سطل بازیابی برمی‌گردد).</para>
+/// <para>اجرا: SmartWorker.CategorizeHourlyAsync. مثال خروجی: (۱۵۰ عکس اثر انگشت گرفت، ۲ عکس تکراری کنار رفت).</para>
+/// </summary>
+public static class ImageHashBackfill
+{
+    /// <summary>بیشترین عکس در هر اجرا.</summary>
+    public const int PerRun = 150;
+
+    public static async Task<(int Hashed, int Removed)> RunAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var context = services.GetRequiredService<FratakShopDbContext>();
+        var uploads = services.GetRequiredService<IUploadStore>();
+        var rows = await context.ProductImages.AsTracking()
+            .Where(i => i.Hash == null)
+            .OrderBy(i => i.CreatedAt)
+            .Take(PerRun)
+            .ToListAsync(cancellationToken);
+        if (rows.Count == 0)
+            return (0, 0);
+
+        foreach (var row in rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(row.ImageName));
+            ImageInfo? info = null;
+            if (path is not null)
+            {
+                try
+                {
+                    info = SmartImageAnalyzer.Analyze(await File.ReadAllBytesAsync(path, cancellationToken));
+                }
+                catch (IOException)
+                {
+                    info = null;
+                }
+            }
+            row.Hash = info is null ? 0 : unchecked((long)info.Hash);
+        }
+        await context.SaveChangesAsync(cancellationToken);
+
+        var productIds = rows.Select(r => r.ProductId).Distinct().ToList();
+        var fingerprints = await context.ProductImages.AsNoTracking()
+            .Where(i => productIds.Contains(i.ProductId) && i.Hash != null && i.Hash != 0)
+            .Select(i => new ImageFingerprint(i.Id, i.ProductId, i.IsPrimary, i.DisplayOrder, i.Hash))
+            .ToListAsync(cancellationToken);
+        var redundant = ImageDuplicates.Redundant(fingerprints);
+        if (redundant.Count > 0)
+        {
+            var extra = await context.ProductImages.AsTracking().Where(i => redundant.Contains(i.Id)).ToListAsync(cancellationToken);
+            context.ProductImages.RemoveRange(extra);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        context.ChangeTracker.Clear();
+        return (rows.Count, redundant.Count);
+    }
+}

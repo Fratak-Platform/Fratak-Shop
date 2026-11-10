@@ -217,6 +217,16 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Category tree audit failed");
         }
         count += await SyncSpecFacetsAsync(services, now, cancellationToken);
+        try
+        {
+            // دور ۲۳ (مورد ۱۲): اثر انگشت عکس‌ها و کنار گذاشتن عکس تکراری همان کالا (کم‌کم، ۱۵۰ عکس در ساعت).
+            var (_, removed) = await ImageHashBackfill.RunAsync(services, cancellationToken);
+            count += removed;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Image hash backfill failed");
+        }
         return count;
     }
 

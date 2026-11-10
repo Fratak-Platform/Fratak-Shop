@@ -266,6 +266,25 @@ public class Round23RulesTests
     }
 
     [Fact]
+    public void Duplicate_images_of_one_product_are_found_but_primary_and_other_products_are_safe()
+    {
+        var product = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        const long a = 0x0F0F_0F0F_0F0F_0F0FL;
+        const long aResized = a ^ 0b101;          // ۲ بیت فرق ← همان عکس
+        const long b = 0x7070_7070_7070_7070L;    // کاملاً متفاوت
+        var primary = new Fratak_Shop.Core.Services.Smart.ImageFingerprint(Guid.NewGuid(), product, true, 5, aResized);
+        var copy = new Fratak_Shop.Core.Services.Smart.ImageFingerprint(Guid.NewGuid(), product, false, 0, a);
+        var distinct = new Fratak_Shop.Core.Services.Smart.ImageFingerprint(Guid.NewGuid(), product, false, 1, b);
+        var unknown = new Fratak_Shop.Core.Services.Smart.ImageFingerprint(Guid.NewGuid(), product, false, 2, 0);
+        var otherProduct = new Fratak_Shop.Core.Services.Smart.ImageFingerprint(Guid.NewGuid(), other, false, 0, a);
+
+        var redundant = Fratak_Shop.Core.Services.Smart.ImageDuplicates.Redundant(new[] { copy, distinct, unknown, otherProduct, primary });
+
+        Assert.Equal(new[] { copy.Id }, redundant.ToArray());
+    }
+
+    [Fact]
     public void Arabic_letters_in_names_become_persian()
     {
         Assert.Equal("کیف علی", Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters("\u0643\u064Aف عل\u0649"));
