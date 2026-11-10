@@ -4,6 +4,7 @@ using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Data.Entities.Products;
 using Fratak_Shop.Web.Infrastructure.Admin;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Products;
 
@@ -14,7 +15,8 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.Products;
 /// منطق در Core/Services/Products/InventoryService.cs است.
 /// </summary>
 [AdminPermission(AdminPermissions.ProductsView)]
-public class InventoryModel(IInventoryService inventory) : AdminPageModel
+public class InventoryModel(IInventoryService inventory, IAdminDataService data,
+    Fratak_Shop.Core.Services.Notifications.IEmailSender emails, Fratak_Shop.Web.Infrastructure.ISiteContext site) : AdminPageModel
 {
     /// <summary>بازه‌های مجاز محاسبهٔ سرعت فروش (روز).</summary>
     public static readonly int[] Windows = [14, 30, 60, 90];
@@ -81,6 +83,40 @@ public class InventoryModel(IInventoryService inventory) : AdminPageModel
                     line.UnitCost is { } cost ? cost * line.Quantity : null);
         }
         return Exporter.File(table, format ?? "xlsx", "purchase-draft");
+    }
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۶۹): ایمیل پیش‌نویس سفارش خرید به تأمین‌کننده (فقط نام، کد و تعداد؛ بدون قیمت خرید و آمار داخلی).
+    /// فقط با کلیک کارمند؛ نشانی از کارت تأمین‌کننده خوانده می‌شود (نه از فرم) تا به جای دیگری فرستاده نشود.
+    /// </summary>
+    [AdminPermission(AdminPermissions.SuppliersManage)]
+    public async Task<IActionResult> OnPostEmailSupplierAsync(Guid supplierId)
+    {
+        if (!Windows.Contains(Days))
+            Days = 30;
+        var back = $"/admin/products/inventory?tab=po&days={Days}";
+        var supplier = await data.Query<Supplier>().Where(s => s.Id == supplierId)
+            .Select(s => new { s.Name, s.Email, s.ContactName }).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        if (supplier is null)
+            return NotFound();
+        if (!Fratak_Shop.Core.Services.Notifications.EmailRules.IsValidAddress(supplier.Email))
+        {
+            ErrorMessage = $"برای «{supplier.Name}» نشانی ایمیل معتبر ثبت نشده است (پنل ← تأمین‌کنندگان).";
+            return Redirect(back);
+        }
+        var group = (await inventory.PurchaseDraftAsync(Days, HttpContext.RequestAborted)).FirstOrDefault(g => g.SupplierId == supplierId);
+        if (group is null || group.Lines.All(l => l.Quantity <= 0))
+        {
+            ErrorMessage = "برای این تأمین‌کننده فعلاً کالایی نیاز به خرید ندارد.";
+            return Redirect(back);
+        }
+        var (subject, body) = PurchaseOrderEmail.Build(group, site.Settings.SiteName, supplier.ContactName,
+            Fratak_Shop.Core.Utilities.PersianDate.Format(DateTimeOffset.UtcNow)[..10]);
+        if (emails.Enqueue(new Fratak_Shop.Core.Services.Notifications.EmailMessage(supplier.Email!.Trim(), subject, body) { Category = "PurchaseOrder" }))
+            SuccessMessage = $"درخواست خرید برای «{supplier.Name}» در صف ارسال ایمیل قرار گرفت.";
+        else
+            ErrorMessage = "سرویس ایمیل تنظیم یا روشن نشده است (فنی ← سرویس ایمیل).";
+        return Redirect(back);
     }
 
     public static string MethodTitle(string method) => method switch

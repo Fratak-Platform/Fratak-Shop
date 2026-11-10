@@ -25,12 +25,19 @@
   }
   else
   {
-    <form method="post" asp-page="/Cart" asp-page-handler="Coupon" class="flex gap-2">
+    <form method="post" asp-page="/Cart" asp-page-handler="Coupon">
       <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-      <label for="couponCode" class="sr-only">کد تخفیف</label>
-      <input id="couponCode" name="code" maxlength="50" dir="ltr" autocomplete="off" placeholder="کد تخفیف دارید؟"
-             class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 uppercase placeholder:normal-case placeholder:text-right outline-none focus:border-sky-400">
-      <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-sm text-white hover:bg-sky-400">اعمال</button>
+      <div class="flex gap-2">
+        <label for="couponCode" class="sr-only">کد تخفیف</label>
+        <input id="couponCode" name="code" maxlength="50" dir="ltr" autocomplete="off" placeholder="کد تخفیف دارید؟"
+               class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 uppercase placeholder:normal-case placeholder:text-right outline-none focus:border-sky-400">
+        <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-sm text-white hover:bg-sky-400">اعمال</button>
+      </div>
+      @* دور ۲۴ (۷۱): بعد از چند کد اشتباه، کد امنیتی لازم می‌شود (حدس زدن کد با ربات). *@
+      @if (Model.Captcha is not null)
+      {
+        <partial name="_Captcha" model="Model.Captcha" />
+      }
     </form>
   }
 </div>

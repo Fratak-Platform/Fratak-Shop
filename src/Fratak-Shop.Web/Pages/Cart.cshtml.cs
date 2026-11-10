@@ -51,6 +51,9 @@ public class CartModel(
             Saved = await saveForLater.GetAsync(Cart.Id);
         await pageMeta.ApplyAsync(ViewData, SitePage.Cart, "سبد خرید");
         ViewData[PageMetaKeys.Robots] = "noindex, nofollow";
+        // دور ۲۴ (۷۱): بعد از چند کد تخفیف اشتباه، فرم کد امنیتی می‌خواهد.
+        if (site.Settings.IsCouponEnabled)
+            PrepareCaptcha(Infrastructure.Security.CaptchaActions.Coupon);
 
         if (Cart is { Items.Count: > 0 } && site.Settings.IsCouponEnabled && !string.IsNullOrWhiteSpace(Cart.CouponCode))
         {
@@ -83,13 +86,22 @@ public class CartModel(
             return RedirectToLocal(returnUrl, "/Cart");
         }
 
+        // دور ۲۴ (۷۱): ضد حدس کد با ربات؛ کد امنیتی فقط بعد از چند تلاش ناموفق از همین IP لازم است.
+        if (!VerifyCaptcha(Infrastructure.Security.CaptchaActions.Coupon))
+        {
+            ErrorMessage = "کد امنیتی (عدد داخل تصویر) درست وارد نشده است.";
+            return RedirectToLocal(returnUrl, "/Cart");
+        }
+
         var evaluation = await EvaluateAsync(cart, code);
         if (!Succeeded(evaluation) || evaluation.Data is null)
         {
+            CaptchaFailed(Infrastructure.Security.CaptchaActions.Coupon);
             ErrorMessage = evaluation.Message;
             return RedirectToLocal(returnUrl, "/Cart");
         }
 
+        CaptchaPassed(Infrastructure.Security.CaptchaActions.Coupon);
         await cartService.SetCouponAsync(cart.Id, evaluation.Data.Code);
         SuccessMessage = evaluation.Message;
         return RedirectToLocal(returnUrl, "/Cart");

@@ -17,6 +17,12 @@ public static class CaptchaActions
     public const string Contact = "contact";
     public const string GiftCard = "giftcard";
     public const string TrackOrder = "track";
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۷۱): فرم کد تخفیف سبد/تسویه. بعد از چند کد اشتباه از یک IP کد امنیتی لازم می‌شود؛
+    /// کدهای شخصی (WB-…، CMP-…) با ربات حدس زده نمی‌شوند. مثال: ۳ کد اشتباه ← فرم بعدی تصویر عدد دارد.
+    /// </summary>
+    public const string Coupon = "coupon";
 }
 
 public sealed record CaptchaChallenge(string Token, string Image);

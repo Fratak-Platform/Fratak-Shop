@@ -202,7 +202,7 @@
           }
           @if (Site.Settings.IsCouponEnabled)
           {
-            <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/cart")' />
+            <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/cart", Model.Captcha)' />
           }
           @if (Model.HasProblems)
           {

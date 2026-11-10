@@ -106,6 +106,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Searches.ISearchInsightsService, Services.Searches.SearchInsightsService>();
         services.AddScoped<ICommentEngagementService, CommentEngagementService>();
         services.AddScoped<Services.Support.ITicketService, Services.Support.TicketService>();
+        // دور ۲۴ (پیشنهاد ۲۷): پیش‌نویس پاسخ هوشمند تیکت (سفارش واقعی، تیکت‌های مشابه قبلی، پیام آماده، پرسش متداول).
+        services.AddScoped<Services.Support.ITicketReplyAdvisor, Services.Support.TicketReplyAdvisor>();
         services.AddScoped<Services.Notifications.IWebPushService, Services.Notifications.WebPushService>();
         services.AddScoped<Services.Seo.ISeoTrafficService, Services.Seo.SeoTrafficService>();
 
@@ -182,6 +184,9 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Ops.IBackupService, Services.Ops.BackupService>();
         services.AddScoped<Services.Ops.IBackgroundJobControl, Services.Ops.BackgroundJobControl>();
         services.AddScoped<Services.Ops.IAlertService, Services.Ops.AlertService>();
+        // دور ۲۴ (پیشنهاد ۷۳ و ۷۴): دسترس‌پذیری (قطعی‌ها و درصد) و گزارش امنیتی هفتگی.
+        services.AddScoped<Services.Ops.IUptimeService, Services.Ops.UptimeService>();
+        services.AddScoped<Services.Ops.ISecurityReportService, Services.Ops.SecurityReportService>();
         // دور هشتم: تنظیمات سرویس پیامک (SMS.ir) – ارسال واقعی در لایهٔ وب (ConfigurableSmsSender).
         services.AddScoped<Services.Notifications.ISmsProviderService, Services.Notifications.SmsProviderService>();
         // مرحلهٔ دوازدهم: تنظیمات سرویس ایمیل (SMTP) – صف و ارسال واقعی در لایهٔ وب (EmailQueue)؛ اینجا نسخه‌های بی‌اثر برای آزمون/ابزار.

@@ -31,9 +31,10 @@ public class Round23MoreIntegrationTests(SqlServerFixture db)
         await using var scope = db.Scope();
         var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
         var service = scope.ServiceProvider.GetRequiredService<IOccasionCouponService>();
-        const string code = "YALDA2612";
-        // ۱۰ روز مانده به یلدای ۱۴۰۵ (۲۱ دسامبر ۲۰۲۶)؛ مناسبت دیگری در ۱۴ روز آینده نیست.
-        var now = new DateTimeOffset(2026, 12, 11, 8, 0, 0, TimeSpan.Zero);
+        const string code = "TEACHER2705";
+        // ۸ روز مانده به روز معلم ۱۴۰۶ (۱۲ اردیبهشت = ۲ مه ۲۰۲۷)؛ مناسبت دیگری در ۱۴ روز آینده نیست.
+        // (یلدای ۲۰۲۶ مناسب نیست: روز پدر قمری ۲۲ دسامبر ۲۰۲۶ درست یک روز بعد از آن است.)
+        var now = new DateTimeOffset(2027, 4, 24, 8, 0, 0, TimeSpan.Zero);
         async Task CleanAsync()
         {
             context.ChangeTracker.Clear();
@@ -61,7 +62,7 @@ public class Round23MoreIntegrationTests(SqlServerFixture db)
         finally
         {
             await CleanAsync();
-            await context.StaffNotifications.IgnoreQueryFilters().Where(n => n.Title.Contains("شب یلدا") && n.Body!.Contains(code)).ExecuteDeleteAsync();
+            await context.StaffNotifications.IgnoreQueryFilters().Where(n => n.Title.Contains("روز معلم") && n.Body!.Contains(code)).ExecuteDeleteAsync();
         }
     }
 

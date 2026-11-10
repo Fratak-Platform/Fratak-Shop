@@ -1,0 +1,68 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.UptimeModel
+@using Fratak_Shop.Core.Services.Ops
+@using Fratak_Shop.Data.Entities.Ops
+@{
+    ViewData["Title"] = "دسترس‌پذیری";
+    string Percent(double value) => value.ToString("0.##", global::System.Globalization.CultureInfo.InvariantCulture) + "٪";
+    string Tone(double value) => value >= 99.9 ? "text-emerald-600" : value >= 99 ? "text-amber-600" : "text-red-600";
+}
+<div class="a-page-head">
+  <div>
+    <h2>دسترس‌پذیری</h2>
+    <p class="a-muted text-sm mt-1">پایش داخلی و رایگان: هر دقیقه «ضربان» برنامه و اتصال پایگاه داده سنجیده می‌شود. توقف ناگهانی برنامه یا قطع پایگاه داده (۳ دقیقه یا بیشتر) اینجا ثبت و به کارکنان فنی اعلان می‌شود.</p>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">۲۴ ساعت اخیر</div><div class="a-stat-value @Tone(Model.Summary.Day)">@Percent(Model.Summary.Day)</div></div>
+  <div class="a-stat"><div class="a-stat-label">۷ روز اخیر</div><div class="a-stat-value @Tone(Model.Summary.Week)">@Percent(Model.Summary.Week)</div></div>
+  <div class="a-stat"><div class="a-stat-label">۳۰ روز اخیر</div><div class="a-stat-value @Tone(Model.Summary.Month)">@Percent(Model.Summary.Month)</div></div>
+  <div class="a-stat"><div class="a-stat-label">قطعی در ۳۰ روز</div><div class="a-stat-value">@Format.Number(Model.Summary.DowntimeMinutes30) <span class="text-sm a-muted">دقیقه</span></div></div>
+</div>
+
+<div class="a-alert a-alert-info mb-4">
+  @Icons.Svg("Info", "shrink-0", 20)
+  <div class="text-sm">
+    وقتی کل سرور خاموش است، خود سایت نمی‌تواند خبر بدهد. برای این حالت نشانی <span class="a-ltr">/healthz</span> را در یک سرویس پایش رایگان (مثل UptimeRobot) ثبت کنید؛
+    توکن جزئیات در <a class="a-link" href="/admin/settings">تنظیمات</a> («توکن بررسی سلامت») است. خاموشی عادی (بیکاری استخر IIS یا استقرار نسخهٔ جدید) قطعی حساب نمی‌شود.
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Pulse", null, 18) قطعی‌های ۳۰ روز اخیر</span></div>
+  @if (Model.Summary.Incidents.Count == 0)
+  {
+    <div class="a-card-body a-muted text-sm">در ۳۰ روز اخیر قطعی‌ای ثبت نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table">
+        <thead><tr><th>نوع</th><th>شروع</th><th>پایان</th><th>مدت</th><th>توضیح</th></tr></thead>
+        <tbody>
+          @foreach (var incident in Model.Summary.Incidents)
+          {
+            var span = (incident.EndedAt ?? DateTimeOffset.UtcNow) - incident.StartedAt;
+            <tr>
+              <td>
+                @if (incident.Kind == UptimeIncidentKind.DatabaseDown)
+                {
+                  <span class="a-badge a-badge-yellow">قطع پایگاه داده</span>
+                }
+                else
+                {
+                  <span class="a-badge a-badge-red">توقف سایت</span>
+                }
+              </td>
+              <td class="whitespace-nowrap">@Format.DateTime(incident.StartedAt)</td>
+              <td class="whitespace-nowrap">@(incident.EndedAt is { } ended ? Format.DateTime(ended) : "ادامه دارد")</td>
+              <td class="whitespace-nowrap">@UptimeRules.Duration(span)</td>
+              <td class="text-xs a-muted">@incident.Detail</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

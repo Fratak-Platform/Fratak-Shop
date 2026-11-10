@@ -71,6 +71,8 @@ public static class WebServiceCollectionExtensions
         });
         services.AddHostedService<Infrastructure.Ops.ResourceMonitorService>();
         services.AddHostedService<Infrastructure.Ops.WarmupService>();
+        // دور ۲۴ (پیشنهاد ۷۳): ضربان دقیقه‌ای + سنجش پایگاه داده ← ثبت قطعی‌ها و درصد دسترس‌پذیری (/admin/system/uptime).
+        services.AddHostedService<Infrastructure.Ops.UptimeMonitor>();
 
         // مرحلهٔ هفتم – فاز ۵: بررسی خودکار لینک تأمین‌کننده (HttpClient با محافظ SSRF + صف اجرای فوری + زمان‌بند).
         services.AddHttpClient(Infrastructure.Suppliers.SupplierHttp.ClientName, Infrastructure.Suppliers.SupplierHttp.Configure)

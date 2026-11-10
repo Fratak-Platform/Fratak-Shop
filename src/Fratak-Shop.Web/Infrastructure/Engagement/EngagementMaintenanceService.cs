@@ -64,6 +64,8 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
 
         // دور ۲۴ (پیشنهاد ۵۷): پیام برگشت مشتری‌های در حال ریزش (فقط اگر روشن باشد؛ ساعت ۱۰ تا ۲۰؛ خودش ساعتی یک‌بار اجرا می‌شود).
         await RunAsync("Win-back", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Marketing.IWinBackService>().RunAsync(DateTimeOffset.UtcNow, token), token);
+        // دور ۲۴ (پیشنهاد ۷۴): اعلان «گزارش امنیتی هفتگی» (هفته‌ای یک‌بار، ساعت ۹ تا ۲۰؛ خودش ساعتی یک‌بار بیشتر بررسی نمی‌کند).
+        await RunAsync("Weekly security report", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Ops.ISecurityReportService>().SendWeeklyAsync(DateTimeOffset.UtcNow, token), token);
 
         var now = DateTimeOffset.UtcNow;
         if (now - _lastDailyRun < DailyInterval)

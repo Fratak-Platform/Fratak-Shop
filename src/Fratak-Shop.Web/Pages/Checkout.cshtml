@@ -211,7 +211,7 @@
           </p>
           @if (settings.IsCouponEnabled)
           {
-            <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/checkout")' />
+            <partial name="_CouponBox" model='new CouponBoxModel(cart.CouponCode, Model.Coupon, Model.CouponError, "/checkout", Model.Captcha)' />
           }
           @if (Model.IsBelowMinimum)
           {

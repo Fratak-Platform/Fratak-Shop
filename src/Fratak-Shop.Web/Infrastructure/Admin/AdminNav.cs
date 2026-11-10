@@ -133,6 +133,9 @@ public static class AdminNav
             new AdminNavItem("خطاها", "/admin/system/errors", "Bug", [P.MonitoringView], "errors"),
             new AdminNavItem("گزارش فعالیت", "/admin/system/audit", "ClockCounterClockwise", [P.AuditView]),
             new AdminNavItem("رویدادهای امنیتی", "/admin/system/security", "ShieldCheck", [P.AuditView, P.MonitoringView]),
+            // دور ۲۴ (پیشنهاد ۷۴ و ۷۳): گزارش امنیتی هفتگی با امتیاز و دسترس‌پذیری (قطعی‌ها و درصد).
+            new AdminNavItem("گزارش امنیتی", "/admin/system/security-report", "ShieldWarning", [P.AuditView, P.MonitoringView]),
+            new AdminNavItem("دسترس‌پذیری", "/admin/system/uptime", "Pulse", [P.MonitoringView]),
             // مرحلهٔ هفتم – فاز ۹: ابزارهای فنی.
             new AdminNavItem("پشتیبان‌گیری", "/admin/system/backups", "Database", [P.MonitoringView, P.SystemManage]),
             new AdminNavItem("کارهای پس‌زمینه", "/admin/system/jobs", "ArrowsClockwise", [P.MonitoringView, P.SystemManage]),

@@ -229,3 +229,30 @@ public class AlertEvent : BaseEntity
     [MaxLength(500)]
     public string Message { get; set; } = null!;
 }
+
+/// <summary>دور ۲۴ (پیشنهاد ۷۳): نوع رخداد قطعی. عددها در دیتابیس ذخیره می‌شوند؛ تغییر ندهید.</summary>
+public enum UptimeIncidentKind : byte
+{
+    /// <summary>برنامه اجرا نمی‌شد (خاموشی سرور، ری‌استارت طولانی، خطای استقرار). از فاصلهٔ «ضربان» آخر تا روشن شدن دوباره حساب می‌شود.</summary>
+    Downtime = 1,
+
+    /// <summary>برنامه بالا بود ولی پایگاه داده جواب نمی‌داد (بررسی دقیقه‌ای).</summary>
+    DatabaseDown = 2,
+}
+
+/// <summary>
+/// دور ۲۴ (پیشنهاد ۷۳): یک دورهٔ قطعی سایت. مثال: Kind=Downtime، StartedAt=۰۳:۱۰، EndedAt=۰۳:۲۴ ← «۱۴ دقیقه قطعی».
+/// EndedAt خالی = هنوز ادامه دارد (فقط برای DatabaseDown). منبع: پایش داخلی Web/Infrastructure/Ops/UptimeMonitor؛ پنل: /admin/system/uptime.
+/// </summary>
+public class UptimeIncident : BaseEntity
+{
+    public UptimeIncidentKind Kind { get; set; }
+
+    public DateTimeOffset StartedAt { get; set; }
+
+    public DateTimeOffset? EndedAt { get; set; }
+
+    /// <summary>توضیح کوتاه. مثال: «ری‌استارت برنامه (آخرین ضربان ۰۳:۱۰)» یا «Timeout expired».</summary>
+    [MaxLength(500)]
+    public string? Detail { get; set; }
+}

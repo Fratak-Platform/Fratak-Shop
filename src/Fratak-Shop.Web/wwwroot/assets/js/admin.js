@@ -392,6 +392,18 @@
     });
   });
 
+  // ── دور ۲۴ (۲۷): پیشنهاد پاسخ هوشمند تیکت – درج متن پیش‌نویس در کادر پاسخ (button[data-fill-target]) ──
+  $$("button[data-fill-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = $(button.dataset.fillTarget);
+      if (!target) return;
+      const text = button.dataset.fillText || "";
+      target.value = target.value.trim() ? target.value.replace(/\s+$/, "") + "\n" + text : text;
+      target.dispatchEvent(new Event("input", { bubbles: true }));
+      target.focus();
+    });
+  });
+
   // ── مرتب‌سازی با کشیدن و رها کردن (فاز ۷ب) ─────────────────────────
   // هر ردیف [data-sort-item] با draggable="true"؛ روی موبایل که drag بومی ندارد دکمه‌های بالا/پایین کار می‌کنند.
   // ترتیب نهایی = ترتیب DOM؛ پس inputهای مخفی داخل ردیف‌ها به همان ترتیب ارسال می‌شوند (سمت سرور: List<string>).

@@ -61,3 +61,10 @@ public class AlertEventConfiguration : IEntityTypeConfiguration<AlertEvent>
     public void Configure(EntityTypeBuilder<AlertEvent> builder) =>
         builder.HasIndex(e => e.CreatedAt);
 }
+
+/// <summary>دور ۲۴ (پیشنهاد ۷۳): رخدادهای قطعی به ترتیب شروع (محاسبهٔ درصد دسترس‌پذیری بازه‌ای).</summary>
+public class UptimeIncidentConfiguration : IEntityTypeConfiguration<UptimeIncident>
+{
+    public void Configure(EntityTypeBuilder<UptimeIncident> builder) =>
+        builder.HasIndex(e => e.StartedAt);
+}

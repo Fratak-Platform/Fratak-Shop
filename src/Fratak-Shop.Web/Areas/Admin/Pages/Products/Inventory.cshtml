@@ -60,6 +60,15 @@
     <div class="a-card mb-4">
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Truck", null, 18) @g.SupplierName</span>
         @if (g.Phone is not null) { <a class="a-link a-ltr text-sm" href="tel:@g.Phone">@g.Phone</a> }
+        @if (g.SupplierId is { } supplierId && Model.Can(AdminPermissions.SuppliersManage))
+        {
+          @* دور ۲۴ (۶۹): ایمیل درخواست خرید (فقط نام، کد و تعداد) به نشانی ثبت‌شدهٔ تأمین‌کننده. *@
+          <form method="post" asp-page-handler="EmailSupplier" class="inline" data-confirm="درخواست خرید این کالاها به ایمیل «@g.SupplierName» فرستاده شود؟ (فقط نام، کد و تعداد؛ بدون قیمت خرید)">
+            <input type="hidden" name="supplierId" value="@supplierId" />
+            <input type="hidden" name="days" value="@Model.Days" />
+            <button class="a-btn a-btn-light a-btn-xs" type="submit">@Icons.Svg("Envelope", null, 14) ایمیل به تأمین‌کننده</button>
+          </form>
+        }
       </div>
       <div class="a-table-wrap">
         <table class="a-table a-table-cards">

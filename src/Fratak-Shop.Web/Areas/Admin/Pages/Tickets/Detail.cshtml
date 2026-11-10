@@ -58,6 +58,19 @@
       <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Reply", null, 18) پاسخ به مشتری</span></div>
       <div class="a-card-body a-form-grid">
         @await Component.InvokeAsync("ReadyMessagePicker", new { scope = Fratak_Shop.Data.Entities.Notifications.ReadyMessageScope.Ticket, bodyTarget = "#reply-content" })
+        @* دور ۲۴ (۲۷): پیش‌نویس پاسخ هوشمند؛ کلیک ← متن در کادر پاسخ درج می‌شود (admin.js: button[data-fill-target]). هرگز خودکار فرستاده نمی‌شود. *@
+        @if (Model.ReplyAdvice.Suggestions.Count > 0)
+        {
+          <div class="a-field" data-reply-suggestions>
+            <div class="a-label">@Icons.Svg("Lightbulb", null, 16) پیشنهاد پاسخ هوشمند <span class="a-muted text-xs">(موضوع: @Model.ReplyAdvice.TopicTitle)</span></div>
+            <div class="flex flex-wrap gap-2">
+              @foreach (var suggestion in Model.ReplyAdvice.Suggestions)
+              {
+                <button type="button" class="a-btn a-btn-light a-btn-xs" data-fill-target="#reply-content" data-fill-text="@suggestion.Body" title="@suggestion.Source">@suggestion.Title <span class="a-muted">· @suggestion.Source</span></button>
+              }
+            </div>
+          </div>
+        }
         <textarea id="reply-content" name="content" class="a-textarea" rows="6" maxlength="4000" required placeholder="پاسخ شما با پیامک / اعلان به مشتری اطلاع داده می‌شود. برچسب‌هایی مثل {FirstName} با اطلاعات مشتری پر می‌شوند."></textarea>
         <div class="a-field"><label class="a-label" for="r-files">پیوست (تصویر یا PDF)</label><input id="r-files" type="file" name="attachments" multiple accept="image/*,application/pdf" class="a-input"></div>
         <div class="flex flex-wrap items-center justify-between gap-3">

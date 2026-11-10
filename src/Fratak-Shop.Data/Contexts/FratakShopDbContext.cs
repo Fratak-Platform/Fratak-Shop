@@ -292,6 +292,8 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Ops.BackgroundJobSetting> BackgroundJobSettings { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Ops.AlertRule> AlertRules { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Ops.AlertEvent> AlertEvents { get; set; } = null!;
+    /// <summary>دور ۲۴ (پیشنهاد ۷۳): دوره‌های قطعی سایت/پایگاه داده.</summary>
+    public DbSet<Fratak_Shop.Data.Entities.Ops.UptimeIncident> UptimeIncidents { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Team.ApprovalRequest> ApprovalRequests { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Team.StaffTask> StaffTasks { get; set; } = null!;
 

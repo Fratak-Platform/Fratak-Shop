@@ -83,6 +83,8 @@ public class CheckoutModel(
         Input.AddressId = addressId;
         if (!await LoadAsync())
             return RedirectToPage("/Cart");
+        // دور ۲۴ (۷۱): فرم کد تخفیف همین صفحه بعد از چند کد اشتباه کد امنیتی می‌خواهد.
+        PrepareCaptcha(Infrastructure.Security.CaptchaActions.Coupon);
 
         // آمار (فاز ۷): مرحلهٔ «ورود به تسویه حساب» قیف فروش.
         await analytics.StageAsync(HttpContext, global::Fratak_Shop.Data.Entities.Analytics.FunnelStage.Checkout);

@@ -18,8 +18,12 @@ public sealed record AdminTicketMessage(Guid Id, bool IsStaff, string AuthorName
 [AdminPermission(AdminPermissions.TicketsManage)]
 [RequestFormLimits(MultipartBodyLengthLimit = 16 * 1024 * 1024)]
 [RequestSizeLimit(16 * 1024 * 1024)]
-public class DetailModel(IAdminDataService data, ITicketService tickets, IUploadStore uploads, ISiteContext site, IAdminAccessService access, INotificationService notifications) : AdminPageModel
+public class DetailModel(IAdminDataService data, ITicketService tickets, IUploadStore uploads, ISiteContext site, IAdminAccessService access, INotificationService notifications,
+    ITicketReplyAdvisor advisor, ILogger<DetailModel> logger) : AdminPageModel
 {
+    /// <summary>دور ۲۴ (پیشنهاد ۲۷): پیش‌نویس‌های پاسخ هوشمند (اطلاعات سفارش، تیکت مشابه قبلی، پیام آماده، پرسش متداول).</summary>
+    public TicketReplyAdvice ReplyAdvice { get; private set; } = TicketReplyAdvice.Empty;
+
     public SupportTicket Ticket { get; private set; } = null!;
     public string DepartmentTitle { get; private set; } = "";
     public string CustomerName { get; private set; } = "";
@@ -51,6 +55,18 @@ public class DetailModel(IAdminDataService data, ITicketService tickets, IUpload
             .ToListAsync();
         Staff = await access.GetStaffAsync();
         Departments = await data.Query<SupportDepartment>().Where(d => d.IsActive || d.Id == ticket.DepartmentId).OrderBy(d => d.DisplayOrder).ToListAsync();
+        if (ticket.Status != TicketStatus.Closed)
+        {
+            try
+            {
+                ReplyAdvice = await advisor.SuggestAsync(id, HttpContext.RequestAborted);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // پیشنهاد پاسخ کمکی است؛ خطای آن نباید صفحهٔ تیکت را از کار بیندازد.
+                logger.LogWarning(exception, "Ticket reply suggestions failed for {Ticket}", id);
+            }
+        }
 
         // Staff opened it: the customer's message is now being looked at.
         if (ticket.Status == TicketStatus.Open && ticket.AssignedToUserId is null)
