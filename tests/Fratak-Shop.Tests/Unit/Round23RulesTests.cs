@@ -325,6 +325,24 @@ public class Round23RulesTests
     }
 
     [Fact]
+    public void Occasion_coupon_is_planned_only_in_the_window_with_safe_limits()
+    {
+        var yalda = new DateOnly(2026, 12, 21);
+        var occasion = new Fratak_Shop.Core.Services.Seo.Autopilot.SeoOccasion("شب یلدا", yalda, 10, Array.Empty<string>());
+        var draft = Assert.Single(Fratak_Shop.Core.Services.Marketing.OccasionCoupons.Plan(yalda.AddDays(-10), new[] { occasion }));
+        Assert.Equal("YALDA2612", draft.Code);
+        Assert.True(draft.StartsAt < draft.EndsAt);
+        Assert.Equal(yalda.AddDays(-3), Fratak_Shop.Core.Utilities.IranClock.Today(draft.StartsAt));
+        Assert.Equal(yalda.AddDays(1), Fratak_Shop.Core.Utilities.IranClock.Today(draft.EndsAt));
+        Assert.True(Fratak_Shop.Core.Services.Marketing.OccasionCoupons.Percent <= 15);
+
+        // خیلی زود، خیلی دیر، یا مناسبت بی‌نام انگلیسی ← هیچ.
+        Assert.Empty(Fratak_Shop.Core.Services.Marketing.OccasionCoupons.Plan(yalda.AddDays(-30), new[] { occasion with { DaysLeft = 30 } }));
+        Assert.Empty(Fratak_Shop.Core.Services.Marketing.OccasionCoupons.Plan(yalda.AddDays(-2), new[] { occasion with { DaysLeft = 2 } }));
+        Assert.Empty(Fratak_Shop.Core.Services.Marketing.OccasionCoupons.Plan(yalda.AddDays(-10), new[] { occasion with { Name = "مناسبت ناشناخته" } }));
+    }
+
+    [Fact]
     public void Arabic_letters_in_names_become_persian()
     {
         Assert.Equal("کیف علی", Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters("\u0643\u064Aف عل\u0649"));

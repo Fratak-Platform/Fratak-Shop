@@ -227,7 +227,31 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         {
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Image hash backfill failed");
         }
+        count += await PlanOccasionCouponsAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastCouponTicks;
+
+    /// <summary>
+    /// دور ۲۳ (مورد ۸۲): کوپن مناسبتی غیرفعال + اعلان «آمادهٔ تأیید» (هر ۱۲ ساعت یک بار بررسی؛ تکراری ساخته نمی‌شود).
+    /// منطق: <see cref="Fratak_Shop.Core.Services.Marketing.OccasionCoupons"/>. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> PlanOccasionCouponsAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var last = Interlocked.Read(ref _lastCouponTicks);
+        if (last != 0 && now.UtcTicks - last < TimeSpan.FromHours(12).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastCouponTicks, now.UtcTicks);
+        try
+        {
+            return await services.GetRequiredService<Fratak_Shop.Core.Services.Marketing.IOccasionCouponService>().PlanAsync(now, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Occasion coupon planning failed");
+            return 0;
+        }
     }
 
     private static long _lastSpecFacetsTicks;
