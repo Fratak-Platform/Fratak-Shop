@@ -109,7 +109,7 @@ public class SeoRound24IntegrationTests(SqlServerFixture db)
             var video = Assert.Single(withVideo.Videos!);
             Assert.Contains("aparat.com", video.PlayerUrl);
             Assert.Equal($"/uploads/products/r24-{key}.webp", video.Thumbnail);
-            Assert.StartsWith("آنباکس", video.Description);
+            Assert.StartsWith("آنباکس", video.Description, StringComparison.Ordinal);
             Assert.Equal(95, video.DurationSeconds);
             Assert.Null(entries.Single(e => e.Path == $"/product/{products[1].Slug}").Videos);
         }
@@ -230,7 +230,7 @@ public class SeoRound24IntegrationTests(SqlServerFixture db)
             Assert.Equal(2, group.Pages.Count);
             Assert.Contains(group.Pages, p => p.Kind == "دسته" && p.Url == "/category/" + category.Slug);
             Assert.Contains(group.Pages, p => p.Kind == "کالا" && p.AdminUrl!.StartsWith("/admin/products/edit/", StringComparison.Ordinal));
-            Assert.Contains("صفحهٔ دسته", group.Advice);
+            Assert.Contains("صفحهٔ دسته", group.Advice, StringComparison.Ordinal);
         }
         finally
         {

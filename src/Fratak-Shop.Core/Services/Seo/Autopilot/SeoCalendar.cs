@@ -19,21 +19,21 @@ public sealed record SeoOccasion(string Name, DateOnly Date, int DaysLeft, IRead
 /// </summary>
 public static class SeoCalendar
 {
-    private sealed record Occasion(string Name, Func<int, DateOnly?> Resolve, string[] Templates, string Slug);
+    private sealed record Occasion(string Name, Func<int, IReadOnlyList<DateOnly>> Resolve, string[] Templates, string Slug);
 
     private static readonly PersianCalendar Persian = new();
     private static readonly UmAlQuraCalendar Hijri = new();
 
     private static readonly Occasion[] Occasions =
     [
-        new("نوروز", y => Shamsi(y, 1, 1), ["راهنمای خرید هدیهٔ نوروز: {0}", "پیشنهادهای ویژهٔ عید برای {0}"], "nowruz"),
-        new("بازگشایی مدارس", y => Shamsi(y, 7, 1), ["راهنمای خرید {0} برای دانش‌آموزان", "لوازم ضروری بازگشایی مدارس در دستهٔ {0}"], "back-to-school"),
-        new("شب یلدا", y => Shamsi(y, 9, 30), ["هدیهٔ شب یلدا: بهترین {0}", "پیشنهادهای یلدایی {0}"], "yalda"),
-        new("روز دانشجو", y => Shamsi(y, 9, 16), ["هدیهٔ روز دانشجو از دستهٔ {0}"], "student-day"),
-        new("سپندارمذگان (روز عشق ایرانی)", y => Shamsi(y, 11, 29), ["هدیهٔ سپندارمذگان: انتخاب {0}"], "sepandarmazgan"),
-        new("روز معلم", y => Shamsi(y, 2, 12), ["هدیهٔ روز معلم: {0} مناسب"], "teacher-day"),
-        new("ولنتاین", y => Gregorian(y, 2, 14), ["هدیهٔ ولنتاین از دستهٔ {0}"], "valentine"),
-        new("بلک فرایدی", y => BlackFriday(y), ["حراج بلک فرایدی {0}", "تخفیف‌های جمعهٔ سیاه برای {0}"], "black-friday"),
+        new("نوروز", y => One(Shamsi(y, 1, 1)), ["راهنمای خرید هدیهٔ نوروز: {0}", "پیشنهادهای ویژهٔ عید برای {0}"], "nowruz"),
+        new("بازگشایی مدارس", y => One(Shamsi(y, 7, 1)), ["راهنمای خرید {0} برای دانش‌آموزان", "لوازم ضروری بازگشایی مدارس در دستهٔ {0}"], "back-to-school"),
+        new("شب یلدا", y => One(Shamsi(y, 9, 30)), ["هدیهٔ شب یلدا: بهترین {0}", "پیشنهادهای یلدایی {0}"], "yalda"),
+        new("روز دانشجو", y => One(Shamsi(y, 9, 16)), ["هدیهٔ روز دانشجو از دستهٔ {0}"], "student-day"),
+        new("سپندارمذگان (روز عشق ایرانی)", y => One(Shamsi(y, 11, 29)), ["هدیهٔ سپندارمذگان: انتخاب {0}"], "sepandarmazgan"),
+        new("روز معلم", y => One(Shamsi(y, 2, 12)), ["هدیهٔ روز معلم: {0} مناسب"], "teacher-day"),
+        new("ولنتاین", y => One(Gregorian(y, 2, 14)), ["هدیهٔ ولنتاین از دستهٔ {0}"], "valentine"),
+        new("بلک فرایدی", y => One(BlackFriday(y)), ["حراج بلک فرایدی {0}", "تخفیف‌های جمعهٔ سیاه برای {0}"], "black-friday"),
         new("روز مادر", y => Lunar(y, 6, 20), ["هدیهٔ روز مادر: راهنمای انتخاب {0}"], "mother-day"),
         new("روز پدر", y => Lunar(y, 7, 13), ["هدیهٔ روز پدر: بهترین {0}"], "father-day"),
     ];
@@ -51,18 +51,20 @@ public static class SeoCalendar
             DateOnly? next = null;
             foreach (var year in new[] { today.Year - 1, today.Year, today.Year + 1 })
             {
-                DateOnly? date;
+                IReadOnlyList<DateOnly> dates;
                 try
                 {
-                    date = occasion.Resolve(year);
+                    dates = occasion.Resolve(year);
                 }
                 catch (ArgumentOutOfRangeException)
                 {
-                    date = null;
+                    dates = [];
                 }
 
-                if (date is { } d && d >= today && (next is null || d < next))
-                    next = d;
+                // مناسبت قمری ممکن است در یک سال میلادی دو بار بیفتد (مثلاً ۱۳ رجب: ژانویه و دسامبر ۲۰۲۶)؛ همه بررسی می‌شوند.
+                foreach (var d in dates)
+                    if (d >= today && (next is null || d < next))
+                        next = d;
             }
 
             if (next is not { } when)
@@ -113,9 +115,16 @@ public static class SeoCalendar
         return thursday.AddDays(21 + 1);
     }
 
-    private static DateOnly? Lunar(int gregorianYear, int month, int day)
+    /// <summary>تاریخ تکی ← فهرست (خالی اگر null).</summary>
+    private static IReadOnlyList<DateOnly> One(DateOnly? date) => date is { } d ? new[] { d } : Array.Empty<DateOnly>();
+
+    /// <summary>
+    /// همهٔ روزهای میلادی سال <paramref name="gregorianYear"/> که این روزِ قمری در آن‌ها می‌افتد (یک یا دو بار؛ سال قمری ~۱۱ روز کوتاه‌تر است).
+    /// مثال: Lunar(2026, 7, 13) ← [2026-01-02، 2026-12-22].
+    /// </summary>
+    private static IReadOnlyList<DateOnly> Lunar(int gregorianYear, int month, int day)
     {
-        // سال قمری‌ای که این روزِ قمری در آن در سال میلادی داده‌شده می‌افتد (هر سال قمری ~۱۱ روز کوتاه‌تر است).
+        var result = new List<DateOnly>();
         var start = Hijri.GetYear(new DateTime(gregorianYear, 1, 1));
         foreach (var year in new[] { start, start + 1 })
         {
@@ -130,9 +139,9 @@ public static class SeoCalendar
             }
 
             if (date.Year == gregorianYear)
-                return DateOnly.FromDateTime(date);
+                result.Add(DateOnly.FromDateTime(date));
         }
 
-        return null;
+        return result;
     }
 }

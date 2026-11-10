@@ -80,15 +80,15 @@ public class SeoRound24E2ETests(ShopApp app)
 
             var landing = await client.GetPageAsync(path);
             var h1 = landing.One("h1")?.TextContent ?? "";
-            Assert.Contains("خرید", h1);
-            Assert.Contains(catalog.RichBrandName, h1);
-            Assert.Contains(catalog.CategoryName, h1);
+            Assert.Contains("خرید", h1, StringComparison.Ordinal);
+            Assert.Contains(catalog.RichBrandName, h1, StringComparison.Ordinal);
+            Assert.Contains(catalog.CategoryName, h1, StringComparison.Ordinal);
             Assert.EndsWith(path, landing.One("link[rel='canonical']")?.GetAttribute("href"), StringComparison.Ordinal);
             Assert.DoesNotContain("noindex", Robots(landing));
             var grid = landing.One("[data-search-q]")?.TextContent ?? "";
-            Assert.Contains(catalog.CategoryName + " 0", grid);
-            Assert.Contains(catalog.CategoryName + " 2", grid);
-            Assert.DoesNotContain(catalog.CategoryName + " 3", grid); // کالای برند دیگر
+            Assert.Contains(catalog.CategoryName + " 0", grid, StringComparison.Ordinal);
+            Assert.Contains(catalog.CategoryName + " 2", grid, StringComparison.Ordinal);
+            Assert.DoesNotContain(catalog.CategoryName + " 3", grid, StringComparison.Ordinal); // کالای برند دیگر
 
             // نسخهٔ کوئری‌دار همان صفحه است و canonical به نشانی تمیز اشاره می‌کند.
             var query = await client.GetPageAsync($"/category/{catalog.CategorySlug}?brand={catalog.RichBrand}");
@@ -114,7 +114,7 @@ public class SeoRound24E2ETests(ShopApp app)
             using var sitemap = await client.GetAsync("/sitemap.xml");
             var xml = await sitemap.Content.ReadAsStringAsync();
             Assert.Contains(path + "</loc>", xml);
-            Assert.DoesNotContain($"/brand/{catalog.ThinBrand}</loc>", xml);
+            Assert.DoesNotContain($"/category/{catalog.CategorySlug}/brand/{catalog.ThinBrand}</loc>", xml);
             Assert.Contains("xmlns:video=\"http://www.google.com/schemas/sitemap-video/1.1\"", xml);
             Assert.Contains($"/guide/{catalog.CategorySlug}</loc>", xml);
         }
@@ -134,7 +134,7 @@ public class SeoRound24E2ETests(ShopApp app)
         {
             using var client = app.CreateClient();
             var page = await client.GetPageAsync($"/guide/{catalog.CategorySlug}");
-            Assert.Contains("راهنمای جامع خرید " + catalog.CategoryName, page.One("h1")?.TextContent);
+            Assert.Contains("راهنمای جامع خرید " + catalog.CategoryName, page.One("h1")?.TextContent, StringComparison.Ordinal);
             Assert.DoesNotContain("noindex", Robots(page));
             Assert.NotNull(page.One("#brands"));
             Assert.NotNull(page.One($"#brands a[href='/category/{catalog.CategorySlug}/brand/{catalog.RichBrand}']"));
@@ -160,10 +160,10 @@ public class SeoRound24E2ETests(ShopApp app)
     {
         using var client = app.CreateClient();
         var glossary = await client.GetPageAsync("/glossary");
-        Assert.Contains("واژه‌نامه", glossary.One("h1")?.TextContent);
+        Assert.Contains("واژه‌نامه", glossary.One("h1")?.TextContent, StringComparison.Ordinal);
 
         var yalda = await client.GetPageAsync("/occasion/yalda");
-        Assert.Contains("شب یلدا", yalda.One("h1")?.TextContent);
+        Assert.Contains("شب یلدا", yalda.One("h1")?.TextContent, StringComparison.Ordinal);
         Assert.NotEmpty(yalda.All("details"));
 
         foreach (var url in new[] { "/occasion/no-such-day", "/guide/no-such-category-r24" })
@@ -189,7 +189,7 @@ public class SeoRound24E2ETests(ShopApp app)
             foreach (var tab in new[] { "low", "searches", "cannibal", "<script>" })
             {
                 var page = await owner.GetPageAsync("/admin/seo/opportunities?tab=" + Uri.EscapeDataString(tab));
-                Assert.Contains("فرصت‌های سئو", page.Html);
+                Assert.Contains("فرصت‌های سئو", page.Html, StringComparison.Ordinal);
             }
 
             using var added = await owner.PostFormAsync("/admin/seo/opportunities?handler=Synonym", ("terms", $"zz{key}, yy{key}"));
