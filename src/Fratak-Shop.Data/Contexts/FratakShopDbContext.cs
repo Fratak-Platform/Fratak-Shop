@@ -386,6 +386,7 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     /// <summary>Audit dates, price history; returns the changed entity types (for cache invalidation).</summary>
     private HashSet<Type> BeforeSave()
     {
+        NormalizePersianLetters();
         TrackPriceChanges();
         TrackStockChanges();
         // دور سئوی خودکار: نامک انگلیسی و ریدایرکت‌های خودکار (پیش از تاریخ‌ها تا ریدایرکت‌های تازه هم شناسه بگیرند).
@@ -396,6 +397,42 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .Select(entry => entry.Metadata.ClrType)
             .ToHashSet();
+    }
+
+    /// <summary>
+    /// دور ۲۳ (مورد ۳۲): «ي/ى» و «ك» عربی در نام کالا، دسته، برند و عنوان مقاله ← «ی» و «ک» فارسی، هر جا که ذخیره شود (پنل، درون‌ریزی،
+    /// تأمین‌کننده). دلیل: جست‌وجوی «علی» نباید «علي» را جا بیندازد و صفحه‌ها یکدست باشند. فقط وقتی مقدار واقعاً عوض شود نوشته می‌شود.
+    /// </summary>
+    private void NormalizePersianLetters()
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified).ToList())
+        {
+            switch (entry.Entity)
+            {
+                case Product product when PersianLetters(product.Name) is var name && !ReferenceEquals(name, product.Name):
+                    product.Name = name;
+                    break;
+                case Category category when PersianLetters(category.Name) is var name && !ReferenceEquals(name, category.Name):
+                    category.Name = name;
+                    break;
+                case Brand brand when PersianLetters(brand.Name) is var name && !ReferenceEquals(name, brand.Name):
+                    brand.Name = name;
+                    break;
+                case BlogPost post when PersianLetters(post.Title) is var title && !ReferenceEquals(title, post.Title):
+                    post.Title = title;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// حروف عربی ← فارسی. اگر چیزی برای تبدیل نبود همان رشته (همان شیء) برمی‌گردد. مثال: «علي» ← «علی»؛ «كيف» ← «کیف».
+    /// </summary>
+    public static string PersianLetters(string value)
+    {
+        if (string.IsNullOrEmpty(value) || value.AsSpan().IndexOfAny('\u064A', '\u0649', '\u0643') < 0)
+            return value;
+        return value.Replace('\u064A', '\u06CC').Replace('\u0649', '\u06CC').Replace('\u0643', '\u06A9');
     }
 
     /// <summary>

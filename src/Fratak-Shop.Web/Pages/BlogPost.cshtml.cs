@@ -25,6 +25,9 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
     public List<CommentDto> Comments { get; private set; } = [];
     public List<BlogPostFilterData> LatestPosts { get; private set; } = [];
 
+    /// <summary>دور ۲۳: مطالب واقعاً مرتبط (هم‌دسته یا هم‌موضوع)؛ خالی یعنی بخش نمایش داده نمی‌شود.</summary>
+    public List<BlogPostFilterData> RelatedPosts { get; private set; } = [];
+
     [BindProperty]
     [Required(ErrorMessage = "متن دیدگاه را وارد کنید.")]
     [StringLength(2000, MinimumLength = 3, ErrorMessage = "متن دیدگاه باید بین ۳ تا ۲۰۰۰ کاراکتر باشد.")]
@@ -55,7 +58,11 @@ public class BlogPostModel(IPostService postService, ICommentService commentServ
             BodyHtml = Fratak_Shop.Core.Services.Smart.BlogShortcodes.Render(BodyHtml, cards, ImageHelper.Product);
         }
         Comments = await commentService.GetCommentsByPostAsync(post.Id, onlyApproved: true);
-        LatestPosts = await postService.GetLatestPostsAsync(5, post.Id);
+        RelatedPosts = await postService.GetRelatedPostsAsync(post.Id, 4);
+        // «آخرین مقالات» تکرار «مطالب مرتبط» نباشد.
+        var relatedIds = RelatedPosts.Select(x => x.Slug).ToHashSet(StringComparer.Ordinal);
+        LatestPosts = (await postService.GetLatestPostsAsync(5 + RelatedPosts.Count, post.Id))
+            .Where(x => !relatedIds.Contains(x.Slug)).Take(5).ToList();
 
         if (!preview)
             await postService.AddPostVisitAsync(post.Id);

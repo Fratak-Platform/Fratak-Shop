@@ -178,6 +178,45 @@ public class Round23RulesTests
         Assert.Matches("^spec-[0-9a-f]{12}$", slug);
     }
 
+    [Fact]
+    public void Related_posts_prefer_same_topic_then_same_category_and_skip_unrelated()
+    {
+        var current = Guid.NewGuid();
+        var audio = Guid.NewGuid();
+        var kitchen = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var sony = new Fratak_Shop.Core.Services.Blogs.RelatedCandidate(Guid.NewGuid(), "بررسی هدفون سونی", kitchen, now.AddDays(-30));
+        var speaker = new Fratak_Shop.Core.Services.Blogs.RelatedCandidate(Guid.NewGuid(), "راهنمای خرید اسپیکر", audio, now);
+        var kettle = new Fratak_Shop.Core.Services.Blogs.RelatedCandidate(Guid.NewGuid(), "راهنمای خرید کتری برقی", kitchen, now);
+        var self = new Fratak_Shop.Core.Services.Blogs.RelatedCandidate(current, "راهنمای خرید هدفون", audio, now);
+
+        var ids = Fratak_Shop.Core.Services.Blogs.RelatedPosts.Rank(current, "راهنمای خرید هدفون بی‌سیم", audio,
+            new[] { kettle, speaker, sony, self, sony }, 4);
+
+        // «هدفون» مشترک (۲) + هم‌دسته نبودن = ۲ ؛ اسپیکر هم‌دسته = ۳ ؛ کتری: فقط واژه‌های عمومی مشترک ← حذف.
+        Assert.Equal(new[] { speaker.Id, sony.Id }, ids.ToArray());
+        Assert.Empty(Fratak_Shop.Core.Services.Blogs.RelatedPosts.Rank(current, "x", audio, new[] { speaker }, 0));
+    }
+
+    [Fact]
+    public void Related_post_words_ignore_generic_title_words()
+    {
+        var words = Fratak_Shop.Core.Services.Blogs.RelatedPosts.Words("راهنمای خرید بهترین هدفون‌های ۲۰۲۶");
+        Assert.Contains("هدفون", words);
+        Assert.DoesNotContain("راهنمای", words);
+        Assert.DoesNotContain("بهترین", words);
+        Assert.DoesNotContain("2026", words);
+    }
+
+    [Fact]
+    public void Arabic_letters_in_names_become_persian()
+    {
+        Assert.Equal("کیف علی", Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters("\u0643\u064Aف عل\u0649"));
+        const string clean = "هدفون بی‌سیم";
+        Assert.Same(clean, Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters(clean));
+        Assert.Equal("", Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters(""));
+    }
+
     // ── منوی دسته‌ها ────────────────────────────────────────────
 
     private static CategoryDto Root(string name, int order = 0, bool system = false, params SubCategoryDto[] subs) =>
@@ -449,6 +488,14 @@ public class Round23RulesTests
         Assert.Equal("yalda", intent.Occasion);
         Assert.Equal(20, intent.Percent);
         Assert.True(intent.Deal);
+    }
+
+    [Fact]
+    public void Brief_never_reads_a_slice_of_a_bigger_number_as_percent()
+    {
+        // «۱۵۰٪» معنا ندارد؛ نباید «۵۰٪» خوانده شود.
+        Assert.Null(DesignBrief.Parse("تخفیف هدفون ۱۵۰٪").Percent);
+        Assert.Equal(15, DesignBrief.Parse("تخفیف هدفون 15 درصد").Percent);
     }
 
     [Fact]

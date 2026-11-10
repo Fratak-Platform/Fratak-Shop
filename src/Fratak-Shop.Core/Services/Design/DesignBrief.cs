@@ -70,7 +70,7 @@ public static class DesignBrief
         ("teacher", "روز معلم", "forest", ["روز معلم", "معلم"], "هدیهٔ روز معلم", "سپاسی کوچک از معلم"),
     ];
 
-    private static readonly Regex PercentPattern = new(@"(\d{1,2})\s*(?:%|٪|درصد)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex PercentPattern = new(@"(?<!\d)(\d{1,2})\s*(?:%|٪|درصد)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
     /// یکسان‌سازی متن برای تطبیق: ی/ک عربی ← فارسی، ارقام فارسی/عربی ← لاتین، نیم‌فاصله ← فاصله، حروف کوچک، فاصلهٔ تکراری حذف.
