@@ -132,6 +132,15 @@
                 @Icons.Svg("Printer", "fill-sky-700", 18) <span data-label>چاپ فاکتور</span>
               </button>
             </div>
+            @if (Model.CanReorder)
+            {
+              @* دور ۲۴ (پیشنهاد ۷): همهٔ کالاهای موجود این سفارش با قیمت امروز به سبد خرید برمی‌گردند. *@
+              <form method="post" asp-page-handler="Reorder" asp-route-orderNumber="@order.OrderNumber" class="mt-2 print:hidden">
+                <button type="submit" class="flex w-full items-center justify-center gap-x-1 px-2 py-3 text-sm border border-emerald-600 text-emerald-700 hover:bg-emerald-50 transition rounded-lg">
+                  @Icons.Svg("Cart", "fill-emerald-700", 18) سفارش دوباره (با قیمت امروز)
+                </button>
+              </form>
+            }
             @if (Model.CanCancel)
             {
               <details class="group mt-3 rounded-lg border border-red-200 print:hidden">

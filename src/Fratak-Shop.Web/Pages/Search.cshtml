@@ -247,6 +247,11 @@
           </div>
           <div class="group relative">
             <select name="sort" form="sortForm" aria-label="مرتب سازی" class="leading-5.6 ease block w-48 appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all placeholder:text-gray-500 focus:border-sky-500 focus:outline-none" data-autosubmit>
+              @if (!string.IsNullOrWhiteSpace(Model.Query))
+              {
+                @* دور ۲۴: «مرتبط‌ترین» فقط برای جست‌وجوی متنی (رتبه‌بندی یادگیرنده از کلیک مشتری‌ها). *@
+                <option value="@ProductSortBy.Relevance" selected="@(Model.Sort == ProductSortBy.Relevance ? "selected" : null)">مرتبط‌ترین</option>
+              }
               @foreach (var option in SearchModel.SortOptions)
               {
                 <option value="@option.Value" selected="@(option.Value == Model.Sort ? "selected" : null)">@option.Title</option>
@@ -270,7 +275,11 @@
           <div class="mt-4 rounded-xl border bg-white p-4" id="quiz">
             @if (Model.Quiz is null)
             {
-              <a class="text-sm text-sky-600 hover:underline" href="/category/@quizCategory.Slug?quiz=1#quiz" rel="nofollow">نمی‌دانید کدام را بخرید؟ با دو سؤال کمکتان می‌کنیم</a>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <a class="text-sm text-sky-600 hover:underline" href="/category/@quizCategory.Slug?quiz=1#quiz" rel="nofollow">نمی‌دانید کدام را بخرید؟ با دو سؤال کمکتان می‌کنیم</a>
+                @* دور ۲۴ (پیشنهاد ۱): همان کالایاب، گفت‌وگومحور در دستیار فروشگاه (assistant.js ← data-assistant-ask). *@
+                <button type="button" class="text-sm text-zinc-600 hover:text-sky-600 inline-flex items-center gap-1" data-assistant-ask="کمکم کن انتخاب کنم" data-assistant-flow="@Fratak_Shop.Core.Services.Assistant.AssistantFinder.Build(quizCategory.Slug)">@Icons.Svg("Robot", "fill-current size-4", 16) یا از دستیار بپرسید</button>
+              </div>
             }
             else if (Model.Quiz.Budgets.Count == 0)
             {
@@ -376,7 +385,7 @@
             }
           </div>
         }
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5" data-search-q="@Model.Query">
           @foreach (var product in Model.Result.Data)
           {
             <partial name="_ProductGridCard" model="product" />

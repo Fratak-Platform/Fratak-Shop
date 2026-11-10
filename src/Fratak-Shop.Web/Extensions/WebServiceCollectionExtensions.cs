@@ -24,6 +24,8 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<ICartSessionService, CartSessionService>();
         services.AddScoped<IShopAuthService, ShopAuthService>();
         services.AddScoped<ICompareListService, CompareListService>();
+        // دور ۲۴: جست‌وجو با عکس (امضای تصویر کالاها با SkiaSharp؛ بدون سرویس بیرونی).
+        services.AddScoped<Fratak_Shop.Web.Infrastructure.Commerce.ImageSearchService>();
         services.AddScoped<IPageMetaService, PageMetaService>();
         services.AddScoped<IPaymentFlowService, PaymentFlowService>();
         services.AddScoped<DemoDataSeeder>();

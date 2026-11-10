@@ -1,0 +1,185 @@
+/*
+ * دور ۲۴ (بستهٔ B) – ظاهر «تجربهٔ خرید»: پنجرهٔ نمایش سریع، نتیجهٔ جست‌وجو با عکس، فرم تضمین قیمت و سینی مقایسه.
+ * رفتار: assets/js/commerce.js. بدون استایل درون‌خطی (CSP). در حالت تاریک رنگ‌ها از dark.css می‌آیند.
+ */
+
+/* ── پنجرهٔ عمومی ─────────────────────────────────────────── */
+.fc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(11, 25, 39, .55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: fc-fade .15s ease-out;
+}
+@media (min-width: 768px) {
+  .fc-backdrop { align-items: center; padding: 1.5rem; }
+}
+.fc-dialog {
+  background: #fff;
+  color: #1f2937;
+  width: 100%;
+  max-width: 760px;
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+  position: relative;
+  animation: fc-up .18s ease-out;
+}
+@media (min-width: 768px) {
+  .fc-dialog { border-radius: 1rem; }
+}
+.fc-dialog.fc-narrow { max-width: 440px; }
+.fc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
+}
+.fc-title { font-weight: 700; font-size: 1rem; }
+.fc-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: #4b5563;
+}
+.fc-close:hover, .fc-close:focus-visible { background: #f1f5f9; outline: none; }
+.fc-body { padding: 1rem; }
+.fc-muted { color: #6b7280; font-size: .8rem; }
+.fc-error { color: #dc2626; font-size: .85rem; margin-top: .5rem; }
+.fc-ok { color: #047857; font-size: .85rem; margin-top: .5rem; }
+.fc-loading { padding: 2.5rem 1rem; text-align: center; color: #6b7280; }
+
+/* ── نمایش سریع ───────────────────────────────────────────── */
+.fc-quick { display: grid; gap: 1rem; }
+@media (min-width: 768px) {
+  .fc-quick { grid-template-columns: 1fr 1fr; }
+}
+.fc-quick-main { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; border-radius: .75rem; background: #f8fafc; }
+.fc-thumbs { display: flex; gap: .5rem; margin-top: .5rem; }
+.fc-thumb { width: 3.5rem; height: 3.5rem; border-radius: .5rem; border: 2px solid transparent; overflow: hidden; background: #f8fafc; flex-shrink: 0; }
+.fc-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.fc-thumb[aria-current="true"] { border-color: #0ea5e9; }
+.fc-brand { color: #9ca3af; font-size: .8rem; }
+.fc-name { font-weight: 700; font-size: 1.05rem; line-height: 1.8; }
+.fc-price { color: #1e40af; font-size: 1.15rem; font-weight: 700; margin-top: .5rem; }
+.fc-old { color: #9ca3af; text-decoration: line-through; font-size: .85rem; margin-inline-start: .5rem; }
+.fc-off { background: #ef4444; color: #fff; border-radius: 999px; font-size: .75rem; padding: .1rem .5rem; margin-inline-start: .5rem; }
+.fc-specs { margin-top: .75rem; font-size: .8rem; border-top: 1px solid #f1f5f9; }
+.fc-specs div { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; border-bottom: 1px solid #f1f5f9; }
+.fc-specs dt { color: #6b7280; }
+.fc-specs dd { font-weight: 600; text-align: left; }
+.fc-summary { font-size: .85rem; line-height: 1.9; color: #4b5563; margin-top: .75rem; }
+.fc-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.fc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  padding: .65rem 1rem;
+  border-radius: .6rem;
+  font-size: .85rem;
+  border: 1px solid #0284c7;
+  color: #0369a1;
+  background: #fff;
+  cursor: pointer;
+}
+.fc-btn:hover, .fc-btn:focus-visible { background: #f0f9ff; outline: none; }
+.fc-btn-primary { background: linear-gradient(to bottom left, #38bdf8, #0284c7); color: #fff; border-color: transparent; flex: 1 1 auto; }
+.fc-btn-primary:hover, .fc-btn-primary:focus-visible { opacity: .85; background: linear-gradient(to bottom left, #38bdf8, #0284c7); }
+.fc-btn[disabled] { opacity: .6; cursor: wait; }
+
+/* ── نتیجهٔ جست‌وجو با عکس ─────────────────────────────────── */
+.fc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+@media (min-width: 768px) {
+  .fc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.fc-card { display: block; border: 1px solid #e5e7eb; border-radius: .75rem; padding: .5rem; font-size: .8rem; }
+.fc-card:hover { border-color: #38bdf8; }
+.fc-card img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; }
+.fc-card-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: .35rem; min-height: 2.6em; }
+.fc-card-price { color: #1e40af; margin-top: .25rem; }
+.fc-image-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.fc-lock { overflow: hidden; }
+.fc-preview { width: 6rem; height: 6rem; object-fit: cover; border-radius: .75rem; }
+
+/* ── فرم تضمین قیمت ───────────────────────────────────────── */
+.fc-field { display: block; margin-top: .75rem; font-size: .85rem; }
+.fc-field input {
+  display: block;
+  width: 100%;
+  margin-top: .35rem;
+  border: 1px solid #d1d5db;
+  border-radius: .6rem;
+  padding: .55rem .75rem;
+  font-size: .9rem;
+  background: #fff;
+  color: inherit;
+}
+.fc-field input:focus { border-color: #38bdf8; outline: none; }
+
+/* ── سینی مقایسه ─────────────────────────────────────────── */
+.fc-tray {
+  position: fixed;
+  z-index: 45;
+  bottom: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .15);
+  padding: .4rem .5rem .4rem .75rem;
+  max-width: calc(100vw - 1.5rem);
+  animation: fc-up .2s ease-out;
+}
+@media (min-width: 768px) {
+  .fc-tray { bottom: 1.25rem; }
+}
+.fc-tray-items { display: flex; gap: .25rem; }
+.fc-tray-item { position: relative; width: 2.5rem; height: 2.5rem; border-radius: 999px; overflow: hidden; border: 1px solid #e5e7eb; background: #f8fafc; }
+.fc-tray-item img { width: 100%; height: 100%; object-fit: contain; }
+.fc-tray-label { font-size: .8rem; color: #374151; white-space: nowrap; }
+.fc-tray-go { background: #0ea5e9; color: #fff; border-radius: 999px; padding: .45rem .9rem; font-size: .8rem; white-space: nowrap; }
+.fc-tray-go:hover { background: #0284c7; }
+.fc-tray-clear { width: 1.9rem; height: 1.9rem; border-radius: 999px; color: #6b7280; font-size: 1.1rem; line-height: 1; }
+.fc-tray-clear:hover { background: #f1f5f9; }
+
+/* ── میکروفون در حال شنیدن ─────────────────────────────────── */
+[data-voice-search].fc-listening { background: #fee2e2; animation: fc-pulse 1s ease-in-out infinite; }
+
+@keyframes fc-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fc-up { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.fc-tray { animation-name: fc-tray-in; }
+@keyframes fc-tray-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes fc-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, .45); } 50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-backdrop, .fc-dialog, .fc-tray, [data-voice-search].fc-listening { animation: none; }
+}
+
+/* حالت تاریک (کلاس dark روی html) */
+.dark .fc-dialog, .dark .fc-tray { background: #0f172a; color: #e5e7eb; border-color: #1f2937; }
+.dark .fc-head { border-color: #1f2937; }
+.dark .fc-field input { background: #111827; border-color: #374151; }
+.dark .fc-card, .dark .fc-tray-item { border-color: #374151; }
+.dark .fc-btn { background: transparent; }
+.dark .fc-tray-label, .dark .fc-summary { color: #cbd5e1; }

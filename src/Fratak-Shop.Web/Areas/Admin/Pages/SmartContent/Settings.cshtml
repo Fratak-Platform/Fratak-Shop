@@ -89,6 +89,15 @@
   </div>
 
   <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Cart", null, 18) تجربهٔ خرید</h3></div>
+    <div class="a-card-body a-stack text-sm">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PriceMatchEnabled"> «قیمت کمتر دیدید؟» در صفحهٔ کالا (بررسی در <a class="text-sky-700" href="/admin/marketing/price-match">تضمین قیمت</a>)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.SocialProof"> آمار واقعی خرید اخیر در صفحهٔ کالا (فقط عدد واقعی و معنادار)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImageSearch"> جست‌وجو با عکس (دکمهٔ دوربین کنار جست‌وجو)</label>
+    </div>
+  </div>
+
+  <div class="a-card">
     <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) یادآوری‌های مشتری</h3></div>
     <div class="a-card-body a-stack">
       <p class="a-muted text-sm">@Format.Number(Model.Reminders.Pending) در انتظار · @Format.Number(Model.Reminders.SentLast30Days) ارسال و @Format.Number(Model.Reminders.SkippedLast30Days) لغو خودکار در ۳۰ روز اخیر. هر مشتری حداکثر یک پیام در هفته؛ در ساعت سکوت هیچ پیامی فرستاده نمی‌شود.</p>

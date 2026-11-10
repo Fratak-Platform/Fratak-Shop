@@ -462,6 +462,24 @@ public class ProductService(FratakShopDbContext context) : IProductService
         public decimal FinalPrice { get; set; }
     }
 
+    /// <summary>
+    /// دور ۲۴ (رتبه‌بندی یادگیرنده): اول کالاهایی که بعد از همین عبارت بیشتر کلیک خورده‌اند، بعد موجودها، بعد پرفروش‌ها و جدیدها.
+    /// مثال: عبارت «هدفون» ← کالای X با ۱۲ کلیک بالای کالای Y با ۲ کلیک. کلیک‌ها را SearchLearningService ثبت می‌کند.
+    /// زیرپرس‌وجو روی ایندکس یکتای (NormalizedQuery, ProductId) اجرا می‌شود و برای ۱۰هزار بازدید روزانه سبک است.
+    /// </summary>
+    private IOrderedQueryable<PricedProduct> OrderByLearned(IQueryable<PricedProduct> query, string learnedQuery)
+    {
+        var key = learnedQuery.Trim();
+        return query
+            .OrderByDescending(x => context.SearchClickStats
+                .Where(s => s.NormalizedQuery == key && s.ProductId == x.Product.Id)
+                .Select(s => (int?)s.Clicks)
+                .FirstOrDefault() ?? 0)
+            .ThenByDescending(x => x.Product.StockQuantity > 0)
+            .ThenByDescending(x => x.Product.SalesCount)
+            .ThenByDescending(x => x.Product.CreatedAt);
+    }
+
     public async Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams)
     {
         var withFinalPrice = BuildFilterQuery(filterParams, skipSpecificationKey: null);
@@ -477,6 +495,11 @@ public class ProductService(FratakShopDbContext context) : IProductService
             ProductSortBy.BestSelling => withFinalPrice.OrderByDescending(x => x.Product.SalesCount)
                 .ThenByDescending(x => x.Product.CreatedAt),
             ProductSortBy.MostDiscounted => withFinalPrice.OrderByDescending(x => x.Product.Price - x.FinalPrice)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            ProductSortBy.Relevance when !string.IsNullOrWhiteSpace(filterParams.LearnedQuery)
+                => OrderByLearned(withFinalPrice, filterParams.LearnedQuery!),
+            ProductSortBy.Relevance => withFinalPrice.OrderByDescending(x => x.Product.StockQuantity > 0)
+                .ThenByDescending(x => x.Product.SalesCount)
                 .ThenByDescending(x => x.Product.CreatedAt),
             _ => withFinalPrice.OrderByDescending(x => x.Product.CreatedAt),
         };

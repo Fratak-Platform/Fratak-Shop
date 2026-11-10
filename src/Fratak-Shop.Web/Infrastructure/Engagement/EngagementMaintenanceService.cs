@@ -55,6 +55,12 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
     {
         await RunAsync("Product alerts", sp => sp.GetRequiredService<IProductAlertService>().ProcessAsync(token), token);
         await RunAsync("SEO traffic flush", sp => sp.GetRequiredService<ISeoTrafficService>().FlushAsync(token), token);
+        // دور ۲۴: امضای تصویر کالاها برای «جست‌وجو با عکس» (هر نوبت حداکثر ۴۰ کالا؛ فقط وقتی قابلیت روشن است).
+        await RunAsync("Image search signatures", async sp =>
+        {
+            var smart = await sp.GetRequiredService<Fratak_Shop.Core.Services.Smart.ISmartConfigService>().GetAsync(token);
+            return smart.ImageSearch ? await sp.GetRequiredService<Fratak_Shop.Web.Infrastructure.Commerce.ImageSearchService>().BuildSignaturesAsync(token) : 0;
+        }, token);
 
         var now = DateTimeOffset.UtcNow;
         if (now - _lastDailyRun < DailyInterval)
@@ -78,6 +84,8 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         // دور ۲۴: مدل یادگیرندهٔ نیت پیام هر شب با پیام‌های واقعی ۹۰ روز اخیر دوباره آموزش می‌بیند؛ گفت‌وگوهای کارشناس بی‌پیام ۲۴ ساعته بسته می‌شوند.
         await RunAsync("Assistant intent model", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantService>().RetrainIntentModelAsync(token), token);
         await RunAsync("Assistant handoff auto-close", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantHandoffService>().AutoCloseAsync(token), token);
+        // دور ۲۴: کلیک‌های جست‌وجوی قدیمی کم‌وزن و خیلی قدیمی‌ها پاک می‌شوند (رتبه‌بندی یادگیرنده سلیقهٔ تازه را دنبال کند).
+        await RunAsync("Search learning maintenance", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Searches.ISearchLearningService>().MaintainAsync(token), token);
     }
 
     private async Task RunAsync(string name, Func<IServiceProvider, Task<int>> job, CancellationToken token)

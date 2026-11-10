@@ -1,6 +1,9 @@
 @page "/product/{slug}"
 @model ProductModel
+@inject Fratak_Shop.Core.Services.Smart.ISmartConfigService SmartConfig
 @{
+    // دور ۲۴: آمار واقعی خرید (۱۵) و «قیمت کمتر دیدید؟» (۱۱) از تنظیمات هوشمند روشن/خاموش می‌شوند.
+    var smartOptions = await SmartConfig.GetAsync();
     Layout = "_Layout";
     var p = Model.Product;
     ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.ProductDetails;
@@ -298,6 +301,16 @@
                   افزودن به سبد خرید
                 </button>
               </form>
+              @if (smartOptions.SocialProof)
+              {
+                @* دور ۲۴ (پیشنهاد ۱۵): فقط عدد واقعی و معنادار؛ commerce.js از /api/products/{id}/proof می‌خواند و اگر چیزی نبود پنهان می‌ماند. *@
+                <p class="hidden mt-3 text-xs text-emerald-700 items-center gap-x-1.5" data-social-proof="@p.Id" aria-live="polite"></p>
+              }
+              @if (smartOptions.PriceMatchEnabled)
+              {
+                @* دور ۲۴ (پیشنهاد ۱۱): تضمین قیمت – فرم در پنجرهٔ سفارشی (commerce.js)؛ بررسی توسط مدیر و کد تخفیف شخصی فقط برای همین کالا. *@
+                <button type="button" class="mt-3 text-xs text-sky-700 hover:underline" data-price-match="@p.Id" data-price="@(p.FinalPrice.ToString("0", System.Globalization.CultureInfo.InvariantCulture))" data-name="@p.Name">قیمت کمتر دیدید؟ به ما بگویید</button>
+              }
               @* دور ۲۳ (مورد ۶۰): نوار ثابت «افزودن به سبد» در موبایل؛ فقط وقتی فرم اصلی از دید خارج شده باشد (engagement.js). همان فرم بالا را می‌فرستد. *@
               <div class="fs-sticky-buy" data-sticky-buy hidden>
                 <div class="fs-sticky-buy-price">

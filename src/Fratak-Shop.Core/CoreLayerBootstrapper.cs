@@ -58,6 +58,11 @@ public static class CoreLayerBootstrapper
         // دور ۲۴: دانش عمومی سایت برای دستیار (کش ۱۰ دقیقه‌ای) و «گفت‌وگو با کارشناس».
         services.AddScoped<Services.Assistant.IAssistantKnowledge, Services.Assistant.AssistantKnowledge>();
         services.AddScoped<Services.Assistant.IAssistantHandoffService, Services.Assistant.AssistantHandoffService>();
+        // دور ۲۴ (بستهٔ B): رتبه‌بندی یادگیرندهٔ جست‌وجو، تضمین قیمت، آمار واقعی خرید و «سفارش دوباره».
+        services.AddScoped<Services.Searches.ISearchLearningService, Services.Searches.SearchLearningService>();
+        services.AddScoped<Services.Marketing.IPriceMatchService, Services.Marketing.PriceMatchService>();
+        services.AddScoped<Services.Shopping.ISocialProofService, Services.Shopping.SocialProofService>();
+        services.AddScoped<Services.Shopping.IReorderService, Services.Shopping.ReorderService>();
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserAddressService, UserAddressService>();

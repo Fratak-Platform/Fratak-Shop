@@ -332,6 +332,11 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantHandoff> AssistantHandoffs { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Assistant.AssistantHandoffMessage> AssistantHandoffMessages { get; set; } = null!;
 
+    // دور ۲۴ (بستهٔ B): رتبه‌بندی یادگیرنده، جست‌وجوی تصویری و تضمین قیمت.
+    public DbSet<Fratak_Shop.Data.Entities.Searches.SearchClickStat> SearchClickStats { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Products.ProductImageSignature> ProductImageSignatures { get; set; } = null!;
+    public DbSet<Fratak_Shop.Data.Entities.Marketing.PriceMatchRequest> PriceMatchRequests { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

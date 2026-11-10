@@ -59,6 +59,12 @@ public enum ProductSortBy
     MostViewed = 6,
     BestSelling = 7,
     MostDiscounted = 8,
+
+    /// <summary>
+    /// دور ۲۴ (رتبه‌بندی یادگیرنده): مرتبط‌ترین؛ کالاهایی که مشتری‌ها بعد از همین جست‌وجو بیشتر رویشان کلیک کرده‌اند بالاتر،
+    /// بعد کالاهای موجود و پرفروش. بدون <see cref="ProductFilterParams.LearnedQuery"/> مثل پرفروش‌ترین رفتار می‌کند.
+    /// </summary>
+    Relevance = 9,
 }
 
 /// <summary>
@@ -108,6 +114,12 @@ public class ProductFilterParams : BaseFilterParam
 
     /// <summary>Specification filters: feature key → accepted values (see ProductFilterAttribute).</summary>
     public Dictionary<string, List<string>> Specifications { get; set; } = [];
+
+    /// <summary>
+    /// دور ۲۴: عبارت نرمال‌شدهٔ جست‌وجو برای مرتب‌سازی <see cref="ProductSortBy.Relevance"/> (از جدول SearchClickStats).
+    /// مثال: «هدفون بی سیم». خالی = بدون یادگیری.
+    /// </summary>
+    public string? LearnedQuery { get; set; }
 }
 
 /// <summary>A filterable specification for the facet query.</summary>

@@ -1,5 +1,8 @@
 @model Fratak_Shop.Web.ViewComponents.HeaderViewModel
+@inject Fratak_Shop.Core.Services.Smart.ISmartConfigService SmartConfig
 @{
+    // دور ۲۴: دکمهٔ دوربین (جست‌وجو با عکس) فقط وقتی قابلیت روشن است؛ میکروفون را commerce.js فقط در مرورگرهای پشتیبان نشان می‌دهد.
+    var imageSearchOn = (await SmartConfig.GetAsync()).ImageSearch;
     var cart = Model.Cart;
     var cartItems = cart?.Items ?? [];
     var siteName = Site.Settings.SiteName;
@@ -149,6 +152,13 @@
             </button>
             <form method="get" action="/search" role="search" data-search-suggest data-suggest-up class="items-center hidden group-hover:flex group-focus-within:flex rounded-xl p-3 justify-between bg-gray-100 absolute -top-14 -left-10 w-80 mx-auto border">
               <input class="text-base text-gray-700 flex-grow outline-none bg-gray-100" type="search" name="q" value="@Model.SearchQuery" aria-label="جستجو" placeholder="نام محصول را وارد کنید" autocomplete="off" maxlength="100" />
+              <span class="flex items-center gap-1 ml-11">
+                <button type="button" data-voice-search class="hidden size-8 rounded-lg items-center justify-center hover:bg-sky-100" aria-label="جست‌وجوی صوتی" title="جست‌وجوی صوتی">@Icons.Svg("Microphone", "fill-zinc-600 size-5", 20)</button>
+                @if (imageSearchOn)
+                {
+                  <button type="button" data-image-search class="size-8 rounded-lg flex items-center justify-center hover:bg-sky-100" aria-label="جست‌وجو با عکس" title="جست‌وجو با عکس">@Icons.Svg("Camera", "fill-zinc-600 size-5", 20)</button>
+                }
+              </span>
               <button type="submit" aria-label="جستجو" class="absolute left-1 bg-sky-500 hover:bg-sky-600 transition rounded-xl h-10 w-10">
                 <svg class="fill-white mx-auto" xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="" viewBox="0 0 256 256"><path d="M192,112a80,80,0,1,1-80-80A80,80,0,0,1,192,112Z" opacity="0.2"></path><path d="M229.66,218.34,179.6,168.28a88.21,88.21,0,1,0-11.32,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"></path></svg>
               </button>
@@ -176,6 +186,13 @@
       <div class="md:w-5/12 lg:w-4/12 hidden md:block">
         <form method="get" action="/search" role="search" data-search-suggest class="items-center rounded-xl p-3 justify-between flex bg-gray-100 relative">
           <input class="text-base text-gray-700 flex-grow outline-none bg-gray-100" type="search" name="q" value="@Model.SearchQuery" aria-label="جستجو" placeholder="نام محصول را وارد کنید" autocomplete="off" maxlength="100" />
+          <span class="flex items-center gap-1 ml-11">
+            <button type="button" data-voice-search class="hidden size-8 rounded-lg items-center justify-center hover:bg-sky-100" aria-label="جست‌وجوی صوتی" title="جست‌وجوی صوتی">@Icons.Svg("Microphone", "fill-zinc-600 size-5", 20)</button>
+            @if (imageSearchOn)
+            {
+              <button type="button" data-image-search class="size-8 rounded-lg flex items-center justify-center hover:bg-sky-100" aria-label="جست‌وجو با عکس" title="جست‌وجو با عکس">@Icons.Svg("Camera", "fill-zinc-600 size-5", 20)</button>
+            }
+          </span>
           <button type="submit" aria-label="جستجو" class="absolute left-1 bg-sky-500 hover:bg-sky-600 transition rounded-xl h-10 w-10 p-1">
             <img class="" src="~/assets/image/search.webp" alt="جستجو">
           </button>

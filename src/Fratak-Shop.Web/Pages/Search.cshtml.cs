@@ -219,6 +219,17 @@ public class SearchModel(
                 Query = Query[..100];
             filter.Search = Query;
             filter.SearchTermGroups = await insights.ExpandAsync(Query); // synonyms
+            // دور ۲۴ (رتبه‌بندی یادگیرنده): جست‌وجوی متنی بدون انتخاب ترتیب ← «مرتبط‌ترین» (کالاهایی که مشتری‌ها بعد از همین عبارت
+            // بیشتر رویشان کلیک کرده‌اند بالاتر). ترتیبی که خود مشتری انتخاب کند همیشه مقدم است.
+            if (!Request.Query.ContainsKey("sort"))
+                Sort = ProductSortBy.Relevance;
+            filter.SortBy = Sort;
+            filter.LearnedQuery = Fratak_Shop.Core.Services.Searches.SearchLearning.Key(Query);
+        }
+        else if (Sort == ProductSortBy.Relevance)
+        {
+            // «مرتبط‌ترین» بدون عبارت معنایی ندارد ← همان پرفروش‌ترین (Relevance بدون LearnedQuery).
+            filter.SortBy = ProductSortBy.Relevance;
         }
 
         Result = await productService.GetProductByFilterAsync(filter);

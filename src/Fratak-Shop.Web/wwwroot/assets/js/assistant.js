@@ -697,6 +697,16 @@
     ask(value);
   });
 
+  // دور ۲۴: دکمه‌های صفحه که مستقیم از دستیار می‌پرسند. مثال (صفحهٔ دسته):
+  // <button data-assistant-ask="کمکم کن انتخاب کنم" data-assistant-flow="finder:headphone">  ← کالایاب همان دسته باز می‌شود.
+  document.addEventListener("click", function (event) {
+    var trigger = event.target.closest ? event.target.closest("[data-assistant-ask]") : null;
+    if (!trigger) return;
+    event.preventDefault();
+    if (panel.hidden) open();
+    ask(trigger.getAttribute("data-assistant-ask"), null, trigger.getAttribute("data-assistant-flow"));
+  });
+
   // ── شروع ────────────────────────────────────────────────────
   if (read(HANDOFF_KEY, false, "local")) { banner.hidden = false; scheduleHandoff(1500); }
   // قدم‌های راهنمای ناتمام صفحهٔ قبل (مثلاً بعد از «برو به سبد») ادامه پیدا می‌کنند.

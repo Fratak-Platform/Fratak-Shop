@@ -91,7 +91,9 @@ public static class AdminNav
             new AdminNavItem("ارسال اعلان", "/admin/notifications", "Megaphone", [P.NotificationsSend]),
             new AdminNavItem("قالب‌های پیام رویدادها", "/admin/notifications/templates", "Bell", [P.NotificationsSend, P.SettingsManage]),
             new AdminNavItem("پیام‌های آماده", "/admin/ready-messages", "ChatCenteredText", [P.NotificationsSend, P.TicketsManage, P.CommentsModerate, P.MessagesManage, P.OrdersManage]),
-            new AdminNavItem("سبدهای رهاشده", "/admin/abandoned-carts", "CartFull", [P.MarketingManage])),
+            new AdminNavItem("سبدهای رهاشده", "/admin/abandoned-carts", "CartFull", [P.MarketingManage]),
+            // دور ۲۴ (پیشنهاد ۱۱): درخواست‌های «قیمت کمتر دیدید؟».
+            new AdminNavItem("تضمین قیمت", "/admin/marketing/price-match", "Tag", [P.MarketingManage])),
         new("پشتیبانی",
             new AdminNavItem("تیکت‌ها", "/admin/tickets", "Lifebuoy", [P.TicketsManage], "tickets"),
             new AdminNavItem("پیام‌های تماس", "/admin/messages", "Envelope", [P.MessagesManage], "messages")),

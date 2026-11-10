@@ -315,6 +315,8 @@ app.MapPwaEndpoints();
 app.MapStorefrontApi();
 Fratak_Shop.Web.Infrastructure.Marketing.BannerEndpoints.MapBannerEndpoints(app);
 Fratak_Shop.Web.Infrastructure.Assistant.AssistantEndpoints.MapAssistantEndpoints(app);
+// دور ۲۴ (بستهٔ B): تجربهٔ خرید – کلیک جست‌وجو، جست‌وجو با عکس، نمایش سریع، آمار خرید، سینی مقایسه، تضمین قیمت.
+Fratak_Shop.Web.Infrastructure.Commerce.CommerceEndpoints.MapCommerceEndpoints(app);
 Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoints(app);
 app.MapMediaEndpoints();
 Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Map(app);

@@ -56,6 +56,8 @@ public static class RateLimitingSetup
         var path = request.Path;
         if (HttpMethods.IsPost(request.Method) && CredentialPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)))
             return "ورود/ثبت‌نام: ۱۰ درخواست در دقیقه برای هر IP";
+        if (path.StartsWithSegments("/api/search/image", StringComparison.OrdinalIgnoreCase))
+            return "جست‌وجو با عکس: ۱۰ در دقیقه";
         if (path.StartsWithSegments("/api/search", StringComparison.OrdinalIgnoreCase))
             return "جست‌وجو: ۱۲۰ در دقیقه";
         if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
@@ -75,6 +77,10 @@ public static class RateLimitingSetup
 
         if (HttpMethods.IsPost(request.Method) && CredentialPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)))
             return Window("auth:" + key, 10, TimeSpan.FromMinutes(1));
+
+        // دور ۲۴: جست‌وجو با عکس پردازش تصویر دارد؛ بودجهٔ جدا و کوچک (۱۰ در دقیقه).
+        if (path.StartsWithSegments("/api/search/image", StringComparison.OrdinalIgnoreCase))
+            return Window("imgsearch:" + key, 10, TimeSpan.FromMinutes(1));
 
         // Typing in the search box sends a request per pause: a larger, separate budget.
         if (path.StartsWithSegments("/api/search", StringComparison.OrdinalIgnoreCase))

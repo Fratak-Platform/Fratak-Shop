@@ -1,5 +1,8 @@
 @model ProductFilterData
-<a href="/product/@Model.Slug" class="relative my-2 p-2 md:p-3 bg-white rounded-xl group shadow-lg border border-zinc-200 block">
+@* دور ۲۴: کارت داخل یک ظرف است تا دکمه‌های «نمایش سریع» و «مقایسه» (پیشنهاد ۳۱ و ۳۲) کنار پیوند باشند، نه داخل آن
+   (دکمه داخل پیوند HTML نامعتبر است). data-product-id برای ثبت کلیک جست‌وجو (رتبه‌بندی یادگیرنده) هم استفاده می‌شود. رفتار: assets/js/commerce.js *@
+<div class="relative group" data-product-id="@Model.Id">
+<a href="/product/@Model.Slug" class="relative my-2 p-2 md:p-3 bg-white rounded-xl shadow-lg border border-zinc-200 block">
   @if (Model.DiscountPercent > 0)
   {
     <span class="absolute right-3 top-3 bg-red-500 text-white rounded-full text-xs px-2 py-1 z-10">@Model.DiscountPercent%</span>
@@ -38,3 +41,8 @@
     </div>
   </div>
 </a>
+<div class="absolute left-3 top-16 z-10 flex flex-col gap-1 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+  <button type="button" class="size-8 rounded-full bg-white/90 border border-zinc-200 shadow flex items-center justify-center hover:border-sky-400" data-quick-view="@Model.Id" aria-label="نمایش سریع @Model.Name" title="نمایش سریع">@Icons.Svg("Eye", "fill-zinc-700 size-4", 16)</button>
+  <button type="button" class="size-8 rounded-full bg-white/90 border border-zinc-200 shadow flex items-center justify-center hover:border-sky-400" data-compare-add="@Model.Id" aria-label="افزودن @Model.Name به مقایسه" title="افزودن به مقایسه">@Icons.Svg("Scales", "fill-zinc-700 size-4", 16)</button>
+</div>
+</div>

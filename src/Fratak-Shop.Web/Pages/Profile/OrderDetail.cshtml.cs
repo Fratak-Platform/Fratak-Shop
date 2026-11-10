@@ -16,7 +16,9 @@ public class OrderDetailModel(
     ISiteContext site,
     IOrderMessageService messageService,
     IOrderSlaService slaService,
-    IShipmentTrackingService shipmentService) : ShopPageModel
+    IShipmentTrackingService shipmentService,
+    Fratak_Shop.Core.Services.Shopping.IReorderService reorderService,
+    ICartSessionService cartSession) : ShopPageModel
 {
     /// <summary>رهگیری مرسوله (شرکت حمل و رویدادهای سامانهٔ پست) برای کارت «پیگیری مرسوله»؛ ثبت‌نشده ← null.</summary>
     public ShipmentTimelineDto? Shipment { get; private set; }
@@ -52,6 +54,38 @@ public class OrderDetailModel(
                           && OrderRules.IsPayable(Order.Status, Order.PaymentMethod, Order.PaymentStatus, Order.PaymentDeadline, DateTimeOffset.UtcNow);
 
     public bool WillRefundToWallet => Order.PaymentStatus == PaymentStatus.Paid;
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۷): دکمهٔ «سفارش دوباره» برای سفارش‌هایی که دست‌کم یک کالای قابل شناسایی دارند
+    /// (سفارش لغوشده هم مجاز است؛ مشتری شاید همان را دوباره بخواهد).
+    /// </summary>
+    public bool CanReorder => Order.Items.Any(i => i.ProductId.HasValue);
+
+    /// <summary>
+    /// دور ۲۴: «سفارش دوباره» – کالاهای موجود این سفارش (با قیمت امروز) به سبد خرید اضافه و مشتری به سبد برده می‌شود.
+    /// سفارش دیگران ← 404. مثال: POST /profile/orders/FS-1001?handler=Reorder ← 302 به /cart با پیام «۲ کالا به سبد خرید اضافه شد.»
+    /// </summary>
+    public async Task<IActionResult> OnPostReorderAsync(string orderNumber)
+    {
+        if (CurrentUserId is not { } userId)
+            return Challenge();
+        var cart = await cartSession.GetOrCreateCartAsync();
+        if (cart is null)
+        {
+            ErrorMessage = "سبد خرید در دسترس نیست؛ دوباره امتحان کنید.";
+            return RedirectToPage(new { orderNumber });
+        }
+        var result = await reorderService.ReorderAsync(userId, orderNumber, cart.Id, HttpContext.RequestAborted);
+        if (!result.IsSuccess())
+            return NotFound();
+        if (result.Data.Added == 0)
+        {
+            ErrorMessage = result.Data.Message;
+            return RedirectToPage(new { orderNumber });
+        }
+        SuccessMessage = result.Data.Message;
+        return LocalRedirect("/cart");
+    }
 
     [BindProperty]
     [MaxLength(500, ErrorMessage = "دلیل لغو حداکثر ۵۰۰ کاراکتر است.")]

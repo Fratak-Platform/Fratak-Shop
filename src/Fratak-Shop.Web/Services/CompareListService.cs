@@ -21,6 +21,13 @@ public class CompareListService(IHttpContextAccessor httpContextAccessor) : ICom
 {
     private const string CookieName = ".Fratak.Compare";
 
+    /// <summary>
+    /// دور ۲۴ (سینی مقایسه): کوکی خواندنی برای جاوااسکریپت که فقط «تعداد» کالاهای مقایسه را دارد (مثلاً «2»).
+    /// commerce.js فقط وقتی این عدد بیشتر از صفر است /api/compare را صدا می‌زند؛ پس صفحه‌های کش‌شده درخواست اضافه نمی‌فرستند.
+    /// شناسهٔ کالاها همچنان فقط در کوکی HttpOnly است.
+    /// </summary>
+    public const string CountCookieName = "fr_cmp";
+
     public IReadOnlyList<Guid> GetProductIds()
     {
         var raw = httpContextAccessor.HttpContext?.Request.Cookies[CookieName];
@@ -67,8 +74,18 @@ public class CompareListService(IHttpContextAccessor httpContextAccessor) : ICom
         if (ids.Count == 0)
         {
             context.Response.Cookies.Delete(CookieName);
+            context.Response.Cookies.Delete(CountCookieName);
             return;
         }
+
+        context.Response.Cookies.Append(CountCookieName, ids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture), new CookieOptions
+        {
+            HttpOnly = false,
+            IsEssential = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = context.Request.IsHttps,
+            Expires = DateTimeOffset.UtcNow.AddDays(7),
+        });
 
         context.Response.Cookies.Append(CookieName, string.Join('.', ids.Select(id => id.ToString("N"))), new CookieOptions
         {
