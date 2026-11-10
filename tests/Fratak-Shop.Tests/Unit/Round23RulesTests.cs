@@ -285,6 +285,46 @@ public class Round23RulesTests
     }
 
     [Fact]
+    public void Instagram_caption_uses_only_real_data_and_real_discount()
+    {
+        var product = new Fratak_Shop.Core.Services.Marketing.InstagramProduct("هدفون سونی WH-1000XM5", "سونی", "هدفون بی‌سیم", 12_900_000m, 14_500_000m, true,
+            new[] { ("نوع اتصال", "بلوتوث ۵٫۲"), ("عمر باتری", "۳۰ ساعت"), ("وزن", "۲۵۰ گرم"), ("رنگ", "مشکی") }, "https://shop.fratak.ir/product/x");
+        var caption = Fratak_Shop.Core.Services.Marketing.InstagramCaption.Build(product, "فراتک");
+
+        Assert.Contains("هدفون سونی WH-1000XM5", caption);
+        Assert.Contains("۱۱٪ تخفیف", caption);                // (14.5 - 12.9) / 14.5 = 11.03٪ ← رو به پایین
+        Assert.Contains("۱۲٬۹۰۰٬۰۰۰ تومان", caption);
+        Assert.Contains("عمر باتری: ۳۰ ساعت", caption);
+        Assert.DoesNotContain("رنگ: مشکی", caption);          // فقط ۳ مشخصهٔ اول
+        Assert.Contains("#هدفون_بی_سیم", caption);
+        Assert.Contains("#فراتک", caption);
+        Assert.DoesNotContain("فقط امروز", caption);
+        Assert.True(caption.Length <= Fratak_Shop.Core.Services.Marketing.InstagramCaption.MaxLength);
+    }
+
+    [Fact]
+    public void Instagram_caption_for_out_of_stock_or_fake_discount_makes_no_price_claim()
+    {
+        var oos = new Fratak_Shop.Core.Services.Marketing.InstagramProduct("کتری برقی", null, null, 900_000m, 1_200_000m, false,
+            Array.Empty<(string, string)>(), "/product/k");
+        var text = Fratak_Shop.Core.Services.Marketing.InstagramCaption.Build(oos, "فراتک");
+        Assert.DoesNotContain("تومان", text);
+        Assert.DoesNotContain("تخفیف", text);
+        Assert.Contains("خبرم کن", text);
+
+        // «قیمت قبلی» کمتر از قیمت فعلی = تخفیف ساختگی ← اصلاً تخفیف نمی‌آید.
+        var fake = oos with { InStock = true, OldPrice = 800_000m };
+        Assert.DoesNotContain("تخفیف", Fratak_Shop.Core.Services.Marketing.InstagramCaption.Build(fake, "فراتک"));
+
+        // متن بلند و حمله‌ای: تگ HTML پاک می‌شود، واژهٔ خیلی بلند هشتگ نمی‌شود و سقف طول رعایت می‌شود.
+        var attack = oos with { Name = "<script>alert(1)</script>#hack " + new string('ا', 5000), InStock = true };
+        var safe = Fratak_Shop.Core.Services.Marketing.InstagramCaption.Build(attack, "فراتک");
+        Assert.DoesNotContain("<script>", safe);
+        Assert.True(safe.Length <= Fratak_Shop.Core.Services.Marketing.InstagramCaption.MaxLength);
+        Assert.True(Fratak_Shop.Core.Services.Marketing.InstagramCaption.Hashtags(attack, "فراتک").Count <= Fratak_Shop.Core.Services.Marketing.InstagramCaption.MaxHashtags);
+    }
+
+    [Fact]
     public void Arabic_letters_in_names_become_persian()
     {
         Assert.Equal("کیف علی", Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters("\u0643\u064Aف عل\u0649"));
