@@ -187,11 +187,11 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
         {
             var first = group.First();
             Guid? generalId = null;
-            if (first.General is { } general)
+            if (first.General is { } level)
             {
-                var parent = general.Parent is null ? null : targets.FirstOrDefault(t => CategoryNames.Same(general.Parent, t.Name, t.Slug))?.Id;
-                generalId = targets.FirstOrDefault(t => CategoryNames.Same(general.Name, t.Name, t.Slug))?.Id
-                            ?? (await NewCategoryAsync(created, general.Name, null, parent, group.Any(x => x.Product.IsActive), cancellationToken)).Id;
+                var parent = level.Parent is null ? null : targets.FirstOrDefault(t => CategoryNames.Same(level.Parent, t.Name, t.Slug))?.Id;
+                generalId = targets.FirstOrDefault(t => CategoryNames.Same(level.Name, t.Name, t.Slug))?.Id
+                            ?? (await NewCategoryAsync(created, level.Name, null, parent, group.Any(x => x.Product.IsActive), cancellationToken)).Id;
             }
             var exactLeaf = first.Leaf is not null && (first.General is null || !CategoryNames.Same(first.Leaf, first.General.Value.Name));
             Guid targetId;

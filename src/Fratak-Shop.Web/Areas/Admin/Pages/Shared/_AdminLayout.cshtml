@@ -85,6 +85,10 @@
         </a>
         <button type="button" class="a-icon-btn lg:hidden" data-sidebar-close aria-label="بستن منو">@Icons.Svg("Close", null, 20)</button>
       </div>
+      @* دور ۲۳: جست‌وجوی منو (بدون بارگذاری صفحه؛ admin-nav.js) – با تایپ «سفارش» فقط لینک‌های مرتبط می‌مانند. *@
+      <div class="a-nav-search">
+        <input type="search" class="a-input a-input-sm" placeholder="جست‌وجو در منو…" aria-label="جست‌وجو در منو" data-nav-search autocomplete="off">
+      </div>
       <nav class="a-nav" aria-label="منوی مدیریت">
         @if (pins.Count > 0)
         {
@@ -101,23 +105,45 @@
         {
           var items = access is null ? Array.Empty<AdminNavItem>() : group.Items.Where(i => i.IsVisible(access)).ToArray();
           if (items.Length == 0) { continue; }
-          if (!string.IsNullOrEmpty(group.Title))
+          // دور ۲۳: گروه‌های تاشو؛ گروه صفحهٔ فعلی همیشه باز است و بقیه طبق انتخاب قبلی کارمند (localStorage) باز/بسته می‌شوند.
+          var hasActive = items.Any(i => i.Url == activeUrl);
+          var groupBadges = items.Sum(i => i.BadgeKey is not null && badges.TryGetValue(i.BadgeKey, out var gc) ? gc : 0);
+          if (string.IsNullOrEmpty(group.Title))
           {
-            <div class="a-nav-group">@group.Title</div>
-          }
-          foreach (var item in items)
-          {
-            var count = item.BadgeKey is not null && badges.TryGetValue(item.BadgeKey, out var c) ? c : 0;
-            <a href="@item.Url" class="a-nav-link @(item.Url == activeUrl ? "is-active" : "")" @(item.Url == activeUrl ? "aria-current=page" : "")>
-              @Icons.Svg(item.Icon, "shrink-0", 20)
-              <span class="flex-1">@item.Title</span>
-              @if (count > 0)
+            <div class="a-nav-sec" data-nav-sec>
+              @foreach (var item in items)
               {
-                <span class="a-nav-badge">@(count > 99 ? "99+" : count.ToString())</span>
+                var count = item.BadgeKey is not null && badges.TryGetValue(item.BadgeKey, out var c0) ? c0 : 0;
+                <a href="@item.Url" class="a-nav-link @(item.Url == activeUrl ? "is-active" : "")" @(item.Url == activeUrl ? "aria-current=page" : "")>
+                  @Icons.Svg(item.Icon, "shrink-0", 20)
+                  <span class="flex-1">@item.Title</span>
+                  @if (count > 0) { <span class="a-nav-badge">@(count > 99 ? "99+" : count.ToString())</span> }
+                </a>
               }
-            </a>
+            </div>
+            continue;
           }
+          <details class="a-nav-sec" data-nav-sec data-nav-group="@group.Title" open="@hasActive" data-nav-active="@(hasActive ? "1" : null)">
+            <summary class="a-nav-group">
+              <span class="flex-1">@group.Title</span>
+              @if (groupBadges > 0) { <span class="a-nav-badge" data-nav-sum>@(groupBadges > 99 ? "99+" : groupBadges.ToString())</span> }
+              @Icons.Svg("CaretDown", "a-nav-caret", 14)
+            </summary>
+            @foreach (var item in items)
+            {
+              var count = item.BadgeKey is not null && badges.TryGetValue(item.BadgeKey, out var c) ? c : 0;
+              <a href="@item.Url" class="a-nav-link @(item.Url == activeUrl ? "is-active" : "")" @(item.Url == activeUrl ? "aria-current=page" : "")>
+                @Icons.Svg(item.Icon, "shrink-0", 20)
+                <span class="flex-1">@item.Title</span>
+                @if (count > 0)
+                {
+                  <span class="a-nav-badge">@(count > 99 ? "99+" : count.ToString())</span>
+                }
+              </a>
+            }
+          </details>
         }
+        <p class="a-nav-empty" data-nav-empty hidden>چیزی پیدا نشد.</p>
       </nav>
       <div class="a-sidebar-foot">
         <a href="/" class="a-nav-link" target="_blank" rel="noopener">@Icons.Svg("ArrowSquareOut", "shrink-0", 20)<span>مشاهده فروشگاه</span></a>
@@ -277,6 +303,7 @@
   <script src="~/assets/js/live.js" asp-append-version="true"></script>
   <script src="~/assets/js/fa-inputs.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-ux.js" asp-append-version="true"></script>
+  <script src="~/assets/js/admin-nav.js" asp-append-version="true"></script>
   <script src="~/assets/js/editor.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-tables.js" asp-append-version="true"></script>
   <script src="~/assets/js/admin-edit.js" asp-append-version="true"></script>
