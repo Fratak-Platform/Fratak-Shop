@@ -216,7 +216,18 @@ public sealed class ShopApp : IAsyncLifetime
         return null;
     }
 
-    public static string NewPhone() => "0935" + Random.Shared.Next(1_000_000, 9_999_999).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    private static readonly int PhoneSeed = Random.Shared.Next(0, 8_999_999);
+    private static int _phoneCounter;
+
+    /// <summary>
+    /// شمارهٔ موبایل تازه و یکتا در کل اجرای آزمون‌ها (شروع تصادفی + شمارنده)؛ عدد کاملاً تصادفی گاهی تکراری می‌شد
+    /// و آزمونی مثل «ثبت‌نام نامعتبر حساب نمی‌سازد» حساب آزمون دیگری را می‌دید.
+    /// </summary>
+    public static string NewPhone()
+    {
+        var number = 1_000_000 + (PhoneSeed + Interlocked.Increment(ref _phoneCounter)) % 9_000_000;
+        return "0935" + number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
 
     private sealed class Factory(ShopApp app, string connection) : WebApplicationFactory<Program>
     {
