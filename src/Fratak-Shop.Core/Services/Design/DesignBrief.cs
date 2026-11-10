@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using Fratak_Shop.Data.Entities.Marketing;
 
 namespace Fratak_Shop.Core.Services.Design;
 
@@ -28,7 +29,21 @@ public sealed record BriefBrand(Guid Id, string Name, string? EnglishName, strin
 /// <summary>
 /// خواستهٔ خوانده‌شده از متن کوتاه. مثال: «تخفیف هدفون یلدا ۲۰٪» ← Kind=Occasion، Occasion=yalda، Percent=20، Deal=true.
 /// </summary>
-public sealed record BriefIntent(BriefKind Kind, string? Occasion, int? Percent, bool Deal, string Normalized);
+public sealed record BriefIntent(BriefKind Kind, string? Occasion, int? Percent, bool Deal, string Normalized)
+{
+    /// <summary>دور ۲۴: ضریب امتیاز خواسته‌شده (مثلاً «امتیاز دوبرابر» ← ۲)؛ عدد خام، سقف را <see cref="DesignBrief.Offer"/> اعمال می‌کند.</summary>
+    public int? PointsMultiplier { get; init; }
+
+    /// <summary>دور ۲۴: کالایی که مدیر از فهرست «انتخاب کالا» برگزیده (بر تطبیق متن مقدم است).</summary>
+    public Guid? ProductId { get; init; }
+}
+
+/// <summary>
+/// دور ۲۴: «قاعدهٔ واقعی» که باید پشت بنر ساخته شود (پیش‌نویس، با انتشار بنر فعال می‌شود).
+/// مثال: «۲۰٪ تخفیف هدفون با امتیاز دوبرابر» ← Percent=20، Points=2، Scope=Category(هدفون)، Code=«CMP7K2QX».
+/// <para>ExistingDiscount: تخفیف واقعی فعلی کالای مشخص (فقط دامنهٔ Product)؛ کوپن طوری حساب می‌شود که جمع دو تخفیف دست‌کم Percent شود.</para>
+/// </summary>
+public sealed record BriefOffer(int? Percent, int? Points, CampaignOfferScope Scope, Guid? ScopeId, string? ScopeName, string? Code = null, int ExistingDiscount = 0);
 
 /// <summary>دادهٔ واقعی مرتبط با ایده (از پایگاه داده؛ DesignService.BriefDataAsync).</summary>
 public sealed record BriefData(IReadOnlyList<IdeaProduct> Products, BriefCategory? Category, BriefBrand? Brand, string SiteName);
@@ -37,7 +52,14 @@ public sealed record BriefData(IReadOnlyList<IdeaProduct> Products, BriefCategor
 /// برنامهٔ کامل بنر: تیتر، متن، نشان (فقط تخفیف واقعی)، دکمه، لینک، کالای اصلی و هشدارها (مثال: «۵۰٪ گفته بودید ولی بیشترین تخفیف واقعی ۲۰٪ است»).
 /// </summary>
 public sealed record BriefPlan(BriefKind Kind, string Title, string Headline, string? Subline, string? Badge, string ButtonText, string LinkUrl,
-    IdeaProduct? Hero, IReadOnlyList<IdeaProduct> Products, string Palette, IReadOnlyList<string> Warnings, string? Occasion, DateTimeOffset? ExpiresAt);
+    IdeaProduct? Hero, IReadOnlyList<IdeaProduct> Products, string Palette, IReadOnlyList<string> Warnings, string? Occasion, DateTimeOffset? ExpiresAt)
+{
+    /// <summary>دور ۲۴: بیشترین تخفیف واقعی کالاهای موجودِ دامنه (برای تصمیم «قاعدهٔ تازه لازم است یا نه»).</summary>
+    public int MaxDiscount { get; init; }
+
+    /// <summary>دور ۲۴: قاعدهٔ پیش‌نویسی که این برنامه با آن ساخته شد (null = فقط دادهٔ واقعی فعلی).</summary>
+    public BriefOffer? Offer { get; init; }
+}
 
 /// <summary>
 /// «ایده ← طرح» بدون هوش مصنوعی (دور ۲۳): مدیر یک جملهٔ کوتاه می‌نویسد (مثل «حراج هدفون برای یلدا» یا «کارت هدیه»)
@@ -71,6 +93,40 @@ public static class DesignBrief
     ];
 
     private static readonly Regex PercentPattern = new(@"(?<!\d)(\d{1,2})\s*(?:%|٪|درصد)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>دور ۲۴: «۲ برابر»، «x3»، «×۲» (ارقام پیش‌تر لاتین شده‌اند).</summary>
+    private static readonly Regex MultiplierPattern = new(@"(?<!\d)(\d{1,2})\s*(?:برابر|x|×)|(?<![a-z])(?:x|×)\s*(\d{1,2})(?!\d)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly (string Word, int Value)[] MultiplierWords =
+    [
+        ("دوبرابر", 2), ("دو برابر", 2), ("دوبل", 2), ("سه برابر", 3), ("سهبرابر", 3), ("چهار برابر", 4), ("پنج برابر", 5),
+    ];
+
+    /// <summary>دور ۲۴: بیشترین درصد تخفیف کمپین (بیشتر از این ← همین عدد با هشدار).</summary>
+    public const int MaxOfferPercent = 50;
+
+    /// <summary>دور ۲۴: بیشترین ضریب امتیاز کمپین.</summary>
+    public const int MaxPointsMultiplier = 5;
+
+    /// <summary>
+    /// دور ۲۴: ضریب امتیاز خواسته‌شده در متن (فقط وقتی «امتیاز» آمده باشد). مثال‌ها: «امتیاز دوبرابر» ← ۲، «۳ برابر امتیاز» ← ۳، «امتیاز x4» ← ۴،
+    /// «امتیاز ۱۰ برابر» ← ۱۰ (سقف بعداً)، «هدفون x2» ← null (بدون واژهٔ امتیاز).
+    /// </summary>
+    public static int? ParseMultiplier(string normalized)
+    {
+        if (!ContainsAny(normalized, "امتیاز", "point"))
+            return null;
+        foreach (var (word, value) in MultiplierWords)
+        {
+            if (normalized.Contains(word, StringComparison.Ordinal))
+                return value;
+        }
+        var match = MultiplierPattern.Match(normalized);
+        if (!match.Success)
+            return null;
+        var digits = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+        return int.TryParse(digits, CultureInfo.InvariantCulture, out var n) && n >= 2 ? n : null;
+    }
 
     /// <summary>
     /// یکسان‌سازی متن برای تطبیق: ی/ک عربی ← فارسی، ارقام فارسی/عربی ← لاتین، نیم‌فاصله ← فاصله، حروف کوچک، فاصلهٔ تکراری حذف.
@@ -110,11 +166,13 @@ public static class DesignBrief
             : null;
         var deal = percent is not null || ContainsAny(normalized, "تخفیف", "حراج", "ارزان", "شگفت", "آف ", "sale", "off");
         var occasion = Occasions.FirstOrDefault(o => o.Words.Any(w => ContainsWord(normalized, Normalize(w)))).Key;
+        var multiplier = ParseMultiplier(normalized);
 
         BriefKind kind;
-        if (ContainsAny(normalized, "کارت هدیه", "گیفت کارت", "gift card", "giftcard"))
+        if (ContainsAny(normalized, "کارت هدیه", "گیفت کارت", "گیفت‌کارت", "gift card", "giftcard"))
             kind = BriefKind.GiftCard;
-        else if (ContainsAny(normalized, "باشگاه", "امتیاز", "club"))
+        // دور ۲۴: «امتیاز دوبرابر» یک کمپین خرید است نه معرفی باشگاه؛ فقط «باشگاه» یا «امتیاز» بدون ضریب ← بنر باشگاه.
+        else if (ContainsAny(normalized, "باشگاه", "club") || (multiplier is null && ContainsAny(normalized, "امتیاز")))
             kind = BriefKind.Club;
         else if (ContainsAny(normalized, "مقاله", "بلاگ", "وبلاگ", "راهنمای خرید", "blog"))
             kind = BriefKind.Blog;
@@ -126,7 +184,52 @@ public static class DesignBrief
             kind = BriefKind.Campaign;
         else
             kind = BriefKind.General;
-        return new BriefIntent(kind, occasion, percent, deal, normalized);
+        return new BriefIntent(kind, occasion, percent, deal, normalized) { PointsMultiplier = multiplier };
+    }
+
+    /// <summary>
+    /// دور ۲۴: آیا برای راست بودن ادعای بنر یک «قاعدهٔ واقعی» تازه لازم است؟ (تابع خالص؛ کد را سازنده می‌دهد.)
+    /// <list type="bullet">
+    /// <item>درصد گفته‌شده بیشتر از بیشترین تخفیف واقعی دامنه ← کد تخفیف تازه با همان درصد (سقف ۵۰٪، با هشدار).
+    /// اگر تخفیف واقعی فعلی کافی باشد قاعدهٔ تازه ساخته نمی‌شود (تخفیف روی تخفیف = ضرر).</item>
+    /// <item>ضریب امتیاز (۲ تا ۵ برابر) ← قاعدهٔ امتیاز برای خریدهای همان دامنه.</item>
+    /// <item>کارت هدیه و بلاگ قاعده ندارند؛ بنر باشگاه فقط ضریب امتیاز می‌گیرد.</item>
+    /// <item>دامنه: کالای مشخص ← Product؛ وگرنه دسته، برند، و در نبود هر دو کل فروشگاه.</item>
+    /// </list>
+    /// مثال: «۳۰٪ تخفیف هدفون» با بیشترین تخفیف واقعی ۱۰٪ ← (30، null، Category، id هدفون، «هدفون»).
+    /// </summary>
+    public static (BriefOffer? Offer, IReadOnlyList<string> Warnings) Offer(BriefIntent intent, BriefPlan plan, BriefData data)
+    {
+        var warnings = new List<string>();
+        if (plan.Kind is BriefKind.GiftCard or BriefKind.Blog)
+            return (null, warnings);
+        int? percent = null;
+        if (plan.Kind != BriefKind.Club && intent.Percent is { } asked && asked > plan.MaxDiscount)
+        {
+            percent = Math.Min(asked, MaxOfferPercent);
+            if (asked > MaxOfferPercent)
+                warnings.Add($"بیشترین تخفیف کمپین {DesignTemplates.FaDigits(MaxOfferPercent + "%")} است؛ همین عدد گذاشته شد.");
+        }
+        int? points = null;
+        if (intent.PointsMultiplier is { } wanted && wanted >= 2)
+        {
+            points = Math.Min(wanted, MaxPointsMultiplier);
+            if (wanted > MaxPointsMultiplier)
+                warnings.Add($"بیشترین ضریب امتیاز {DesignTemplates.FaDigits(MaxPointsMultiplier.ToString(CultureInfo.InvariantCulture))} برابر است؛ همین عدد گذاشته شد.");
+        }
+        if (percent is null && points is null)
+            return (null, warnings);
+
+        BriefOffer offer;
+        if (plan.Hero is { } hero && plan.Kind is BriefKind.Product or BriefKind.Deal && plan.LinkUrl.StartsWith("/product/", StringComparison.Ordinal))
+            offer = new BriefOffer(percent, points, CampaignOfferScope.Product, hero.Id, hero.Name, ExistingDiscount: hero.DiscountPercent);
+        else if (data.Category is { } category)
+            offer = new BriefOffer(percent, points, CampaignOfferScope.Category, category.Id, category.Name);
+        else if (data.Brand is { } brand)
+            offer = new BriefOffer(percent, points, CampaignOfferScope.Brand, brand.Id, brand.Name);
+        else
+            offer = new BriefOffer(percent, points, CampaignOfferScope.All, null, null);
+        return (offer, warnings);
     }
 
     /// <summary>
@@ -159,7 +262,9 @@ public static class DesignBrief
     /// ساخت برنامهٔ بنر از خواسته و دادهٔ واقعی. کالاها فقط موجود و دارای عکس. خروجی همیشه یک برنامهٔ قابل ساخت است
     /// (بدون داده ← بنر عمومی فروشگاه با لینک «همهٔ کالاها»).
     /// </summary>
-    public static BriefPlan Plan(string text, BriefIntent intent, BriefData data, DateTimeOffset now)
+    /// <param name="offer">دور ۲۴: قاعدهٔ پیش‌نویس (از <see cref="Offer"/> + کد). اگر باشد، نشان و متن بنر همان قاعده را می‌گوید
+    /// (مثلاً «۲۰٪ تخفیف» + «با کد CMP7K2QX») چون با انتشار بنر واقعی می‌شود.</param>
+    public static BriefPlan Plan(string text, BriefIntent intent, BriefData data, DateTimeOffset now, BriefOffer? offer = null)
     {
         var warnings = new List<string>();
         var products = data.Products.Where(p => p.Stock > 0 && p.FinalPrice > 0).ToList();
@@ -169,7 +274,18 @@ public static class DesignBrief
         var brand = data.Brand;
 
         // کالای مشخص: متن دست‌کم ۲ کلمهٔ معنادار از نام یک کالا را دارد.
-        var product = intent.Kind is BriefKind.General or BriefKind.Deal or BriefKind.Occasion ? MatchProduct(intent.Normalized, products) : null;
+        // دور ۲۴: کالای انتخاب‌شده از فهرست بر تطبیق متن مقدم است (اگر موجود نباشد هشدار).
+        IdeaProduct? product = null;
+        if (intent.ProductId is { } pickedId)
+        {
+            product = products.FirstOrDefault(p => p.Id == pickedId);
+            if (product is null)
+                warnings.Add("کالای انتخاب‌شده الان موجود نیست یا عکس ندارد؛ طرح بدون آن ساخته شد.");
+        }
+        else if (intent.Kind is BriefKind.General or BriefKind.Deal or BriefKind.Occasion)
+        {
+            product = MatchProduct(intent.Normalized, products);
+        }
         var kind = intent.Kind;
         if (kind == BriefKind.General)
             kind = product is not null ? BriefKind.Product : category is not null ? BriefKind.Category : brand is not null ? BriefKind.Brand : BriefKind.General;
@@ -177,7 +293,13 @@ public static class DesignBrief
         List<IdeaProduct> scope = product is not null && kind is BriefKind.Product or BriefKind.Deal ? new List<IdeaProduct> { product } : products;
         var maxDiscount = scope.Where(p => p.Stock >= 1).Select(p => p.DiscountPercent).DefaultIfEmpty(0).Max();
         string? badge = null;
-        if (intent.Deal || kind == BriefKind.Deal)
+        var offerPoints = offer?.Points is { } op ? DesignTemplates.FaDigits(op.ToString(CultureInfo.InvariantCulture)) : null;
+        if (offer?.Percent is { } offerPercent)
+        {
+            // قاعدهٔ کمپین با انتشار بنر فعال می‌شود ← ادعا راست است.
+            badge = $"{DesignTemplates.FaDigits(offerPercent + "%")} تخفیف";
+        }
+        else if (intent.Deal || kind == BriefKind.Deal)
         {
             if (maxDiscount >= 5)
             {
@@ -299,9 +421,33 @@ public static class DesignBrief
         if (hero is null && kind is not (BriefKind.Club or BriefKind.GiftCard or BriefKind.Blog))
             warnings.Add("کالای موجود با عکس برای این ایده پیدا نشد؛ طرح بدون عکس کالا ساخته شد.");
 
+        if (offer is not null)
+        {
+            // دور ۲۴: متن بنر قاعدهٔ کمپین را دقیق می‌گوید (کد تخفیف و ضریب امتیاز).
+            var parts = new List<string>();
+            if (offer.Percent is not null && !string.IsNullOrWhiteSpace(offer.Code))
+                parts.Add("با کد " + offer.Code);
+            if (offerPoints is not null)
+                parts.Add($"امتیاز باشگاه {offerPoints} برابر");
+            if (parts.Count > 0)
+                subline = string.Join("، ", parts);
+            badge ??= offerPoints is null ? null : $"امتیاز {offerPoints} برابر";
+            if (offer.Percent is not null && offer.Scope == CampaignOfferScope.All && link.StartsWith("/products?Discounted", StringComparison.Ordinal))
+                link = "/products";
+            warnings.Add(offer.Percent is not null && offerPoints is not null
+                ? "تخفیف و امتیاز کمپین به‌صورت پیش‌نویس ذخیره شد و فقط با انتشار بنر فعال می‌شود."
+                : offer.Percent is not null
+                    ? "کد تخفیف کمپین به‌صورت پیش‌نویس ذخیره شد و فقط با انتشار بنر فعال می‌شود."
+                    : "ضریب امتیاز کمپین به‌صورت پیش‌نویس ذخیره شد و فقط با انتشار بنر فعال می‌شود.");
+        }
+
         var shortTitle = DesignTemplates.Shorten(string.IsNullOrWhiteSpace(text) ? title : text.Trim(), 120);
         return new BriefPlan(kind, shortTitle, DesignTemplates.Shorten(headline, 60), subline is null ? null : DesignTemplates.Shorten(subline, 90), badge, button,
-            DesignService.SafeLink(link) ?? "/products", hero, top, palette, warnings, occasion.Key, expires);
+            DesignService.SafeLink(link) ?? "/products", hero, top, palette, warnings, occasion.Key, expires)
+        {
+            MaxDiscount = maxDiscount,
+            Offer = offer,
+        };
     }
 
     /// <summary>

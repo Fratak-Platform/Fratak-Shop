@@ -79,6 +79,8 @@ public static class CoreLayerBootstrapper
         // Engagement: coupons, customer club, notifications, menus, filters, recommendations.
         services.AddScoped<Services.Events.IShopEvents, Services.Events.ShopEvents>();
         services.AddScoped<ICouponService, CouponService>();
+        // دور ۲۴ (بنر هوشمند): قاعدهٔ واقعی تخفیف/امتیاز پشت بنر کمپین.
+        services.AddScoped<ICampaignOfferService, CampaignOfferService>();
         services.AddScoped<Services.Loyalty.ILoyaltyService, Services.Loyalty.LoyaltyService>();
         services.AddScoped<Services.Notifications.INotificationService, Services.Notifications.NotificationService>();
         services.AddScoped<IMenuService, MenuService>();

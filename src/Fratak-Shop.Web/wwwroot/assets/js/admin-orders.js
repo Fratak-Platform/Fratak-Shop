@@ -7,6 +7,8 @@
  *  - select[data-province-select]  : پر کردن شهرها بعد از انتخاب استان (از /api/locations/provinces/{id}/cities)
  *  - [data-toggle-target="#id"]    : نمایش/پنهان کردن یک بخش (مثلاً فرم آدرس تازه)
  *  - [data-order-board]            : کانبان سفارش‌ها با کشیدن و رها کردن (Pointer Events؛ روی موبایل هم کار می‌کند)
+ *  - [data-pick-product="url"]     : دور ۲۴ – انتخاب «یک» کالا از فهرست (مثلاً فرم «ایده ← طرح» استودیوی طراحی)؛
+ *        شناسه در input[data-pick-product-id] و نام در [data-pick-product-label] می‌نشیند؛ دکمهٔ [data-pick-product-clear] پاکش می‌کند.
  *
  * هر بخش فقط وقتی اجرا می‌شود که عنصرش در صفحه باشد؛ پس این فایل در همهٔ صفحه‌های پنل بی‌خطر بارگذاری می‌شود.
  */
@@ -390,4 +392,66 @@
       if (submit) submit.disabled = !canSubmit || items.size === 0 || Array.from(items.values()).some((i) => i.qty < 1);
     }
   }
+
+  // ── دور ۲۴: انتخاب یک کالا (فرم «ایده ← طرح») ─────────────────────────
+  // نمونه: <input data-pick-product="?handler=Products"> + <input type="hidden" name="productId" data-pick-product-id>
+  $$("[data-pick-product]").forEach((search) => {
+    const box = search.closest("[data-pick-product-box]") || search.parentElement;
+    const results = $("[data-pick-product-results]", box);
+    const hidden = $("[data-pick-product-id]", box);
+    const label = $("[data-pick-product-label]", box);
+    const clear = $("[data-pick-product-clear]", box);
+    if (!results || !hidden) return;
+    let timer = 0;
+    let lastQuery = "";
+
+    const choose = (p) => {
+      hidden.value = p ? p.id : "";
+      if (label) label.textContent = p ? p.name : "";
+      if (clear) clear.hidden = !p;
+      results.hidden = true;
+      search.value = "";
+    };
+
+    search.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(lookup, 250);
+    });
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") event.preventDefault(); // Enter در جست‌وجو فرم را ثبت نکند
+      if (event.key === "Escape") results.hidden = true;
+    });
+    document.addEventListener("click", (event) => {
+      if (!results.contains(event.target) && event.target !== search) results.hidden = true;
+    });
+    if (clear) clear.addEventListener("click", () => choose(null));
+
+    async function lookup() {
+      const q = search.value.trim();
+      if (q.length < 2) { results.hidden = true; return; }
+      lastQuery = q;
+      let hits = [];
+      try {
+        const response = await fetch(`${search.dataset.pickProduct}&q=${encodeURIComponent(q)}`, { headers: { Accept: "application/json" } });
+        if (!response.ok || q !== lastQuery) return;
+        hits = await response.json();
+      } catch (_) { hits = []; }
+      results.innerHTML = "";
+      if (hits.length === 0) {
+        results.appendChild(el("div", { className: "a-picker-empty", text: "کالای فعال و موجودی با این نام پیدا نشد." }));
+      }
+      hits.forEach((p) => {
+        const button = el("button", { type: "button", className: "a-picker-item" }, [
+          el("img", { src: p.image, alt: "", loading: "lazy" }),
+          el("span", { className: "flex-1 min-w-0" }, [
+            el("span", { className: "block font-semibold truncate", text: p.name }),
+            el("span", { className: "block a-muted text-xs", text: `${money(p.finalPrice)} تومان · موجودی ${p.stock}` }),
+          ]),
+        ]);
+        button.addEventListener("click", () => choose(p));
+        results.appendChild(button);
+      });
+      results.hidden = false;
+    }
+  });
 })();

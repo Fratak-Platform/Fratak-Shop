@@ -3,12 +3,15 @@
 @using Fratak_Shop.Core.Services.Design
 @using Fratak_Shop.Data.Entities.Design
 @using Fratak_Shop.Web.Infrastructure.Design
+@using Fratak_Shop.Data.Entities.Marketing
 @* استودیوی طراحی: ایده‌های هوشمند منتظر تأیید + طرح‌ها + فرم طرح تازه با اندازهٔ هر جایگاه. *@
 @{
     ViewData["Title"] = "استودیوی طراحی";
     var tabs = new (string? Key, string Title)[] { ("Suggested", "پیشنهادی"), ("Draft", "پیش‌نویس"), ("Published", "منتشرشده"), ("Rejected", "ردشده"), ("all", "همه") };
     var active = Model.Status?.ToString() ?? "all";
     string StatusText(DesignStatus s) => s switch { DesignStatus.Suggested => "پیشنهادی", DesignStatus.Published => "منتشرشده", DesignStatus.Rejected => "ردشده", _ => "پیش‌نویس" };
+    string OfferStatusText(CampaignOfferStatus s) => s switch { CampaignOfferStatus.Draft => "پیش‌نویس (با انتشار بنر فعال می‌شود)", CampaignOfferStatus.Active => "فعال", CampaignOfferStatus.Ended => "تمام‌شده", _ => "لغوشده" };
+    string OfferScopeText(CampaignOfferScope s, string? name) => s switch { CampaignOfferScope.All => "همهٔ کالاها", CampaignOfferScope.Category => "دستهٔ " + name, CampaignOfferScope.Brand => "برند " + name, _ => "کالای " + name };
     string KindText(DesignKind k) => k switch { DesignKind.Banner => "بنر", DesignKind.BlogCover => "کاور مقاله", DesignKind.Social => "شبکهٔ اجتماعی", _ => "آزاد" };
 }
 
@@ -37,7 +40,7 @@
     <div class="a-card-body grid gap-3 md:grid-cols-[1fr_220px_auto] items-end">
       <div>
         <label class="a-label" for="brief-text">ایده را کوتاه بنویسید</label>
-        <input id="brief-text" name="brief" class="a-input" maxlength="200" required placeholder="مثلاً: حراج هدفون برای یلدا · کارت هدیه · محصولات سامسونگ · باشگاه مشتریان">
+        <input id="brief-text" name="brief" class="a-input" maxlength="200" required placeholder="مثلاً: ۲۰٪ تخفیف هدفون برای یلدا با امتیاز دوبرابر · کارت هدیه · محصولات سامسونگ">
       </div>
       <div>
         <label class="a-label" for="brief-place">جایگاه و اندازه</label>
@@ -50,8 +53,60 @@
       </div>
       <button type="submit" class="a-btn a-btn-primary">ساخت ۳ نسخه</button>
     </div>
-    <p class="a-card-body pt-0 a-muted text-xs">تیتر، متن، کالای واقعی، عکس، رنگ (از عکس کالا با بررسی خوانایی) و لینک خودکار انتخاب می‌شود. درصد تخفیف همیشه همان تخفیف واقعی کالاهاست. هیچ طرحی بدون تأیید شما منتشر نمی‌شود.</p>
+    @* دور ۲۴: انتخاب کالا از فهرست (اختیاری) – بر تطبیق متن مقدم است *@
+    <div class="a-card-body pt-0" data-pick-product-box>
+      <div class="relative max-w-xl">
+        <label class="a-label" for="brief-product">کالای مشخص (اختیاری)</label>
+        <input id="brief-product" class="a-input" autocomplete="off" placeholder="نام یا کد کالا… (حداقل ۲ حرف)" data-pick-product="?handler=Products">
+        <div class="a-picker-results" data-pick-product-results hidden></div>
+        <input type="hidden" name="productId" data-pick-product-id>
+        <p class="text-sm mt-2"><b data-pick-product-label></b> <button type="button" class="a-btn a-btn-light a-btn-xs" data-pick-product-clear hidden>برداشتن کالا</button></p>
+      </div>
+    </div>
+    <p class="a-card-body pt-0 a-muted text-xs">تیتر، متن، کالای واقعی، عکس، رنگ (از عکس کالا با بررسی خوانایی) و لینک خودکار انتخاب می‌شود.
+      اگر درصدی بیشتر از تخفیف واقعی یا «امتیاز ۲ تا ۵ برابر» بنویسید، یک کد تخفیف/ضریب امتیاز واقعی برای همان دسته، برند یا کالا به‌صورت پیش‌نویس ساخته می‌شود
+      و فقط با انتشار بنر فعال می‌شود (بیشترین تخفیف ۵۰٪). سربرگ دسته فقط برای ایده‌ای ساخته می‌شود که نام یک دسته در آن باشد. هیچ طرحی بدون تأیید شما منتشر نمی‌شود.</p>
   </form>
+}
+
+@if (Model.Offers.Count > 0)
+{
+  @* دور ۲۴: قاعده‌های واقعی پشت بنرهای کمپین *@
+  <div class="a-card mb-4" id="campaigns">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Tag", null, 18) تخفیف و امتیاز کمپین‌ها</h3></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>کمپین</th><th>دامنه</th><th>قاعده</th><th>وضعیت</th><th>زمان</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var o in Model.Offers)
+          {
+            <tr>
+              <td data-label="کمپین">@o.Title</td>
+              <td data-label="دامنه">@OfferScopeText(o.Scope, o.ScopeName)</td>
+              <td data-label="قاعده">
+                @if (o.DiscountPercent is { } pct) { <span class="a-badge a-badge-green">@Format.Number(pct)٪ تخفیف</span> }
+                @if (o.CouponCode is not null) { <code class="text-xs" dir="ltr">@o.CouponCode</code> }
+                @if (o.PointsMultiplier is { } mul) { <span class="a-badge a-badge-yellow">امتیاز @Format.Number((long)mul) برابر</span> }
+              </td>
+              <td data-label="وضعیت"><span class="a-badge @(o.Status == CampaignOfferStatus.Active ? "a-badge-green" : o.Status == CampaignOfferStatus.Draft ? "a-badge-yellow" : "a-badge-gray")">@OfferStatusText(o.Status)</span></td>
+              <td data-label="زمان" class="text-xs">
+                @if (o.StartsAt is { } startAt && o.EndsAt is { } endAt) { <span>@Format.Date(startAt) تا @Format.Date(endAt)</span> }
+                else { <span>@Format.Number(o.DurationDays) روز پس از انتشار</span> }
+              </td>
+              <td class="actions" data-label="">
+                @if (o.Status is CampaignOfferStatus.Draft or CampaignOfferStatus.Active)
+                {
+                  <form method="post" asp-page-handler="CancelOffer" asp-route-id="@o.Id" class="inline">
+                    <button class="a-btn a-btn-light a-btn-xs" type="submit" data-confirm="@(o.Status == CampaignOfferStatus.Draft ? "پیش‌نویس این کمپین لغو شود؟" : "کمپین همین حالا متوقف شود؟ کد تخفیف و ضریب امتیاز دیگر اعمال نمی‌شود.")">@(o.Status == CampaignOfferStatus.Draft ? "لغو" : "توقف")</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
 }
 
 <nav class="a-tabs mb-4" aria-label="وضعیت طرح‌ها">

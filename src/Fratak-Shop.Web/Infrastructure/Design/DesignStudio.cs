@@ -24,7 +24,8 @@ public sealed class DesignStudio(
     IUploadStore uploads,
     IStoreSettingService settings,
     ILogger<DesignStudio> logger,
-    Fratak_Shop.Core.Services.Smart.ISmartConfigService? smart = null)
+    Fratak_Shop.Core.Services.Smart.ISmartConfigService? smart = null,
+    Fratak_Shop.Core.Services.Marketing.ICampaignOfferService? campaigns = null)
 {
     /// <summary>نام انجام‌دهندهٔ کارهای خودکار.</summary>
     public const string Actor = "دستیار هوشمند";
@@ -90,7 +91,7 @@ public sealed class DesignStudio(
         await CreateIdeaAsync(idea, DesignPresets.Find(DesignPresets.Hero)!, Actor, cancellationToken) is not null;
 
     /// <summary>ساخت یک طرح «پیشنهادی» از ایده در اندازهٔ داده‌شده (+ نسخهٔ موبایل اگر جایگاه دارد). خروجی: شناسهٔ طرح.</summary>
-    private async Task<Guid?> CreateIdeaAsync(DesignIdea idea, DesignPreset preset, string? actor, CancellationToken cancellationToken)
+    private async Task<Guid?> CreateIdeaAsync(DesignIdea idea, DesignPreset preset, string? actor, CancellationToken cancellationToken, Guid? categoryId = null)
     {
         var json = DesignTemplates.Build(idea.Spec, preset.Width, preset.Height, preset.Transparent);
         var mobile = preset.MobileKey is null ? null : DesignPresets.Find(preset.MobileKey);
@@ -118,6 +119,7 @@ public sealed class DesignStudio(
             ButtonText = idea.Spec.ButtonText,
             LinkUrl = DesignService.SafeLink(idea.LinkUrl),
             ExpiresAt = idea.ExpiresAt,
+            CategoryId = categoryId,
             UpdatedByName = actor ?? Actor,
         };
         try
@@ -138,7 +140,13 @@ public sealed class DesignStudio(
     /// </summary>
     /// <param name="text">متن ایده (۲ تا ۲۰۰ نویسه).</param>
     /// <param name="presetKey">اندازه/جایگاه: hero، wide، promo یا category (بقیه ← hero).</param>
-    public async Task<OperationResult<BriefOutcome>> BuildFromBriefAsync(string? text, string? presetKey, string? actor, CancellationToken cancellationToken)
+    /// <param name="productId">دور ۲۴: کالای انتخاب‌شده از فهرست (اختیاری؛ بر تطبیق متن مقدم است).</param>
+    /// <remarks>
+    /// دور ۲۴: اگر متن درصدی بیشتر از تخفیف واقعی یا «امتیاز n برابر» بخواهد، یک «قاعدهٔ واقعی» پیش‌نویس (کد تخفیف غیرفعال/ضریب امتیاز)
+    /// ساخته می‌شود و بنر همان را می‌گوید؛ با انتشار بنر فعال می‌شود. سربرگ دسته فقط برای ایدهٔ دارای دسته ساخته می‌شود.
+    /// </remarks>
+    public async Task<OperationResult<BriefOutcome>> BuildFromBriefAsync(string? text, string? presetKey, string? actor, CancellationToken cancellationToken,
+        Guid? productId = null)
     {
         text = text?.Trim();
         if (string.IsNullOrWhiteSpace(text) || text.Length < 2)
@@ -151,9 +159,24 @@ public sealed class DesignStudio(
             : DesignPresets.Find(DesignPresets.Hero)!;
 
         var store = await settings.GetAsync(cancellationToken);
-        var intent = DesignBrief.Parse(text);
+        var intent = DesignBrief.Parse(text) with { ProductId = productId };
         var data = await designs.BriefDataAsync(text, intent, store.SiteName, cancellationToken);
+        if (preset.Position == Fratak_Shop.Data.Entities.Marketing.BannerPosition.CategoryHeader && data.Category is null)
+            return OperationResult<BriefOutcome>.Error("برای سربرگ صفحهٔ دسته، نام یک دستهٔ موجود را در ایده بنویسید؛ مثلاً «حراج هدفون ۲۰٪».");
         var plan = DesignBrief.Plan(text, intent, data, DateTimeOffset.UtcNow);
+        // دور ۲۴: قاعدهٔ واقعی کمپین (اگر ادعای متن با دادهٔ فعلی راست نیست ولی می‌شود راستش کرد).
+        var offerWarnings = new List<string>();
+        Fratak_Shop.Core.Services.Design.BriefOffer? offer = null;
+        if (campaigns is not null)
+        {
+            var (candidate, candidateWarnings) = DesignBrief.Offer(intent, plan, data);
+            offerWarnings.AddRange(candidateWarnings);
+            if (candidate is not null)
+            {
+                offer = candidate.Percent is null ? candidate : candidate with { Code = await campaigns.NewCodeAsync(cancellationToken) };
+                plan = DesignBrief.Plan(text, intent, data, DateTimeOffset.UtcNow, offer);
+            }
+        }
         var mourningPause = smart is not null && (await smart.GetAsync(cancellationToken)).PauseBannersOnMourning
                             && Fratak_Shop.Core.Services.Marketing.MourningCalendar.IsMourning(DateTimeOffset.UtcNow);
 
@@ -186,7 +209,7 @@ public sealed class DesignStudio(
         }
 
         var ideas = DesignBrief.Variants(plan, color, image, DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture));
-        var warnings = plan.Warnings.ToList();
+        var warnings = offerWarnings.Concat(plan.Warnings).ToList();
         if (mourningPause && ideas.Any(IsFestive))
         {
             // روز سوگواری: نسخهٔ جشن به چیدمان ساده و پالت آرام تبدیل می‌شود (طرح شاد ساخته نمی‌شود).
@@ -199,7 +222,7 @@ public sealed class DesignStudio(
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (await CreateIdeaAsync(idea, preset, actor, cancellationToken) is { } id)
+                if (await CreateIdeaAsync(idea, preset, actor, cancellationToken, data.Category?.Id) is { } id)
                     ids.Add(id);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -212,6 +235,12 @@ public sealed class DesignStudio(
             if (cutoutFile is not null)
                 uploads.Delete(UploadArea.Content, [cutoutFile]);
             return OperationResult<BriefOutcome>.Error("ساخت طرح‌ها ناموفق بود؛ دوباره تلاش کنید.");
+        }
+        if (offer is not null && campaigns is not null && DesignBrief.VariantGroup(ideas[0].Key) is { } group)
+        {
+            // پیش‌نویس قاعده فقط وقتی طرحی واقعاً ساخته شده باشد؛ مدت = مدت اعتبار ایده (حراج ۷، کالا ۱۴، بقیه ۳۰ روز).
+            var days = plan.ExpiresAt is { } until ? Math.Max(1, (int)Math.Ceiling((until - DateTimeOffset.UtcNow).TotalDays)) : 7;
+            await campaigns.CreateDraftAsync(offer, group, plan.Title, days, actor, cancellationToken);
         }
         return OperationResult<BriefOutcome>.Success(new BriefOutcome(ids, warnings, color), $"{ids.Count} نسخه از ایدهٔ شما ساخته شد.");
     }

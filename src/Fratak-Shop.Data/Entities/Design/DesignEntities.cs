@@ -120,6 +120,9 @@ public class DesignDoc : BaseEntity
     /// <summary>پایان اعتبار ایده (مثلاً پایان جشنواره)؛ بعدش در فهرست پیشنهادها نمی‌آید.</summary>
     public DateTimeOffset? ExpiresAt { get; set; }
 
+    /// <summary>دور ۲۴: دستهٔ ایده (مثلاً «حراج هدفون»)؛ بنر «سربرگ صفحهٔ دسته» با همین دسته منتشر می‌شود.</summary>
+    public Guid? CategoryId { get; set; }
+
     [MaxLength(150)]
     public string? UpdatedByName { get; set; }
 }

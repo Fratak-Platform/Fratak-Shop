@@ -337,6 +337,9 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Products.ProductImageSignature> ProductImageSignatures { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Marketing.PriceMatchRequest> PriceMatchRequests { get; set; } = null!;
 
+    // دور ۲۴ (بنر هوشمند): قاعدهٔ واقعی تخفیف/امتیاز پشت بنر کمپین.
+    public DbSet<Fratak_Shop.Data.Entities.Marketing.CampaignOffer> CampaignOffers { get; set; } = null!;
+
     /// <summary>Name of the SQL sequence that numbers sales invoices.</summary>
     public const string InvoiceSerialSequence = "InvoiceSerials";
 

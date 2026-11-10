@@ -211,6 +211,30 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             products = (await IdeaInputAsync(siteName, cancellationToken)).Products.ToList();
         }
 
+        // دور ۲۴: کالای انتخاب‌شده از فهرست (حتی اگر در ۴۰ کالای پرفروش دامنه نباشد) اول فهرست می‌آید.
+        if (intent.ProductId is { } pickedId && products.All(p => p.Id != pickedId))
+        {
+            var now = DateTimeOffset.UtcNow;
+            var picked = await context.Products.AsNoTracking()
+                .Where(p => p.Id == pickedId && p.IsActive)
+                .Select(p => new
+                {
+                    p.Id, p.Name, p.Slug, p.Price, p.DiscountPrice, p.DiscountStartAt, p.DiscountEndAt, p.StockQuantity, p.ViewCount, p.SalesCount, p.CreatedAt,
+                    CategoryName = p.Category.IsSystem ? null : p.Category.Name,
+                    CategorySlug = p.Category.IsSystem ? null : p.Category.Slug,
+                    Image = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault(),
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (picked is not null)
+            {
+                var discounted = picked.DiscountPrice is > 0 && picked.DiscountPrice < picked.Price
+                                 && (picked.DiscountStartAt == null || picked.DiscountStartAt <= now) && (picked.DiscountEndAt == null || picked.DiscountEndAt >= now);
+                products.Insert(0, new IdeaProduct(picked.Id, picked.Name, picked.Slug, picked.Image is null ? null : "/uploads/products/" + picked.Image, 0, 0,
+                    picked.Price, discounted ? picked.DiscountPrice!.Value : picked.Price, picked.StockQuantity, picked.ViewCount, picked.SalesCount,
+                    picked.CategoryName, picked.CategorySlug, picked.CreatedAt));
+            }
+        }
+
         return new BriefData(products, category, brand, siteName);
     }
 
@@ -313,6 +337,10 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         var link = SafeLink(linkUrl) ?? SafeLink(doc.LinkUrl);
 
         Banner? banner = doc.BannerId is { } existing ? await context.Banners.AsTracking().FirstOrDefaultAsync(b => b.Id == existing, cancellationToken) : null;
+        // دور ۲۴: سربرگ صفحهٔ دسته بدون دسته هیچ‌جا دیده نمی‌شود ← دستهٔ ایده لازم است.
+        var categoryId = doc.CategoryId ?? banner?.CategoryId;
+        if (position == BannerPosition.CategoryHeader && categoryId is null)
+            return OperationResult<Guid>.Error("این طرح به دسته‌ای وصل نیست؛ برای سربرگ دسته، نام دسته را در ایده بنویسید (مثلاً «حراج هدفون»).");
         if (banner is null)
         {
             var order = await context.Banners.Where(b => b.Position == position).Select(b => (int?)b.DisplayOrder).MinAsync(cancellationToken) ?? 1;
@@ -334,9 +362,17 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         banner.VariantGroup ??= DesignBrief.VariantGroup(doc.IdeaKey);
         banner.LinkUrl = link;
         banner.Position = position;
+        if (position == BannerPosition.CategoryHeader)
+            banner.CategoryId = categoryId;
         banner.IsActive = true;
         banner.StartAt = null;
         banner.EndAt = doc.ExpiresAt;
+
+        // دور ۲۴: قاعدهٔ واقعی کمپین (کد تخفیف/ضریب امتیاز) همین لحظه و در همین ذخیره فعال می‌شود تا ادعای بنر راست باشد؛
+        // بنر هم تا پایان کمپین می‌ماند (نه زودتر، نه دیرتر).
+        var offer = await Fratak_Shop.Core.Services.Marketing.CampaignOffers.ActivateForGroupAsync(context, DesignBrief.VariantGroup(doc.IdeaKey), DateTimeOffset.UtcNow, actor, cancellationToken);
+        if (offer is not null)
+            banner.EndAt = offer.EndsAt;
 
         doc.LinkUrl = link;
         doc.Status = DesignStatus.Published;
@@ -344,7 +380,9 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         // شناسهٔ Guid هنگام Add در خود برنامه ساخته می‌شود؛ یک SaveChanges کافی است (اتمیک).
         doc.BannerId = banner.Id;
         await context.SaveChangesAsync(cancellationToken);
-        return OperationResult<Guid>.Success(banner.Id, "بنر روی سایت قرار گرفت.");
+        return OperationResult<Guid>.Success(banner.Id, offer is null
+            ? "بنر روی سایت قرار گرفت."
+            : $"بنر روی سایت قرار گرفت و {Fratak_Shop.Core.Services.Marketing.CampaignOffers.Describe(offer.DiscountPercent, offer.PointsMultiplier, offer.CouponCode)} فعال شد.");
     }
 
     public async Task<OperationResult<string?>> AttachCoverAsync(Guid id, Guid postId, string? actor, CancellationToken cancellationToken = default)

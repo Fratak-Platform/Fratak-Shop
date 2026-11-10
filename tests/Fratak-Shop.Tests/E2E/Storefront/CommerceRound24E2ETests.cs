@@ -277,10 +277,12 @@ public class CommerceRound24E2ETests(ShopApp app)
 
         using var client = app.CreateClient();
         await client.LoginAsync(customer.Phone, customer.Password);
-        var page = await client.GetPageAsync($"/profile/orders/{number}");
+        // آدرس‌های سایت حروف کوچک‌اند (آدرس با حروف بزرگ ← 301).
+        var url = $"/profile/orders/{number.ToLowerInvariant()}";
+        var page = await client.GetPageAsync(url);
         Assert.NotNull(page.One("form[action*='handler=Reorder']"));
 
-        using var response = await client.PostFormAsync($"/profile/orders/{number}?handler=Reorder");
+        using var response = await client.PostFormAsync($"{url}?handler=Reorder");
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/cart", response.Headers.Location?.OriginalString);
 
@@ -291,11 +293,11 @@ public class CommerceRound24E2ETests(ShopApp app)
         var stranger = await app.CreateCustomerAsync();
         using var other = app.CreateClient();
         await other.LoginAsync(stranger.Phone, stranger.Password);
-        using var foreign = await other.PostFormAsync($"/profile/orders/{number}?handler=Reorder");
+        using var foreign = await other.PostFormAsync($"{url}?handler=Reorder");
         Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
 
         // بدون توکن ضدجعل ← رد.
-        using var csrf = await client.PostRawFormAsync($"/profile/orders/{number}?handler=Reorder");
+        using var csrf = await client.PostRawFormAsync($"{url}?handler=Reorder");
         Assert.Equal(HttpStatusCode.BadRequest, csrf.StatusCode);
     }
 

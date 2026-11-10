@@ -245,6 +245,10 @@ public class LoyaltyService(
         if (action == LoyaltyAction.Purchase && tier is { PointsMultiplier: > 1 })
             points = (int)decimal.Floor(points * tier.PointsMultiplier);
 
+        // دور ۲۴: کمپین «امتیاز n برابر» (از بنر هوشمند) فقط برای بخش مشمول سفارش.
+        if (action == LoyaltyAction.Purchase && orderId is { } campaignOrderId)
+            points = await Fratak_Shop.Core.Services.Marketing.CampaignOffers.BoostPurchasePointsAsync(context, campaignOrderId, points);
+
         if (points <= 0)
             return 0;
 

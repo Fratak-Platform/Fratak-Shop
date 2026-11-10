@@ -86,6 +86,8 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         await RunAsync("Assistant handoff auto-close", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantHandoffService>().AutoCloseAsync(token), token);
         // دور ۲۴: کلیک‌های جست‌وجوی قدیمی کم‌وزن و خیلی قدیمی‌ها پاک می‌شوند (رتبه‌بندی یادگیرنده سلیقهٔ تازه را دنبال کند).
         await RunAsync("Search learning maintenance", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Searches.ISearchLearningService>().MaintainAsync(token), token);
+        // دور ۲۴ (بنر هوشمند): کمپین‌های گذشته ← تمام‌شده؛ پیش‌نویس‌های رهاشده ← لغو.
+        await RunAsync("Campaign offer maintenance", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Marketing.ICampaignOfferService>().MaintainAsync(DateTimeOffset.UtcNow, token), token);
     }
 
     private async Task RunAsync(string name, Func<IServiceProvider, Task<int>> job, CancellationToken token)
