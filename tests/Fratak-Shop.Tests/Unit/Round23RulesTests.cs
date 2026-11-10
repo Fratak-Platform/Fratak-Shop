@@ -209,6 +209,63 @@ public class Round23RulesTests
     }
 
     [Fact]
+    public void Slow_query_log_groups_repeats_and_keeps_only_sql_text()
+    {
+        var marker = "SELECT x FROM T_" + Guid.NewGuid().ToString("N");
+        var now = DateTimeOffset.UtcNow;
+        Fratak_Shop.Data.Diagnostics.SlowQueryLog.Record(marker + "\n   WHERE  a = @p0", 900, now);
+        Fratak_Shop.Data.Diagnostics.SlowQueryLog.Record(marker + " WHERE a = @p0", 2500, now.AddSeconds(1));
+        Fratak_Shop.Data.Diagnostics.SlowQueryLog.Record("   ", 5000, now);
+
+        var entry = Assert.Single(Fratak_Shop.Data.Diagnostics.SlowQueryLog.Recent(), e => e.Sql.StartsWith(marker, StringComparison.Ordinal));
+        Assert.Equal(marker + " WHERE a = @p0", entry.Sql);
+        Assert.Equal(2, entry.Count);
+        Assert.Equal(2500, entry.MaxMilliseconds);
+        Assert.DoesNotContain(Fratak_Shop.Data.Diagnostics.SlowQueryLog.Recent(), e => e.Sql.Length == 0);
+        Assert.True(Fratak_Shop.Data.Diagnostics.SlowQueryLog.Shorten(new string('a', 5000)).Length <= Fratak_Shop.Data.Diagnostics.SlowQueryLog.MaxSqlLength + 1);
+    }
+
+    [Fact]
+    public void Ops_alert_fires_once_per_spike_and_respects_cooldown_and_daily_cap()
+    {
+        var rules = new Fratak_Shop.Web.Infrastructure.Ops.OpsAlertRules();
+        var t = new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero);
+        var fired = 0;
+        for (var i = 0; i < 29; i++)
+            fired += rules.ObserveError(t.AddSeconds(i)) ? 1 : 0;
+        Assert.Equal(0, fired);                                   // زیر آستانه
+        Assert.True(rules.ObserveError(t.AddSeconds(30)));         // سی‌امین خطا ← هشدار
+        for (var i = 0; i < 200; i++)
+            Assert.False(rules.ObserveError(t.AddSeconds(31 + i))); // همان جهش ← پیامک تکراری نه
+
+        // خطاهای پراکنده (هر ۱ دقیقه یکی) هرگز جهش نیستند.
+        var calm = new Fratak_Shop.Web.Infrastructure.Ops.OpsAlertRules();
+        for (var i = 0; i < 100; i++)
+            Assert.False(calm.ObserveError(t.AddMinutes(i * 1)));
+
+        // فاصلهٔ ۲ ساعته برای هر نوع و سقف ۶ پیامک در روز.
+        var capped = new Fratak_Shop.Web.Infrastructure.Ops.OpsAlertRules();
+        Assert.True(capped.TryFire(Fratak_Shop.Web.Infrastructure.Ops.OpsAlertKind.DatabaseDown, t));
+        Assert.False(capped.TryFire(Fratak_Shop.Web.Infrastructure.Ops.OpsAlertKind.DatabaseDown, t.AddHours(1)));
+        var sent = 1;
+        for (var h = 2; h < 24; h += 2)
+            sent += capped.TryFire(Fratak_Shop.Web.Infrastructure.Ops.OpsAlertKind.DatabaseDown, t.AddHours(h)) ? 1 : 0;
+        Assert.Equal(Fratak_Shop.Web.Infrastructure.Ops.OpsAlertRules.DailyMax, sent);
+        Assert.True(capped.TryFire(Fratak_Shop.Web.Infrastructure.Ops.OpsAlertKind.DatabaseDown, t.AddHours(30)));
+    }
+
+    [Fact]
+    public void Ops_alert_text_never_carries_otp_like_numbers()
+    {
+        foreach (var kind in Enum.GetValues<Fratak_Shop.Web.Infrastructure.Ops.OpsAlertKind>())
+        {
+            var text = Fratak_Shop.Web.Infrastructure.Ops.OpsAlertRules.Message(kind, "فراتک");
+            Assert.Contains("فراتک", text);
+            Assert.DoesNotMatch(@"\d{4,}", text);
+        }
+    }
+
+    [Fact]
     public void Arabic_letters_in_names_become_persian()
     {
         Assert.Equal("کیف علی", Fratak_Shop.Data.Contexts.FratakShopDbContext.PersianLetters("\u0643\u064Aف عل\u0649"));

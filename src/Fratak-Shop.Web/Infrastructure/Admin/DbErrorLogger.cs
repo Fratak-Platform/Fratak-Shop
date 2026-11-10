@@ -85,6 +85,8 @@ public sealed class DbErrorLoggerProvider(ErrorLogQueue queue, IHttpContextAcces
                     TraceId = Activity.Current?.TraceId.ToString() ?? http?.TraceIdentifier,
                     MachineName = Environment.MachineName,
                 });
+                // دور ۲۳: شمارش برای هشدار پیامکی «جهش خطا» (فقط قاعده؛ ارسال در پس‌زمینه).
+                Fratak_Shop.Web.Infrastructure.Ops.OpsAlerts.ErrorLogged();
             }
             catch
             {
@@ -139,6 +141,9 @@ public sealed class ErrorLogWriter(ErrorLogQueue queue, IServiceScopeFactory sco
                 {
                     // Database unavailable: keep the newest entries in memory only, back off.
                     failures++;
+                    // دور ۲۳: سه شکست پیاپی ذخیره = پایگاه داده در دسترس نیست ← پیامک به مدیران (با فاصلهٔ ۲ ساعته).
+                    if (failures == 3)
+                        Fratak_Shop.Web.Infrastructure.Ops.OpsAlerts.Raise(Fratak_Shop.Web.Infrastructure.Ops.OpsAlertKind.DatabaseDown);
                     Console.Error.WriteLine($"[ErrorLogWriter] storing {batch.Count} error(s) failed: {exception.GetType().Name}: {exception.Message}");
                     await Task.Delay(TimeSpan.FromSeconds(Math.Min(60, 5 * failures)), stoppingToken);
                 }

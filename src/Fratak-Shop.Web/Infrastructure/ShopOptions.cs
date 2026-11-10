@@ -30,6 +30,12 @@ public class ShopOptions
     public bool SeedDefaultData { get; set; } = true;
 
     /// <summary>
+    /// دور ۲۳: پیامک هشدار فنی به مدیران اصلی (جهش خطا، قطع پایگاه داده، خاموشی ناگهانی). هر نوع حداکثر یک بار در ۲ ساعت و
+    /// کل هشدارها حداکثر ۶ پیامک در روز. جزئیات: Infrastructure/Ops/OpsAlerts.cs. پیش‌فرض: روشن. متغیر محیطی: <c>Shop__OpsAlertSms</c>.
+    /// </summary>
+    public bool OpsAlertSms { get; set; } = true;
+
+    /// <summary>
     /// Seeds demo catalog data (categories, brands, products, banners, posts, demo customer and staff
     /// accounts, sample coupons, ...). Only runs while the catalog is still empty, so it never mixes
     /// fake products into a real shop. Never enable on the live site: demo accounts use the password 123456.

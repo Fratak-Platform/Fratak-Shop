@@ -87,6 +87,8 @@ public sealed class ShopApp : IAsyncLifetime
         // سقف هیپ GC کل پروسهٔ آزمون را محدود می‌کرد (همهٔ آزمون‌ها در یک پروسه‌اند) ← در آزمون خاموش.
         Environment.SetEnvironmentVariable("Shop__Resources__LimitGcHeap", "false");
         Environment.SetEnvironmentVariable("Shop__Diagnostics__QueryHeader", "true");
+        // دور ۲۳: پیامک هشدار فنی در آزمون خاموش (پیامک‌های OTP مدیران با آن قاطی نشود).
+        Environment.SetEnvironmentVariable("Shop__OpsAlertSms", "false");
         Environment.SetEnvironmentVariable("Jwt__SigningKey", SigningKey);
         Environment.SetEnvironmentVariable("Security__DataProtectionKeysPath", _keysPath);
 

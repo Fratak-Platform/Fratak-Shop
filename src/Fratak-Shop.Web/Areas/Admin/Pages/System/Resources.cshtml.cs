@@ -22,6 +22,8 @@ public class ResourcesModel(ResourceHistory history, PageSnapshotStore snapshots
     public IReadOnlyList<JobState> Waiting { get; private set; } = [];
     public IReadOnlyList<CircuitBreakers.State> Circuits { get; private set; } = [];
     public IReadOnlyList<PageQueryStats.Row> HeavyPages { get; private set; } = [];
+    /// <summary>دور ۲۳: پرس‌وجوهای کند اخیر (بدون مقدار پارامترها).</summary>
+    public IReadOnlyList<Fratak_Shop.Data.Diagnostics.SlowQueryLog.Entry> SlowQueries { get; private set; } = [];
     public IReadOnlyList<LifecycleRun> Runs { get; private set; } = [];
     public double PeakMemoryMb { get; private set; }
     public int PeakRequests { get; private set; }
@@ -37,6 +39,7 @@ public class ResourcesModel(ResourceHistory history, PageSnapshotStore snapshots
         Waiting = JobMonitor.All.Where(j => j.WaitReason is not null).ToList();
         Circuits = CircuitBreakers.All().Take(30).ToList();
         HeavyPages = PageQueryStats.Top(15);
+        SlowQueries = Fratak_Shop.Data.Diagnostics.SlowQueryLog.Recent();
         Runs = AppLifecycle.Runs().Take(10).ToList();
         PeakMemoryMb = history.PeakMemoryMb;
         PeakRequests = history.PeakRequests;

@@ -206,6 +206,7 @@ public static class WebServiceCollectionExtensions
         services.AddSingleton<Infrastructure.Admin.HealthService>();
         services.AddSingleton<Infrastructure.Auth.DefaultAdminPasswords>(); // مرحلهٔ ۱۴: هشدار رمز اولیهٔ مدیران پیش‌فرض
         services.AddHostedService<Infrastructure.Admin.ErrorLogWriter>();
+        services.AddHostedService<Infrastructure.Ops.OpsAlertService>(); // دور ۲۳ (مورد ۷۸): پیامک هشدار خطا / از کار افتادن
         services.AddHostedService<Infrastructure.Admin.MonitoringMaintenanceService>();
 
         // مرحلهٔ هفتم – فاز ۹ (فنی): نمایشگر گزارش‌ها، پشتیبان آپلودها، شاخص‌های هشدار و سرویس‌های پس‌زمینه.

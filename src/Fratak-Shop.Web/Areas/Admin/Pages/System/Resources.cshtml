@@ -126,6 +126,35 @@
   </div>
 </div>
 
+@* دور ۲۳ (مورد ۷۷): پرس‌وجوهای کند – فقط متن SQL، بدون مقدار پارامترها. *@
+<div class="a-card mt-4" id="slow-queries">
+  <div class="a-card-head"><span class="a-card-title">پرس‌وجوهای کند (بیش از @Fratak_Shop.Data.Diagnostics.SlowQueryLog.ThresholdMilliseconds میلی‌ثانیه)</span></div>
+  @if (Model.SlowQueries.Count == 0)
+  {
+    <div class="a-empty">پرس‌وجوی کندی ثبت نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>آخرین بار</th><th>آخرین مدت</th><th>بیشینه</th><th>تکرار</th><th>متن</th></tr></thead>
+        <tbody>
+          @foreach (var q in Model.SlowQueries)
+          {
+            <tr>
+              <td class="text-xs">@AdminUi.Ago(q.LastAt)</td>
+              <td class="a-ltr text-xs">@q.LastMilliseconds ms</td>
+              <td class="a-ltr text-xs @(q.MaxMilliseconds > 3000 ? "text-red-600" : "")">@q.MaxMilliseconds ms</td>
+              <td class="num">@Format.Number(q.Count)</td>
+              <td class="a-ltr text-xs break-all">@q.Sql</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
 <div class="grid gap-4 lg:grid-cols-2 mt-4">
   <div class="a-card">
     <div class="a-card-head"><span class="a-card-title">سنگین‌ترین صفحه‌ها (پرس‌وجوی پایگاه داده)</span></div>

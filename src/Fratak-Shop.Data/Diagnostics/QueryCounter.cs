@@ -34,10 +34,14 @@ public static class QueryCounter
         return scope;
     }
 
-    internal static void Hit(long milliseconds)
+    internal static void Hit(DbCommand command, TimeSpan duration)
     {
+        var milliseconds = (long)duration.TotalMilliseconds;
         Interlocked.Increment(ref _total);
         CurrentScope.Value?.Add(milliseconds);
+        // دور ۲۳ (مورد ۷۷): پرس‌وجوی کند در دفتر سبک حافظه ثبت می‌شود (هزینه برای پرس‌وجوی سریع: یک مقایسه).
+        if (milliseconds >= SlowQueryLog.ThresholdMilliseconds)
+            SlowQueryLog.Record(command.CommandText, milliseconds, DateTimeOffset.UtcNow);
     }
 
     internal static void Restore(QueryScope? previous) => CurrentScope.Value = previous;
@@ -72,37 +76,107 @@ public sealed class QueryCountingInterceptor : DbCommandInterceptor
 
     public override DbDataReader ReaderExecuted(DbCommand command, CommandExecutedEventData eventData, DbDataReader result)
     {
-        QueryCounter.Hit((long)eventData.Duration.TotalMilliseconds);
+        QueryCounter.Hit(command, eventData.Duration);
         return result;
     }
 
     public override ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData, DbDataReader result, CancellationToken cancellationToken = default)
     {
-        QueryCounter.Hit((long)eventData.Duration.TotalMilliseconds);
+        QueryCounter.Hit(command, eventData.Duration);
         return ValueTask.FromResult(result);
     }
 
     public override object? ScalarExecuted(DbCommand command, CommandExecutedEventData eventData, object? result)
     {
-        QueryCounter.Hit((long)eventData.Duration.TotalMilliseconds);
+        QueryCounter.Hit(command, eventData.Duration);
         return result;
     }
 
     public override ValueTask<object?> ScalarExecutedAsync(DbCommand command, CommandExecutedEventData eventData, object? result, CancellationToken cancellationToken = default)
     {
-        QueryCounter.Hit((long)eventData.Duration.TotalMilliseconds);
+        QueryCounter.Hit(command, eventData.Duration);
         return ValueTask.FromResult(result);
     }
 
     public override int NonQueryExecuted(DbCommand command, CommandExecutedEventData eventData, int result)
     {
-        QueryCounter.Hit((long)eventData.Duration.TotalMilliseconds);
+        QueryCounter.Hit(command, eventData.Duration);
         return result;
     }
 
     public override ValueTask<int> NonQueryExecutedAsync(DbCommand command, CommandExecutedEventData eventData, int result, CancellationToken cancellationToken = default)
     {
-        QueryCounter.Hit((long)eventData.Duration.TotalMilliseconds);
+        QueryCounter.Hit(command, eventData.Duration);
         return ValueTask.FromResult(result);
+    }
+}
+
+/// <summary>
+/// دور ۲۳ (مورد ۷۷): دفتر «پرس‌وجوهای کند» – ۵۰ پرس‌وجوی آخری که بیش از <see cref="ThresholdMilliseconds"/> طول کشیده‌اند.
+/// <para>چرا: روی هاست ضعیف یک پرس‌وجوی کند (مثلاً بدون ایندکس) کل سایت را کند می‌کند؛ این دفتر نشان می‌دهد کدام است.</para>
+/// <para>امنیت: فقط متن SQL (با نام پارامترها مثل @p0) ذخیره می‌شود، نه مقدار پارامترها (شماره تلفن، رمز و… هرگز).
+/// متن تا ۶۰۰ نویسه بریده می‌شود و هر الگوی تکراری فقط یک ردیف (با شمارنده) دارد تا دفتر با یک پرس‌وجوی پرتکرار پر نشود.</para>
+/// <para>نمایش: «فنی ← منابع سرور». حافظه: در بدترین حالت حدود ۵۰ × ۶۰۰ نویسه.</para>
+/// </summary>
+public static class SlowQueryLog
+{
+    /// <summary>آستانهٔ «کند» به میلی‌ثانیه.</summary>
+    public const long ThresholdMilliseconds = 700;
+
+    /// <summary>بیشترین تعداد ردیف نگه‌داری‌شده.</summary>
+    public const int Capacity = 50;
+
+    /// <summary>بیشترین طول متن SQL ذخیره‌شده.</summary>
+    public const int MaxSqlLength = 600;
+
+    /// <summary>یک الگوی کند: متن، آخرین زمان، بیشترین و آخرین مدت، تعداد دفعات.</summary>
+    public sealed record Entry(string Sql, DateTimeOffset LastAt, long LastMilliseconds, long MaxMilliseconds, int Count);
+
+    private static readonly object Gate = new();
+    private static readonly List<Entry> Entries = [];
+
+    /// <summary>ثبت. مثال: <c>SlowQueryLog.Record("SELECT … FROM Products …", 1200, now)</c>.</summary>
+    public static void Record(string? sql, long milliseconds, DateTimeOffset at)
+    {
+        var text = Shorten(sql);
+        if (text.Length == 0)
+            return;
+        lock (Gate)
+        {
+            var index = Entries.FindIndex(e => e.Sql == text);
+            if (index >= 0)
+            {
+                var old = Entries[index];
+                Entries.RemoveAt(index);
+                Entries.Insert(0, new Entry(text, at, milliseconds, Math.Max(old.MaxMilliseconds, milliseconds), old.Count == int.MaxValue ? old.Count : old.Count + 1));
+                return;
+            }
+            Entries.Insert(0, new Entry(text, at, milliseconds, milliseconds, 1));
+            if (Entries.Count > Capacity)
+                Entries.RemoveAt(Entries.Count - 1);
+        }
+    }
+
+    /// <summary>ردیف‌ها، تازه‌ترین اول.</summary>
+    public static IReadOnlyList<Entry> Recent()
+    {
+        lock (Gate)
+            return Entries.ToList();
+    }
+
+    /// <summary>فاصله‌های اضافه حذف و متن کوتاه می‌شود. مثال: «SELECT  *\n FROM x» ← «SELECT * FROM x».</summary>
+    public static string Shorten(string? sql)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+            return string.Empty;
+        var text = string.Join(' ', sql.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return text.Length > MaxSqlLength ? text[..MaxSqlLength] + "…" : text;
+    }
+
+    /// <summary>فقط آزمون‌ها.</summary>
+    public static void ResetForTests()
+    {
+        lock (Gate)
+            Entries.Clear();
     }
 }
