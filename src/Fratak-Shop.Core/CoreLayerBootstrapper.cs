@@ -53,6 +53,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IFavoriteService, FavoriteService>();
         services.AddScoped<ILocationService, LocationService>();
         services.AddScoped<IBannerService, BannerService>();
+        // دور ۲۳: دستیار فروشگاه (چت‌بات بدون هوش مصنوعی بیرونی).
+        services.AddScoped<Services.Assistant.IAssistantService, Services.Assistant.AssistantService>();
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserAddressService, UserAddressService>();

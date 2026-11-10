@@ -122,6 +122,8 @@ public static class WebServiceCollectionExtensions
         // دور ۲۳: آمار نمایش/کلیک بنرها (آزمون A/B) – شمارش در حافظه، ذخیرهٔ گروهی هر ۳ دقیقه.
         services.AddSingleton<Infrastructure.Marketing.BannerStats>();
         services.AddHostedService<Infrastructure.Marketing.BannerStatsFlusher>();
+        // دور ۲۳: جست‌وجوی اینترنت پس‌زمینهٔ دستیار فروشگاه (حداکثر ۲ هم‌زمان).
+        services.AddSingleton<Infrastructure.Assistant.AssistantLookup>();
         services.AddSingleton<Infrastructure.Seo.SeoSignalWriter>();
         services.AddSingleton<Infrastructure.Seo.SeoAutopilotQueue>();
         services.AddSingleton<Infrastructure.Media.LegacyImageConverter>();

@@ -314,6 +314,7 @@ Fratak_Shop.Web.Infrastructure.Seo.SeoFeedEndpoints.MapSeoAutopilotEndpoints(app
 app.MapPwaEndpoints();
 app.MapStorefrontApi();
 Fratak_Shop.Web.Infrastructure.Marketing.BannerEndpoints.MapBannerEndpoints(app);
+Fratak_Shop.Web.Infrastructure.Assistant.AssistantEndpoints.MapAssistantEndpoints(app);
 Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoints(app);
 app.MapMediaEndpoints();
 Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Map(app);

@@ -72,6 +72,9 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         await RunAsync("404 log prune", sp => sp.GetRequiredService<ISeoTrafficService>().PruneAsync(token), token);
         // اعلان‌های پنل کارکنان بیش از ۹۰ روز نگه داشته نمی‌شوند.
         await RunAsync("Staff notification prune", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Admin.IStaffNotificationService>().PurgeAsync(TimeSpan.FromDays(90)), token);
+        // دور ۲۳: پیام‌های دستیار فروشگاه ۱۸۰ روز نگه داشته می‌شوند؛ کالاهایی که پرسش بی‌جواب دارند به «دریافت مشخصات» هوشمند می‌روند.
+        await RunAsync("Assistant prune", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantService>().PruneAsync(180, token), token);
+        await RunAsync("Assistant gaps feed", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantService>().FeedGapsAsync(10, token), token);
     }
 
     private async Task RunAsync(string name, Func<IServiceProvider, Task<int>> job, CancellationToken token)

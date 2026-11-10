@@ -1,0 +1,71 @@
+/*
+ * دور ۲۳ – ویجت «دستیار فروشگاه» (assets/css/assistant.css)
+ * CSS ساده (نه Tailwind) تا پاک‌سازی کلاس‌های Tailwind چیزی را حذف نکند. همهٔ کلاس‌ها با پیشوند fs-as- هستند.
+ * دکمهٔ گرد پایین سمت چپ؛ پنل روی دسکتاپ ۳۶۰ پیکسل و روی موبایل تمام‌صفحه. حالت تیره با کلاس html.dark.
+ */
+.fs-as-btn {
+  position: fixed; left: 16px; bottom: 16px; z-index: 45;
+  width: 56px; height: 56px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #0f766e; color: #fff; box-shadow: 0 8px 24px rgba(15, 23, 42, .25);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s ease;
+}
+.fs-as-btn:hover { transform: scale(1.05); }
+.fs-as-btn:focus-visible { outline: 3px solid #fbbf24; outline-offset: 2px; }
+.fs-as-btn svg { width: 28px; height: 28px; fill: currentColor; }
+body.fs-as-open .fs-as-btn { display: none; }
+body.has-sticky-buy .fs-as-btn { bottom: 84px; }
+@media print { .fs-as-btn, .fs-as-panel { display: none !important; } }
+
+.fs-as-panel {
+  position: fixed; left: 16px; bottom: 16px; z-index: 46;
+  width: 360px; max-width: calc(100vw - 32px); height: min(560px, calc(100dvh - 32px));
+  background: #fff; color: #0f172a; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, .3);
+  display: flex; flex-direction: column; direction: rtl; font-size: 14px;
+}
+.fs-as-panel[hidden] { display: none; }
+@media (max-width: 640px) {
+  .fs-as-panel { left: 0; bottom: 0; width: 100vw; max-width: 100vw; height: 100dvh; border-radius: 0; }
+}
+
+.fs-as-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #0f766e; color: #fff; }
+.fs-as-head b { flex: 1; font-size: 15px; }
+.fs-as-head small { display: block; font-weight: 400; opacity: .85; font-size: 12px; }
+.fs-as-close { background: transparent; border: 0; color: #fff; cursor: pointer; font-size: 22px; line-height: 1; padding: 4px 8px; border-radius: 8px; }
+.fs-as-close:focus-visible { outline: 2px solid #fbbf24; }
+
+.fs-as-log { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; overscroll-behavior: contain; }
+.fs-as-msg { max-width: 88%; padding: 9px 12px; border-radius: 14px; line-height: 1.8; white-space: pre-line; word-wrap: break-word; }
+.fs-as-bot { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; border-top-right-radius: 4px; }
+.fs-as-me { align-self: flex-end; background: #ccfbf1; border-top-left-radius: 4px; }
+.fs-as-wait { color: #64748b; font-style: italic; }
+
+.fs-as-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; align-self: stretch; }
+.fs-as-card { flex: 0 0 150px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.fs-as-card img { width: 100%; height: 100px; object-fit: contain; border-radius: 8px; background: #fff; }
+.fs-as-card a.fs-as-name { color: #0f172a; text-decoration: none; font-size: 12px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 38px; }
+.fs-as-price { font-weight: 700; font-size: 13px; }
+.fs-as-old { color: #94a3b8; text-decoration: line-through; font-size: 11px; margin-inline-start: 4px; font-weight: 400; }
+.fs-as-off { color: #dc2626; font-size: 11px; }
+.fs-as-out { color: #b91c1c; font-size: 12px; }
+.fs-as-add { border: 0; border-radius: 8px; background: #0f766e; color: #fff; font-size: 12px; padding: 6px; cursor: pointer; font-family: inherit; }
+
+.fs-as-actions { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; }
+.fs-as-chip { border: 1px solid #99f6e4; background: #f0fdfa; color: #115e59; border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; text-decoration: none; font-family: inherit; }
+.fs-as-chip:hover { background: #ccfbf1; }
+
+.fs-as-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid #e2e8f0; background: #fff; }
+.fs-as-form input { flex: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 9px 12px; font-family: inherit; font-size: 14px; min-width: 0; }
+.fs-as-form input:focus { outline: 2px solid #14b8a6; border-color: transparent; }
+.fs-as-form button { border: 0; border-radius: 10px; background: #0f766e; color: #fff; padding: 0 14px; cursor: pointer; font-family: inherit; }
+.fs-as-form button:disabled { opacity: .5; cursor: default; }
+.fs-as-note { font-size: 11px; color: #94a3b8; text-align: center; padding: 0 10px 8px; background: #fff; }
+
+html.dark .fs-as-panel, html.dark .fs-as-form, html.dark .fs-as-note { background: #0f172a; color: #e2e8f0; }
+html.dark .fs-as-log { background: #111827; }
+html.dark .fs-as-bot, html.dark .fs-as-card { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+html.dark .fs-as-card a.fs-as-name { color: #e2e8f0; }
+html.dark .fs-as-me { background: #134e4a; color: #f0fdfa; }
+html.dark .fs-as-form input { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+html.dark .fs-as-chip { background: #134e4a; color: #ccfbf1; border-color: #0f766e; }
