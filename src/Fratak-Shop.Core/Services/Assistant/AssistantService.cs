@@ -871,8 +871,8 @@ public sealed class AssistantService(
     /// <summary>کالای در حال گفت‌وگو: کالای همین صفحه یا اولین کارتی که دستیار نشان داده (یا null).</summary>
     private async Task<ProductFilterData?> ContextProductAsync(AssistantRequest request, CancellationToken cancellationToken)
     {
-        var id = request.CurrentProductId ?? request.LastProductIds.FirstOrDefault();
-        if (id is not { } value || value == Guid.Empty)
+        var value = request.CurrentProductId ?? request.LastProductIds.FirstOrDefault();
+        if (value == Guid.Empty)
             return null;
         cancellationToken.ThrowIfCancellationRequested();
         return (await products.GetCardsByIdsAsync([value])).FirstOrDefault();
