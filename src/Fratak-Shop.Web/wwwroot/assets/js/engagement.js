@@ -10,6 +10,7 @@
  *  - [data-vote]              : helpful / not helpful votes of reviews and answers
  *  - form[data-answer-form]   : customer answers to product questions
  *  - [data-push]              : browser push notifications on/off (notifications page)
+ *  - [data-sticky-buy]        : دور ۲۳ – نوار ثابت «افزودن به سبد» موبایل؛ فقط وقتی فرم اصلی (#buy-form) از دید خارج است
  */
 (function () {
   "use strict";
@@ -473,4 +474,26 @@
         .finally(() => { button.disabled = false; });
     });
   });
+})();
+
+// ── دور ۲۳: نوار ثابت «افزودن به سبد» در موبایل ─────────────────────────
+// وقتی فرم اصلی خرید دیده نمی‌شود (کاربر پایین صفحه است) نوار نشان داده می‌شود و کلاس has-sticky-buy روی body می‌نشیند
+// (دکمهٔ دستیار بالاتر می‌رود تا روی نوار نیفتد). بدون IntersectionObserver (مرورگر خیلی قدیمی) نوار هرگز نمایش داده نمی‌شود.
+(function () {
+  "use strict";
+  const bar = document.querySelector("[data-sticky-buy]");
+  const form = document.getElementById("buy-form");
+  if (!bar || !form || !("IntersectionObserver" in window)) return;
+  const mobile = window.matchMedia("(max-width: 1023px)");
+  let formVisible = true;
+  const update = () => {
+    const show = mobile.matches && !formVisible;
+    bar.hidden = !show;
+    document.body.classList.toggle("has-sticky-buy", show);
+  };
+  new IntersectionObserver((entries) => {
+    formVisible = entries.some((entry) => entry.isIntersecting);
+    update();
+  }).observe(form);
+  if (mobile.addEventListener) mobile.addEventListener("change", update);
 })();

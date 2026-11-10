@@ -83,3 +83,17 @@ details > summary::-webkit-details-marker { display: none; }
 /* ── لوگوی برند (Pages/Shared/_BrandLockup.cshtml) ───────────────────────
    نسخهٔ سفید آیکون فقط در حالت تیره دیده می‌شود (dark.css جای دو تصویر را عوض می‌کند). */
 .brand-logo-dark { display: none; }
+
+/* ── نوار ثابت «افزودن به سبد» صفحهٔ محصول در موبایل (دور ۲۳) ─────────────
+   فقط زیر ۱۰۲۴px و فقط وقتی فرم اصلی دیده نمی‌شود (engagement.js ویژگی hidden را برمی‌دارد). */
+.fs-sticky-buy { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, .08); }
+.fs-sticky-buy[hidden] { display: none; }
+.fs-sticky-buy-price { display: flex; flex-direction: column; font-size: 13px; color: #3f3f46; }
+.fs-sticky-buy-price strong { font-size: 16px; }
+.fs-sticky-buy-old { font-size: 11px; color: #a1a1aa; text-decoration: line-through; }
+.fs-sticky-buy-btn { flex: 0 0 auto; padding: 10px 20px; border-radius: 10px; color: #fff; font-size: 14px;
+  background: linear-gradient(to bottom left, #38bdf8, #0284c7); }
+@media (min-width: 1024px) { .fs-sticky-buy { display: none !important; } }
+body.has-sticky-buy { padding-bottom: 72px; }

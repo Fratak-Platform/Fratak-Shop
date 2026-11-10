@@ -287,7 +287,7 @@
                   </div>
                 }
               </div>
-              <form method="post" asp-page="/Cart" asp-page-handler="Add" class="pt-4">
+              <form method="post" asp-page="/Cart" asp-page-handler="Add" class="pt-4" id="buy-form">
                 <input type="hidden" name="productId" value="@p.Id" />
                 <input type="hidden" name="returnUrl" value="@returnUrl" />
                 <div class="flex items-center justify-between mb-3 text-sm text-zinc-600">
@@ -298,6 +298,17 @@
                   افزودن به سبد خرید
                 </button>
               </form>
+              @* دور ۲۳ (مورد ۶۰): نوار ثابت «افزودن به سبد» در موبایل؛ فقط وقتی فرم اصلی از دید خارج شده باشد (engagement.js). همان فرم بالا را می‌فرستد. *@
+              <div class="fs-sticky-buy" data-sticky-buy hidden>
+                <div class="fs-sticky-buy-price">
+                  @if (p.HasActiveDiscount)
+                  {
+                    <span class="fs-sticky-buy-old">@Format.Price(p.Price)</span>
+                  }
+                  <span><strong>@Format.Price(p.FinalPrice)</strong> تومان</span>
+                </div>
+                <button type="submit" form="buy-form" class="fs-sticky-buy-btn">افزودن به سبد</button>
+              </div>
             }
             else
             {
