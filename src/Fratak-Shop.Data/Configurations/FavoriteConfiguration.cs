@@ -20,5 +20,8 @@ public class FavoriteConfiguration : IEntityTypeConfiguration<Favorite>
 
         builder.HasIndex(f => new { f.UserId, f.ProductId })
             .IsUnique();
+
+        // دور ۲۵ (الف): قیمت مرجع علاقه‌مندی به تومان و بدون اعشار (مثل بقیهٔ قیمت‌ها).
+        builder.Property(f => f.WatchPrice).HasPrecision(18, 0);
     }
 }

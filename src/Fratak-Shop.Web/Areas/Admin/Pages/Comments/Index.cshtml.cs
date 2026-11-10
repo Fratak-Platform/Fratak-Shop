@@ -217,7 +217,7 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
             SuccessMessage = "پاسخ فروشگاه منتشر شد.";
             // دور ۲۵: پاسخ به پرسش کالا ← اعلان به پرسش‌کننده (سایت + پوش).
             if (parent.Type == CommentType.Question)
-                await events.QuestionAnsweredAsync(reply.Id);
+                await events.QuestionAnsweredAsync(result.Data);
         }
         else
             ErrorMessage = result.Message ?? "ثبت پاسخ ناموفق بود.";

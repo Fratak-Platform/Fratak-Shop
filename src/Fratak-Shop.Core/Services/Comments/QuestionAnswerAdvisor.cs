@@ -141,7 +141,7 @@ public sealed class QuestionAnswerAdvisor(FratakShopDbContext context) : IQuesti
                 (product.WarrantyMonths is > 0 ? $" ({PersianText.Digits(product.WarrantyMonths.Value)} ماه)" : "") + " دارد.", "اطلاعات کالا", 1));
 
         // ۲. مشخصه‌های مرتبط (موضوع پرسش یا واژه‌های پرسش در نام مشخصه).
-        var keys = (topic?.FeatureKeys ?? []).Select(PersianText.Normalize).ToList();
+        var keys = (topic?.FeatureKeys ?? Array.Empty<string>()).Select(PersianText.Normalize).ToList();
         var words = AssistantNlu.Words(parse.Query).Where(w => w.Length >= 3).ToList();
         var matched = product.Features
             .Where(f =>
