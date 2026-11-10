@@ -78,8 +78,10 @@ public static class ContentQualityGate
         var html = content;
         if (html.Contains('<', StringComparison.Ordinal))
         {
-            html = Block.Replace(html, m => HasForbidden(m.Value) ? "" : m.Value);
+            // اول لینک‌های خراب باز می‌شوند (متن لینک می‌ماند)، بعد بند دارای عبارت ممنوع حذف می‌شود؛
+            // مثال: «<p>برای خرید <a href="/category/uncategorized">این کالاها</a> عجله نکنید.</p>» ← همان بند بدون لینک.
             html = UnwrapBadLinks(html);
+            html = Block.Replace(html, m => HasForbidden(m.Value) ? "" : m.Value);
             // اگر عبارت ممنوع بیرون از p/li مانده (مثلاً داخل div)، همان جمله حذف می‌شود.
             if (HasForbidden(html))
                 html = DropSentences(html);
