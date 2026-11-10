@@ -238,7 +238,7 @@ public sealed class PriceMatchService(
         var coupon = new Coupon
         {
             Code = code,
-            Title = Cut($"تضمین قیمت – {request.ProductName}", 200),
+            Title = Cut($"تضمین قیمت – {request.ProductName}", 200) ?? "تضمین قیمت",
             Description = "کد شخصی تضمین قیمت؛ فقط برای همین کالا و یک بار.",
             Type = CouponType.FixedAmount,
             Value = amount,
