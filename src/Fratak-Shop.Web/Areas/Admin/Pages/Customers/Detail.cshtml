@@ -216,6 +216,23 @@
           </div>
         }
         <p class="text-xs leading-6 a-muted">@Icons.Svg("Target", "inline", 14) @Model.Rfm.Advice</p>
+        @if (Model.Churn is { } churn)
+        {
+          @* دور ۲۴: مدل ریزش داخلی (ریتم خرید خود مشتری)؛ فقط راهنما. پیام برگشت خودکار در تنظیمات هوشمند روشن/خاموش می‌شود. *@
+          <div class="text-xs leading-6">
+            <span class="a-badge @(churn.AtRisk ? "a-badge-red" : churn.Percent >= 40 ? "a-badge-yellow" : "a-badge-green")">احتمال ریزش @Format.Number(churn.Percent)٪</span>
+            <span class="a-muted">معمولاً هر @Format.Number(churn.ExpectedGapDays) روز می‌خرد · @Format.Number(churn.DaysSinceLastOrder) روز از آخرین خرید</span>
+            @if (churn.Gifts.Count > 0)
+            {
+              <div class="mt-1">پیشنهاد هدیه/پیام:
+                @foreach (var gift in churn.Gifts)
+                {
+                  <a class="a-link" href="/product/@gift.Slug" target="_blank" rel="noopener">@gift.Name</a>@(gift == churn.Gifts[^1] ? "" : "، ")
+                }
+              </div>
+            }
+          </div>
+        }
 
         <div class="border-t border-gray-100 pt-3">
           <div class="a-label mb-2">برچسب‌ها</div>

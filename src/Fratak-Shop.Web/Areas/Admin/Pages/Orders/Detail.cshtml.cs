@@ -22,7 +22,8 @@ public class DetailModel(
     IOrderSlaService sla,
     IStaffOrderService staffOrders,
     IShipmentTrackingService shipments,
-    global::Fratak_Shop.Core.Services.Team.IMentionService mentions) : AdminPageModel
+    global::Fratak_Shop.Core.Services.Team.IMentionService mentions,
+    IOrderRiskService risk) : AdminPageModel
 {
     /// <summary>رهگیری مرسوله (شرکت حمل، وضعیت و رویدادهای سامانهٔ پست)؛ اگر هنوز ثبت نشده null.</summary>
     public ShipmentTimelineDto? Shipment { get; private set; }
@@ -33,6 +34,9 @@ public class DetailModel(
     /// <summary>مرحلهٔ فعلی زمان‌بندی (SLA) و بازهٔ تحویل تخمینی؛ سفارش بسته یا SLA خاموش ← null.</summary>
     public OrderSlaResult? Sla { get; private set; }
     public OrderDeliveryEstimate? Estimate { get; private set; }
+
+    /// <summary>دور ۲۴ (پیشنهاد ۵۵): ریسک این سفارش با دلیل‌ها (راهنمای ادمین؛ چیزی خودکار رد نمی‌شود).</summary>
+    public OrderRisk? Risk { get; private set; }
 
     /// <summary>
     /// امکان پیام و سؤال حذف کالا: سفارش به حساب کاربری وصل باشد و هنوز ارسال نشده باشد
@@ -60,6 +64,7 @@ public class DetailModel(
         Messages = await messages.ListAsync(id);
         (Sla, Estimate) = await sla.GetForOrderAsync(id, HttpContext.RequestAborted);
         Shipment = await shipments.GetTimelineAsync(id, HttpContext.RequestAborted);
+        Risk = (await risk.AssessAsync([id], HttpContext.RequestAborted)).GetValueOrDefault(id);
         if (Messages.Any(m => !m.FromStaff && m.ReadByStaffAt is null))
             await messages.MarkReadByStaffAsync(id);
         return Page();

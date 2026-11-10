@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Orders;
 
 [AdminPermission(AdminPermissions.OrdersView)]
-public class IndexModel(IAdminOrderService orders, IOrderSlaService sla) : AdminPageModel
+public class IndexModel(IAdminOrderService orders, IOrderSlaService sla, IOrderRiskService risk) : AdminPageModel
 {
     [BindProperty(SupportsGet = true, Name = "q")] public string? Search { get; set; }
     [BindProperty(SupportsGet = true)] public OrderStatus? Status { get; set; }
@@ -32,6 +32,9 @@ public class IndexModel(IAdminOrderService orders, IOrderSlaService sla) : Admin
     /// <summary>نشان زمان‌بندی ردیف‌های همین صفحه (کلید: شناسهٔ سفارش).</summary>
     public Dictionary<Guid, OrderSlaResult> SlaMap { get; private set; } = [];
 
+    /// <summary>دور ۲۴ (پیشنهاد ۵۵): ریسک سفارش‌های این صفحه (فقط متوسط/زیاد نشان داده می‌شود).</summary>
+    public Dictionary<Guid, OrderRisk> RiskMap { get; private set; } = [];
+
     /// <summary>تعداد دیرکرد / نزدیک به پایان مهلت برای دکمه‌های بالای صفحه.</summary>
     public OrderSlaSummary SlaSummary { get; private set; } = OrderSlaSummary.Empty;
 
@@ -49,6 +52,8 @@ public class IndexModel(IAdminOrderService orders, IOrderSlaService sla) : Admin
 
         List = await orders.GetListAsync(await BuildFilterAsync(pageNumber, 25));
         SlaMap = await sla.EvaluateAsync(List.Orders.Items.Select(o => o.Id).ToList(), HttpContext.RequestAborted);
+        RiskMap = await risk.AssessAsync(List.Orders.Items.Where(o => o.Status is not (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Returned))
+            .Select(o => o.Id).ToList(), HttpContext.RequestAborted);
         SlaSummary = await sla.GetSummaryAsync(HttpContext.RequestAborted);
         return Page();
     }

@@ -466,3 +466,8 @@
     window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
   });
 })();
+
+// دور ۲۴: دکمهٔ چاپ صفحه ([data-print]) – مثلاً فهرست برداشت داشبورد آماده‌سازی (اسکریپت درون‌خطی به‌خاطر CSP ممنوع است).
+document.addEventListener("click", (e) => {
+  if (e.target instanceof Element && e.target.closest("[data-print]")) window.print();
+});

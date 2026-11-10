@@ -74,6 +74,11 @@
                 <span class="a-badge a-badge-gray">@TypeTitle(c.Type)</span>
                 @if (c.ParentId is not null) { <span class="a-badge a-badge-blue">پاسخ کاربر</span> }
                 @if (c.IsVerifiedPurchase) { <span class="a-badge a-badge-green">خریدار</span> }
+                @if (Model.Sentiments.TryGetValue(c.Id, out var mood) && mood.Label != Fratak_Shop.Core.Services.Learning.SentimentLabel.Neutral)
+                {
+                  @* دور ۲۴: تحلیل احساس داخلی؛ فقط راهنمای ادمین است و چیزی خودکار رد نمی‌شود. *@
+                  <span class="a-badge @(mood.IsNegative ? "a-badge-red" : "a-badge-green")" title="تحلیل خودکار احساس متن">@(mood.IsNegative ? "منفی" : "مثبت")@(mood.Topics.Count > 0 ? " · " + string.Join("، ", mood.Topics) : "")</span>
+                }
                 @switch (c.Status)
                 {
                   case CommentStatus.Pending: <span class="a-badge a-badge-yellow">در انتظار</span> break;

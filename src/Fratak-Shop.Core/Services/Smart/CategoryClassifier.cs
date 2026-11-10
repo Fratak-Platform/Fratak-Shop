@@ -276,3 +276,65 @@ public static class SearchIntent
         return contains.Slug is not null ? contains : null;
     }
 }
+
+/// <summary>
+/// دور ۲۴ (پیشنهاد ۵۳): «نظر دوم» برای دسته‌بندی خودکار. دو مدل مستقل داخلی داریم:
+/// <list type="number">
+/// <item><see cref="CategoryClassifier"/> (شباهت TF-IDF با مرکز دسته‌ها).</item>
+/// <item><see cref="Learning.NaiveBayesText"/> (احتمال بیز ساده روی واژه‌ها، جفت‌واژه‌ها و حروف؛ غلط املایی و پسوند را بهتر تحمل می‌کند).</item>
+/// </list>
+/// قانون تصمیم (محافظه‌کار؛ کالای اشتباه در دسته بدتر از دسته‌بندی‌نکردن است):
+/// <list type="bullet">
+/// <item>مدل اول مطمئن و مدل دوم مخالفِ قاطع (≥۰٫۹ برای دستهٔ دیگر) نیست ← پذیرش.</item>
+/// <item>مدل اول مطمئن ولی مدل دوم قاطعانه دستهٔ دیگری می‌گوید ← رد (می‌رود سراغ مسیر سایت دیگر/نوع کالا).</item>
+/// <item>مدل اول نیمه‌مطمئن (امتیاز ≥۰٫۲۰ و اولویت با دسته‌ای مثبت) و مدل دوم با احتمال ≥۰٫۸ همان دسته ← پذیرش (توافق دو مدل).</item>
+/// </list>
+/// مثال: «پاوربانک انکر ۱۰۰۰۰» TF-IDF=پاوربانک (۰٫۵۵) و بیز=پاوربانک (۰٫۹۷) ← پاوربانک؛ «کابل شارژ پاوربانک» TF-IDF=پاوربانک (۰٫۳۵) ولی بیز=کابل (۰٫۹۴) ← رد.
+/// <para>محل استفاده: SmartCategoryService.Decide (درون‌ریزی و بازبینی دوره‌ای کالاها).</para>
+/// </summary>
+public static class CategoryConsensus
+{
+    /// <summary>احتمال مدل دوم برای مخالفت قاطع.</summary>
+    public const double VetoProbability = 0.90;
+
+    /// <summary>احتمال مدل دوم برای تأیید حدس نیمه‌مطمئن.</summary>
+    public const double AgreeProbability = 0.80;
+
+    /// <summary>کمترین امتیاز مدل اول برای اینکه با تأیید مدل دوم پذیرفته شود.</summary>
+    public const double SoftScore = 0.20;
+
+    /// <summary>
+    /// آموزش مدل دوم با (نام کالا، شناسهٔ دسته). کمتر از دو دسته ← null (نظر دوم معنی ندارد).
+    /// </summary>
+    public static Learning.NaiveBayesText? TrainSecondOpinion(IEnumerable<(string Name, Guid CategoryId)> samples)
+    {
+        var list = samples.Where(s => !string.IsNullOrWhiteSpace(s.Name))
+            .Select(s => (Text: string.Join(' ', CategoryClassifier.Terms(s.Name)), Label: s.CategoryId.ToString("N")))
+            .Where(s => s.Text.Length > 0)
+            .ToList();
+        return list.Select(s => s.Label).Distinct().Count() < 2 ? null : Learning.NaiveBayesText.Train(list);
+    }
+
+    /// <summary>پرسش از مدل دوم با همان پیش‌پردازش آموزش (واژه‌های مفید نام). مدل null ← null.</summary>
+    public static Learning.TextPrediction? Ask(Learning.NaiveBayesText? model, string? name) =>
+        model?.Predict(string.Join(' ', CategoryClassifier.Terms(name)));
+
+    /// <summary>
+    /// تصمیم نهایی از دو نظر؛ null یعنی «مطمئن نیستیم» (کالا دست نمی‌خورد یا روش بعدی امتحان می‌شود).
+    /// <paramref name="second"/> برچسبش شناسهٔ دسته با قالب N است (خروجی <see cref="TrainSecondOpinion"/>).
+    /// </summary>
+    public static Guid? Decide(CategoryGuess? first, Learning.TextPrediction? second)
+    {
+        if (first is null)
+            return null;
+        Guid? secondId = second is { } p && Guid.TryParseExact(p.Label, "N", out var parsed) ? parsed : null;
+        var secondProbability = second?.Probability ?? 0;
+        var agrees = secondId == first.CategoryId;
+
+        if (CategoryClassifier.IsConfident(first))
+            return secondId is not null && !agrees && secondProbability >= VetoProbability ? null : first.CategoryId;
+        if (agrees && secondProbability >= AgreeProbability && first.Score >= SoftScore && first.Margin > 0)
+            return first.CategoryId;
+        return null;
+    }
+}

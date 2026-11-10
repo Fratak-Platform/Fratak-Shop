@@ -86,7 +86,10 @@ public sealed class StaffAlertDispatcher(IServiceScopeFactory scopeFactory, ILog
 
         Comment { Status: CommentStatus.Pending } comment => new PendingAlert(typeof(Comment), comment.Id, new StaffAlert(
             StaffNotificationKind.NewComment,
-            comment.Type == CommentType.Question ? $"پرسش جدید از {comment.AuthorName}" : $"دیدگاه جدید از {comment.AuthorName}",
+            comment.Type == CommentType.Question ? $"پرسش جدید از {comment.AuthorName}"
+                : global::Fratak_Shop.Core.Services.Learning.ReviewSentiment.Analyze(comment.Content, comment.Rating, comment.IsRecommended).IsNegative
+                    ? $"دیدگاه منفی از {comment.AuthorName} (نیاز به پیگیری)"
+                    : $"دیدگاه جدید از {comment.AuthorName}",
             Excerpt(comment.Content),
             "/admin/comments",
             [AdminPermissions.CommentsModerate])),

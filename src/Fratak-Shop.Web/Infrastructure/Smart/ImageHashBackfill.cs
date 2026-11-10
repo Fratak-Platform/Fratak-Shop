@@ -11,6 +11,7 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <para>فایل گم‌شده یا خراب ← Hash = ۰ (یعنی «نامعلوم»؛ دیگر دوباره خوانده نمی‌شود و هرگز تکراری حساب نمی‌شود).</para>
 /// <para>تکراری‌ها با <see cref="ImageDuplicates.Redundant"/> پیدا و حذف نرم می‌شوند (فایل روی دیسک می‌ماند؛ از سطل بازیابی برمی‌گردد).</para>
 /// <para>اجرا: SmartWorker.CategorizeHourlyAsync. مثال خروجی: (۱۵۰ عکس اثر انگشت گرفت، ۲ عکس تکراری کنار رفت).</para>
+/// <para>دور ۲۴ (پیشنهاد ۵۸): امتیاز کیفیت (ستون Quality) هم در همین خواندن حساب می‌شود و عکس اصلی ضعیف با بهترین عکس همان کالا عوض می‌شود.</para>
 /// </summary>
 public static class ImageHashBackfill
 {
@@ -22,8 +23,9 @@ public static class ImageHashBackfill
         var context = services.GetRequiredService<FratakShopDbContext>();
         var uploads = services.GetRequiredService<IUploadStore>();
         var rows = await context.ProductImages.AsTracking()
-            .Where(i => i.Hash == null)
-            .OrderBy(i => i.CreatedAt)
+            .Where(i => i.Hash == null || i.Quality == null)
+            .OrderBy(i => i.Hash != null)
+            .ThenBy(i => i.CreatedAt)
             .Take(PerRun)
             .ToListAsync(cancellationToken);
         if (rows.Count == 0)
@@ -46,8 +48,29 @@ public static class ImageHashBackfill
                 }
             }
             row.Hash = info is null ? 0 : unchecked((long)info.Hash);
+            // دور ۲۴ (پیشنهاد ۵۸): امتیاز کیفیت در همان خواندن فایل (۰ = فایل گم‌شده/خراب).
+            row.Quality = (byte)Math.Clamp(info?.Quality ?? 0, 0, 100);
         }
         await context.SaveChangesAsync(cancellationToken);
+
+        // دور ۲۴: اگر عکس اصلی کالا ضعیف (تار/تیره/کم‌وضوح) و عکس دیگری از همان کالا خیلی بهتر است، آن عکس اصلی می‌شود.
+        var touched = rows.Select(r => r.ProductId).Distinct().ToList();
+        var gallery = await context.ProductImages.AsTracking()
+            .Where(i => touched.Contains(i.ProductId))
+            .ToListAsync(cancellationToken);
+        var switched = 0;
+        foreach (var group in gallery.GroupBy(i => i.ProductId))
+        {
+            var pick = Fratak_Shop.Core.Services.Smart.ImageQuality.PickPrimary(group
+                .Select(i => (i.Id, i.IsPrimary, i.Quality is null or 0 ? (int?)null : i.Quality)).ToList());
+            if (pick is null)
+                continue;
+            foreach (var image in group)
+                image.IsPrimary = image.Id == pick.Value;
+            switched++;
+        }
+        if (switched > 0)
+            await context.SaveChangesAsync(cancellationToken);
 
         var productIds = rows.Select(r => r.ProductId).Distinct().ToList();
         var fingerprints = await context.ProductImages.AsNoTracking()

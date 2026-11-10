@@ -24,6 +24,10 @@
         <span class="a-badge a-badge-red">@Icons.Svg("Receipt", null, 12) فاکتور خرید ثبت نشده</span>
       }
       <partial name="_SlaBadge" model="Model.Sla" />
+      @if (Model.Risk is { } orderRisk && orderRisk.Level != OrderRiskLevel.Low && o.Status is not (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Returned))
+      {
+        <span class="a-badge @(orderRisk.Level == OrderRiskLevel.High ? "a-badge-red" : "a-badge-yellow")" title="@(orderRisk.Learned ? "یادگرفته از سفارش‌های قبلی سایت" : "قانون پیش‌فرض (دادهٔ یادگیری هنوز کم است)")">@Icons.Svg("ShieldWarning", null, 12) ریسک @(orderRisk.Level == OrderRiskLevel.High ? "زیاد" : "متوسط") (@Format.Number(orderRisk.Percent)٪)@(orderRisk.Reasons.Count > 0 ? ": " + string.Join("، ", orderRisk.Reasons) : "")</span>
+      }
       @if (o.CreatedByStaffName is { } creator)
       {
         <span class="a-badge a-badge-purple" title="سفارش را کارمند در پنل ثبت کرده است">ثبت در پنل: @creator</span>

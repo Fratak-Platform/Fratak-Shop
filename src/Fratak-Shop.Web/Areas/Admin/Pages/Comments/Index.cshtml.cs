@@ -38,7 +38,7 @@ public sealed class AdminCommentRow
 public sealed record AdminCommentReply(Guid Id, string AuthorName, string Content, CommentStatus Status, DateTimeOffset CreatedAt);
 
 [AdminPermission(AdminPermissions.CommentsModerate)]
-public partial class IndexModel(IAdminDataService data, ICommentService comments, ISiteContext site) : AdminPageModel
+public partial class IndexModel(IAdminDataService data, ICommentService comments, ISiteContext site, IReviewSentimentService sentiment) : AdminPageModel
 {
     /// <summary>برچسب‌هایی مثل {FirstName} در پاسخ آماده (فقط برچسب‌های بی‌خطر برای نمایش عمومی جایگزین می‌شوند).</summary>
     [global::System.Text.RegularExpressions.GeneratedRegex(@"\{([A-Za-z]+)\}")]
@@ -57,6 +57,9 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
     public PagedList<AdminCommentRow> Items { get; private set; } = new([], 0, 1, PageSize);
     public Dictionary<CommentStatus, int> Counts { get; private set; } = new();
     public int UnansweredQuestions { get; private set; }
+
+    /// <summary>دور ۲۴ (پیشنهاد ۵۴): احساس هر دیدگاه این صفحه (نشان «منفی/مثبت» و موضوع شکایت).</summary>
+    public Dictionary<Guid, Fratak_Shop.Core.Services.Learning.SentimentResult> Sentiments { get; private set; } = [];
 
     public async Task OnGetAsync()
     {
@@ -124,6 +127,8 @@ public partial class IndexModel(IAdminDataService data, ICommentService comments
             .ToListAsync();
 
         Items = new PagedList<AdminCommentRow>(rows, total, pageNumber, PageSize);
+        Sentiments = await sentiment.AnalyzeAsync(rows.Where(r => r.Type != CommentType.Question)
+            .Select(r => (r.Id, (string?)((r.Title + " " + r.Content).Trim()), r.Rating, r.IsRecommended)), HttpContext.RequestAborted);
     }
 
     public async Task<IActionResult> OnPostModerateAsync(Guid id, string action)

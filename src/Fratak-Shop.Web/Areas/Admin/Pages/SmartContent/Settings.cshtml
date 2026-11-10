@@ -94,6 +94,13 @@
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PriceMatchEnabled"> «قیمت کمتر دیدید؟» در صفحهٔ کالا (بررسی در <a class="text-sky-700" href="/admin/marketing/price-match">تضمین قیمت</a>)</label>
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.SocialProof"> آمار واقعی خرید اخیر در صفحهٔ کالا (فقط عدد واقعی و معنادار)</label>
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImageSearch"> جست‌وجو با عکس (دکمهٔ دوربین کنار جست‌وجو)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.WinBackEnabled"> پیام برگشت خودکار برای مشتری در حال ریزش (کد تخفیف شخصی سقف‌دار + پیشنهاد هدیه؛ فقط اعلان سایت، بدون پیامک)</label>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <label class="a-field"><span class="a-label">درصد تخفیف (۵–۲۰)</span><input class="a-input" type="number" min="5" max="20" asp-for="Options.WinBackPercent"></label>
+        <label class="a-field"><span class="a-label">سقف تخفیف (تومان)</span><input class="a-input" type="number" min="50000" max="1000000" step="1000" asp-for="Options.WinBackMaxAmount"></label>
+        <label class="a-field"><span class="a-label">اعتبار (روز)</span><input class="a-input" type="number" min="3" max="30" asp-for="Options.WinBackDays"></label>
+        <label class="a-field"><span class="a-label">حداکثر در روز</span><input class="a-input" type="number" min="1" max="200" asp-for="Options.WinBackPerDay"></label>
+      </div>
     </div>
   </div>
 

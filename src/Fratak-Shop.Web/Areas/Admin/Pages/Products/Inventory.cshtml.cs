@@ -34,17 +34,24 @@ public class InventoryModel(IInventoryService inventory) : AdminPageModel
     public PagedList<StockForecastRow> Forecast { get; private set; } = new([], 0, 1, PageSize);
     public PagedList<StockMovementRow> Movements { get; private set; } = new([], 0, 1, PageSize);
 
+    /// <summary>دور ۲۴ (پیشنهاد ۶۷): پیش‌نویس سفارش خرید بر اساس تأمین‌کننده (زبانهٔ «po»).</summary>
+    public List<PurchaseDraftGroup> Purchase { get; private set; } = [];
+
     public async Task OnGetAsync([FromQuery(Name = "page")] int pageNumber = 1)
     {
         if (!Windows.Contains(Days))
             Days = 30;
-        if (Tab is not ("forecast" or "ledger"))
+        if (Tab is not ("forecast" or "ledger" or "po"))
             Tab = "forecast";
         var page = ClampPage(pageNumber);
         var ct = HttpContext.RequestAborted;
 
         Summary = await inventory.SummaryAsync(Days, ct);
-        if (Tab == "forecast")
+        if (Tab == "po")
+        {
+            Purchase = await inventory.PurchaseDraftAsync(Days, ct);
+        }
+        else if (Tab == "forecast")
         {
             var rows = await inventory.ForecastAsync(Days, Level, Search, ct);
             Forecast = new PagedList<StockForecastRow>(rows.Skip((page - 1) * PageSize).Take(PageSize).ToList(), rows.Count, page, PageSize);
@@ -57,6 +64,32 @@ public class InventoryModel(IInventoryService inventory) : AdminPageModel
             Movements = new PagedList<StockMovementRow>(items, total, page, PageSize);
         }
     }
+
+    /// <summary>
+    /// دور ۲۴: خروجی اکسل/CSV پیش‌نویس سفارش خرید (برای فرستادن به تأمین‌کننده). نمونه: /admin/products/inventory?handler=Purchase&amp;format=csv
+    /// </summary>
+    public async Task<IActionResult> OnGetPurchaseAsync(string? format)
+    {
+        if (!Windows.Contains(Days))
+            Days = 30;
+        var groups = await inventory.PurchaseDraftAsync(Days, HttpContext.RequestAborted);
+        var table = new ExportTable("پیش‌نویس سفارش خرید", "تأمین‌کننده", "کالا", "کد", "موجودی", "فروش روزانهٔ پیش‌بینی", "کافی برای (روز)", "تعداد پیشنهادی", "قیمت خرید", "جمع");
+        foreach (var group in groups)
+        {
+            foreach (var line in group.Lines)
+                table.Add(group.SupplierName, line.Name, line.Sku, line.Stock, line.DailyRate, line.DaysLeft, line.Quantity, line.UnitCost,
+                    line.UnitCost is { } cost ? cost * line.Quantity : null);
+        }
+        return Exporter.File(table, format ?? "xlsx", "purchase-draft");
+    }
+
+    public static string MethodTitle(string method) => method switch
+    {
+        "holt" => "روند + فصل هفتگی",
+        "croston" => "فروش پراکنده",
+        "mean" => "میانگین",
+        _ => "ساده",
+    };
 
     // ── کمک‌های نمایش ────────────────────────────────────────────────────
 

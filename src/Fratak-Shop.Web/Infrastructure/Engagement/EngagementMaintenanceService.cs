@@ -62,6 +62,9 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
             return smart.ImageSearch ? await sp.GetRequiredService<Fratak_Shop.Web.Infrastructure.Commerce.ImageSearchService>().BuildSignaturesAsync(token) : 0;
         }, token);
 
+        // دور ۲۴ (پیشنهاد ۵۷): پیام برگشت مشتری‌های در حال ریزش (فقط اگر روشن باشد؛ ساعت ۱۰ تا ۲۰؛ خودش ساعتی یک‌بار اجرا می‌شود).
+        await RunAsync("Win-back", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Marketing.IWinBackService>().RunAsync(DateTimeOffset.UtcNow, token), token);
+
         var now = DateTimeOffset.UtcNow;
         if (now - _lastDailyRun < DailyInterval)
             return;
@@ -88,6 +91,8 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         await RunAsync("Search learning maintenance", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Searches.ISearchLearningService>().MaintainAsync(token), token);
         // دور ۲۴ (بنر هوشمند): کمپین‌های گذشته ← تمام‌شده؛ پیش‌نویس‌های رهاشده ← لغو.
         await RunAsync("Campaign offer maintenance", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Marketing.ICampaignOfferService>().MaintainAsync(DateTimeOffset.UtcNow, token), token);
+        // دور ۲۴ (پیشنهاد ۵۶): افت/افزایش غیرعادی سفارش، فروش، لغو، مرجوعی و ثبت‌نام دیروز ← اعلان کارکنان (هر شاخص روزی یک‌بار).
+        await RunAsync("Anomaly check", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Insights.IAnomalyService>().CheckAsync(DateTimeOffset.UtcNow, token), token);
     }
 
     private async Task RunAsync(string name, Func<IServiceProvider, Task<int>> job, CancellationToken token)

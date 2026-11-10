@@ -130,7 +130,17 @@ public class OrderSlaService(
         var now = DateTimeOffset.UtcNow;
         // بازهٔ تحویل تخمینی همیشه نشان داده می‌شود؛ نشان دیرکرد فقط وقتی زمان‌بندی فعال است.
         var sla = settingsDto.IsOrderSlaEnabled ? OrderSla.Evaluate(order.Input, policy, now) : null;
-        return (sla, OrderSla.EstimateDelivery(order.Input, policy, now));
+
+        // دور ۲۴ (پیشنهاد ۵۹): بازهٔ تحویل از تاریخچهٔ واقعی همین استان و روش (اگر دادهٔ کافی باشد)؛ مهلت SLA دست نمی‌خورد.
+        var input = order.Input;
+        if (input.Status is OrderStatus.Confirmed or OrderStatus.Processing or OrderStatus.Shipped or OrderStatus.Pending)
+        {
+            var target = await context.Orders.Where(o => o.Id == orderId).Select(o => new { o.ShippingMethodId, o.ShippingProvince })
+                .FirstAsync(cancellationToken);
+            if (await DeliveryEta.LearnAsync(context, target.ShippingMethodId, target.ShippingProvince, cancellationToken) is { } learned)
+                input = input with { MethodMinDays = learned.Min, MethodMaxDays = learned.Max };
+        }
+        return (sla, OrderSla.EstimateDelivery(input, policy, now));
     }
 
     public async Task<int> AlertOverdueAsync(DateTimeOffset now, CancellationToken cancellationToken = default)

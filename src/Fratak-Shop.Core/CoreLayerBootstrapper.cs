@@ -50,6 +50,10 @@ public static class CoreLayerBootstrapper
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<IFaqItemService, FaqItemService>();
         services.AddScoped<ICommentService, CommentService>();
+        services.AddScoped<Services.Comments.IReviewSentimentService, Services.Comments.ReviewSentimentService>();
+        services.AddScoped<Services.Orders.IOrderRiskService, Services.Orders.OrderRiskService>();
+        services.AddScoped<Services.Insights.IAnomalyService, Services.Insights.AnomalyService>();
+        services.AddScoped<Services.Marketing.IWinBackService, Services.Marketing.WinBackService>();
         services.AddScoped<IFavoriteService, FavoriteService>();
         services.AddScoped<ILocationService, LocationService>();
         services.AddScoped<IBannerService, BannerService>();

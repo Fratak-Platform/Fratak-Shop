@@ -5585,6 +5585,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte?>("Quality")
+                        .HasColumnType("tinyint");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 

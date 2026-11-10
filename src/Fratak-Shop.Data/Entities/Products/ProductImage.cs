@@ -28,6 +28,12 @@ public class ProductImage : BaseEntity
     /// </summary>
     public long? Hash { get; set; }
 
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۵۸): امتیاز کیفیت تصویر ۰ تا ۱۰۰ (وضوح، تیزی/تاری با واریانس لاپلاسین، نور، کنتراست و پس‌زمینهٔ تمیز).
+    /// مبنای انتخاب خودکار بهترین عکس اصلی کالا. null = هنوز محاسبه نشده (کارگر هوشمند کم‌کم پر می‌کند).
+    /// </summary>
+    public byte? Quality { get; set; }
+
     [ForeignKey(nameof(ProductId))]
     public Product Product { get; set; } = null!;
 }

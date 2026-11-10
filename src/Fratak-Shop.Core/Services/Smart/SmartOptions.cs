@@ -204,6 +204,26 @@ public sealed class SmartOptions
     /// <summary>دور ۲۴ (پیشنهاد ۲۹): جست‌وجو با عکس (دکمهٔ دوربین کنار جست‌وجو). پیش‌فرض روشن.</summary>
     public bool ImageSearch { get; set; } = true;
 
+    // ── برگرداندن مشتری (دور ۲۴، پیشنهاد ۵۷) ─────────────────────────
+
+    /// <summary>
+    /// پیام برگشت خودکار برای مشتری‌هایی که مدل ریزش (ریتم خرید خودشان) می‌گوید در حال رفتن‌اند: کد تخفیف شخصی یک‌بارمصرف
+    /// با سقف مبلغ + ۳ پیشنهاد هدیهٔ مرتبط. فقط اعلان سایت و پوش (بدون پیامک). پیش‌فرض خاموش چون هزینه دارد.
+    /// </summary>
+    public bool WinBackEnabled { get; set; }
+
+    /// <summary>درصد تخفیف کد برگشت (۵ تا ۲۰؛ پیش‌فرض ۱۰).</summary>
+    public int WinBackPercent { get; set; } = 10;
+
+    /// <summary>سقف مبلغ تخفیف هر کد (تومان؛ ۵۰ هزار تا ۱ میلیون؛ پیش‌فرض ۲۰۰ هزار).</summary>
+    public decimal WinBackMaxAmount { get; set; } = 200_000;
+
+    /// <summary>اعتبار کد (روز؛ ۳ تا ۳۰؛ پیش‌فرض ۱۴).</summary>
+    public int WinBackDays { get; set; } = 14;
+
+    /// <summary>حداکثر پیام برگشت در روز (۱ تا ۲۰۰؛ پیش‌فرض ۳۰).</summary>
+    public int WinBackPerDay { get; set; } = 30;
+
 
     /// <summary>
     /// مقدارهای خارج از بازه را اصلاح می‌کند تا یک عدد اشتباه در فرم، سایت را به خطر نیندازد.
@@ -233,6 +253,10 @@ public sealed class SmartOptions
         QuietToHour = Math.Clamp(QuietToHour, 0, 23);
         DeadStockWarnDays = Math.Clamp(DeadStockWarnDays, 14, 365);
         DeadStockCriticalDays = Math.Clamp(DeadStockCriticalDays, DeadStockWarnDays, 730);
+        WinBackPercent = Math.Clamp(WinBackPercent, 5, 20);
+        WinBackMaxAmount = Math.Clamp(WinBackMaxAmount, 50_000, 1_000_000);
+        WinBackDays = Math.Clamp(WinBackDays, 3, 30);
+        WinBackPerDay = Math.Clamp(WinBackPerDay, 1, 200);
         ReplenishRules = (ReplenishRules ?? [])
             .Where(r => r.CategoryId != Guid.Empty)
             .GroupBy(r => r.CategoryId).Select(g => g.Last())

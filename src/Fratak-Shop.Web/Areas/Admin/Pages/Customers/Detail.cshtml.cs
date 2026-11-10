@@ -20,6 +20,7 @@ public class DetailModel(
     IWalletService wallet,
     IAdminAccessService access,
     ICustomerCrmService crm,
+    global::Fratak_Shop.Core.Services.Marketing.IWinBackService winBack,
     global::Fratak_Shop.Core.Services.Team.IApprovalService approvals,
     global::Fratak_Shop.Core.Services.Team.IMentionService mentions,
     global::Fratak_Shop.Core.Services.Settings.IStoreSettingService settingsService) : AdminPageModel
@@ -51,6 +52,9 @@ public class DetailModel(
 
     /// <summary>بخش‌بندی RFM مشتری (تازگی، دفعات، مبلغ خرید).</summary>
     public CustomerRfm Rfm { get; private set; } = null!;
+
+    /// <summary>دور ۲۴ (پیشنهاد ۵۷): احتمال ریزش بر اساس ریتم خرید خود مشتری + پیشنهاد هدیه.</summary>
+    public global::Fratak_Shop.Core.Services.Marketing.ChurnInsight? Churn { get; private set; }
 
     /// <summary>کلاس رنگ نشان هر بخش RFM؛ سبز = خوب، زرد = نیاز به اقدام، قرمز = فوری، خاکستری = غیرفعال.</summary>
     public static string SegmentBadge(CustomerSegment segment) => segment switch
@@ -95,6 +99,7 @@ public class DetailModel(
         Tags = await crm.GetTagsAsync(id);
         Notes = await crm.GetNotesAsync(id);
         Rfm = await crm.GetRfmAsync(id);
+        Churn = await winBack.InsightAsync(id, HttpContext.RequestAborted);
         if (Can(AdminPermissions.CustomersManage))
             TagSuggestions = await crm.PopularTagsAsync(50);
         return Page();

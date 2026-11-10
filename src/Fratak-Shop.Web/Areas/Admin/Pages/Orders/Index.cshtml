@@ -156,6 +156,10 @@
               {
                 <div class="mt-1"><partial name="_SlaBadge" model="slaResult" /></div>
               }
+              @if (Model.RiskMap.TryGetValue(o.Id, out var riskRow) && riskRow.Level != Fratak_Shop.Core.Services.Orders.OrderRiskLevel.Low)
+              {
+                <div class="mt-1"><span class="a-badge @(riskRow.Level == Fratak_Shop.Core.Services.Orders.OrderRiskLevel.High ? "a-badge-red" : "a-badge-yellow")" title="@string.Join("، ", riskRow.Reasons)">ریسک @(riskRow.Level == Fratak_Shop.Core.Services.Orders.OrderRiskLevel.High ? "زیاد" : "متوسط")</span></div>
+              }
               @if (o.CreatedByStaffName is not null)
               {
                 <div class="a-muted text-xs mt-1" title="ثبت‌شده توسط @o.CreatedByStaffName">ثبت در پنل</div>

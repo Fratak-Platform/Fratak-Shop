@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Services.Learning;
 using Fratak_Shop.Core.Services.Searches;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Data.Contexts;
@@ -129,6 +130,9 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
             .Take(8000).Select(p => new { p.CategoryId, p.Name }).ToListAsync(cancellationToken);
         var byCategory = names.GroupBy(n => n.CategoryId).ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Name).Take(200).ToList());
         var classifier = CategoryClassifier.Train(targets.Select(t => new CategorySample(t.Id, t.Name, byCategory.GetValueOrDefault(t.Id) ?? [])));
+        // دور ۲۴ (پیشنهاد ۵۳): مدل دوم (بیز ساده روی واژه و حروف) برای «نظر دوم»؛ با همان داده، بدون سرویس بیرونی.
+        var secondOpinion = CategoryConsensus.TrainSecondOpinion(names.Select(n => (n.Name, n.CategoryId))
+            .Concat(targets.Select(t => (t.Name, t.Id))));
         var brands = await context.Brands.Select(b => b.Name).Take(2000).ToListAsync(cancellationToken);
 
         var moves = new Dictionary<Guid, Move>();
@@ -152,7 +156,7 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
                 moves[product.Id] = new Move(entity.Id, ProductCategorySource.Smart);
                 continue;
             }
-            if (Decide(product, type, targets, categories, catchAll, classifier) is { } found)
+            if (Decide(product, type, targets, categories, catchAll, classifier, secondOpinion) is { } found)
             {
                 moves[product.Id] = found;
                 continue;
@@ -255,11 +259,12 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
     /// </list>
     /// </summary>
     private static Move? Decide(Candidate product, ProductType? type, List<CategoryRow> targets, List<CategoryRow> categories, HashSet<Guid> catchAll,
-        CategoryClassifier classifier)
+        CategoryClassifier classifier, NaiveBayesText? secondOpinion = null)
     {
         var guess = classifier.Classify(product.Name);
-        if (CategoryClassifier.IsConfident(guess))
-            return new Move(guess!.CategoryId, ProductCategorySource.Smart);
+        var verdict = CategoryConsensus.Decide(guess, CategoryConsensus.Ask(secondOpinion, product.Name));
+        if (verdict is { } accepted)
+            return new Move(accepted, ProductCategorySource.Smart);
 
         var path = CategoryNames.Path(product.SourceCategory);
         for (var i = path.Count - 1; i >= 0; i--)

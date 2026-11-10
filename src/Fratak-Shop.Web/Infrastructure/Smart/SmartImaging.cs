@@ -5,8 +5,8 @@ using SkiaSharp;
 
 namespace Fratak_Shop.Web.Infrastructure.Smart;
 
-/// <summary>اطلاعات یک تصویر دانلودشده: ابعاد واقعی و اثر انگشت dHash.</summary>
-public sealed record ImageInfo(int Width, int Height, ulong Hash);
+/// <summary>اطلاعات یک تصویر دانلودشده: ابعاد واقعی، اثر انگشت dHash و (دور ۲۴) امتیاز کیفیت ۰ تا ۱۰۰ (۰ = نامعلوم).</summary>
+public sealed record ImageInfo(int Width, int Height, ulong Hash, int Quality = 0);
 
 /// <summary>
 /// تحلیل تصویر با SkiaSharp (B3): ابعاد و اثر انگشت ادراکی (dHash) برای حذف تصویرهای تکراری – حتی اگر اندازه یا فشرده‌سازی فرق کند.
@@ -52,7 +52,7 @@ public static class SmartImageAnalyzer
                     gray[y * 9 + x] = (byte)((c.Red * 299 + c.Green * 587 + c.Blue * 114) / 1000);
                 }
             }
-            return new ImageInfo(info.Width, info.Height, ImageHash.DHash(gray));
+            return new ImageInfo(info.Width, info.Height, ImageHash.DHash(gray), QualityOf(bitmap, Math.Min(info.Width, info.Height)));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -61,6 +61,44 @@ public static class SmartImageAnalyzer
         finally
         {
             WebPEncoder.Gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۵۸): امتیاز کیفیت از نسخهٔ کوچک‌شده (حداکثر ۲۵۶ پیکسل) با <see cref="Fratak_Shop.Core.Services.Smart.ImageQuality"/>.
+    /// خطا ← ۰ (یعنی نامعلوم؛ عکس رد نمی‌شود).
+    /// </summary>
+    private static int QualityOf(SKBitmap bitmap, int originalMinSide)
+    {
+        try
+        {
+            // PNG/WebP کوچک باز نمی‌شوند (تا ۳۰۰۰ پیکسل)؛ برای سرعت و سنجش یکسان تیزی، همه به حداکثر ۲۵۶ پیکسل می‌رسند.
+            var scale = Math.Min(1.0, 256.0 / Math.Max(bitmap.Width, bitmap.Height));
+            using var small = scale < 1
+                ? bitmap.Resize(new SKImageInfo(Math.Max(3, (int)(bitmap.Width * scale)), Math.Max(3, (int)(bitmap.Height * scale)), SKColorType.Rgba8888, SKAlphaType.Premul),
+                    new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None))
+                : null;
+            var source = small ?? bitmap;
+            int w = source.Width, h = source.Height;
+            if (w < 3 || h < 3)
+                return 0;
+            var gray = new byte[w * h];
+            for (var y = 0; y < h; y++)
+            {
+                for (var x = 0; x < w; x++)
+                {
+                    var c = source.GetPixel(x, y);
+                    // پیکسل شفاف (PNG) روی زمینهٔ سفید دیده می‌شود.
+                    var a = c.Alpha / 255.0;
+                    var lum = (c.Red * 299 + c.Green * 587 + c.Blue * 114) / 1000.0;
+                    gray[y * w + x] = (byte)Math.Clamp(Math.Round(lum * a + 255 * (1 - a)), 0, 255);
+                }
+            }
+            return Fratak_Shop.Core.Services.Smart.ImageQuality.Score(gray, w, h, originalMinSide).Total;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return 0;
         }
     }
 
@@ -140,7 +178,7 @@ public static class BannerGenerator
 /// </summary>
 /// <para>دور ۲۳: Model = نتیجهٔ بررسی خودکار مدل منبع (<see cref="ImageModelCheck"/>)؛ نتیجه‌های قدیمی ← Unknown.</para>
 public sealed record FoundImage(string FileName, int Width, int Height, string Source, bool Trusted,
-    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0, ModelVerdict Model = ModelVerdict.Unknown);
+    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0, ModelVerdict Model = ModelVerdict.Unknown, int Quality = 0);
 
 /// <summary>یک نامزد تصویر پیش از دانلود (داخلی یابنده و آزمون‌ها).</summary>
 /// <remarks>دور ۲۳: Model = بررسی خودکار مدل منبع؛ «همان مدل» ۰٫۰۵ امتیاز بیشتر می‌گیرد (نامزد «مدل دیگر» اصلاً ساخته نمی‌شود).</remarks>
@@ -418,10 +456,11 @@ public sealed class SmartImageFinder(
                     continue;
                 hashes.Add(info.Hash);
                 results.Add(new FoundImage(name, info.Width, info.Height, candidate.Source, candidate.Trusted,
-                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores), candidate.Model));
+                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores), candidate.Model, info.Quality));
             }
         }
-        return results;
+        // دور ۲۴ (پیشنهاد ۵۸): عکس باکیفیت‌تر (تیز، روشن، زمینهٔ تمیز) جلوتر؛ اولین عکس پذیرفته‌شده عکس اصلی کالا می‌شود.
+        return results.OrderByDescending(r => r.Score * 0.7 + r.Quality / 100.0 * 0.3).ToList();
     }
 
     private async Task<string?> StoreAsync(byte[] bytes, UploadArea area, CancellationToken cancellationToken)

@@ -177,21 +177,33 @@ public class RecommendationService(FratakShopDbContext context, IProductService 
         return await productService.GetCardsByIdsAsync(ids, onlyInStock: true);
     }
 
-    /// <summary>Products that appear in the same (not cancelled) orders, most frequent first.</summary>
+    /// <summary>
+    /// کالاهای سفارش‌های مشترک (لغو/مرجوع‌نشده). دور ۲۴ (پیشنهاد ۵۲): ۵۰ نامزد پرتکرار با شباهت کسینوسی آیتم‌به‌آیتم
+    /// (<see cref="Learning.ItemSimilarity"/>) دوباره مرتب می‌شوند تا کالای واقعاً مرتبط بالاتر از «پرفروش عمومی» بیاید.
+    /// </summary>
     private async Task<List<Guid>> CoPurchasedAsync(List<Guid> productIds, int take)
     {
-        var orderIds = context.OrderItems
-            .Where(i => i.ProductId != null && productIds.Contains(i.ProductId.Value)
-                        && i.Order.Status != OrderStatus.Cancelled && i.Order.Status != OrderStatus.Returned)
-            .Select(i => i.OrderId);
+        var validItems = context.OrderItems.Where(i => i.ProductId != null
+                                                       && i.Order.Status != OrderStatus.Cancelled && i.Order.Status != OrderStatus.Returned);
+        var orderIds = validItems.Where(i => productIds.Contains(i.ProductId!.Value)).Select(i => i.OrderId);
 
-        return await context.OrderItems
-            .Where(i => orderIds.Contains(i.OrderId) && i.ProductId != null && !productIds.Contains(i.ProductId.Value))
+        var candidates = await validItems
+            .Where(i => orderIds.Contains(i.OrderId) && !productIds.Contains(i.ProductId!.Value))
             .GroupBy(i => i.ProductId!.Value)
             .Select(g => new { ProductId = g.Key, Count = g.Select(i => i.OrderId).Distinct().Count() })
             .OrderByDescending(x => x.Count)
-            .Take(take)
-            .Select(x => x.ProductId)
+            .Take(50)
             .ToListAsync();
+        if (candidates.Count <= 1)
+            return candidates.Select(c => c.ProductId).Take(take).ToList();
+
+        var candidateIds = candidates.Select(c => c.ProductId).ToList();
+        var totals = await validItems
+            .Where(i => candidateIds.Contains(i.ProductId!.Value))
+            .GroupBy(i => i.ProductId!.Value)
+            .Select(g => new { ProductId = g.Key, Orders = g.Select(i => i.OrderId).Distinct().Count() })
+            .ToDictionaryAsync(x => x.ProductId, x => x.Orders);
+        var baseOrders = await orderIds.Distinct().CountAsync();
+        return Learning.ItemSimilarity.Rank(candidates.ToDictionary(c => c.ProductId, c => c.Count), totals, baseOrders, take);
     }
 }
