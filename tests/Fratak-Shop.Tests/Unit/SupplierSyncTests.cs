@@ -437,6 +437,20 @@ public class SupplierSyncTests
     }
 
     [Fact]
+    public void Rules_NotFound_Twice_MakesProductOutOfStock_ButKeepsIt()
+    {
+        var decisions = SupplierSyncRules.Evaluate(SupplierSnapshot.NotFound("x"), new SupplierProductView(5, 1000m, false, 0, WasNotFound: true), Auto);
+        var oos = Find(decisions, SupplierChangeKind.OutOfStock)!;
+        Assert.Equal(SupplierDecisionAction.AutoApply, oos.Action);
+        Assert.Equal(5m, oos.OldValue);
+        Assert.Equal(0m, oos.NewValue);
+        Assert.Equal(SupplierDecisionAction.Propose, Find(decisions, SupplierChangeKind.NotFound)!.Action);
+
+        // موجودی از قبل صفر ← کاری نیست.
+        Assert.Null(Find(SupplierSyncRules.Evaluate(SupplierSnapshot.NotFound("x"), new SupplierProductView(0, 1000m, true, 0, WasNotFound: true), Auto), SupplierChangeKind.OutOfStock));
+    }
+
+    [Fact]
     public void Rules_Error_ReportedOnlyAfterThreshold()
     {
         Assert.Empty(SupplierSyncRules.Evaluate(SupplierSnapshot.Failed("x"), new SupplierProductView(5, null, false, 0), Auto));

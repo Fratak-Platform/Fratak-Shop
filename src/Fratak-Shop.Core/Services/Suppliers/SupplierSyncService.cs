@@ -410,7 +410,8 @@ public class SupplierSyncService(
                 states[candidate.Id] = state;
             }
 
-            var view = new SupplierProductView(product.StockQuantity, product.PurchasePrice, state.AutoOutOfStock, state.ConsecutiveErrors);
+            var view = new SupplierProductView(product.StockQuantity, product.PurchasePrice, state.AutoOutOfStock, state.ConsecutiveErrors,
+                WasNotFound: state.CheckedAt is not null && state.Status == SupplierItemStatus.NotFound);
             UpdateState(state, snapshot, candidate.Url, now);
             Count(run, snapshot.Status);
 

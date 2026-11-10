@@ -18,7 +18,8 @@ public sealed record SupplierSyncPolicy(bool AutoOutOfStock, int MarginPercent, 
 /// <param name="PurchasePrice">قیمت خرید ثبت‌شده (تومان).</param>
 /// <param name="AutoOutOfStock">آیا موجودی صفر را خود سیستم گذاشته است.</param>
 /// <param name="ConsecutiveErrors">تعداد خطاهای پشت‌سرهم پیش از این بررسی.</param>
-public sealed record SupplierProductView(int Stock, decimal? PurchasePrice, bool AutoOutOfStock, int ConsecutiveErrors);
+/// <param name="WasNotFound">دور ۲۳: بررسی قبلی هم «در منبع پیدا نشد» بود (حذف کالا در منبع دو بار پشت‌سرهم تأیید شده).</param>
+public sealed record SupplierProductView(int Stock, decimal? PurchasePrice, bool AutoOutOfStock, int ConsecutiveErrors, bool WasNotFound = false);
 
 /// <summary>یک تصمیم برای یک نوع تغییر.</summary>
 public enum SupplierDecisionAction
@@ -88,9 +89,17 @@ public static class SupplierSyncRules
                 return decisions;
 
             case SupplierItemStatus.NotFound:
-                // ممکن است لینک عوض شده باشد؛ کالا را خودکار ناموجود نمی‌کنیم تا کارمند بررسی کند.
+                // بار اول ممکن است لینک موقتاً خراب باشد؛ فقط گزارش. دور ۲۳ (مورد ۱۰): اگر بررسی قبلی هم «پیدا نشد» بود، کالا در منبع
+                // واقعاً حذف شده ← موجودی ما صفر می‌شود (طبق تنظیم «ناموجود کردن خودکار»). کالا و صفحه‌اش هرگز حذف یا ریدایرکت نمی‌شود؛
+                // صفحه با «کالاهای مشابه» و «خبرم کن» می‌ماند.
                 decisions.Add(new(SupplierChangeKind.NotFound, SupplierDecisionAction.Propose, Note: Trim(snapshot.Error)));
                 decisions.Add(new(SupplierChangeKind.Error, SupplierDecisionAction.Supersede));
+                if (ours.WasNotFound && ours.Stock > 0)
+                {
+                    decisions.Add(new(SupplierChangeKind.OutOfStock,
+                        policy.AutoOutOfStock ? SupplierDecisionAction.AutoApply : SupplierDecisionAction.Propose,
+                        ours.Stock, 0, "کالا در منبع حذف شده است؛ ناموجود شد و صفحه‌اش می‌ماند."));
+                }
                 return decisions;
         }
 
