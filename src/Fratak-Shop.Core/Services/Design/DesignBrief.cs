@@ -21,7 +21,65 @@ public enum BriefKind
 }
 
 /// <summary>دسته برای تطبیق متن ایده (همهٔ دسته‌های فعال؛ InStock = تعداد کالای موجود).</summary>
-public sealed record BriefCategory(Guid Id, string Name, string Slug, int InStock);
+public sealed record BriefCategory(Guid Id, string Name, string Slug, int InStock)
+{
+    /// <summary>دور ۲۶: نام فایل تصویر فعلی دسته (برای چیدمان «عکس تمام‌قاب» اگر عکس واقعی/فضاسازی باشد).</summary>
+    public string? ImageName { get; init; }
+}
+
+/// <summary>دور ۲۶: یک گزینهٔ فهرست «مقصد بنر». مثال: («دسته‌ها»، «cat:9f…»، «هدفون»).</summary>
+public sealed record BriefTargetOption(string Group, string Value, string Title);
+
+/// <summary>دور ۲۶: مقصد لینک بنر که مدیر انتخاب کرده است.</summary>
+public enum BriefTargetKind
+{
+    /// <summary>خودکار از متن ایده (رفتار قبلی).</summary>
+    Auto = 0,
+    /// <summary>بدون لینک (بنر اطلاع‌رسانی؛ دکمه هم ندارد).</summary>
+    None = 1,
+    /// <summary>یک دستهٔ مشخص.</summary>
+    Category = 2,
+    /// <summary>کالای انتخاب‌شده از فهرست.</summary>
+    Product = 3,
+    /// <summary>یک صفحه/بخش داخلی سایت (حراج‌ها، قوانین، کمپین، باشگاه…).</summary>
+    Page = 4,
+}
+
+/// <summary>
+/// دور ۲۶: مقصد بنر. مثال: Parse("cat:9f…") ← (Category، Id)؛ Parse("url:/club") ← (Page، Url=/club)؛ Parse("none") ← بدون لینک.
+/// مقدار ناشناخته/ناامن ← Auto (هرگز خطا نمی‌دهد). آدرس فقط داخلی (با «/» شروع شود؛ SafeLink).
+/// </summary>
+public sealed record BriefTarget(BriefTargetKind Kind, Guid? Id = null, string? Url = null, string? Title = null)
+{
+    /// <summary>مقصد پیش‌فرض (خودکار).</summary>
+    public static readonly BriefTarget Auto = new(BriefTargetKind.Auto);
+
+    /// <summary>
+    /// خواندن مقدار فرم. <paramref name="value"/>: auto | none | product | cat:{guid} | url:{مسیر داخلی}؛ <paramref name="customUrl"/> = آدرس دلخواه
+    /// (اگر پر باشد بر انتخاب فهرست مقدم است). <paramref name="title"/> = عنوان صفحهٔ انتخابی (برای نوشتن متن).
+    /// </summary>
+    public static BriefTarget Parse(string? value, string? customUrl = null, string? title = null)
+    {
+        if (DesignService.SafeLink(customUrl?.Trim()) is { } custom && custom.StartsWith('/'))
+            return new BriefTarget(BriefTargetKind.Page, Url: custom, Title: Clean(title));
+        value = value?.Trim() ?? "";
+        if (value.Equals("none", StringComparison.OrdinalIgnoreCase))
+            return new BriefTarget(BriefTargetKind.None);
+        if (value.Equals("product", StringComparison.OrdinalIgnoreCase))
+            return new BriefTarget(BriefTargetKind.Product);
+        if (value.StartsWith("cat:", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(value[4..], out var id) && id != Guid.Empty)
+            return new BriefTarget(BriefTargetKind.Category, id);
+        if (value.StartsWith("url:", StringComparison.OrdinalIgnoreCase) && DesignService.SafeLink(value[4..]) is { } url && url.StartsWith('/'))
+            return new BriefTarget(BriefTargetKind.Page, Url: url, Title: Clean(title));
+        return Auto;
+    }
+
+    private static string? Clean(string? title)
+    {
+        var t = title?.Trim();
+        return string.IsNullOrEmpty(t) ? null : t.Length > 60 ? t[..60] : t;
+    }
+}
 
 /// <summary>برند برای تطبیق متن ایده.</summary>
 public sealed record BriefBrand(Guid Id, string Name, string? EnglishName, string Slug, int InStock);
@@ -36,6 +94,9 @@ public sealed record BriefIntent(BriefKind Kind, string? Occasion, int? Percent,
 
     /// <summary>دور ۲۴: کالایی که مدیر از فهرست «انتخاب کالا» برگزیده (بر تطبیق متن مقدم است).</summary>
     public Guid? ProductId { get; init; }
+
+    /// <summary>دور ۲۶: مقصد انتخابی مدیر (پیش‌فرض خودکار).</summary>
+    public BriefTarget Target { get; init; } = BriefTarget.Auto;
 }
 
 /// <summary>
@@ -59,6 +120,9 @@ public sealed record BriefPlan(BriefKind Kind, string Title, string Headline, st
 
     /// <summary>دور ۲۴: قاعدهٔ پیش‌نویسی که این برنامه با آن ساخته شد (null = فقط دادهٔ واقعی فعلی).</summary>
     public BriefOffer? Offer { get; init; }
+
+    /// <summary>دور ۲۶: تیترهای جایگزین برای نسخه‌های ۲ و ۳ (متن خود ایده، یا جملهٔ دیگری با همان پیام) تا سه نسخه فقط در رنگ فرق نکنند.</summary>
+    public IReadOnlyList<string> AltHeadlines { get; init; } = [];
 }
 
 /// <summary>
@@ -441,58 +505,173 @@ public static class DesignBrief
                     : "ضریب امتیاز کمپین به‌صورت پیش‌نویس ذخیره شد و فقط با انتشار بنر فعال می‌شود.");
         }
 
+        // دور ۲۶: مقصد انتخابی مدیر بر لینک خودکار مقدم است.
+        var target = intent.Target;
+        var ideaHeadline = IdeaHeadline(text, intent, maxDiscount, offer);
+        switch (target.Kind)
+        {
+            case BriefTargetKind.None:
+                // بنر اطلاع‌رسانی: بدون لینک و بدون دکمه (دکمه‌ای که جایی نمی‌رود گمراه‌کننده است).
+                link = "";
+                button = "";
+                if (kind == BriefKind.General && ideaHeadline is not null)
+                    headline = ideaHeadline;
+                break;
+            case BriefTargetKind.Page when target.Url is not null:
+                link = target.Url;
+                if (kind == BriefKind.General)
+                {
+                    title = target.Title ?? title;
+                    headline = ideaHeadline ?? target.Title ?? headline;
+                    subline = target.Title is not null && headline != target.Title ? target.Title : subline;
+                    button = "مشاهده";
+                }
+                break;
+        }
+
+        var alternatives = new List<string>();
+        if (ideaHeadline is not null)
+            alternatives.Add(ideaHeadline);
+        if (category is not null && kind is BriefKind.Deal or BriefKind.Category or BriefKind.Occasion or BriefKind.Campaign)
+            alternatives.Add(badge is null || badge.StartsWith("امتیاز", StringComparison.Ordinal) ? $"خرید {category.Name}"
+                : badge.StartsWith("تا ", StringComparison.Ordinal) ? $"{category.Name}، {badge}" : $"{category.Name} با {badge}");
+        if (product is not null && kind is BriefKind.Product or BriefKind.Deal)
+            alternatives.Add(badge is not null && !badge.StartsWith("امتیاز", StringComparison.Ordinal) ? $"{badge} روی {DesignTemplates.Shorten(product.Name, 30)}" : DesignTemplates.Shorten(product.Name, 30));
+        if (brand is not null && kind is BriefKind.Brand or BriefKind.Deal)
+            alternatives.Add($"دنیای {brand.Name}");
+        var shortHeadline = DesignTemplates.Shorten(headline, 60);
+        var alts = alternatives.Select(a => DesignTemplates.Shorten(a, 60)).Where(a => a.Length >= 3 && a != shortHeadline).Distinct(StringComparer.Ordinal).Take(2).ToList();
+
         var shortTitle = DesignTemplates.Shorten(string.IsNullOrWhiteSpace(text) ? title : text.Trim(), 120);
-        return new BriefPlan(kind, shortTitle, DesignTemplates.Shorten(headline, 60), subline is null ? null : DesignTemplates.Shorten(subline, 90), badge, button,
-            DesignService.SafeLink(link) ?? "/products", hero, top, palette, warnings, occasion.Key, expires)
+        var safeLink = target.Kind == BriefTargetKind.None ? "" : DesignService.SafeLink(link) ?? "/products";
+        return new BriefPlan(kind, shortTitle, shortHeadline, subline is null ? null : DesignTemplates.Shorten(subline, 90), badge, button,
+            safeLink, hero, top, palette, warnings, occasion.Key, expires)
         {
             MaxDiscount = maxDiscount,
             Offer = offer,
+            AltHeadlines = alts,
         };
     }
 
+    private static readonly Regex IdeaNoise = new(
+        @"^(?:لطفا\s+|یه\s+|یک\s+)?(?:بنر|طرح|تبلیغ)(?:\s+(?:برای|درباره|دربارهٔ|با موضوع))?\s+|\s+(?:بساز|بسازید|درست کن|طراحی کن|بزن)\s*$",
+        RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50));
+
     /// <summary>
-    /// سه نسخهٔ متفاوت از یک برنامه (چیدمان و رنگ متفاوت). <paramref name="imageColor"/> = رنگ غالب عکس کالا (اختیاری)؛
+    /// دور ۲۶: خود متن ایده به‌عنوان تیتر (وقتی تیتر خوبی است). «بنر»/«بساز» حذف، ارقام فارسی، حداکثر ۴۶ نویسه.
+    /// صداقت: اگر درصد متن از تخفیف واقعی (یا قاعدهٔ کمپین) بیشتر باشد ← null (عدد غیرواقعی روی بنر نمی‌رود).
+    /// مثال: «بنر خرید محصولات خوراکی با ۲۰٪ تخفیف» (تخفیف واقعی ۲۵٪) ← «خرید محصولات خوراکی با ۲۰٪ تخفیف».
+    /// </summary>
+    public static string? IdeaHeadline(string? text, BriefIntent intent, int maxDiscount, BriefOffer? offer)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+        if (intent.Percent is { } asked && asked > maxDiscount && offer?.Percent != asked)
+            return null;
+        if (intent.PointsMultiplier is { } multiplier && offer?.Points != multiplier)
+            return null;
+        var cleaned = Regex.Replace(IdeaNoise.Replace(text.Trim(), "").Trim(), @"\s+", " ");
+        cleaned = DesignTemplates.FaDigits(cleaned).Replace("%", "٪", StringComparison.Ordinal);
+        var words = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length < 2 || words.Length > 9 || cleaned.Length > 46 || words.All(w => StopWords.Contains(Normalize(w))))
+            return null;
+        return cleaned;
+    }
+
+    /// <summary>
+    /// سه نسخهٔ متفاوت از یک برنامه (چیدمان، رنگ و تیتر متفاوت). <paramref name="imageColor"/> = رنگ غالب عکس کالا (اختیاری)؛
     /// اگر بود، نسخهٔ اول با «رنگ عکس کالا» ساخته می‌شود (پالت خوانا با کنتراست ≥ ۴٫۵).
     /// کلید هر نسخه «brief:{کالا یا -}:{هش}:{۱..۳}» است تا نسخه‌های منتشرشده خودکار گروه A/B شوند.
+    /// <para>دور ۲۶ – چیدمان بر اساس محتوا:</para>
+    /// <list type="bullet">
+    /// <item>عکس واقعی دسته (<paramref name="photo"/>) ← «photo» (عکس تمام‌قاب) + collage/pattern.</item>
+    /// <item>چند کالا (دسته/کمپین؛ <paramref name="gallery"/> ≥ ۲) ← collage، split/sale، pattern.</item>
+    /// <item>یک کالا ← split یا sale، festive (مناسبت)/pattern، minimal.</item>
+    /// <item>بدون عکس (باشگاه، کارت هدیه، صفحه، اطلاع‌رسانی) ← pattern، center، festive/minimal.</item>
+    /// </list>
     /// </summary>
-    public static List<DesignIdea> Variants(BriefPlan plan, string? imageColor, DesignImage? image, string? salt = null)
+    public static List<DesignIdea> Variants(BriefPlan plan, string? imageColor, DesignImage? image, string? salt = null,
+        IReadOnlyList<DesignImage>? gallery = null, DesignImage? photo = null)
     {
         // salt (مثلاً زمان ساخت) ← ساخت دوبارهٔ همان ایده بعد از رد شدن، کلید تازه می‌گیرد.
         var hash = Hash(plan.Title + "|" + plan.Headline + "|" + plan.LinkUrl + "|" + salt);
         var productKey = plan.Hero?.Id.ToString("N") ?? "-";
-        var price = plan.Hero is { } h && plan.Kind is BriefKind.Product or BriefKind.Deal ? DesignTemplates.Toman(h.FinalPrice) : null;
-        var oldPrice = plan.Hero is { DiscountPercent: > 0 } d && price is not null ? DesignTemplates.Toman(d.Price) : null;
+        var single = plan.Hero is not null && plan.Kind is BriefKind.Product or BriefKind.Deal && plan.LinkUrl.StartsWith("/product/", StringComparison.Ordinal);
+        var price = single ? DesignTemplates.Toman(plan.Hero!.FinalPrice) : null;
+        var oldPrice = single && plan.Hero!.DiscountPercent > 0 ? DesignTemplates.Toman(plan.Hero.Price) : null;
+        var pictures = (gallery ?? Array.Empty<DesignImage>()).Where(g => g.Width > 0 && g.Height > 0).Take(3).ToList();
 
         var palettes = new List<string>();
         if (DesignColors.TryParse(imageColor, out _))
             palettes.Add(imageColor!.Trim().ToLowerInvariant());
         palettes.Add(plan.Palette);
-        foreach (var fallback in new[] { "ocean", "night", "clean", "forest", "royal" })
+        var extra = plan.Kind switch
+        {
+            BriefKind.Deal => new[] { "coral", "night", "candy", "sunset" },
+            BriefKind.Club => new[] { "espresso", "indigo", "gold" },
+            BriefKind.Occasion => new[] { "festive", "indigo", "coral" },
+            BriefKind.Category => new[] { "mint", "sky", "indigo" },
+            _ => new[] { "indigo", "mint", "sky", "ocean" },
+        };
+        foreach (var fallback in extra.Concat(new[] { "ocean", "night", "forest", "royal" }))
         {
             if (!palettes.Contains(fallback))
                 palettes.Add(fallback);
         }
 
-        var first = plan.Occasion is not null ? "festive" : "split";
-        var second = plan.Badge is not null ? "sale" : "center";
-        var layouts = new[] { first, second, "minimal" };
+        string[] layouts;
+        if (photo is not null && !single)
+            layouts = ["photo", pictures.Count >= 2 ? "collage" : plan.Badge is not null ? "sale" : "split", "pattern"];
+        else if (!single && pictures.Count >= 2)
+            layouts = ["collage", plan.Badge is not null ? "sale" : "split", plan.Occasion is not null ? "festive" : "pattern"];
+        else if (image is not null)
+            layouts = [plan.Badge is not null ? "sale" : "split", plan.Occasion is not null ? "festive" : "split", "minimal"];
+        else
+            layouts = ["pattern", "center", plan.Occasion is not null ? "festive" : "minimal"];
+        if (plan.Occasion is not null && layouts[0] != "festive" && !layouts.Contains("festive"))
+            layouts[2] = "festive";
+
+        var headlines = new[] { plan.Headline, plan.AltHeadlines.ElementAtOrDefault(0) ?? plan.Headline, plan.AltHeadlines.ElementAtOrDefault(1) ?? plan.Headline };
         var reason = string.Join(" ", plan.Warnings);
         var ideas = new List<DesignIdea>();
         for (var i = 0; i < 3; i++)
         {
             var layout = layouts[i];
             var palette = layout == "minimal" ? "clean" : palettes[Math.Min(i, palettes.Count - 1)];
-            // نسخهٔ سوم همیشه روشن و ساده؛ اگر پالت قبلی هم «clean» بود، پالت بعدی.
-            if (i < 2 && palette == "clean" && layout != "minimal")
+            // نسخهٔ سادهٔ روشن فقط «minimal» است؛ بقیه با پالت رنگی.
+            if (palette == "clean" && layout != "minimal")
                 palette = palettes.First(p => p != "clean");
-            var spec = new DesignSpec(layout, palette, plan.Headline, plan.Subline, plan.Badge, plan.ButtonText,
-                layout == "center" ? null : image, price, oldPrice);
+            // دو نسخهٔ هم‌چیدمان (مثلاً split دوبار) ← دومی پالت دیگری می‌گیرد تا واقعاً متفاوت باشد.
+            if (i > 0 && layouts[i] == layouts[i - 1] && ideas[i - 1].Spec.Palette == palette)
+                palette = palettes[Math.Min(i + 1, palettes.Count - 1)];
+            var withImage = layout switch
+            {
+                "photo" => photo,
+                "pattern" or "center" => null,
+                _ => image ?? pictures.FirstOrDefault(),
+            };
+            var spec = new DesignSpec(layout, palette, headlines[i], plan.Subline, plan.Badge, string.IsNullOrWhiteSpace(plan.ButtonText) ? null : plan.ButtonText,
+                withImage, layout == "collage" ? null : price, layout == "collage" ? null : oldPrice, Kicker(plan), layout == "collage" ? pictures : null);
             ideas.Add(new DesignIdea($"brief:{productKey}:{hash}:{i + 1}", $"{plan.Title} – نسخهٔ {DesignTemplates.FaDigits((i + 1).ToString(CultureInfo.InvariantCulture))}",
                 string.IsNullOrWhiteSpace(reason) ? "ساخته‌شده از ایدهٔ شما با دادهٔ واقعی فروشگاه." : reason,
                 spec, plan.LinkUrl, plan.ExpiresAt, plan.Hero?.Id));
         }
         return ideas;
     }
+
+    /// <summary>دور ۲۶: برچسب کوچک بالای تیتر (کپسول رنگی). مثال: مناسبت یلدا ← «شب یلدا»؛ حراج ← «حراج»؛ دسته ← «دسته‌بندی ویژه».</summary>
+    public static string? Kicker(BriefPlan plan) => plan.Kind switch
+    {
+        BriefKind.Occasion when plan.Occasion is not null => Occasions.First(o => o.Key == plan.Occasion).Name,
+        BriefKind.Deal => "حراج",
+        BriefKind.Campaign => "جشنواره",
+        BriefKind.Club => "باشگاه مشتریان",
+        BriefKind.GiftCard => "هدیه",
+        BriefKind.Blog => "راهنمای خرید",
+        BriefKind.Product => "پیشنهاد ویژه",
+        BriefKind.Category => "منتخب",
+        _ => null,
+    };
 
     /// <summary>گروه A/B نسخه‌های یک ایده (از کلید ایده). مثال: «brief:-:a1b2c3d4:2» ← «brief-a1b2c3d4»؛ کلید دیگر ← null.</summary>
     public static string? VariantGroup(string? ideaKey)

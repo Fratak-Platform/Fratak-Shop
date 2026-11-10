@@ -58,26 +58,27 @@ public static class DesignPresets
     public const string Free = "free";
 
     /// <summary>
-    /// دور ۲۳ – اندازه‌های دیجی‌کالایی (پهن و کوتاه، با نسخهٔ موبایل جدا):
-    /// اسلایدر ۱۹۲۰×۴۸۰ (موبایل ۱۰۸۰×۵۴۰)، بنر عریض ۱۹۲۰×۳۲۰ (موبایل ۱۰۸۰×۳۶۰)، بنر دوتایی ۹۶۰×۴۰۰، سربرگ دسته ۱۹۲۰×۳۰۰ (موبایل ۱۰۸۰×۳۶۰).
+    /// دور ۲۶ (خواستهٔ کاربر): بنرها پهن‌تر و کوتاه‌تر و <b>بدون نسخهٔ موبایل جدا</b> – یک نسخه برای همه؛ تیتر درشت (≥ ۲۰٪ ارتفاع)
+    /// تا در موبایل هم خوانا باشد. اسلایدر ۱۹۲۰×۴۲۰، بنر عریض ۱۹۲۰×۳۰۰، بنر دوتایی ۹۶۰×۳۲۰، سربرگ دسته ۱۹۲۰×۳۰۰.
+    /// اندازه‌های «-mobile» فقط برای باز شدن طرح‌های قدیمی مانده‌اند و در فرم‌ها نمایش داده نمی‌شوند (<see cref="IsLegacy"/>).
     /// «کارت تبلیغاتی شفاف» قدیمی (۸۰۰×۶۰۰) برای سازگاری با طرح‌های قبلی مانده است.
     /// </summary>
     public static readonly IReadOnlyList<DesignPreset> All =
     [
-        new(Hero, "اسلایدر اصلی (بالای صفحهٔ نخست)", DesignKind.Banner, 1920, 480, BannerPosition.HeroSlider,
-            "متن و دکمه سمت راست؛ لبه‌ها ۸۰ پیکسل خالی. نسخهٔ موبایل جدا ساخته می‌شود.", MobileKey: HeroMobile),
-        new(HeroMobile, "اسلایدر اصلی – نسخهٔ موبایل", DesignKind.Banner, 1080, 540, BannerPosition.HeroSlider,
-            "در موبایل فقط همین نسخه دیده می‌شود؛ متن درشت و کوتاه."),
-        new(Wide, "بنر عریض (وسط صفحهٔ نخست)", DesignKind.Banner, 1920, 320, BannerPosition.WideBanner,
-            "یک پیام کوتاه + دکمه؛ عکس کالا سمت چپ. نسخهٔ موبایل جدا ساخته می‌شود.", MobileKey: WideMobile),
-        new(WideMobile, "بنر عریض – نسخهٔ موبایل", DesignKind.Banner, 1080, 360, BannerPosition.WideBanner,
-            "تیتر کوتاه و درشت؛ در موبایل همین نسخه دیده می‌شود."),
-        new(Promo, "بنر دوتایی (کنار هم در صفحهٔ نخست)", DesignKind.Banner, 960, 400, BannerPosition.PromoCard,
-            "دو بنر کنار هم (در موبایل زیر هم)؛ متن، قیمت و دکمه روی خود تصویر."),
+        new(Hero, "اسلایدر اصلی (بالای صفحهٔ نخست)", DesignKind.Banner, 1920, 420, BannerPosition.HeroSlider,
+            "پهن و کوتاه؛ متن و دکمه سمت راست، تیتر درشت و کوتاه (در موبایل هم همین نسخه دیده می‌شود)."),
+        new(HeroMobile, "اسلایدر اصلی – نسخهٔ موبایل (قدیمی)", DesignKind.Banner, 1080, 540, BannerPosition.HeroSlider,
+            "فقط برای طرح‌های قدیمی؛ طرح تازه نسخهٔ موبایل جدا ندارد."),
+        new(Wide, "بنر عریض (وسط صفحهٔ نخست)", DesignKind.Banner, 1920, 300, BannerPosition.WideBanner,
+            "یک پیام کوتاه + دکمه؛ تیتر درشت تا در موبایل خوانا باشد."),
+        new(WideMobile, "بنر عریض – نسخهٔ موبایل (قدیمی)", DesignKind.Banner, 1080, 360, BannerPosition.WideBanner,
+            "فقط برای طرح‌های قدیمی."),
+        new(Promo, "بنر دوتایی (کنار هم در صفحهٔ نخست)", DesignKind.Banner, 960, 320, BannerPosition.PromoCard,
+            "دو بنر کنار هم (در موبایل زیر هم)؛ متن و دکمه روی خود تصویر."),
         new(CategoryHeader, "سربرگ صفحهٔ دسته", DesignKind.Banner, 1920, 300, BannerPosition.CategoryHeader,
-            "بالای صفحهٔ دسته؛ نام دسته + یک پیام کوتاه. نسخهٔ موبایل جدا ساخته می‌شود.", MobileKey: CategoryHeaderMobile),
-        new(CategoryHeaderMobile, "سربرگ دسته – نسخهٔ موبایل", DesignKind.Banner, 1080, 360, BannerPosition.CategoryHeader,
-            "در موبایل همین نسخه دیده می‌شود."),
+            "بالای صفحهٔ دسته؛ نام دسته + یک پیام کوتاه."),
+        new(CategoryHeaderMobile, "سربرگ دسته – نسخهٔ موبایل (قدیمی)", DesignKind.Banner, 1080, 360, BannerPosition.CategoryHeader,
+            "فقط برای طرح‌های قدیمی."),
         new(PromoCard, "کارت تبلیغاتی قدیمی (عکس شفاف کالا)", DesignKind.Banner, 800, 600, BannerPosition.PromoCard,
             "پس‌زمینه شفاف است؛ عنوان، توضیح و دکمه از فیلدهای خود بنر روی کارت آبی سایت نوشته می‌شود.", Transparent: true),
         new(BlogCover, "کاور مقاله", DesignKind.BlogCover, 1200, 630, null,
@@ -86,6 +87,9 @@ public static class DesignPresets
         new(Story, "استوری", DesignKind.Social, 1080, 1920, null, "بالا و پایین ۲۵۰ پیکسل را خالی بگذارید (زیر نوار برنامه می‌رود)."),
         new(Free, "اندازهٔ دلخواه", DesignKind.Free, 1200, 800, null, "عرض و ارتفاع را خودتان تعیین کنید (۲۰۰ تا ۴۰۰۰ پیکسل)."),
     ];
+
+    /// <summary>دور ۲۶: اندازهٔ قدیمی نسخهٔ موبایل (در فرم‌ها نمایش داده نمی‌شود). مثال: «hero-mobile» ← true.</summary>
+    public static bool IsLegacy(DesignPreset preset) => preset.Key.EndsWith("-mobile", StringComparison.Ordinal);
 
     /// <summary>پیدا کردن با کلید (کلید ناشناخته ← null). مثال: Find("wide").Width ← ۱۹۲۰.</summary>
     public static DesignPreset? Find(string? key) =>

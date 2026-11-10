@@ -44,8 +44,10 @@ public class DesignStudioRound21Tests
     [Fact]
     public void Presets_cover_every_banner_position_with_the_right_size()
     {
-        // دور ۲۳: اندازه‌های دیجی‌کالایی.
-        Assert.Equal((1920, 480), (DesignPresets.ForPosition(BannerPosition.HeroSlider).Width, DesignPresets.ForPosition(BannerPosition.HeroSlider).Height));
+        // دور ۲۶: پهن‌تر و کوتاه‌تر (۱۹۲۰×۴۲۰).
+        Assert.Equal((1920, 420), (DesignPresets.ForPosition(BannerPosition.HeroSlider).Width, DesignPresets.ForPosition(BannerPosition.HeroSlider).Height));
+        Assert.Equal((1920, 300), (DesignPresets.Find(DesignPresets.Wide)!.Width, DesignPresets.Find(DesignPresets.Wide)!.Height));
+        Assert.Equal((960, 320), (DesignPresets.Find(DesignPresets.Promo)!.Width, DesignPresets.Find(DesignPresets.Promo)!.Height));
         Assert.Equal(DesignPresets.Wide, DesignPresets.ForPosition(BannerPosition.WideBanner).Key);
         Assert.Equal(DesignPresets.Promo, DesignPresets.ForPosition(BannerPosition.PromoCard).Key);
         Assert.Equal(DesignPresets.Hero, DesignPresets.ForPosition(BannerPosition.None).Key);
@@ -55,9 +57,10 @@ public class DesignStudioRound21Tests
         Assert.Null(DesignPresets.Find(null));
         Assert.Equal((1200, 630), (DesignPresets.Find(DesignPresets.BlogCover)!.Width, DesignPresets.Find(DesignPresets.BlogCover)!.Height));
 
-        // اسلایدر اصلی نسخهٔ موبایل جدا دارد و آن نسخه هم تعریف شده است.
-        var hero = DesignPresets.Find(DesignPresets.Hero)!;
-        Assert.NotNull(DesignPresets.Find(hero.MobileKey));
+        // دور ۲۶: نسخهٔ موبایل جدا ساخته نمی‌شود؛ اندازه‌های قدیمی موبایل فقط برای طرح‌های قبلی مانده‌اند و «قدیمی» علامت دارند.
+        Assert.All(DesignPresets.All, p => Assert.Null(p.MobileKey));
+        Assert.True(DesignPresets.IsLegacy(DesignPresets.Find(DesignPresets.HeroMobile)!));
+        Assert.False(DesignPresets.IsLegacy(DesignPresets.Find(DesignPresets.Hero)!));
         Assert.All(DesignPresets.All, p => Assert.True((long)p.Width * p.Height <= 8_000_000, p.Key));
         Assert.Equal(DesignPresets.All.Count, DesignPresets.All.Select(p => p.Key).Distinct().Count());
     }
@@ -239,7 +242,14 @@ public class DesignStudioRound21Tests
         var ideas = DesignIdeas.Generate(new IdeaInput([seller, fresh], [category], "فراتک"), now);
 
         Assert.Contains(ideas, i => i.Key.StartsWith("best:", StringComparison.Ordinal) && i.ProductId == seller.Id && i.Spec.OldPrice is null);
-        Assert.Contains(ideas, i => i.Key.StartsWith("new:", StringComparison.Ordinal) && i.ProductId == fresh.Id);
+        // دور ۲۶: یک کالای تازه بنر جدا نمی‌گیرد (بنر تک‌کالا کم)؛ ۳ کالای تازه ← بنر «تازه‌ها» با چند کالای کنار هم.
+        Assert.DoesNotContain(ideas, i => i.Key.StartsWith("fresh:", StringComparison.Ordinal) || i.Key.StartsWith("new:", StringComparison.Ordinal));
+        var three = new[] { fresh, Product("کیبورد تازه", 500_000, 500_000, created: now.AddDays(-2)), Product("ماوس تازه", 300_000, 300_000, created: now.AddDays(-1)) };
+        var freshIdea = Assert.Single(DesignIdeas.Generate(new IdeaInput(three, [], "فراتک"), now), i => i.Key.StartsWith("fresh:", StringComparison.Ordinal));
+        Assert.Equal("collage", freshIdea.Spec.Layout);
+        Assert.Equal(3, freshIdea.Spec.Gallery!.Count);
+        Assert.Equal("/products?Sort=Newest", freshIdea.LinkUrl);
+        Assert.Null(freshIdea.ProductId);
         Assert.Contains(ideas, i => i.Key.StartsWith("cat:", StringComparison.Ordinal) && i.LinkUrl == "/category/headphone");
         Assert.Single(DesignIdeas.Generate(new IdeaInput([seller, fresh], [category], "فراتک"), now, max: 1));
         Assert.Empty(DesignIdeas.Generate(new IdeaInput([seller, fresh], [category], "فراتک"), now, max: -3));

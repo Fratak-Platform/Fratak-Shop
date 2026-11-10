@@ -37,14 +37,18 @@ public interface IDesignService
     /// <summary>دور ۲۳: دادهٔ واقعی مرتبط با متن «ایده ← طرح» (دسته/برند منطبق و کالاهای موجود همان‌ها).</summary>
     Task<BriefData> BriefDataAsync(string text, BriefIntent intent, string siteName, CancellationToken cancellationToken = default);
 
+    /// <summary>دور ۲۶: گزینه‌های «مقصد بنر» (دسته‌ها، صفحه‌های ثابت، کمپین‌ها، صفحه‌های محتوا) برای فرم ایده ← طرح.</summary>
+    Task<List<BriefTargetOption>> TargetsAsync(CancellationToken cancellationToken = default);
+
     Task<Guid> AddAsync(DesignDoc doc, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// ذخیرهٔ ویرایش: JSON و تصویر تازه. اگر طرح به بنر/مقاله وصل باشد، عکس آن‌ها هم به‌روز می‌شود.
     /// خروجی: نام فایل‌های قبلی که دیگر جایی استفاده نمی‌شوند.
     /// </summary>
+    /// <remarks>دور ۲۶: <paramref name="motion"/> = حرکت بنر زنده (null = بدون تغییر).</remarks>
     Task<OperationResult<DesignSaveResult>> SaveAsync(Guid id, string title, string json, string? mobileJson, string? imageName, string? mobileImageName,
-        string? headline, string? actor, CancellationToken cancellationToken = default);
+        string? headline, string? actor, CancellationToken cancellationToken = default, BannerMotion? motion = null);
 
     Task<OperationResult> RejectAsync(Guid id, string? actor, CancellationToken cancellationToken = default);
 
@@ -108,6 +112,49 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         return found.ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// دور ۲۶: مقصدهای انتخابی بنر به ترتیب: بخش‌های ثابت (حراج‌ها، تازه‌ها، پرفروش‌ها، باشگاه، کارت هدیه، بلاگ، تماس، سؤالات)،
+    /// کمپین‌های فعال، صفحه‌های محتوا (قوانین، دربارهٔ ما…) و دسته‌ها (به ترتیب تعداد کالای موجود). مقدار هر گزینه همان قالب BriefTarget.Parse است.
+    /// </summary>
+    public async Task<List<BriefTargetOption>> TargetsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var list = new List<BriefTargetOption>
+        {
+            new("بخش‌های سایت", "url:/products?Discounted=true&Sort=MostDiscounted", "حراج‌ها و تخفیف‌ها"),
+            new("بخش‌های سایت", "url:/products?Sort=Newest", "تازه‌ترین کالاها"),
+            new("بخش‌های سایت", "url:/products?Sort=BestSelling", "پرفروش‌ترین‌ها"),
+            new("بخش‌های سایت", "url:/products", "همهٔ کالاها"),
+            new("بخش‌های سایت", "url:/club", "باشگاه مشتریان"),
+            new("بخش‌های سایت", "url:/profile/gift-cards", "کارت هدیه"),
+            new("بخش‌های سایت", "url:/profile/invite", "دعوت از دوستان"),
+            new("بخش‌های سایت", "url:/blog", "بلاگ و راهنمای خرید"),
+            new("بخش‌های سایت", "url:/track-order", "پیگیری سفارش"),
+            new("بخش‌های سایت", "url:/faq", "سؤالات متداول"),
+            new("بخش‌های سایت", "url:/contact-us", "تماس با ما"),
+        };
+        var campaigns = await context.LandingPages.AsNoTracking()
+            .Where(x => x.IsActive && (x.EndAt == null || x.EndAt > now))
+            .OrderByDescending(x => x.UpdatedAt).Take(30)
+            .Select(x => new { x.Slug, x.Title })
+            .ToListAsync(cancellationToken);
+        list.AddRange(campaigns.Select(c => new BriefTargetOption("کمپین‌ها", "url:/campaign/" + c.Slug, c.Title)));
+        var pages = await context.ContentPages.AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Title).Take(40)
+            .Select(x => new { x.Slug, x.Title })
+            .ToListAsync(cancellationToken);
+        list.AddRange(pages.Select(p => new BriefTargetOption("صفحه‌ها", "url:/page/" + p.Slug, p.Title)));
+        var categories = await context.Categories.AsNoTracking()
+            .Where(c => c.IsActive && !c.IsSystem)
+            .OrderByDescending(c => c.Products.Count(p => p.IsActive && p.StockQuantity > 0)).ThenBy(c => c.Name)
+            .Take(300)
+            .Select(c => new { c.Id, c.Name, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null })
+            .ToListAsync(cancellationToken);
+        list.AddRange(categories.Select(c => new BriefTargetOption("دسته‌ها", "cat:" + c.Id.ToString("D"), c.Parent is null ? c.Name : $"{c.Name} ({c.Parent})")));
+        return list;
+    }
+
     public async Task<IdeaInput> IdeaInputAsync(string siteName, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
@@ -167,7 +214,7 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
     {
         var categories = await context.Categories.AsNoTracking()
             .Where(c => c.IsActive && !c.IsSystem)
-            .Select(c => new BriefCategory(c.Id, c.Name, c.Slug, c.Products.Count(p => p.IsActive && p.StockQuantity > 0)))
+            .Select(c => new BriefCategory(c.Id, c.Name, c.Slug, c.Products.Count(p => p.IsActive && p.StockQuantity > 0)) { ImageName = c.ImageName })
             .Take(1000)
             .ToListAsync(cancellationToken);
         var brands = await context.Brands.AsNoTracking()
@@ -175,7 +222,9 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             .Select(b => new BriefBrand(b.Id, b.Name, b.EnglishName, b.Slug, context.Products.Count(p => p.BrandId == b.Id && p.IsActive && p.StockQuantity > 0)))
             .Take(1000)
             .ToListAsync(cancellationToken);
-        var category = DesignBrief.MatchCategory(text, categories.Where(c => c.InStock > 0));
+        // دور ۲۶: دستهٔ انتخاب‌شده در «مقصد بنر» بر تطبیق متن مقدم است (حتی اگر الان کالای موجود کمی داشته باشد).
+        var category = intent.Target is { Kind: BriefTargetKind.Category, Id: { } targetId } ? categories.FirstOrDefault(c => c.Id == targetId) : null;
+        category ??= DesignBrief.MatchCategory(text, categories.Where(c => c.InStock > 0));
         var brand = category is null ? DesignBrief.MatchBrand(text, brands.Where(b => b.InStock > 0)) : null;
 
         List<IdeaProduct> products;
@@ -248,7 +297,7 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
     }
 
     public async Task<OperationResult<DesignSaveResult>> SaveAsync(Guid id, string title, string json, string? mobileJson, string? imageName, string? mobileImageName,
-        string? headline, string? actor, CancellationToken cancellationToken = default)
+        string? headline, string? actor, CancellationToken cancellationToken = default, BannerMotion? motion = null)
     {
         if (string.IsNullOrWhiteSpace(json) || json.Length > MaxJsonLength || (mobileJson?.Length ?? 0) > MaxJsonLength)
             return OperationResult<DesignSaveResult>.Error("طرح خیلی بزرگ است (حداکثر ۱ مگابایت). عکس‌ها را از «افزودن عکس» بیاورید، نه چسباندن مستقیم.");
@@ -275,6 +324,8 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
                 replaced.Add(doc.MobileImageName);
             doc.MobileImageName = mobileImageName;
         }
+        if (motion is { } chosen && Enum.IsDefined(chosen))
+            doc.Animation = chosen;
         if (doc.Status is DesignStatus.Suggested or DesignStatus.Rejected)
             doc.Status = DesignStatus.Draft;
         doc.UpdatedByName = Cut(actor, 150);
@@ -285,6 +336,8 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             banner.ImageName = doc.ImageName ?? banner.ImageName;
             if (doc.MobileImageName is not null && banner.Position == BannerPosition.HeroSlider)
                 banner.MobileImageName = doc.MobileImageName;
+            // دور ۲۶: نسخهٔ زنده هم با طرح تازه به‌روز می‌شود (حرکت خاموش ← null ← تصویر ثابت).
+            banner.LiveHtml = LiveFor(doc, banner.Position);
             doc.Status = DesignStatus.Published;
         }
         if (doc.BlogPostId is { } postId && doc.ImageName is not null
@@ -355,7 +408,9 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         // بنر دوتایی کامل (متن روی خود تصویر) ← زیرعنوان/دکمهٔ جدا لازم نیست و صفحهٔ نخست آن را «تصویر کامل» نشان می‌دهد.
         var fullImagePromo = position == BannerPosition.PromoCard && DesignPresets.Find(doc.PresetKey) is { Transparent: false };
         banner.Subtitle = fullImagePromo ? null : Cut(doc.Subline, 500);
-        banner.ButtonText = fullImagePromo ? null : Cut(string.IsNullOrWhiteSpace(buttonText) ? doc.ButtonText : buttonText, 100);
+        // دور ۲۶: بنر بدون لینک دکمه هم ندارد (دکمه‌ای که جایی نمی‌رود گمراه‌کننده است).
+        banner.ButtonText = fullImagePromo || link is null ? null : Cut(string.IsNullOrWhiteSpace(buttonText) ? doc.ButtonText : buttonText, 100);
+        banner.LiveHtml = LiveFor(doc, position);
         // دور ۲۳: ایدهٔ کالامحور (deal/best/new:{id}) ← بنر به کالا وصل می‌شود تا با ناموجود شدن کالا خودکار پنهان شود.
         banner.ProductId = ProductFromIdeaKey(doc.IdeaKey) ?? banner.ProductId;
         // دور ۲۳: نسخه‌های یک «ایده ← طرح» که منتشر شوند خودکار یک گروه A/B می‌شوند.
@@ -383,6 +438,19 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         return OperationResult<Guid>.Success(banner.Id, offer is null
             ? "بنر روی سایت قرار گرفت."
             : $"بنر روی سایت قرار گرفت و {Fratak_Shop.Core.Services.Marketing.CampaignOffers.Describe(offer.DiscountPercent, offer.PointsMultiplier, offer.CouponCode)} فعال شد.");
+    }
+
+    /// <summary>
+    /// دور ۲۶: HTML بنر زنده برای جایگاه‌های تصویر کامل (اسلایدر، بنر عریض، بنر دوتایی کامل، سربرگ دسته). کارت تبلیغاتی شفاف قدیمی
+    /// (متن را خود سایت می‌نویسد) و طرح بدون حرکت ← null.
+    /// </summary>
+    private static string? LiveFor(DesignDoc doc, BannerPosition position)
+    {
+        if (doc.Animation == BannerMotion.None || DesignPresets.Find(doc.PresetKey) is { Transparent: true })
+            return null;
+        return position is BannerPosition.HeroSlider or BannerPosition.WideBanner or BannerPosition.PromoCard or BannerPosition.CategoryHeader
+            ? DesignLive.Html(doc.Json, doc.Animation)
+            : null;
     }
 
     public async Task<OperationResult<string?>> AttachCoverAsync(Guid id, Guid postId, string? actor, CancellationToken cancellationToken = default)

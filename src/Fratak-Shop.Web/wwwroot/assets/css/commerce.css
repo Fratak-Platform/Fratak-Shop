@@ -183,3 +183,55 @@
 .dark .fc-card, .dark .fc-tray-item { border-color: #374151; }
 .dark .fc-btn { background: transparent; }
 .dark .fc-tray-label, .dark .fc-summary { color: #cbd5e1; }
+
+/* ───────────── دور ۲۶ – بنر زنده (DesignLive + _BannerArt) ─────────────
+   قاب با aspect-ratio و container query: موقعیت‌ها درصدی، قلم با cqw ← همان طرح در هر عرضی.
+   پیش از is-live (و بدون جاوااسکریپت) همه چیز در حالت نهایی دیده می‌شود؛ is-live ← حرکت ورود.
+   fsb-soft = یک‌بار ورود؛ fsb-loop = ورود، مکث، خروج، تکرار (۹ ثانیه). عنصرهای «پس‌زمینه» (float/pulse/shine/drift/zoom) همیشه آرام حرکت می‌کنند. */
+.fsb-wrap { position: relative; display: block; overflow: hidden; border-radius: inherit; }
+.fsb { position: relative; width: 100%; overflow: hidden; container-type: inline-size; direction: ltr; border-radius: inherit; font-family: "Vazirmatn", var(--fr-font, sans-serif); user-select: none; }
+.fsb-o { position: absolute; box-sizing: border-box; }
+.fsb-i { width: 100%; height: 100%; box-sizing: border-box; }
+.fsb-t .fsb-i { height: auto; direction: rtl; white-space: pre-wrap; overflow-wrap: break-word; }
+.fsb-img img { display: block; width: 100%; height: 100%; max-width: none; }
+.fsb-fallback { display: none; }
+@supports not (container-type: inline-size) {
+  .fsb { display: none; }
+  .fsb-fallback { display: block; }
+}
+
+/* ورود (یک‌بار در soft) */
+@keyframes fsb-rise { from { opacity: 0; transform: translateY(35%); } to { opacity: 1; transform: none; } }
+@keyframes fsb-slide-r { from { opacity: 0; transform: translateX(14%); } to { opacity: 1; transform: none; } }
+@keyframes fsb-slide-l { from { opacity: 0; transform: translateX(-14%); } to { opacity: 1; transform: none; } }
+@keyframes fsb-pop { 0% { opacity: 0; transform: scale(.55); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
+/* چرخه (loop): ورود ۰ تا ۸٪، مکث، خروج ۸۶ تا ۹۴٪ */
+@keyframes fsb-rise-loop { 0% { opacity: 0; transform: translateY(35%); } 8%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateY(-25%); } }
+@keyframes fsb-slide-r-loop { 0% { opacity: 0; transform: translateX(14%); } 8%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateX(-10%); } }
+@keyframes fsb-slide-l-loop { 0% { opacity: 0; transform: translateX(-14%); } 8%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateX(10%); } }
+@keyframes fsb-pop-loop { 0% { opacity: 0; transform: scale(.55); } 6% { opacity: 1; transform: scale(1.06); } 9%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: scale(.7); } }
+/* پس‌زمینه (همیشه، آرام) */
+@keyframes fsb-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8%); } }
+@keyframes fsb-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+@keyframes fsb-drift { 0% { transform: translate(0, 0) rotate(0); } 100% { transform: translate(4%, -6%) rotate(6deg); } }
+@keyframes fsb-zoom { 0% { transform: scale(1); } 100% { transform: scale(1.08); } }
+@keyframes fsb-shine { 0%, 55% { transform: translateX(-120%) skewX(-20deg); } 85%, 100% { transform: translateX(220%) skewX(-20deg); } }
+
+.is-live .fsb-soft .fsb-a-rise { animation: fsb-rise .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-soft .fsb-a-slide-r { animation: fsb-slide-r .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-soft .fsb-a-slide-l { animation: fsb-slide-l .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-soft .fsb-a-pop { animation: fsb-pop .8s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-loop .fsb-a-rise { animation: fsb-rise-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb-loop .fsb-a-slide-r { animation: fsb-slide-r-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb-loop .fsb-a-slide-l { animation: fsb-slide-l-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb-loop .fsb-a-pop { animation: fsb-pop-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb .fsb-a-float { animation: fsb-float 4.5s ease-in-out var(--d, 0s) infinite; }
+.is-live .fsb .fsb-a-pulse { animation: fsb-pulse 2.6s ease-in-out var(--d, 0s) infinite; }
+.is-live .fsb .fsb-a-drift { animation: fsb-drift 12s ease-in-out var(--d, 0s) infinite alternate; }
+.is-live .fsb .fsb-a-zoom { animation: fsb-zoom 16s ease-in-out infinite alternate; }
+.fsb .fsb-a-shine { position: relative; overflow: hidden; }
+.is-live .fsb .fsb-a-shine::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: fsb-shine 4s ease-in-out 1.5s infinite; }
+.is-paused .fsb .fsb-i, .is-paused .fsb .fsb-i::after { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .fsb .fsb-i, .fsb .fsb-i::after { animation: none !important; }
+}

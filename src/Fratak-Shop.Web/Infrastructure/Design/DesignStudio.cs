@@ -55,7 +55,7 @@ public sealed class DesignStudio(
             return 0;
         var store = await settings.GetAsync(cancellationToken);
         var input = await designs.IdeaInputAsync(store.SiteName, cancellationToken);
-        input = WithImageSizes(input);
+        input = WithImageSizes(input) with { FreeShippingFrom = Math.Max(0, store.FreeShippingThreshold) };
         var ideas = DesignIdeas.Generate(input, DateTimeOffset.UtcNow, max * 3);
         // دور ۲۳: روزهای سوگواری (اگر تنظیم «توقف بنر شاد در عزا» روشن باشد) ایدهٔ جشن/مناسبت شاد ساخته نمی‌شود.
         if (smart is not null && (await smart.GetAsync(cancellationToken)).PauseBannersOnMourning
@@ -121,6 +121,8 @@ public sealed class DesignStudio(
             ExpiresAt = idea.ExpiresAt,
             CategoryId = categoryId,
             UpdatedByName = actor ?? Actor,
+            // دور ۲۶: بنر هوشمند پیش‌فرض «زنده» است (عنصرها نرم وارد می‌شوند)؛ مدیر در ویرایشگر می‌تواند خاموشش کند.
+            Animation = BannerMotion.Soft,
         };
         try
         {
@@ -146,23 +148,28 @@ public sealed class DesignStudio(
     /// ساخته می‌شود و بنر همان را می‌گوید؛ با انتشار بنر فعال می‌شود. سربرگ دسته فقط برای ایدهٔ دارای دسته ساخته می‌شود.
     /// </remarks>
     public async Task<OperationResult<BriefOutcome>> BuildFromBriefAsync(string? text, string? presetKey, string? actor, CancellationToken cancellationToken,
-        Guid? productId = null)
+        Guid? productId = null, BriefTarget? target = null)
     {
         text = text?.Trim();
+        target ??= BriefTarget.Auto;
+        if (target.Kind == BriefTargetKind.Product && productId is null)
+            return OperationResult<BriefOutcome>.Error("برای بنر کالا، کالا را از فهرست انتخاب کنید.");
         if (string.IsNullOrWhiteSpace(text) || text.Length < 2)
             return OperationResult<BriefOutcome>.Error("ایده را در یک جملهٔ کوتاه بنویسید؛ مثلاً «حراج هدفون برای یلدا».");
         if (text.Length > DesignBrief.MaxLength)
             return OperationResult<BriefOutcome>.Error($"متن ایده حداکثر {DesignBrief.MaxLength} نویسه باشد.");
         var preset = DesignPresets.Find(presetKey) is { Kind: DesignKind.Banner, Transparent: false } found
-                     && DesignPresets.All.All(p => p.MobileKey != found.Key)
+                     && !DesignPresets.IsLegacy(found)
             ? found
             : DesignPresets.Find(DesignPresets.Hero)!;
 
         var store = await settings.GetAsync(cancellationToken);
-        var intent = DesignBrief.Parse(text) with { ProductId = productId };
+        var intent = DesignBrief.Parse(text) with { ProductId = productId, Target = target };
         var data = await designs.BriefDataAsync(text, intent, store.SiteName, cancellationToken);
         if (preset.Position == Fratak_Shop.Data.Entities.Marketing.BannerPosition.CategoryHeader && data.Category is null)
-            return OperationResult<BriefOutcome>.Error("برای سربرگ صفحهٔ دسته، نام یک دستهٔ موجود را در ایده بنویسید؛ مثلاً «حراج هدفون ۲۰٪».");
+            return OperationResult<BriefOutcome>.Error("برای سربرگ صفحهٔ دسته، دسته را در «مقصد بنر» انتخاب کنید یا نامش را در ایده بنویسید؛ مثلاً «حراج هدفون ۲۰٪».");
+        if (target.Kind == BriefTargetKind.Category && data.Category is null)
+            return OperationResult<BriefOutcome>.Error("دستهٔ انتخاب‌شده پیدا نشد یا غیرفعال است.");
         var plan = DesignBrief.Plan(text, intent, data, DateTimeOffset.UtcNow);
         // دور ۲۴: قاعدهٔ واقعی کمپین (اگر ادعای متن با دادهٔ فعلی راست نیست ولی می‌شود راستش کرد).
         var offerWarnings = new List<string>();
@@ -208,7 +215,15 @@ public sealed class DesignStudio(
             }
         }
 
-        var ideas = DesignBrief.Variants(plan, color, image, DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture));
+        // دور ۲۶: چند کالای دامنه برای چیدمان «کنار هم» (بنر دسته/کمپین) و عکس واقعی دسته برای «عکس تمام‌قاب».
+        // کارت هدیه، باشگاه، بلاگ و بنر صفحه/اطلاع‌رسانی کالاهای تصادفی نمی‌گیرند.
+        var galleryKinds = plan.Kind is BriefKind.Category or BriefKind.Deal or BriefKind.Campaign or BriefKind.Occasion or BriefKind.Brand;
+        var gallery = !galleryKinds ? new List<DesignImage>() : plan.Products.Concat(plan.Hero is null ? Array.Empty<IdeaProduct>() : new[] { plan.Hero })
+            .Where(p => !string.IsNullOrWhiteSpace(p.ImageUrl)).DistinctBy(p => p.Id).Take(3)
+            .Select(p => ProductPicture(p.ImageUrl!)).Where(p => p is not null).Select(p => p!).ToList();
+        var photo = CategoryPhoto(data.Category?.ImageName);
+        var ideas = DesignBrief.Variants(plan, color, image, DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture),
+            gallery, photo);
         var warnings = offerWarnings.Concat(plan.Warnings).ToList();
         if (mourningPause && ideas.Any(IsFestive))
         {
@@ -243,6 +258,47 @@ public sealed class DesignStudio(
             await campaigns.CreateDraftAsync(offer, group, plan.Title, days, actor, cancellationToken);
         }
         return OperationResult<BriefOutcome>.Success(new BriefOutcome(ids, warnings, color), $"{ids.Count} نسخه از ایدهٔ شما ساخته شد.");
+    }
+
+    /// <summary>عکس کالا با ابعاد واقعی (از سرآیند فایل). فایل نبود/خراب ← null.</summary>
+    private DesignImage? ProductPicture(string url)
+    {
+        var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(url));
+        if (path is null)
+            return null;
+        try
+        {
+            using var codec = SKCodec.Create(path);
+            return codec is null ? null : new DesignImage(url, codec.Info.Width, codec.Info.Height);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۶: عکس «فضاسازی» واقعی دسته (از جست‌وجوی وب؛ نام فایل «…-photo-….webp») برای چیدمان عکس تمام‌قاب.
+    /// فقط عکس افقی با عرض ≥ ۹۰۰؛ تصویر ساخته‌شده از کالاهای خود دسته (زمینهٔ سفید) استفاده نمی‌شود.
+    /// </summary>
+    private DesignImage? CategoryPhoto(string? imageName)
+    {
+        if (!Fratak_Shop.Core.Services.Smart.CategoryImages.IsPhoto(imageName))
+            return null;
+        var path = uploads.GetPath(UploadArea.Categories, imageName!);
+        if (path is null)
+            return null;
+        try
+        {
+            using var codec = SKCodec.Create(path);
+            return codec is { Info.Width: >= 900 } && codec.Info.Width > codec.Info.Height
+                ? new DesignImage($"/uploads/{UploadArea.Categories.Name}/{imageName}", codec.Info.Width, codec.Info.Height)
+                : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     /// <summary>رندر سرور و ذخیره (رندر ناموفق ← null؛ طرح بدون پیش‌نمایش ذخیره می‌شود و ویرایشگر خودش می‌سازد).</summary>
@@ -292,7 +348,7 @@ public sealed class DesignStudio(
     /// اگر ذخیرهٔ پایگاه داده شکست بخورد، فایل‌های تازه هم پاک می‌شوند (فایل یتیم نمی‌ماند).
     /// </summary>
     public async Task<OperationResult<DesignSaveResult>> SaveFromEditorAsync(Guid id, string title, string json, string? mobileJson,
-        IFormFile? image, IFormFile? mobileImage, string? headline, string? actor, CancellationToken cancellationToken)
+        IFormFile? image, IFormFile? mobileImage, string? headline, string? actor, CancellationToken cancellationToken, BannerMotion? motion = null)
     {
         var doc = await designs.GetAsync(id, cancellationToken);
         if (doc is null)
@@ -320,7 +376,7 @@ public sealed class DesignStudio(
         OperationResult<DesignSaveResult> result;
         try
         {
-            result = await designs.SaveAsync(id, title, json, mobileJson, imageName, mobileName, headline, actor, cancellationToken);
+            result = await designs.SaveAsync(id, title, json, mobileJson, imageName, mobileName, headline, actor, cancellationToken, motion);
         }
         catch
         {

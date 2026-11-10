@@ -133,12 +133,15 @@ public class EditorModel(IDesignService designs, DesignStudio studio, IPostServi
     /// <summary>
     /// ذخیره (فرم چندبخشی از ویرایشگر): JSON بوم + PNG دسکتاپ و (اختیاری) موبایل. پاسخ JSON با آدرس تصویر تازه.
     /// </summary>
-    public async Task<IActionResult> OnPostSaveAsync(Guid id, string? title, string? json, string? mobileJson, IFormFile? image, IFormFile? mobileImage, string? headline)
+    /// <remarks>دور ۲۶: <paramref name="motion"/> = حرکت بنر زنده (None/Soft/Loop؛ نامعتبر ← بدون تغییر).</remarks>
+    public async Task<IActionResult> OnPostSaveAsync(Guid id, string? title, string? json, string? mobileJson, IFormFile? image, IFormFile? mobileImage, string? headline,
+        string? motion)
     {
         if (string.IsNullOrWhiteSpace(json))
             return BadRequest(new { error = "طرح خالی است." });
+        BannerMotion? chosen = Enum.TryParse<BannerMotion>(motion, true, out var parsed) && Enum.IsDefined(parsed) && !int.TryParse(motion, out _) ? parsed : null;
         var result = await studio.SaveFromEditorAsync(id, title ?? "", json, string.IsNullOrWhiteSpace(mobileJson) ? null : mobileJson,
-            image, mobileImage, headline, ActorName, HttpContext.RequestAborted);
+            image, mobileImage, headline, ActorName, HttpContext.RequestAborted, chosen);
         if (!result.IsSuccess())
             return BadRequest(new { error = result.Message });
         var doc = await designs.GetAsync(id, HttpContext.RequestAborted);

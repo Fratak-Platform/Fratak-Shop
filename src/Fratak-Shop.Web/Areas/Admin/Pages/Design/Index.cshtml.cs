@@ -48,6 +48,9 @@ public class IndexModel(IDesignService designs, DesignStudio studio, IPostServic
 
     public bool CanPublishBanner => CanAny(AdminPermissions.MarketingManage, AdminPermissions.ContentManage);
 
+    /// <summary>دور ۲۶: گزینه‌های «مقصد بنر» در فرم ایده ← طرح (دسته‌ها، صفحه‌ها، کمپین‌ها…).</summary>
+    public List<BriefTargetOption> Targets { get; private set; } = [];
+
     public async Task OnGetAsync(string? status, string? preset, Guid? post)
     {
         var ct = HttpContext.RequestAborted;
@@ -55,6 +58,8 @@ public class IndexModel(IDesignService designs, DesignStudio studio, IPostServic
         Status = Enum.TryParse<DesignStatus>(status, true, out var s) && Enum.IsDefined(s) ? s : Pending > 0 && status is null ? DesignStatus.Suggested : null;
         var list = await designs.ListAsync(Status, null, 90, ct);
         Items = Status is null ? list.Where(d => d.Status != DesignStatus.Rejected).ToList() : list;
+        if (CanPublishBanner)
+            Targets = await designs.TargetsAsync(ct);
         if (CanPublishBanner)
             Offers = (await campaigns.ListAsync(12, ct))
                 .Where(o => o.Status is CampaignOfferStatus.Draft or CampaignOfferStatus.Active || o.CreatedAt > DateTimeOffset.UtcNow.AddDays(-30))
@@ -117,11 +122,20 @@ public class IndexModel(IDesignService designs, DesignStudio studio, IPostServic
     /// هشدارها (مثلاً ادعای تخفیف بیشتر از واقعیت) به مدیر نشان داده می‌شود. چیزی منتشر نمی‌شود.
     /// </summary>
     /// <remarks>دور ۲۴: <paramref name="productId"/> = کالای انتخاب‌شده از فهرست؛ درصد/«امتیاز n برابر» در متن ← قاعدهٔ واقعی پیش‌نویس.</remarks>
-    public async Task<IActionResult> OnPostBriefAsync(string? brief, string? place, Guid? productId)
+    /// <remarks>دور ۲۶: <paramref name="target"/> = مقصد بنر (auto | none | product | cat:{id} | url:{مسیر})؛ <paramref name="targetUrl"/> = آدرس داخلی دلخواه.
+    /// عنوان صفحهٔ انتخابی از همان فهرست گزینه‌ها خوانده می‌شود تا متن بنر درباره‌اش نوشته شود.</remarks>
+    public async Task<IActionResult> OnPostBriefAsync(string? brief, string? place, Guid? productId, string? target, string? targetUrl)
     {
         if (!CanPublishBanner)
             return Forbid();
-        var result = await studio.BuildFromBriefAsync(brief, place, ActorName, HttpContext.RequestAborted, productId);
+        var ct = HttpContext.RequestAborted;
+        string? targetTitle = null;
+        if (target?.StartsWith("url:", StringComparison.OrdinalIgnoreCase) == true)
+            targetTitle = (await designs.TargetsAsync(ct)).FirstOrDefault(t => t.Value == target)?.Title;
+        var briefTarget = BriefTarget.Parse(target, targetUrl, targetTitle);
+        // کالا انتخاب شده ولی مقصد «خودکار» ← همان رفتار دور ۲۴ (بنر کالا).
+        var result = await studio.BuildFromBriefAsync(brief, place, ActorName, ct,
+            briefTarget.Kind is BriefTargetKind.Auto or BriefTargetKind.Product ? productId : null, briefTarget);
         if (!result.IsSuccess())
         {
             ErrorMessage = result.Message;

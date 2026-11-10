@@ -25,6 +25,12 @@ public static class CategoryImages
     public static bool IsSafeName(string? name) =>
         !string.IsNullOrWhiteSpace(name) && !name.Contains("..", StringComparison.Ordinal) && SafeName.IsMatch(name);
 
+    /// <summary>
+    /// دور ۲۶: این تصویر «عکس فضاسازی» واقعی از وب است (نه ترکیب عکس کالاهای خود دسته)؟ قرارداد نام: «{slug}-photo-{رمز}.webp».
+    /// مثال: «kitchen-photo-3fa1.webp» ← true؛ «kitchen-1a2b.webp» ← false.
+    /// </summary>
+    public static bool IsPhoto(string? name) => IsSafeName(name) && name!.Contains("-photo-", StringComparison.Ordinal);
+
     /// <summary>خواندن فهرست. JSON خراب یا نام ناامن ← نادیده (هرگز خطا نمی‌دهد).</summary>
     public static IReadOnlyList<string>? Parse(string? json)
     {

@@ -32,4 +32,7 @@ public class BannerDto : BaseDto
 
     /// <summary>دور ۲۳: تعداد کلیک.</summary>
     public int Clicks { get; set; }
+
+    /// <summary>دور ۲۶: نسخهٔ زندهٔ (متحرک) بنر – HTML امن ساخت سامانه (DesignLive)؛ null ← تصویر ثابت.</summary>
+    public string? LiveHtml { get; set; }
 }

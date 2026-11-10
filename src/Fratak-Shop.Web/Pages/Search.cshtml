@@ -7,16 +7,10 @@
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
     @if (Model.HeaderBanner is { } header)
     {
-      @* دور ۲۳: سربرگ صفحهٔ دسته (۱۹۲۰×۳۰۰؛ موبایل ۱۰۸۰×۳۶۰) *@
-      <a href="@UrlSafety.Link(header.LinkUrl)" class="block px-4 pt-2" data-banner="@header.Id">
-        <picture>
-          @if (!string.IsNullOrWhiteSpace(header.MobileImageName))
-          {
-            <source media="(max-width: 768px)" srcset="@Fratak_Shop.Web.Helpers.ImageHelper.Banner(header.MobileImageName)">
-          }
-          <img class="w-full h-auto rounded-2xl" src="@Fratak_Shop.Web.Helpers.ImageHelper.Banner(header.ImageName)" alt="@(header.ImageAlt ?? header.Title ?? Model.Heading)" width="1920" height="300" fetchpriority="high" decoding="async">
-        </picture>
-      </a>
+      @* دور ۲۶: سربرگ صفحهٔ دسته (۱۹۲۰×۳۰۰، یک نسخه برای همه؛ زنده اگر باشد) *@
+      <div class="px-4 pt-2">
+        @await Html.PartialAsync("_BannerArt", new BannerArt(header, "block overflow-hidden rounded-2xl", "w-full h-auto rounded-2xl", true, 1920, 300, false))
+      </div>
     }
     <div class="p-4 flex flex-col md:flex-row gap-5">
       <div class="md:w-4/12 lg:w-3/12">

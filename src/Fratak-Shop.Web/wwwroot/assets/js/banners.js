@@ -49,3 +49,31 @@
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); });
   window.addEventListener('pagehide', flush);
 })();
+
+/*
+ * دور ۲۶ – «بنر زنده» (assets/js/banners.js)
+ * بنرهای زنده (.fsb-wrap) وقتی دست‌کم ۳۰٪ در صفحه دیده شوند کلاس is-live می‌گیرند تا حرکت ورود عنصرها از همان لحظه شروع شود؛
+ * بیرون رفتن از صفحه ← حرکت چرخشی متوقف (باتری و پردازنده). بنر بالای صفحه از سرور is-live دارد.
+ * بدون IntersectionObserver ← همه زنده می‌شوند. «کاهش حرکت» سیستم‌عامل ← CSS حرکت را خاموش می‌کند.
+ */
+(function () {
+  'use strict';
+  var nodes = document.querySelectorAll('.fsb-wrap');
+  if (!nodes.length) return;
+  if (!('IntersectionObserver' in window)) {
+    Array.prototype.forEach.call(nodes, function (node) { node.classList.add('is-live'); });
+    return;
+  }
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      var node = entry.target;
+      if (entry.isIntersecting) {
+        node.classList.add('is-live');
+        node.classList.remove('is-paused');
+      } else if (node.classList.contains('is-live')) {
+        node.classList.add('is-paused');
+      }
+    });
+  }, { threshold: 0.3 });
+  Array.prototype.forEach.call(nodes, function (node) { observer.observe(node); });
+})();

@@ -27,6 +27,15 @@
       <button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-undo title="برگرداندن (Ctrl+Z)">@Icons.Svg("ArrowCounterClockwise", null, 16)</button>
       <button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-redo title="انجام دوباره (Ctrl+Y)">@Icons.Svg("ArrowCounterClockwise", "ds-flip", 16)</button>
       <button type="button" class="a-btn a-btn-light a-btn-xs" data-ds-download title="دانلود PNG">@Icons.Svg("Download", null, 16)</button>
+      @if (d.Kind == DesignKind.Banner)
+      {
+        @* دور ۲۶: بنر زنده – حرکت ورود/خروج عنصرها روی سایت (به‌جای GIF) *@
+        <select class="a-input a-input-xs w-auto" data-ds-motion aria-label="حرکت بنر روی سایت" title="حرکت بنر روی سایت">
+          <option value="None" selected="@(d.Animation == BannerMotion.None)">بی‌حرکت</option>
+          <option value="Soft" selected="@(d.Animation == BannerMotion.Soft)">زنده: ورود نرم</option>
+          <option value="Loop" selected="@(d.Animation == BannerMotion.Loop)">زنده: ورود و خروج چرخشی</option>
+        </select>
+      }
       <button type="button" class="a-btn a-btn-primary a-btn-xs" data-ds-save>@Icons.Svg("FloppyDisk", null, 16) ذخیره</button>
       @if (d.Kind == DesignKind.Banner && Model.CanPublishBanner)
       {

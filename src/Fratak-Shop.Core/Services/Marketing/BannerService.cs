@@ -76,6 +76,9 @@ public class BannerService(FratakShopDbContext context, ISmartConfigService? sma
         if (command.StartAt.HasValue && command.EndAt.HasValue && command.StartAt > command.EndAt)
             return OperationResult.Error("تاریخ شروع نباید از تاریخ پایان بزرگ‌تر باشد.");
 
+        // دور ۲۶: تصویر بنر دستی عوض شد ← نسخهٔ زندهٔ قبلی (ساخته از طرح قدیمی) دیگر درست نیست و کنار می‌رود.
+        if (!string.Equals(banner.ImageName, command.ImageName.Trim(), StringComparison.Ordinal))
+            banner.LiveHtml = null;
         banner.Title = command.Title;
         banner.Subtitle = command.Subtitle;
         banner.ImageName = command.ImageName.Trim();

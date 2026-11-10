@@ -14,7 +14,11 @@ public sealed record IdeaProduct(Guid Id, string Name, string Slug, string? Imag
 public sealed record IdeaCategory(Guid Id, string Name, string Slug, int InStock, IdeaProduct? Hero);
 
 /// <summary>ورودی ایده‌ساز: کالاها و دسته‌ها + نام فروشگاه (برای تیتر مناسبت‌ها).</summary>
-public sealed record IdeaInput(IReadOnlyList<IdeaProduct> Products, IReadOnlyList<IdeaCategory> Categories, string SiteName);
+public sealed record IdeaInput(IReadOnlyList<IdeaProduct> Products, IReadOnlyList<IdeaCategory> Categories, string SiteName)
+{
+    /// <summary>دور ۲۶: حداقل خرید برای ارسال رایگان (تومان؛ ۰ = ارسال رایگان نداریم) ← ایدهٔ بنر «ارسال رایگان».</summary>
+    public decimal FreeShippingFrom { get; init; }
+}
 
 /// <summary>
 /// یک ایدهٔ بنر آمادهٔ تأیید. Key یکتاست (همان ایده دوباره پیشنهاد نمی‌شود)، Reason دلیل داده‌محور ایده را می‌گوید.
@@ -26,55 +30,120 @@ public sealed record DesignIdea(string Key, string Title, string Reason, DesignS
 public sealed record DesignOccasion(string Key, string Name, string Headline, string Subline, string Palette, DateTimeOffset EndsAt);
 
 /// <summary>
-/// ایده‌ساز بنر بدون هوش مصنوعی (دور ۲۱): از دادهٔ واقعی فروشگاه ایده می‌سازد، نه متن خیالی.
+/// ایده‌ساز بنر بدون هوش مصنوعی (دور ۲۱؛ بازنویسی دور ۲۶): از دادهٔ واقعی فروشگاه ایده می‌سازد، نه متن خیالی.
+/// دور ۲۶ (خواستهٔ کاربر): بیشتر بنرها برای <b>دسته و کمپین</b>اند و بنر تک‌کالا کم و فقط برای کالای واقعاً ویژه. به ترتیب اهمیت:
 /// <list type="number">
-/// <item>مناسبت فعال با تاریخ ثابت (یلدا، نوروز، بازگشایی مدارس، حراج پایان نوامبر) با بیشترین تخفیف واقعی موجود.</item>
-/// <item>بیشترین تخفیف واقعی (کالای موجود با ≥۲ عدد موجودی و تخفیف ≥۱۰٪).</item>
-/// <item>پرفروش‌ترین کالای موجود.</item>
-/// <item>تازه‌رسیده (۲۱ روز اخیر).</item>
-/// <item>معرفی دسته با بیشترین کالای موجود.</item>
+/// <item>مناسبت فعال (یلدا، نوروز، مدارس، بلک‌فرایدی) با بیشترین تخفیف واقعی موجود.</item>
+/// <item>حراج دسته: دسته‌ای که دست‌کم ۳ کالای موجودِ تخفیف‌دار (≥۵٪) دارد ← «حراج هدفون، تا ۳۰٪ تخفیف» با چند کالای کنار هم.</item>
+/// <item>تازه‌ها: دست‌کم ۳ کالای تازه در ۱۴ روز اخیر ← «تازه‌های فروشگاه».</item>
+/// <item>معرفی دسته با بیشترین کالای موجود (چند کالای کنار هم).</item>
+/// <item>ارسال رایگان (اگر در تنظیمات فعال باشد).</item>
+/// <item>کالای ویژه: فقط تخفیف ≥۲۵٪، موجودی ≥۲ و بازدید دست‌کم میانهٔ کالاها.</item>
+/// <item>پرفروش‌ترین کالا (دست‌کم ۵ فروش).</item>
 /// </list>
 /// <para>بدون الگوی فریب: تخفیف و قیمت همان قیمت واقعی امروز است؛ «فقط امروز»/شمارش معکوس جعلی ساخته نمی‌شود؛ کالای ناموجود هرگز.</para>
 /// <para>هر ایده کلید یکتای هفتگی/ماهانه دارد؛ ایدهٔ ردشده یا منتشرشده با همان کلید دوباره نمی‌آید (DesignService).</para>
-/// <para>محل استفاده: Web/Infrastructure/Design/DesignStudio.cs (دکمهٔ «ایدهٔ تازه بده» و رشد خودکار وقتی بازدید افت می‌کند).</para>
+/// <para>محل استفاده: Web/Infrastructure/Design/DesignStudio.cs (دکمهٔ «ساخت ایده الان»، کار روزانهٔ SmartWorker و رشد خودکار).</para>
 /// </summary>
 public static class DesignIdeas
 {
     private static readonly PersianCalendar Persian = new();
     private static readonly TimeSpan Tehran = TimeSpan.FromHours(3.5);
 
+    /// <summary>کمترین درصد تخفیف برای بنر تک‌کالا (دور ۲۶: بنر کالا فقط برای کالای واقعاً ویژه).</summary>
+    public const int ProductDealPercent = 25;
+
     /// <summary>ساخت حداکثر <paramref name="max"/> ایده، به ترتیب اهمیت. ورودی خالی ← فهرست خالی (ایدهٔ بی‌پشتوانه ساخته نمی‌شود).</summary>
     public static List<DesignIdea> Generate(IdeaInput input, DateTimeOffset now, int max = 6)
     {
         var ideas = new List<DesignIdea>();
         var products = input.Products.Where(p => p.Stock > 0 && !string.IsNullOrWhiteSpace(p.ImageUrl) && p.FinalPrice > 0).ToList();
+        if (products.Count == 0)
+            return ideas;
         var week = WeekKey(now);
         var month = MonthKey(now);
         var palettes = DesignPalettes.All.Select(p => p.Key).Where(k => k != "clean").ToArray();
+        string Count(int n) => DesignTemplates.FaDigits(n.ToString(CultureInfo.InvariantCulture));
 
-        var bestDeal = products.Where(p => p.DiscountPercent >= 10 && p.Stock >= 2)
-            .OrderByDescending(p => p.DiscountPercent).ThenByDescending(p => p.Views).FirstOrDefault();
-
+        // ۱) مناسبت
         if (Occasion(now) is { } occasion)
         {
             var maxDiscount = products.Where(p => p.Stock >= 2).Select(p => p.DiscountPercent).DefaultIfEmpty(0).Max();
-            var hero = bestDeal ?? products.OrderByDescending(p => p.Sales).FirstOrDefault();
-            if (hero is not null)
-            {
-                var badge = maxDiscount >= 10 ? $"تا {DesignTemplates.FaDigits(maxDiscount + "%")} تخفیف" : null;
-                ideas.Add(new DesignIdea($"occasion:{occasion.Key}:{Persian.GetYear(Local(now))}", occasion.Name,
-                    $"مناسبت «{occasion.Name}» تا {DesignTemplates.FaDigits(DaysLeft(now, occasion.EndsAt).ToString(CultureInfo.InvariantCulture))} روز دیگر؛" +
-                    (badge is null ? " بدون ادعای تخفیف (تخفیف ≥۱۰٪ موجود نیست)." : $" بیشترین تخفیف واقعی موجود {DesignTemplates.FaDigits(maxDiscount + "%")}."),
-                    new DesignSpec("festive", occasion.Palette, occasion.Headline, occasion.Subline, badge, "مشاهدهٔ پیشنهادها", Image(hero),
-                        Kicker: input.SiteName),
-                    maxDiscount >= 10 ? "/products?Discounted=true&Sort=MostDiscounted" : "/products?Sort=BestSelling", occasion.EndsAt, hero.Id));
-            }
+            var top = products.OrderByDescending(p => p.DiscountPercent).ThenByDescending(p => p.Sales).ThenByDescending(p => p.Views).Take(3).ToList();
+            var badge = maxDiscount >= 10 ? $"تا {DesignTemplates.FaDigits(maxDiscount + "%")} تخفیف" : null;
+            ideas.Add(new DesignIdea($"occasion:{occasion.Key}:{Persian.GetYear(Local(now))}", occasion.Name,
+                $"مناسبت «{occasion.Name}» تا {Count(DaysLeft(now, occasion.EndsAt))} روز دیگر؛" +
+                (badge is null ? " بدون ادعای تخفیف (تخفیف ≥۱۰٪ موجود نیست)." : $" بیشترین تخفیف واقعی موجود {DesignTemplates.FaDigits(maxDiscount + "%")}."),
+                new DesignSpec("festive", occasion.Palette, occasion.Headline, occasion.Subline, badge, "مشاهدهٔ پیشنهادها", Image(top[0]),
+                    Kicker: input.SiteName, Gallery: Images(top)),
+                maxDiscount >= 10 ? "/products?Discounted=true&Sort=MostDiscounted" : "/products?Sort=BestSelling", occasion.EndsAt));
         }
 
+        // ۲) حراج دسته (پرتخفیف‌ترین دسته‌ها اول)
+        var categoryDeals = products.Where(p => p.DiscountPercent >= 5 && p.CategorySlug is not null && p.CategoryName is not null)
+            .GroupBy(p => p.CategorySlug!)
+            .Where(g => g.Count() >= 3)
+            .Select(g => (Slug: g.Key, Name: g.First().CategoryName!, Items: g.OrderByDescending(p => p.DiscountPercent).ThenByDescending(p => p.Sales).ToList()))
+            .OrderByDescending(g => g.Items.Count).ThenByDescending(g => g.Items[0].DiscountPercent)
+            .Take(2);
+        foreach (var deal in categoryDeals)
+        {
+            var maxOff = deal.Items[0].DiscountPercent;
+            var badge = $"تا {DesignTemplates.FaDigits(maxOff + "%")} تخفیف";
+            ideas.Add(new DesignIdea($"catdeal:{deal.Slug}:{week}", "حراج " + deal.Name,
+                $"{Count(deal.Items.Count)} کالای موجود دستهٔ «{deal.Name}» تخفیف واقعی دارند (بیشترین {DesignTemplates.FaDigits(maxOff + "%")}).",
+                new DesignSpec("collage", Pick(["coral", "sunset", "candy", "night"], deal.Items[0].Id, 1), $"حراج {deal.Name}",
+                    $"{Count(deal.Items.Count)} کالای تخفیف‌دار، فقط کالاهای موجود", badge, "دیدن تخفیف‌ها", Image(deal.Items[0]),
+                    Kicker: "حراج دسته", Gallery: Images(deal.Items.Take(3))),
+                $"/category/{deal.Slug}?Discounted=true", now.AddDays(7)));
+        }
+
+        // ۳) تازه‌ها
+        var fresh = products.Where(p => p.CreatedAt >= now.AddDays(-14)).OrderByDescending(p => p.CreatedAt).ToList();
+        if (fresh.Count >= 3)
+        {
+            ideas.Add(new DesignIdea($"fresh:{week}", "تازه‌های " + input.SiteName,
+                $"{Count(fresh.Count)} کالای تازه در ۲ هفتهٔ اخیر.",
+                new DesignSpec("collage", Pick(["mint", "sky", "indigo", "ocean"], fresh[0].Id, 2), $"تازه‌های {input.SiteName}",
+                    $"{Count(fresh.Count)} کالای تازه همین حالا موجود است", "جدید", "دیدن تازه‌ها", Image(fresh[0]),
+                    Kicker: "تازه رسید", Gallery: Images(fresh.Take(3))),
+                "/products?Sort=Newest", now.AddDays(14)));
+        }
+
+        // ۴) معرفی دسته
+        var category = input.Categories.Where(c => c.InStock >= 3 && c.Hero is { ImageUrl: not null })
+            .OrderByDescending(c => c.InStock).FirstOrDefault();
+        if (category is not null)
+        {
+            var members = products.Where(p => p.CategorySlug == category.Slug).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).Take(3).ToList();
+            if (members.All(p => p.Id != category.Hero!.Id))
+                members.Insert(0, category.Hero!);
+            var gallery = Images(members.Take(3));
+            ideas.Add(new DesignIdea($"cat:{category.Id:N}:{month}", "معرفی دستهٔ " + category.Name,
+                $"دستهٔ «{category.Name}» با {Count(category.InStock)} کالای موجود.",
+                new DesignSpec(gallery.Count >= 2 ? "collage" : "split", Pick(palettes, category.Id, 3), category.Name,
+                    $"{Count(category.InStock)} کالای موجود با ارسال سریع", null, "دیدن همه", Image(category.Hero!), Kicker: "دسته‌بندی منتخب", Gallery: gallery),
+                "/category/" + category.Slug, now.AddDays(30)));
+        }
+
+        // ۵) ارسال رایگان
+        if (input.FreeShippingFrom > 0)
+        {
+            ideas.Add(new DesignIdea($"freeship:{month}", "ارسال رایگان",
+                $"ارسال رایگان برای خرید بالای {DesignTemplates.Toman(input.FreeShippingFrom)} (از تنظیمات فروشگاه).",
+                new DesignSpec("pattern", "indigo", "ارسال رایگان", $"برای خریدهای بالای {DesignTemplates.Toman(input.FreeShippingFrom)}", null, "شروع خرید",
+                    Kicker: input.SiteName),
+                "/products", now.AddDays(30)));
+        }
+
+        // ۶) کالای واقعاً ویژه (کم و با شرط سخت)
+        var medianViews = products.Select(p => p.Views).OrderBy(v => v).ElementAt((products.Count - 1) / 2);
+        var bestDeal = products.Where(p => p.DiscountPercent >= ProductDealPercent && p.Stock >= 2 && p.Views >= medianViews)
+            .OrderByDescending(p => p.DiscountPercent).ThenByDescending(p => p.Views).FirstOrDefault();
         if (bestDeal is not null)
         {
             ideas.Add(new DesignIdea($"deal:{bestDeal.Id:N}:{week}", "پیشنهاد ویژه: " + DesignTemplates.Shorten(bestDeal.Name, 40),
-                $"بیشترین تخفیف واقعی موجود ({DesignTemplates.FaDigits(bestDeal.DiscountPercent + "%")}) با {DesignTemplates.FaDigits(bestDeal.Stock.ToString(CultureInfo.InvariantCulture))} عدد موجودی.",
+                $"تخفیف واقعی {DesignTemplates.FaDigits(bestDeal.DiscountPercent + "%")} روی کالای پربازدید با {Count(bestDeal.Stock)} عدد موجودی.",
                 new DesignSpec("sale", Pick(palettes, bestDeal.Id, 1), DesignTemplates.Shorten(bestDeal.Name, 46),
                     bestDeal.CategoryName is null ? null : "از دستهٔ " + bestDeal.CategoryName,
                     DesignTemplates.FaDigits(bestDeal.DiscountPercent + "%") + " تخفیف", "خرید با تخفیف", Image(bestDeal),
@@ -82,41 +151,24 @@ public static class DesignIdeas
                 "/product/" + bestDeal.Slug, now.AddDays(7), bestDeal.Id));
         }
 
-        var bestSeller = products.Where(p => p.Sales > 0 && p.Id != bestDeal?.Id).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).FirstOrDefault();
+        // ۷) پرفروش
+        var bestSeller = products.Where(p => p.Sales >= 5 && p.Id != bestDeal?.Id).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).FirstOrDefault();
         if (bestSeller is not null)
         {
             ideas.Add(new DesignIdea($"best:{bestSeller.Id:N}:{month}", "پرفروش: " + DesignTemplates.Shorten(bestSeller.Name, 40),
-                $"پرفروش‌ترین کالای موجود ({DesignTemplates.FaDigits(bestSeller.Sales.ToString(CultureInfo.InvariantCulture))} فروش).",
+                $"پرفروش‌ترین کالای موجود ({Count(bestSeller.Sales)} فروش).",
                 new DesignSpec("split", Pick(palettes, bestSeller.Id, 2), DesignTemplates.Shorten(bestSeller.Name, 46),
                     "انتخاب اول خریداران " + input.SiteName, null, "مشاهده و خرید", Image(bestSeller),
                     DesignTemplates.Toman(bestSeller.FinalPrice), bestSeller.DiscountPercent > 0 ? DesignTemplates.Toman(bestSeller.Price) : null, "پرفروش‌ترین"),
                 "/product/" + bestSeller.Slug, now.AddDays(30), bestSeller.Id));
         }
 
-        var fresh = products.Where(p => p.CreatedAt >= now.AddDays(-21) && p.Id != bestDeal?.Id && p.Id != bestSeller?.Id)
-            .OrderByDescending(p => p.CreatedAt).FirstOrDefault();
-        if (fresh is not null)
-        {
-            ideas.Add(new DesignIdea($"new:{fresh.Id:N}", "تازه رسید: " + DesignTemplates.Shorten(fresh.Name, 40),
-                "کالای تازه (کمتر از ۳ هفته) که هنوز معرفی نشده است.",
-                new DesignSpec("minimal", "clean", DesignTemplates.Shorten(fresh.Name, 46), fresh.CategoryName is null ? null : "تازه در دستهٔ " + fresh.CategoryName,
-                    "جدید", "مشاهدهٔ محصول", Image(fresh), DesignTemplates.Toman(fresh.FinalPrice), null, "تازه رسید"),
-                "/product/" + fresh.Slug, now.AddDays(21), fresh.Id));
-        }
-
-        var category = input.Categories.Where(c => c.InStock >= 3 && c.Hero is { ImageUrl: not null })
-            .OrderByDescending(c => c.InStock).FirstOrDefault();
-        if (category is not null)
-        {
-            ideas.Add(new DesignIdea($"cat:{category.Id:N}:{month}", "معرفی دستهٔ " + category.Name,
-                $"دستهٔ «{category.Name}» با {DesignTemplates.FaDigits(category.InStock.ToString(CultureInfo.InvariantCulture))} کالای موجود.",
-                new DesignSpec("split", Pick(palettes, category.Id, 3), category.Name, $"{DesignTemplates.FaDigits(category.InStock.ToString(CultureInfo.InvariantCulture))} کالای موجود با ارسال سریع",
-                    null, "دیدن همه", Image(category.Hero!), Kicker: "دسته‌بندی منتخب"),
-                "/category/" + category.Slug, now.AddDays(30)));
-        }
-
         return ideas.Take(Math.Max(0, max)).ToList();
     }
+
+    /// <summary>عکس چند کالا برای چیدمان «کنار هم» (فقط دارای عکس).</summary>
+    private static List<DesignImage> Images(IEnumerable<IdeaProduct> products) =>
+        products.Select(Image).Where(i => i is not null).Select(i => i!).ToList();
 
     /// <summary>
     /// مناسبت فعال امروز (به وقت ایران). پنجره‌ها از قبل شروع می‌شوند تا بنر سر وقت آماده باشد.

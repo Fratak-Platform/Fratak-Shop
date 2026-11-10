@@ -27,7 +27,8 @@
   const csrf = () => (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
   const base = root.dataset.base;
   const FONT = "Vazirmatn";
-  const EXTRA = ["fsRole", "selectable", "evented", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
+  // دور ۲۶: fsAnim/fsAnimDelay = برچسب حرکت هر شیء برای «بنر زنده» (DesignLive) – با ذخیره حفظ می‌شود.
+  const EXTRA = ["fsRole", "fsAnim", "fsAnimDelay", "selectable", "evented", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
   const HISTORY_MAX = 30;
   // Fabric 7 مبدأ پیش‌فرض را «وسط» کرده؛ همهٔ محاسبه‌های این فایل و قالب‌های سرور با گوشهٔ بالا-چپ است.
   const O = { originX: "left", originY: "top" };
@@ -643,6 +644,8 @@
         form.append("title", $("[data-ds-title]").value.trim());
         form.append("json", state.variants.desktop.json);
         form.append("headline", state.variant === "desktop" ? headline() : "");
+        const motion = $("[data-ds-motion]");
+        if (motion) form.append("motion", motion.value);
         form.append("image", await render("desktop"), "design.png");
         if (state.variants.mobile) {
           form.append("mobileJson", state.variants.mobile.json);

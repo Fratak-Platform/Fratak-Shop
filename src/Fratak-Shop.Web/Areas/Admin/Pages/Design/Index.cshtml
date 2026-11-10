@@ -34,7 +34,7 @@
 
 @if (Model.CanPublishBanner)
 {
-  @* دور ۲۳: ایده ← طرح – یک جملهٔ کوتاه، سه طرح کامل (دسکتاپ + موبایل) از دادهٔ واقعی *@
+  @* دور ۲۳: ایده ← طرح – یک جملهٔ کوتاه، سه طرح کامل از دادهٔ واقعی؛ دور ۲۶: یک نسخه برای همهٔ صفحه‌ها + انتخاب مقصد *@
   <form method="post" asp-page-handler="Brief" class="a-card mb-4" id="brief">
     <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagicWand", null, 18) ایده ← طرح</h3></div>
     <div class="a-card-body grid gap-3 md:grid-cols-[1fr_220px_auto] items-end">
@@ -45,13 +45,34 @@
       <div>
         <label class="a-label" for="brief-place">جایگاه و اندازه</label>
         <select id="brief-place" name="place" class="a-input">
-          <option value="hero">اسلایدر اصلی (۱۹۲۰×۴۸۰ + موبایل)</option>
-          <option value="wide">بنر عریض (۱۹۲۰×۳۲۰ + موبایل)</option>
-          <option value="promo">بنر دوتایی (۹۶۰×۴۰۰)</option>
-          <option value="category">سربرگ دسته (۱۹۲۰×۳۰۰ + موبایل)</option>
+          <option value="hero">اسلایدر اصلی (۱۹۲۰×۴۲۰)</option>
+          <option value="wide">بنر عریض (۱۹۲۰×۳۰۰)</option>
+          <option value="promo">بنر دوتایی (۹۶۰×۳۲۰)</option>
+          <option value="category">سربرگ دسته (۱۹۲۰×۳۰۰)</option>
         </select>
       </div>
       <button type="submit" class="a-btn a-btn-primary">ساخت ۳ نسخه</button>
+    </div>
+    @* دور ۲۶: مقصد بنر – بیشتر بنرها برای دسته، کمپین، یک صفحه یا بدون لینک‌اند؛ بنر کالا کمتر *@
+    <div class="a-card-body pt-0 grid gap-3 md:grid-cols-2">
+      <div>
+        <label class="a-label" for="brief-target">مقصد بنر (کلیک روی بنر کجا برود؟)</label>
+        <select id="brief-target" name="target" class="a-input">
+          <option value="auto">خودکار از متن ایده</option>
+          <option value="none">بدون لینک (فقط اطلاع‌رسانی)</option>
+          <option value="product">کالای انتخاب‌شده در پایین</option>
+          @foreach (var group in Model.Targets.GroupBy(t => t.Group))
+          {
+            <optgroup label="@group.Key">
+              @foreach (var option in group) { <option value="@option.Value">@option.Title</option> }
+            </optgroup>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="a-label" for="brief-url">یا آدرس داخلی دلخواه (اختیاری)</label>
+        <input id="brief-url" name="targetUrl" class="a-input" dir="ltr" maxlength="300" placeholder="/products?Discounted=true">
+      </div>
     </div>
     @* دور ۲۴: انتخاب کالا از فهرست (اختیاری) – بر تطبیق متن مقدم است *@
     <div class="a-card-body pt-0" data-pick-product-box>
@@ -63,7 +84,8 @@
         <p class="text-sm mt-2"><b data-pick-product-label></b> <button type="button" class="a-btn a-btn-light a-btn-xs" data-pick-product-clear hidden>برداشتن کالا</button></p>
       </div>
     </div>
-    <p class="a-card-body pt-0 a-muted text-xs">تیتر، متن، کالای واقعی، عکس، رنگ (از عکس کالا با بررسی خوانایی) و لینک خودکار انتخاب می‌شود.
+    <p class="a-card-body pt-0 a-muted text-xs">تیتر، متن، کالاهای واقعی، عکس، رنگ (با بررسی خوانایی) و چیدمان از ایده و مقصد ساخته می‌شود؛ سه نسخه با چیدمان و تیتر متفاوت.
+      بنرها پهن و کوتاه‌اند و یک نسخه برای موبایل و دسکتاپ کافی است؛ بنر هوشمند «زنده» است (عنصرها نرم وارد می‌شوند) و در ویرایشگر می‌شود حرکت را خاموش کرد.
       اگر درصدی بیشتر از تخفیف واقعی یا «امتیاز ۲ تا ۵ برابر» بنویسید، یک کد تخفیف/ضریب امتیاز واقعی برای همان دسته، برند یا کالا به‌صورت پیش‌نویس ساخته می‌شود
       و فقط با انتشار بنر فعال می‌شود (بیشترین تخفیف ۵۰٪). سربرگ دسته فقط برای ایده‌ای ساخته می‌شود که نام یک دسته در آن باشد. هیچ طرحی بدون تأیید شما منتشر نمی‌شود.</p>
   </form>
@@ -181,7 +203,7 @@ else
     <div>
       <span class="a-label">اندازه (جایگاه)</span>
       <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach (var p in DesignPresets.All.Where(p => p.Key != DesignPresets.HeroMobile))
+        @foreach (var p in DesignPresets.All.Where(p => !DesignPresets.IsLegacy(p)))
         {
           <label class="flex items-start gap-2 border rounded-xl p-3 cursor-pointer hover:border-sky-400">
             <input type="radio" name="preset" value="@p.Key" checked="@(p.Key == Model.SelectedPreset)" class="mt-1">

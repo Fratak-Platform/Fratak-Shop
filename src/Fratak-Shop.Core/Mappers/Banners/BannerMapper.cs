@@ -31,6 +31,7 @@ public static class BannerMapper
             VariantGroup = banner.VariantGroup,
             Views = banner.Views,
             Clicks = banner.Clicks,
+            LiveHtml = banner.LiveHtml,
         };
     }
 

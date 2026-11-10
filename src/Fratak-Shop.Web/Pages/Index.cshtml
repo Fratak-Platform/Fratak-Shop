@@ -23,19 +23,8 @@
                 {
                   var banner = block.Banners[i];
                   var first = !heroRendered && i == 0;
-                  var hasMobile = !string.IsNullOrWhiteSpace(banner.MobileImageName);
-                  <a href="@UrlSafety.Link(banner.LinkUrl)" class="swiper-slide" data-banner="@banner.Id">
-                    <picture>
-                      @if (!string.IsNullOrWhiteSpace(banner.MobileImageName))
-                      {
-                        <source media="(max-width: 768px)" srcset="@(ImageHelper.Srcset(ImageHelper.Banner(banner.MobileImageName), Site.Settings.IsImageOptimizationEnabled, 960) ?? ImageHelper.Banner(banner.MobileImageName))" sizes="100vw">
-                      }
-                      @* دور ۲۳: با نسخهٔ موبایل (۱۰۸۰×۵۴۰) تصویر کامل بدون برش؛ بدون آن، برش وسط مثل قبل. *@
-                      <img class="@(hasMobile ? "w-full h-auto" : "w-full h-60 md:h-auto object-cover object-bottom")" src="@ImageHelper.Banner(banner.ImageName)" alt="@(banner.ImageAlt ?? banner.Title)"
-                           srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw"
-                           loading="@(first ? "eager" : "lazy")" fetchpriority="@(first ? "high" : "auto")" decoding="async">
-                    </picture>
-                  </a>
+                  @* دور ۲۶: یک نسخهٔ پهن و کوتاه (۱۹۲۰×۴۲۰) برای همهٔ صفحه‌ها، بدون برش؛ نسخهٔ زنده اگر باشد. *@
+                  await Html.RenderPartialAsync("_BannerArt", new BannerArt(banner, "swiper-slide", "w-full h-auto", first, 1920, 420));
                 }
               </div>
               <div class="swiper-button-next shadow-lg"></div>
@@ -110,15 +99,7 @@
               // دور ۲۳: بنر دوتایی کامل (۹۶۰×۴۰۰، متن روی خود تصویر – مثل دیجی‌کالا) وقتی زیرعنوان و دکمهٔ جدا ندارد.
               if (string.IsNullOrWhiteSpace(promo.Subtitle) && string.IsNullOrWhiteSpace(promo.ButtonText))
               {
-                <a href="@promoLink" class="block w-full md:flex-1 overflow-hidden rounded-xl lg:rounded-3xl" data-banner="@promo.Id">
-                  <picture>
-                    @if (!string.IsNullOrWhiteSpace(promo.MobileImageName))
-                    {
-                      <source media="(max-width: 768px)" srcset="@ImageHelper.Banner(promo.MobileImageName)">
-                    }
-                    <img class="w-full h-auto" src="@ImageHelper.Banner(promo.ImageName)" alt="@(promo.ImageAlt ?? promo.Title)" width="960" height="400" loading="lazy" decoding="async">
-                  </picture>
-                </a>
+                await Html.RenderPartialAsync("_BannerArt", new BannerArt(promo, "block w-full md:flex-1 overflow-hidden rounded-xl lg:rounded-3xl", "w-full h-auto", false, 960, 320, false));
                 continue;
               }
               if (i == 0)
@@ -207,16 +188,8 @@
           foreach (var banner in block.Banners)
           {
             <div>
-              <a href="@UrlSafety.Link(banner.LinkUrl)" class="block my-14" data-banner="@banner.Id">
-                @* دور ۲۳: بنر عریض ۱۹۲۰×۳۲۰ با نسخهٔ موبایل ۱۰۸۰×۳۶۰ *@
-                <picture>
-                  @if (!string.IsNullOrWhiteSpace(banner.MobileImageName))
-                  {
-                    <source media="(max-width: 768px)" srcset="@ImageHelper.Banner(banner.MobileImageName)">
-                  }
-                  <img class="rounded-xl lg:rounded-3xl w-full h-auto" src="@ImageHelper.Banner(banner.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw" alt="@(banner.ImageAlt ?? banner.Title)" loading="lazy" decoding="async">
-                </picture>
-              </a>
+              @* دور ۲۶: بنر عریض ۱۹۲۰×۳۰۰ – یک نسخه برای همه؛ بنر بدون لینک ← div *@
+              @await Html.PartialAsync("_BannerArt", new BannerArt(banner, "block my-14 overflow-hidden rounded-xl lg:rounded-3xl", "rounded-xl lg:rounded-3xl w-full h-auto", false, 1920, 300))
             </div>
           }
           break;

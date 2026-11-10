@@ -159,16 +159,16 @@ public class MlRound24IntegrationTests(SqlServerFixture db)
             await context.SaveChangesAsync();
             await context.Products.Where(p => p.Id == productId).ExecuteUpdateAsync(s => s.SetProperty(p => p.SupplierId, supplier.Id).SetProperty(p => p.PurchasePrice, 150_000m));
 
-            // ۲۸ روز، هر روز ۲ عدد.
+            // ۲۸ روز کامل گذشته (دیروز تا ۲۸ روز پیش)، هر روز ۲ عدد. دور ۲۶: امروزِ نیمه‌تمام در پیش‌بینی حساب نمی‌شود.
             var now = DateTimeOffset.UtcNow;
-            for (var day = 0; day < 28; day++)
+            for (var day = 1; day <= 28; day++)
             {
                 var order = NewOrder(null, OrderStatus.Delivered, 400_000);
                 order.Items.Add(new OrderItem { ProductId = productId, ProductName = "کالای پرفروش", SKU = "F-1", UnitPrice = 200_000, Quantity = 2, TotalAmount = 400_000 });
                 context.Orders.Add(order);
                 await context.SaveChangesAsync();
                 orders.Add(order.Id);
-                var at = now.AddDays(-day).AddHours(-1);
+                var at = now.AddDays(-day);
                 await context.Orders.Where(o => o.Id == order.Id).ExecuteUpdateAsync(s => s.SetProperty(o => o.CreatedAt, at));
             }
             context.ChangeTracker.Clear();

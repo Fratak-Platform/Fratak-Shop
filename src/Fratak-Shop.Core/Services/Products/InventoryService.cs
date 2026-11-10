@@ -312,8 +312,10 @@ public sealed class InventoryService(FratakShopDbContext context) : IInventorySe
     /// </summary>
     private async Task<Dictionary<Guid, int[]>> SeriesAsync(int windowDays, Guid? productId, CancellationToken cancellationToken)
     {
+        // دور ۲۶: فقط روزهای «کامل» (دیروز و قبل‌تر). امروزِ نیمه‌تمام فروش کمتری دارد و مدل روند را اشتباه نزولی می‌دید
+        // (مثلاً ساعت ۱ بامداد فروش امروز تقریباً صفر است ← پیش‌بینی ۴۰٪ کمتر). since یک روز عقب‌تر تا قدیمی‌ترین روز هم کامل باشد.
         var now = DateTimeOffset.UtcNow;
-        var since = now.AddDays(-windowDays);
+        var since = now.AddDays(-windowDays - 1);
         var items = context.OrderItems.Where(i => i.ProductId != null
                                                   && i.Order.CreatedAt >= since
                                                   && i.Order.Status != OrderStatus.Cancelled
@@ -328,11 +330,11 @@ public sealed class InventoryService(FratakShopDbContext context) : IInventorySe
         foreach (var row in rows)
         {
             var age = today.DayNumber - IranClock.Today(row.CreatedAt).DayNumber;
-            if (age < 0 || age >= windowDays)
+            if (age < 1 || age > windowDays)
                 continue;
             if (!result.TryGetValue(row.ProductId, out var daily))
                 result[row.ProductId] = daily = new int[windowDays];
-            daily[windowDays - 1 - age] += Math.Max(0, row.Quantity);
+            daily[windowDays - age] += Math.Max(0, row.Quantity);
         }
         return result;
     }
