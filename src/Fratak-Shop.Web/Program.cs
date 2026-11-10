@@ -70,6 +70,8 @@ builder.Services.AddRazorPages(options =>
     // Friendly aliases for the product listing.
     options.Conventions.AddPageRoute("/Search", "products");
     options.Conventions.AddPageRoute("/Search", "category/{category}");
+    // دور ۲۴ (پیشنهاد ۴۰): صفحهٔ فرود «دسته + برند» (مثلاً /category/headphone/brand/haylou).
+    options.Conventions.AddPageRoute("/Search", "category/{category}/brand/{brand}");
     options.Conventions.AddPageRoute("/Search", "brand/{brand}");
     options.Conventions.AddPageRoute("/Blog", "blog/category/{category}");
     options.Conventions.AddPageRoute("/Error404", "404");

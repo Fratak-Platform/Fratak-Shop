@@ -162,6 +162,9 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Seo.Autopilot.ISeoMaintenanceService, Services.Seo.Autopilot.SeoMaintenanceService>();
         services.AddScoped<Services.Seo.Autopilot.ISeoReportService, Services.Seo.Autopilot.SeoReportService>();
         services.AddScoped<Services.Seo.Autopilot.ISeoLandingService, Services.Seo.Autopilot.SeoLandingService>();
+        // دور ۲۴ (پیشنهادهای ۴۲ تا ۴۴ و ۴۸ تا ۵۰): صفحه‌های هاب سئو و گزارش فرصت‌های سئو.
+        services.AddScoped<Services.Seo.Autopilot.ISeoHubService, Services.Seo.Autopilot.SeoHubService>();
+        services.AddScoped<Services.Seo.Autopilot.ISeoOpportunityService, Services.Seo.Autopilot.SeoOpportunityService>();
         services.AddScoped<Services.Seo.Feeds.ITorobFeedService, Services.Seo.Feeds.TorobFeedService>();
 
         // فاز ۸ب: یابندهٔ لینک شکسته، ویرایش گروهی سئو و Search Console. پیش‌فرض‌های «آفلاین» (بدون شبکه) را

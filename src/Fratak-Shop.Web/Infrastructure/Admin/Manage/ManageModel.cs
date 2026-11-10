@@ -92,6 +92,12 @@ public sealed class MDef
     /// <summary>Public page of a row, e.g. <c>/page/{Slug}</c>.</summary>
     public string? PublicUrl { get; init; }
 
+    /// <summary>
+    /// دور ۲۴: بررسی/تکمیل اختصاصی بعد از خواندن همهٔ فیلدها (خروجی = پیام خطا یا null).
+    /// مثال: نمادهای اعتماد ← برداشتن تصویر و لینک از «کد نماد».
+    /// </summary>
+    public Func<object, string?>? AfterBind { get; init; }
+
     /// <summary>Related tables shown as links on the edit page: (title, key, parent field of the child).</summary>
     public (string Title, string Key)[] Children { get; init; } = [];
 

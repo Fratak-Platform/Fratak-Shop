@@ -392,6 +392,14 @@
           }
         </div>
         <partial name="_Pagination" model="Model.Pager" />
+        @if (Model.GuideUrl is not null)
+        {
+          @* دور ۲۴ (پیشنهاد ۴۳): لینک صفحهٔ ستون «راهنمای جامع خرید» *@
+          <a href="@Model.GuideUrl" class="flex items-center justify-between gap-3 bg-sky-50 border border-sky-200 rounded-xl p-4 mt-6 text-sm hover:border-sky-400">
+            <span><b>راهنمای جامع خرید @Model.Heading</b><span class="block text-zinc-500 mt-1">بازهٔ قیمت، برندها، معنی مشخصات مهم و پرسش‌های متداول در یک صفحه</span></span>
+            <span aria-hidden="true">←</span>
+          </a>
+        }
         @if (Model.PriceLandings.Count > 0)
         {
           <nav class="bg-white border rounded-xl p-4 mt-6 text-sm" aria-label="خرید بر اساس بودجه">
@@ -400,6 +408,19 @@
               @foreach (var landing in Model.PriceLandings)
               {
                 <a href="@landing.Url" class="border rounded-full px-3 py-1 hover:border-sky-400">@landing.Label <span class="text-gray-500">(@Fratak_Shop.Web.Helpers.Format.Number(landing.Count))</span></a>
+              }
+            </div>
+          </nav>
+        }
+        @if (Model.BrandLandings.Count > 0)
+        {
+          @* دور ۲۴ (پیشنهاد ۴۰): صفحه‌های «دسته + برند» با حداقل ۳ کالا *@
+          <nav class="bg-white border rounded-xl p-4 mt-4 text-sm" aria-label="برندهای @Model.Heading">
+            <p class="font-bold mb-3">برندهای @Model.Heading</p>
+            <div class="flex flex-wrap gap-2">
+              @foreach (var brandLanding in Model.BrandLandings)
+              {
+                <a href="@brandLanding.Url" class="border rounded-full px-3 py-1 hover:border-sky-400">@brandLanding.Name <span class="text-gray-500">(@Fratak_Shop.Web.Helpers.Format.Number(brandLanding.Count))</span></a>
               }
             </div>
           </nav>

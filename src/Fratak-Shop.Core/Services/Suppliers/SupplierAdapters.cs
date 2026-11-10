@@ -35,6 +35,13 @@ public sealed record SupplierHttpResponse(int Status, string? Body, string? Erro
 public interface ISupplierHttp
 {
     Task<SupplierHttpResponse> GetAsync(string url, bool expectJson, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// دور ۲۴: درخواست POST فرم (application/x-www-form-urlencoded) با همان محافظ‌ها؛ مثلاً جست‌وجوی ایمالز (<c>_Search.ashx</c>).
+    /// پیاده‌سازی پیش‌فرض «پشتیبانی نمی‌شود» برمی‌گرداند تا جعلی‌های تست‌ها بدون تغییر کار کنند.
+    /// </summary>
+    Task<SupplierHttpResponse> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, bool expectJson, CancellationToken cancellationToken) =>
+        Task.FromResult(new SupplierHttpResponse(0, null, "ارسال فرم پشتیبانی نمی‌شود."));
 }
 
 /// <summary>یک محصول فروشگاه که باید در سایت منبع خوانده شود.</summary>

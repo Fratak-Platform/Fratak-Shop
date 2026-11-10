@@ -362,6 +362,8 @@ public sealed class ManageEngine(IAdminDataService data, IUploadStore uploads)
                 return fieldError;
         }
 
+        if (def.AfterBind?.Invoke(entity) is { } hookError)
+            return hookError;
         return BindSeo(def, entity, form);
     }
 

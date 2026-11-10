@@ -158,13 +158,14 @@
             {
               if (UrlSafety.IsHttpUrl(badge.LinkUrl))
               {
-                <a href="@badge.LinkUrl" target="_blank" rel="noopener noreferrer" title="@badge.Title">
-                  <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128">
+                @* دور ۲۴: اینماد/ساماندهی دامنه را از «ارجاع‌دهنده» تأیید می‌کنند؛ پس noreferrer نه، و referrerpolicy=origin. *@
+                <a href="@badge.LinkUrl" target="_blank" rel="noopener" referrerpolicy="origin" title="@badge.Title">
+                  <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128" referrerpolicy="origin">
                 </a>
               }
               else
               {
-                <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128">
+                <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128" referrerpolicy="origin">
               }
             }
           </div>

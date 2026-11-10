@@ -24,6 +24,8 @@ public static class SeoEndpoints
                 writer.WriteStartElement("urlset", "http://www.sitemaps.org/schemas/sitemap/0.9");
                 // دور سئوی خودکار: تصویرهای هر صفحه (گوگل تصاویر) – فضای نام رسمی image sitemap.
                 writer.WriteAttributeString("xmlns", "image", null, ImageNamespace);
+                // دور ۲۴ (پیشنهاد ۴۷): ویدیوهای کالا (video sitemap).
+                writer.WriteAttributeString("xmlns", "video", null, VideoNamespace);
                 foreach (var entry in entries)
                 {
                     writer.WriteStartElement("url");
@@ -36,6 +38,20 @@ public static class SeoEndpoints
                     {
                         writer.WriteStartElement("image", "image", ImageNamespace);
                         writer.WriteElementString("image", "loc", ImageNamespace, image.StartsWith('/') ? baseUrl + EncodeImage(image) : image);
+                        writer.WriteEndElement();
+                    }
+                    foreach (var video in entry.Videos ?? [])
+                    {
+                        writer.WriteStartElement("video", "video", VideoNamespace);
+                        writer.WriteElementString("video", "thumbnail_loc", VideoNamespace, Absolute(baseUrl, video.Thumbnail));
+                        writer.WriteElementString("video", "title", VideoNamespace, video.Title);
+                        writer.WriteElementString("video", "description", VideoNamespace, video.Description);
+                        if (video.ContentUrl is { } content)
+                            writer.WriteElementString("video", "content_loc", VideoNamespace, Absolute(baseUrl, content));
+                        if (video.PlayerUrl is { } player)
+                            writer.WriteElementString("video", "player_loc", VideoNamespace, Absolute(baseUrl, player));
+                        if (video.DurationSeconds is { } seconds)
+                            writer.WriteElementString("video", "duration", VideoNamespace, seconds.ToString(CultureInfo.InvariantCulture));
                         writer.WriteEndElement();
                     }
                     writer.WriteEndElement();
@@ -86,6 +102,12 @@ public static class SeoEndpoints
     }
 
     public const string ImageNamespace = "http://www.google.com/schemas/sitemap-image/1.1";
+
+    /// <summary>فضای نام رسمی video sitemap گوگل.</summary>
+    public const string VideoNamespace = "http://www.google.com/schemas/sitemap-video/1.1";
+
+    /// <summary>نشانی نسبی ← کامل (با کدگذاری مسیر)؛ نشانی کامل همان.</summary>
+    private static string Absolute(string baseUrl, string url) => url.StartsWith('/') ? baseUrl + EncodeImage(url) : url;
 
     /// <summary>آدرس تصویر از قبل escape شده (ImageHelper)؛ فقط فاصله و نویسه‌های غیر ASCII باقی‌مانده کد می‌شوند.</summary>
     private static string EncodeImage(string path) => EncodePath(Uri.UnescapeDataString(path));

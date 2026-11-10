@@ -428,11 +428,17 @@ public static class ManageRegistry
             Permissions = [P.ContentManage], Search = ["Title"],
             Fields =
             [
-                new("ImageUrl", "تصویر", MKind.Image) { Required = true, InList = true, Area = UploadArea.Content, StoreAsPath = true },
+                new("ImageUrl", "تصویر", MKind.Image) { InList = true, Area = UploadArea.Content, StoreAsPath = true, Help = "یا تصویر را بارگذاری کنید یا «کد نماد» را بچسبانید." },
                 new("Title", "عنوان", MKind.Text) { Required = true, InList = true },
                 new("LinkUrl", "لینک", MKind.Url) { Ltr = true },
+                new("EmbedCode", "کد نماد (اختیاری)", MKind.TextArea)
+                {
+                    Ltr = true, Wide = true, NoInline = true, Rows = 4,
+                    Help = "کد آمادهٔ اینماد، ساماندهی و … را همین‌جا بچسبانید؛ تصویر و لینک امن از آن برداشته می‌شود و کد خام هرگز در سایت چاپ نمی‌شود.",
+                },
                 Order(), Active(),
             ],
+            AfterBind = entity => TrustBadgeRules.Apply((TrustBadge)entity),
         },
         new()
         {

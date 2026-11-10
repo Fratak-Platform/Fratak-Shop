@@ -395,7 +395,8 @@ public class ProductModel(
             {
                 ["@type"] = "VideoObject",
                 ["name"] = v.Title ?? product.Name,
-                ["description"] = v.Title ?? product.ShortDescription ?? product.Name,
+                // دور ۲۴ (پیشنهاد ۴۷): توضیح = عنوان ویدیو + خلاصهٔ متنی کالا (همان متن نقشهٔ ویدیو).
+                ["description"] = Fratak_Shop.Core.Services.Seo.SitemapService.VideoDescription(v.Title, product.Name, product.ShortDescription),
                 ["thumbnailUrl"] = v.PosterImage is { } poster ? Absolute(ImageHelper.Product(poster)) : images[0],
                 ["uploadDate"] = v.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz"),
                 ["duration"] = v.DurationSeconds is { } seconds ? System.Xml.XmlConvert.ToString(TimeSpan.FromSeconds(seconds)) : null,

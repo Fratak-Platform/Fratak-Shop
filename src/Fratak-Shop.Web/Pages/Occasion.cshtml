@@ -1,0 +1,53 @@
+@page "/occasion/{slug}"
+@model OccasionModel
+@{
+    Layout = "_Layout";
+    var occasionView = Model.View;
+}
+@* دور ۲۴ (پیشنهاد ۴۴): صفحهٔ فرود مناسبت با کالاهای واقعی موجود *@
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="bg-white border rounded-xl shadow-lg p-4 md:p-8">
+      <h1 class="text-2xl md:text-3xl font-bold text-zinc-800">@Model.Heading</h1>
+      <p class="mt-3 text-zinc-600 leading-8">@occasionView.Intro</p>
+      @if (occasionView.Categories.Count > 0)
+      {
+        <div class="mt-4 flex flex-wrap gap-2 text-sm">
+          @foreach (var occasionCategory in occasionView.Categories)
+          {
+            <a href="/category/@occasionCategory.Slug" class="border rounded-full px-3 py-1 hover:border-sky-400">@occasionCategory.Name</a>
+          }
+        </div>
+      }
+    </div>
+    @if (Model.Products.Count > 0)
+    {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5">
+        @foreach (var card in Model.Products)
+        {
+          <partial name="_ProductGridCard" model="card" />
+        }
+      </div>
+    }
+    <section class="bg-white border rounded-xl p-4 md:p-8 mt-6 text-sm">
+      <h2 class="font-bold text-base mb-3">پرسش‌های متداول @occasionView.Occasion.Name</h2>
+      @foreach (var item in occasionView.Questions)
+      {
+        <details class="border-b last:border-b-0 py-3">
+          <summary class="cursor-pointer font-semibold text-zinc-700">@item.Question</summary>
+          <p class="mt-2 text-zinc-600 leading-7">@item.Answer</p>
+        </details>
+      }
+    </section>
+    @if (Model.Others.Count > 0)
+    {
+      <nav class="bg-white border rounded-xl p-4 mt-6 text-sm" aria-label="مناسبت‌های پیش رو">
+        <p class="font-bold mb-3">مناسبت‌های پیش رو</p>
+        <div class="flex flex-wrap gap-2">
+          @foreach (var other in Model.Others)
+          {
+            <a href="/occasion/@other.Slug" class="border rounded-full px-3 py-1 hover:border-sky-400">@other.Name</a>
+          }
+        </div>
+      </nav>
+    }
+  </main>

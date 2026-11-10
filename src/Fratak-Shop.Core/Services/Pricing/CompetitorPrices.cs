@@ -124,6 +124,7 @@ public enum SourceVerdict
 /// سپس فهرست همهٔ فروشندگان آن کالا از صفحهٔ جزئیات (معمولاً ۵ تا ۳۰ فروشگاه). قیمت‌ها به تومان‌اند.</item>
 /// <item><b>دیجی‌کالا</b>: جست‌وجو در <c>api.digikala.com/v1/search</c>؛ قیمت به ریال است و به تومان تبدیل می‌شود.</item>
 /// <item><b>باسلام</b>: جست‌وجو در <c>search.basalam.com</c>؛ تا ۵ غرفهٔ مشابه (قیمت ریالی ← تومان). منبع تکمیلی است: «پیدا نشد» آن خطا حساب نمی‌شود.</item>
+/// <item><b>ایمالز</b> (دور ۲۴): جست‌وجوی <c>emalls.ir/_Search.ashx</c>؛ تا ۳ فروشندهٔ مشابه (تومان). منبع تکمیلی و فقط برای پنل.</item>
 /// <item><b>سایت‌های دیگر</b> (مرحلهٔ پانزدهم): جست‌وجوی «نام کالا + قیمت» در بینگ/داک‌داک‌گو (همان منبع رایگان موتور سئو،
 /// <see cref="ISeoWebSource"/>)، باز کردن حداکثر ۸ صفحهٔ فروشگاهی (هر دامنه یکی) و خواندن قیمت از دادهٔ ساخت‌یافتهٔ خود صفحه
 /// (JSON-LD محصول، متای product:price، itemprop=price). ترب، دیجی‌کالا و باسلام اینجا تکرار نمی‌شوند.</item>
@@ -144,6 +145,15 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
     public const string Torob = "ترب";
     public const string DigikalaSource = "دیجی‌کالا";
     public const string Basalam = "باسلام";
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۵): منبع «ایمالز» – موتور مقایسهٔ قیمت. مثل بقیهٔ منابع این سرویس <b>فقط در پنل مدیریت</b> دیده می‌شود
+    /// (پیشنهاد قیمت فروش، قیمت‌گذاری بازار)؛ هیچ‌جای فروشگاه به مشتری نشان داده نمی‌شود.
+    /// </summary>
+    public const string Emalls = "ایمالز";
+
+    /// <summary>نشانی جست‌وجوی ایمالز (POST فرم؛ پاسخ JSON با فهرست <c>lstsearchresualt</c>).</summary>
+    public const string EmallsSearchUrl = "https://emalls.ir/_Search.ashx";
 
     /// <summary>نام منبع «فروشگاه‌های اینترنتی دیگر» (مرحلهٔ پانزدهم).</summary>
     public const string WebShops = "سایت‌های دیگر";
@@ -202,6 +212,7 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
             GuardAsync(Torob, token => TorobAsync(query, token), cancellationToken),
             GuardAsync(DigikalaSource, token => DigikalaAsync(query, token), cancellationToken),
             GuardAsync(Basalam, token => BasalamAsync(query, token), cancellationToken),
+            GuardAsync(Emalls, token => EmallsAsync(query, token), cancellationToken),
         };
         // «سایت‌های دیگر» فقط وقتی منبع واقعی وب ثبت شده باشد (در تست‌ها و لایهٔ Core تنها، منبع آفلاین است).
         if (web is not null and not OfflineSeoWebSource)
@@ -290,7 +301,8 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
     /// یک درخواست مؤدب: نوبت از دروازه، درخواست، داوری و گزارش به دروازه.
     /// خروجی: پاسخ سالم یا پیام مشکل (و اینکه مشکل از نوع «محدودیت» بود یا نه).
     /// </summary>
-    private async Task<(SupplierHttpResponse? Response, string? Problem, bool Limited)> FetchAsync(string source, string url, TimeSpan interval, CancellationToken cancellationToken)
+    private async Task<(SupplierHttpResponse? Response, string? Problem, bool Limited)> FetchAsync(string source, string url, TimeSpan interval, CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? form = null)
     {
         using var lease = await gate.TryEnterAsync(source, interval, cancellationToken);
         if (lease is null)
@@ -299,7 +311,9 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
             return (null, $"{source}: به‌خاطر محدودیت قبلی موقتاً درخواستی فرستاده نمی‌شود (حدود {minutes} دقیقهٔ دیگر دوباره امتحان می‌شود).", true);
         }
 
-        var response = await http.GetAsync(url, expectJson: true, cancellationToken);
+        var response = form is null
+            ? await http.GetAsync(url, expectJson: true, cancellationToken)
+            : await http.PostFormAsync(url, form, expectJson: true, cancellationToken);
         switch (Classify(response))
         {
             case SourceVerdict.Ok:
@@ -388,6 +402,39 @@ public sealed class CompetitorPriceService(ISupplierHttp http, IMemoryCache cach
             .Select(x => x.Item)
             .DistinctBy(o => o.Shop)
             .Take(5)
+            .ToList();
+        return new CompetitorLookup(offers, [], null);
+    }
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۵): جست‌وجوی ایمالز. منبع تکمیلی است: نبودن نتیجه یا در دسترس نبودن آن پیامی به فهرست مشکلات اضافه نمی‌کند
+    /// (فقط محدودیت/کپچا گزارش می‌شود)، تا ۳ فروشندهٔ متفاوت با بیشترین شباهت عنوان. فاصلهٔ مؤدبانه مثل ترب (۱٫۵ ثانیه).
+    /// </summary>
+    private async Task<CompetitorLookup> EmallsAsync(string query, CancellationToken cancellationToken)
+    {
+        var form = new Dictionary<string, string>
+        {
+            ["entekhab"] = "listitemv2",
+            ["findstr"] = query,
+            ["pagenum"] = "1",
+            ["minprice"] = "0",
+            ["maxprice"] = "0",
+            ["exist"] = "1",
+            ["shop"] = "0",
+            ["sort"] = "pa",
+        };
+        var (response, problem, limited) = await FetchAsync(Emalls, EmallsSearchUrl, TorobInterval, cancellationToken, form);
+        if (response is null)
+            return new CompetitorLookup([], limited ? new[] { problem! } : Array.Empty<string>(), null, limited);
+
+        var offers = CompetitorParsers.Emalls(response.Body!)
+            .Select(p => (Item: p, Score: CompetitorParsers.TitleScore(query, p.Title)))
+            .Where(x => x.Score >= CompetitorParsers.MinScore)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Item.Price)
+            .Select(x => x.Item)
+            .DistinctBy(o => o.Shop)
+            .Take(3)
             .ToList();
         return new CompetitorLookup(offers, [], null);
     }
@@ -613,6 +660,118 @@ public static class CompetitorParsers
     }
 
     /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۵): نتیجهٔ جست‌وجوی ایمالز (قیمت‌ها <b>تومان</b> است). ساختار پاسخ رسمی منتشر نشده، پس خواندن «انعطاف‌پذیر» است:
+    /// <list type="bullet">
+    /// <item>JSON: آرایهٔ <c>lstsearchresualt</c> (یا هر آرایهٔ اولِ ریشه) با نام‌های رایج فیلد (title/name، price، shopname/shop، id، url).</item>
+    /// <item>HTML (اگر به‌جای JSON صفحهٔ فهرست برگشت): پیوندهای کالا (<c>…~id~123</c>) با عنوان (alt تصویر یا خط اول) و آخرین عدد متن به‌عنوان قیمت.</item>
+    /// </list>
+    /// قیمت صفر/نامعتبر یا عنوان خالی کنار گذاشته می‌شود؛ هیچ‌وقت استثنا نمی‌دهد.
+    /// <para>مثال: {"lstsearchresualt":[{"title":"هدفون هایلو T15","price":"۲,۹۵۰,۰۰۰","shopname":"صوتی‌شاپ","id":"123"}]} ←
+    /// («ایمالز – صوتی‌شاپ»، ۲٬۹۵۰٬۰۰۰ تومان، https://emalls.ir/~id~123).</para>
+    /// </summary>
+    public static List<CompetitorOffer> Emalls(string body)
+    {
+        var list = new List<CompetitorOffer>();
+        if (string.IsNullOrWhiteSpace(body))
+            return list;
+        var trimmed = body.TrimStart();
+        if (trimmed.StartsWith('<'))
+            return EmallsHtml(trimmed);
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+            JsonElement items = default;
+            if (root.ValueKind == JsonValueKind.Array)
+                items = root;
+            else if (root.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in root.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.Array
+                        && (property.Name.Equals("lstsearchresualt", StringComparison.OrdinalIgnoreCase) || items.ValueKind != JsonValueKind.Array))
+                        items = property.Value;
+                }
+            }
+            if (items.ValueKind != JsonValueKind.Array)
+                return list;
+            foreach (var item in items.EnumerateArray().Take(60))
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+                var title = Pick(item, "title", "name", "titr", "onvan", "productname");
+                var price = ParsePrice(Pick(item, "price", "minprice", "lowprice", "pricenum"));
+                if (string.IsNullOrWhiteSpace(title) || price is not > 0)
+                    continue;
+                var shop = Clip(Pick(item, "shopname", "shoptitle", "shop", "storename"), 60);
+                var id = Pick(item, "id", "productid", "pid");
+                var url = Pick(item, "url", "link", "href");
+                var link = EmallsLink(url, id);
+                list.Add(new CompetitorOffer(string.IsNullOrWhiteSpace(shop) || shop.All(char.IsAsciiDigit) ? "ایمالز" : "ایمالز – " + shop,
+                    price.Value, CompetitorPriceService.Emalls, link, Clip(title, 200)));
+            }
+        }
+        catch (JsonException)
+        {
+            return list;
+        }
+        return list;
+    }
+
+    /// <summary>خواندن صفحهٔ HTML فهرست ایمالز (پشتیبان وقتی JSON نیامد).</summary>
+    private static List<CompetitorOffer> EmallsHtml(string html)
+    {
+        var list = new List<CompetitorOffer>();
+        var document = new AngleSharp.Html.Parser.HtmlParser().ParseDocument(html.Length > 1_500_000 ? html[..1_500_000] : html);
+        foreach (var anchor in document.QuerySelectorAll("a[href*='~id~']").Take(60))
+        {
+            var text = anchor.TextContent ?? "";
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var title = anchor.QuerySelector("img[alt]")?.GetAttribute("alt") ?? lines.FirstOrDefault();
+            var priceText = Regex.Matches(text, "[0-9۰-۹][0-9۰-۹,٬]{3,}").LastOrDefault()?.Value;
+            var price = ParsePrice(priceText);
+            if (string.IsNullOrWhiteSpace(title) || price is not > 0)
+                continue;
+            list.Add(new CompetitorOffer("ایمالز", price.Value, CompetitorPriceService.Emalls, EmallsLink(anchor.GetAttribute("href"), null), Clip(title, 200)));
+        }
+        return list;
+    }
+
+    /// <summary>پیوند امن کالا در ایمالز: نشانی نسبی ← کامل؛ فقط دامنهٔ emalls.ir؛ وگرنه از شناسهٔ عددی ساخته می‌شود.</summary>
+    public static string? EmallsLink(string? url, string? id)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            var value = url.Trim();
+            if (value.StartsWith('/'))
+                value = "https://emalls.ir" + value;
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
+                && (uri.Host == "emalls.ir" || uri.Host.EndsWith(".emalls.ir", StringComparison.OrdinalIgnoreCase)))
+                return uri.AbsoluteUri;
+        }
+        return !string.IsNullOrEmpty(id) && id.Length <= 12 && id.All(char.IsAsciiDigit) ? $"https://emalls.ir/~id~{id}" : null;
+    }
+
+    /// <summary>اولین فیلد موجود از میان نام‌ها (بدون حساسیت به حروف بزرگ/کوچک).</summary>
+    private static string? Pick(JsonElement element, params string[] names)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!names.Any(n => property.Name.Equals(n, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            var value = property.Value.ValueKind switch
+            {
+                JsonValueKind.String => property.Value.GetString(),
+                JsonValueKind.Number => property.Value.GetRawText(),
+                _ => null,
+            };
+            if (!string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+        return null;
+    }
+
+    /// <summary>
     /// شباهت عنوان یک نتیجه با نام کالای ما (۰ تا ۱): چه سهمی از واژه‌های نام ما در عنوان آمده.
     /// اگر کد مدل/عدد نام ما (مثل T15 یا 256gb) در عنوان نباشد، امتیاز نصف می‌شود (مدل دیگر است)؛
     /// اگر عنوان واژهٔ لوازم جانبی (قاب، کاور، محافظ …) داشته باشد که در نام ما نیست هم نصف می‌شود.
@@ -675,7 +834,7 @@ public static class CompetitorParsers
     /// <summary>دامنه‌هایی که صفحهٔ فروش کالا نیستند یا منبع جداگانه دارند (ترب/دیجی‌کالا/باسلام) — زیردامنه‌ها هم.</summary>
     private static readonly string[] NotShopHosts =
     [
-        "torob.com", "digikala.com", "basalam.com", "aparat.com", "youtube.com", "instagram.com", "facebook.com", "twitter.com", "x.com",
+        "torob.com", "digikala.com", "basalam.com", "emalls.ir", "aparat.com", "youtube.com", "instagram.com", "facebook.com", "twitter.com", "x.com",
         "t.me", "telegram.me", "wikipedia.org", "wikiwand.com", "linkedin.com", "pinterest.com", "google.com", "bing.com", "duckduckgo.com",
         "divar.ir", "sheypoor.com", "virgool.io", "blogfa.com", "blogsky.com", "namnak.com", "reddit.com", "quora.com", "github.com",
     ];

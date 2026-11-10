@@ -1903,6 +1903,10 @@ video {
   max-width: 1100px;
 }
 
+.max-w-\[1300px\] {
+  max-width: 1300px;
+}
+
 .max-w-\[1600px\] {
   max-width: 1600px;
 }
@@ -2019,6 +2023,10 @@ video {
 
 .scroll-mt-28 {
   scroll-margin-top: 7rem;
+}
+
+.scroll-mt-32 {
+  scroll-margin-top: 8rem;
 }
 
 .scroll-mt-40 {

@@ -73,6 +73,8 @@ public static class AdminNav
             new AdminNavItem("کارهای سئو", "/admin/seo/tasks", "Warning", [P.SeoView, P.SeoManage]),
             new AdminNavItem("تاریخچهٔ سئو", "/admin/seo/history", "Clock", [P.SeoView, P.SeoManage]),
             new AdminNavItem("ربات‌ها و سرعت", "/admin/seo/signals", "Monitor", [P.SeoView, P.SeoManage]),
+            // دور ۲۴ (۴۸ تا ۵۰): صفحه‌های کم‌بازدید، جست‌وجوهای بی‌نتیجه و هم‌نوع‌خواری کلمه.
+            new AdminNavItem("فرصت‌های سئو", "/admin/seo/opportunities", "Lightbulb", [P.SeoView, P.SeoManage]),
             new AdminNavItem("موتور هوشمند سئو", "/admin/seo/engine", "MagicWand", [P.SeoManage]),
             new AdminNavItem("بررسی پیشنهادهای سئو", "/admin/seo/review", "ListChecks", [P.SeoManage], "seo-review"),
             new AdminNavItem("ویرایش گروهی سئو", "/admin/seo/bulk", "PencilSimple", [P.SeoManage]),

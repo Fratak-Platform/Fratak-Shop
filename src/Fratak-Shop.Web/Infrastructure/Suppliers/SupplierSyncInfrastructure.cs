@@ -32,14 +32,23 @@ public sealed class SupplierHttp(IHttpClientFactory factory) : ISupplierHttp
     /// <summary>سقف حجم پاسخ (بایت).</summary>
     private const int MaxBodyBytes = 3 * 1024 * 1024;
 
-    public async Task<SupplierHttpResponse> GetAsync(string url, bool expectJson, CancellationToken cancellationToken)
+    public Task<SupplierHttpResponse> GetAsync(string url, bool expectJson, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Get, url, null, expectJson, cancellationToken);
+
+    /// <summary>دور ۲۴: POST فرم با همان محافظ SSRF، سقف حجم و مهلت (برای جست‌وجوی ایمالز در پنل).</summary>
+    public Task<SupplierHttpResponse> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, bool expectJson, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, url, form, expectJson, cancellationToken);
+
+    private async Task<SupplierHttpResponse> SendAsync(HttpMethod method, string url, IReadOnlyDictionary<string, string>? form, bool expectJson, CancellationToken cancellationToken)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
             return new SupplierHttpResponse(0, null, "آدرس باید با http یا https شروع شود.");
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var request = new HttpRequestMessage(method, uri);
+            if (form is not null)
+                request.Content = new FormUrlEncodedContent(form);
             request.Headers.Accept.Clear();
             request.Headers.Accept.ParseAdd(expectJson ? "application/json" : "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8");
             using var response = await factory.CreateClient(ClientName).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);

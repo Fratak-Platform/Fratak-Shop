@@ -7,7 +7,8 @@ namespace Fratak_Shop.Core.Services.Seo.Autopilot;
 /// <param name="Date">تاریخ میلادی مناسبت.</param>
 /// <param name="DaysLeft">روزهای مانده.</param>
 /// <param name="Topics">موضوع‌های پیشنهادی صفحه/مقاله (با نام دسته‌های واقعی فروشگاه).</param>
-public sealed record SeoOccasion(string Name, DateOnly Date, int DaysLeft, IReadOnlyList<string> Topics);
+/// <param name="Slug">دور ۲۴: نامک انگلیسی ثابت صفحهٔ فرود مناسبت (مثال: «yalda» ← /occasion/yalda).</param>
+public sealed record SeoOccasion(string Name, DateOnly Date, int DaysLeft, IReadOnlyList<string> Topics, string Slug = "");
 
 /// <summary>
 /// تقویم سئوی فصلی (مورد ۱۸۶ پیشنهاد سئو): گوگل برای ایندکس و رتبه گرفتن صفحهٔ مناسبتی چند هفته زمان لازم دارد؛
@@ -18,23 +19,23 @@ public sealed record SeoOccasion(string Name, DateOnly Date, int DaysLeft, IRead
 /// </summary>
 public static class SeoCalendar
 {
-    private sealed record Occasion(string Name, Func<int, DateOnly?> Resolve, string[] Templates);
+    private sealed record Occasion(string Name, Func<int, DateOnly?> Resolve, string[] Templates, string Slug);
 
     private static readonly PersianCalendar Persian = new();
     private static readonly UmAlQuraCalendar Hijri = new();
 
     private static readonly Occasion[] Occasions =
     [
-        new("نوروز", y => Shamsi(y, 1, 1), ["راهنمای خرید هدیهٔ نوروز: {0}", "پیشنهادهای ویژهٔ عید برای {0}"]),
-        new("بازگشایی مدارس", y => Shamsi(y, 7, 1), ["راهنمای خرید {0} برای دانش‌آموزان", "لوازم ضروری بازگشایی مدارس در دستهٔ {0}"]),
-        new("شب یلدا", y => Shamsi(y, 9, 30), ["هدیهٔ شب یلدا: بهترین {0}", "پیشنهادهای یلدایی {0}"]),
-        new("روز دانشجو", y => Shamsi(y, 9, 16), ["هدیهٔ روز دانشجو از دستهٔ {0}"]),
-        new("سپندارمذگان (روز عشق ایرانی)", y => Shamsi(y, 11, 29), ["هدیهٔ سپندارمذگان: انتخاب {0}"]),
-        new("روز معلم", y => Shamsi(y, 2, 12), ["هدیهٔ روز معلم: {0} مناسب"]),
-        new("ولنتاین", y => Gregorian(y, 2, 14), ["هدیهٔ ولنتاین از دستهٔ {0}"]),
-        new("بلک فرایدی", y => BlackFriday(y), ["حراج بلک فرایدی {0}", "تخفیف‌های جمعهٔ سیاه برای {0}"]),
-        new("روز مادر", y => Lunar(y, 6, 20), ["هدیهٔ روز مادر: راهنمای انتخاب {0}"]),
-        new("روز پدر", y => Lunar(y, 7, 13), ["هدیهٔ روز پدر: بهترین {0}"]),
+        new("نوروز", y => Shamsi(y, 1, 1), ["راهنمای خرید هدیهٔ نوروز: {0}", "پیشنهادهای ویژهٔ عید برای {0}"], "nowruz"),
+        new("بازگشایی مدارس", y => Shamsi(y, 7, 1), ["راهنمای خرید {0} برای دانش‌آموزان", "لوازم ضروری بازگشایی مدارس در دستهٔ {0}"], "back-to-school"),
+        new("شب یلدا", y => Shamsi(y, 9, 30), ["هدیهٔ شب یلدا: بهترین {0}", "پیشنهادهای یلدایی {0}"], "yalda"),
+        new("روز دانشجو", y => Shamsi(y, 9, 16), ["هدیهٔ روز دانشجو از دستهٔ {0}"], "student-day"),
+        new("سپندارمذگان (روز عشق ایرانی)", y => Shamsi(y, 11, 29), ["هدیهٔ سپندارمذگان: انتخاب {0}"], "sepandarmazgan"),
+        new("روز معلم", y => Shamsi(y, 2, 12), ["هدیهٔ روز معلم: {0} مناسب"], "teacher-day"),
+        new("ولنتاین", y => Gregorian(y, 2, 14), ["هدیهٔ ولنتاین از دستهٔ {0}"], "valentine"),
+        new("بلک فرایدی", y => BlackFriday(y), ["حراج بلک فرایدی {0}", "تخفیف‌های جمعهٔ سیاه برای {0}"], "black-friday"),
+        new("روز مادر", y => Lunar(y, 6, 20), ["هدیهٔ روز مادر: راهنمای انتخاب {0}"], "mother-day"),
+        new("روز پدر", y => Lunar(y, 7, 13), ["هدیهٔ روز پدر: بهترین {0}"], "father-day"),
     ];
 
     /// <summary>
@@ -71,11 +72,24 @@ public static class SeoCalendar
                 continue;
             var topics = cats.SelectMany(c => occasion.Templates.Select(t => string.Format(CultureInfo.InvariantCulture, t, c)))
                 .Distinct(StringComparer.Ordinal).Take(4).ToList();
-            result.Add(new SeoOccasion(occasion.Name, when, days, topics));
+            result.Add(new SeoOccasion(occasion.Name, when, days, topics, occasion.Slug));
         }
 
         return result.OrderBy(o => o.Date).ToList();
     }
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۴): همهٔ مناسبت‌ها با نزدیک‌ترین تاریخ آینده (یا امروز)، برای صفحه‌های فرود ثابت <c>/occasion/{slug}</c>.
+    /// نامک ثابت است (سال در آن نیست) تا اعتبار صفحه سال‌به‌سال جمع شود.
+    /// مثال: All(2026-10-22) ← [… («شب یلدا»، 2026-12-21، ۶۰ روز، …، «yalda») …].
+    /// </summary>
+    public static List<SeoOccasion> All(DateOnly today, IReadOnlyList<string>? categories = null) =>
+        Upcoming(today, categories ?? Array.Empty<string>(), 400);
+
+    /// <summary>مناسبت با نامک داده‌شده یا null. مثال: Find(today, "yalda") ← «شب یلدا».</summary>
+    public static SeoOccasion? Find(DateOnly today, string? slug, IReadOnlyList<string>? categories = null) =>
+        string.IsNullOrWhiteSpace(slug) ? null
+            : All(today, categories).FirstOrDefault(o => string.Equals(o.Slug, slug.Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// تاریخ میلادی روزی از سال شمسی که در سال میلادی <paramref name="gregorianYear"/> می‌افتد.

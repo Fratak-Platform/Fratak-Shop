@@ -27,8 +27,12 @@ public class SearchModel(
     Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLandingService landings,
     Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide,
     Fratak_Shop.Core.Services.Marketing.IBannerService banners,
-    Fratak_Shop.Web.Infrastructure.ISiteContext site) : ShopPageModel
+    Fratak_Shop.Web.Infrastructure.ISiteContext site,
+    Fratak_Shop.Core.Services.Seo.Autopilot.ISeoHubService hubs) : ShopPageModel
 {
+    /// <summary>دور ۲۴ (پیشنهاد ۴۳): نشانی «راهنمای جامع خرید» دسته وقتی راهنما قابل ایندکس است (فقط صفحهٔ اول بدون فیلتر)؛ وگرنه null.</summary>
+    public string? GuideUrl { get; private set; }
+
     /// <summary>دور ۲۳: سربرگ صفحهٔ دسته (۱۹۲۰×۳۰۰ + نسخهٔ موبایل) یا null.</summary>
     public Fratak_Shop.Core.DTOs.Banners.Query.BannerDto? HeaderBanner { get; private set; }
 
@@ -65,6 +69,18 @@ public class SearchModel(
     /// لینک‌های «خرید {دسته} زیر X تومان» از قیمت واقعی محصولات موجود دسته (فقط صفحهٔ اول دستهٔ بدون فیلتر).
     /// </summary>
     public IReadOnlyList<Fratak_Shop.Core.Services.Seo.Autopilot.SeoLandingLink> PriceLandings { get; private set; } = [];
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۰): لینک صفحه‌های «دسته + برند» در صفحهٔ دسته (فقط برندهایی با حداقل ۳ کالا در همین دسته).
+    /// مثال: «هدفون هایلو (۷)» ← /category/headphone/brand/haylou.
+    /// </summary>
+    public List<(string Name, string Url, int Count)> BrandLandings { get; private set; } = [];
+
+    /// <summary>دور ۲۴: صفحهٔ «دسته + برند» (‎/category/x/brand/y یا ‎/category/x?brand=y).</summary>
+    public bool IsCategoryBrand => Category is not null && SingleBrand is not null && BrandSlugs.Count == 1;
+
+    /// <summary>دور ۲۴ (پیشنهاد ۴۱): صفحهٔ «دسته زیر X تومان» که با یکی از بازه‌های لینک‌شده یکی است و محتوای کافی دارد (قابل ایندکس).</summary>
+    public bool IsPriceLanding { get; private set; }
 
     /// <summary>Spelling suggestion when a text search found nothing.</summary>
     public string? DidYouMean { get; private set; }
@@ -385,7 +401,20 @@ public class SearchModel(
             ListingDescriptionHtml = DescriptionHtml(Category.Description);
             await ApplyCategoryRound23Async(Category);
             if (PageNumber <= 1 && !MinPrice.HasValue && !MaxPrice.HasValue && BrandSlugs.Count == 0 && SelectedSpecifications.Count == 0)
+            {
                 PriceLandings = await landings.PriceLandingsAsync(Category.Id, Category.Slug, Category.Name);
+                if (string.IsNullOrWhiteSpace(Query) && await hubs.GuideAsync(Category.Slug, HttpContext.RequestAborted) is { Indexable: true })
+                    GuideUrl = $"/guide/{Category.Slug}";
+                if (string.IsNullOrWhiteSpace(Query) && !Available && !Discounted)
+                    BrandLandings = BrandFacets.Where(b => b.Count >= Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.MinBrandProducts)
+                        .OrderByDescending(b => b.Count).Take(12)
+                        .Select(b => ($"{Category.Name} {b.Name}", Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandPath(Category.Slug, b.Slug), b.Count))
+                        .ToList();
+            }
+            if (IsCategoryBrand)
+                ApplyCategoryBrand(Category, SingleBrand!);
+            else if (BrandSlugs.Count == 0 && MaxPrice.HasValue && !MinPrice.HasValue)
+                await ApplyPriceLandingAsync(Category);
         }
         else if (SingleBrand is not null)
         {
@@ -414,8 +443,69 @@ public class SearchModel(
         }
 
         // Filtered / paginated variations should not compete with the main listing.
-        if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || MaxPrice.HasValue || SelectedSpecifications.Count > 0)
+        if (PageNumber > 1 || BrandSlugs.Count > 1 || MinPrice.HasValue || (MaxPrice.HasValue && !IsPriceLanding) || SelectedSpecifications.Count > 0)
             ViewData[PageMetaKeys.Robots] = "noindex, follow";
+    }
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۰): صفحهٔ «دسته + برند». عنوان و H1 «خرید {دسته} {برند}»، توضیح از دادهٔ واقعی، canonical همیشه نشانی تمیز
+    /// <c>/category/x/brand/y</c> (نسخهٔ <c>?brand=y</c> هم به همان اشاره می‌کند)، مسیر راهنما (محصولات › دسته › برند) و فهرست کالاها.
+    /// کمتر از ۳ کالا، صفحهٔ ۲ به بعد یا هر فیلتر دیگر ← noindex. اگر خود دسته noindex باشد این صفحه هم noindex می‌ماند.
+    /// </summary>
+    private void ApplyCategoryBrand(CategoryDto category, BrandDto brand)
+    {
+        var categoryNoIndex = ViewData[PageMetaKeys.Robots] is string robots && robots.Contains("noindex", StringComparison.OrdinalIgnoreCase);
+        var title = Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandTitle(category.Name, brand.Name);
+        var path = Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandPath(category.Slug, brand.Slug);
+        Heading = title;
+        pageMeta.Apply(ViewData, null, title,
+            Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandDescription(category.Name, brand.Name, Result.EntityCount, site.Settings.SiteName),
+            Helpers.ImageHelper.Brand(brand.LogoName));
+        ViewData[PageMetaKeys.Canonical] = pageMeta.AbsoluteUrl(path.ToLowerInvariant());
+        ViewData[PageMetaKeys.SitePage] = SitePage.CategoryDetails;
+        // دادهٔ ساخت‌یافته و پرسش‌های متداول صفحهٔ دسته مال این صفحه نیست؛ از نو ساخته می‌شود.
+        ViewData.Remove(PageMetaKeys.JsonLdBlocks);
+        ViewData.Remove(PageMetaKeys.Faq);
+        pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"), (category.Name, $"/category/{category.Slug}"), (brand.Name, path));
+        AddItemList();
+        IntroText = PageNumber <= 1 && Result.EntityCount > 0
+            ? Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandIntro(category.Name, brand.Name, Result.EntityCount)
+            : null;
+        ListingDescriptionHtml = DescriptionHtml(brand.Description);
+        CategoryQuestions = [];
+        var otherFilters = !string.IsNullOrWhiteSpace(Query) || Available || Discounted || MinPrice.HasValue || MaxPrice.HasValue || SelectedSpecifications.Count > 0;
+        if (categoryNoIndex || !Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandIndexable(Result.EntityCount, PageNumber, otherFilters))
+            ViewData[PageMetaKeys.Robots] = "noindex, follow";
+    }
+
+    /// <summary>
+    /// دور ۲۴ (پیشنهاد ۴۱): صفحهٔ «خرید {دسته} زیر X تومان». فقط وقتی maxPrice دقیقاً یکی از بازه‌های لینک‌شده در صفحهٔ دسته باشد،
+    /// حداقل ۶ کالای موجود داشته باشد و فیلتر دیگری نخورده باشد، عنوان/توضیح یکتا و canonical خودش را می‌گیرد و قابل ایندکس می‌شود؛
+    /// بقیهٔ بازه‌های دلخواه مثل قبل noindex می‌مانند.
+    /// </summary>
+    private async Task ApplyPriceLandingAsync(CategoryDto category)
+    {
+        if (PageNumber > 1 || !string.IsNullOrWhiteSpace(Query) || Available || Discounted || SelectedSpecifications.Count > 0 || MaxPrice is not { } max)
+            return;
+        if (ViewData[PageMetaKeys.Robots] is string robots && robots.Contains("noindex", StringComparison.OrdinalIgnoreCase))
+            return;
+        var bands = await landings.PriceLandingsAsync(category.Id, category.Slug, category.Name);
+        var band = Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.MatchPriceBand(bands, max);
+        if (band is null || band.Count < Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.MinPriceProducts)
+            return;
+        IsPriceLanding = true;
+        Heading = band.Label;
+        pageMeta.Apply(ViewData, null, band.Label,
+            Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.PriceDescription(band.Label, band.Count, site.Settings.SiteName),
+            Helpers.ImageHelper.Category(category.ImageName));
+        ViewData[PageMetaKeys.Canonical] = pageMeta.AbsoluteUrl(band.Url);
+        ViewData[PageMetaKeys.SitePage] = SitePage.CategoryDetails;
+        // دادهٔ ساخت‌یافته و پرسش‌های متداول صفحهٔ دسته مال این صفحه نیست؛ از نو ساخته می‌شود.
+        ViewData.Remove(PageMetaKeys.JsonLdBlocks);
+        ViewData.Remove(PageMetaKeys.Faq);
+        pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"), (category.Name, $"/category/{category.Slug}"), (band.Label, band.Url));
+        AddItemList();
+        PriceLandings = bands.Where(b => b.Url != band.Url).ToList();
     }
 
     /// <summary>ItemList JSON-LD of the products shown on a category / brand page (first page only).</summary>
