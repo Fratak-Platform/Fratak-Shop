@@ -73,7 +73,7 @@
                 <td data-label="فروش روزانه" class="num a-ltr">@InventoryModel.RateText(line.DailyRate)</td>
                 <td data-label="کافی برای">@(line.DaysLeft is { } left && left > 0 ? InventoryModel.RateText(left) + " روز" : "تمام شده")</td>
                 <td data-label="تعداد پیشنهادی" class="num"><b>@Format.Number(line.Quantity)</b></td>
-                <td data-label="قیمت خرید" class="num">@(line.UnitCost is { } cost ? Format.Price(cost) : "—")</td>
+                <td data-label="قیمت خرید" class="num">@(line.UnitCost is { } unitCost ? Format.Price(unitCost) : "—")</td>
                 <td data-label="روش" class="text-xs">@InventoryModel.MethodTitle(line.Method)</td>
               </tr>
             }
