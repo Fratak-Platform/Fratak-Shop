@@ -5,6 +5,19 @@
 }
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    @if (Model.HeaderBanner is { } header)
+    {
+      @* دور ۲۳: سربرگ صفحهٔ دسته (۱۹۲۰×۳۰۰؛ موبایل ۱۰۸۰×۳۶۰) *@
+      <a href="@UrlSafety.Link(header.LinkUrl)" class="block px-4 pt-2" data-banner="@header.Id">
+        <picture>
+          @if (!string.IsNullOrWhiteSpace(header.MobileImageName))
+          {
+            <source media="(max-width: 768px)" srcset="@Fratak_Shop.Web.Helpers.ImageHelper.Banner(header.MobileImageName)">
+          }
+          <img class="w-full h-auto rounded-2xl" src="@Fratak_Shop.Web.Helpers.ImageHelper.Banner(header.ImageName)" alt="@(header.ImageAlt ?? header.Title ?? Model.Heading)" width="1920" height="300" fetchpriority="high" decoding="async">
+        </picture>
+      </a>
+    }
     <div class="p-4 flex flex-col md:flex-row gap-5">
       <div class="md:w-4/12 lg:w-3/12">
         <div class="mb-4 rounded-2xl bg-white border">
@@ -226,6 +239,11 @@
           <div class="px-5">
             <h1 class="text-zinc-800 font-semibold text-lg">@Model.Heading</h1>
             <div class="text-zinc-500 text-sm mt-1">@Model.Result.EntityCount کالا</div>
+            @if (Model.IntroText is not null)
+            {
+              @* دور ۲۳: معرفی کوتاه بالای صفحهٔ دسته؛ متن کامل و راهنما پایین صفحه می‌ماند. *@
+              <p class="text-zinc-600 text-sm leading-7 mt-2 max-w-3xl">@Model.IntroText</p>
+            }
           </div>
           <div class="group relative">
             <select name="sort" form="sortForm" aria-label="مرتب سازی" class="leading-5.6 ease block w-48 appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all placeholder:text-gray-500 focus:border-sky-500 focus:outline-none" data-autosubmit>
@@ -383,6 +401,27 @@
             @Html.Raw(Model.ListingDescriptionHtml)
           </section>
         }
+        @if (Model.CategoryQuestions.Count > 0)
+        {
+          @* دور ۲۳: پرسش‌های متداول از دادهٔ واقعی همین دسته (قیمت، موجودی، برندها) *@
+          <section class="bg-white border rounded-xl p-4 md:p-8 mt-6 text-sm" aria-labelledby="category-faq">
+            <h2 id="category-faq" class="font-bold text-base mb-3">پرسش‌های متداول دربارهٔ @Model.Heading</h2>
+            @foreach (var item in Model.CategoryQuestions)
+            {
+              <details class="border-b last:border-b-0 py-3">
+                <summary class="cursor-pointer font-semibold text-zinc-700">@item.Question</summary>
+                <p class="mt-2 text-zinc-600 leading-7">@item.Answer</p>
+              </details>
+            }
+          </section>
+        }
       </div>
     </div>
   </main>
+
+@section Scripts {
+  @if (Model.HeaderBanner is not null)
+  {
+    <script src="~/assets/js/banners.js" asp-append-version="true" defer></script>
+  }
+}

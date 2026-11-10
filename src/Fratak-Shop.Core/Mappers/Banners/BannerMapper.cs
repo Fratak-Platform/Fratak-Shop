@@ -26,6 +26,11 @@ public static class BannerMapper
             StartAt = banner.StartAt,
             EndAt = banner.EndAt,
             IsActive = banner.IsActive,
+            ProductId = banner.ProductId,
+            CategoryId = banner.CategoryId,
+            VariantGroup = banner.VariantGroup,
+            Views = banner.Views,
+            Clicks = banner.Clicks,
         };
     }
 

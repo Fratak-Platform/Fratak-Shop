@@ -23,7 +23,8 @@ public sealed class DesignStudio(
     IDesignRenderer renderer,
     IUploadStore uploads,
     IStoreSettingService settings,
-    ILogger<DesignStudio> logger)
+    ILogger<DesignStudio> logger,
+    Fratak_Shop.Core.Services.Smart.ISmartConfigService? smart = null)
 {
     /// <summary>نام انجام‌دهندهٔ کارهای خودکار.</summary>
     public const string Actor = "دستیار هوشمند";
@@ -55,6 +56,10 @@ public sealed class DesignStudio(
         var input = await designs.IdeaInputAsync(store.SiteName, cancellationToken);
         input = WithImageSizes(input);
         var ideas = DesignIdeas.Generate(input, DateTimeOffset.UtcNow, max * 3);
+        // دور ۲۳: روزهای سوگواری (اگر تنظیم «توقف بنر شاد در عزا» روشن باشد) ایدهٔ جشن/مناسبت شاد ساخته نمی‌شود.
+        if (smart is not null && (await smart.GetAsync(cancellationToken)).PauseBannersOnMourning
+            && Fratak_Shop.Core.Services.Marketing.MourningCalendar.IsMourning(DateTimeOffset.UtcNow))
+            ideas = ideas.Where(i => !IsFestive(i)).ToList();
         if (ideas.Count == 0)
             return 0;
         var existing = await designs.ExistingIdeaKeysAsync(ideas.Select(i => i.Key), cancellationToken);
@@ -77,9 +82,16 @@ public sealed class DesignStudio(
         return created;
     }
 
-    private async Task<bool> CreateIdeaAsync(DesignIdea idea, CancellationToken cancellationToken)
+    /// <summary>ایدهٔ شاد/جشن؟ (کلید مناسبت یا چیدمان festive). مثال: «occasion:yalda:1405» ← true.</summary>
+    public static bool IsFestive(DesignIdea idea) =>
+        idea.Key.StartsWith("occasion:", StringComparison.Ordinal) || idea.Spec.Layout == "festive";
+
+    private async Task<bool> CreateIdeaAsync(DesignIdea idea, CancellationToken cancellationToken) =>
+        await CreateIdeaAsync(idea, DesignPresets.Find(DesignPresets.Hero)!, Actor, cancellationToken) is not null;
+
+    /// <summary>ساخت یک طرح «پیشنهادی» از ایده در اندازهٔ داده‌شده (+ نسخهٔ موبایل اگر جایگاه دارد). خروجی: شناسهٔ طرح.</summary>
+    private async Task<Guid?> CreateIdeaAsync(DesignIdea idea, DesignPreset preset, string? actor, CancellationToken cancellationToken)
     {
-        var preset = DesignPresets.Find("hero")!;
         var json = DesignTemplates.Build(idea.Spec, preset.Width, preset.Height, preset.Transparent);
         var mobile = preset.MobileKey is null ? null : DesignPresets.Find(preset.MobileKey);
         var mobileJson = mobile is null ? null : DesignTemplates.Build(idea.Spec, mobile.Width, mobile.Height, mobile.Transparent);
@@ -106,18 +118,102 @@ public sealed class DesignStudio(
             ButtonText = idea.Spec.ButtonText,
             LinkUrl = DesignService.SafeLink(idea.LinkUrl),
             ExpiresAt = idea.ExpiresAt,
-            UpdatedByName = Actor,
+            UpdatedByName = actor ?? Actor,
         };
         try
         {
-            await designs.AddAsync(doc, cancellationToken);
-            return true;
+            return await designs.AddAsync(doc, cancellationToken);
         }
         catch
         {
             uploads.Delete(UploadArea.Banners, new[] { imageName, mobileName }.Where(n => n is not null).Select(n => n!));
             throw;
         }
+    }
+
+    /// <summary>
+    /// دور ۲۳ – «ایده ← طرح»: متن کوتاه مدیر (مثل «حراج هدفون یلدا ۲۰٪» یا «کارت هدیه») ← ۳ طرح کامل «پیشنهادی» (دسکتاپ + موبایل)
+    /// با تیتر، متن، کالای واقعی، عکس، رنگ عکس کالا (با بررسی کنتراست) و لینک درست. زمینهٔ سفید عکس کالا شفاف می‌شود تا روی رنگ بنر بنشیند.
+    /// هیچ طرحی خودکار منتشر نمی‌شود؛ نسخه‌هایی که مدیر منتشر کند خودکار یک گروه آزمون A/B می‌شوند.
+    /// </summary>
+    /// <param name="text">متن ایده (۲ تا ۲۰۰ نویسه).</param>
+    /// <param name="presetKey">اندازه/جایگاه: hero، wide، promo یا category (بقیه ← hero).</param>
+    public async Task<OperationResult<BriefOutcome>> BuildFromBriefAsync(string? text, string? presetKey, string? actor, CancellationToken cancellationToken)
+    {
+        text = text?.Trim();
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 2)
+            return OperationResult<BriefOutcome>.Error("ایده را در یک جملهٔ کوتاه بنویسید؛ مثلاً «حراج هدفون برای یلدا».");
+        if (text.Length > DesignBrief.MaxLength)
+            return OperationResult<BriefOutcome>.Error($"متن ایده حداکثر {DesignBrief.MaxLength} نویسه باشد.");
+        var preset = DesignPresets.Find(presetKey) is { Kind: DesignKind.Banner, Transparent: false } found
+                     && DesignPresets.All.All(p => p.MobileKey != found.Key)
+            ? found
+            : DesignPresets.Find(DesignPresets.Hero)!;
+
+        var store = await settings.GetAsync(cancellationToken);
+        var intent = DesignBrief.Parse(text);
+        var data = await designs.BriefDataAsync(text, intent, store.SiteName, cancellationToken);
+        var plan = DesignBrief.Plan(text, intent, data, DateTimeOffset.UtcNow);
+        var mourningPause = smart is not null && (await smart.GetAsync(cancellationToken)).PauseBannersOnMourning
+                            && Fratak_Shop.Core.Services.Marketing.MourningCalendar.IsMourning(DateTimeOffset.UtcNow);
+
+        string? color = null;
+        DesignImage? image = null;
+        string? cutoutFile = null;
+        if (plan.Hero?.ImageUrl is { } url && uploads.GetPath(UploadArea.Products, Path.GetFileName(url)) is { } path)
+        {
+            try
+            {
+                using var bitmap = SKBitmap.Decode(path);
+                if (bitmap is not null)
+                {
+                    color = ImageColors.Dominant(bitmap);
+                    image = new DesignImage(url, bitmap.Width, bitmap.Height);
+                    if (ImageColors.HasWhiteBackground(bitmap) && ImageColors.CutoutWhite(bitmap) is { } png
+                        && await uploads.SaveImageAsync(UploadArea.Content, png, cancellationToken) is { } stored)
+                    {
+                        cutoutFile = stored.FileName;
+                        var scale = Math.Min(1.0, 800.0 / Math.Max(bitmap.Width, bitmap.Height));
+                        image = new DesignImage($"/uploads/{UploadArea.Content.Name}/{stored.FileName}",
+                            Math.Max(1, (int)Math.Round(bitmap.Width * scale)), Math.Max(1, (int)Math.Round(bitmap.Height * scale)));
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                logger.LogWarning(exception, "Brief image analysis failed for {Path}", path);
+            }
+        }
+
+        var ideas = DesignBrief.Variants(plan, color, image, DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture));
+        var warnings = plan.Warnings.ToList();
+        if (mourningPause && ideas.Any(IsFestive))
+        {
+            // روز سوگواری: نسخهٔ جشن به چیدمان ساده و پالت آرام تبدیل می‌شود (طرح شاد ساخته نمی‌شود).
+            ideas = ideas.Select(i => IsFestive(i) ? i with { Key = i.Key.Replace("occasion:", "calm:", StringComparison.Ordinal), Spec = i.Spec with { Layout = "minimal", Palette = "night" } } : i).ToList();
+            warnings.Add("امروز روز سوگواری است؛ نسخهٔ شاد ساخته نشد.");
+        }
+        var ids = new List<Guid>();
+        foreach (var idea in ideas)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (await CreateIdeaAsync(idea, preset, actor, cancellationToken) is { } id)
+                    ids.Add(id);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Brief variant {Key} failed", idea.Key);
+            }
+        }
+        if (ids.Count == 0)
+        {
+            if (cutoutFile is not null)
+                uploads.Delete(UploadArea.Content, [cutoutFile]);
+            return OperationResult<BriefOutcome>.Error("ساخت طرح‌ها ناموفق بود؛ دوباره تلاش کنید.");
+        }
+        return OperationResult<BriefOutcome>.Success(new BriefOutcome(ids, warnings, color), $"{ids.Count} نسخه از ایدهٔ شما ساخته شد.");
     }
 
     /// <summary>رندر سرور و ذخیره (رندر ناموفق ← null؛ طرح بدون پیش‌نمایش ذخیره می‌شود و ویرایشگر خودش می‌سازد).</summary>
@@ -291,3 +387,6 @@ public sealed class DesignStudio(
         };
     }
 }
+
+/// <summary>نتیجهٔ «ایده ← طرح»: شناسهٔ طرح‌های ساخته‌شده، هشدارها (مثل ادعای تخفیف غیرواقعی) و رنگ عکس کالا.</summary>
+public sealed record BriefOutcome(IReadOnlyList<Guid> Ids, IReadOnlyList<string> Warnings, string? ImageColor);

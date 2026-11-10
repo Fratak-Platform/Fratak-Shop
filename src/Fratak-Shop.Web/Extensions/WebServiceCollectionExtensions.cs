@@ -119,6 +119,9 @@ public static class WebServiceCollectionExtensions
         services.AddHttpClient(Infrastructure.Seo.IndexNowPinger.ClientName, Infrastructure.Seo.IndexNowPinger.Configure).RemoveAllLoggers();
         services.AddSingleton<Core.Services.Seo.Autopilot.ISeoPinger, Infrastructure.Seo.IndexNowPinger>();
         services.AddSingleton<Infrastructure.Seo.SeoSignalBuffer>();
+        // دور ۲۳: آمار نمایش/کلیک بنرها (آزمون A/B) – شمارش در حافظه، ذخیرهٔ گروهی هر ۳ دقیقه.
+        services.AddSingleton<Infrastructure.Marketing.BannerStats>();
+        services.AddHostedService<Infrastructure.Marketing.BannerStatsFlusher>();
         services.AddSingleton<Infrastructure.Seo.SeoSignalWriter>();
         services.AddSingleton<Infrastructure.Seo.SeoAutopilotQueue>();
         services.AddSingleton<Infrastructure.Media.LegacyImageConverter>();

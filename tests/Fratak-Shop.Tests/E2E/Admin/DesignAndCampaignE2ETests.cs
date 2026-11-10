@@ -319,15 +319,15 @@ public class DesignAndCampaignE2ETests(ShopApp app)
             using (var doc = await client.GetAsync($"/admin/design/editor/{designId}?handler=Doc"))
             {
                 using var parsed = JsonDocument.Parse(await doc.Content.ReadAsStringAsync());
-                Assert.Equal(1600, parsed.RootElement.GetProperty("width").GetInt32());
-                Assert.Equal(400, parsed.RootElement.GetProperty("height").GetInt32());
+                Assert.Equal(1920, parsed.RootElement.GetProperty("width").GetInt32());
+                Assert.Equal(320, parsed.RootElement.GetProperty("height").GetInt32());
                 json = parsed.RootElement.GetProperty("json").GetString()!;
                 Assert.Contains("\"fsRole\":\"headline\"", json, StringComparison.Ordinal);
             }
             using (var template = await client.GetAsync($"/admin/design/editor/{designId}?handler=Template&layout=festive&palette=gold"))
             {
                 using var parsed = JsonDocument.Parse(await template.Content.ReadAsStringAsync());
-                Assert.Equal(1600, parsed.RootElement.GetProperty("fsWidth").GetInt32());
+                Assert.Equal(1920, parsed.RootElement.GetProperty("fsWidth").GetInt32());
             }
 
             // ذخیره: JSON بوم + PNG ساخت مرورگر ← WebP در پوشهٔ بنرها.
@@ -338,7 +338,7 @@ public class DesignAndCampaignE2ETests(ShopApp app)
                 form.Add(new StringContent("بنر آزمون"), "title");
                 form.Add(new StringContent(json), "json");
                 form.Add(new StringContent("حراج ویژه"), "headline");
-                var png = new ByteArrayContent(Png(1600, 400));
+                var png = new ByteArrayContent(Png(1920, 320));
                 png.Headers.ContentType = new MediaTypeHeaderValue("image/png");
                 form.Add(png, "image", "design.png");
                 using var save = await client.Http.PostAsync($"/admin/design/editor/{designId}?handler=Save", form);

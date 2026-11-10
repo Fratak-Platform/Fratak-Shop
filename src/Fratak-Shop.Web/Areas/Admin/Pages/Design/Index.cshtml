@@ -29,6 +29,31 @@
   <div class="a-card mb-4"><div class="a-card-body text-sm">ساخت کاور برای مقالهٔ «<b>@Model.PostTitle</b>» — اندازهٔ ۱۲۰۰×۶۳۰ انتخاب شده و عنوان مقاله روی طرح می‌نشیند. بعد از ذخیره در ویرایشگر، «گذاشتن روی مقاله» را بزنید.</div></div>
 }
 
+@if (Model.CanPublishBanner)
+{
+  @* دور ۲۳: ایده ← طرح – یک جملهٔ کوتاه، سه طرح کامل (دسکتاپ + موبایل) از دادهٔ واقعی *@
+  <form method="post" asp-page-handler="Brief" class="a-card mb-4" id="brief">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagicWand", null, 18) ایده ← طرح</h3></div>
+    <div class="a-card-body grid gap-3 md:grid-cols-[1fr_220px_auto] items-end">
+      <div>
+        <label class="a-label" for="brief-text">ایده را کوتاه بنویسید</label>
+        <input id="brief-text" name="brief" class="a-input" maxlength="200" required placeholder="مثلاً: حراج هدفون برای یلدا · کارت هدیه · محصولات سامسونگ · باشگاه مشتریان">
+      </div>
+      <div>
+        <label class="a-label" for="brief-place">جایگاه و اندازه</label>
+        <select id="brief-place" name="place" class="a-input">
+          <option value="hero">اسلایدر اصلی (۱۹۲۰×۴۸۰ + موبایل)</option>
+          <option value="wide">بنر عریض (۱۹۲۰×۳۲۰ + موبایل)</option>
+          <option value="promo">بنر دوتایی (۹۶۰×۴۰۰)</option>
+          <option value="category">سربرگ دسته (۱۹۲۰×۳۰۰ + موبایل)</option>
+        </select>
+      </div>
+      <button type="submit" class="a-btn a-btn-primary">ساخت ۳ نسخه</button>
+    </div>
+    <p class="a-card-body pt-0 a-muted text-xs">تیتر، متن، کالای واقعی، عکس، رنگ (از عکس کالا با بررسی خوانایی) و لینک خودکار انتخاب می‌شود. درصد تخفیف همیشه همان تخفیف واقعی کالاهاست. هیچ طرحی بدون تأیید شما منتشر نمی‌شود.</p>
+  </form>
+}
+
 <nav class="a-tabs mb-4" aria-label="وضعیت طرح‌ها">
   @foreach (var tab in tabs)
   {

@@ -29,7 +29,7 @@ public static class ManageRegistry
     private static MField Order() => new("DisplayOrder", "ترتیب نمایش", MKind.Int) { InList = true, Help = "عدد کمتر = نمایش زودتر" };
 
     // ── Enum labels ────────────────────────────────────────────────────
-    private static readonly Dictionary<string, string> BannerPositions = new() { ["HeroSlider"] = "اسلایدر اصلی", ["WideBanner"] = "بنر عریض", ["PromoCard"] = "کارت تبلیغاتی" };
+    private static readonly Dictionary<string, string> BannerPositions = new() { ["HeroSlider"] = "اسلایدر اصلی", ["WideBanner"] = "بنر عریض", ["PromoCard"] = "بنر دوتایی", ["CategoryHeader"] = "سربرگ صفحهٔ دسته" };
     private static readonly Dictionary<string, string> ShippingTypes = new() { ["Post"] = "پست", ["Courier"] = "پیک", ["Express"] = "ارسال فوری", ["StorePickup"] = "تحویل حضوری" };
     private static readonly Dictionary<string, string> PricingModes = new() { ["Fixed"] = "ثابت", ["ByLocation"] = "بر اساس مقصد (تعرفه‌ها)" };
     private static readonly Dictionary<string, string> VideoProviders = new() { ["Aparat"] = "آپارات", ["DirectUrl"] = "لینک مستقیم فایل", ["Upload"] = "فایل آپلودشده (مسیر)" };
@@ -86,6 +86,11 @@ public static class ManageRegistry
                 new("Name", "نام", MKind.Text) { Required = true, InList = true },
                 new("Slug", "اسلاگ", MKind.Slug) { Ltr = true, InList = true, SlugFrom = "Name", Help = "خالی = از روی نام" },
                 new("ParentId", "دسته والد", MKind.Ref) { RefType = typeof(Category), RefLabel = "Name", InList = true, Help = "خالی = دسته اصلی" },
+                new("IconKey", "آیکن", MKind.Text)
+                {
+                    Ltr = true, Placeholder = "Headset",
+                    Help = "نام آیکن (مثل DeviceMobile، Headset، Cpu، Plug، Lightning، Home، Gift)؛ خالی ← دستیار هوشمند از روی نوع دسته انتخاب می‌کند",
+                },
                 new("Description", "توضیحات", MKind.TextArea) { Wide = true, Rows = 4 },
                 Order(), Active(),
             ],
@@ -206,14 +211,33 @@ public static class ManageRegistry
             Permissions = [P.MarketingManage, P.ContentManage], Search = ["Title", "Subtitle"],
             Fields =
             [
-                new("ImageName", "تصویر دسکتاپ", MKind.Image) { Required = true, InList = true, Area = UploadArea.Banners },
-                new("MobileImageName", "تصویر موبایل", MKind.Image) { Area = UploadArea.Banners },
+                new("ImageName", "تصویر دسکتاپ", MKind.Image)
+                {
+                    Required = true, InList = true, Area = UploadArea.Banners,
+                    Help = "اندازه‌ها (مثل دیجی‌کالا): اسلایدر ۱۹۲۰×۴۸۰، بنر عریض ۱۹۲۰×۳۲۰، بنر دوتایی ۹۶۰×۴۰۰، سربرگ دسته ۱۹۲۰×۳۰۰",
+                },
+                new("MobileImageName", "تصویر موبایل", MKind.Image)
+                {
+                    Area = UploadArea.Banners, Help = "اسلایدر ۱۰۸۰×۵۴۰، بنر عریض و سربرگ دسته ۱۰۸۰×۳۶۰؛ خالی ← همان تصویر دسکتاپ",
+                },
                 new("Title", "عنوان", MKind.Text) { InList = true },
                 new("Subtitle", "زیرعنوان", MKind.Text),
                 new("ImageAlt", "متن جایگزین تصویر", MKind.Text),
                 new("ButtonText", "متن دکمه", MKind.Text),
                 new("LinkUrl", "لینک", MKind.Url) { Ltr = true },
                 new("Position", "جایگاه", MKind.Enum) { Labels = BannerPositions, InList = true },
+                new("CategoryId", "دسته (برای سربرگ دسته)", MKind.Ref) { RefType = typeof(Category), RefLabel = "Name", Help = "فقط برای جایگاه «سربرگ صفحهٔ دسته»" },
+                new("ProductId", "کالای اصلی بنر", MKind.Ref)
+                {
+                    RefType = typeof(Product), RefLabel = "Name", Help = "اختیاری؛ کالا ناموجود یا غیرفعال شود، بنر خودکار پنهان می‌شود و با موجود شدن برمی‌گردد",
+                },
+                new("VariantGroup", "گروه نسخه (A/B)", MKind.Text)
+                {
+                    Ltr = true, Placeholder = "yalda-1405",
+                    Help = "چند بنر هم‌جایگاه با یک گروه به نوبت نمایش داده می‌شوند و پرکلیک‌تر بیشتر دیده می‌شود؛ «mourning» = بنر روزهای سوگواری",
+                },
+                new("Views", "نمایش", MKind.ReadOnly) { InList = true },
+                new("Clicks", "کلیک", MKind.ReadOnly) { InList = true },
                 new("StartAt", "شروع نمایش", MKind.Date) { InList = true },
                 new("EndAt", "پایان نمایش", MKind.Date) { InList = true },
                 Order(), Active(),

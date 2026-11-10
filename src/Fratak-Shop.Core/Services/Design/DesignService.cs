@@ -34,6 +34,9 @@ public interface IDesignService
     /// <summary>کالاها و دسته‌های نامزد ایده (فقط فعال، موجود و دارای عکس). ابعاد عکس صفر است؛ لایهٔ وب از فایل می‌خواند.</summary>
     Task<IdeaInput> IdeaInputAsync(string siteName, CancellationToken cancellationToken = default);
 
+    /// <summary>دور ۲۳: دادهٔ واقعی مرتبط با متن «ایده ← طرح» (دسته/برند منطبق و کالاهای موجود همان‌ها).</summary>
+    Task<BriefData> BriefDataAsync(string text, BriefIntent intent, string siteName, CancellationToken cancellationToken = default);
+
     Task<Guid> AddAsync(DesignDoc doc, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -156,6 +159,61 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         return new IdeaInput(products.Select(p => p.Product).ToList(), categories, siteName);
     }
 
+    /// <summary>
+    /// دادهٔ «ایده ← طرح» (دور ۲۳): همهٔ دسته‌ها و برندهای فعال با تعداد کالای موجود برای تطبیق متن، سپس حداکثر ۴۰ کالای موجود
+    /// دارای عکس از همان دسته (و زیردسته‌ها)/برند؛ بدون تطبیق ← کالاهای مهم فروشگاه (همان ورودی ایده‌ساز روزانه).
+    /// </summary>
+    public async Task<BriefData> BriefDataAsync(string text, BriefIntent intent, string siteName, CancellationToken cancellationToken = default)
+    {
+        var categories = await context.Categories.AsNoTracking()
+            .Where(c => c.IsActive && !c.IsSystem)
+            .Select(c => new BriefCategory(c.Id, c.Name, c.Slug, c.Products.Count(p => p.IsActive && p.StockQuantity > 0)))
+            .Take(1000)
+            .ToListAsync(cancellationToken);
+        var brands = await context.Brands.AsNoTracking()
+            .Where(b => b.IsActive)
+            .Select(b => new BriefBrand(b.Id, b.Name, b.EnglishName, b.Slug, context.Products.Count(p => p.BrandId == b.Id && p.IsActive && p.StockQuantity > 0)))
+            .Take(1000)
+            .ToListAsync(cancellationToken);
+        var category = DesignBrief.MatchCategory(text, categories.Where(c => c.InStock > 0));
+        var brand = category is null ? DesignBrief.MatchBrand(text, brands.Where(b => b.InStock > 0)) : null;
+
+        List<IdeaProduct> products;
+        if (category is not null || brand is not null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var categoryId = category?.Id;
+            var brandId = brand?.Id;
+            var rows = await context.Products.AsNoTracking()
+                .Where(p => p.IsActive && p.StockQuantity > 0 && p.Images.Any()
+                            && (categoryId == null || p.CategoryId == categoryId || p.Category.ParentId == categoryId)
+                            && (brandId == null || p.BrandId == brandId))
+                .OrderByDescending(p => p.SalesCount * 5 + p.ViewCount)
+                .Take(40)
+                .Select(p => new
+                {
+                    p.Id, p.Name, p.Slug, p.Price, p.DiscountPrice, p.DiscountStartAt, p.DiscountEndAt, p.StockQuantity, p.ViewCount, p.SalesCount, p.CreatedAt,
+                    CategoryName = p.Category.IsSystem ? null : p.Category.Name,
+                    CategorySlug = p.Category.IsSystem ? null : p.Category.Slug,
+                    Image = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault(),
+                })
+                .ToListAsync(cancellationToken);
+            products = rows.Select(r =>
+            {
+                var discounted = r.DiscountPrice is > 0 && r.DiscountPrice < r.Price
+                                 && (r.DiscountStartAt == null || r.DiscountStartAt <= now) && (r.DiscountEndAt == null || r.DiscountEndAt >= now);
+                return new IdeaProduct(r.Id, r.Name, r.Slug, r.Image is null ? null : "/uploads/products/" + r.Image, 0, 0,
+                    r.Price, discounted ? r.DiscountPrice!.Value : r.Price, r.StockQuantity, r.ViewCount, r.SalesCount, r.CategoryName, r.CategorySlug, r.CreatedAt);
+            }).ToList();
+        }
+        else
+        {
+            products = (await IdeaInputAsync(siteName, cancellationToken)).Products.ToList();
+        }
+
+        return new BriefData(products, category, brand, siteName);
+    }
+
     public async Task<Guid> AddAsync(DesignDoc doc, CancellationToken cancellationToken = default)
     {
         doc.Title = Cut(doc.Title, 200) ?? "طرح";
@@ -262,11 +320,18 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             context.Banners.Add(banner);
         }
         banner.ImageName = doc.ImageName!;
-        banner.MobileImageName = position == BannerPosition.HeroSlider ? doc.MobileImageName : null;
+        // دور ۲۳: اسلایدر، بنر عریض و سربرگ دسته نسخهٔ موبایل جدا دارند (اندازه‌های دیجی‌کالایی).
+        banner.MobileImageName = position is BannerPosition.HeroSlider or BannerPosition.WideBanner or BannerPosition.CategoryHeader ? doc.MobileImageName : null;
         banner.Title = Cut(doc.Headline ?? doc.Title, 250);
-        banner.Subtitle = Cut(doc.Subline, 500);
         banner.ImageAlt = Cut(doc.Headline ?? doc.Title, 250);
-        banner.ButtonText = Cut(string.IsNullOrWhiteSpace(buttonText) ? doc.ButtonText : buttonText, 100);
+        // بنر دوتایی کامل (متن روی خود تصویر) ← زیرعنوان/دکمهٔ جدا لازم نیست و صفحهٔ نخست آن را «تصویر کامل» نشان می‌دهد.
+        var fullImagePromo = position == BannerPosition.PromoCard && DesignPresets.Find(doc.PresetKey) is { Transparent: false };
+        banner.Subtitle = fullImagePromo ? null : Cut(doc.Subline, 500);
+        banner.ButtonText = fullImagePromo ? null : Cut(string.IsNullOrWhiteSpace(buttonText) ? doc.ButtonText : buttonText, 100);
+        // دور ۲۳: ایدهٔ کالامحور (deal/best/new:{id}) ← بنر به کالا وصل می‌شود تا با ناموجود شدن کالا خودکار پنهان شود.
+        banner.ProductId = ProductFromIdeaKey(doc.IdeaKey) ?? banner.ProductId;
+        // دور ۲۳: نسخه‌های یک «ایده ← طرح» که منتشر شوند خودکار یک گروه A/B می‌شوند.
+        banner.VariantGroup ??= DesignBrief.VariantGroup(doc.IdeaKey);
         banner.LinkUrl = link;
         banner.Position = position;
         banner.IsActive = true;
@@ -344,6 +409,17 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         if (url.StartsWith('/') && !url.StartsWith("//", StringComparison.Ordinal) && !url.StartsWith("/\\", StringComparison.Ordinal))
             return url;
         return Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps ? uri.ToString() : null;
+    }
+
+    /// <summary>
+    /// شناسهٔ کالا از کلید ایده. مثال: «deal:5f0c…(N):1405-w33» ← همان Guid؛ «occasion:yalda:1405» ← null.
+    /// </summary>
+    public static Guid? ProductFromIdeaKey(string? ideaKey)
+    {
+        if (string.IsNullOrWhiteSpace(ideaKey))
+            return null;
+        var parts = ideaKey.Split(':');
+        return parts.Length >= 2 && parts[0] is "deal" or "best" or "new" or "brief" && Guid.TryParseExact(parts[1], "N", out var id) ? id : null;
     }
 
     private static string? Cut(string? text, int max)

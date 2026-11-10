@@ -16,6 +16,15 @@ public class CreateBannerCommand
     public DateTimeOffset? StartAt { get; set; }
     public DateTimeOffset? EndAt { get; set; }
     public bool IsActive { get; set; } = true;
+
+    /// <summary>دور ۲۳: کالای اصلی بنر (اختیاری؛ ناموجود ← بنر پنهان).</summary>
+    public Guid? ProductId { get; set; }
+
+    /// <summary>دور ۲۳: دستهٔ سربرگ (برای جایگاه «سربرگ دسته» الزامی).</summary>
+    public Guid? CategoryId { get; set; }
+
+    /// <summary>دور ۲۳: گروه نسخهٔ A/B (مثال: «yalda-1405»).</summary>
+    public string? VariantGroup { get; set; }
 }
 
 public class EditBannerCommand
@@ -33,4 +42,13 @@ public class EditBannerCommand
     public DateTimeOffset? StartAt { get; set; }
     public DateTimeOffset? EndAt { get; set; }
     public bool IsActive { get; set; } = true;
+
+    /// <summary>دور ۲۳: کالای اصلی بنر (اختیاری؛ ناموجود ← بنر پنهان).</summary>
+    public Guid? ProductId { get; set; }
+
+    /// <summary>دور ۲۳: دستهٔ سربرگ (برای جایگاه «سربرگ دسته» الزامی).</summary>
+    public Guid? CategoryId { get; set; }
+
+    /// <summary>دور ۲۳: گروه نسخهٔ A/B (مثال: «yalda-1405»).</summary>
+    public string? VariantGroup { get; set; }
 }

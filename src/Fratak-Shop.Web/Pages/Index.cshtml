@@ -23,13 +23,15 @@
                 {
                   var banner = block.Banners[i];
                   var first = !heroRendered && i == 0;
-                  <a href="@UrlSafety.Link(banner.LinkUrl)" class="swiper-slide">
+                  var hasMobile = !string.IsNullOrWhiteSpace(banner.MobileImageName);
+                  <a href="@UrlSafety.Link(banner.LinkUrl)" class="swiper-slide" data-banner="@banner.Id">
                     <picture>
                       @if (!string.IsNullOrWhiteSpace(banner.MobileImageName))
                       {
                         <source media="(max-width: 768px)" srcset="@(ImageHelper.Srcset(ImageHelper.Banner(banner.MobileImageName), Site.Settings.IsImageOptimizationEnabled, 960) ?? ImageHelper.Banner(banner.MobileImageName))" sizes="100vw">
                       }
-                      <img class="w-full h-60 md:h-auto object-cover object-bottom" src="@ImageHelper.Banner(banner.ImageName)" alt="@(banner.ImageAlt ?? banner.Title)"
+                      @* دور ۲۳: با نسخهٔ موبایل (۱۰۸۰×۵۴۰) تصویر کامل بدون برش؛ بدون آن، برش وسط مثل قبل. *@
+                      <img class="@(hasMobile ? "w-full h-auto" : "w-full h-60 md:h-auto object-cover object-bottom")" src="@ImageHelper.Banner(banner.ImageName)" alt="@(banner.ImageAlt ?? banner.Title)"
                            srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw"
                            loading="@(first ? "eager" : "lazy")" fetchpriority="@(first ? "high" : "auto")" decoding="async">
                     </picture>
@@ -51,7 +53,15 @@
               @foreach (var category in block.Categories)
               {
                 <a href="/category/@category.Slug" class="rounded-xl group hover:shadow-xl hover:bg-blue-500 shadow-lg transition-all delay-75 bg-gray-50 hover:scale-105 relative">
-                  <img class="rounded-xl p-5 md:group-hover:scale-125 transition-all duration-500" src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async">
+                  @if (string.IsNullOrWhiteSpace(category.ImageName))
+                  {
+                    @* دور ۲۳: دستهٔ بدون عکس ← آیکن نوع دسته (به‌جای عکس پیش‌فرض تکراری) *@
+                    <span class="flex aspect-square items-center justify-center p-5 text-sky-600 group-hover:text-white md:group-hover:scale-110 transition-all duration-500">@Icons.Svg(Icons.Has(category.IconKey) ? category.IconKey! : "Tag", "w-1/2 h-1/2", 64)</span>
+                  }
+                  else
+                  {
+                    <img class="rounded-xl p-5 md:group-hover:scale-125 transition-all duration-500" src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async">
+                  }
                   <p class="text-center text-zinc-500 group-hover:text-zinc-50 pb-2 delay-75">@category.Name</p>
                 </a>
               }
@@ -91,14 +101,29 @@
           break;
 
         case HomeSectionType.PromoBanners:
-          <section class="flex flex-col md:flex-row items-center justify-center gap-x-5 gap-y-24 mt-28" aria-label="@(title ?? "پیشنهادها")">
+          var fullPromos = block.Banners.Take(2).All(p => string.IsNullOrWhiteSpace(p.Subtitle) && string.IsNullOrWhiteSpace(p.ButtonText));
+          <section class="@(fullPromos ? "flex flex-col md:flex-row gap-4 mt-10" : "flex flex-col md:flex-row items-center justify-center gap-x-5 gap-y-24 mt-28")" aria-label="@(title ?? "پیشنهادها")">
             @for (var i = 0; i < block.Banners.Count && i < 2; i++)
             {
               var promo = block.Banners[i];
               var promoLink = UrlSafety.Link(promo.LinkUrl);
+              // دور ۲۳: بنر دوتایی کامل (۹۶۰×۴۰۰، متن روی خود تصویر – مثل دیجی‌کالا) وقتی زیرعنوان و دکمهٔ جدا ندارد.
+              if (string.IsNullOrWhiteSpace(promo.Subtitle) && string.IsNullOrWhiteSpace(promo.ButtonText))
+              {
+                <a href="@promoLink" class="block w-full md:flex-1 overflow-hidden rounded-xl lg:rounded-3xl" data-banner="@promo.Id">
+                  <picture>
+                    @if (!string.IsNullOrWhiteSpace(promo.MobileImageName))
+                    {
+                      <source media="(max-width: 768px)" srcset="@ImageHelper.Banner(promo.MobileImageName)">
+                    }
+                    <img class="w-full h-auto" src="@ImageHelper.Banner(promo.ImageName)" alt="@(promo.ImageAlt ?? promo.Title)" width="960" height="400" loading="lazy" decoding="async">
+                  </picture>
+                </a>
+                continue;
+              }
               if (i == 0)
               {
-                <div class="md:w-1/2 bg-gradient-to-r from-blue-400 to-blue-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2">
+                <div class="md:w-1/2 bg-gradient-to-r from-blue-400 to-blue-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2" data-banner="@promo.Id">
                   <img class="absolute mx-auto w-96 md:w-[400px] -top-20" src="@ImageHelper.Banner(promo.ImageName)" alt="@(promo.ImageAlt ?? promo.Title)" loading="lazy" decoding="async">
                   <div class="lg:absolute left-10 top-10 max-w-96 pt-64 lg:pt-0 mx-auto">
                     <p class="text-white text-5xl lg:text-6xl text-wrap font-semibold text-left">@promo.Title</p>
@@ -112,7 +137,7 @@
               }
               else
               {
-                <div class="md:w-1/2 bg-gradient-to-r from-orange-400 to-orange-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2">
+                <div class="md:w-1/2 bg-gradient-to-r from-orange-400 to-orange-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2" data-banner="@promo.Id">
                   <img class="absolute mx-auto w-72 md:w-[300px] -top-24 left-5" src="@ImageHelper.Banner(promo.ImageName)" alt="@(promo.ImageAlt ?? promo.Title)" loading="lazy" decoding="async">
                   <div class="lg:absolute right-10 top-10 max-w-96 pt-64 lg:pt-0 mx-auto">
                     <p class="text-white text-5xl lg:text-6xl text-wrap font-semibold text-left">@promo.Title</p>
@@ -182,8 +207,15 @@
           foreach (var banner in block.Banners)
           {
             <div>
-              <a href="@UrlSafety.Link(banner.LinkUrl)">
-                <img class="rounded-xl lg:rounded-3xl my-14 w-full" src="@ImageHelper.Banner(banner.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw" alt="@(banner.ImageAlt ?? banner.Title)" loading="lazy" decoding="async">
+              <a href="@UrlSafety.Link(banner.LinkUrl)" class="block my-14" data-banner="@banner.Id">
+                @* دور ۲۳: بنر عریض ۱۹۲۰×۳۲۰ با نسخهٔ موبایل ۱۰۸۰×۳۶۰ *@
+                <picture>
+                  @if (!string.IsNullOrWhiteSpace(banner.MobileImageName))
+                  {
+                    <source media="(max-width: 768px)" srcset="@ImageHelper.Banner(banner.MobileImageName)">
+                  }
+                  <img class="rounded-xl lg:rounded-3xl w-full h-auto" src="@ImageHelper.Banner(banner.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Banner(banner.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="100vw" alt="@(banner.ImageAlt ?? banner.Title)" loading="lazy" decoding="async">
+                </picture>
               </a>
             </div>
           }
@@ -259,6 +291,10 @@
   </main>
 
 @section Scripts {
+  @if (Model.Blocks.Any(b => b.Banners.Count > 0))
+  {
+    <script src="~/assets/js/banners.js" asp-append-version="true" defer></script>
+  }
   @if (Model.NeedsSlider)
   {
     <script src="~/assets/js/dependencies/swiper.min.js" asp-append-version="true"></script>

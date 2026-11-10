@@ -70,6 +70,8 @@
       <div class="grid sm:grid-cols-2 gap-3">
         <div><label class="a-label" asp-for="Options.BannerIdeasPerDay">ایدهٔ بنر در روز (۰ = خاموش، حداکثر ۶)</label><input class="a-input" asp-for="Options.BannerIdeasPerDay" min="0" max="6"></div>
       </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BannerAbTest"> آزمون A/B بنرها: نسخه‌های یک «گروه نسخه» به نوبت نمایش داده می‌شوند و نسخهٔ پرکلیک‌تر بیشتر دیده می‌شود</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PauseBannersOnMourning"> توقف بنرهای تبلیغاتی در روزهای سوگواری رسمی (تاسوعا، عاشورا، اربعین، ۲۸ صفر، ۲۱ رمضان، ۱۴ خرداد…)؛ فقط بنرهای گروه «mourning» نمایش داده می‌شوند</label>
       <p class="a-muted text-xs">ایده‌ها از دادهٔ واقعی فروشگاه (تخفیف‌ها، پرفروش‌ها، کالاهای تازه و مناسبت‌ها) ساخته می‌شوند و فقط بعد از تأیید شما روی سایت می‌روند. ایدهٔ ردشده دوباره پیشنهاد نمی‌شود. گزارش: <a class="text-sky-700" href="/admin/smart/growth">رشد خودکار</a> · <a class="text-sky-700" href="/admin/design?status=Suggested">ایده‌های بنر</a></p>
     </div>
   </div>

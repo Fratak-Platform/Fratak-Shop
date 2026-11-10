@@ -71,12 +71,12 @@
                       {
                         if (category.SubCategories.Count == 0)
                         {
-                          <a class="hover:bg-sky-500 hover:text-gray-50 px-2 py-2 rounded-md transition-all" href="/category/@category.Slug">@category.Name</a>
+                          <a class="flex items-center gap-x-2 hover:bg-sky-500 hover:text-gray-50 px-2 py-2 rounded-md transition-all" href="/category/@category.Slug">@Icons.Svg(Icons.Has(category.IconKey) ? category.IconKey! : "Tag", "shrink-0", 16)<span>@category.Name</span></a>
                           continue;
                         }
                         <details class="group/cat">
                           <summary class="flex items-center justify-between px-2 py-2 rounded-md hover:bg-gray-200 cursor-pointer list-none">
-                            <span>@category.Name</span>
+                            <span class="flex items-center gap-x-2">@Icons.Svg(Icons.Has(category.IconKey) ? category.IconKey! : "Tag", "shrink-0", 16)<span>@category.Name</span></span>
                             @Icons.Svg("CaretDown", "group-open/cat:rotate-180 transition-transform duration-300", 14)
                           </summary>
                           <div class="flex flex-col pr-3 border-r border-sky-200 mr-2 mb-1">
@@ -453,7 +453,7 @@
                     {
                       <div class="space-y-2 min-w-0">
                         <a href="/category/@category.Slug" class="flex items-center gap-x-1 font-semibold text-zinc-800 hover:text-sky-600">
-                          <span class="h-5 w-0.5 rounded-full bg-sky-500 shrink-0"></span>
+                          @Icons.Svg(Icons.Has(category.IconKey) ? category.IconKey! : "Tag", "fill-sky-600 shrink-0", 18)
                           <span class="text-sm truncate">@category.Name</span>
                           @Icons.Svg("ChevronLeft", "fill-zinc-500 shrink-0", 12)
                         </a>

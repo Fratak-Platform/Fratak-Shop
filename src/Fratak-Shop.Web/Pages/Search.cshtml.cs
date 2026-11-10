@@ -25,8 +25,22 @@ public class SearchModel(
     Fratak_Shop.Core.Services.Searches.ISearchInsightsService insights,
     IPageMetaService pageMeta,
     Fratak_Shop.Core.Services.Seo.Autopilot.ISeoLandingService landings,
-    Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide) : ShopPageModel
+    Fratak_Shop.Core.Services.Smart.IBuyerGuideService buyerGuide,
+    Fratak_Shop.Core.Services.Marketing.IBannerService banners,
+    Fratak_Shop.Web.Infrastructure.ISiteContext site) : ShopPageModel
 {
+    /// <summary>دور ۲۳: سربرگ صفحهٔ دسته (۱۹۲۰×۳۰۰ + نسخهٔ موبایل) یا null.</summary>
+    public Fratak_Shop.Core.DTOs.Banners.Query.BannerDto? HeaderBanner { get; private set; }
+
+    /// <summary>دور ۲۳: معرفی کوتاه بالای صفحهٔ دسته (پاراگراف اول توضیح، متن ساده) یا null.</summary>
+    public string? IntroText { get; private set; }
+
+    /// <summary>دور ۲۳: پرسش‌های متداول پایین صفحهٔ دسته (از دادهٔ واقعی).</summary>
+    public List<Fratak_Shop.Core.Services.Categories.CategoryQuestion> CategoryQuestions { get; private set; } = [];
+
+    /// <summary>دور ۲۳: دستهٔ کم‌محتوا (کمتر از ۳ کالا) ← noindex.</summary>
+    public bool IsThinCategory { get; private set; }
+
     /// <summary>دور ۱۹ (C8): «کمکم کن انتخاب کنم» در صفحهٔ دسته – فقط با ?quiz=1 اجرا می‌شود (هزینهٔ پرس‌وجو برای بقیه صفر).</summary>
     /// <para>نکته: مقدار به‌صورت متن خوانده می‌شود چون اتصال bool در ASP.NET فقط «true/false» را می‌پذیرد و «quiz=1» را نادیده می‌گیرد.</para>
     [FromQuery(Name = "quiz")]
@@ -151,7 +165,8 @@ public class SearchModel(
         if (!string.IsNullOrWhiteSpace(CategorySlug))
         {
             Category = await categoryService.GetCategoryBySlugAsync(CategorySlug);
-            if (Category is null || !Category.IsActive)
+            // دور ۲۳: دستهٔ سیستمی («دسته‌بندی نشده») صفحهٔ عمومی ندارد.
+            if (Category is null || !Category.IsActive || Category.IsSystem)
                 return NotFound();
         }
 
@@ -305,6 +320,46 @@ public class SearchModel(
             .Select(line => $"<p>{System.Net.WebUtility.HtmlEncode(line)}</p>"));
     }
 
+    /// <summary>
+    /// دور ۲۳ برای صفحهٔ دسته: سربرگ (بنر)، معرفی کوتاه بالا، پرسش‌های متداول پایین و noindex دستهٔ کم‌محتوا (فقط نمای بدون فیلتر سنجیده می‌شود).
+    /// </summary>
+    private async Task ApplyCategoryRound23Async(CategoryDto category)
+    {
+        var unfiltered = string.IsNullOrWhiteSpace(Query) && !Available && !Discounted && BrandSlugs.Count == 0
+                         && !MinPrice.HasValue && !MaxPrice.HasValue && SelectedSpecifications.Count == 0;
+        if (unfiltered && Fratak_Shop.Core.Services.Categories.CategoryService.IsThin(Result.EntityCount))
+        {
+            IsThinCategory = true;
+            ViewData[PageMetaKeys.Robots] = "noindex, follow";
+        }
+        if (PageNumber > 1)
+            return;
+        HeaderBanner = await banners.GetCategoryHeaderAsync(category.Id);
+        IntroText = Intro(category.Description);
+        if (unfiltered && !IsThinCategory)
+        {
+            var facts = await categoryService.GetCategoryFactsAsync(category.Id);
+            CategoryQuestions = Fratak_Shop.Core.Services.Categories.CategoryFaq.Build(category.Name, facts, site.Settings.SiteName);
+        }
+    }
+
+    /// <summary>
+    /// معرفی کوتاه: اولین جملهٔ کامل(ها)ی توضیح تا حدود ۲۲۰ نویسه، متن ساده. مثال: «هدفون بی‌سیم… . جملهٔ دوم…» ← فقط تا پایان جمله‌ای که از ۲۲۰ نگذرد.
+    /// </summary>
+    public static string? Intro(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return null;
+        var text = Fratak_Shop.Core.Services.Seo.Engine.PersianText.HtmlToText(description);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        if (text.Length < 40)
+            return null;
+        if (text.Length <= 220)
+            return text;
+        var cut = text.LastIndexOfAny(['.', '!', '؟', '?'], 220);
+        return cut >= 60 ? text[..(cut + 1)] : text[..220].TrimEnd() + "…";
+    }
+
     private async Task ApplySeoAsync()
     {
         if (Category is not null)
@@ -317,6 +372,7 @@ public class SearchModel(
             pageMeta.AddBreadcrumbs(ViewData, ("محصولات", "/products"), (Category.Name, $"/category/{Category.Slug}"));
             AddItemList();
             ListingDescriptionHtml = DescriptionHtml(Category.Description);
+            await ApplyCategoryRound23Async(Category);
             if (PageNumber <= 1 && !MinPrice.HasValue && !MaxPrice.HasValue && BrandSlugs.Count == 0 && SelectedSpecifications.Count == 0)
                 PriceLandings = await landings.PriceLandingsAsync(Category.Id, Category.Slug, Category.Name);
         }

@@ -104,6 +104,23 @@ public class IndexModel(IDesignService designs, DesignStudio studio, IPostServic
         return BackToList();
     }
 
+    /// <summary>
+    /// دور ۲۳ – «ایده ← طرح»: یک جملهٔ کوتاه (مثل «حراج هدفون یلدا» یا «کارت هدیه») ← ۳ طرح پیشنهادی کامل در اندازهٔ جایگاه انتخابی.
+    /// هشدارها (مثلاً ادعای تخفیف بیشتر از واقعیت) به مدیر نشان داده می‌شود. چیزی منتشر نمی‌شود.
+    /// </summary>
+    public async Task<IActionResult> OnPostBriefAsync(string? brief, string? place)
+    {
+        var result = await studio.BuildFromBriefAsync(brief, place, ActorName, HttpContext.RequestAborted);
+        if (!result.IsSuccess())
+        {
+            ErrorMessage = result.Message;
+            return LocalRedirect("/admin/design#brief");
+        }
+        var warnings = result.Data.Warnings.Count == 0 ? "" : " " + string.Join(" ", result.Data.Warnings);
+        SuccessMessage = result.Message + " بهترین را منتشر کنید (اگر چند نسخه منتشر شود، خودکار آزمون A/B می‌شوند)." + warnings;
+        return LocalRedirect("/admin/design?status=Suggested");
+    }
+
     /// <summary>ساخت ۳ ایدهٔ تازه همین حالا (همان کار روزانه).</summary>
     public async Task<IActionResult> OnPostSuggestAsync()
     {

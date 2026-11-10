@@ -44,11 +44,13 @@ public class DesignStudioRound21Tests
     [Fact]
     public void Presets_cover_every_banner_position_with_the_right_size()
     {
-        Assert.Equal((1920, 640), (DesignPresets.ForPosition(BannerPosition.HeroSlider).Width, DesignPresets.ForPosition(BannerPosition.HeroSlider).Height));
+        // دور ۲۳: اندازه‌های دیجی‌کالایی.
+        Assert.Equal((1920, 480), (DesignPresets.ForPosition(BannerPosition.HeroSlider).Width, DesignPresets.ForPosition(BannerPosition.HeroSlider).Height));
         Assert.Equal(DesignPresets.Wide, DesignPresets.ForPosition(BannerPosition.WideBanner).Key);
         Assert.Equal(DesignPresets.Promo, DesignPresets.ForPosition(BannerPosition.PromoCard).Key);
         Assert.Equal(DesignPresets.Hero, DesignPresets.ForPosition(BannerPosition.None).Key);
-        Assert.True(DesignPresets.Find("PROMO")!.Transparent);
+        Assert.False(DesignPresets.Find("PROMO")!.Transparent);
+        Assert.True(DesignPresets.Find(DesignPresets.PromoCard)!.Transparent);
         Assert.Null(DesignPresets.Find("nope"));
         Assert.Null(DesignPresets.Find(null));
         Assert.Equal((1200, 630), (DesignPresets.Find(DesignPresets.BlogCover)!.Width, DesignPresets.Find(DesignPresets.BlogCover)!.Height));
@@ -80,7 +82,8 @@ public class DesignStudioRound21Tests
     {
         var data = new TheoryData<string, string>();
         foreach (var (layout, _) in DesignTemplates.Layouts)
-            foreach (var preset in new[] { DesignPresets.Hero, DesignPresets.HeroMobile, DesignPresets.Wide, DesignPresets.Promo, DesignPresets.BlogCover, DesignPresets.Story })
+            foreach (var preset in new[] { DesignPresets.Hero, DesignPresets.HeroMobile, DesignPresets.Wide, DesignPresets.WideMobile, DesignPresets.Promo, DesignPresets.PromoCard,
+                         DesignPresets.CategoryHeader, DesignPresets.CategoryHeaderMobile, DesignPresets.BlogCover, DesignPresets.Story })
                 data.Add(layout, preset);
         return data;
     }

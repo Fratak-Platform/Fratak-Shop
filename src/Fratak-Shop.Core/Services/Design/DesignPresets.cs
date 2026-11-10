@@ -4,7 +4,7 @@ using Fratak_Shop.Data.Entities.Marketing;
 namespace Fratak_Shop.Core.Services.Design;
 
 /// <summary>
-/// یک اندازهٔ آماده برای طرح. مثال: «hero» = اسلایدر اصلی صفحهٔ نخست، ۱۹۲۰×۶۴۰ پیکسل.
+/// یک اندازهٔ آماده برای طرح. مثال: «hero» = اسلایدر اصلی صفحهٔ نخست، ۱۹۲۰×۴۸۰ پیکسل (دور ۲۳).
 /// </summary>
 /// <param name="Key">کلید ثابت (در DesignDoc.PresetKey ذخیره می‌شود).</param>
 /// <param name="Title">نام فارسی برای پنل.</param>
@@ -13,7 +13,7 @@ namespace Fratak_Shop.Core.Services.Design;
 /// <param name="Height">ارتفاع به پیکسل.</param>
 /// <param name="Position">جایگاه بنر در صفحهٔ نخست (فقط بنرها).</param>
 /// <param name="Hint">راهنمای کوتاه طراحی همان جایگاه (در ویرایشگر و فرم ساخت نمایش داده می‌شود).</param>
-/// <param name="MobileKey">کلید نسخهٔ موبایل همان جایگاه (فقط اسلایدر اصلی).</param>
+/// <param name="MobileKey">کلید نسخهٔ موبایل همان جایگاه (اسلایدر اصلی، بنر عریض و سربرگ دسته).</param>
 /// <param name="Transparent">پس‌زمینهٔ شفاف (کارت تبلیغاتی: عکس کالا روی کارت رنگی سایت می‌نشیند).</param>
 public sealed record DesignPreset(string Key, string Title, DesignKind Kind, int Width, int Height, BannerPosition? Position, string Hint,
     string? MobileKey = null, bool Transparent = false)
@@ -47,21 +47,38 @@ public static class DesignPresets
     public const string Hero = "hero";
     public const string HeroMobile = "hero-mobile";
     public const string Wide = "wide";
+    public const string WideMobile = "wide-mobile";
     public const string Promo = "promo";
+    public const string PromoCard = "promo-card";
+    public const string CategoryHeader = "category";
+    public const string CategoryHeaderMobile = "category-mobile";
     public const string BlogCover = "blog-cover";
     public const string Post = "post";
     public const string Story = "story";
     public const string Free = "free";
 
+    /// <summary>
+    /// دور ۲۳ – اندازه‌های دیجی‌کالایی (پهن و کوتاه، با نسخهٔ موبایل جدا):
+    /// اسلایدر ۱۹۲۰×۴۸۰ (موبایل ۱۰۸۰×۵۴۰)، بنر عریض ۱۹۲۰×۳۲۰ (موبایل ۱۰۸۰×۳۶۰)، بنر دوتایی ۹۶۰×۴۰۰، سربرگ دسته ۱۹۲۰×۳۰۰ (موبایل ۱۰۸۰×۳۶۰).
+    /// «کارت تبلیغاتی شفاف» قدیمی (۸۰۰×۶۰۰) برای سازگاری با طرح‌های قبلی مانده است.
+    /// </summary>
     public static readonly IReadOnlyList<DesignPreset> All =
     [
-        new(Hero, "اسلایدر اصلی (بالای صفحهٔ نخست)", DesignKind.Banner, 1920, 640, BannerPosition.HeroSlider,
+        new(Hero, "اسلایدر اصلی (بالای صفحهٔ نخست)", DesignKind.Banner, 1920, 480, BannerPosition.HeroSlider,
             "متن و دکمه سمت راست؛ لبه‌ها ۸۰ پیکسل خالی. نسخهٔ موبایل جدا ساخته می‌شود.", MobileKey: HeroMobile),
-        new(HeroMobile, "اسلایدر اصلی – نسخهٔ موبایل", DesignKind.Banner, 960, 600, BannerPosition.HeroSlider,
+        new(HeroMobile, "اسلایدر اصلی – نسخهٔ موبایل", DesignKind.Banner, 1080, 540, BannerPosition.HeroSlider,
             "در موبایل فقط همین نسخه دیده می‌شود؛ متن درشت و کوتاه."),
-        new(Wide, "بنر عریض (وسط صفحهٔ نخست)", DesignKind.Banner, 1600, 400, BannerPosition.WideBanner,
-            "یک پیام کوتاه + دکمه؛ عکس کالا سمت چپ."),
-        new(Promo, "کارت تبلیغاتی (عکس شفاف کالا)", DesignKind.Banner, 800, 600, BannerPosition.PromoCard,
+        new(Wide, "بنر عریض (وسط صفحهٔ نخست)", DesignKind.Banner, 1920, 320, BannerPosition.WideBanner,
+            "یک پیام کوتاه + دکمه؛ عکس کالا سمت چپ. نسخهٔ موبایل جدا ساخته می‌شود.", MobileKey: WideMobile),
+        new(WideMobile, "بنر عریض – نسخهٔ موبایل", DesignKind.Banner, 1080, 360, BannerPosition.WideBanner,
+            "تیتر کوتاه و درشت؛ در موبایل همین نسخه دیده می‌شود."),
+        new(Promo, "بنر دوتایی (کنار هم در صفحهٔ نخست)", DesignKind.Banner, 960, 400, BannerPosition.PromoCard,
+            "دو بنر کنار هم (در موبایل زیر هم)؛ متن، قیمت و دکمه روی خود تصویر."),
+        new(CategoryHeader, "سربرگ صفحهٔ دسته", DesignKind.Banner, 1920, 300, BannerPosition.CategoryHeader,
+            "بالای صفحهٔ دسته؛ نام دسته + یک پیام کوتاه. نسخهٔ موبایل جدا ساخته می‌شود.", MobileKey: CategoryHeaderMobile),
+        new(CategoryHeaderMobile, "سربرگ دسته – نسخهٔ موبایل", DesignKind.Banner, 1080, 360, BannerPosition.CategoryHeader,
+            "در موبایل همین نسخه دیده می‌شود."),
+        new(PromoCard, "کارت تبلیغاتی قدیمی (عکس شفاف کالا)", DesignKind.Banner, 800, 600, BannerPosition.PromoCard,
             "پس‌زمینه شفاف است؛ عنوان، توضیح و دکمه از فیلدهای خود بنر روی کارت آبی سایت نوشته می‌شود.", Transparent: true),
         new(BlogCover, "کاور مقاله", DesignKind.BlogCover, 1200, 630, null,
             "تیتر کوتاه مقاله + عکس؛ همین تصویر در اشتراک‌گذاری و نتایج جست‌وجو دیده می‌شود."),
@@ -70,7 +87,7 @@ public static class DesignPresets
         new(Free, "اندازهٔ دلخواه", DesignKind.Free, 1200, 800, null, "عرض و ارتفاع را خودتان تعیین کنید (۲۰۰ تا ۴۰۰۰ پیکسل)."),
     ];
 
-    /// <summary>پیدا کردن با کلید (کلید ناشناخته ← null). مثال: Find("wide").Width ← ۱۶۰۰.</summary>
+    /// <summary>پیدا کردن با کلید (کلید ناشناخته ← null). مثال: Find("wide").Width ← ۱۹۲۰.</summary>
     public static DesignPreset? Find(string? key) =>
         string.IsNullOrWhiteSpace(key) ? null : All.FirstOrDefault(p => string.Equals(p.Key, key.Trim(), StringComparison.OrdinalIgnoreCase));
 
@@ -79,6 +96,7 @@ public static class DesignPresets
     {
         BannerPosition.WideBanner => Find(Wide)!,
         BannerPosition.PromoCard => Find(Promo)!,
+        BannerPosition.CategoryHeader => Find(CategoryHeader)!,
         _ => Find(Hero)!,
     };
 

@@ -37,6 +37,8 @@
       const now = Date.now();
       timers.forEach((timer) => {
         let distance = Math.max(0, Number(timer.dataset.countdown) - now);
+        // R23: a countdown is only shown for a real end time; once it has passed (or the value is invalid) it disappears instead of sitting at 00:00.
+        if (!distance) { timer.hidden = true; return; }
         const days = Math.floor(distance / 86400000);
         distance %= 86400000;
         const values = {

@@ -44,8 +44,12 @@ public class SitemapService(FratakShopDbContext context, IMemoryCache cache) : I
             new("/contact-us", null, "yearly", 0.4m),
         };
 
+        // دور ۲۳: دستهٔ سیستمی و دستهٔ کم‌محتوا (کمتر از ۳ کالای فعال در خود و زیردسته‌های مستقیم) در نقشهٔ سایت نمی‌آید
+        // (صفحه‌اش هم noindex است؛ با رسیدن به ۳ کالا خودکار برمی‌گردد).
+        var thin = Fratak_Shop.Core.Services.Categories.CategoryService.ThinCategoryProducts;
         var categories = await context.Categories
-            .Where(x => x.IsActive && (x.Seo == null || x.Seo.NoIndex != true))
+            .Where(x => x.IsActive && !x.IsSystem && (x.Seo == null || x.Seo.NoIndex != true)
+                        && context.Products.Count(p => p.IsActive && (p.CategoryId == x.Id || p.Category.ParentId == x.Id)) >= thin)
             .Select(x => new { x.Slug, x.UpdatedAt, x.ImageName, Canonical = x.Seo != null ? x.Seo.CanonicalUrl : null })
             .ToListAsync(cancellationToken);
         entries.AddRange(categories.Select(x => Entry($"/category/{x.Slug}", x.UpdatedAt, "daily", 0.8m, x.Canonical, Images("categories", x.ImageName))).OfType<SitemapEntry>());

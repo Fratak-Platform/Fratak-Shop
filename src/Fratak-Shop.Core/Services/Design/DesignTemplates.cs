@@ -28,9 +28,16 @@ public static class DesignPalettes
         new("clean", "روشن", "#f8fafc", "#e0f2fe", "#0f172a", "#475569", "#2563eb", "#ffffff"),
     ];
 
-    /// <summary>پالت با کلید؛ ناشناخته ← اولی (آبی فراتک).</summary>
-    public static DesignPalette Find(string? key) =>
-        All.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase)) ?? All[0];
+    /// <summary>
+    /// پالت با کلید؛ ناشناخته ← اولی (آبی فراتک). دور ۲۳: کلید رنگی «#rrggbb» (رنگ غالب عکس کالا) ← پالت خوانای ساخته‌شده با
+    /// <see cref="DesignColors.FromColor"/> (کنتراست متن ≥ ۴٫۵). مثال: Find("#1d4ed8") ← پس‌زمینهٔ آبی با متن سفید.
+    /// </summary>
+    public static DesignPalette Find(string? key)
+    {
+        if (key is not null && key.StartsWith('#') && DesignColors.TryParse(key, out _))
+            return DesignColors.FromColor(key);
+        return All.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase)) ?? All[0];
+    }
 }
 
 /// <summary>عکس داخل طرح: آدرس محلی (/uploads/…) + ابعاد واقعی (برای جا دادن بدون کشیدگی).</summary>
