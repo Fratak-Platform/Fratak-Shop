@@ -45,6 +45,17 @@ public sealed record SubjectVerdict(
 /// </summary>
 public static class ImageSubjectCheck
 {
+    /// <summary>
+    /// نشانه‌های ذخیره‌شده روی ProductImages.SubjectFlags: ۱ سفید، ۲ یکدست، ۴ آدم، ۸ واترمارک، ۱۶ صحنه.
+    /// مثال: زمینهٔ سفید یکدست بدون آدم ← ۳.
+    /// </summary>
+    public static byte Flags(SubjectVerdict verdict) => (byte)(
+        (verdict.WhiteBackground ? 1 : 0) | (verdict.PlainBackground ? 2 : 0) | (verdict.People ? 4 : 0)
+        | (verdict.Watermark ? 8 : 0) | (verdict.Lifestyle ? 16 : 0));
+
+    /// <summary>امتیاز ۰ تا ۱۰۰ برای ProductImages.SubjectScore. مثال: اطمینان ۰٫۸۲۴ ← ۸۲.</summary>
+    public static byte Score(SubjectVerdict verdict) => (byte)Math.Clamp((int)Math.Round(verdict.Confidence * 100), 0, 100);
+
     /// <summary>کمترین اطمینان برای «پذیرش» در حالت عادی.</summary>
     public const double MinConfidence = 0.45;
 

@@ -12,6 +12,8 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <para>تکراری‌ها با <see cref="ImageDuplicates.Redundant"/> پیدا و حذف نرم می‌شوند (فایل روی دیسک می‌ماند؛ از سطل بازیابی برمی‌گردد).</para>
 /// <para>اجرا: SmartWorker.CategorizeHourlyAsync. مثال خروجی: (۱۵۰ عکس اثر انگشت گرفت، ۲ عکس تکراری کنار رفت).</para>
 /// <para>دور ۲۴ (پیشنهاد ۵۸): امتیاز کیفیت (ستون Quality) هم در همین خواندن حساب می‌شود و عکس اصلی ضعیف با بهترین عکس همان کالا عوض می‌شود.</para>
+/// <para>دور ۲۸ (#۵۰): «بررسی سوژه» عکس‌های موجود هم در همین خواندن پر می‌شود (SubjectScore/SubjectFlags)؛ عکس‌های دارای آدم/واترمارک/صحنه
+/// در صفحهٔ کالا و گزارش سلامت داده دیده می‌شوند تا کارشناس جایگزین کند (هیچ عکسی خودکار حذف نمی‌شود).</para>
 /// </summary>
 public static class ImageHashBackfill
 {
@@ -23,7 +25,7 @@ public static class ImageHashBackfill
         var context = services.GetRequiredService<FratakShopDbContext>();
         var uploads = services.GetRequiredService<IUploadStore>();
         var rows = await context.ProductImages.AsTracking()
-            .Where(i => i.Hash == null || i.Quality == null)
+            .Where(i => i.Hash == null || i.Quality == null || i.SubjectScore == null)
             .OrderBy(i => i.Hash != null)
             .ThenBy(i => i.CreatedAt)
             .Take(PerRun)
@@ -36,11 +38,14 @@ public static class ImageHashBackfill
             cancellationToken.ThrowIfCancellationRequested();
             var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(row.ImageName));
             ImageInfo? info = null;
+            Fratak_Shop.Core.Services.Smart.SubjectVerdict? subject = null;
             if (path is not null)
             {
                 try
                 {
-                    info = SmartImageAnalyzer.Analyze(await File.ReadAllBytesAsync(path, cancellationToken));
+                    var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
+                    info = SmartImageAnalyzer.Analyze(bytes);
+                    subject = info is null ? null : SmartImageAnalyzer.Subject(bytes, quality: info.Quality);
                 }
                 catch (IOException)
                 {
@@ -50,6 +55,9 @@ public static class ImageHashBackfill
             row.Hash = info is null ? 0 : unchecked((long)info.Hash);
             // دور ۲۴ (پیشنهاد ۵۸): امتیاز کیفیت در همان خواندن فایل (۰ = فایل گم‌شده/خراب).
             row.Quality = (byte)Math.Clamp(info?.Quality ?? 0, 0, 100);
+            // دور ۲۸ (#۵۰): فایل گم‌شده/خراب ← امتیاز ۰ و بدون نشانه (دوباره خوانده نمی‌شود).
+            row.SubjectScore = subject is null ? (byte)0 : Fratak_Shop.Core.Services.Smart.ImageSubjectCheck.Score(subject);
+            row.SubjectFlags = subject is null ? null : Fratak_Shop.Core.Services.Smart.ImageSubjectCheck.Flags(subject);
         }
         await context.SaveChangesAsync(cancellationToken);
 
