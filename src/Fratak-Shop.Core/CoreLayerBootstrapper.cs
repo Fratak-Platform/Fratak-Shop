@@ -238,6 +238,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Smart.ISmartResearchStore, Services.Smart.SmartResearchStore>();
         services.AddScoped<Services.Smart.IProductInsightService, Services.Smart.ProductInsightService>();
         services.AddScoped<Services.Smart.ISmartCatalogService, Services.Smart.SmartCatalogService>();
+        // دور ۲۸ (#۵۱–۵۹): «سلامت داده» – امتیاز اطمینان هر کالا، درست کردن خودکار و بررسی دوبارهٔ عکس‌ها.
+        services.AddScoped<Services.Smart.IDataHealthService, Services.Smart.DataHealthService>();
         // دور ۲۱: دسته‌بندی هوشمند کالاهای درون‌ریزی‌شده (بدون مدل زبانی).
         services.AddScoped<Services.Smart.ISmartCategoryService, Services.Smart.SmartCategoryService>();
         // دور ۲۲: ورود هوشمند کالا (دسته‌بندی چند دقیقه بعد از ساخت + صف «تکمیل هوشمند» + سئوی بعد از انتشار).

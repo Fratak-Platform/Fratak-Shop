@@ -67,6 +67,8 @@ public static class AdminNav
             // دور ۲۸: جدول «دانش دستیار» و «دستیار مدیریت» (پرسش و فرمان کارکنان به زبان ساده).
             new AdminNavItem("دانش دستیار", "/admin/smart/assistant/knowledge", "Lightbulb", [P.ProductsManage, P.MarketingManage, P.TicketsManage]),
             new AdminNavItem("دستیار مدیریت", "/admin/smart/assistant/ops", "Robot", [P.OrdersView, P.ProductsView, P.ReportsView]),
+            // دور ۲۸ (#۵۱–۵۹): امتیاز اطمینان داده‌ها، عکس‌های مشکوک و درست کردن خودکار.
+            new AdminNavItem("سلامت داده", "/admin/smart/data-health", "Pulse", [P.ProductsManage, P.CatalogManage, P.ReportsView]),
             new AdminNavItem("تنظیمات هوشمند", "/admin/smart/settings", "Gear", [P.SettingsManage])),
         new("محتوا و سئو",
             new AdminNavItem("مقاله‌ها", "/admin/blog", "Article", [P.BlogWrite, P.BlogPublish], "drafts"),
