@@ -320,7 +320,9 @@ public class DesignAndCampaignE2ETests(ShopApp app)
             {
                 using var parsed = JsonDocument.Parse(await doc.Content.ReadAsStringAsync());
                 Assert.Equal(1920, parsed.RootElement.GetProperty("width").GetInt32());
-                Assert.Equal(320, parsed.RootElement.GetProperty("height").GetInt32());
+                // دور ۲۶: بنر عریض پهن و کوتاه (۱۹۲۰×۳۰۰) و بدون نسخهٔ موبایل.
+                Assert.Equal(300, parsed.RootElement.GetProperty("height").GetInt32());
+                Assert.False(parsed.RootElement.TryGetProperty("mobile", out var mobile) && mobile.ValueKind == JsonValueKind.Object);
                 json = parsed.RootElement.GetProperty("json").GetString()!;
                 Assert.Contains("\"fsRole\":\"headline\"", json, StringComparison.Ordinal);
             }
@@ -338,7 +340,8 @@ public class DesignAndCampaignE2ETests(ShopApp app)
                 form.Add(new StringContent("بنر آزمون"), "title");
                 form.Add(new StringContent(json), "json");
                 form.Add(new StringContent("حراج ویژه"), "headline");
-                var png = new ByteArrayContent(Png(1920, 320));
+                form.Add(new StringContent("Soft"), "motion");
+                var png = new ByteArrayContent(Png(1920, 300));
                 png.Headers.ContentType = new MediaTypeHeaderValue("image/png");
                 form.Add(png, "image", "design.png");
                 using var save = await client.Http.PostAsync($"/admin/design/editor/{designId}?handler=Save", form);
@@ -367,6 +370,11 @@ public class DesignAndCampaignE2ETests(ShopApp app)
             Assert.Equal(BannerPosition.WideBanner, banner.Position);
             Assert.Equal("/products", banner.LinkUrl);
             Assert.Equal(saved.ImageName, banner.ImageName);
+            // دور ۲۶: حرکت «نرم» ← نسخهٔ زندهٔ امن (بدون اسکریپت) کنار تصویر ثابت.
+            Assert.Equal(BannerMotion.Soft, published.Animation);
+            Assert.NotNull(banner.LiveHtml);
+            Assert.StartsWith("<div class=\"fsb fsb-soft\"", banner.LiveHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("<script", banner.LiveHtml, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
