@@ -60,7 +60,12 @@ public sealed class DesignStudio(
             return 0;
         var store = await settings.GetAsync(cancellationToken);
         var input = await designs.IdeaInputAsync(store.SiteName, cancellationToken);
-        input = WithImageSizes(input) with { FreeShippingFrom = Math.Max(0, store.FreeShippingThreshold) };
+        input = WithImageSizes(input) with
+        {
+            FreeShippingFrom = Math.Max(0, store.FreeShippingThreshold),
+            // دور ۲۸: واقعیت‌های راست تنظیمات ← بنرهای «اعتماد و برند» (فروشگاه هیچ‌وقت بی‌بنر نمی‌ماند).
+            Store = new IdeaStore(store.HasZarinPal, store.SupportPhone, store.IsLoyaltyEnabled, Math.Max(0, store.ReturnWindowDays), input.PublishedPosts, store.Tagline),
+        };
         var ideas = DesignIdeas.Generate(input, DateTimeOffset.UtcNow, max * 3);
         // دور ۲۳: روزهای سوگواری (اگر تنظیم «توقف بنر شاد در عزا» روشن باشد) ایدهٔ جشن/مناسبت شاد ساخته نمی‌شود.
         if (smart is not null && (await smart.GetAsync(cancellationToken)).PauseBannersOnMourning
@@ -78,8 +83,18 @@ public sealed class DesignStudio(
             try
             {
                 // دور ۲۷: پیش از ساخت، عکس‌ها «واقعی و حرفه‌ای» می‌شوند (کالای دوربری‌شده، عکس فضاسازی دسته، چیدمان متناسب).
-                var ready = await WithPicturesAsync(idea, input, cancellationToken);
-                if (await CreateIdeaAsync(ready, cancellationToken))
+                // دور ۲۸ (قابل‌اعتماد): خطای عکس‌دار کردن ← همان ایدهٔ اولیه؛ رندر ناموفق با عکس ← یک بار دیگر بدون عکس (طرح هندسی).
+                DesignIdea ready;
+                try
+                {
+                    ready = await WithPicturesAsync(idea, input, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogWarning(exception, "Banner pictures for {Key} failed; using the plain idea", idea.Key);
+                    ready = idea;
+                }
+                if (await CreateIdeaAsync(ready, cancellationToken, requireImage: true) || await CreateIdeaAsync(Plain(idea), cancellationToken))
                     created++;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -174,21 +189,31 @@ public sealed class DesignStudio(
         };
     }
 
+    /// <summary>
+    /// دور ۲۸: نسخهٔ بدون عکس یک ایده (چیدمان «طرح هندسی»، همان متن و لینک) – پشتیبان وقتی رندر عکس‌دار ناموفق است.
+    /// </summary>
+    public static DesignIdea Plain(DesignIdea idea) =>
+        idea with { Spec = idea.Spec with { Layout = "pattern", Image = null, Gallery = null, Photo = null } };
+
     /// <summary>ایدهٔ شاد/جشن؟ (کلید مناسبت یا چیدمان festive). مثال: «occasion:yalda:1405» ← true.</summary>
     public static bool IsFestive(DesignIdea idea) =>
         idea.Key.StartsWith("occasion:", StringComparison.Ordinal) || idea.Spec.Layout == "festive";
 
-    private async Task<bool> CreateIdeaAsync(DesignIdea idea, CancellationToken cancellationToken) =>
-        await CreateIdeaAsync(idea, DesignPresets.Find(DesignPresets.Hero)!, Actor, cancellationToken) is not null;
+    private async Task<bool> CreateIdeaAsync(DesignIdea idea, CancellationToken cancellationToken, bool requireImage = false) =>
+        await CreateIdeaAsync(idea, DesignPresets.Find(DesignPresets.Hero)!, Actor, cancellationToken, requireImage: requireImage) is not null;
 
     /// <summary>ساخت یک طرح «پیشنهادی» از ایده در اندازهٔ داده‌شده (+ نسخهٔ موبایل اگر جایگاه دارد). خروجی: شناسهٔ طرح.</summary>
-    private async Task<Guid?> CreateIdeaAsync(DesignIdea idea, DesignPreset preset, string? actor, CancellationToken cancellationToken, Guid? categoryId = null)
+    private async Task<Guid?> CreateIdeaAsync(DesignIdea idea, DesignPreset preset, string? actor, CancellationToken cancellationToken, Guid? categoryId = null,
+        bool requireImage = false)
     {
         var json = DesignTemplates.Build(idea.Spec, preset.Width, preset.Height, preset.Transparent);
         var mobile = preset.MobileKey is null ? null : DesignPresets.Find(preset.MobileKey);
         var mobileJson = mobile is null ? null : DesignTemplates.Build(idea.Spec, mobile.Width, mobile.Height, mobile.Transparent);
 
         var imageName = await RenderAndStoreAsync(json, preset.Width, preset.Height, UploadArea.Banners, cancellationToken);
+        // دور ۲۸: رندر ناموفقِ نسخهٔ عکس‌دار ← null تا فراخوان نسخهٔ بدون عکس را امتحان کند (نه طرح بی‌تصویر).
+        if (requireImage && imageName is null)
+            return null;
         var mobileName = mobile is null || mobileJson is null ? null : await RenderAndStoreAsync(mobileJson, mobile.Width, mobile.Height, UploadArea.Banners, cancellationToken);
         var doc = new DesignDoc
         {

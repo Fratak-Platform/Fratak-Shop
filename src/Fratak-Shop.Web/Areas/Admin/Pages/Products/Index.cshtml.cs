@@ -12,6 +12,7 @@ using Fratak_Shop.Web.Helpers;
 using Fratak_Shop.Web.Infrastructure.Admin;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fratak_Shop.Web.Areas.Admin.Pages.Products;
 
@@ -65,7 +66,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
 
     private void RememberUndo(BulkUndo undo)
     {
-        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
+        var token = Convert.ToHexString(global::System.Security.Cryptography.RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
         cache.Set(UndoKey(token), undo, new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30), Size = 1 });
         TempData["UndoToken"] = token;
     }
@@ -213,14 +214,14 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             case "category":
             {
                 // دور ۲۸ (#۹۵): تغییر گروهی دسته (با امکان بازگردانی).
-                if (categoryTarget is not { } target)
+                if (categoryTarget is not { } destination)
                 {
                     ErrorMessage = "دستهٔ مقصد را انتخاب کنید.";
                     break;
                 }
-                var moved = await products.ChangeCategoryAsync(ids, target);
+                var moved = await products.ChangeCategoryAsync(ids, destination);
                 if (moved.IsSuccess() && moved.Data is { Count: > 0 } undo)
-                    RememberUndo(new BulkUndo("category", target, undo, [], ActorId));
+                    RememberUndo(new BulkUndo("category", destination, undo, [], ActorId));
                 if (moved.IsSuccess())
                     SuccessMessage = moved.Message;
                 else
@@ -325,7 +326,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
     [AdminPermission(AdminPermissions.ProductsManage)]
     public async Task<IActionResult> OnPostUndoAsync(string? token)
     {
-        if (string.IsNullOrWhiteSpace(token) || token.Length > 40 || !cache.TryGetValue(UndoKey(token), out BulkUndo? undo) || undo is null || undo.ActorId != ActorId)
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 40 || !cache.TryGetValue<BulkUndo>(UndoKey(token), out var undo) || undo is null || undo.ActorId != ActorId)
         {
             ErrorMessage = "مهلت بازگردانی تمام شده یا این تغییر مال شما نیست.";
             return BackToList();

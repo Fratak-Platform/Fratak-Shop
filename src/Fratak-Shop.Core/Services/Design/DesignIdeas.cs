@@ -18,7 +18,22 @@ public sealed record IdeaInput(IReadOnlyList<IdeaProduct> Products, IReadOnlyLis
 {
     /// <summary>دور ۲۶: حداقل خرید برای ارسال رایگان (تومان؛ ۰ = ارسال رایگان نداریم) ← ایدهٔ بنر «ارسال رایگان».</summary>
     public decimal FreeShippingFrom { get; init; }
+
+    /// <summary>
+    /// دور ۲۸: واقعیت‌های فروشگاه (از تنظیمات) برای بنرهای «اعتماد و برند» که به کالا وابسته نیستند.
+    /// null = این بنرها ساخته نمی‌شوند (تست‌های قدیمی و فراخوانی‌های بدون تنظیمات).
+    /// </summary>
+    public IdeaStore? Store { get; init; }
+
+    /// <summary>دور ۲۸: تعداد مقاله‌های منتشرشده (DesignService.IdeaInputAsync).</summary>
+    public int PublishedPosts { get; init; }
 }
+
+/// <summary>
+/// دور ۲۸ – واقعیت‌های راستِ فروشگاه برای بنرهای بدون کالا (هیچ ادعایی بیرون از این‌ها ساخته نمی‌شود):
+/// پرداخت آنلاین واقعاً فعال، تلفن پشتیبانی ثبت‌شده، باشگاه مشتریان روشن، مهلت بازگشت کالا و تعداد مقاله‌های منتشرشده.
+/// </summary>
+public sealed record IdeaStore(bool SecurePayment, string? SupportPhone, bool Club, int ReturnDays, int Posts, string? Slogan = null);
 
 /// <summary>
 /// یک ایدهٔ بنر آمادهٔ تأیید. Key یکتاست (همان ایده دوباره پیشنهاد نمی‌شود)، Reason دلیل داده‌محور ایده را می‌گوید.
@@ -53,13 +68,22 @@ public static class DesignIdeas
     /// <summary>کمترین درصد تخفیف برای بنر تک‌کالا (دور ۲۶: بنر کالا فقط برای کالای واقعاً ویژه).</summary>
     public const int ProductDealPercent = 25;
 
-    /// <summary>ساخت حداکثر <paramref name="max"/> ایده، به ترتیب اهمیت. ورودی خالی ← فهرست خالی (ایدهٔ بی‌پشتوانه ساخته نمی‌شود).</summary>
+    /// <summary>
+    /// ساخت حداکثر <paramref name="max"/> ایده، به ترتیب اهمیت. ورودی خالی ← فهرست خالی (ایدهٔ بی‌پشتوانه ساخته نمی‌شود).
+    /// دور ۲۸ (بازسازی برای «همیشه بنر داشته باشیم»): اگر <see cref="IdeaInput.Store"/> داده شود، حتی فروشگاهی که هنوز کالای
+    /// موجودِ عکس‌دار ندارد بنرهای راستِ «اعتماد و برند» می‌گیرد (پرداخت امن، مهلت بازگشت، پشتیبانی، باشگاه، مجله، معرفی فروشگاه).
+    /// </summary>
     public static List<DesignIdea> Generate(IdeaInput input, DateTimeOffset now, int max = 6)
     {
         var ideas = new List<DesignIdea>();
         var products = input.Products.Where(p => p.Stock > 0 && !string.IsNullOrWhiteSpace(p.ImageUrl) && p.FinalPrice > 0).ToList();
         if (products.Count == 0)
-            return ideas;
+        {
+            // دور ۲۸: بدون کالای مناسب فقط بنرهای فروشگاه (اگر واقعیت‌هایش داده شده) + معرفی دسته‌ای که کالای موجود دارد.
+            CategoryIdeas(ideas, input, products, now);
+            StoreIdeas(ideas, input, now);
+            return ideas.Take(Math.Max(0, max)).ToList();
+        }
         var week = WeekKey(now);
         var month = MonthKey(now);
         var palettes = DesignPalettes.All.Select(p => p.Key).Where(k => k != "clean").ToArray();
@@ -110,21 +134,8 @@ public static class DesignIdeas
                 "/products?Sort=Newest", now.AddDays(14)));
         }
 
-        // ۴) معرفی دسته
-        var category = input.Categories.Where(c => c.InStock >= 3 && c.Hero is { ImageUrl: not null })
-            .OrderByDescending(c => c.InStock).FirstOrDefault();
-        if (category is not null)
-        {
-            var members = products.Where(p => p.CategorySlug == category.Slug).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).Take(3).ToList();
-            if (members.All(p => p.Id != category.Hero!.Id))
-                members.Insert(0, category.Hero!);
-            var gallery = Images(members.Take(3));
-            ideas.Add(new DesignIdea($"cat:{category.Id:N}:{month}", "معرفی دستهٔ " + category.Name,
-                $"دستهٔ «{category.Name}» با {Count(category.InStock)} کالای موجود.",
-                new DesignSpec(gallery.Count >= 2 ? "collage" : "split", Pick(palettes, category.Id, 3), category.Name,
-                    $"{Count(category.InStock)} کالای موجود با ارسال سریع", null, "دیدن همه", Image(category.Hero!), Kicker: "دسته‌بندی منتخب", Gallery: gallery),
-                "/category/" + category.Slug, now.AddDays(30)));
-        }
+        // ۴) معرفی دسته (دور ۲۸: تا ۲ دسته؛ فروشگاه کوچک با یک کالای موجود هم کافی است)
+        CategoryIdeas(ideas, input, products, now);
 
         // ۵) ارسال رایگان
         if (input.FreeShippingFrom > 0)
@@ -163,7 +174,111 @@ public static class DesignIdeas
                 "/product/" + bestSeller.Slug, now.AddDays(30), bestSeller.Id));
         }
 
+        // ۸) دور ۲۸: بنرهای «اعتماد و برند» (کم‌اولویت‌تر از بنرهای کالا/دسته؛ همیشه دست‌کم یکی هست).
+        StoreIdeas(ideas, input, now);
+
         return ideas.Take(Math.Max(0, max)).ToList();
+    }
+
+    /// <summary>
+    /// دور ۲۸: کمترین تعداد کالای موجود برای «معرفی دسته». فروشگاه کوچک (کمتر از ۱۲ کالای مناسب) ← ۱، وگرنه ۳.
+    /// مثال: ۵ کالا ← ۱ (دستهٔ تک‌کالایی هم بنر می‌گیرد)؛ ۲۰۰ کالا ← ۳.
+    /// </summary>
+    public static int CategoryMinStock(int productCount) => productCount < 12 ? 1 : 3;
+
+    /// <summary>
+    /// معرفی دسته (حداکثر ۲ دسته با بیشترین کالای موجود). دستهٔ بدون کالای عکس‌دار ← چیدمان «طرح هندسی» که بعداً
+    /// عکس فضاسازی واقعی همان دسته (اگر هست) جایش می‌نشیند (DesignStudio.WithPicturesAsync).
+    /// </summary>
+    private static void CategoryIdeas(List<DesignIdea> ideas, IdeaInput input, List<IdeaProduct> products, DateTimeOffset now)
+    {
+        var month = MonthKey(now);
+        var palettes = DesignPalettes.All.Select(p => p.Key).Where(k => k != "clean").ToArray();
+        var min = CategoryMinStock(products.Count);
+        foreach (var category in input.Categories.Where(c => c.InStock >= min)
+                     .OrderByDescending(c => c.Hero?.ImageUrl is not null).ThenByDescending(c => c.InStock).Take(2))
+        {
+            var members = products.Where(p => p.CategorySlug == category.Slug).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).Take(3).ToList();
+            if (category.Hero is { ImageUrl: not null } hero && members.All(p => p.Id != hero.Id))
+                members.Insert(0, hero);
+            var gallery = Images(members.Take(3));
+            var main = category.Hero is { ImageUrl: not null } h ? Image(h) : gallery.FirstOrDefault();
+            var count = DesignTemplates.FaDigits(category.InStock.ToString(CultureInfo.InvariantCulture));
+            var subline = Variant(category.Id.ToString("N") + month,
+                $"{count} کالای موجود با ارسال سریع",
+                $"{count} انتخاب موجود، با قیمت روز",
+                $"از {count} کالای موجود، مناسب خودتان را پیدا کنید");
+            ideas.Add(new DesignIdea($"cat:{category.Id:N}:{month}", "معرفی دستهٔ " + category.Name,
+                $"دستهٔ «{category.Name}» با {count} کالای موجود.",
+                new DesignSpec(gallery.Count >= 2 ? "collage" : main is null ? "pattern" : "split", Pick(palettes, category.Id, 3), category.Name,
+                    subline, null, "دیدن همه", main, Kicker: "دسته‌بندی منتخب", Gallery: gallery.Count > 0 ? gallery : null),
+                "/category/" + category.Slug, now.AddDays(30)));
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۸ – بنرهای «اعتماد و برند» از واقعیت‌های تنظیمات (بدون عدد یا ادعای ساختگی). کلید ماهانه؛ متن با چرخش ماهانه
+    /// از چند نسخه انتخاب می‌شود تا بنرها تکراری نباشند. <see cref="IdeaInput.Store"/> نبود ← هیچ.
+    /// </summary>
+    private static void StoreIdeas(List<DesignIdea> ideas, IdeaInput input, DateTimeOffset now)
+    {
+        if (input.Store is not { } store)
+            return;
+        var month = MonthKey(now);
+        var site = input.SiteName;
+        if (store.ReturnDays > 0)
+        {
+            var days = DesignTemplates.FaDigits(store.ReturnDays.ToString(CultureInfo.InvariantCulture));
+            ideas.Add(new DesignIdea($"trust-return:{month}", "مهلت بازگشت کالا",
+                $"مهلت بازگشت {days} روزه از تنظیمات فروشگاه.",
+                new DesignSpec("pattern", "mint", Variant("return" + month, $"{days} روز مهلت بازگشت", $"خرید بی‌دغدغه، {days} روز فرصت بازگشت"),
+                    "اگر کالا مناسب نبود، با خیال راحت بازگردانید", null, "شرایط بازگشت", Kicker: site),
+                "/faq", now.AddDays(30)));
+        }
+        if (store.SecurePayment)
+            ideas.Add(new DesignIdea($"trust-pay:{month}", "پرداخت امن",
+                "پرداخت آنلاین از درگاه بانکی زرین‌پال فعال است.",
+                new DesignSpec("pattern", "ocean", Variant("pay" + month, "پرداخت امن و مستقیم", "پرداخت آنلاین، امن و سریع"),
+                    "پرداخت از درگاه رسمی بانکی؛ اطلاعات کارت نزد ما ذخیره نمی‌شود", null, "شروع خرید", Kicker: site),
+                "/products", now.AddDays(30)));
+        if (!string.IsNullOrWhiteSpace(store.SupportPhone))
+            ideas.Add(new DesignIdea($"trust-support:{month}", "پشتیبانی",
+                "شمارهٔ پشتیبانی در تنظیمات ثبت شده است.",
+                new DesignSpec("pattern", "indigo", Variant("support" + month, "پشتیبانی واقعی، پاسخ واقعی", "سؤالی دارید؟ کنارتان هستیم"),
+                    "تماس با پشتیبانی: " + DesignTemplates.FaDigits(store.SupportPhone.Trim()), null, "تماس با ما", Kicker: site),
+                "/contact-us", now.AddDays(30)));
+        if (store.Club)
+            ideas.Add(new DesignIdea($"trust-club:{month}", "باشگاه مشتریان",
+                "باشگاه مشتریان در تنظیمات فعال است.",
+                new DesignSpec("pattern", "royal", Variant("club" + month, $"باشگاه مشتریان {site}", "با هر خرید امتیاز بگیرید"),
+                    "امتیاز خریدهایتان را جمع کنید و از پیشنهادهای باشگاه استفاده کنید", null, "دربارهٔ باشگاه", Kicker: site),
+                "/club", now.AddDays(30)));
+        if (store.Posts >= 3)
+            ideas.Add(new DesignIdea($"blog:{month}", "مجلهٔ " + site,
+                $"{DesignTemplates.FaDigits(store.Posts.ToString(CultureInfo.InvariantCulture))} مقالهٔ منتشرشده.",
+                new DesignSpec("pattern", "sky", Variant("blog" + month, $"مجلهٔ {site}", "پیش از خرید، بخوانید"),
+                    "راهنمای خرید، مقایسه و نکته‌های کاربردی", null, "خواندن مقاله‌ها", Kicker: "مجله"),
+                "/blog", now.AddDays(30)));
+        // معرفی فروشگاه: همیشه (تا هیچ‌وقت بدون بنر نمانیم).
+        ideas.Add(new DesignIdea($"brand:{month}", "معرفی " + site,
+            "بنر معرفی فروشگاه (همیشه در دسترس؛ وقتی ایدهٔ دیگری نیست).",
+            new DesignSpec("pattern", Variant("brand-palette" + month, "indigo", "ocean", "night", "forest"),
+                site, string.IsNullOrWhiteSpace(store.Slogan) ? Variant("brand" + month, "خرید آسان، ارسال مطمئن", "هرچه لازم دارید، در یک جا", "خرید آنلاین با خیال راحت") : DesignTemplates.Shorten(store.Slogan.Trim(), 60),
+                null, "ورود به فروشگاه", Kicker: "خوش آمدید"),
+            "/products", now.AddDays(30)));
+    }
+
+    /// <summary>
+    /// دور ۲۸: انتخاب پایدار یکی از چند متن با کلید (همان کلید ← همان متن؛ ماه بعد متن دیگری). مثال: Variant("pay1405-08", "الف", "ب").
+    /// </summary>
+    public static string Variant(string seed, params string[] options)
+    {
+        if (options.Length == 0)
+            return "";
+        var hash = 17;
+        foreach (var c in seed)
+            hash = unchecked(hash * 31 + c);
+        return options[(hash & 0x7fffffff) % options.Length];
     }
 
     /// <summary>عکس چند کالا برای چیدمان «کنار هم» (فقط دارای عکس).</summary>

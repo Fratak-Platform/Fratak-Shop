@@ -221,7 +221,9 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             products.Where(p => p.CategoryId == c.CategoryId).Select(p => p.Product).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).FirstOrDefault()))
             .ToList();
 
-        return new IdeaInput(products.Select(p => p.Product).ToList(), categories, siteName);
+        // دور ۲۸: تعداد مقاله‌های منتشرشده برای بنر «مجله» (فقط وقتی دست‌کم ۳ مقاله هست).
+        var posts = await context.BlogPosts.AsNoTracking().CountAsync(p => p.IsPublished && (p.PublishedAt == null || p.PublishedAt <= now), cancellationToken);
+        return new IdeaInput(products.Select(p => p.Product).ToList(), categories, siteName) { PublishedPosts = posts };
     }
 
     /// <summary>
