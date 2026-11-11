@@ -153,6 +153,14 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
                 return NotFound();
             Input = ToInput(product);
             SetInfo(product);
+            // دور ۲۸ (#۹۹): پیش‌نویس هرگز منتشرنشده ← چه چیزی مانع «آمادهٔ انتشار» است (کنار دکمهٔ پیش‌نمایش).
+            if (!product.IsActive && product.PublishedAt == null)
+            {
+                IsDraft = true;
+                var categoryIsSystem = await data.Query<Fratak_Shop.Data.Entities.Categories.Category>().Where(c => c.Id == product.CategoryId).Select(c => c.IsSystem).FirstOrDefaultAsync();
+                ReadyGaps = Fratak_Shop.Core.Services.Products.ProductCompleteness.ReadyGaps(categoryIsSystem, product.Price, product.Images.Count,
+                    product.Description?.Length ?? 0, product.ShortDescription?.Length ?? 0, product.EnglishName);
+            }
             Stamp = EditStamp.Format(await history.StampAsync(nameof(Product), product.Id));
             await LoadHistoryAsync();
         }
@@ -587,6 +595,12 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         await LoadListsAsync();
         return Page();
     }
+
+    /// <summary>دور ۲۸ (#۹۹): کالا هنوز هیچ‌وقت منتشر نشده (پیش‌نویس).</summary>
+    public bool IsDraft { get; private set; }
+
+    /// <summary>دور ۲۸ (#۹۹): کمبودهای «آمادهٔ انتشار» پیش‌نویس (خالی = آماده).</summary>
+    public IReadOnlyList<string> ReadyGaps { get; private set; } = [];
 
     private void SetInfo(Product product)
     {

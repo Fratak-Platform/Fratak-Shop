@@ -9,7 +9,14 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Fratak_Shop.Web.Infrastructure.Commerce;
 
 /// <summary>نتیجهٔ جست‌وجوی تصویری. Busy = سرور الان شلوغ است؛ Invalid = فایل تصویر معتبری نبود.</summary>
-public sealed record ImageSearchResult(IReadOnlyList<ProductFilterData> Products, bool Busy = false, bool Invalid = false);
+public sealed record ImageSearchResult(IReadOnlyList<ProductFilterData> Products, bool Busy = false, bool Invalid = false, bool Approximate = false);
+
+/// <summary>
+/// دور ۲۸: وضعیت امضاهای جست‌وجوی تصویری برای صفحهٔ «سلامت داده» پنل.
+/// <para>Active = کالاهای فعال عکس‌دار؛ Signed = امضای سالم دارند؛ Broken = عکسشان خوانده نشد (فایل گم/خراب)؛ Pending = هنوز ساخته نشده.</para>
+/// مثال: Active=120، Signed=118، Broken=2 ← دو کالا عکس خراب دارند و در جست‌وجوی تصویری پیدا نمی‌شوند.
+/// </summary>
+public sealed record ImageSearchHealth(int Active, int Signed, int Broken, int Pending);
 
 /// <summary>
 /// دور ۲۴ (پیشنهاد ۲۹ – جست‌وجو با عکس): مشتری عکسی می‌فرستد و کالاهای شبیه (شکل و رنگ) پیدا می‌شوند.
@@ -47,6 +54,15 @@ public sealed class ImageSearchService(
     /// <summary>تعداد امضای ساخته‌شده در هر نوبت پس‌زمینه (دور ۲۶: ۶۰؛ هر عکس کوچک‌شده باز می‌شود و سبک است).</summary>
     public const int BatchSize = 60;
 
+    /// <summary>
+    /// دور ۲۸: اگر هیچ کالایی به <see cref="MinScore"/> نرسید، تا ۴ کالا با امتیاز دست‌کم این عدد به‌عنوان «شبیه‌ترین‌ها»
+    /// (برچسب «شاید») نشان داده می‌شود تا مشتری با صفحهٔ خالی روبه‌رو نشود. عکس‌های بی‌ربط معمولاً زیر ۰٫۴۵ می‌مانند.
+    /// </summary>
+    public const double ApproximateScore = 0.47;
+
+    /// <summary>دور ۲۸: سقف نتیجه‌های «شاید».</summary>
+    public const int MaxApproximate = 4;
+
     private const string CacheKey = "imgsig:all";
     private static readonly SemaphoreSlim Gate = new(2, 2);
 
@@ -65,10 +81,20 @@ public sealed class ImageSearchService(
 
             var entries = await LoadAsync(cancellationToken);
             var ids = Rank(variants, entries);
+            var approximate = false;
+            if (ids.Count == 0)
+            {
+                // دور ۲۸: نتیجهٔ دقیق نبود ← شبیه‌ترین‌ها با برچسب «شاید» (نه صفحهٔ خالی).
+                ids = RankApproximate(variants, entries);
+                approximate = ids.Count > 0;
+            }
             if (ids.Count == 0)
                 return new ImageSearchResult([]);
             var cards = await products.GetCardsByIdsAsync(ids);
-            return new ImageSearchResult(cards);
+            // ترتیب امتیاز حفظ شود (GetCardsByIdsAsync ترتیب خودش را دارد).
+            var order = ids.Select((id, index) => (id, index)).ToDictionary(x => x.id, x => x.index);
+            var sorted = cards.OrderBy(c => order.GetValueOrDefault(c.Id, int.MaxValue)).ToList();
+            return new ImageSearchResult(sorted, Approximate: approximate);
         }
         finally
         {
@@ -107,6 +133,50 @@ public sealed class ImageSearchService(
         return scored.Select(x => x.ProductId).ToList();
     }
 
+    /// <summary>
+    /// دور ۲۸ – رتبه‌بندی «شاید»: وقتی هیچ کالایی به حد اصلی نرسید، حداکثر <see cref="MaxApproximate"/> کالا با امتیاز
+    /// دست‌کم <see cref="ApproximateScore"/>. مثال: عکس دوربین گوشی از یک قوری روی میز ← قوری‌های فروشگاه با امتیاز ۰٫۵.
+    /// </summary>
+    public static List<Guid> RankApproximate(IReadOnlyList<ImageSignature.Signature> queries, IEnumerable<ImageSignature.Stored> candidates) =>
+        candidates
+            .Select(c => (c.ProductId, Score: ImageSignature.Score(queries, c)))
+            .Where(x => x.Score >= ApproximateScore && x.Score < MinScore)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.ProductId)
+            .Take(MaxApproximate)
+            .Select(x => x.ProductId)
+            .ToList();
+
+    /// <summary>
+    /// دور ۲۸: آیا یک ردیف امضا قابل مقایسه است؟ ردیف عکس خراب (هش صفر و بدون شکل) فقط «نویز» بود و
+    /// به هر عکس تیره‌ای امتیاز بیخود می‌داد؛ حالا کنار گذاشته می‌شود.
+    /// </summary>
+    public static bool IsUsable(long hash, byte[]? hashes) => hash != 0 || ImageSignature.Unpack(hashes).Any(h => h.DHash != 0 || h.PHash != 0);
+
+    /// <summary>دور ۲۸: آمار امضاها برای صفحهٔ سلامت داده.</summary>
+    public async Task<ImageSearchHealth> HealthAsync(CancellationToken cancellationToken)
+    {
+        var active = await context.Products.CountAsync(p => p.IsActive && p.Images.Any(), cancellationToken);
+        var rows = await context.ProductImageSignatures
+            .Where(s => context.Products.Any(p => p.Id == s.ProductId && p.IsActive))
+            .Select(s => new { s.Hash, s.Hashes })
+            .ToListAsync(cancellationToken);
+        var signed = rows.Count(r => IsUsable(r.Hash, r.Hashes));
+        var broken = rows.Count - signed;
+        return new ImageSearchHealth(active, signed, broken, Math.Max(0, active - rows.Count));
+    }
+
+    /// <summary>
+    /// دور ۲۸: «بازسازی امضاها» از پنل – همهٔ امضاها نامعتبر می‌شوند تا کارگر پس‌زمینه (و همین متد، یک دسته) دوباره بسازد.
+    /// خروجی: تعداد امضاهای ساخته‌شده در همین درخواست.
+    /// </summary>
+    public async Task<int> ResetAsync(CancellationToken cancellationToken)
+    {
+        await context.ProductImageSignatures.ExecuteUpdateAsync(s => s.SetProperty(x => x.ImageName, ""), cancellationToken);
+        cache.Remove(CacheKey);
+        return await BuildSignaturesAsync(cancellationToken);
+    }
+
     private async Task<List<ImageSignature.Stored>> LoadAsync(CancellationToken cancellationToken)
     {
         if (cache.TryGetValue(CacheKey, out List<ImageSignature.Stored>? cached) && cached is not null)
@@ -116,7 +186,8 @@ public sealed class ImageSearchService(
             .Select(s => new { s.ProductId, s.Hash, s.Colors, s.Hashes })
             .ToListAsync(cancellationToken);
         // امضای قدیمی (بدون Hashes) فقط dHash دارد؛ تا ساخت دوباره با همان یک هش مقایسه می‌شود.
-        var list = rows.Select(r =>
+        // دور ۲۸: ردیف عکس خراب (همه‌چیز صفر) کنار می‌رود.
+        var list = rows.Where(r => IsUsable(r.Hash, r.Hashes)).Select(r =>
         {
             var shapes = ImageSignature.Unpack(r.Hashes);
             if (shapes.Count == 0)

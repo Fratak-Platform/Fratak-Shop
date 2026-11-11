@@ -34,6 +34,18 @@ public class ProductImage : BaseEntity
     /// </summary>
     public byte? Quality { get; set; }
 
+    /// <summary>
+    /// دور ۲۸ (#۳۶ تا #۵۰): اطمینان «بررسی سوژه» ۰ تا ۱۰۰ – عکس خود کالاست، ترجیحاً روی سفید، بدون آدم و واترمارک
+    /// (ImageSubjectCheck). null = هنوز بررسی نشده (کارگر هوشمند عکس‌های موجود را کم‌کم بازبینی می‌کند).
+    /// </summary>
+    public byte? SubjectScore { get; set; }
+
+    /// <summary>
+    /// دور ۲۸: نشانه‌های بررسی سوژه (بیت‌ها): ۱ = زمینهٔ سفید، ۲ = زمینهٔ یکدست، ۴ = احتمال آدم، ۸ = احتمال واترمارک، ۱۶ = عکس صحنه.
+    /// مثال: ۳ = روی سفید (عالی)؛ ۴ = آدم دارد (در گزارش سلامت داده برای بازبینی می‌آید).
+    /// </summary>
+    public byte? SubjectFlags { get; set; }
+
     [ForeignKey(nameof(ProductId))]
     public Product Product { get; set; } = null!;
 }

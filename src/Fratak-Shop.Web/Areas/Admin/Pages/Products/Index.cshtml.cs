@@ -49,8 +49,27 @@ public sealed class AdminProductRow
 }
 
 [AdminPermission(AdminPermissions.ProductsView, AdminPermissions.SeoManage)]
-public class IndexModel(IAdminDataService data, IProductService products, IStoreSettingService settings, ISmartTaskQueue smartQueue) : AdminPageModel
+public class IndexModel(IAdminDataService data, IProductService products, IStoreSettingService settings, ISmartTaskQueue smartQueue,
+    ISmartCatalogService catalog, Microsoft.Extensions.Caching.Memory.IMemoryCache cache) : AdminPageModel
 {
+    /// <summary>
+    /// دور ۲۸ (#۹۸ – «بازگردانی تغییر»): آخرین تغییر گروهی هر کارمند ۳۰ دقیقه در حافظه می‌ماند تا با دکمهٔ «بازگردانی» برگردد.
+    /// Kind: «category» (دستهٔ قبلی هر کالا) یا «activation» (فعال/غیرفعال قبلی). Target: دستهٔ مقصد (برای بررسی اینکه کسی بعداً عوضش نکرده).
+    /// </summary>
+    public sealed record BulkUndo(string Kind, Guid? Target, IReadOnlyList<(Guid ProductId, Guid OldCategoryId)> Categories, IReadOnlyList<(Guid ProductId, bool WasActive)> Activations, Guid? ActorId);
+
+    /// <summary>رمز تغییر قابل بازگردانی (از TempData)؛ null = چیزی برای بازگردانی نیست.</summary>
+    public string? UndoToken { get; private set; }
+
+    private static string UndoKey(string token) => "admin:undo:" + token;
+
+    private void RememberUndo(BulkUndo undo)
+    {
+        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
+        cache.Set(UndoKey(token), undo, new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30), Size = 1 });
+        TempData["UndoToken"] = token;
+    }
+
     /// <summary>دور ۲۲: سقف «تغییر تأمین‌کنندهٔ همهٔ نتایج فیلتر» در یک بار (برای فروشگاه‌های بزرگ‌تر فیلتر را محدودتر کنید).</summary>
     public const int MaxSupplierAll = 50_000;
 
@@ -65,6 +84,9 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
 
     public PagedList<AdminProductRow> Products { get; private set; } = new([], 0, 1, 30);
     public List<(Guid Id, string Name)> Categories { get; private set; } = [];
+
+    /// <summary>دور ۲۸ (#۹۵): دسته‌های مجاز برای «تغییر دسته» گروهی (بدون دستهٔ سیستمی).</summary>
+    public List<(Guid Id, string Name)> MoveTargets { get; private set; } = [];
     public List<(Guid Id, string Name)> Brands { get; private set; } = [];
     public List<(Guid Id, string Name)> Suppliers { get; private set; } = [];
     public int LowStockThreshold { get; private set; }
@@ -72,6 +94,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
 
     public async Task OnGetAsync([FromQuery(Name = "page")] int pageNumber = 1)
     {
+        UndoToken = TempData["UndoToken"] as string;
         LowStockThreshold = (await settings.GetAsync()).LowStockThreshold;
         var query = Filter();
         var page = ClampPage(pageNumber);
@@ -111,8 +134,11 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             ["ready"] = await all.CountAsync(ProductCompleteness.ReadyToPublish),
         };
 
-        var categories = await data.Query<Category>().OrderBy(c => c.Name).Select(c => new { c.Id, c.Name, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null }).ToListAsync();
+        var categories = await data.Query<Category>().OrderBy(c => c.Name).Select(c => new { c.Id, c.Name, c.IsSystem, Parent = c.ParentCategory != null ? c.ParentCategory.Name : null }).ToListAsync();
         Categories = categories.Select(c => (c.Id, c.Parent is null ? c.Name : $"{c.Parent} › {c.Name}")).OrderBy(c => c.Item2).ToList();
+        // دور ۲۸ (#۹۵): مقصد «تغییر دسته» هرگز دستهٔ سیستمی نیست.
+        var systemIds = categories.Where(c => c.IsSystem).Select(c => c.Id).ToHashSet();
+        MoveTargets = Categories.Where(c => !systemIds.Contains(c.Id)).ToList();
         var brands = await data.Query<Brand>().OrderBy(b => b.Name).Select(b => new { b.Id, b.Name }).ToListAsync();
         Brands = brands.Select(b => (b.Id, b.Name)).ToList();
         if (Can(AdminPermissions.ProductsSupplier))
@@ -150,7 +176,7 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
     }
 
     [AdminPermission(AdminPermissions.ProductsManage)]
-    public async Task<IActionResult> OnPostBulkAsync(List<Guid> ids, string action, string? supplierTarget = null)
+    public async Task<IActionResult> OnPostBulkAsync(List<Guid> ids, string action, string? supplierTarget = null, Guid? categoryTarget = null)
     {
         ids = ids.Distinct().Take(200).ToList();
         if (ids.Count == 0)
@@ -164,11 +190,59 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
         {
             case "activate":
             case "deactivate":
-                foreach (var id in ids)
-                    if (Succeeded(await products.ChangeProductActivationAsync(id, action == "activate")))
+            {
+                // دور ۲۸ (#۹۸): وضعیت قبلی برای «بازگردانی» نگه داشته می‌شود.
+                var before = await data.Query<Product>().Where(p => ids.Contains(p.Id)).Select(p => new { p.Id, p.IsActive }).ToListAsync();
+                var changed = new List<(Guid, bool)>();
+                foreach (var row in before)
+                {
+                    if (row.IsActive == (action == "activate"))
+                        continue;
+                    if (Succeeded(await products.ChangeProductActivationAsync(row.Id, action == "activate")))
+                    {
                         done++;
+                        changed.Add((row.Id, row.IsActive));
+                    }
+                }
                 SuccessMessage = $"{done} محصول {(action == "activate" ? "فعال" : "غیرفعال")} شد.";
+                if (changed.Count > 0)
+                    RememberUndo(new BulkUndo("activation", null, [], changed, ActorId));
                 break;
+            }
+
+            case "category":
+            {
+                // دور ۲۸ (#۹۵): تغییر گروهی دسته (با امکان بازگردانی).
+                if (categoryTarget is not { } target)
+                {
+                    ErrorMessage = "دستهٔ مقصد را انتخاب کنید.";
+                    break;
+                }
+                var moved = await products.ChangeCategoryAsync(ids, target);
+                if (moved.IsSuccess() && moved.Data is { Count: > 0 } undo)
+                    RememberUndo(new BulkUndo("category", target, undo, [], ActorId));
+                if (moved.IsSuccess())
+                    SuccessMessage = moved.Message;
+                else
+                    ErrorMessage = moved.Message;
+                break;
+            }
+
+            case "reprepare":
+            {
+                // دور ۲۸ (#۶۶): «آماده‌سازی دوباره» انتخاب‌شده‌ها – همین حالا تکمیل هوشمند کامل (بدون «لازم نیست») در صف می‌رود.
+                var drafts = await data.Query<Product>().Where(p => ids.Contains(p.Id) && !p.IsActive).Select(p => new { p.Id, p.Name }).ToListAsync();
+                foreach (var item in drafts)
+                {
+                    await smartQueue.EnqueueAsync(SmartTaskKind.ProductComplete, SmartTarget.Product, item.Id, item.Name, SmartPriority.Manual,
+                        "{\"manual\":1}", ActorId, ActorName, HttpContext.RequestAborted);
+                    done++;
+                }
+                SuccessMessage = done == 0
+                    ? "فقط پیش‌نویس‌ها (کالای منتشرنشده) آماده‌سازی می‌شوند."
+                    : $"آماده‌سازی دوبارهٔ {Format.Number(done)} پیش‌نویس در صف رفت؛ نتیجهٔ هر کدام اعلان می‌شود.";
+                break;
+            }
 
             case "smart":
                 // دور ۲۲: «تکمیل هوشمند» گروهی (همان دکمهٔ «پیشنهاد هوشمند» هر کالا، برای چند کالا با هم).
@@ -227,6 +301,54 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
             ErrorMessage = "کالای آمادهٔ انتشاری نیست.";
         else
             SuccessMessage = $"{Format.Number(done)} کالای آماده منتشر شد.";
+        return BackToList();
+    }
+
+    /// <summary>
+    /// دور ۲۸ (#۶۶) – «آماده‌سازی دوباره همه»: شمارش تلاش همهٔ پیش‌نویس‌های ناآماده صفر می‌شود و حلقهٔ آماده‌سازی (هر ۱۰ دقیقه،
+    /// هر بار ۱۰ کالا) دوباره از اول سراغشان می‌رود. هیچ کالایی منتشر نمی‌شود.
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostReprepareAllAsync()
+    {
+        var count = await catalog.ResetReadinessAsync(HttpContext.RequestAborted);
+        SuccessMessage = count == 0
+            ? "همهٔ پیش‌نویس‌ها آمادهٔ انتشارند؛ چیزی برای آماده‌سازی نماند."
+            : $"آماده‌سازی دوبارهٔ {Format.Number(count)} پیش‌نویس شروع شد (هر ۱۰ دقیقه ۱۰ کالا؛ نتیجه اعلان می‌شود).";
+        return BackToList();
+    }
+
+    /// <summary>
+    /// دور ۲۸ (#۹۸) – «بازگردانی آخرین تغییر گروهی» (فقط همان کارمند و تا ۳۰ دقیقه). کالایی که در این فاصله کس دیگری
+    /// تغییرش داده دست نمی‌خورد.
+    /// </summary>
+    [AdminPermission(AdminPermissions.ProductsManage)]
+    public async Task<IActionResult> OnPostUndoAsync(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 40 || !cache.TryGetValue(UndoKey(token), out BulkUndo? undo) || undo is null || undo.ActorId != ActorId)
+        {
+            ErrorMessage = "مهلت بازگردانی تمام شده یا این تغییر مال شما نیست.";
+            return BackToList();
+        }
+        cache.Remove(UndoKey(token));
+        if (undo.Kind == "category" && undo.Target is { } target)
+        {
+            ShowResult(await products.RestoreCategoriesAsync(undo.Categories, target));
+        }
+        else
+        {
+            var done = 0;
+            var undoIds = undo.Activations.Select(a => a.ProductId).ToList();
+            var current = (await data.Query<Product>().Where(p => undoIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.IsActive }).ToListAsync()).ToDictionary(p => p.Id, p => p.IsActive);
+            foreach (var (id, wasActive) in undo.Activations)
+            {
+                // فقط اگر هنوز همان حالتی است که ما گذاشتیم.
+                if (current.TryGetValue(id, out var now) && now != wasActive && Succeeded(await products.ChangeProductActivationAsync(id, wasActive)))
+                    done++;
+            }
+            SuccessMessage = $"وضعیت {Format.Number(done)} محصول به حالت قبل برگشت.";
+        }
         return BackToList();
     }
 

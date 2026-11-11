@@ -262,6 +262,53 @@ public class ProductService(FratakShopDbContext context) : IProductService
             : $"تأمین‌کنندهٔ {changed} محصول تغییر کرد.");
     }
 
+    public async Task<OperationResult<IReadOnlyList<(Guid ProductId, Guid OldCategoryId)>>> ChangeCategoryAsync(IReadOnlyCollection<Guid> productIds, Guid categoryId)
+    {
+        var ids = productIds.Distinct().Take(200).ToList();
+        if (ids.Count == 0)
+            return OperationResult<IReadOnlyList<(Guid, Guid)>>.Error("هیچ محصولی انتخاب نشده است.");
+        var target = await context.Categories.Where(c => c.Id == categoryId).Select(c => new { c.Id, c.IsSystem, c.Name }).FirstOrDefaultAsync();
+        if (target is null)
+            return OperationResult<IReadOnlyList<(Guid, Guid)>>.NotFound("دستهٔ مقصد یافت نشد.");
+        // خواستهٔ کاربر: هیچ کالایی به «دسته‌بندی نشده» نمی‌رود (کالای بی‌دسته منتشر نمی‌شود).
+        if (target.IsSystem)
+            return OperationResult<IReadOnlyList<(Guid, Guid)>>.Error("یک دستهٔ واقعی انتخاب کنید.");
+
+        // با ردیابی (نه ExecuteUpdate) تا گزارش فعالیت/تاریخچهٔ ویرایش هر کالا ثبت شود.
+        var products = await context.Products.AsTracking().Where(p => ids.Contains(p.Id) && p.CategoryId != categoryId).ToListAsync();
+        var undo = products.Select(p => (p.Id, p.CategoryId)).ToList();
+        foreach (var product in products)
+            product.CategoryId = categoryId;
+        if (products.Count > 0)
+            await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return OperationResult<IReadOnlyList<(Guid, Guid)>>.Success(undo, $"{products.Count} محصول به دستهٔ «{target.Name}» رفت.");
+    }
+
+    public async Task<OperationResult<int>> RestoreCategoriesAsync(IReadOnlyList<(Guid ProductId, Guid OldCategoryId)> items, Guid expectedCategoryId)
+    {
+        if (items.Count == 0)
+            return OperationResult<int>.Error("چیزی برای بازگردانی نیست.");
+        var map = items.Take(200).GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.First().OldCategoryId);
+        var ids = map.Keys.ToList();
+        var oldIds = map.Values.Distinct().ToList();
+        var existing = (await context.Categories.Where(c => oldIds.Contains(c.Id)).Select(c => c.Id).ToListAsync()).ToHashSet();
+        var products = await context.Products.AsTracking().Where(p => ids.Contains(p.Id) && p.CategoryId == expectedCategoryId).ToListAsync();
+        var restored = 0;
+        foreach (var product in products)
+        {
+            var old = map[product.Id];
+            if (!existing.Contains(old))
+                continue;
+            product.CategoryId = old;
+            restored++;
+        }
+        if (restored > 0)
+            await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return OperationResult<int>.Success(restored, $"دستهٔ {restored} محصول به حالت قبل برگشت.");
+    }
+
     public async Task<OperationResult> UpdateStockAsync(Guid id, int stockQuantity)
     {
         if (stockQuantity < 0)

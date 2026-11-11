@@ -317,3 +317,48 @@ a.fr-promo:focus-visible { outline: 3px solid #facc15; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   .fr-promo, .fr-promo__img, .fr-promo__glow, .fr-promo::after { animation: none !important; transition: none !important; }
 }
+
+/* ── دور ۲۸ (#۷۷): اسکلت بارگذاری ─────────────────────────────── */
+@keyframes fc-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.fc-skel { background: linear-gradient(90deg, #eef0f3 25%, #f8f9fb 50%, #eef0f3 75%); background-size: 200% 100%; animation: fc-shimmer 1.3s linear infinite; border-radius: .5rem; }
+.fc-skel-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: .5rem; }
+@media (min-width: 768px) { .fc-skel-wrap { grid-template-columns: 1fr 1fr; } }
+.fc-skel-img { aspect-ratio: 1 / 1; width: 100%; }
+.fc-skel-lines { display: flex; flex-direction: column; gap: .75rem; padding-top: .5rem; }
+.fc-skel-line { height: .9rem; }
+.fc-skel-line.w-80 { width: 80%; } .fc-skel-line.w-70 { width: 70%; } .fc-skel-line.w-60 { width: 60%; } .fc-skel-line.w-40 { width: 40%; }
+.fc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+img.fc-img-skel:not(.is-loaded) { background: linear-gradient(90deg, #f1f3f5 25%, #fafbfc 50%, #f1f3f5 75%); background-size: 200% 100%; animation: fc-shimmer 1.3s linear infinite; min-height: 8rem; border-radius: .5rem; }
+@media (prefers-reduced-motion: reduce) { .fc-skel, img.fc-img-skel:not(.is-loaded) { animation: none; } }
+
+/* ── دور ۲۸ (#۱۳۱): نوار پایین موبایل ─────────────────────────── */
+.fs-bnav { position: fixed; inset-inline: 0; bottom: 0; z-index: 38; display: flex; justify-content: space-around; align-items: stretch;
+  background: rgba(255,255,255,.97); border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 18px rgba(15,23,42,.06);
+  padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); backdrop-filter: saturate(1.4) blur(6px); }
+.fs-bnav > a, .fs-bnav > button { position: relative; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 52px; color: #52525b; font-size: 11px; border-radius: 12px; background: none; border: 0; }
+.fs-bnav > a[aria-current="page"] { color: #0284c7; font-weight: 700; }
+.fs-bnav > a:focus-visible, .fs-bnav > button:focus-visible { outline: 2px solid #0284c7; outline-offset: -2px; }
+.fs-bnav svg { width: 22px; height: 22px; fill: currentColor; }
+.fs-bnav-badge { position: absolute; top: 4px; inset-inline-start: calc(50% + 4px); min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  background: #ef4444; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+@media (max-width: 767.98px) {
+  body:has(.fs-bnav) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  body:has(.fs-bnav) .fs-as-launch { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  /* نوار «افزودن به سبد» صفحهٔ کالا وقتی دیده می‌شود جای نوار پایین را می‌گیرد. */
+  body:has(.fs-sticky-buy:not([hidden])) .fs-bnav { display: none; }
+}
+@media print { .fs-bnav { display: none !important; } }
+
+/* ── دور ۲۸ (#۱۳۰): دسترس‌پذیری ─────────────────────────────── */
+.fs-skip { position: fixed; top: 8px; inset-inline-start: 8px; z-index: 100; padding: .6rem 1rem; border-radius: .6rem; background: #0f172a; color: #fff;
+  font-weight: 700; transform: translateY(-200%); transition: transform .15s ease; }
+.fs-skip:focus { transform: none; outline: 3px solid #38bdf8; outline-offset: 2px; }
+.fs-main-anchor { display: block; height: 0; scroll-margin-top: 9rem; }
+.fs-main-anchor:focus { outline: none; }
+/* حلقهٔ فوکوس واضح برای همهٔ پیوندها و دکمه‌های فروشگاه (کاربر صفحه‌کلید). */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #0284c7; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto !important; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* دور ۲۸ (#۱۳۱): output.css پیش‌ساخته است؛ پنهان شدن نوار پایین در دسکتاپ را مستقل از ترتیب بارگذاری تضمین می‌کنیم. */
+@media (min-width: 768px) { .fs-bnav { display: none !important; } }

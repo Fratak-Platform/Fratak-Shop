@@ -59,14 +59,32 @@ public static class CommerceEndpoints
             http.Response.Headers.CacheControl = "no-store";
             if (!(await smart.GetAsync(http.RequestAborted)).ImageSearch)
                 return Results.NotFound();
-            if (http.Request.ContentLength is null or > ImageSignature.MaxBytes + 16 * 1024)
+            // دور ۲۸ (علت اصلی خرابی): قبلاً درخواست بدون سرآیند Content-Length (HTTP/2 یا پراکسی Plesk که بدنه را تکه‌تکه
+            // می‌فرستد) همیشه ۴۱۳ می‌گرفت. حالا فقط وقتی طول اعلام‌شده زیاد است رد می‌شود و سقف واقعی را خود Kestrel/IIS
+            // (MaxRequestBodySize) و FormOptions هنگام خواندن فرم اعمال می‌کنند.
+            if (http.Request.ContentLength is > ImageSignature.MaxBytes + 64 * 1024)
                 return Results.Json(new { error = "حجم عکس حداکثر ۴ مگابایت است." }, statusCode: StatusCodes.Status413PayloadTooLarge);
             if (!http.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "عکسی انتخاب نشده است." });
             if (!await antiforgery.IsRequestValidAsync(http))
                 return Results.BadRequest(new { error = Expired });
 
-            var form = await http.Request.ReadFormAsync(http.RequestAborted);
+            var bodyLimit = http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+            if (bodyLimit is { IsReadOnly: false })
+                bodyLimit.MaxRequestBodySize = ImageSignature.MaxBytes + 64 * 1024;
+            IFormCollection form;
+            try
+            {
+                form = await http.Request.ReadFormAsync(new Microsoft.AspNetCore.Http.Features.FormOptions
+                {
+                    MultipartBodyLengthLimit = ImageSignature.MaxBytes + 64 * 1024,
+                    ValueCountLimit = 8,
+                }, http.RequestAborted);
+            }
+            catch (Exception exception) when (exception is InvalidDataException or BadHttpRequestException or IOException)
+            {
+                return Results.Json(new { error = "حجم عکس حداکثر ۴ مگابایت است." }, statusCode: StatusCodes.Status413PayloadTooLarge);
+            }
             var file = form.Files.GetFile("image");
             if (file is null || file.Length == 0 || file.Length > ImageSignature.MaxBytes)
                 return Results.BadRequest(new { error = "عکسی انتخاب نشده یا حجمش بیش از ۴ مگابایت است." });
@@ -84,7 +102,7 @@ public static class CommerceEndpoints
                 return Results.Json(new { error = "سرور الان شلوغ است؛ چند ثانیه بعد دوباره امتحان کنید." }, statusCode: StatusCodes.Status503ServiceUnavailable);
             if (result.Invalid)
                 return Results.BadRequest(new { error = "این فایل عکس معتبری نیست (JPG، PNG یا WebP)." });
-            return Results.Ok(new { products = result.Products.Select(Card) });
+            return Results.Ok(new { products = result.Products.Select(Card), approximate = result.Approximate });
         }).DisableAntiforgery();
 
         // ── نمایش سریع کالا (بدون رفتن به صفحهٔ کالا). کش عمومی ۶۰ ثانیه.

@@ -275,6 +275,23 @@ public class PaymentTransactionService(
             .ToListAsync();
     }
 
+    public async Task<List<PaymentTransactionDto>> GetReconcileCandidatesAsync(DateTimeOffset olderThan, DateTimeOffset newerThan, DateTimeOffset stuckBefore, int take = 20)
+    {
+        // قفل‌های رهاشده (Verifying قدیمی) دوباره «منتظر» می‌شوند تا تطبیق بتواند تمامشان کند.
+        await context.PaymentTransactions
+            .Where(t => t.Status == PaymentTransactionStatus.Verifying && t.UpdatedAt < stuckBefore)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Status, PaymentTransactionStatus.Pending)
+                .SetProperty(t => t.Message, "قفل تأیید رهاشده آزاد شد (تطبیق خودکار)."));
+
+        return await Project(context.PaymentTransactions.Where(t => t.Status == PaymentTransactionStatus.Pending
+                                                                    && t.Authority != null && t.Authority != ""
+                                                                    && t.CreatedAt < olderThan && t.CreatedAt > newerThan))
+            .OrderBy(t => t.CreatedAt)
+            .Take(Math.Clamp(take, 1, 100))
+            .ToListAsync();
+    }
+
     private static IQueryable<PaymentTransactionDto> Project(IQueryable<PaymentTransaction> query)
     {
         return query.Select(t => new PaymentTransactionDto

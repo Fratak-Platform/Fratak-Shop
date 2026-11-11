@@ -7,6 +7,33 @@ namespace Fratak_Shop.Web.Services;
 public sealed record StoredFile(string FileName, string ContentType, int SizeBytes, int? Width = null, int? Height = null);
 
 /// <summary>Where an upload area lives: public (wwwroot/uploads/…) or private (App_Data/…, served by an authorized handler).</summary>
+/// <summary>
+/// دور ۲۸ (#۱۱۸ – «بررسی محتوای فایل آپلودی»): PDF فقط با امضای «%PDF-» کافی نیست؛ PDF می‌تواند جاوااسکریپت، دستور اجرای برنامه
+/// یا فایل پنهان داشته باشد. این بررسی سبک (بدون کتابخانهٔ بیرونی) نام‌های خطرناک ساختار PDF را جست‌وجو می‌کند و پایان معتبر
+/// («%%EOF» در ۲ کیلوبایت آخر) را می‌خواهد. مثال: فاکتور معمولی ← null؛ PDF با «/JavaScript» ← پیام خطا.
+/// </summary>
+public static class PdfSafety
+{
+    // نام‌های ساختاری که در فاکتور/رسید عادی لازم نیستند و راه حمله‌اند.
+    private static readonly string[] Dangerous = ["/JavaScript", "/JS ", "/JS(", "/JS<", "/Launch", "/EmbeddedFile", "/RichMedia", "/XFA", "/SubmitForm", "/ImportData"];
+
+    public static string? Problem(byte[] bytes)
+    {
+        if (bytes.Length < 64)
+            return "فایل PDF ناقص است.";
+        var tail = System.Text.Encoding.Latin1.GetString(bytes, Math.Max(0, bytes.Length - 2048), Math.Min(2048, bytes.Length));
+        if (!tail.Contains("%%EOF", StringComparison.Ordinal))
+            return "فایل PDF ناقص یا خراب است.";
+        var text = System.Text.Encoding.Latin1.GetString(bytes);
+        foreach (var name in Dangerous)
+        {
+            if (text.Contains(name, StringComparison.Ordinal))
+                return "این PDF محتوای فعال (کد یا فایل جاسازی‌شده) دارد و به‌خاطر امنیت پذیرفته نمی‌شود؛ لطفاً عکس یا PDF ساده بفرستید.";
+        }
+        return null;
+    }
+}
+
 public sealed record UploadArea(string Name, bool IsPublic, bool AllowPdf)
 {
     /// <summary>Return-request photos: random names under /uploads/returns (not indexed, see robots.txt).</summary>
@@ -109,6 +136,9 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
 
             if (area.AllowPdf && bytes.AsSpan().StartsWith(PdfSignature))
             {
+                // دور ۲۸ (#۱۱۸): PDF با کد فعال (جاوااسکریپت، اجرای برنامه، فایل جاسازی‌شده) یا ناقص پذیرفته نمی‌شود.
+                if (PdfSafety.Problem(bytes) is { } problem)
+                    return ([], problem);
                 prepared.Add((bytes, ".pdf", "application/pdf", null, null));
                 continue;
             }

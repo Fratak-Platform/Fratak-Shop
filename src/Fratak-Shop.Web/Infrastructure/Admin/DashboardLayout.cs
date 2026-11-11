@@ -39,6 +39,8 @@ public static class DashboardLayout
     /// <summary>ویجت‌ها به ترتیب پیش‌فرض.</summary>
     public static readonly DashboardWidget[] Widgets =
     [
+        // دور ۲۸ (#۹۴): فهرست کوتاه و مرتب «کارهای امروز» بالای همه.
+        new("today", "کارهای امروز", 3),
         new("tasks", "کارهای در انتظار", 3),
         new("sales-stats", "آمار فروش", 3, [P.FinanceView, P.OrdersView]),
         new("sales-chart", "نمودار فروش ۳۰ روز", 2, [P.FinanceView, P.OrdersView]),

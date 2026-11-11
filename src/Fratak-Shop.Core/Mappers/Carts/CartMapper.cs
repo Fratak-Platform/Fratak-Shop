@@ -57,6 +57,7 @@ public static class CartMapper
             TotalAmount = finalPrice * item.Quantity,
             Quantity = item.Quantity,
             StockQuantity = product?.StockQuantity ?? 0,
+            SeenPrice = item.SeenPrice,
         };
     }
 

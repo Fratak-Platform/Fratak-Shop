@@ -23,7 +23,9 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
         "form-action 'self' https://sandbox.zarinpal.com https://payment.zarinpal.com https://www.zarinpal.com; " +
         "frame-ancestors 'self'; " +
         "base-uri 'self'; " +
-        "object-src 'none'";
+        "object-src 'none'; " +
+        // دور ۲۸ (#۱۱۹): مرورگر موارد مسدودشده را گزارش می‌دهد (CspReports؛ نمایش در «فنی ← گزارش امنیتی»).
+        "report-uri " + CspReports.Path;
 
     public Task InvokeAsync(HttpContext context)
     {

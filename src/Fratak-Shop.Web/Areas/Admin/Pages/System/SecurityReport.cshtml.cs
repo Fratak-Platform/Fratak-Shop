@@ -16,7 +16,22 @@ public class SecurityReportModel(ISecurityReportService reports) : AdminPageMode
     /// <summary>گزارش ساخته‌شده.</summary>
     public SecurityReport Report { get; private set; } = null!;
 
-    public async Task OnGetAsync() => Report = await reports.BuildAsync(DateTimeOffset.UtcNow, cancellationToken: HttpContext.RequestAborted);
+    /// <summary>دور ۲۸ (#۱۱۹): گزارش‌های نقض CSP که مرورگرها فرستاده‌اند (پرتکرارترین اول).</summary>
+    public IReadOnlyList<Infrastructure.Middleware.CspViolation> CspViolations { get; private set; } = [];
+
+    public async Task OnGetAsync()
+    {
+        Report = await reports.BuildAsync(DateTimeOffset.UtcNow, cancellationToken: HttpContext.RequestAborted);
+        CspViolations = Infrastructure.Middleware.CspReports.Snapshot(30);
+    }
+
+    /// <summary>دور ۲۸: پاک کردن فهرست گزارش‌های CSP (بعد از بررسی).</summary>
+    public IActionResult OnPostClearCsp()
+    {
+        Infrastructure.Middleware.CspReports.Clear();
+        SuccessMessage = "فهرست گزارش‌های CSP پاک شد.";
+        return RedirectToPage();
+    }
 
     /// <summary>ساخت دوبارهٔ گزارش بدون کش (مثلاً بعد از عوض کردن رمز).</summary>
     public async Task<IActionResult> OnPostRefreshAsync()

@@ -158,10 +158,30 @@
     return { body, close, box };
   }
 
+  /**
+   * دور ۲۸ (#۷۷ – «اسکلت بارگذاری»): به‌جای متن خالی «در حال بارگذاری…»، طرح خاکستری متحرک همان چیدمان (عکس + چند خط)
+   * نشان داده می‌شود تا کاربر بداند چه چیزی در راه است. متن برای صفحه‌خوان‌ها پنهان می‌ماند (aria-busy).
+   */
   function loading(body, text) {
     body.textContent = "";
-    body.appendChild(el("div", "fc-loading", text || "در حال بارگذاری…"));
+    const skel = el("div", "fc-skel-wrap");
+    skel.setAttribute("aria-busy", "true");
+    skel.appendChild(el("div", "fc-skel fc-skel-img"));
+    const lines = el("div", "fc-skel-lines");
+    ["w-80", "w-60", "w-40", "w-70"].forEach((w) => lines.appendChild(el("div", "fc-skel fc-skel-line " + w)));
+    skel.appendChild(lines);
+    skel.appendChild(el("span", "fc-sr", text || "در حال بارگذاری…"));
+    body.appendChild(skel);
   }
+
+  // دور ۲۸ (#۷۷): عکس‌های کارت کالا تا بارگذاری، زمینهٔ اسکلتی متحرک دارند (کلاس fc-img-skel در قالب)؛
+  // بعد از بارگذاری یا خطا زمینه برداشته می‌شود تا عکس‌های شفاف (دوربری‌شده) تمیز دیده شوند.
+  function settleImage(img) {
+    if (img.complete) { img.classList.add("is-loaded"); return; }
+    img.addEventListener("load", () => img.classList.add("is-loaded"), { once: true });
+    img.addEventListener("error", () => img.classList.add("is-loaded"), { once: true });
+  }
+  document.querySelectorAll("img.fc-img-skel").forEach(settleImage);
 
   /** فرم پنهان POST با توکن (برای افزودن به سبد که باید سمت سرور هدایت شود). */
   async function postForm(action, fields) {
@@ -366,11 +386,39 @@
   // ── جست‌وجو با عکس (پیشنهاد ۲۹) ──────────────────────────────
 
   const MAX_IMAGE = 4 * 1024 * 1024;
+  // دور ۲۸: عکس‌های دوربین گوشی معمولاً ۵ تا ۱۲ مگابایت‌اند؛ قبل از ارسال در خود مرورگر کوچک می‌شوند (ضلع بزرگ ۱۰۲۴ پیکسل،
+  // JPEG با کیفیت ۰٫۸۸). هم سریع‌تر است و هم دیگر خطای «حجم زیاد» نمی‌دهد. اگر مرورگر نتوانست، همان فایل اصلی فرستاده می‌شود.
+  const MAX_SIDE = 1024;
+
+  /** کوچک کردن عکس با canvas. خروجی: Blob تازه یا null (اگر لازم نبود یا مرورگر پشتیبانی نکرد). */
+  async function shrink(file) {
+    try {
+      if (typeof createImageBitmap !== "function") return null;
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+      if (scale >= 1 && file.size <= MAX_IMAGE && /jpe?g|png|webp/i.test(file.type || "")) {
+        bitmap.close && bitmap.close();
+        return null;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      // پس‌زمینهٔ سفید برای PNG شفاف (امضای کالاها هم روی زمینهٔ سفید ساخته شده).
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close && bitmap.close();
+      return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.88));
+    } catch (e) {
+      return null;
+    }
+  }
 
   function pickImage() {
     const input = el("input");
     input.type = "file";
-    input.accept = "image/jpeg,image/png,image/webp";
+    input.accept = "image/*";
     input.hidden = true;
     input.addEventListener("change", () => {
       const file = input.files && input.files[0];
@@ -383,7 +431,9 @@
 
   async function imageSearch(file) {
     const d = dialog("جست‌وجو با عکس");
-    if (file.size > MAX_IMAGE) {
+    const small = await shrink(file);
+    const upload = small || file;
+    if (upload.size > MAX_IMAGE) {
       d.body.appendChild(el("p", "fc-error", "حجم عکس حداکثر ۴ مگابایت است."));
       return;
     }
@@ -398,7 +448,7 @@
     d.body.appendChild(head);
 
     const form = new FormData();
-    form.append("image", file, file.name || "image");
+    form.append("image", upload, small ? "photo.jpg" : file.name || "image");
     const r = await send("/api/search/image", form);
     if (r.status !== 200 || !r.data) {
       status.className = "fc-error";
@@ -412,7 +462,9 @@
       status.textContent = "کالای شبیهی پیدا نشد. می‌توانید نام کالا را جست‌وجو کنید یا از دستیار فروشگاه بپرسید.";
       return;
     }
-    status.textContent = "این کالاها بیشترین شباهت را به عکس شما دارند:";
+    status.textContent = r.data.approximate
+      ? "کالای دقیقاً مشابهی پیدا نشد؛ شاید یکی از این‌ها همان باشد که می‌خواهید:"
+      : "این کالاها بیشترین شباهت را به عکس شما دارند:";
     const grid = el("div", "fc-grid");
     products.forEach((p) => {
       const a = el("a", "fc-card");

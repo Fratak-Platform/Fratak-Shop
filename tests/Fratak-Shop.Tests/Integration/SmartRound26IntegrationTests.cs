@@ -159,7 +159,7 @@ public class SmartRound26IntegrationTests(SqlServerFixture db)
     // ───────────── حلقهٔ آماده‌سازی ─────────────
 
     [SqlFact]
-    public async Task Readiness_loop_claims_incomplete_drafts_with_gap_and_attempt_cap()
+    public async Task Readiness_loop_claims_incomplete_drafts_with_gap_and_slow_retries()
     {
         await using var scope = db.Scope();
         var catalog = scope.ServiceProvider.GetRequiredService<ISmartCatalogService>();
@@ -174,9 +174,9 @@ public class SmartRound26IntegrationTests(SqlServerFixture db)
         // قدیمی‌ترین‌ها اول برداشته می‌شوند؛ تاریخ ساخت عقب می‌رود تا کالاهای آزمون‌های دیگر جلو نیفتند.
         await context.Products.Where(p => mine.Contains(p.Id)).ExecuteUpdateAsync(s => s.SetProperty(p => p.CreatedAt, new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero)));
 
-        var first = await catalog.ClaimReadinessCandidatesAsync(now, 50);
+        var first = await catalog.ClaimReadinessCandidatesAsync(now, 50, default, mine);
         Assert.Contains(first, c => c.Id == draft);
-        Assert.DoesNotContain(first, c => c.Id == notImported); // ورود هوشمند هنوز انجام نشده
+        Assert.Contains(first, c => c.Id == notImported);       // دور ۲۸: بدون «ورود هوشمند» هم آماده‌سازی می‌شود
         Assert.DoesNotContain(first, c => c.Id == published);   // منتشرشده هرگز
 
         var row = await context.Products.Where(p => p.Id == draft).Select(p => new { p.SmartReadyAttempts, p.SmartReadyCheckedAt }).SingleAsync();
@@ -184,12 +184,21 @@ public class SmartRound26IntegrationTests(SqlServerFixture db)
         Assert.NotNull(row.SmartReadyCheckedAt);
 
         // کمتر از ۶ ساعت بعد ← دوباره برداشته نمی‌شود؛ ۷ ساعت بعد ← بله.
-        Assert.DoesNotContain(await catalog.ClaimReadinessCandidatesAsync(now.AddHours(1), 50), c => c.Id == draft);
-        Assert.Contains(await catalog.ClaimReadinessCandidatesAsync(now.AddHours(7), 50), c => c.Id == draft);
+        Assert.DoesNotContain(await catalog.ClaimReadinessCandidatesAsync(now.AddHours(1), 50, default, mine), c => c.Id == draft);
+        Assert.Contains(await catalog.ClaimReadinessCandidatesAsync(now.AddHours(7), 50, default, mine), c => c.Id == draft);
 
-        // سقف ۵ تلاش.
-        await context.Products.Where(p => p.Id == draft).ExecuteUpdateAsync(s => s.SetProperty(p => p.SmartReadyAttempts, SmartCatalogService.MaxReadyAttempts));
-        Assert.DoesNotContain(await catalog.ClaimReadinessCandidatesAsync(now.AddDays(3), 50), c => c.Id == draft);
+        // دور ۲۸: بعد از ۵ تلاش رها نمی‌شود؛ فقط روزی یک بار (۷ ساعت بعد ← نه؛ ۲۵ ساعت بعد ← بله).
+        var checkedAt = now.AddHours(7);
+        await context.Products.Where(p => p.Id == draft).ExecuteUpdateAsync(s => s.SetProperty(p => p.SmartReadyAttempts, SmartCatalogService.MaxReadyAttempts)
+            .SetProperty(p => p.SmartReadyCheckedAt, checkedAt));
+        Assert.DoesNotContain(await catalog.ClaimReadinessCandidatesAsync(checkedAt.AddHours(7), 50, default, mine), c => c.Id == draft);
+        Assert.Contains(await catalog.ClaimReadinessCandidatesAsync(checkedAt.AddHours(25), 50, default, mine), c => c.Id == draft);
+
+        // «آماده‌سازی دوباره همه» ← شمارنده صفر و بلافاصله قابل برداشت.
+        Assert.True(await catalog.ResetReadinessAsync() >= 1);
+        context.ChangeTracker.Clear();
+        Assert.Equal(0, await context.Products.Where(p => p.Id == draft).Select(p => p.SmartReadyAttempts).SingleAsync());
+        Assert.Contains(await catalog.ClaimReadinessCandidatesAsync(checkedAt.AddHours(26), 50, default, mine), c => c.Id == draft);
     }
 
     // ───────────── عکس فضاسازی دسته ─────────────
@@ -220,10 +229,13 @@ public class SmartRound26IntegrationTests(SqlServerFixture db)
         var context = scope.ServiceProvider.GetRequiredService<FratakShopDbContext>();
 
         var cleared = await AddCategoryAsync(context, "دستهٔ پاک‌شده " + Key(), "[]");
-        var hasPhoto = await AddCategoryAsync(context, "دستهٔ عکس‌دار " + Key(), CategoryImages.Serialize(["x-photo-12345678.webp"]));
-        var list = await catalog.ListCategoriesNeedingPhotosAsync(50);
+        // دور ۲۸: فقط عکس «سوژهٔ تأییدشده» (-photo-w-) کافی است؛ عکس فضاسازی قدیمی دوباره بازبینی می‌شود.
+        var hasPhoto = await AddCategoryAsync(context, "دستهٔ عکس‌دار " + Key(), CategoryImages.Serialize(["x-photo-w-12345678.webp"]));
+        var legacyPhoto = await AddCategoryAsync(context, "دستهٔ عکس قدیمی " + Key(), CategoryImages.Serialize(["x-photo-12345678.webp"]));
+        var list = await catalog.ListCategoriesNeedingPhotosAsync(500);
         Assert.DoesNotContain(list, c => c.Id == cleared);
         Assert.DoesNotContain(list, c => c.Id == hasPhoto);
+        _ = legacyPhoto;
         Assert.True(list.Count <= 50);
     }
 }

@@ -91,11 +91,14 @@ public class CartService(FratakShopDbContext context) : ICartService
                 CartId = cart.Id,
                 ProductId = product.Id,
                 Quantity = command.Quantity,
+                // دور ۲۸ (#۸۴): قیمتی که مشتری همین حالا دید.
+                SeenPrice = product.GetFinalPrice(),
             });
         }
         else
         {
             item.Quantity = newQuantity;
+            item.SeenPrice ??= product.GetFinalPrice();
         }
 
         cart.LastActivityAt = DateTimeOffset.UtcNow;
@@ -132,6 +135,7 @@ public class CartService(FratakShopDbContext context) : ICartService
             return OperationResult.Error($"موجودی محصول «{product.Name}» کافی نیست.");
 
         item.Quantity = command.Quantity;
+        item.SeenPrice ??= product.GetFinalPrice();
         cart.LastActivityAt = DateTimeOffset.UtcNow;
         await context.SaveChangesAsync();
 
@@ -288,6 +292,7 @@ public class CartService(FratakShopDbContext context) : ICartService
                     CartId = userCart.Id,
                     ProductId = item.ProductId,
                     Quantity = quantity,
+                    SeenPrice = item.SeenPrice,
                 });
             }
             else
@@ -370,6 +375,33 @@ public class CartService(FratakShopDbContext context) : ICartService
             return null;
 
         return (await FindCartBySessionAsync(sessionKey.Trim()))?.Map();
+    }
+
+    /// <summary>
+    /// دور ۲۸ (#۸۴): بعد از اینکه تغییر قیمت به مشتری نشان داده شد، قیمت فعلی «دیده‌شده» ثبت می‌شود تا ثبت دوباره انجام شود.
+    /// خروجی: تعداد ردیف‌هایی که قیمت دیده‌شده‌شان به‌روز شد.
+    /// </summary>
+    public async Task<int> AcceptCurrentPricesAsync(Guid cartId)
+    {
+        var items = await context.CartItems.AsTracking()
+            .Where(x => x.CartId == cartId)
+            .Include(x => x.Product)
+            .ToListAsync();
+        var changed = 0;
+        foreach (var item in items)
+        {
+            if (item.Product is null)
+                continue;
+            var price = item.Product.GetFinalPrice();
+            if (item.SeenPrice != price)
+            {
+                item.SeenPrice = price;
+                changed++;
+            }
+        }
+        if (changed > 0)
+            await context.SaveChangesAsync();
+        return changed;
     }
 
     public async Task<List<CartItemDto>> GetItemsAsync(Guid cartId)

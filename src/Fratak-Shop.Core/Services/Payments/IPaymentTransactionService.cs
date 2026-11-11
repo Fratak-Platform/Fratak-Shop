@@ -31,4 +31,11 @@ public interface IPaymentTransactionService
 
     Task<List<PaymentTransactionDto>> GetByOrderAsync(Guid orderId);
     Task<List<PaymentTransactionDto>> GetByUserAsync(Guid userId, int take = 50);
+
+    /// <summary>
+    /// دور ۲۸ (#۸۵ – «تطبیق پرداخت‌های بی‌پاسخ»): تراکنش‌هایی که مشتری پرداخت کرده ولی به سایت برنگشته (مرورگر بسته شد، اینترنت قطع شد).
+    /// <para>اول قفل‌های «در حال تأیید» که بیش از <paramref name="stuckBefore"/> مانده‌اند (سرور وسط کار خاموش شده) آزاد می‌شوند؛</para>
+    /// <para>بعد تراکنش‌های «منتظر» با کد درگاه که بین <paramref name="newerThan"/> و <paramref name="olderThan"/> ساخته شده‌اند برمی‌گردند (قدیمی‌ترین اول).</para>
+    /// </summary>
+    Task<List<PaymentTransactionDto>> GetReconcileCandidatesAsync(DateTimeOffset olderThan, DateTimeOffset newerThan, DateTimeOffset stuckBefore, int take = 20);
 }

@@ -18,6 +18,12 @@ public interface IPaymentFlowService
     Task<PaymentStartResult> StartWalletTopUpAsync(Guid userId, decimal amount);
     Task<PaymentStartResult> StartGiftCardPaymentAsync(Guid userId, Guid giftCardId);
     Task<PaymentCallbackResult> HandleCallbackAsync(string? authority, string? status);
+
+    /// <summary>
+    /// دور ۲۸ (#۸۵): تطبیق خودکار پرداخت‌های بی‌پاسخ با درگاه (کارگر سفارش‌ها هر ۵ دقیقه، پیش از لغو سفارش‌های پرداخت‌نشده).
+    /// خروجی: (تأییدشده، ناموفق‌شده).
+    /// </summary>
+    Task<(int Completed, int Failed)> ReconcilePendingAsync(DateTimeOffset now, CancellationToken cancellationToken);
 }
 
 public record PaymentStartResult(bool Succeeded, string? RedirectUrl, string? Error);
@@ -191,6 +197,58 @@ public class PaymentFlowService(
             await transactions.ReleaseVerifyAsync(payment.Id, "apply failed after verification");
             return Result(payment, false, "پرداخت شما تایید شد اما ثبت آن با خطا مواجه شد؛ صفحه را دوباره بارگذاری کنید یا با پشتیبانی تماس بگیرید.", pending: true);
         }
+    }
+
+    /// <summary>
+    /// دور ۲۸ (#۸۵) – «تطبیق پرداخت‌های بی‌پاسخ ZarinPal»: مشتری پول را پرداخت کرده ولی مرورگرش پیش از بازگشت بسته شده.
+    /// <list type="bullet">
+    /// <item>فقط تراکنش‌های «منتظر» با کد درگاه، دست‌کم ۳۰ دقیقه و حداکثر ۴۸ ساعت قبل (مشتری‌ای که هنوز در صفحهٔ درگاه است دست نمی‌خورد).</item>
+    /// <item>همان قفل اتمی بازگشت از درگاه (TryBeginVerify) ← پرداخت هرگز دو بار ثبت نمی‌شود.</item>
+    /// <item>تأیید موفق ← ثبت پرداخت (اگر سفارش در این فاصله لغو شده بود، مبلغ به کیف پول می‌رود – همان منطق بازگشت عادی).</item>
+    /// <item>خطای موقت شبکه ← آزاد می‌شود و ۵ دقیقهٔ بعد دوباره؛ رد قطعی درگاه (پرداخت‌نشده) ← «ناموفق».</item>
+    /// </list>
+    /// </summary>
+    public async Task<(int Completed, int Failed)> ReconcilePendingAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var candidates = await transactions.GetReconcileCandidatesAsync(now.AddMinutes(-30), now.AddHours(-48), now.AddMinutes(-10));
+        if (candidates.Count == 0)
+            return (0, 0);
+        var settings = await settingService.GetAsync();
+        int completed = 0, failed = 0;
+        foreach (var payment in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await transactions.TryBeginVerifyAsync(payment.Id))
+                continue;
+            try
+            {
+                var verify = await gateway.VerifyAsync(settings, payment.Authority!, payment.Amount);
+                if (verify.Succeeded)
+                {
+                    var completion = await transactions.CompleteAsync(payment.Id, verify.RefId!, verify.CardPan, verify.Code ?? 100);
+                    if (completion.Succeeded)
+                    {
+                        completed++;
+                        logger.LogWarning("Reconciled an unreturned payment {PaymentId} ({RefId})", payment.Id, verify.RefId);
+                    }
+                }
+                else if (verify.IsTransient)
+                {
+                    await transactions.ReleaseVerifyAsync(payment.Id, verify.Error ?? "verify unavailable (reconcile)");
+                }
+                else
+                {
+                    await transactions.MarkFailedAsync(payment.Id, PaymentTransactionStatus.Failed, verify.Code, verify.Error ?? "پرداخت انجام نشد (تطبیق خودکار).");
+                    failed++;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(exception, "Payment reconcile failed for {PaymentId}", payment.Id);
+                await transactions.ReleaseVerifyAsync(payment.Id, "reconcile error");
+            }
+        }
+        return (completed, failed);
     }
 
     private static PaymentCallbackResult Result(PaymentTransactionDto payment, bool succeeded, string message, bool pending = false) => new()

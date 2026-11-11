@@ -184,6 +184,47 @@ public static class ProductNaming
     }
 
     /// <summary>
+    /// دور ۲۸: نام انگلیسی فعلی قابل استفاده است؟ (دست‌کم ۳ نویسه و حرف لاتین، بدون حرف فارسی/عربی.)
+    /// مثال: «Samsung Galaxy A55» ← true؛ «گوشی سامسونگ» ← false؛ null ← false.
+    /// </summary>
+    public static bool IsUsableEnglish(string? englishName) =>
+        !string.IsNullOrWhiteSpace(englishName) && englishName.Trim().Length >= 3
+        && englishName.Any(char.IsAsciiLetter) && !englishName.Any(c => c is >= '\u0600' and <= '\u06FF');
+
+    /// <summary>
+    /// دور ۲۸ – آخرین راه نام انگلیسی (وقتی دیجی‌کالا، ترب و واژه‌های لاتین خود نام چیزی ندادند): واژه‌نامهٔ داخلی نامک
+    /// (<see cref="EnglishSlug"/>؛ همان که نامک انگلیسی صفحه‌ها را می‌سازد) + برند انگلیسی + نام انگلیسی نوع کالا، با حروف بزرگ اول هر واژه.
+    /// واژه‌ای که در واژه‌نامه نیست با آوانویسی می‌آید (مثلاً نام خاص). کمتر از ۳ حرف ← null.
+    /// مثال: («کتری برقی پارس خزر»، «Pars Khazar»، نوع kettle) ← «Pars Khazar Electric Kettle».
+    /// </summary>
+    public static string? EnglishFromDictionary(string? persianName, string? brandEnglish, ProductType? type)
+    {
+        if (string.IsNullOrWhiteSpace(persianName))
+            return null;
+        var words = EnglishSlug.From(persianName, 120).Split('-', StringSplitOptions.RemoveEmptyEntries).ToList();
+        var parts = new List<string>();
+        var brand = !string.IsNullOrWhiteSpace(brandEnglish) && brandEnglish.Any(char.IsAsciiLetter) ? brandEnglish.Trim() : null;
+        if (brand is not null)
+        {
+            parts.Add(brand);
+            // آوانویسی برند فارسی («pars-khazar») تکرار نشود.
+            var brandWords = EnglishSlug.From(brand).Split('-', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+            words.RemoveAll(brandWords.Contains);
+        }
+        var typeWords = type is null ? new HashSet<string>(StringComparer.Ordinal) : type.Key.Split('-').ToHashSet(StringComparer.Ordinal);
+        var rest = words.Where(w => !typeWords.Contains(w) && w.Length > 1 && !NoiseWords.Contains(w)).Take(6)
+            .Select(w => char.IsAsciiDigit(w[0]) ? w.ToUpperInvariant() : char.ToUpperInvariant(w[0]) + w[1..]).ToList();
+        parts.AddRange(rest);
+        if (type is not null)
+            parts.Add(type.English);
+        var value = Collapse(string.Join(' ', parts));
+        return value.Length >= 3 && value.Any(char.IsAsciiLetter) ? Cut(value, 200) : null;
+    }
+
+    // واژه‌های بی‌معنا در نام انگلیسی («model»، «with» …) که از واژه‌نامهٔ نامک می‌آیند.
+    private static readonly HashSet<string> NoiseWords = new(StringComparer.Ordinal) { "model", "with", "and", "for", "the", "of", "code" };
+
+    /// <summary>
     /// نامک انگلیسی پیشنهادی: اول از نام انگلیسی، وگرنه برگردان نام فارسی (واژه‌نامهٔ داخلی <see cref="EnglishSlug"/>).
     /// کمتر از ۳ حرف یا نامعتبر ← null. مثال: («…»، «Samsung Galaxy A55 Mobile Phone») ← «samsung-galaxy-a55-mobile-phone».
     /// </summary>

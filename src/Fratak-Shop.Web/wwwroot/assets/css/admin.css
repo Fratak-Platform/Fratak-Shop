@@ -1002,3 +1002,12 @@ html[data-theme="dark"] .a-smart-chips .a-chip.is-main { color: #85C4FF; }
 .a-cat-thumb-img { display: block; width: 96px; height: 48px; object-fit: cover; border-radius: 8px; border: 2px solid var(--a-border); background: var(--a-bg); }
 .a-cat-thumb-img.is-active { border-color: var(--a-primary); box-shadow: 0 0 0 2px var(--a-primary-soft); }
 .a-cat-thumb-actions { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
+
+/* ── دور ۲۸ (#۹۴): کارهای امروز داشبورد ────────────────────────── */
+.a-today-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.a-today-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--a-border, #e5e7eb); background: var(--a-card, #fff); border-inline-start-width: 4px; }
+.a-today-item.is-p1 { border-inline-start-color: #ef4444; }
+.a-today-item.is-p2 { border-inline-start-color: #f59e0b; }
+.a-today-item.is-p3 { border-inline-start-color: #9ca3af; }
+.a-today-item a { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: inherit; text-decoration: none; }
+.a-today-item a:hover b { text-decoration: underline; }

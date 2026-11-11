@@ -150,6 +150,16 @@ public class CheckoutModel(
             return RedirectToPage("/Cart");
         }
 
+        // دور ۲۸ (#۸۴): اگر قیمت کالایی از زمان افزودن به سبد عوض شده، سفارش بی‌صدا با قیمت جدید ثبت نمی‌شود؛
+        // تغییر با پیام روشن نشان داده می‌شود و قیمت جدید «دیده‌شده» ثبت می‌شود تا مشتری با آگاهی دوباره «ثبت سفارش» بزند.
+        var priceMessage = PriceChangeMessage(Cart.Items);
+        if (priceMessage is not null)
+        {
+            await cartService.AcceptCurrentPricesAsync(Cart.Id);
+            ErrorMessage = priceMessage + " مبلغ نهایی را بررسی کنید و اگر موافقید دوباره «ثبت سفارش» را بزنید.";
+            return RedirectToPage(new { addressId = postedAddressId });
+        }
+
         var address = Addresses.FirstOrDefault(a => a.Id == Input.AddressId);
         if (address is null)
         {
@@ -251,6 +261,18 @@ public class CheckoutModel(
         return parts is { Length: 2 }
                && DateOnly.TryParseExact(parts[0], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date)
                && Guid.TryParse(parts[1], out slotId);
+    }
+
+    /// <summary>
+    /// دور ۲۸ (#۸۴): متن تغییر قیمت ردیف‌های سبد؛ null = هیچ قیمتی عوض نشده.
+    /// مثال: «قیمت «هدفون X» از ۱٬۲۰۰٬۰۰۰ به ۱٬۱۵۰٬۰۰۰ تومان کاهش یافت.»
+    /// </summary>
+    public static string? PriceChangeMessage(IEnumerable<CartItemDto> items)
+    {
+        var parts = items.Where(i => i.PriceChanged).Take(3)
+            .Select(i => $"قیمت «{i.ProductName}» از {Fratak_Shop.Web.Helpers.Format.Price(i.SeenPrice!.Value)} به {Fratak_Shop.Web.Helpers.Format.Price(i.FinalPrice)} تومان {(i.FinalPrice > i.SeenPrice ? "افزایش" : "کاهش")} یافت.")
+            .ToList();
+        return parts.Count == 0 ? null : string.Join(" ", parts);
     }
 
     private async Task<bool> LoadAsync()

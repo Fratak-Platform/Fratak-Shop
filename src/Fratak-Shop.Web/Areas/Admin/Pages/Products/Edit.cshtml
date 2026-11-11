@@ -29,7 +29,8 @@
   @if (!Model.IsNew)
   {
     <div class="a-btn-group">
-      <a href="/product/@Model.CurrentSlug" target="_blank" rel="noopener" class="a-btn a-btn-light">@Icons.Svg("Eye", null, 18) مشاهده در فروشگاه</a>
+      @* دور ۲۸ (#۹۹): پیش‌نویس ← «پیش‌نمایش پیش از انتشار» (فقط کارکنان می‌بینند؛ نوار زرد پیش‌نمایش روی صفحه). *@
+      <a href="/product/@Model.CurrentSlug" target="_blank" rel="noopener" class="a-btn a-btn-light">@Icons.Svg("Eye", null, 18) @(Model.IsDraft ? "پیش‌نمایش پیش از انتشار" : "مشاهده در فروشگاه")</a>
       @* دور ۱۹ (B20): تکمیل هوشمند – عکس، مشخصات، خلاصهٔ خرید و سئو با یک کلیک (نتیجه و تأییدها در صفحهٔ محتوای هوشمند کالا). *@
       @if (Model.Can(AdminPermissions.ProductsManage))
       {
@@ -53,6 +54,21 @@
     </div>
   }
 </div>
+
+@if (Model.IsDraft)
+{
+  @* دور ۲۸ (#۹۹ و #۶۰): وضعیت «آمادهٔ انتشار» پیش‌نویس؛ دستیار هوشمند کمبودها را خودش کامل می‌کند. *@
+  <div class="a-alert @(Model.ReadyGaps.Count == 0 ? "a-alert-success" : "a-alert-info") mb-4" data-ready-gaps>
+    @if (Model.ReadyGaps.Count == 0)
+    {
+      <span>این پیش‌نویس <b>آمادهٔ انتشار</b> است. پیش‌نمایش را ببینید و اگر درست بود، تیک «فعال» را بزنید و ذخیره کنید.</span>
+    }
+    else
+    {
+      <span>برای «آمادهٔ انتشار» هنوز کم است: <b>@string.Join("، ", Model.ReadyGaps)</b>. دستیار هوشمند این‌ها را خودش کامل می‌کند (یا همین‌جا وارد کنید).</span>
+    }
+  </div>
+}
 
 @if (Model.CanEditProduct)
 {

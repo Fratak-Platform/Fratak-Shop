@@ -168,6 +168,12 @@ public sealed class SmartOrchestrator(
         var auto = options.ImagesNeedApproval
             ? new List<FoundImage>()
             : found.Where(f => f.Trusted).Take(Math.Max(1, options.AutoImagesMax)).ToList();
+        // دور ۲۸ (#۶۰ تا #۶۶ – «هیچ کالایی آماده نمی‌شد»): پیش‌نویس هرگز منتشرنشده‌ای که هیچ عکسی ندارد، بهترین عکسِ مطمئن
+        // (منبع «همان کالا» یا مدل تأییدشده، و اطمینان بررسی سوژه ≥ ۰٫۷۲) را خودکار می‌گیرد تا به «آمادهٔ انتشار» برسد.
+        // مشتری هنوز چیزی نمی‌بیند (کالا منتشر نشده) و مدیر پیش از انتشار عکس را می‌بیند؛ بقیهٔ نامزدها مثل قبل منتظر انتخاب می‌مانند.
+        if (auto.Count == 0 && subject.NeverPublished && subject.ImageNames.Count == 0
+            && PickDraftImage(found) is { } best)
+            auto.Add(best);
         var pending = found.Except(auto).ToList();
         if (auto.Count > 0)
         {
@@ -186,6 +192,16 @@ public sealed class SmartOrchestrator(
         var status = pending.Count > 0 ? SmartTaskStatus.NeedsReview : found.Count == 0 ? SmartTaskStatus.Skipped : SmartTaskStatus.Applied;
         return new SmartOutcome(status, summary, JsonSerializer.Serialize(result, Json));
     }
+
+    /// <summary>
+    /// دور ۲۸: عکس قابل افزودن خودکار به پیش‌نویس بی‌عکس (خالص؛ آزمون‌پذیر). شرط: منبع مطمئن (دیجی‌کالا/تأمین‌کننده/باسلام) یا
+    /// «همان مدل» تأییدشده، و اطمینان بررسی سوژه دست‌کم <see cref="ImageSubjectCheck.AutoAttachConfidence"/>. بیشترین اطمینان اول.
+    /// مثال: عکس دیجی‌کالا روی سفید با اطمینان ۰٫۸۵ ← همان؛ عکس بینگ ناشناس با مدل نامعلوم ← null.
+    /// </summary>
+    public static FoundImage? PickDraftImage(IEnumerable<FoundImage> found) =>
+        found.Where(f => (f.Trusted || f.Model == ModelVerdict.Same) && f.Confidence >= ImageSubjectCheck.AutoAttachConfidence)
+            .OrderByDescending(f => f.Confidence).ThenByDescending(f => f.Quality)
+            .FirstOrDefault();
 
     // ───────────────────────────── مشخصات ─────────────────────────────
 
@@ -357,6 +373,9 @@ public sealed class SmartOrchestrator(
         // دور ۲۶: درخواست دستی و کالای پیش‌نویس (مسیر «آمادهٔ انتشار») همیشه توضیحات می‌گیرند، حتی اگر نوشتن خودکار خاموش باشد.
         if (options.AutoReview || manual || subject.NeverPublished)
             await Step("توضیحات محصول", () => ProductReviewAsync(productId, manual, cancellationToken));
+        // دور ۲۸: اگر توضیح کوتاه هنوز خالی است (مشخصات کم بود)، از جملهٔ اول توضیحات تازه ساخته می‌شود.
+        if (subject.NeverPublished)
+            await Step("توضیح کوتاه (از توضیحات)", () => ShortFromBodyAsync(productId, cancellationToken));
         await Step("قیمت", () => PriceAsync(productId, cancellationToken));
         // خواستهٔ کاربر: فیلدهای سئو بعد از انتشار پر شوند. کالای پیش‌نویس ← سئو منتظر می‌ماند؛ لحظهٔ انتشار، ذخیرهٔ کالا
         // خلبان سئو را خبر می‌کند (SeoChangeFeed) و ورود هوشمند هم کالای تازه‌منتشرشدهٔ بی‌متا را جا نمی‌اندازد.
@@ -416,14 +435,17 @@ public sealed class SmartOrchestrator(
         var type = ProductTypes.Detect(subject.Name) ?? (subject.CategoryIsSystem ? null : ProductTypes.DetectHead(subject.CategoryName));
         var refined = ProductNaming.Refine(subject.Name, type, subject.BrandEnglishName);
         string? english = null;
-        if (string.IsNullOrWhiteSpace(subject.EnglishName))
+        // دور ۲۸: نام انگلیسی خالی یا «نام انگلیسی» بدون حرف لاتین (مثلاً فارسی واردشده از منبع) دوباره ساخته می‌شود.
+        if (!ProductNaming.IsUsableEnglish(subject.EnglishName))
         {
             var hit = await sources.FindDigikalaAsync(subject, cancellationToken);
             var known = hit?.EnglishTitle;
             // دور ۲۶: دیجی‌کالا نام انگلیسی نداد ← نام انگلیسی همین کالا در ترب (فقط با شباهت نام ≥ ۷۵٪؛ هرگز ترجمهٔ حدسی).
             if (string.IsNullOrWhiteSpace(known))
                 known = await sources.TorobEnglishNameAsync(subject.Name, cancellationToken);
-            english = ProductNaming.EnglishName(refined.Name, subject.BrandEnglishName, type, known);
+            english = ProductNaming.EnglishName(refined.Name, subject.BrandEnglishName, type, known)
+                      // دور ۲۸: هیچ منبعی نام انگلیسی نداد ← از واژه‌نامهٔ داخلی (برند انگلیسی + نوع کالا + واژه‌های شناخته‌شدهٔ نام).
+                      ?? ProductNaming.EnglishFromDictionary(refined.Name, subject.BrandEnglishName, type);
         }
         var slug = subject.NeverPublished ? ProductNaming.Slug(refined.Name, english ?? subject.EnglishName) : null;
         if (slug == subject.Slug)
@@ -485,6 +507,56 @@ public sealed class SmartOrchestrator(
         if (text is null || !await catalog.FillShortDescriptionAsync(productId, text, cancellationToken))
             return new SmartOutcome(SmartTaskStatus.Skipped, "مشخصات کافی برای نوشتن توضیح کوتاه واقعی نبود؛ بعد از تکمیل مشخصات دوباره امتحان می‌شود.");
         return new SmartOutcome(SmartTaskStatus.Applied, $"«{text}»");
+    }
+
+    /// <summary>
+    /// دور ۲۸: توضیح کوتاه از دو جملهٔ اول توضیحات کامل (وقتی مشخصات برای <see cref="ShortDescriptionWriter"/> کم بود).
+    /// متن از همان توضیحاتی است که روی صفحه هست، پس چیز ساختگی اضافه نمی‌شود. توضیح موجود هرگز عوض نمی‌شود.
+    /// </summary>
+    private async Task<SmartOutcome> ShortFromBodyAsync(Guid productId, CancellationToken cancellationToken)
+    {
+        var subject = await catalog.GetProductAsync(productId, cancellationToken);
+        if (subject is null || !string.IsNullOrWhiteSpace(subject.ShortDescription))
+            return new SmartOutcome(SmartTaskStatus.Skipped, "توضیح کوتاه دارد.");
+        var state = await catalog.GetBodyStateAsync(productId, cancellationToken);
+        var text = ShortFromBody(state?.Html);
+        if (text is null || !await catalog.FillShortDescriptionAsync(productId, text, cancellationToken))
+            return new SmartOutcome(SmartTaskStatus.Skipped, "توضیحات کامل هنوز نوشته نشده؛ دور بعد دوباره امتحان می‌شود.");
+        return new SmartOutcome(SmartTaskStatus.Applied, $"«{text}»");
+    }
+
+    /// <summary>
+    /// دور ۲۸ (خالص؛ آزمون‌پذیر): یک یا دو جملهٔ اول متن ساده‌شدهٔ HTML تا ۲۵۰ نویسه. کمتر از ۲۰ نویسه ← null.
+    /// مثال: «&lt;h2&gt;معرفی&lt;/h2&gt;&lt;p&gt;این کتری برقی ۱٫۷ لیتری است. بدنهٔ استیل دارد. …&lt;/p&gt;» ← «این کتری برقی ۱٫۷ لیتری است. بدنهٔ استیل دارد.»
+    /// </summary>
+    public static string? ShortFromBody(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return null;
+        // تیترها (h1 تا h4) جمله نیستند؛ پیش از ساده‌سازی حذف می‌شوند.
+        var withoutHeadings = System.Text.RegularExpressions.Regex.Replace(html, @"<h[1-4][^>]*>.*?</h[1-4]>", " ",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline, TimeSpan.FromMilliseconds(200));
+        var plain = PersianText.HtmlToText(withoutHeadings);
+        plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\s+", " ").Trim();
+        if (plain.Length < 20)
+            return null;
+        var sentences = System.Text.RegularExpressions.Regex.Split(plain, @"(?<=[.!؟?])\s+");
+        var text = "";
+        foreach (var sentence in sentences)
+        {
+            var next = (text + " " + sentence).Trim();
+            if (next.Length > 250)
+                break;
+            text = next;
+            if (text.Length >= 80)
+                break;
+        }
+        if (text.Length < 20)
+        {
+            var cut = plain.Length > 250 ? plain.LastIndexOf(' ', 249) : plain.Length;
+            text = plain.Length > 250 ? plain[..(cut >= 20 ? cut : 249)].TrimEnd('،', ',') + "…" : plain;
+        }
+        return text.Length >= 20 ? text : null;
     }
 
     /// <summary>
@@ -580,7 +652,10 @@ public sealed class SmartOrchestrator(
         };
         var result = new SmartTaskResult { Review = preview };
 
-        if (action != ReviewAction.Propose && draft.Safe)
+        // دور ۲۸: کالای هرگز منتشرنشده (مسیر «آمادهٔ انتشار») متن را حتی اگر از همهٔ دروازه‌های ضد جریمه نگذشته باشد می‌گیرد؛
+        // مشتری و گوگل هنوز صفحه را نمی‌بینند و مدیر پیش از انتشار بازبینی می‌کند. مشکل‌ها در نتیجهٔ کار ثبت می‌شوند.
+        var neverPublished = (await catalog.GetProductAsync(productId, cancellationToken))?.NeverPublished == true;
+        if (action != ReviewAction.Propose && (draft.Safe || neverPublished))
         {
             var applied = await seo.ApplyBodyAsync(productId, draft.Html,
                 $"توضیحات محصول هوشمند ({PersianText.Digits(draft.Words)} واژه)", Actor, cancellationToken);
@@ -701,11 +776,12 @@ public sealed class SmartOrchestrator(
         if (state is null)
             return 0;
         // دور ۲۶: فهرستی که هنوز عکس فضاسازی ندارد (فقط بنرهای قدیمیِ ساخته‌شده از عکس کالا) هم دوباره پیشنهاد می‌گیرد.
-        if (!resuggest && state.Options is not null && state.Options.Any(CategoryImages.IsPhoto))
+        // دور ۲۸: فقط عکس «سوژهٔ تأییدشده» (-photo-w-) کافی است؛ عکس فضاسازی قدیمی یک بار بازبینی و جایگزین می‌شود.
+        if (!resuggest && state.Options is not null && state.Options.Any(CategorySubjectImages.IsSubject))
             return 0;
         var previous = state.Options ?? [];
         var keep = new List<string>();
-        if (resuggest && state.ImageName is { } chosen && previous.Contains(chosen, StringComparer.Ordinal) && CategoryImages.IsPhoto(chosen))
+        if (resuggest && state.ImageName is { } chosen && previous.Contains(chosen, StringComparer.Ordinal) && CategorySubjectImages.IsSubject(chosen))
             keep.Add(chosen);
         var photoSubject = new CategoryPhotoSubject(subject.Id, subject.Name, subject.Slug, subject.ParentName, subject.ParentSlug);
         var fresh = await images.CategoryPhotosAsync(photoSubject, subject.ProductImageNames, CategoryImages.Max - keep.Count, previous, cancellationToken);

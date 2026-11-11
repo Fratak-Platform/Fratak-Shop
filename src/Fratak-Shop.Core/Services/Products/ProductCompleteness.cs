@@ -98,20 +98,43 @@ public static class ProductCompleteness
         p.PurchasePrice != null,
         p.Id);
 
+    /// <summary>کمترین طول توضیحات کامل برای «آمادهٔ انتشار» (نویسه، با HTML).</summary>
+    public const int ReadyDescriptionLength = 600;
+
+    /// <summary>دور ۲۸: کمترین طول توضیح کوتاه برای «آمادهٔ انتشار» (قبلاً ۵۰ بود و جملهٔ کوتاهِ درست را رد می‌کرد).</summary>
+    public const int ReadyShortLength = 20;
+
     /// <summary>
     /// دور ۲۳ – «آمادهٔ انتشار»: پیش‌نویسی که هرگز منتشر نشده و همهٔ چیزهای لازم برای یک صفحهٔ فروش خوب را دارد:
-    /// دستهٔ واقعی (نه «دسته‌بندی نشده»)، موجودی و قیمت، حداقل یک عکس، توضیحات ۶۰۰+ نویسه، خلاصهٔ ۵۰+ نویسه، ۳+ مشخصه و نام انگلیسی.
+    /// دستهٔ واقعی (نه «دسته‌بندی نشده»)، قیمت، حداقل یک عکس، توضیحات ۶۰۰+ نویسه، توضیح کوتاه ۲۰+ نویسه و نام انگلیسی.
+    /// <para>دور ۲۸ (خواستهٔ کاربر – «هیچ کالایی آماده نمی‌شد»): شرط «۳+ مشخصه» حذف شد (خیلی از کالاها در منبع مشخصهٔ کافی ندارند)
+    /// و موجودی هم شرط نیست: موجودی همان موجودی تأمین‌کننده است و کالای ناموجود هم می‌تواند آمادهٔ انتشار باشد (صفحه‌اش «ناموجود» نشان می‌دهد).</para>
     /// <para>سیستم هرگز خودش منتشر نمی‌کند؛ این فقط برچسب و فیلتر «آمادهٔ انتشار» در فهرست محصولات است تا مدیر با یک کلیک منتشر کند.
     /// کالایی که قبلاً منتشر و بعد عمداً غیرفعال شده (PublishedAt دارد) آماده حساب نمی‌شود.</para>
     /// استفاده: <c>query.Where(ProductCompleteness.ReadyToPublish)</c> در فهرست محصولات و خلاصهٔ روزانهٔ کارگر هوشمند.
     /// </summary>
     public static readonly Expression<Func<Product, bool>> ReadyToPublish = p =>
         !p.IsActive && p.PublishedAt == null && !p.Category.IsSystem
-        && p.StockQuantity > 0 && p.Price > 0 && p.Images.Any()
-        && p.Description != null && p.Description.Length >= 600
-        && p.ShortDescription != null && p.ShortDescription.Length >= 50
-        && p.Features.Count >= 3
+        && p.Price > 0 && p.Images.Any()
+        && p.Description != null && p.Description.Length >= ReadyDescriptionLength
+        && p.ShortDescription != null && p.ShortDescription.Length >= ReadyShortLength
         && p.EnglishName != null && p.EnglishName != "";
+
+    /// <summary>
+    /// دور ۲۸: چه چیزی مانع «آمادهٔ انتشار» است؟ (همان شرط‌های <see cref="ReadyToPublish"/>، برای نمایش در پنل و گزارش سلامت داده.)
+    /// مثال: (دسته سیستمی، بدون عکس) ← [«دستهٔ واقعی»، «عکس»]. فهرست خالی = آماده.
+    /// </summary>
+    public static IReadOnlyList<string> ReadyGaps(bool categoryIsSystem, decimal price, int imageCount, int descriptionLength, int shortLength, string? englishName)
+    {
+        var gaps = new List<string>();
+        if (categoryIsSystem) gaps.Add("دستهٔ واقعی");
+        if (price <= 0) gaps.Add("قیمت");
+        if (imageCount == 0) gaps.Add("عکس");
+        if (descriptionLength < ReadyDescriptionLength) gaps.Add("توضیحات کامل");
+        if (shortLength < ReadyShortLength) gaps.Add("توضیح کوتاه");
+        if (string.IsNullOrWhiteSpace(englishName)) gaps.Add("نام انگلیسی");
+        return gaps;
+    }
 
     /// <summary>کلاس رنگ نشان برای سطح (پنل مدیریت).</summary>
     public static string LevelCss(string level) => level switch

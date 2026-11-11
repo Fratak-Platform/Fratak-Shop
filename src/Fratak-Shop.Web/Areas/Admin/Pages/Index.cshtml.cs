@@ -6,6 +6,7 @@ using Fratak_Shop.Core.Services.Reports;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Web.Infrastructure.Admin;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fratak_Shop.Web.Areas.Admin.Pages;
 
@@ -20,8 +21,13 @@ public class IndexModel(
     IAdminPreferenceService preferences,
     ISalesGoalService goals,
     IAnalyticsReportService analytics,
-    IExpenseService expenses) : AdminPageModel
+    IExpenseService expenses,
+    IAdminDataService data,
+    Fratak_Shop.Core.Services.Team.IStaffTaskService staffTasks) : AdminPageModel
 {
+    /// <summary>دور ۲۸ (#۹۴): کارهای امروز (مرتب، فقط بخش‌هایی که کارمند دسترسی دارد).</summary>
+    public IReadOnlyList<TodayTask> Today { get; private set; } = [];
+
     public DashboardDto Data { get; private set; } = new();
 
     public int OnlineNow { get; private set; }
@@ -55,6 +61,40 @@ public class IndexModel(
         }
         if (IsVisible("expenses-due"))
             UpcomingExpenses = await expenses.GetUpcomingAsync(5, ct);
+        if (IsVisible("today"))
+            Today = await BuildTodayAsync(ct);
+    }
+
+    /// <summary>
+    /// دور ۲۸ (#۹۴): ورودی «کارهای امروز» از همان شمارش‌های داشبورد + آمادهٔ انتشار، تغییرات تأمین‌کننده و کارهای شخصی.
+    /// بخشی که کارمند دسترسی ندارد null می‌ماند و اصلاً نشان داده نمی‌شود.
+    /// </summary>
+    private async Task<IReadOnlyList<TodayTask>> BuildTodayAsync(CancellationToken ct)
+    {
+        var d = Data;
+        var orders = Can(AdminPermissions.OrdersView);
+        int? ready = null, supplier = null;
+        if (Can(AdminPermissions.ProductsManage))
+            ready = await data.Query<Fratak_Shop.Data.Entities.Products.Product>().CountAsync(Fratak_Shop.Core.Services.Products.ProductCompleteness.ReadyToPublish, ct);
+        if (CanAny(AdminPermissions.ProductsSupplier, AdminPermissions.ProductsManage))
+            supplier = await data.Query<Fratak_Shop.Data.Entities.Products.SupplierChange>()
+                .CountAsync(c => c.Status == Fratak_Shop.Data.Entities.Products.SupplierChangeStatus.Pending, ct);
+        var mine = await staffTasks.CountsAsync(ActorId, DateTimeOffset.UtcNow);
+        return TodayPlan.Build(new TodayInputs(
+            OrdersToConfirm: orders ? d.OrdersToConfirm : null,
+            OrdersAwaitingInvoice: orders ? d.OrdersAwaitingInvoice : null,
+            OrdersToShip: orders ? d.OrdersToShip : null,
+            PendingReturns: Can(AdminPermissions.ReturnsManage) ? d.PendingReturns : null,
+            OpenTickets: Can(AdminPermissions.TicketsManage) ? d.OpenTickets : null,
+            PendingWithdrawals: CanAny(AdminPermissions.WithdrawalsManage, AdminPermissions.FinanceView) ? d.PendingWithdrawals : null,
+            NewMessages: Can(AdminPermissions.MessagesManage) ? d.NewMessages : null,
+            ReadyToPublish: ready,
+            SupplierPending: supplier,
+            OutOfStock: Can(AdminPermissions.ProductsView) ? d.OutOfStock : null,
+            UnresolvedErrors: Can(AdminPermissions.MonitoringView) ? d.UnresolvedErrors : null,
+            MyOverdue: mine.Overdue,
+            MyDueToday: mine.DueToday,
+            PendingComments: Can(AdminPermissions.CommentsModerate) ? d.PendingComments : null));
     }
 
     /// <summary>ذخیرهٔ چیدمان: order = همهٔ کلیدها به ترتیب فهرست، visible = تیک‌خورده‌ها.</summary>

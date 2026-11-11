@@ -5710,6 +5710,12 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<byte?>("Quality")
                         .HasColumnType("tinyint");
 
+                    b.Property<byte?>("SubjectFlags")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte?>("SubjectScore")
+                        .HasColumnType("tinyint");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -9347,6 +9353,10 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("SeenPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");

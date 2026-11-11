@@ -42,6 +42,8 @@
 @{ var liveEnabled = ViewContext.HttpContext.User.IsSignedIn() && Fratak_Shop.Web.Infrastructure.Ops.ResourceGovernor.Current.Budget.CustomerRealtime; }
 @* دور ۲۱: صفحه‌های کمپین می‌توانند هدر/فوتر را پنهان کنند (کلاس fs-no-header / fs-no-footer در landing.css). *@
 <body class="mx-auto bg-[#fcfcfc]@(ViewData["BodyClass"] is string bodyClass ? " " + bodyClass : "")" data-realtime="@(liveEnabled ? "1" : "0")">
+  @* دور ۲۸ (#۱۳۰ – دسترس‌پذیری): «پرش به محتوا» برای کاربران صفحه‌کلید و صفحه‌خوان؛ فقط با Tab دیده می‌شود. *@
+  <a href="#fs-main" class="fs-skip">پرش به محتوای اصلی</a>
   @await Component.InvokeAsync("Header")
   @if (ViewData[Fratak_Shop.Web.Infrastructure.StaffPreview.ViewDataKey] is string previewNote)
   {
@@ -55,6 +57,7 @@
   }
   <partial name="_StatusMessage" />
   @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Top })
+  <span id="fs-main" tabindex="-1" class="fs-main-anchor"></span>
   @RenderBody()
   @if (ViewData[PageMetaKeys.Faq] is IReadOnlyList<Fratak_Shop.Core.Services.Seo.Engine.SeoFaqItem> seoFaq && seoFaq.Count > 0)
   {

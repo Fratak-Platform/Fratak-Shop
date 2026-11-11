@@ -85,6 +85,15 @@ public class SearchModel(
     /// <summary>Spelling suggestion when a text search found nothing.</summary>
     public string? DidYouMean { get; private set; }
 
+    /// <summary>دور ۲۸ (#۷۶): عبارت ساده‌تری که نتیجه داشت (وقتی عبارت کامل بی‌نتیجه بود). مثال: «هدفون بی سیم».</summary>
+    public string? RelaxedQuery { get; private set; }
+
+    /// <summary>دور ۲۸ (#۷۶): کالاهای <see cref="RelaxedQuery"/>.</summary>
+    public List<ProductFilterData> RelaxedResults { get; private set; } = [];
+
+    /// <summary>دور ۲۸ (#۷۶): دسته‌هایی که نامشان با واژه‌های عبارت بی‌نتیجه جور است.</summary>
+    public IReadOnlyList<(string Name, string Slug)> RelatedCategories { get; private set; } = [];
+
     /// <summary>دور ۱۹ (C15): عبارت اصلی کاربر وقتی با اصلاح چیدمان کیبورد جست‌وجو شد. مثال: «ihvni» (و Query = «هدفون»).</summary>
     public string? CorrectedFrom { get; private set; }
 
@@ -283,6 +292,29 @@ public class SearchModel(
         {
             if (hasQuery)
                 DidYouMean = await insights.DidYouMeanAsync(Query);
+            // دور ۲۸ (#۷۶): عبارت ساده‌تر (حذف جزئیات یا تک‌واژهٔ اصلی) – اولین عبارتی که کالای موجود دارد با پیام شفاف نشان داده می‌شود.
+            if (hasQuery)
+            {
+                foreach (var relaxed in Fratak_Shop.Core.Services.Searches.SearchAlternatives.RelaxedQueries(Query).Take(3))
+                {
+                    var alternative = await productService.GetProductByFilterAsync(new ProductFilterParams
+                    {
+                        Search = relaxed,
+                        SearchTermGroups = await insights.ExpandAsync(relaxed),
+                        CategorySlug = Category is null ? null : CategorySlug,
+                        OnlyActive = true,
+                        SortBy = ProductSortBy.Relevance,
+                        PageId = 1,
+                        Take = 8,
+                    });
+                    if (alternative.Data.Count > 0)
+                    {
+                        RelaxedQuery = relaxed;
+                        RelaxedResults = alternative.Data;
+                        break;
+                    }
+                }
+            }
             PopularSearches = await insights.GetPopularAsync();
             // دور ۱۹ (C16): صفحهٔ خالی نه – پرفروش‌های موجود (همان دسته اگر انتخاب شده) به‌عنوان پیشنهاد.
             var fallback = await productService.GetProductByFilterAsync(new ProductFilterParams
@@ -328,6 +360,9 @@ public class SearchModel(
                 .Concat(Categories.SelectMany(c => c.SubCategories).Where(c => c.IsActive).Select(c => (c.Id, c.Name, c.Slug)));
             if (Fratak_Shop.Core.Services.Smart.SearchIntent.MatchCategory(Query, flat) is { } spot)
                 Spotlight = (spot.Name, spot.Slug);
+            // دور ۲۸ (#۷۶): جست‌وجوی بی‌نتیجه ← دسته‌های مرتبط برای ادامهٔ گشت‌وگذار.
+            if (Result.Data.Count == 0)
+                RelatedCategories = Fratak_Shop.Core.Services.Searches.SearchAlternatives.MatchCategories(Query, flat);
         }
         Pager = PagerModel.From(Result, Request);
 

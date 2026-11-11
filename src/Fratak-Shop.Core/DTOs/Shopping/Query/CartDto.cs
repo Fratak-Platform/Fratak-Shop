@@ -65,4 +65,10 @@ public class CartItemDto : BaseDto
 
     /// <summary>موجودی انبار برای تعداد انتخابی کاربر کافی است.</summary>
     public bool HasEnoughStock => IsAvailable && StockQuantity >= Quantity;
+
+    /// <summary>دور ۲۸ (#۸۴): قیمت نهایی‌ای که مشتری هنگام افزودن به سبد دید (null = نامعلوم).</summary>
+    public decimal? SeenPrice { get; set; }
+
+    /// <summary>دور ۲۸ (#۸۴): قیمت از زمان افزودن به سبد عوض شده است (بالا یا پایین).</summary>
+    public bool PriceChanged => IsAvailable && SeenPrice is { } seen && seen > 0 && seen != FinalPrice;
 }

@@ -59,6 +59,20 @@ public class OrderMaintenanceService(IServiceScopeFactory scopeFactory, ILogger<
     private async Task RunOnceAsync(CancellationToken stoppingToken)
     {
         var now = DateTimeOffset.UtcNow;
+        // دور ۲۸ (#۸۵): پیش از لغو سفارش‌های پرداخت‌نشده، پرداخت‌هایی که مشتری انجام داده ولی به سایت برنگشته با درگاه تطبیق داده می‌شوند.
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var payments = scope.ServiceProvider.GetRequiredService<Fratak_Shop.Web.Services.Payments.IPaymentFlowService>();
+            var (completed, failed) = await Admin.JobMonitor.TrackAsync("تطبیق پرداخت‌های بی‌پاسخ", () => payments.ReconcilePendingAsync(now, stoppingToken));
+            if (completed + failed > 0)
+                logger.LogInformation("Payment reconcile: {Completed} completed, {Failed} failed", completed, failed);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Payment reconcile failed");
+        }
+
         try
         {
             using var scope = scopeFactory.CreateScope();

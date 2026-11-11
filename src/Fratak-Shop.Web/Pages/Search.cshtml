@@ -351,6 +351,19 @@
             {
               <a href="/search" class="inline-block mt-4 rounded-lg bg-sky-500 px-6 py-2 text-sm text-white">حذف فیلترها</a>
             }
+            @if (Model.RelatedCategories.Count > 0)
+            {
+              @* دور ۲۸ (#۷۶): دسته‌های مرتبط با عبارت بی‌نتیجه *@
+              <div class="mt-6">
+                <div class="mb-2 text-xs text-zinc-400">شاید در این دسته‌ها پیدایش کنید</div>
+                <div class="flex flex-wrap justify-center gap-2">
+                  @foreach (var related in Model.RelatedCategories)
+                  {
+                    <a href="/category/@related.Slug" class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs text-sky-700 hover:border-sky-400">@related.Name</a>
+                  }
+                </div>
+              </div>
+            }
             @if (Model.PopularSearches.Count > 0)
             {
               <div class="mt-6">
@@ -367,6 +380,19 @@
               <li>املای کلمات را بررسی کنید یا از کلمات کلی‌تر استفاده کنید.</li>
               <li>نام انگلیسی یا فارسی کالا را امتحان کنید (مثلاً «هندزفری» یا «earbuds»).</li>
             </ul>
+          </div>
+        }
+        @if (Model.RelaxedQuery is not null && Model.RelaxedResults.Count > 0)
+        {
+          @* دور ۲۸ (#۷۶): نتیجهٔ عبارت ساده‌تر *@
+          <h2 class="mt-8 text-zinc-800 font-semibold">نتایج نزدیک برای «@Model.RelaxedQuery»</h2>
+          <p class="mt-1 text-xs text-zinc-500">برای «@Model.Query» کالایی نداشتیم؛ این‌ها نزدیک‌ترین کالاها هستند.
+            <a class="text-sky-600 hover:underline" href="/search?q=@Uri.EscapeDataString(Model.RelaxedQuery)">همهٔ نتایج «@Model.RelaxedQuery»</a></p>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-4">
+            @foreach (var near in Model.RelaxedResults)
+            {
+              <partial name="_ProductGridCard" model="near" />
+            }
           </div>
         }
         @if (Model.Suggestions.Count > 0)

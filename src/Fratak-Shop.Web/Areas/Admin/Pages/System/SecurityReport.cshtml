@@ -71,3 +71,41 @@
     }
   </div>
 </div>
+
+@* دور ۲۸ (#۱۱۹): مواردی که مرورگر کاربران به‌خاطر سیاست امنیت محتوا مسدود کرده (اسکریپت تزریق‌شده، افزونهٔ مخرب، منبع ناشناخته). *@
+<div class="a-card mt-4">
+  <div class="a-card-head">
+    <span class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) گزارش نقض سیاست امنیت محتوا (CSP)</span>
+    @if (Model.CspViolations.Count > 0)
+    {
+      <form method="post" asp-page-handler="ClearCsp"><button type="submit" class="a-btn a-btn-light a-btn-xs">پاک کردن</button></form>
+    }
+  </div>
+  <div class="a-card-body">
+    @if (Model.CspViolations.Count == 0)
+    {
+      <p class="text-sm">از آخرین راه‌اندازی، هیچ مرورگری موردی گزارش نکرده است.</p>
+    }
+    else
+    {
+      <p class="text-sm mb-2">هر ردیف یعنی مرورگر یک کاربر چیزی را مسدود کرده است. منبع ناشناخته روی صفحه‌های زیاد ممکن است افزونهٔ مرورگر یا تلاش برای تزریق کد باشد.</p>
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead><tr><th>بند</th><th>منبع مسدودشده</th><th>صفحه</th><th>تعداد</th><th>آخرین بار</th></tr></thead>
+          <tbody>
+            @foreach (var item in Model.CspViolations)
+            {
+              <tr>
+                <td class="a-ltr">@item.Directive</td>
+                <td class="a-ltr">@item.Blocked</td>
+                <td class="a-ltr">@item.Page</td>
+                <td>@Format.Number(item.Count)</td>
+                <td>@Format.DateTime(item.LastSeen)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

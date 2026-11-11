@@ -320,6 +320,8 @@ Fratak_Shop.Web.Infrastructure.Assistant.AssistantEndpoints.MapAssistantEndpoint
 // دور ۲۴ (بستهٔ B): تجربهٔ خرید – کلیک جست‌وجو، جست‌وجو با عکس، نمایش سریع، آمار خرید، سینی مقایسه، تضمین قیمت.
 Fratak_Shop.Web.Infrastructure.Commerce.CommerceEndpoints.MapCommerceEndpoints(app);
 Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoints(app);
+// دور ۲۸ (#۱۱۹): گزارش نقض سیاست امنیت محتوا (CSP) از مرورگرها.
+Fratak_Shop.Web.Infrastructure.Middleware.CspReports.Map(app);
 app.MapMediaEndpoints();
 Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Map(app);
 

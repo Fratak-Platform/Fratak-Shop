@@ -515,6 +515,10 @@ public class SupplierSyncService(
                         break;
 
                     case SupplierDecisionAction.Propose:
+                        // دور ۲۸ (#۱۱۰): جهش ناگهانی قیمت خرید (بیش از سقف تنظیمات) پیش از هر اعمالی جداگانه و فوری اعلام می‌شود.
+                        if (decision.Kind == SupplierChangeKind.PriceChange && policy.Reprice is { } jumpPolicy
+                            && jumpPolicy.ExceedsJump(decision.OldValue, decision.NewValue ?? 0) && existing?.NewValue != decision.NewValue)
+                            priceJumps.Add($"«{Clip(product.Name, 60)}» {decision.OldValue:N0} ← {decision.NewValue:N0}");
                         if (existing is not null)
                         {
                             // همان ردیف منتظر با عدد تازه به‌روز می‌شود (فهرست شلوغ نمی‌شود).
@@ -623,8 +627,29 @@ public class SupplierSyncService(
     /// </list>
     /// مثال متن: «۱۲۰ محصول بررسی شد: ۱۰۵ موجود، ۱۲ ناموجود، ۳ پیدا نشد · ۲ تغییر خودکار · ۴ پیشنهاد تازه · مجموع منتظر تأیید: ۶».
     /// </summary>
+    // دور ۲۸ (#۱۱۰): کالاهایی که قیمت خریدشان در همین اجرا بیش از سقف بالا رفت (متن کوتاه برای اعلان فوری).
+    private readonly List<string> priceJumps = [];
+
     private async Task NotifyAsync(SupplierSyncRun run)
     {
+        if (priceJumps.Count > 0)
+        {
+            try
+            {
+                await staff.NotifyAsync(new StaffAlert(
+                    StaffNotificationKind.SupplierReport,
+                    $"هشدار: جهش قیمت {priceJumps.Count:N0} کالا نزد تأمین‌کننده",
+                    "قیمت تا تأیید شما اعمال نشد و کالا موقتاً ناموجود است: " + string.Join("، ", priceJumps.Take(5)) + (priceJumps.Count > 5 ? " …" : ""),
+                    "/admin/products/supplier-sync",
+                    [AdminPermissions.ProductsSupplier, AdminPermissions.ProductsManage]));
+            }
+            catch
+            {
+                // اعلان ناموفق نباید نتیجهٔ اجرا را از بین ببرد.
+            }
+            priceJumps.Clear();
+        }
+
         var attention = run.NewProposals + run.AutoApplied + run.Errors + run.NotFound;
         if (run.Trigger != SupplierSyncTrigger.Manual && attention == 0)
             return;

@@ -15,6 +15,19 @@ public interface IProductService
     /// <summary>دور ۲۲: تغییر گروهی تأمین‌کننده (null = بدون تأمین‌کننده). خروجی: تعداد کالای تغییرکرده.</summary>
     Task<OperationResult<int>> ChangeSupplierAsync(IReadOnlyCollection<Guid> productIds, Guid? supplierId);
 
+    /// <summary>
+    /// دور ۲۸ (#۹۵): تغییر گروهی دسته (حداکثر ۲۰۰ کالا). دستهٔ مقصد باید واقعی باشد (نه «دسته‌بندی نشده»).
+    /// ذخیره با ردیابی EF انجام می‌شود تا هر تغییر در «تاریخچهٔ ویرایش» کالا ثبت و برگشت‌پذیر باشد.
+    /// خروجی: فهرست (کالا، دستهٔ قبلی) برای دکمهٔ «بازگردانی» (#۹۸).
+    /// </summary>
+    Task<OperationResult<IReadOnlyList<(Guid ProductId, Guid OldCategoryId)>>> ChangeCategoryAsync(IReadOnlyCollection<Guid> productIds, Guid categoryId);
+
+    /// <summary>
+    /// دور ۲۸ (#۹۸): بازگرداندن دستهٔ قبلی کالاها (خروجی <see cref="ChangeCategoryAsync"/>). کالایی که در این فاصله دسته‌اش را
+    /// کس دیگری عوض کرده (دیگر در دستهٔ <paramref name="expectedCategoryId"/> نیست) دست نمی‌خورد. خروجی: تعداد بازگردانده‌شده.
+    /// </summary>
+    Task<OperationResult<int>> RestoreCategoriesAsync(IReadOnlyList<(Guid ProductId, Guid OldCategoryId)> items, Guid expectedCategoryId);
+
     Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams);
 
     /// <summary>Value counts of filterable specifications for the current listing filters.</summary>

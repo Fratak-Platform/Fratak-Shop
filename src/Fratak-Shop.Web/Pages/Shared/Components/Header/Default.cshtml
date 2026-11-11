@@ -518,3 +518,29 @@
       </ul>
     </nav>
   </header>
+
+@* دور ۲۸ (#۱۳۱) – «نوار پایین موبایل»: پنج میانبر همیشه در دسترس شست (خانه، دسته‌ها، جست‌وجو، سبد، حساب) فقط زیر ۷۶۸ پیکسل.
+   در صفحه‌های پرداخت/تسویه نشان داده نمی‌شود و وقتی نوار «افزودن به سبد» صفحهٔ کالا باز است کنار می‌رود (commerce.css). *@
+@{
+    var bottomPath = ViewContext.HttpContext.Request.Path.Value ?? "/";
+    var hideBottomNav = bottomPath.StartsWith("/checkout", StringComparison.OrdinalIgnoreCase) || bottomPath.StartsWith("/pay", StringComparison.OrdinalIgnoreCase)
+                        || bottomPath.StartsWith("/payment", StringComparison.OrdinalIgnoreCase) || bottomPath.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
+                        || bottomPath.StartsWith("/register", StringComparison.OrdinalIgnoreCase);
+    string BottomCurrent(string prefix) => (prefix == "/" ? bottomPath == "/" : bottomPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) ? "page" : "false";
+}
+@if (!hideBottomNav)
+{
+  <nav class="fs-bnav md:hidden" aria-label="میانبرهای پایین صفحه">
+    <a href="/" aria-current="@BottomCurrent("/")">@Icons.Svg("Home", null, 22)<span>خانه</span></a>
+    <button type="button" data-ui="nav-open" aria-controls="navbarMobile">@Icons.Svg("SquaresFour", null, 22)<span>دسته‌ها</span></button>
+    <a href="/search" aria-current="@BottomCurrent("/search")">@Icons.Svg("MagnifyingGlass", null, 22)<span>جست‌وجو</span></a>
+    <a href="/cart" aria-current="@BottomCurrent("/cart")" class="fs-bnav-cart">
+      @Icons.Svg("Cart", null, 22)<span>سبد خرید</span>
+      @if (Model.CartCount > 0)
+      {
+        <b class="fs-bnav-badge" aria-label="@Model.CartCount کالا در سبد">@Model.CartCount</b>
+      }
+    </a>
+    <a href="@(Model.IsSignedIn ? "/profile" : "/login")" aria-current="@BottomCurrent("/profile")">@Icons.Svg("User", null, 22)<span>@(Model.IsSignedIn ? "حساب من" : "ورود")</span></a>
+  </nav>
+}

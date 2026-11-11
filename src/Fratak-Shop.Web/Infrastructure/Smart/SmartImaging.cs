@@ -159,6 +159,68 @@ public static class SmartImageAnalyzer
     }
 
     /// <summary>
+    /// دور ۲۸: «بررسی سوژه» (<see cref="Fratak_Shop.Core.Services.Smart.ImageSubjectCheck"/>) روی نسخهٔ حداکثر ۱۲۸ پیکسلی عکس.
+    /// پیکسل شفاف روی سفید دیده می‌شود (PNG دوربری‌شده = زمینهٔ سفید). عکس خراب ← null.
+    /// </summary>
+    public static Fratak_Shop.Core.Services.Smart.SubjectVerdict? Subject(byte[] data, double match = 0.5, int quality = 0, bool strict = false)
+    {
+        var pixels = SmallRgb(data, 128);
+        return pixels is null ? null : Fratak_Shop.Core.Services.Smart.ImageSubjectCheck.Check(pixels.Value.Rgb, pixels.Value.Width, pixels.Value.Height, match, quality, strict);
+    }
+
+    /// <summary>دور ۲۸: بازکردن عکس و کوچک کردن تا ضلع بزرگ <paramref name="maxSide"/> به آرایهٔ RGB (شفافیت روی سفید).</summary>
+    public static (byte[] Rgb, int Width, int Height)? SmallRgb(byte[] data, int maxSide)
+    {
+        if (data is null || data.Length < 100 || !WebPEncoder.Gate.Wait(TimeSpan.FromSeconds(60)))
+            return null;
+        try
+        {
+            using var stream = new SKMemoryStream(data);
+            using var codec = SKCodec.Create(stream);
+            if (codec is null)
+                return null;
+            var info = codec.Info;
+            if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxPixels)
+                return null;
+            var dims = codec.GetScaledDimensions(Math.Min(1f, 256f / Math.Max(info.Width, info.Height)));
+            if (Math.Max(dims.Width, dims.Height) > 3000)
+                return null;
+            var scaledInfo = new SKImageInfo(dims.Width, dims.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+            using var bitmap = new SKBitmap(scaledInfo);
+            var result = codec.GetPixels(scaledInfo, bitmap.GetPixels());
+            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+                return null;
+            var scale = Math.Min(1.0, maxSide / (double)Math.Max(bitmap.Width, bitmap.Height));
+            int w = Math.Max(1, (int)(bitmap.Width * scale)), h = Math.Max(1, (int)(bitmap.Height * scale));
+            using var small = bitmap.Resize(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Unpremul), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
+            if (small is null)
+                return null;
+            var rgb = new byte[w * h * 3];
+            for (var y = 0; y < h; y++)
+            {
+                for (var x = 0; x < w; x++)
+                {
+                    var c = small.GetPixel(x, y);
+                    var a = c.Alpha / 255.0;
+                    var i = (y * w + x) * 3;
+                    rgb[i] = (byte)Math.Round(c.Red * a + 255 * (1 - a));
+                    rgb[i + 1] = (byte)Math.Round(c.Green * a + 255 * (1 - a));
+                    rgb[i + 2] = (byte)Math.Round(c.Blue * a + 255 * (1 - a));
+                }
+            }
+            return (rgb, w, h);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return null;
+        }
+        finally
+        {
+            WebPEncoder.Gate.Release();
+        }
+    }
+
+    /// <summary>
     /// دور ۲۶: کوچک کردن عکس فضاسازی تا عرض <paramref name="maxWidth"/> (JPEG کیفیت ۹۰؛ بعد در ذخیره به WebP تبدیل می‌شود)
     /// تا حجم پوشهٔ آپلود و صفحه کنترل شود. عکس کوچک‌تر یا خطا ← همان بایت‌های اصلی.
     /// </summary>
@@ -197,6 +259,82 @@ public static class SmartImageAnalyzer
     {
         var ratio = info.Width / (double)info.Height;
         return Math.Min(info.Width, info.Height) >= minSide && ratio is >= 0.45 and <= 2.2;
+    }
+}
+
+/// <summary>
+/// دور ۲۸ – «ترکیب عکس کالاهای دسته روی سفید» (تصمیم «ج»، وقتی وب عکس سوژهٔ مناسبی نداد): ۱ تا ۴ عکس کالا، هر کدام بدون حاشیهٔ اضافه،
+/// کنار هم روی بوم سفید ۱۲۰۰×۸۰۰ با سایهٔ خیلی نرم. خروجی WebP. ورودی خراب نادیده گرفته می‌شود؛ هیچ عکس سالمی نبود ← null.
+/// </summary>
+public static class CategoryComposite
+{
+    public const int Width = 1200;
+    public const int Height = 800;
+
+    public static byte[]? Create(IReadOnlyList<byte[]> sources)
+    {
+        if (sources.Count == 0 || !WebPEncoder.Gate.Wait(TimeSpan.FromSeconds(60)))
+            return null;
+        var bitmaps = new List<SKBitmap>();
+        try
+        {
+            foreach (var bytes in sources.Take(4))
+            {
+                var bitmap = SKBitmap.Decode(bytes);
+                if (bitmap is null)
+                    continue;
+                if (bitmap.Width < 150 || bitmap.Height < 150 || (long)bitmap.Width * bitmap.Height > 12_000_000)
+                {
+                    bitmap.Dispose();
+                    continue;
+                }
+                bitmaps.Add(bitmap);
+            }
+            if (bitmaps.Count == 0)
+                return null;
+            using var surface = SKSurface.Create(new SKImageInfo(Width, Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+            if (surface is null)
+                return null;
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.White);
+            // چیدمان: ۱ عکس وسط؛ ۲ کنار هم؛ ۳ و ۴ در دو ردیف.
+            var cells = bitmaps.Count switch
+            {
+                1 => new[] { SKRect.Create(250, 80, 700, 640) },
+                2 => new[] { SKRect.Create(60, 120, 520, 560), SKRect.Create(620, 120, 520, 560) },
+                3 => new[] { SKRect.Create(40, 60, 360, 680), SKRect.Create(420, 60, 360, 680), SKRect.Create(800, 60, 360, 680) },
+                _ => new[] { SKRect.Create(80, 40, 500, 350), SKRect.Create(620, 40, 500, 350), SKRect.Create(80, 410, 500, 350), SKRect.Create(620, 410, 500, 350) },
+            };
+            using var shadow = new SKPaint { ImageFilter = SKImageFilter.CreateDropShadow(0, 10, 14, 14, new SKColor(0, 0, 0, 40)) };
+            for (var i = 0; i < cells.Length && i < bitmaps.Count; i++)
+            {
+                var bitmap = bitmaps[i];
+                // حاشیهٔ سفید/یکدست اطراف کالا بریده می‌شود تا کالا بزرگ و واضح دیده شود.
+                var trim = Commerce.ImageSignature.TrimBox(bitmap);
+                using var cropped = new SKBitmap();
+                var source = trim.Width >= 20 && trim.Height >= 20 && bitmap.ExtractSubset(cropped, trim) ? cropped : bitmap;
+                var cell = cells[i];
+                var fit = Math.Min(cell.Width / source.Width, cell.Height / source.Height);
+                var w = source.Width * fit;
+                var h = source.Height * fit;
+                var dest = SKRect.Create(cell.MidX - w / 2, cell.MidY - h / 2, w, h);
+                using var image = SKImage.FromBitmap(source);
+                canvas.DrawImage(image, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), shadow);
+            }
+            using var snapshot = surface.Snapshot();
+            using var data = snapshot.Encode(SKEncodedImageFormat.Webp, WebPEncoder.Quality);
+            return data?.ToArray();
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return null;
+        }
+        finally
+        {
+            foreach (var bitmap in bitmaps)
+                bitmap.Dispose();
+            WebPEncoder.Gate.Release();
+        }
     }
 }
 
@@ -264,8 +402,10 @@ public static class BannerGenerator
 /// PageUrl = صفحه‌ای که تصویر در آن بود، Title = عنوان آن صفحه/کارت، Score = امتیاز رتبه‌بندی (۰ تا ۱).</para>
 /// </summary>
 /// <para>دور ۲۳: Model = نتیجهٔ بررسی خودکار مدل منبع (<see cref="ImageModelCheck"/>)؛ نتیجه‌های قدیمی ← Unknown.</para>
+/// <remarks>دور ۲۸: Confidence = اطمینان «بررسی سوژه» (۰ تا ۱؛ <see cref="ImageSubjectCheck"/>) و Issues = دلیل‌های کوتاه فارسی برای پنل.</remarks>
 public sealed record FoundImage(string FileName, int Width, int Height, string Source, bool Trusted,
-    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0, ModelVerdict Model = ModelVerdict.Unknown, int Quality = 0);
+    string? Url = null, long Hash = 0, string? PageUrl = null, string? Title = null, double Score = 0, ModelVerdict Model = ModelVerdict.Unknown, int Quality = 0,
+    double Confidence = 0, string? Issues = null);
 
 /// <summary>یک نامزد تصویر پیش از دانلود (داخلی یابنده و آزمون‌ها).</summary>
 /// <remarks>دور ۲۳: Model = بررسی خودکار مدل منبع؛ «همان مدل» ۰٫۰۵ امتیاز بیشتر می‌گیرد (نامزد «مدل دیگر» اصلاً ساخته نمی‌شود).</remarks>
@@ -423,40 +563,41 @@ public sealed class SmartImageFinder(
                 blocked.Add(info.Hash);
         }
 
+        // دور ۲۸: «عکس سوژهٔ دسته» – خود موضوع دسته، ترجیحاً روی زمینهٔ سفید؛ آدم، صحنهٔ شلوغ، لوگو و واترمارک رد می‌شود
+        // (CategorySubjectImages + ImageSubjectCheck در حالت سخت‌گیر). جست‌وجو از چند منبع ادامه پیدا می‌کند تا عکس درست پیدا شود.
         var hits = new List<PhotoHit>();
-        foreach (var query in CategoryPhotos.EnglishQueries(subject))
+        foreach (var query in CategorySubjectImages.EnglishQueries(subject))
         {
-            hits.AddRange(await sources.OpenversePhotosAsync(query, cancellationToken));
+            hits.AddRange(await sources.OpenverseSubjectAsync(query, cancellationToken));
             if (hits.Count >= 30)
                 break;
         }
-        var bingQueries = CategoryPhotos.EnglishQueries(subject).Take(1).Concat(CategoryPhotos.PersianQueries(subject).Take(2));
-        foreach (var query in bingQueries)
+        foreach (var query in CategorySubjectImages.EnglishQueries(subject).Take(1).Concat(CategorySubjectImages.PersianQueries(subject)))
         {
-            if (hits.Count >= 60)
+            if (hits.Count >= 70)
                 break;
-            hits.AddRange(await sources.BingPhotosAsync(query, cancellationToken));
+            hits.AddRange((await sources.BingImageResultsAsync(query, 0, cancellationToken)).Select(h => new PhotoHit(h.Url, h.Title, h.PageUrl, 0, 0, "bing")));
         }
         var candidates = hits
-            .Where(h => SmartParsers.CleanImageUrl(h.Url) is not null && CategoryPhotos.IsUsefulHit(h.Title, h.Url, h.PageUrl))
-            // ابعاد اعلام‌شده (Openverse) از پیش بررسی می‌شود تا دانلود بیهوده نشود؛ بینگ ابعاد نمی‌دهد (۰) و بعد از دانلود سنجیده می‌شود.
-            .Where(h => h.Width == 0 || (h.Width >= CategoryPhotos.MinWidth && h.Width / (double)Math.Max(1, h.Height) is >= CategoryPhotos.MinRatio and <= CategoryPhotos.MaxRatio))
+            .Where(h => SmartParsers.CleanImageUrl(h.Url) is not null && CategorySubjectImages.IsUsefulHit(h.Title, h.Url, h.PageUrl))
+            .Where(h => h.Width == 0 || CategorySubjectImages.IsSizeOk(h.Width, h.Height))
             .DistinctBy(h => SmartImageRules.UrlKey(h.Url))
-            .Take(24)
+            .Take(30)
             .ToList();
 
         var accepted = new List<(byte[] Bytes, double Score, ulong Hash)>();
+        var rejected = 0;
         using var throttle = new SemaphoreSlim(2);
         foreach (var batch in candidates.Chunk(4))
         {
-            if (accepted.Count >= want + 2)
+            if (accepted.Count >= want + 1)
                 break;
             var downloads = batch.Select(async hit =>
             {
                 await throttle.WaitAsync(cancellationToken);
                 try
                 {
-                    return await DownloadAsync(hit.Url, cancellationToken);
+                    return (Hit: hit, Bytes: await DownloadAsync(hit.Url, cancellationToken));
                 }
                 finally
                 {
@@ -465,23 +606,47 @@ public sealed class SmartImageFinder(
             }).ToList();
             foreach (var task in downloads)
             {
-                var bytes = await task;
-                if (bytes is null || SmartImageAnalyzer.Analyze(bytes) is not { } info || SmartImageAnalyzer.Metrics(bytes) is not { } metrics)
+                var (hit, bytes) = await task;
+                if (bytes is null || SmartImageAnalyzer.Analyze(bytes) is not { } info || !CategorySubjectImages.IsSizeOk(info.Width, info.Height))
                     continue;
-                if (!CategoryPhotos.IsAcceptable(info.Width, info.Height, metrics) || blocked.Any(h => ImageHash.IsDuplicate(h, info.Hash))
-                    || accepted.Any(a => ImageHash.IsDuplicate(a.Hash, info.Hash)))
+                if (blocked.Any(h => ImageHash.IsDuplicate(h, info.Hash)) || accepted.Any(a => ImageHash.IsDuplicate(a.Hash, info.Hash)))
                     continue;
-                accepted.Add((SmartImageAnalyzer.Downscale(bytes, CategoryPhotoMaxWidth), CategoryPhotos.Score(info.Width, info.Height, metrics, info.Quality), info.Hash));
+                // تطابق عنوان با نام/نامک دسته (عنوان نامعلوم ← ۰٫۵).
+                var match = string.IsNullOrWhiteSpace(hit.Title) ? 0.5
+                    : Math.Max(SmartParsers.TitleMatch(subject.Name, hit.Title), SmartParsers.TitleMatch(CategoryPhotos.SlugWords(subject.Slug), hit.Title));
+                var verdict = SmartImageAnalyzer.Subject(bytes, Math.Max(0.4, match), info.Quality, strict: true);
+                if (verdict is not { Accept: true, PlainBackground: true })
+                {
+                    rejected++;
+                    continue;
+                }
+                accepted.Add((SmartImageAnalyzer.Downscale(bytes, 1200), CategorySubjectImages.Score(verdict, info.Width, info.Height, info.Quality), info.Hash));
             }
         }
+        if (rejected > 0)
+            logger.LogInformation("Category subject check rejected {Count} images for {Category}", rejected, subject.Name);
 
-        // بهترین‌ها (رنگی‌تر و تیزتر) اول؛ اولی اگر دسته تصویری نداشته باشد تصویر فعال می‌شود.
         foreach (var photo in accepted.OrderByDescending(a => a.Score).Take(want))
         {
             var stored = await StoreAsync(photo.Bytes, UploadArea.Categories, cancellationToken);
             if (stored is null)
                 continue;
-            results.Add(RenameIn(UploadArea.Categories, stored, CategoryPhotos.FileName(subject.Slug)));
+            results.Add(RenameIn(UploadArea.Categories, stored, CategorySubjectImages.FileName(subject.Slug)));
+        }
+
+        // تصمیم «ج»: وب عکس مناسبی نداد ← ترکیب عکس کالاهای خود دسته روی زمینهٔ سفید (هرگز تصویر ساده/خالی).
+        if (results.Count == 0 && productImageNames.Count > 0)
+        {
+            var sourcesBytes = new List<byte[]>();
+            foreach (var name in productImageNames.Distinct(StringComparer.Ordinal).Take(4))
+            {
+                var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(name));
+                if (path is not null && File.Exists(path))
+                    sourcesBytes.Add(await File.ReadAllBytesAsync(path, cancellationToken));
+            }
+            if (CategoryComposite.Create(sourcesBytes) is { } composite
+                && await StoreAsync(composite, UploadArea.Categories, cancellationToken) is { } stored)
+                results.Add(RenameIn(UploadArea.Categories, stored, CategorySubjectImages.FileName(subject.Slug)));
         }
         return results;
     }
@@ -560,6 +725,7 @@ public sealed class SmartImageFinder(
     {
         var results = new List<FoundImage>();
         var hashes = new List<ulong>(existing);
+        var rejected = 0;
         using var throttle = new SemaphoreSlim(3);
         // دسته‌های ۶تایی به ترتیب امتیاز: وقتی به تعداد خواسته رسیدیم بقیه اصلاً دانلود نمی‌شوند (پهنای باند و حافظهٔ هاست ضعیف).
         foreach (var batch in candidates.Chunk(6))
@@ -588,16 +754,28 @@ public sealed class SmartImageFinder(
                 if (info is null || !SmartImageAnalyzer.IsAcceptable(info, minSide) || blacklist.BlocksHash(info.Hash)
                     || hashes.Any(h => ImageHash.IsDuplicate(h, info.Hash)))
                     continue;
+                // دور ۲۸: «بررسی سوژه» – عکس آدم‌دار، واترمارک‌دار یا سوژهٔ ریز رد می‌شود و جست‌وجو با نامزد بعدی ادامه می‌یابد.
+                // منبع ناشناس (بینگ/فروشگاه‌های نتایج) سخت‌گیرتر است: عکس صحنه هم رد می‌شود.
+                var verdict = SmartImageAnalyzer.Subject(bytes, candidate.Match, info.Quality, strict: !candidate.Trusted);
+                if (verdict is { Accept: false })
+                {
+                    rejected++;
+                    continue;
+                }
                 var name = await StoreAsync(bytes, area, cancellationToken);
                 if (name is null)
                     continue;
                 hashes.Add(info.Hash);
                 results.Add(new FoundImage(name, info.Width, info.Height, candidate.Source, candidate.Trusted,
-                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores), candidate.Model, info.Quality));
+                    candidate.Url, unchecked((long)info.Hash), candidate.PageUrl, candidate.Title, candidate.Score(scores), candidate.Model, info.Quality,
+                    verdict?.Confidence ?? 0.5, verdict is null ? null : string.Join("، ", verdict.Reasons)));
             }
         }
-        // دور ۲۴ (پیشنهاد ۵۸): عکس باکیفیت‌تر (تیز، روشن، زمینهٔ تمیز) جلوتر؛ اولین عکس پذیرفته‌شده عکس اصلی کالا می‌شود.
-        return results.OrderByDescending(r => r.Score * 0.7 + r.Quality / 100.0 * 0.3).ToList();
+        if (rejected > 0)
+            logger.LogInformation("Image subject check rejected {Count} candidates", rejected);
+        // دور ۲۴ (پیشنهاد ۵۸) + دور ۲۸: اطمینان سوژه (زمینهٔ سفید، بی‌آدم، بی‌واترمارک) مهم‌ترین معیار است؛ بعد امتیاز منبع و کیفیت.
+        // اولین عکس پذیرفته‌شده عکس اصلی کالا می‌شود.
+        return results.OrderByDescending(r => r.Confidence * 0.55 + r.Score * 0.3 + r.Quality / 100.0 * 0.15).ToList();
     }
 
     private async Task<string?> StoreAsync(byte[] bytes, UploadArea area, CancellationToken cancellationToken)

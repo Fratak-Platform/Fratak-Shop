@@ -34,7 +34,33 @@
 {
   var key = item.Widget.Key;
   <div class="a-widget @DashboardLayout.SpanClass(item.Widget.Span)" data-widget="@key">
-  @if (key == "tasks")
+  @if (key == "today")
+  {
+    @* دور ۲۸ (#۹۴): «کارهای امروز» – فهرست مرتب، فوری‌ها اول. *@
+    <section class="a-today">
+      <h3 class="a-section-title">کارهای امروز</h3>
+      @if (Model.Today.Count == 0)
+      {
+        <p class="a-muted text-sm">کار فوری‌ای برای امروز نمانده است. 🎉</p>
+      }
+      else
+      {
+        <ol class="a-today-list">
+          @foreach (var task in Model.Today)
+          {
+            <li class="a-today-item is-p@(task.Priority)" data-today="@task.Key">
+              <a href="@task.Url">
+                <b>@task.Title</b>
+                <span class="a-muted text-xs">@task.Hint</span>
+              </a>
+              <span class="a-badge @(task.Priority == 1 ? "a-badge-red" : task.Priority == 2 ? "a-badge-yellow" : "a-badge-gray")">@(task.Priority == 1 ? "فوری" : task.Priority == 2 ? "امروز" : "فرصت")</span>
+            </li>
+          }
+        </ol>
+      }
+    </section>
+  }
+  else if (key == "tasks")
   {
     <section>
       <h3 class="a-section-title">کارهای در انتظار</h3>

@@ -32,4 +32,9 @@ public interface ICartService
     Task<CartDto?> GetCartByUserAsync(Guid userId);
     Task<CartDto?> GetCartBySessionAsync(string sessionKey);
     Task<List<CartItemDto>> GetItemsAsync(Guid cartId);
+
+    /// <summary>
+    /// دور ۲۸ (#۸۴): قیمت فعلی همهٔ ردیف‌های سبد را «دیده‌شده» ثبت می‌کند (بعد از نمایش پیام تغییر قیمت در تسویه).
+    /// </summary>
+    Task<int> AcceptCurrentPricesAsync(Guid cartId);
 }

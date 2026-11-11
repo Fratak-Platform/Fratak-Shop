@@ -409,6 +409,28 @@ public sealed class SmartSources(
     }
 
     /// <summary>
+    /// دور ۲۸ – «عکس سوژهٔ دسته» از Openverse: مثل <see cref="OpenversePhotosAsync"/> ولی بدون قید «افقی» (عکس کاتالوگی معمولاً مربع است).
+    /// مثال: «headphones white background» ← تا ۲۰ عکس CC0. نتیجه ۷ روز کش می‌شود؛ شکست ← فهرست خالی.
+    /// </summary>
+    public async Task<List<PhotoHit>> OpenverseSubjectAsync(string query, CancellationToken cancellationToken)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length < 2)
+            return [];
+        var key = "photo:ovs:" + query;
+        var cached = await store.GetAsync<List<PhotoHit>>(key, cancellationToken);
+        if (cached is not null)
+            return cached;
+        var json = await GetAsync(Openverse, "https://api.openverse.org/v1/images/?license=cc0,pdm&category=photograph&mature=false&page_size=20&q="
+                                             + Uri.EscapeDataString(query), true, cancellationToken);
+        if (json is null)
+            return [];
+        var hits = SmartParsers.OpenverseImages(json);
+        await store.SetAsync(key, Openverse, hits, SearchTtl, cancellationToken);
+        return hits;
+    }
+
+    /// <summary>
     /// دور ۲۶ – عکس فضاسازی دسته از جست‌وجوی تصویر بینگ با فیلترهای «فقط عکس واقعی، بزرگ، افقی»
     /// (qft=+filterui:photo-photo+filterui:imagesize-large+filterui:aspect-wide). ابعاد اعلام نمی‌شود (۰)؛ بعد از دانلود سنجیده می‌شود.
     /// مثال: «لوازم خانگی در خانه» ← تا ۴۰ نتیجه. شکست ← فهرست خالی.

@@ -155,6 +155,25 @@
   </details>
 }
 
+@if (canManage && !string.IsNullOrEmpty(Model.UndoToken))
+{
+  @* دور ۲۸ (#۹۸): بازگردانی آخرین تغییر گروهی (تا ۳۰ دقیقه). *@
+  <form method="post" asp-page-handler="Undo" class="a-card mb-4 flex flex-wrap items-center justify-between gap-3">
+    <input type="hidden" name="token" value="@Model.UndoToken">
+    <span>تغییر گروهی انجام شد. اگر اشتباه بود، تا ۳۰ دقیقه می‌توانید برش گردانید.</span>
+    <button type="submit" class="a-btn a-btn-light">بازگردانی تغییر</button>
+  </form>
+}
+
+@if (canManage && Model.Counts["inactive"] > Model.Counts["ready"])
+{
+  @* دور ۲۸ (#۶۶): آماده‌سازی دوبارهٔ همهٔ پیش‌نویس‌های ناقص (سیستم دسته، نام انگلیسی، توضیحات، عکس و قیمت را کامل می‌کند). *@
+  <form method="post" asp-page-handler="ReprepareAll" class="a-card mb-4 flex flex-wrap items-center justify-between gap-3">
+    <span>@Format.Number(Model.Counts["inactive"] - Model.Counts["ready"]) پیش‌نویس هنوز کامل نیست. دستیار خودش دسته، نام انگلیسی، توضیحات، عکس و قیمت را کامل می‌کند.</span>
+    <button type="submit" class="a-btn a-btn-light" data-confirm="آماده‌سازی همهٔ پیش‌نویس‌های ناقص از اول شروع شود؟">آماده‌سازی دوباره همه</button>
+  </form>
+}
+
 @if (canManage && Model.Missing == "ready" && Model.Counts["ready"] > 0)
 {
   <form method="post" asp-page-handler="PublishReady" class="a-card mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -172,6 +191,8 @@
         <option value="activate">فعال‌سازی</option>
         <option value="deactivate">غیرفعال‌سازی</option>
         <option value="smart">تکمیل هوشمند</option>
+        <option value="reprepare">آماده‌سازی دوباره (پیش‌نویس)</option>
+        <option value="category">تغییر دسته</option>
         @if (canSupplier) { <option value="supplier">تغییر تأمین‌کننده</option> }
         @if (Model.Can(AdminPermissions.ProductsDelete)) { <option value="delete">حذف</option> }
       </select>
@@ -184,6 +205,11 @@
           @foreach (var s in Model.Suppliers) { <option value="@s.Id">@s.Name</option> }
         </select>
       }
+      @* دور ۲۸ (#۹۵): مقصد «تغییر دسته» (فقط وقتی همان عملیات انتخاب شده استفاده می‌شود). *@
+      <select name="categoryTarget" class="a-select a-input-sm" style="width:auto" aria-label="دستهٔ مقصد">
+        <option value="">— دستهٔ مقصد —</option>
+        @foreach (var c in Model.MoveTargets) { <option value="@c.Id">@c.Name</option> }
+      </select>
       <button type="submit" class="a-btn a-btn-sm" data-confirm="عملیات روی محصولات انتخاب‌شده انجام شود؟">اعمال</button>
       @* تغییر قیمت همیشه با پیش‌نمایش اثر انجام می‌شود (صفحهٔ «تغییر گروهی قیمت»). *@
       <button type="submit" class="a-btn a-btn-sm a-btn-light" formaction="/admin/products/bulk-price?handler=Select" data-keep-enabled>@Icons.Svg("Calculator", null, 16) تغییر قیمت با پیش‌نمایش</button>
