@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Core.Services.Smart;
 
 namespace Fratak_Shop.Tests.Unit;

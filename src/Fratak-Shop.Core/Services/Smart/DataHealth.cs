@@ -1,3 +1,4 @@
+using Fratak_Shop.Core.Services.Products;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -243,7 +244,7 @@ public sealed class DataHealthService(FratakShopDbContext context) : IDataHealth
             scored.Count(s => s.Result.Score < DataConfidence.Weak),
             counts,
             worst,
-            badImages.Select(i => new DataImageRow(i.ProductId, i.ProductName, i.ImageName, i.SubjectScore, i.SubjectFlags ?? 0)).ToList(),
+            badImages.Select(i => new DataImageRow(i.ProductId, i.ProductName, i.ImageName, i.SubjectScore, i.SubjectFlags ?? (byte)0)).ToList(),
             unchecked_);
     }
 
