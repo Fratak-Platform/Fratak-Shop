@@ -6,6 +6,7 @@ using Fratak_Shop.Core.Services.Smart;
 using Fratak_Shop.Core.Services.Suppliers;
 using Fratak_Shop.Data.Entities.Categories;
 using Fratak_Shop.Data.Entities.Products;
+using Fratak_Shop.Web.Infrastructure.Commerce;
 using Fratak_Shop.Web.Infrastructure.Middleware;
 using Fratak_Shop.Web.Infrastructure.Smart;
 using Fratak_Shop.Web.Services;
@@ -447,6 +448,30 @@ public class Round28FeaturesTests
         Assert.NotNull(text);
         Assert.True(text.Length <= 251);
         Assert.EndsWith("…", text, StringComparison.Ordinal);
+    }
+
+    // ── جست‌وجو با عکس ──────────────────────────────────────────
+
+    [Fact]
+    public void Broken_signatures_are_not_usable()
+    {
+        Assert.False(ImageSearchService.IsUsable(0, null));
+        Assert.False(ImageSearchService.IsUsable(0, ImageSignature.Pack(new[] { (0L, 0L) })));
+        Assert.True(ImageSearchService.IsUsable(0, ImageSignature.Pack(new[] { (0L, 7L) })));
+        Assert.True(ImageSearchService.IsUsable(12345, null));
+    }
+
+    [Fact]
+    public void Approximate_ranking_never_repeats_exact_matches_and_is_capped()
+    {
+        var query = new ImageSignature.Signature(0x0F0F0F0F0F0F0F0FL, Enumerable.Repeat((byte)8, ImageSignature.Bins).ToArray(), 0x00FF00FF00FF00FFL);
+        var exact = new ImageSignature.Stored(Guid.NewGuid(), new[] { (query.Hash, query.PHash) }, query.Colors);
+        var candidates = Enumerable.Range(0, 10).Select(_ => exact with { ProductId = Guid.NewGuid() }).Prepend(exact).ToList();
+        Assert.Contains(exact.ProductId, ImageSearchService.Rank(new[] { query }, candidates));
+        // همهٔ این‌ها بالای حد اصلی‌اند ← در «تقریبی» تکرار نمی‌شوند.
+        Assert.Empty(ImageSearchService.RankApproximate(new[] { query }, candidates));
+        Assert.True(ImageSearchService.Rank(new[] { query }, candidates).Count <= ImageSearchService.MaxResults);
+        Assert.Empty(ImageSearchService.RankApproximate(new[] { query }, Array.Empty<ImageSignature.Stored>()));
     }
 
     [Theory]
