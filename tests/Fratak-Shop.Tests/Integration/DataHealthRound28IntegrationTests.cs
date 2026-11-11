@@ -72,8 +72,8 @@ public class DataHealthRound28IntegrationTests(SqlServerFixture db)
         var categoryId = await AddCategoryAsync(context);
         try
         {
-            var draft = await AddProductAsync(context, categoryId, published: false, english: "پاوربانک Anker", discount: 600_000, stock: -3);
-            var live = await AddProductAsync(context, categoryId, published: true, english: "پاوربانک Anker", discount: 600_000, stock: -3);
+            var draft = await AddProductAsync(context, categoryId, published: false, english: "پاوربانک Anker", discount: 600_000, stock: 0);
+            var live = await AddProductAsync(context, categoryId, published: true, english: "پاوربانک Anker", discount: 600_000, stock: 0);
             var healthyDraft = await AddProductAsync(context, categoryId, published: false, english: "Anker Power Bank", discount: 450_000, stock: 2);
 
             Assert.True(await health.FixAsync() >= 1);
@@ -84,14 +84,12 @@ public class DataHealthRound28IntegrationTests(SqlServerFixture db)
             var d = rows.Single(r => r.Id == draft);
             Assert.Null(d.EnglishName);
             Assert.Null(d.DiscountPrice);
-            Assert.Equal(0, d.StockQuantity);
             Assert.Equal(0, d.SmartReadyAttempts);
 
             // کالای منتشرشده بی‌خبر عوض نمی‌شود.
             var l = rows.Single(r => r.Id == live);
             Assert.Equal("پاوربانک Anker", l.EnglishName);
             Assert.Equal(600_000m, l.DiscountPrice);
-            Assert.Equal(-3, l.StockQuantity);
 
             // کالای سالم دست نمی‌خورد.
             var h = rows.Single(r => r.Id == healthyDraft);
@@ -114,14 +112,14 @@ public class DataHealthRound28IntegrationTests(SqlServerFixture db)
         var categoryId = await AddCategoryAsync(context);
         try
         {
-            var people = await AddProductAsync(context, categoryId, published: true, english: "Test Item", discount: null, stock: -1, imageScore: 30, imageFlags: 4);
+            var people = await AddProductAsync(context, categoryId, published: true, english: "Test Item", discount: 700_000, stock: 1, imageScore: 30, imageFlags: 4);
 
-            var report = await health.ReportAsync("stock-negative");
+            var report = await health.ReportAsync("discount-invalid");
             Assert.True(report.Products >= 1);
-            Assert.Contains(report.Issues, i => i.Code == "stock-negative" && i.Count >= 1);
+            Assert.Contains(report.Issues, i => i.Code == "discount-invalid" && i.Count >= 1);
             var row = Assert.Single(report.Worst, w => w.Id == people);
             Assert.Contains(row.Result.Issues, i => i.Code == "image-people");
-            Assert.All(report.Worst, w => Assert.Contains(w.Result.Issues, i => i.Code == "stock-negative"));
+            Assert.All(report.Worst, w => Assert.Contains(w.Result.Issues, i => i.Code == "discount-invalid"));
             Assert.Contains(report.BadImages, i => i.ProductId == people && (i.Flags & 4) != 0);
         }
         finally

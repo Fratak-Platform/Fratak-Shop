@@ -20,10 +20,10 @@ public class DataHealthRound28E2ETests(ShopApp app)
     {
         var (draftId, _) = await app.CreateProductAsync(stock: 3, active: false);
         var (liveId, _) = await app.CreateProductAsync(stock: 3);
-        // پیش‌نویس واقعی (هرگز منتشرنشده) با نام انگلیسی فارسی‌دار و موجودی منفی.
+        // پیش‌نویس واقعی (هرگز منتشرنشده) با نام انگلیسی فارسی‌دار و قیمت تخفیف بیشتر از قیمت اصلی.
         await app.WithDbAsync(db => db.Products.Where(p => p.Id == draftId)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.PublishedAt, (DateTimeOffset?)null)
-                .SetProperty(p => p.EnglishName, "کالا Test").SetProperty(p => p.StockQuantity, -2)));
+                .SetProperty(p => p.EnglishName, "کالا Test").SetProperty(p => p.DiscountPrice, (decimal?)999_000_000)));
 
         using var owner = app.CreateClient();
         await owner.LoginAsync(ShopApp.OwnerPhone);
@@ -31,9 +31,9 @@ public class DataHealthRound28E2ETests(ShopApp app)
         var page = await owner.GetPageAsync("/admin/smart/data-health");
         Assert.NotNull(page.One("[data-health-summary]"));
         Assert.NotNull(page.One("[data-fix-all]"));
-        Assert.Contains("موجودی منفی", page.Text, StringComparison.Ordinal);
+        Assert.Contains("قیمت تخفیف نامعتبر", page.Text, StringComparison.Ordinal);
 
-        var filtered = await owner.GetPageAsync("/admin/smart/data-health?issue=stock-negative");
+        var filtered = await owner.GetPageAsync("/admin/smart/data-health?issue=discount-invalid");
         Assert.Contains("نمایش همه", filtered.Text, StringComparison.Ordinal);
         using (var junk = await owner.GetAsync("/admin/smart/data-health?issue=%3Cscript%3E"))
             Assert.Equal(HttpStatusCode.OK, junk.StatusCode);
@@ -47,10 +47,10 @@ public class DataHealthRound28E2ETests(ShopApp app)
             Assert.Equal("/admin/smart/data-health", fix.Headers.Location?.ToString());
         }
         var draft = await app.WithDbAsync(db => db.Products.AsNoTracking().Where(p => p.Id == draftId)
-            .Select(p => new { p.EnglishName, p.StockQuantity }).SingleAsync());
+            .Select(p => new { p.EnglishName, p.DiscountPrice }).SingleAsync());
         // کارگر هوشمند ممکن است هم‌زمان نام انگلیسی درست بگذارد؛ مهم این است که نام فارسی‌دار نماند.
         Assert.True(draft.EnglishName is null || ProductNaming.IsUsableEnglish(draft.EnglishName), draft.EnglishName);
-        Assert.Equal(0, draft.StockQuantity);
+        Assert.Null(draft.DiscountPrice);
 
         using (var reprepareLive = await owner.PostFormAsync("/admin/smart/data-health?handler=Reprepare", ("id", liveId.ToString())))
             Assert.Equal(HttpStatusCode.Redirect, reprepareLive.StatusCode);

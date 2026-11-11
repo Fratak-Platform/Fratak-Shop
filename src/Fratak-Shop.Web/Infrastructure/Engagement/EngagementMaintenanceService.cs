@@ -93,7 +93,7 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         await RunAsync("Assistant intent model", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantService>().RetrainIntentModelAsync(token), token);
         // دور ۲۸: جدول دانش دستیار از 👍/👎 مشتری‌ها یاد می‌گیرد (دانستنی بی‌فایده خودکار خاموش می‌شود).
         await RunAsync("Assistant knowledge learning", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantFactService>().LearnAsync(token), token);
-        // دور ۲۸ (#۵۸): ایرادهای بی‌خطر داده در پیش‌نویس‌ها (نام انگلیسی فارسی‌دار، تخفیف نامعتبر، موجودی منفی) هر شب درست می‌شوند.
+        // دور ۲۸ (#۵۸): ایرادهای بی‌خطر داده در پیش‌نویس‌ها (نام انگلیسی فارسی‌دار و تخفیف نامعتبر) هر شب درست می‌شوند.
         await RunAsync("Data health auto-fix", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Smart.IDataHealthService>().FixAsync(token), token);
         await RunAsync("Assistant handoff auto-close", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantHandoffService>().AutoCloseAsync(token), token);
         // دور ۲۴: کلیک‌های جست‌وجوی قدیمی کم‌وزن و خیلی قدیمی‌ها پاک می‌شوند (رتبه‌بندی یادگیرنده سلیقهٔ تازه را دنبال کند).

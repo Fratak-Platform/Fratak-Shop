@@ -467,10 +467,10 @@ public class Round28FeaturesTests
         var query = new ImageSignature.Signature(0x0F0F0F0F0F0F0F0FL, Enumerable.Repeat((byte)8, ImageSignature.Bins).ToArray(), 0x00FF00FF00FF00FFL);
         var exact = new ImageSignature.Stored(Guid.NewGuid(), new[] { (query.Hash, query.PHash) }, query.Colors);
         var candidates = Enumerable.Range(0, 10).Select(_ => exact with { ProductId = Guid.NewGuid() }).Prepend(exact).ToList();
-        Assert.Contains(exact.ProductId, ImageSearchService.Rank(new[] { query }, candidates));
+        Assert.Equal(new[] { exact.ProductId }, ImageSearchService.Rank(new[] { query }, new[] { exact }).ToArray());
         // همهٔ این‌ها بالای حد اصلی‌اند ← در «تقریبی» تکرار نمی‌شوند.
         Assert.Empty(ImageSearchService.RankApproximate(new[] { query }, candidates));
-        Assert.True(ImageSearchService.Rank(new[] { query }, candidates).Count <= ImageSearchService.MaxResults);
+        Assert.Equal(ImageSearchService.MaxResults, ImageSearchService.Rank(new[] { query }, candidates).Count);
         Assert.Empty(ImageSearchService.RankApproximate(new[] { query }, Array.Empty<ImageSignature.Stored>()));
     }
 

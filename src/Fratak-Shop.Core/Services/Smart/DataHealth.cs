@@ -8,7 +8,7 @@ namespace Fratak_Shop.Core.Services.Smart;
 // ─────────────────────────────────────────────────────────────────────────────
 // دور ۲۸ (#۵۱ تا #۵۹) – «سلامت داده»: هر کالا یک امتیاز اطمینان ۰ تا ۱۰۰ می‌گیرد.
 // هر ایراد (نام بد، نام انگلیسی فارسی‌دار، قیمت زیر خرید، تخفیف نامعقول، عکس آدم‌دار/واترمارک‌دار …) امتیاز کم می‌کند.
-// ایرادهای بی‌خطر خودکار درست می‌شوند (فقط پیش‌نویس‌ها)؛ بقیه با دلیل و راه‌حل در صفحهٔ «سلامت داده» نشان داده می‌شوند.
+// ایرادهای بی‌خطر (نام انگلیسی نامعتبر، تخفیف نامعتبر) خودکار درست می‌شوند (فقط پیش‌نویس‌ها)؛ بقیه با دلیل و راه‌حل در صفحهٔ «سلامت داده» نشان داده می‌شوند.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// <summary>شدت یک ایراد داده. هرچه شدیدتر، امتیاز بیشتری کم می‌شود (بحرانی ۳۰، هشدار ۱۲، نکته ۴).</summary>
@@ -112,7 +112,7 @@ public static class DataConfidence
 
         // ── موجودی ──
         if (facts.Stock < 0)
-            Add("stock-negative", "موجودی منفی است", DataSeverity.Critical, "«درست کردن خودکار» آن را صفر می‌کند.");
+            Add("stock-negative", "موجودی منفی است", DataSeverity.Critical, "موجودی را از صفحهٔ کالا یا همگام‌سازی تأمین‌کننده درست کنید.");
 
         // ── متن ──
         if (facts.DescriptionLength < ProductCompleteness.ReadyDescriptionLength)
@@ -168,7 +168,8 @@ public interface IDataHealthService
 
     /// <summary>
     /// درست کردن خودکار ایرادهای بی‌خطر (فقط پیش‌نویس‌های منتشرنشده تا صفحهٔ فروشگاه بی‌خبر عوض نشود):
-    /// نام انگلیسی نامعتبر ← پاک (تا آماده‌سازی دوباره پیدا کند)، تخفیف نامعتبر ← برداشته، موجودی منفی ← صفر.
+    /// نام انگلیسی نامعتبر ← پاک (تا آماده‌سازی دوباره پیدا کند) و تخفیف نامعتبر (صفر یا نه کمتر از قیمت اصلی) ← برداشته.
+    /// (موجودی منفی را خود پایگاه داده با قید CHECK رد می‌کند؛ این‌جا فقط برای دادهٔ واردشده از بیرون در امتیاز دیده می‌شود.)
     /// خروجی: شمار کالاهای اصلاح‌شده.
     /// </summary>
     Task<int> FixAsync(CancellationToken cancellationToken = default);
@@ -276,17 +277,6 @@ public sealed class DataHealthService(FratakShopDbContext context) : IDataHealth
             await context.Products.Where(p => badDiscount.Contains(p.Id))
                 .ExecuteUpdateAsync(s => s.SetProperty(p => p.DiscountPrice, (decimal?)null), cancellationToken);
             fixedIds.UnionWith(badDiscount);
-        }
-
-        // ۳) موجودی منفی ← صفر.
-        var negative = await context.Products
-            .Where(p => !p.IsActive && p.PublishedAt == null && p.StockQuantity < 0)
-            .Select(p => p.Id).Take(5000).ToListAsync(cancellationToken);
-        if (negative.Count > 0)
-        {
-            await context.Products.Where(p => negative.Contains(p.Id))
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, 0), cancellationToken);
-            fixedIds.UnionWith(negative);
         }
         return fixedIds.Count;
     }
