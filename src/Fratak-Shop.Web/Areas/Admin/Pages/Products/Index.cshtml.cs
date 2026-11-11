@@ -40,6 +40,12 @@ public sealed class AdminProductRow
 
     /// <summary>دور ۲۳: پیش‌نویس «آمادهٔ انتشار» (<see cref="ProductCompleteness.ReadyToPublish"/>)؛ برچسب سبز در ستون وضعیت.</summary>
     public bool Ready { get; set; }
+
+    /// <summary>
+    /// دور ۲۶: پیش‌نویسی که عکس تأییدشده ندارد ولی دستیار عکس پیشنهادی پیدا کرده و منتظر تأیید کارشناس است
+    /// (کار هوشمند «منتظر تأیید»). برچسب «منتظر تأیید عکس» با لینک صفحهٔ تکمیل هوشمند همان کالا.
+    /// </summary>
+    public bool AwaitingImages { get; set; }
 }
 
 [AdminPermission(AdminPermissions.ProductsView, AdminPermissions.SeoManage)]
@@ -78,10 +84,17 @@ public class IndexModel(IAdminDataService data, IProductService products, IStore
         var inputs = await data.Query<Product>().Where(p => ids.Contains(p.Id)).Select(ProductCompleteness.Projection).ToListAsync();
         var scores = inputs.ToDictionary(i => i.ProductId, ProductCompleteness.Evaluate);
         var ready = (await data.Query<Product>().Where(p => ids.Contains(p.Id)).Where(ProductCompleteness.ReadyToPublish).Select(p => p.Id).ToListAsync()).ToHashSet();
+        var noImage = inputs.Where(i => i.ImageCount == 0).Select(i => i.ProductId).ToList();
+        var awaiting = noImage.Count == 0
+            ? new HashSet<Guid>()
+            : (await data.Query<Fratak_Shop.Data.Entities.Smart.SmartTask>()
+                .Where(t => t.TargetId != null && noImage.Contains(t.TargetId.Value) && t.Status == Fratak_Shop.Data.Entities.Smart.SmartTaskStatus.NeedsReview)
+                .Select(t => t.TargetId!.Value).Distinct().ToListAsync()).ToHashSet();
         foreach (var row in rows)
         {
             row.Completeness = scores.GetValueOrDefault(row.Id);
             row.Ready = ready.Contains(row.Id);
+            row.AwaitingImages = !row.IsActive && awaiting.Contains(row.Id);
         }
 
         var all = data.Query<Product>();

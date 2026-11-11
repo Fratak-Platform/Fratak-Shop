@@ -493,6 +493,145 @@ public static partial class SmartParsers
             .Where(t => t.Length >= 2 && !PersianText.IsStopWord(t) && t is not ("مدل" or "model" or "اورجینال" or "original"))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// دور ۲۶: نتایج جست‌وجوی تصویر Openverse (فقط عکس‌های آزاد CC0/مالکیت عمومی؛ رایگان و بدون کلید).
+    /// ساختار پاسخ: {"results":[{"url":"…","title":"…","foreign_landing_url":"…","width":4032,"height":3024}]}.
+    /// آدرس ناامن/بدون ابعاد کنار می‌رود؛ حداکثر ۴۰ نتیجه. JSON خراب ← فهرست خالی.
+    /// </summary>
+    public static List<PhotoHit> OpenverseImages(string? json)
+    {
+        var list = new List<PhotoHit>();
+        if (Parse(json) is not { } doc)
+            return list;
+        using (doc)
+        {
+            if (Prop(doc.RootElement, "results") is not { ValueKind: JsonValueKind.Array } results)
+                return list;
+            foreach (var item in results.EnumerateArray())
+            {
+                if (Str(item, "url") is not { } url || CleanImageUrl(url) is not { } clean)
+                    continue;
+                var width = Prop(item, "width") is { } w && TryLong(w, out var wl) ? (int)Math.Clamp(wl, 0, 100_000) : 0;
+                var height = Prop(item, "height") is { } h && TryLong(h, out var hl) ? (int)Math.Clamp(hl, 0, 100_000) : 0;
+                if (width <= 0 || height <= 0)
+                    continue;
+                var title = Str(item, "title") is { } t ? Truncate(PersianText.Clean(t), 300) : null;
+                var page = Str(item, "foreign_landing_url") is { } landing && Uri.TryCreate(landing, UriKind.Absolute, out var pageUri)
+                           && pageUri.Scheme is "http" or "https" ? pageUri.AbsoluteUri : null;
+                list.Add(new PhotoHit(clean, string.IsNullOrWhiteSpace(title) ? null : title, page, width, height, "openverse"));
+                if (list.Count >= 40)
+                    break;
+            }
+        }
+        return list.DistinctBy(h => h.Url, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// دور ۲۶ – رأی دسته: دستهٔ اصلی نتیجه‌های جست‌وجوی دیجی‌کالا (<c>data.filters.categories.options[0].title_fa</c>؛ مرتب بر اساس ارتباط).
+    /// مثال: جست‌وجوی «هدفون بی سیم هایلو» ← «هدفون، هدست و هندزفری». نبود/خراب ← null.
+    /// </summary>
+    public static string? DigikalaSearchCategory(string? json)
+    {
+        if (Parse(json) is not { } doc)
+            return null;
+        using (doc)
+        {
+            if (Path(doc.RootElement, "data", "filters", "categories", "options") is not { ValueKind: JsonValueKind.Array } options)
+                return null;
+            foreach (var option in options.EnumerateArray())
+            {
+                if (Str(option, "title_fa") is { } title && PersianText.Clean(title) is { Length: >= 2 and <= 80 } clean)
+                    return clean;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// دور ۲۶ – رأی دسته: اولین دستهٔ پاسخ جست‌وجوی ترب (<c>categories[0].title</c> در api.torob.com/v4/base-product/search).
+    /// مثال: «هدفون بی سیم هایلو» ← «هدفون، هدست و هندزفری». نبود/خراب ← null.
+    /// </summary>
+    public static string? TorobSearchCategory(string? json)
+    {
+        if (Parse(json) is not { } doc)
+            return null;
+        using (doc)
+        {
+            if (Prop(doc.RootElement, "categories") is not { ValueKind: JsonValueKind.Array } categories)
+                return null;
+            foreach (var category in categories.EnumerateArray())
+            {
+                if (Str(category, "title") is { } title && PersianText.Clean(title) is { Length: >= 2 and <= 80 } clean)
+                    return clean;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// دور ۲۶: نتیجه‌های جست‌وجوی ترب (<c>results[]{name1, name2}</c>): نام فارسی و نام انگلیسی (name2؛ ممکن است خالی باشد).
+    /// حداکثر ۲۴ نتیجه؛ JSON خراب ← فهرست خالی. مثال: [(«هدفون بی سیم هایلو مدل T15»، «Haylou T15»)].
+    /// </summary>
+    public static List<(string Name, string? English)> TorobSearchResults(string? json)
+    {
+        var list = new List<(string, string?)>();
+        if (Parse(json) is not { } doc)
+            return list;
+        using (doc)
+        {
+            if (Prop(doc.RootElement, "results") is not { ValueKind: JsonValueKind.Array } results)
+                return list;
+            foreach (var item in results.EnumerateArray())
+            {
+                if (Str(item, "name1") is not { Length: > 2 } name)
+                    continue;
+                var english = Str(item, "name2")?.Trim();
+                list.Add((Truncate(name.Trim(), 300), string.IsNullOrWhiteSpace(english) ? null : Truncate(english, 200)));
+                if (list.Count >= 24)
+                    break;
+            }
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// دور ۲۶: نام انگلیسی همین کالا از نتیجه‌های ترب – فقط نتیجه‌ای که نام فارسی‌اش دست‌کم ۷۵٪ شبیه نام ما باشد و نام انگلیسی لاتین داشته باشد.
+    /// مثال: («هدفون بی سیم هایلو مدل T15»، [(«هدفون بی سیم هایلو مدل T15»، «Haylou T15»)]) ← «Haylou T15»؛ شباهت کم ← null.
+    /// </summary>
+    public static string? TorobEnglishName(string productName, IEnumerable<(string Name, string? English)> results) =>
+        results
+            .Where(r => r.English is { Length: >= 3 } e && e.Any(char.IsAsciiLetter))
+            .Select(r => (r.English, Score: TitleMatch(productName, r.Name)))
+            .Where(x => x.Score >= 0.75)
+            .OrderByDescending(x => x.Score)
+            .Select(x => x.English)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// دور ۲۶ – رأی دسته: دستهٔ باسلام از کالاهایی که واقعاً همین کالا هستند (شباهت عنوان ≥ ۰٫۵ با <paramref name="productName"/>؛
+    /// حداکثر ۶ کالای اول). پرتکرارترین <c>categoryTitle</c> برمی‌گردد. مثال: ← «هدفون و هندزفری بی سیم و بلوتوثی». هیچ ← null.
+    /// </summary>
+    public static string? BasalamCategory(string? json, string productName)
+    {
+        if (Parse(json) is not { } doc)
+            return null;
+        var titles = new List<string>();
+        using (doc)
+        {
+            if (Prop(doc.RootElement, "products") is not { ValueKind: JsonValueKind.Array } products)
+                return null;
+            foreach (var p in products.EnumerateArray().Take(6))
+            {
+                if (Str(p, "name") is not { } name || TitleMatch(productName, name) < 0.5)
+                    continue;
+                if (Str(p, "categoryTitle") is { } title && PersianText.Clean(title) is { Length: >= 2 and <= 80 } clean)
+                    titles.Add(clean);
+            }
+        }
+        return titles.GroupBy(t => PersianText.Normalize(t), StringComparer.Ordinal)
+            .OrderByDescending(g => g.Count()).Select(g => g.First()).FirstOrDefault();
+    }
+
     // ─────────────────────────── ابزار JSON امن ───────────────────────────
 
     private static JsonDocument? Parse(string? json)

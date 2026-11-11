@@ -235,3 +235,10 @@
 @media (prefers-reduced-motion: reduce) {
   .fsb .fsb-i, .fsb .fsb-i::after { animation: none !important; }
 }
+
+/* ── دور ۲۶: کاشی دسته با «عکس فضاسازی» (از اینترنت) ─────────────────────
+   عکس افقی واقعی در قاب ۴:۳ با object-fit: cover (برش وسط)؛ بدون حاشیهٔ داخلی تا کاشی پر و زنده دیده شود. */
+.cat-tile-photo { display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: .75rem .75rem 0 0; margin-bottom: .5rem; }
+.cat-tile-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+@media (hover: hover) { .group:hover .cat-tile-photo img { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .cat-tile-photo img { transition: none; } .group:hover .cat-tile-photo img { transform: none; } }

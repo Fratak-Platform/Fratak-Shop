@@ -33,7 +33,7 @@ public sealed record SmartProductSubject(
 
 /// <summary>اطلاعات یک دسته برای «تکمیل هوشمند دسته» (B19).</summary>
 public sealed record SmartCategorySubject(Guid Id, string Name, string Slug, string? Description, string? ImageName, string? FaqJson, int ProductCount,
-    IReadOnlyList<BlogProduct> TopProducts, IReadOnlyList<string> ProductImageNames);
+    IReadOnlyList<BlogProduct> TopProducts, IReadOnlyList<string> ProductImageNames, string? ParentName = null, string? ParentSlug = null);
 
 /// <summary>
 /// وضعیت متن «توضیحات» محصول برای تصمیم دستیار دربارهٔ «توضیحات محصول» (دور بیستم).
@@ -147,6 +147,19 @@ public interface ISmartCatalogService
 
     /// <summary>دور ۲۲: تصویر فعلی و تصویرهای پیشنهادی یک دسته (null = دسته پیدا نشد).</summary>
     Task<CategoryImageState?> GetCategoryImagesAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۶: دسته‌های فعالی که هنوز «عکس فضاسازی» از اینترنت ندارند (فهرست پیشنهاد خالی یا فقط بنرهای قدیمیِ ساخته‌شده از عکس کالا).
+    /// دسته‌ای که ادمین همهٔ پیشنهادهایش را حذف کرده («[]») یا دستهٔ سیستمی هرگز برنمی‌گردد. پرکالاترها اول.
+    /// </summary>
+    Task<List<(Guid Id, string Name)>> ListCategoriesNeedingPhotosAsync(int take, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۶ – «حلقهٔ آماده‌سازی»: پیش‌نویس‌های واردشده (ورود هوشمند انجام شده، هرگز منتشر نشده) که هنوز «آمادهٔ انتشار» نیستند،
+    /// حداکثر <paramref name="take"/> کالا، هر کالا حداکثر ۵ بار و با فاصلهٔ دست‌کم ۶ ساعت. کالاهای برگزیده همین‌جا «ادعا» می‌شوند
+    /// (شمارنده +۱ و زمان بررسی = now) تا دو کارگر هم‌زمان یک کالا را دوباره صف نکنند. قدیمی‌ترین بررسی اول.
+    /// </summary>
+    Task<List<(Guid Id, string Name)>> ClaimReadinessCandidatesAsync(DateTimeOffset now, int take, CancellationToken cancellationToken = default);
 
     /// <summary>دور ۲۲: تصویرهای پیشنهادی همهٔ دسته‌ها (برای جدول صفحهٔ دسته‌های هوشمند).</summary>
     Task<Dictionary<Guid, CategoryImageState>> ListCategoryImagesAsync(CancellationToken cancellationToken = default);
@@ -423,7 +436,13 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
     public async Task<SmartCategorySubject?> GetCategoryAsync(Guid categoryId, CancellationToken cancellationToken = default)
     {
         var c = await context.Categories.Where(x => x.Id == categoryId)
-            .Select(x => new { x.Id, x.Name, x.Slug, x.Description, x.ImageName, Faq = x.Seo != null ? x.Seo.FaqJson : null })
+            .Select(x => new
+            {
+                x.Id, x.Name, x.Slug, x.Description, x.ImageName, Faq = x.Seo != null ? x.Seo.FaqJson : null,
+                // دور ۲۶: نام و نامک والد برای گسترش کلمه‌های جست‌وجوی عکس فضاسازی.
+                ParentName = x.ParentCategory != null ? x.ParentCategory.Name : null,
+                ParentSlug = x.ParentCategory != null ? x.ParentCategory.Slug : null,
+            })
             .FirstOrDefaultAsync(cancellationToken);
         if (c is null)
             return null;
@@ -437,7 +456,8 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             .Select(p => p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault())
             .Where(name => name != null && !name.StartsWith("http") && !name.StartsWith("/"))
             .Take(12).ToListAsync(cancellationToken);
-        return new SmartCategorySubject(c.Id, c.Name, c.Slug, c.Description, c.ImageName, c.Faq, count, products, images.Select(i => i!).ToList());
+        return new SmartCategorySubject(c.Id, c.Name, c.Slug, c.Description, c.ImageName, c.Faq, count, products, images.Select(i => i!).ToList(),
+            c.ParentName, c.ParentSlug);
     }
 
     public async Task<int> ApplyCategoryAsync(Guid categoryId, string? descriptionHtml, string? imageName, string? faqJson, bool overwrite, CancellationToken cancellationToken = default)
@@ -702,6 +722,52 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
     public Task<bool> HasMarketPriceCheckAsync(Guid productId, CancellationToken cancellationToken = default) =>
         context.MarketPriceChecks.AnyAsync(c => c.ProductId == productId, cancellationToken);
 
+    public async Task<List<(Guid Id, string Name)>> ListCategoriesNeedingPhotosAsync(int take, CancellationToken cancellationToken = default)
+    {
+        take = Math.Clamp(take, 1, 50);
+        var rows = await context.Categories
+            .Where(c => c.IsActive && !c.IsSystem
+                        && (c.ImageOptionsJson == null || (c.ImageOptionsJson != "[]" && !c.ImageOptionsJson.Contains("-photo-"))))
+            .OrderByDescending(c => c.Products.Count(p => p.IsActive)).ThenBy(c => c.DisplayOrder)
+            .Select(c => new { c.Id, c.Name })
+            .Take(take).ToListAsync(cancellationToken);
+        return rows.Select(r => (r.Id, r.Name)).ToList();
+    }
+
+    /// <summary>بیشترین تلاش «حلقهٔ آماده‌سازی» برای هر کالا.</summary>
+    public const int MaxReadyAttempts = 5;
+
+    /// <summary>کمترین فاصلهٔ دو تلاش «حلقهٔ آماده‌سازی» برای یک کالا.</summary>
+    public static readonly TimeSpan ReadyRetryGap = TimeSpan.FromHours(6);
+
+    // نقیض «آمادهٔ انتشار» به‌صورت عبارت قابل ترجمه به SQL (همان شرط‌ها؛ بدون تکرار منطق).
+    private static readonly System.Linq.Expressions.Expression<Func<Product, bool>> NotReady =
+        System.Linq.Expressions.Expression.Lambda<Func<Product, bool>>(
+            System.Linq.Expressions.Expression.Not(Fratak_Shop.Core.Services.Products.ProductCompleteness.ReadyToPublish.Body),
+            Fratak_Shop.Core.Services.Products.ProductCompleteness.ReadyToPublish.Parameters);
+
+    public async Task<List<(Guid Id, string Name)>> ClaimReadinessCandidatesAsync(DateTimeOffset now, int take, CancellationToken cancellationToken = default)
+    {
+        take = Math.Clamp(take, 1, 50);
+        var due = now - ReadyRetryGap;
+        var rows = await context.Products
+            .Where(p => !p.IsActive && p.PublishedAt == null && p.SmartIntakeAt != null && p.SmartReadyAttempts < MaxReadyAttempts
+                        && (p.SmartReadyCheckedAt == null || p.SmartReadyCheckedAt <= due))
+            .Where(NotReady)
+            .OrderBy(p => p.SmartReadyCheckedAt ?? p.CreatedAt)
+            .Select(p => new { p.Id, p.Name })
+            .Take(take).ToListAsync(cancellationToken);
+        if (rows.Count == 0)
+            return [];
+        var ids = rows.Select(r => r.Id).ToList();
+        // ادعای اتمی: فقط ردیف‌هایی که هنوز سررسیدند به‌روز می‌شوند (کارگر دیگر در همین لحظه همان را برنداشته باشد).
+        var claimed = await context.Products
+            .Where(p => ids.Contains(p.Id) && (p.SmartReadyCheckedAt == null || p.SmartReadyCheckedAt <= due))
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.SmartReadyAttempts, p => p.SmartReadyAttempts + 1)
+                .SetProperty(p => p.SmartReadyCheckedAt, now), cancellationToken);
+        return claimed == 0 ? [] : rows.Select(r => (r.Id, r.Name)).ToList();
+    }
+
     public async Task<CategoryImageState?> GetCategoryImagesAsync(Guid categoryId, CancellationToken cancellationToken = default)
     {
         var row = await context.Categories.Where(c => c.Id == categoryId).Select(c => new { c.Id, c.Name, c.ImageName, c.ImageOptionsJson })
@@ -721,9 +787,14 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         if (category is null)
             return false;
         var clean = options.Where(CategoryImages.IsSafeName).Distinct(StringComparer.Ordinal).Take(CategoryImages.Max).ToList();
+        var old = CategoryImages.Parse(category.ImageOptionsJson) ?? [];
+        // دور ۲۶: تصویر فعلی «بنر خودکار از عکس کالا»ی قدیمی (از فهرست پیشنهادها و نه عکس فضاسازی) با اولین عکس فضاسازی تازه عوض می‌شود؛
+        // تصویری که ادمین خودش آپلود کرده (خارج از فهرست) یا عکس فضاسازی انتخاب‌شده هرگز عوض نمی‌شود.
+        var autoBanner = category.ImageName is { } current && old.Contains(current, StringComparer.Ordinal) && !CategoryImages.IsPhoto(current)
+                         && !clean.Contains(current, StringComparer.Ordinal);
         category.ImageOptionsJson = CategoryImages.Serialize(clean);
-        if (string.IsNullOrWhiteSpace(category.ImageName) && clean.Count > 0)
-            category.ImageName = clean[0];
+        if ((string.IsNullOrWhiteSpace(category.ImageName) || autoBanner) && clean.Count > 0)
+            category.ImageName = clean.FirstOrDefault(CategoryImages.IsPhoto) ?? clean[0];
         await context.SaveChangesAsync(cancellationToken);
         context.ChangeTracker.Clear();
         return true;

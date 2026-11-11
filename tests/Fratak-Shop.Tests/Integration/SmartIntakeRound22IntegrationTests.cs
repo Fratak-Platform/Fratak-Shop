@@ -278,12 +278,12 @@ public class SmartIntakeRound22IntegrationTests(SqlServerFixture db)
         var ids = new List<Guid> { found, failing, manual };
         var lookups = new List<Guid>();
 
-        Task<string?> Lookup(IntakeProduct product, CancellationToken _)
+        Task<MarketLookup?> Lookup(IntakeProduct product, CancellationToken _)
         {
             lookups.Add(product.Id);
             if (product.Id == failing)
                 throw new HttpRequestException("سایت در دسترس نیست");
-            return Task.FromResult<string?>($"خانه > {top} > {general} > {leaf}");
+            return Task.FromResult<MarketLookup?>(new MarketLookup($"خانه > {top} > {general} > {leaf}"));
         }
 
         try

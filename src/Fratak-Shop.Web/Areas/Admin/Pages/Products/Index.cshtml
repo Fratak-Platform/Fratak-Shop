@@ -255,6 +255,7 @@
               <span class="a-badge @(p.IsActive ? "a-badge-green" : "a-badge-gray")">@(p.IsActive ? "فعال" : "غیرفعال")</span>
               @if (p.Stock <= 0) { <span class="a-badge a-badge-red">ناموجود</span> }
               @if (p.Ready) { <span class="a-badge a-badge-blue" title="پیش‌نویس کامل؛ با «فعال‌سازی» منتشر کنید">آمادهٔ انتشار</span> }
+              @if (p.AwaitingImages) { <a class="a-badge a-badge-yellow" href="/admin/smart/product/@p.Id" title="دستیار عکس پیشنهادی پیدا کرده؛ تأیید یا رد کنید تا کالا آمادهٔ انتشار شود">منتظر تأیید عکس</a> }
             </td>
             <td data-label="کامل بودن">
               @if (p.Completeness is { } c)

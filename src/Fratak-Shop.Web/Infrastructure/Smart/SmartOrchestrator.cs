@@ -419,7 +419,11 @@ public sealed class SmartOrchestrator(
         if (string.IsNullOrWhiteSpace(subject.EnglishName))
         {
             var hit = await sources.FindDigikalaAsync(subject, cancellationToken);
-            english = ProductNaming.EnglishName(refined.Name, subject.BrandEnglishName, type, hit?.EnglishTitle);
+            var known = hit?.EnglishTitle;
+            // دور ۲۶: دیجی‌کالا نام انگلیسی نداد ← نام انگلیسی همین کالا در ترب (فقط با شباهت نام ≥ ۷۵٪؛ هرگز ترجمهٔ حدسی).
+            if (string.IsNullOrWhiteSpace(known))
+                known = await sources.TorobEnglishNameAsync(subject.Name, cancellationToken);
+            english = ProductNaming.EnglishName(refined.Name, subject.BrandEnglishName, type, known);
         }
         var slug = subject.NeverPublished ? ProductNaming.Slug(refined.Name, english ?? subject.EnglishName) : null;
         if (slug == subject.Slug)
@@ -667,8 +671,8 @@ public sealed class SmartOrchestrator(
         if (text is null && added == 0)
         {
             return new SmartOutcome(SmartTaskStatus.Skipped, imagesOnly
-                ? "تصویر پیشنهادی تازه‌ای پیدا نشد (عکس کالای متفاوت دیگری در این دسته نیست)."
-                : subject.ProductCount < 3 ? "دسته کمتر از ۳ کالای موجود دارد؛ متن نوشته نشد و تصویر پیشنهادی هم از قبل بود (یا عکسی نبود)." : "توضیح و تصویرهای دسته از قبل کامل بود.");
+                ? "عکس فضاسازی مناسبی در اینترنت پیدا نشد (عکس‌های بی‌روح، لوگو، آیکن و عکس کالاهای خود دسته کنار گذاشته می‌شوند)؛ بعداً دوباره امتحان می‌شود."
+                : subject.ProductCount < 3 ? "دسته کمتر از ۳ کالای موجود دارد؛ متن نوشته نشد و عکس فضاسازی هم از قبل بود (یا پیدا نشد)." : "توضیح و تصویرهای دسته از قبل کامل بود.");
         }
         var changed = text is null ? 0 : await catalog.ApplyCategoryAsync(categoryId, text.Html, null, text.FaqJson, overwrite: false, cancellationToken);
         if (changed > 0 || added > 0)
@@ -686,7 +690,7 @@ public sealed class SmartOrchestrator(
         if (text is not null && changed > 0)
             parts.Add($"توضیح {PersianText.Digits(text.Words)} کلمه‌ای و پرسش‌های رایج ذخیره شد");
         if (added > 0)
-            parts.Add($"{PersianText.Digits(added)} تصویر پیشنهادی ساخته شد (یکی فعال است؛ از «تکمیل هوشمند دسته‌ها» عوض یا حذف کنید)");
+            parts.Add($"{PersianText.Digits(added)} عکس فضاسازی از اینترنت پیدا و ذخیره شد (یکی فعال است؛ از «تکمیل هوشمند دسته‌ها» عوض یا حذف کنید)");
         return new SmartOutcome(parts.Count > 0 ? SmartTaskStatus.Applied : SmartTaskStatus.Skipped, parts.Count > 0 ? string.Join("؛ ", parts) + "." : "تغییری لازم نشد.");
     }
 
@@ -694,15 +698,17 @@ public sealed class SmartOrchestrator(
     private async Task<int> CategoryImagesAsync(SmartCategorySubject subject, bool resuggest, CancellationToken cancellationToken)
     {
         var state = await catalog.GetCategoryImagesAsync(subject.Id, cancellationToken);
-        if (state is null || subject.ProductImageNames.Count == 0)
+        if (state is null)
             return 0;
-        if (!resuggest && state.Options is not null)
+        // دور ۲۶: فهرستی که هنوز عکس فضاسازی ندارد (فقط بنرهای قدیمیِ ساخته‌شده از عکس کالا) هم دوباره پیشنهاد می‌گیرد.
+        if (!resuggest && state.Options is not null && state.Options.Any(CategoryImages.IsPhoto))
             return 0;
         var previous = state.Options ?? [];
         var keep = new List<string>();
-        if (resuggest && state.ImageName is { } chosen && previous.Contains(chosen, StringComparer.Ordinal))
+        if (resuggest && state.ImageName is { } chosen && previous.Contains(chosen, StringComparer.Ordinal) && CategoryImages.IsPhoto(chosen))
             keep.Add(chosen);
-        var fresh = await images.CategoryOptionsAsync(subject.ProductImageNames, CategoryImages.Max - keep.Count, previous, cancellationToken);
+        var photoSubject = new CategoryPhotoSubject(subject.Id, subject.Name, subject.Slug, subject.ParentName, subject.ParentSlug);
+        var fresh = await images.CategoryPhotosAsync(photoSubject, subject.ProductImageNames, CategoryImages.Max - keep.Count, previous, cancellationToken);
         if (fresh.Count == 0)
         {
             // بار اول و هیچ بنری ساخته نشد ← فهرست را دست نمی‌زنیم تا دفعهٔ بعد (با عکس‌های بیشتر) دوباره امتحان شود.
@@ -714,7 +720,9 @@ public sealed class SmartOrchestrator(
             images.DeleteCategoryFiles(fresh);
             return 0;
         }
-        var stale = previous.Where(o => !all.Contains(o, StringComparer.Ordinal) && !string.Equals(o, state.ImageName, StringComparison.Ordinal)).ToList();
+        // تصویر فعلی فقط اگر بنر خودکار قدیمی بوده و حالا عکس فضاسازی جایش نشسته پاک می‌شود (SaveCategoryImageOptionsAsync).
+        var current = (await catalog.GetCategoryImagesAsync(subject.Id, cancellationToken))?.ImageName;
+        var stale = previous.Where(o => !all.Contains(o, StringComparer.Ordinal) && !string.Equals(o, current, StringComparison.Ordinal)).ToList();
         if (stale.Count > 0)
             images.DeleteCategoryFiles(stale);
         return fresh.Count;

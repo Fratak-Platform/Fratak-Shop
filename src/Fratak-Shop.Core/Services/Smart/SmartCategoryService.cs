@@ -118,7 +118,7 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
         if (productIds is not null)
             query = query.Where(p => productIds.Contains(p.Id));
         var candidates = await query.OrderByDescending(p => p.CreatedAt).Take(Math.Clamp(max, 1, 2000))
-            .Select(p => new Candidate(p.Id, p.Name, p.CategoryId, p.IsActive, p.SourceCategory, p.CategorySource))
+            .Select(p => new Candidate(p.Id, p.Name, p.CategoryId, p.IsActive, p.SourceCategory, p.CategorySource, p.MarketCategory))
             .ToListAsync(cancellationToken);
         if (candidates.Count == 0)
             return CategorizeReport.Empty;
@@ -140,6 +140,30 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
         var leftovers = new List<Candidate>();
         foreach (var product in candidates.Where(c => catchAll.Contains(c.CategoryId)))
         {
+            // دور ۲۶ – «رأی رقبا» مقدم بر همه: دسته‌ای که اکثریت سایت‌های دیگر (≥ ۲) برای همین کالا گذاشته‌اند.
+            // دستهٔ هم‌نام موجود ← همان؛ نبود ← ساخته می‌شود (زیر سطح کلی مسیر سایت دیگر، اگر هست).
+            if (CategoryNames.Proper(product.MarketCategory, brands) is { } market)
+            {
+                if (targets.FirstOrDefault(t => CategoryNames.Same(market, t.Name, t.Slug)) is { } same)
+                {
+                    moves[product.Id] = new Move(same.Id, ProductCategorySource.Smart);
+                    continue;
+                }
+                Guid? marketParent = null;
+                if (GeneralLevel(product.SourceCategory, brands) is { } level && !CategoryNames.Same(level.Name, market))
+                {
+                    var grand = level.Parent is null ? null : targets.FirstOrDefault(t => CategoryNames.Same(level.Parent, t.Name, t.Slug))?.Id;
+                    marketParent = targets.FirstOrDefault(t => CategoryNames.Same(level.Name, t.Name, t.Slug))?.Id
+                                   ?? (await NewCategoryAsync(created, level.Name, null, grand, product.IsActive, cancellationToken)).Id;
+                }
+                else if (ProductTypes.Detect(product.Name) is { } marketType)
+                {
+                    marketParent = ParentFor(marketType, product.CategoryId, categories, catchAll);
+                }
+                var made = await NewCategoryAsync(created, market, null, marketParent, product.IsActive, cancellationToken);
+                moves[product.Id] = new Move(made.Id, ProductCategorySource.Smart);
+                continue;
+            }
             var type = ProductTypes.Detect(product.Name);
             if (type is not null && targets.FirstOrDefault(t => ProductTypes.NameMatches(type, t.Name, t.Slug)) is { } typed)
             {
@@ -243,7 +267,8 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
     private sealed record CategoryRow(Guid Id, string Name, string Slug, Guid? ParentId, bool IsActive, bool IsSystem);
 
     /// <summary>کالای نامزد دسته‌بندی. Source = منبع دستهٔ فعلی (Manual/Smart/General).</summary>
-    private sealed record Candidate(Guid Id, string Name, Guid CategoryId, bool IsActive, string? SourceCategory, ProductCategorySource Source);
+    private sealed record Candidate(Guid Id, string Name, Guid CategoryId, bool IsActive, string? SourceCategory, ProductCategorySource Source,
+        string? MarketCategory = null);
 
     /// <summary>تصمیم جابه‌جایی: دستهٔ مقصد و اینکه دقیق است (Smart) یا کلی (General).</summary>
     private readonly record struct Move(Guid Target, ProductCategorySource Source);

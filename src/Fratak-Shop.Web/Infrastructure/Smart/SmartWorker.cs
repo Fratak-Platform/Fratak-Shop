@@ -34,6 +34,7 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     public const string IntakeJobName = "ورود هوشمند کالا";
     public const string ContinuousJobName = "تکمیل پیوستهٔ کالاها";
     public const string CategorizeJobName = "دسته‌بندی و ممیزی درخت دسته‌ها";
+    public const string ReadinessJobName = "حلقهٔ آماده‌سازی کالاهای واردشده";
 
     private static readonly TimeSpan BusyDelay = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(60);
@@ -43,12 +44,14 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     private static readonly TimeSpan IntakeEvery = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan ContinuousEvery = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan CategorizeEvery = TimeSpan.FromHours(1);
+    private static readonly TimeSpan ReadinessEvery = TimeSpan.FromMinutes(10);
 
     private readonly string _workerId = Environment.MachineName + ":" + Environment.ProcessId;
     private DateTimeOffset _lastReminders = DateTimeOffset.MinValue;
     private DateTimeOffset _lastPlanner = DateTimeOffset.MinValue;
     private DateTimeOffset _lastIntake = DateTimeOffset.MinValue;
     private DateTimeOffset _lastContinuous = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastReadiness = DateTimeOffset.MinValue;
     private DateTimeOffset _lastCategorize = DateTimeOffset.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,6 +62,7 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         JobMonitor.Register(IntakeJobName, TimeSpan.FromHours(1));
         JobMonitor.Register(ContinuousJobName, TimeSpan.FromHours(1));
         JobMonitor.Register(CategorizeJobName, TimeSpan.FromHours(3));
+        JobMonitor.Register(ReadinessJobName, TimeSpan.FromHours(1));
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(90), stoppingToken);
@@ -92,6 +96,11 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
                 {
                     _lastCategorize = now;
                     await RunScopedAsync(CategorizeJobName, sp => CategorizeHourlyAsync(sp, DateTimeOffset.UtcNow, stoppingToken));
+                }
+                if (now - _lastReadiness >= ReadinessEvery)
+                {
+                    _lastReadiness = now;
+                    await RunScopedAsync(ReadinessJobName, sp => ReadinessAsync(sp, DateTimeOffset.UtcNow, stoppingToken));
                 }
                 if (now - _lastContinuous >= ContinuousEvery)
                 {
@@ -135,7 +144,7 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
     }
 
     /// <summary>
-    /// دور ۲۲: یک دور «ورود هوشمند کالا». دستهٔ کالا در سایت دیگر با <see cref="SmartSources.SourceCategoryAsync"/> پرسیده می‌شود
+    /// دور ۲۲: یک دور «ورود هوشمند کالا». دستهٔ کالا در سایت‌های دیگر با <see cref="SmartSources.MarketCategoryAsync"/> پرسیده می‌شود (دور ۲۶: رأی اکثریت دیجی‌کالا، ترب و باسلام)
     /// (مؤدبانه و کش‌شده). کالای بی‌دسته‌مانده ← اعلان به ادمین با لینک فهرست «بدون دسته». خطا فقط ثبت می‌شود.
     /// </summary>
     public static async Task<int> IntakeAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
@@ -144,13 +153,46 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         {
             var sources = services.GetRequiredService<SmartSources>();
             var report = await services.GetRequiredService<IProductIntakeService>()
-                .RunAsync(now, sources.SourceCategoryAsync, null, ProductIntakeService.DefaultTake, cancellationToken);
+                .RunAsync(now, sources.MarketCategoryAsync, null, ProductIntakeService.DefaultTake, cancellationToken);
             await services.GetRequiredService<SmartNotifier>().NotifyIntakeAsync(report);
             return report.Examined + report.Seo;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Smart product intake failed");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۶ – «حلقهٔ آماده‌سازی» (هر ۱۰ دقیقه): خواستهٔ کاربر این است که هیچ کالای واردشده‌ای به دست انسان نیاز نداشته باشد؛
+    /// شنوندهٔ هوشمند آن‌قدر کامل می‌کند (دسته، مشخصات، توضیحات، عکس، نام انگلیسی…) تا «آمادهٔ انتشار» شود و مدیر فقط بازبینی و منتشر کند.
+    /// <para>
+    /// هر دور حداکثر ۱۰ پیش‌نویس ناقص (ورود هوشمند انجام‌شده، هرگز منتشرنشده)؛ هر کالا حداکثر ۵ بار با فاصلهٔ ۶ ساعت
+    /// (<see cref="ISmartCatalogService.ClaimReadinessCandidatesAsync"/>). «تکمیل هوشمند» با نشانهٔ manual صف می‌شود تا دستیار هرگز
+    /// «نیاز نیست» نگوید و هر بخش ناقص را واقعاً انجام دهد. فقط وقتی دستیار در تنظیمات روشن است. خطا فقط ثبت می‌شود.
+    /// </para>
+    /// </summary>
+    public static async Task<int> ReadinessAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
+            if (!options.Enabled)
+                return 0;
+            var queue = services.GetRequiredService<ISmartTaskQueue>();
+            var count = 0;
+            foreach (var (id, name) in await services.GetRequiredService<ISmartCatalogService>().ClaimReadinessCandidatesAsync(now, 10, cancellationToken))
+            {
+                await queue.EnqueueAsync(SmartTaskKind.ProductComplete, SmartTarget.Product, id, name, SmartPriority.Batch,
+                    "{\"manual\":1}", null, SmartOrchestrator.Actor, cancellationToken);
+                count++;
+            }
+            return count;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Smart readiness loop failed");
             return 0;
         }
     }
@@ -229,7 +271,43 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         }
         count += await PlanOccasionCouponsAsync(services, now, cancellationToken);
         count += await RefreshOldPostsAsync(services, now, cancellationToken);
+        count += await BackfillCategoryPhotosAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastCategoryPhotoTicks;
+
+    /// <summary>
+    /// دور ۲۶: «عکس فضاسازی دسته از اینترنت» برای دسته‌های قدیمی که هنوز فقط بنرِ ساخته‌شده از عکس کالا دارند یا اصلاً تصویر ندارند.
+    /// هر ۶ ساعت حداکثر ۳ دسته (مؤدب با منابع بیرونی)؛ دسته‌ای که در ۳ روز گذشته تلاش شده دوباره نمی‌آید. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> BackfillCategoryPhotosAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken, bool force = false)
+    {
+        var last = Interlocked.Read(ref _lastCategoryPhotoTicks);
+        if (!force && last != 0 && now.UtcTicks - last < TimeSpan.FromHours(6).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastCategoryPhotoTicks, now.UtcTicks);
+        try
+        {
+            var queue = services.GetRequiredService<ISmartTaskQueue>();
+            var recent = (await queue.RecentTargetsAsync(SmartTaskKind.CategoryComplete, now.AddDays(-3), cancellationToken: cancellationToken)).ToHashSet();
+            var count = 0;
+            foreach (var (id, name) in await services.GetRequiredService<ISmartCatalogService>().ListCategoriesNeedingPhotosAsync(20, cancellationToken))
+            {
+                if (recent.Contains(id))
+                    continue;
+                await queue.EnqueueAsync(SmartTaskKind.CategoryComplete, SmartTarget.Category, id, name, SmartPriority.Nightly,
+                    userName: SmartOrchestrator.Actor, cancellationToken: cancellationToken);
+                if (++count >= 3)
+                    break;
+            }
+            return count;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Category photo backfill failed");
+            return 0;
+        }
     }
 
     private static long _lastBlogRefreshTicks;

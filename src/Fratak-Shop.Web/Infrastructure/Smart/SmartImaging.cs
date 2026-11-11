@@ -103,6 +103,93 @@ public static class SmartImageAnalyzer
     }
 
     /// <summary>
+    /// دور ۲۶: سنجه‌های ظاهری عکس فضاسازی دسته (رنگی بودن، سهم زمینهٔ سفید، روشنایی، کنتراست) از نسخهٔ حداکثر ۹۶ پیکسلی.
+    /// منطق محاسبه در <see cref="CategoryPhotos.Measure"/> است (آزمون‌پذیر). تصویر خراب ← null.
+    /// </summary>
+    public static PhotoMetrics? Metrics(byte[] data)
+    {
+        if (data.Length < 100 || !WebPEncoder.Gate.Wait(TimeSpan.FromSeconds(60)))
+            return null;
+        try
+        {
+            using var stream = new SKMemoryStream(data);
+            using var codec = SKCodec.Create(stream);
+            if (codec is null)
+                return null;
+            var info = codec.Info;
+            if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxPixels)
+                return null;
+            var dims = codec.GetScaledDimensions(Math.Min(1f, 256f / Math.Max(info.Width, info.Height)));
+            if (Math.Max(dims.Width, dims.Height) > 3000)
+                return null;
+            var scaledInfo = new SKImageInfo(dims.Width, dims.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+            using var bitmap = new SKBitmap(scaledInfo);
+            var result = codec.GetPixels(scaledInfo, bitmap.GetPixels());
+            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+                return null;
+            var scale = Math.Min(1.0, 96.0 / Math.Max(bitmap.Width, bitmap.Height));
+            int w = Math.Max(1, (int)(bitmap.Width * scale)), h = Math.Max(1, (int)(bitmap.Height * scale));
+            using var small = bitmap.Resize(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Premul), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
+            if (small is null)
+                return null;
+            var rgb = new byte[w * h * 3];
+            for (var y = 0; y < h; y++)
+            {
+                for (var x = 0; x < w; x++)
+                {
+                    var c = small.GetPixel(x, y);
+                    // پیکسل شفاف روی زمینهٔ سفید دیده می‌شود (PNG دوربری‌شده ← سفید ← رد).
+                    var a = c.Alpha / 255.0;
+                    var i = (y * w + x) * 3;
+                    rgb[i] = (byte)Math.Round(c.Red * a + 255 * (1 - a));
+                    rgb[i + 1] = (byte)Math.Round(c.Green * a + 255 * (1 - a));
+                    rgb[i + 2] = (byte)Math.Round(c.Blue * a + 255 * (1 - a));
+                }
+            }
+            return CategoryPhotos.Measure(rgb, w, h);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return null;
+        }
+        finally
+        {
+            WebPEncoder.Gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// دور ۲۶: کوچک کردن عکس فضاسازی تا عرض <paramref name="maxWidth"/> (JPEG کیفیت ۹۰؛ بعد در ذخیره به WebP تبدیل می‌شود)
+    /// تا حجم پوشهٔ آپلود و صفحه کنترل شود. عکس کوچک‌تر یا خطا ← همان بایت‌های اصلی.
+    /// </summary>
+    public static byte[] Downscale(byte[] data, int maxWidth)
+    {
+        if (!WebPEncoder.Gate.Wait(TimeSpan.FromSeconds(60)))
+            return data;
+        try
+        {
+            using var bitmap = SKBitmap.Decode(data);
+            if (bitmap is null || bitmap.Width <= maxWidth || (long)bitmap.Width * bitmap.Height > MaxPixels)
+                return data;
+            var height = Math.Max(1, (int)Math.Round(bitmap.Height * (maxWidth / (double)bitmap.Width)));
+            using var resized = bitmap.Resize(new SKImageInfo(maxWidth, height, SKColorType.Rgba8888, SKAlphaType.Premul), new SKSamplingOptions(SKCubicResampler.Mitchell));
+            if (resized is null)
+                return data;
+            using var image = SKImage.FromBitmap(resized);
+            using var encoded = image.Encode(SKEncodedImageFormat.Jpeg, 90);
+            return encoded?.ToArray() ?? data;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return data;
+        }
+        finally
+        {
+            WebPEncoder.Gate.Release();
+        }
+    }
+
+    /// <summary>
     /// قانون پذیرش (B2): کوتاه‌ترین ضلع ≥ حداقل تنظیمات (پیش‌فرض ۶۰۰) و نسبت ابعاد بین ۰٫۴۵ و ۲٫۲
     /// (نوار تبلیغ و اسکرین‌شات‌های باریک رد می‌شوند). مثال: ۱۲۰۰×۱۲۰۰ ← قبول؛ ۱۶۰۰×۴۰۰ ← رد؛ ۴۰۰×۴۰۰ ← رد.
     /// </summary>
@@ -299,49 +386,102 @@ public sealed class SmartImageFinder(
         return banner is null ? null : await StoreAsync(banner, target, cancellationToken);
     }
 
+    /// <summary>بیشترین عرض عکس فضاسازی ذخیره‌شده (پیکسل).</summary>
+    public const int CategoryPhotoMaxWidth = 1600;
+
     /// <summary>
-    /// دور ۲۲: «۴ تصویر پیشنهادی دسته». از عکس کالاهای خود دسته (هر کالا یک عکس؛ کالای فعال و پرفروش جلوتر) تا <paramref name="want"/>
-    /// بنر بدون متن ساخته می‌شود. عکس کالای تکراری/خیلی شبیه (dHash) کنار می‌رود تا گزینه‌ها واقعاً متفاوت باشند.
-    /// <para>
-    /// «پیشنهاد دوباره»: <paramref name="avoid"/> = تصویرهای پیشنهادی فعلی. چون ساخت بنر قطعی است (یک عکس ← همیشه همان بنر)،
-    /// بنری که شبیه یکی از این‌ها باشد کنار می‌رود و فقط گزینهٔ تازه برمی‌گردد.
-    /// </para>
-    /// <para>هیچ دانلودی از اینترنت نیست (فقط عکس‌های محلی همین فروشگاه) ← سریع، امن و بدون مشکل حق نشر.</para>
-    /// مثال: ۱۰ عکس کالا، want=4، avoid=[۴ بنر قبلی] ← ۴ بنر از عکس‌های پنجم به بعد.
+    /// دور ۲۶: «۴ تصویر پیشنهادی دسته» – عکس فضاسازی واقعی از اینترنت (نه از عکس کالاهای خود دسته؛ خواستهٔ صریح کاربر).
+    /// <list type="number">
+    /// <item>جست‌وجو با کلمه‌های گسترش‌یافته (<see cref="CategoryPhotos.EnglishQueries"/> و <see cref="CategoryPhotos.PersianQueries"/>):
+    /// اول Openverse (عکس آزاد CC0)، بعد بینگ با فیلتر «عکس واقعی، بزرگ، افقی».</item>
+    /// <item>نتیجهٔ لوگو/آیکن/وکتور/PNG و سایت‌های استوک واترمارک‌دار پیش از دانلود کنار می‌رود (<see cref="CategoryPhotos.IsUsefulHit"/>).</item>
+    /// <item>بعد از دانلود: افقی، عرض ≥ ۹۰۰، رنگی، بدون زمینهٔ سفید (<see cref="CategoryPhotos.IsAcceptable"/>)؛ شبیه عکس کالاهای خود دسته
+    /// (dHash) یا شبیه پیشنهادهای قبلی (<paramref name="avoid"/>) ← رد.</item>
+    /// <item>ذخیره: کوچک تا عرض ۱۶۰۰، WebP، نام «{نامک}-photo-{رمز}.webp» در پوشهٔ دسته‌ها.</item>
+    /// </list>
+    /// <para>سقف کار: حداکثر ۲۴ دانلود (۲ هم‌زمان) تا هاست ضعیف درگیر نشود. چیزی پیدا نشد ← فهرست خالی (دفعهٔ بعد دوباره تلاش می‌شود).</para>
+    /// مثال: دستهٔ «لوازم خانگی» (home-appliances) ← «home appliances lifestyle» در Openverse ← ۴ عکس آشپزخانه/خانهٔ رنگی.
     /// </summary>
-    public async Task<List<string>> CategoryOptionsAsync(IReadOnlyList<string> productImageNames, int want, IReadOnlyList<string>? avoid,
-        CancellationToken cancellationToken)
+    public async Task<List<string>> CategoryPhotosAsync(CategoryPhotoSubject subject, IReadOnlyList<string> productImageNames, int want,
+        IReadOnlyList<string>? avoid, CancellationToken cancellationToken)
     {
         var results = new List<string>();
-        if (productImageNames.Count == 0 || want <= 0)
+        if (want <= 0)
             return results;
-        var avoidHashes = new List<ulong>();
-        foreach (var name in avoid ?? [])
+        var blocked = new List<ulong>();
+        foreach (var name in (avoid ?? []).Take(8))
         {
             var existing = uploads.GetPath(UploadArea.Categories, Path.GetFileName(name));
             if (existing is not null && File.Exists(existing) && SmartImageAnalyzer.Analyze(await File.ReadAllBytesAsync(existing, cancellationToken)) is { } info)
-                avoidHashes.Add(info.Hash);
+                blocked.Add(info.Hash);
         }
-        var sourceHashes = new List<ulong>();
+        // عکس کالاهای خود دسته هرگز عکس دسته نمی‌شود (حتی اگر همان عکس در وب پیدا شود).
         foreach (var name in productImageNames.Distinct(StringComparer.Ordinal).Take(12))
         {
-            if (results.Count >= want)
-                break;
             var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(name));
-            if (path is null || !File.Exists(path))
+            if (path is not null && File.Exists(path) && SmartImageAnalyzer.Analyze(await File.ReadAllBytesAsync(path, cancellationToken)) is { } info)
+                blocked.Add(info.Hash);
+        }
+
+        var hits = new List<PhotoHit>();
+        foreach (var query in CategoryPhotos.EnglishQueries(subject))
+        {
+            hits.AddRange(await sources.OpenversePhotosAsync(query, cancellationToken));
+            if (hits.Count >= 30)
+                break;
+        }
+        var bingQueries = CategoryPhotos.EnglishQueries(subject).Take(1).Concat(CategoryPhotos.PersianQueries(subject).Take(2));
+        foreach (var query in bingQueries)
+        {
+            if (hits.Count >= 60)
+                break;
+            hits.AddRange(await sources.BingPhotosAsync(query, cancellationToken));
+        }
+        var candidates = hits
+            .Where(h => SmartParsers.CleanImageUrl(h.Url) is not null && CategoryPhotos.IsUsefulHit(h.Title, h.Url, h.PageUrl))
+            // ابعاد اعلام‌شده (Openverse) از پیش بررسی می‌شود تا دانلود بیهوده نشود؛ بینگ ابعاد نمی‌دهد (۰) و بعد از دانلود سنجیده می‌شود.
+            .Where(h => h.Width == 0 || (h.Width >= CategoryPhotos.MinWidth && h.Width / (double)Math.Max(1, h.Height) is >= CategoryPhotos.MinRatio and <= CategoryPhotos.MaxRatio))
+            .DistinctBy(h => SmartImageRules.UrlKey(h.Url))
+            .Take(24)
+            .ToList();
+
+        var accepted = new List<(byte[] Bytes, double Score, ulong Hash)>();
+        using var throttle = new SemaphoreSlim(2);
+        foreach (var batch in candidates.Chunk(4))
+        {
+            if (accepted.Count >= want + 2)
+                break;
+            var downloads = batch.Select(async hit =>
+            {
+                await throttle.WaitAsync(cancellationToken);
+                try
+                {
+                    return await DownloadAsync(hit.Url, cancellationToken);
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            }).ToList();
+            foreach (var task in downloads)
+            {
+                var bytes = await task;
+                if (bytes is null || SmartImageAnalyzer.Analyze(bytes) is not { } info || SmartImageAnalyzer.Metrics(bytes) is not { } metrics)
+                    continue;
+                if (!CategoryPhotos.IsAcceptable(info.Width, info.Height, metrics) || blocked.Any(h => ImageHash.IsDuplicate(h, info.Hash))
+                    || accepted.Any(a => ImageHash.IsDuplicate(a.Hash, info.Hash)))
+                    continue;
+                accepted.Add((SmartImageAnalyzer.Downscale(bytes, CategoryPhotoMaxWidth), CategoryPhotos.Score(info.Width, info.Height, metrics, info.Quality), info.Hash));
+            }
+        }
+
+        // بهترین‌ها (رنگی‌تر و تیزتر) اول؛ اولی اگر دسته تصویری نداشته باشد تصویر فعال می‌شود.
+        foreach (var photo in accepted.OrderByDescending(a => a.Score).Take(want))
+        {
+            var stored = await StoreAsync(photo.Bytes, UploadArea.Categories, cancellationToken);
+            if (stored is null)
                 continue;
-            var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-            if (bytes.Length > MaxImageBytes || SmartImageAnalyzer.Analyze(bytes) is not { } source || sourceHashes.Any(h => ImageHash.IsDuplicate(h, source.Hash)))
-                continue;
-            sourceHashes.Add(source.Hash);
-            var banner = BannerGenerator.Create(bytes);
-            if (banner is null)
-                continue;
-            if (avoidHashes.Count > 0 && SmartImageAnalyzer.Analyze(banner) is { } made && avoidHashes.Any(h => ImageHash.IsDuplicate(h, made.Hash)))
-                continue;
-            var stored = await StoreAsync(banner, UploadArea.Categories, cancellationToken);
-            if (stored is not null)
-                results.Add(stored);
+            results.Add(RenameIn(UploadArea.Categories, stored, CategoryPhotos.FileName(subject.Slug)));
         }
         return results;
     }
@@ -390,30 +530,27 @@ public sealed class SmartImageFinder(
     /// مثال: («9f3c….webp»، «samsung-galaxy-a55») ← «samsung-galaxy-a55-1a2b3c4d.webp». اگر نامک لاتین نباشد یا جابه‌جایی
     /// خطا بدهد، نام قبلی می‌ماند (هیچ عکسی گم نمی‌شود). خروجی هم‌ترتیب ورودی است.
     /// </summary>
-    public List<string> SeoRename(IReadOnlyList<string> names, string? slug)
+    public List<string> SeoRename(IReadOnlyList<string> names, string? slug) =>
+        names.Select(name => RenameIn(UploadArea.Products, name, SeoImageName.Build(slug, Path.GetExtension(name)))).ToList();
+
+    /// <summary>
+    /// جابه‌جایی امن یک فایل داخل همان پوشهٔ آپلود به نام تازه. نام تازهٔ null، فایل ناموجود یا خطای دیسک ← همان نام قبلی (هیچ فایلی گم نمی‌شود).
+    /// </summary>
+    private string RenameIn(UploadArea area, string name, string? target)
     {
-        var result = new List<string>(names.Count);
-        foreach (var name in names)
+        var source = uploads.GetPath(area, name);
+        if (source is null || target is null || !File.Exists(source))
+            return name;
+        try
         {
-            var source = uploads.GetPath(UploadArea.Products, name);
-            var target = SeoImageName.Build(slug, Path.GetExtension(name));
-            if (source is null || target is null)
-            {
-                result.Add(name);
-                continue;
-            }
-            try
-            {
-                File.Move(source, Path.Combine(Path.GetDirectoryName(source)!, target), overwrite: false);
-                result.Add(target);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                logger.LogWarning(exception, "Image {File} could not be renamed", name);
-                result.Add(name);
-            }
+            File.Move(source, Path.Combine(Path.GetDirectoryName(source)!, target), overwrite: false);
+            return target;
         }
-        return result;
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "Image {File} could not be renamed", name);
+            return name;
+        }
     }
 
     public void DeleteProductFiles(IEnumerable<string> names) => uploads.Delete(UploadArea.Products, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());

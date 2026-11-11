@@ -16,6 +16,13 @@ namespace Fratak_Shop.Core.Services.Smart;
 public sealed record IntakeProduct(Guid Id, string Name, string? EnglishName, string? BrandEnglishName, string? SourceCategory);
 
 /// <summary>
+/// دور ۲۶: نتیجهٔ «دستهٔ این کالا در سایت‌های دیگر». Path = مسیر کامل دسته (مثلاً از دیجی‌کالا، با « > »)؛
+/// MarketCategory = دسته‌ای که اکثریت سایت‌ها (≥ ۲) برای کالا گذاشته‌اند (<see cref="CategoryVote"/>)؛ هر دو ممکن است null باشند.
+/// مثال: («کالای دیجیتال > لوازم جانبی > هدفون، هدست و هندزفری»، «هدفون هدست و هندزفری»).
+/// </summary>
+public sealed record MarketLookup(string? Path, string? MarketCategory = null);
+
+/// <summary>
 /// گزارش یک دور ورود هوشمند. Examined = کالای تازهٔ بررسی‌شده، Categorized = جابه‌جا شده به دستهٔ درست، Queued = «تکمیل هوشمند» در صف،
 /// Unplaced = هنوز بی‌دسته (اعلان به ادمین)، Created = دسته‌های تازه، Looked = چند کالا دسته‌شان از سایت دیگر خوانده شد، Seo = سئوی بعد از انتشار.
 /// </summary>
@@ -51,10 +58,10 @@ public interface IProductIntakeService
     /// یک دور ورود هوشمند.
     /// </summary>
     /// <param name="now">زمان فعلی (برای آزمون‌پذیری).</param>
-    /// <param name="findSourceCategory">جست‌وجوی دستهٔ کالا در سایت دیگر (مسیر با « > ») یا null. خطای آن کار را خراب نمی‌کند.</param>
+    /// <param name="findSourceCategory">جست‌وجوی دستهٔ کالا در سایت‌های دیگر (مسیر با « > » + دستهٔ رأی اکثریت) یا null. خطای آن کار را خراب نمی‌کند.</param>
     /// <param name="only">فقط این کالاها (آزمون‌ها)؛ null = همهٔ کالاهای منتظر.</param>
     /// <param name="take">بیشترین کالا در این دور.</param>
-    Task<IntakeReport> RunAsync(DateTimeOffset now, Func<IntakeProduct, CancellationToken, Task<string?>>? findSourceCategory = null,
+    Task<IntakeReport> RunAsync(DateTimeOffset now, Func<IntakeProduct, CancellationToken, Task<MarketLookup?>>? findSourceCategory = null,
         IReadOnlyCollection<Guid>? only = null, int take = ProductIntakeService.DefaultTake, CancellationToken cancellationToken = default);
 }
 
@@ -84,7 +91,7 @@ public sealed class ProductIntakeService(
     // کالاهایی که سئوی بعد از انتشار برایشان امتحان شد (تا اگر خلبان سئو چیزی ننوشت، هر ۳ دقیقه دوباره امتحان نشود).
     private static readonly ConcurrentDictionary<Guid, DateTimeOffset> SeoTried = new();
 
-    public async Task<IntakeReport> RunAsync(DateTimeOffset now, Func<IntakeProduct, CancellationToken, Task<string?>>? findSourceCategory = null,
+    public async Task<IntakeReport> RunAsync(DateTimeOffset now, Func<IntakeProduct, CancellationToken, Task<MarketLookup?>>? findSourceCategory = null,
         IReadOnlyCollection<Guid>? only = null, int take = DefaultTake, CancellationToken cancellationToken = default)
     {
         var options = await config.GetAsync(cancellationToken);
@@ -98,7 +105,7 @@ public sealed class ProductIntakeService(
         var rows = await query.OrderBy(p => p.CreatedAt).Take(Math.Clamp(take, 1, 200))
             .Select(p => new
             {
-                p.Id, p.Name, p.EnglishName, BrandEnglish = p.Brand != null ? p.Brand.EnglishName : null, p.SourceCategory, p.CategoryId,
+                p.Id, p.Name, p.EnglishName, BrandEnglish = p.Brand != null ? p.Brand.EnglishName : null, p.SourceCategory, p.MarketCategory, p.CategoryId,
                 CategoryName = p.Category.Name, CategorySlug = p.Category.Slug, CategorySystem = p.Category.IsSystem,
             })
             .ToListAsync(cancellationToken);
@@ -111,25 +118,30 @@ public sealed class ProductIntakeService(
         var looked = 0;
         if (findSourceCategory is not null)
         {
+            // دور ۲۶: کالایی که مسیر کامل دارد ولی «رأی رقبا» ندارد هم پرسیده می‌شود (رأی اکثریت بر مسیر تأمین‌کننده مقدم است).
             foreach (var row in rows.Where(r => (r.CategorySystem || CategoryClassifier.IsCatchAll(r.CategoryName, r.CategorySlug))
-                                                && CategoryNames.Path(r.SourceCategory).Count < 2).Take(MaxLookups))
+                                                && (CategoryNames.Path(r.SourceCategory).Count < 2 || r.MarketCategory is null)).Take(MaxLookups))
             {
-                string? path;
+                MarketLookup? found;
                 try
                 {
-                    path = await findSourceCategory(new IntakeProduct(row.Id, row.Name, row.EnglishName, row.BrandEnglish, row.SourceCategory), cancellationToken);
+                    found = await findSourceCategory(new IntakeProduct(row.Id, row.Name, row.EnglishName, row.BrandEnglish, row.SourceCategory), cancellationToken);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     logger.LogDebug(exception, "Source category lookup failed for {Product}", row.Id);
                     continue;
                 }
-                var clean = CategoryNames.Path(path);
-                if (clean.Count < 2)
+                var clean = CategoryNames.Path(found?.Path);
+                var text = clean.Count >= 2 ? CategoryNames.Truncate(CategoryNames.Join(clean), 300) : null;
+                var market = CategoryNames.Truncate(CategoryNames.Proper(found?.MarketCategory), 150);
+                if (text is null && market is null)
                     continue;
-                var text = CategoryNames.Truncate(CategoryNames.Join(clean), 300);
+                // مسیر کامل تازه فقط وقتی جای مسیر قبلی را می‌گیرد که چیزی داشته باشیم؛ رأی اکثریت جدا ذخیره می‌شود.
                 await context.Products.Where(p => p.Id == row.Id)
-                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.SourceCategory, text), cancellationToken);
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(p => p.SourceCategory, p => text ?? p.SourceCategory)
+                        .SetProperty(p => p.MarketCategory, p => market ?? p.MarketCategory), cancellationToken);
                 looked++;
             }
         }

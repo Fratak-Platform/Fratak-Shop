@@ -24,6 +24,9 @@ public sealed record SerpShop(string Url, string Title, double Match);
 /// <summary>دور بیستم: نتیجهٔ جست‌وجوی تصویر قابل ذخیره در کش (تاپل/رکورد Core مستقیم ذخیره نمی‌شود).</summary>
 public sealed record CachedImageHit(string Url, string? Title, string? PageUrl);
 
+/// <summary>دور ۲۶: یک متن کوتاه کش‌شده (مثلاً نام دستهٔ یک سایت). متن خالی = «این سایت نتیجه‌ای نداشت».</summary>
+public sealed record CachedText(string Value);
+
 /// <summary>
 /// دریافت دادهٔ بیرونی برای محتوای هوشمند (B1–B13) با رعایت کامل ادب و ایمنی:
 /// <list type="bullet">
@@ -45,6 +48,8 @@ public sealed class SmartSources(
     public const string BingImages = "bing-images";
     public const string Basalam = "باسلام (هوشمند)";
     public const string Supplier = "صفحهٔ فروشگاه";
+    public const string Openverse = "openverse";
+    public const string Torob = "ترب (هوشمند)";
 
     private static readonly TimeSpan PoliteInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan SearchTtl = TimeSpan.FromDays(7);
@@ -159,6 +164,88 @@ public sealed class SmartSources(
         if (hit is null)
             return null;
         return (await DigikalaDetailsAsync(hit.Id, cancellationToken))?.Category;
+    }
+
+    /// <summary>
+    /// دور ۲۶ – «رأی رقبا برای دستهٔ کالا»: همین کالا در دیجی‌کالا (دستهٔ غالب نتیجه‌ها + مسیر کامل صفحهٔ کالا)، ترب (اولین دستهٔ پاسخ)
+    /// و باسلام (دستهٔ کالاهای هم‌نام) جست‌وجو می‌شود و <see cref="CategoryVote.Decide"/> اکثریت (≥ ۲ سایت موافق) را برمی‌گزیند.
+    /// <list type="bullet">
+    /// <item>Path: مسیر کامل دیجی‌کالا (برای والدها)؛ اگر برگِ دیجی‌کالا با رأی اکثریت فرق داشت، برگ با نام اکثریت عوض می‌شود.</item>
+    /// <item>MarketCategory: نام دستهٔ اکثریت یا null (یک سایت تنها رأی حساب نمی‌شود).</item>
+    /// </list>
+    /// <para>همه مؤدبانه (فاصلهٔ ۲ ثانیه برای هر منبع، استراحت خودکار بعد از مسدود شدن) و ۷ روز کش؛ هر منبعی شکست بخورد، بقیه رأی می‌دهند.</para>
+    /// مثال: «هدفون بی سیم هایلو T15» ← دیجی‌کالا و ترب «هدفون، هدست و هندزفری»، باسلام «هدفون و هندزفری بی سیم و بلوتوثی»
+    /// ← MarketLookup(«کالای دیجیتال > … > هدفون، هدست و هندزفری»، «هدفون هدست و هندزفری»).
+    /// </summary>
+    public async Task<MarketLookup?> MarketCategoryAsync(IntakeProduct product, CancellationToken cancellationToken)
+    {
+        var subject = new SmartProductSubject(product.Id, product.Name, product.EnglishName, "", "", null, null, null, product.BrandEnglishName,
+            Guid.Empty, null, null, null, 0, [], [], 0, null, false);
+        var votes = new List<(string Site, string? Title)>();
+
+        // ۱) دیجی‌کالا: دستهٔ غالب جست‌وجو با نام فارسی (دقیق‌تر برای دسته) + مسیر کامل صفحهٔ همین کالا.
+        votes.Add(("digikala", await CachedTextAsync("vote:dk:" + product.Name, Digikala,
+            "https://api.digikala.com/v1/search/?page=1&q=" + Uri.EscapeDataString(product.Name), SmartParsers.DigikalaSearchCategory, cancellationToken)));
+        string? path = null;
+        if (await FindDigikalaAsync(subject, cancellationToken) is { } hit)
+            path = (await DigikalaDetailsAsync(hit.Id, cancellationToken))?.Category;
+
+        // ۲) ترب: اولین دستهٔ پاسخ جست‌وجو.
+        votes.Add(("torob", await CachedTextAsync("vote:torob:" + product.Name, Torob,
+            "https://api.torob.com/v4/base-product/search/?page=0&size=24&source=next_desktop&q=" + Uri.EscapeDataString(product.Name),
+            SmartParsers.TorobSearchCategory, cancellationToken)));
+
+        // ۳) باسلام: دستهٔ کالاهایی که واقعاً همین کالا هستند.
+        votes.Add(("basalam", await CachedTextAsync("vote:basalam:" + product.Name, Basalam,
+            "https://search.basalam.com/ai-engine/api/v2.0/product/search?q=" + Uri.EscapeDataString(product.Name),
+            body => SmartParsers.BasalamCategory(body, product.Name), cancellationToken)));
+
+        // ۴) بخش آخر مسیر دیجی‌کالا هم رأی خود دیجی‌کالاست اگر جست‌وجو دسته نداد.
+        var segments = CategoryNames.Path(path);
+        if (votes[0].Title is null && segments.Count > 0)
+            votes[0] = ("digikala", segments[^1]);
+
+        var decision = CategoryVote.Decide(votes);
+        if (decision is null)
+            return path is null ? null : new MarketLookup(path);
+        if (segments.Count >= 2 && !CategoryVote.Similar(CategoryVote.KeyTerms(segments[^1]), CategoryVote.KeyTerms(decision.Name)))
+            path = CategoryNames.Join(segments.Take(segments.Count - 1).Append(decision.Name));
+        return new MarketLookup(path, decision.Name);
+    }
+
+    /// <summary>
+    /// دور ۲۶ – «جای خالی داده را از سایت‌های دیگر پر کن»: نام انگلیسی کالا از ترب (name2) وقتی دیجی‌کالا نام انگلیسی نداد.
+    /// فقط نتیجه با شباهت نام ≥ ۷۵٪ (<see cref="SmartParsers.TorobEnglishName"/>). ۷ روز کش؛ شکست ← null.
+    /// </summary>
+    public Task<string?> TorobEnglishNameAsync(string productName, CancellationToken cancellationToken) =>
+        CachedTextAsync("torob:en:" + productName, Torob,
+            "https://api.torob.com/v4/base-product/search/?page=0&size=24&source=next_desktop&q=" + Uri.EscapeDataString(productName),
+            body => SmartParsers.TorobEnglishName(productName, SmartParsers.TorobSearchResults(body)), cancellationToken);
+
+    /// <summary>
+    /// یک درخواست JSON کش‌شده که فقط یک متن کوتاه (مثلاً نام دسته) از آن لازم است. شکست ← null (و کش نمی‌شود تا دفعهٔ بعد دوباره امتحان شود).
+    /// «نبود نتیجه» با متن خالی کش می‌شود تا هر ۳ دقیقه دوباره پرسیده نشود.
+    /// </summary>
+    private async Task<string?> CachedTextAsync(string key, string source, string url, Func<string, string?> parse, CancellationToken cancellationToken)
+    {
+        var cached = await store.GetAsync<CachedText>(key, cancellationToken);
+        if (cached is not null)
+            return string.IsNullOrWhiteSpace(cached.Value) ? null : cached.Value;
+        var body = await GetAsync(source, url, true, cancellationToken);
+        if (body is null)
+            return null;
+        string? value;
+        try
+        {
+            value = parse(body);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogDebug(exception, "Parsing {Source} failed", source);
+            value = null;
+        }
+        await store.SetAsync(key, source, new CachedText(value ?? ""), SearchTtl, cancellationToken);
+        return value;
     }
 
     public async Task<List<SourceReview>> DigikalaReviewsAsync(long id, CancellationToken cancellationToken)
@@ -295,6 +382,52 @@ public sealed class SmartSources(
             return [];
         var hits = SmartParsers.BingImageResults(html);
         await store.SetAsync(key, "bing", hits.Select(h => new CachedImageHit(h.Url, h.Title, h.PageUrl)).ToList(), DetailsTtl, cancellationToken);
+        return hits;
+    }
+
+    /// <summary>
+    /// دور ۲۶ – عکس فضاسازی دسته از Openverse: فقط عکس واقعی (photograph)، افقی، بزرگ و با مجوز آزاد CC0/مالکیت عمومی
+    /// (بدون نیاز به ذکر منبع). رایگان و بدون کلید؛ محدودیت ناشناس ۲۰ درخواست در دقیقه ← نتیجه ۷ روز کش می‌شود.
+    /// مثال: «kitchen appliances lifestyle» ← تا ۲۰ عکس با ابعاد. شکست ← فهرست خالی.
+    /// </summary>
+    public async Task<List<PhotoHit>> OpenversePhotosAsync(string query, CancellationToken cancellationToken)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length < 2)
+            return [];
+        var key = "photo:ov:" + query;
+        var cached = await store.GetAsync<List<PhotoHit>>(key, cancellationToken);
+        if (cached is not null)
+            return cached;
+        var json = await GetAsync(Openverse, "https://api.openverse.org/v1/images/?license=cc0,pdm&category=photograph&aspect_ratio=wide&size=large&mature=false&page_size=20&q="
+                                             + Uri.EscapeDataString(query), true, cancellationToken);
+        if (json is null)
+            return [];
+        var hits = SmartParsers.OpenverseImages(json);
+        await store.SetAsync(key, Openverse, hits, SearchTtl, cancellationToken);
+        return hits;
+    }
+
+    /// <summary>
+    /// دور ۲۶ – عکس فضاسازی دسته از جست‌وجوی تصویر بینگ با فیلترهای «فقط عکس واقعی، بزرگ، افقی»
+    /// (qft=+filterui:photo-photo+filterui:imagesize-large+filterui:aspect-wide). ابعاد اعلام نمی‌شود (۰)؛ بعد از دانلود سنجیده می‌شود.
+    /// مثال: «لوازم خانگی در خانه» ← تا ۴۰ نتیجه. شکست ← فهرست خالی.
+    /// </summary>
+    public async Task<List<PhotoHit>> BingPhotosAsync(string query, CancellationToken cancellationToken)
+    {
+        query = (query ?? "").Trim();
+        if (query.Length < 2)
+            return [];
+        var key = "photo:bing:" + query;
+        var cached = await store.GetAsync<List<PhotoHit>>(key, cancellationToken);
+        if (cached is not null)
+            return cached;
+        var html = await GetAsync(BingImages, "https://www.bing.com/images/search?form=HDRSC2&first=1&qft=+filterui:photo-photo+filterui:imagesize-large+filterui:aspect-wide&q="
+                                              + Uri.EscapeDataString(query), false, cancellationToken);
+        if (html is null)
+            return [];
+        var hits = SmartParsers.BingImageResults(html).Select(h => new PhotoHit(h.Url, h.Title, h.PageUrl, 0, 0, "bing")).ToList();
+        await store.SetAsync(key, "bing", hits, SearchTtl, cancellationToken);
         return hits;
     }
 

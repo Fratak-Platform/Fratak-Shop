@@ -47,6 +47,11 @@
                     @* دور ۲۳: دستهٔ بدون عکس ← آیکن نوع دسته (به‌جای عکس پیش‌فرض تکراری) *@
                     <span class="flex aspect-square items-center justify-center p-5 text-sky-600 group-hover:text-white md:group-hover:scale-110 transition-all duration-500">@Icons.Svg(Icons.Has(category.IconKey) ? category.IconKey! : "Tag", "w-1/2 h-1/2", 64)</span>
                   }
+                  else if (Fratak_Shop.Core.Services.Smart.CategoryImages.IsPhoto(category.ImageName))
+                  {
+                    @* دور ۲۶: عکس فضاسازی دسته (از اینترنت) ← کاشی ۴:۳ تمام‌قد با برش هوشمند؛ بدون حاشیهٔ داخلی *@
+                    <span class="cat-tile-photo"><img src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 480, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async"></span>
+                  }
                   else
                   {
                     <img class="rounded-xl p-5 md:group-hover:scale-125 transition-all duration-500" src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async">
