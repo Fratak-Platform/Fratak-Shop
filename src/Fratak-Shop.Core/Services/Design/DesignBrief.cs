@@ -582,12 +582,12 @@ public static class DesignBrief
     /// سه نسخهٔ متفاوت از یک برنامه (چیدمان، رنگ و تیتر متفاوت). <paramref name="imageColor"/> = رنگ غالب عکس کالا (اختیاری)؛
     /// اگر بود، نسخهٔ اول با «رنگ عکس کالا» ساخته می‌شود (پالت خوانا با کنتراست ≥ ۴٫۵).
     /// کلید هر نسخه «brief:{کالا یا -}:{هش}:{۱..۳}» است تا نسخه‌های منتشرشده خودکار گروه A/B شوند.
-    /// <para>دور ۲۶ – چیدمان بر اساس محتوا:</para>
+    /// <para>دور ۲۷ – چیدمان بر اساس عکس‌های واقعی (هر نسخه تا جای ممکن عکس دارد):</para>
     /// <list type="bullet">
-    /// <item>عکس واقعی دسته (<paramref name="photo"/>) ← «photo» (عکس تمام‌قاب) + collage/pattern.</item>
-    /// <item>چند کالا (دسته/کمپین؛ <paramref name="gallery"/> ≥ ۲) ← collage، split/sale، pattern.</item>
-    /// <item>یک کالا ← split یا sale، festive (مناسبت)/pattern، minimal.</item>
-    /// <item>بدون عکس (باشگاه، کارت هدیه، صفحه، اطلاع‌رسانی) ← pattern، center، festive/minimal.</item>
+    /// <item>عکس واقعی دسته (<paramref name="photo"/>) ← «photo» (عکس تمام‌قاب + کالاهای دوربری‌شده روی آن)، ویترین/کاشی، حراج/الگو.</item>
+    /// <item>چند کالا (<paramref name="gallery"/> ≥ ۲) ← ویترین (اگر عکس دوربری‌شده داریم) یا کاشی، حراج/تک‌کالا، جشن/وسط‌چین با کالا در دو لبه.</item>
+    /// <item>یک کالا ← حراج یا تک‌کالا، ویترین روی سکو (یا جشن)، ساده.</item>
+    /// <item>بدون عکس کالا (باشگاه، کارت هدیه، صفحه) ← الگو، وسط‌چین، جشن/ساده (اگر عکس دسته باشد نسخهٔ اول «photo»).</item>
     /// </list>
     /// </summary>
     public static List<DesignIdea> Variants(BriefPlan plan, string? imageColor, DesignImage? image, string? salt = null,
@@ -619,15 +619,20 @@ public static class DesignBrief
                 palettes.Add(fallback);
         }
 
+        var hero = image ?? pictures.FirstOrDefault();
+        var anyCutout = (image?.Cutout ?? false) || pictures.Any(x => x.Cutout);
+        var group = anyCutout ? "showcase" : "collage";
         string[] layouts;
         if (photo is not null && !single)
-            layouts = ["photo", pictures.Count >= 2 ? "collage" : plan.Badge is not null ? "sale" : "split", "pattern"];
+            layouts = ["photo", pictures.Count >= 2 ? group : plan.Badge is not null ? "sale" : hero is not null ? "split" : "pattern", plan.Badge is not null && hero is not null ? "sale" : "pattern"];
         else if (!single && pictures.Count >= 2)
-            layouts = ["collage", plan.Badge is not null ? "sale" : "split", plan.Occasion is not null ? "festive" : "pattern"];
-        else if (image is not null)
-            layouts = [plan.Badge is not null ? "sale" : "split", plan.Occasion is not null ? "festive" : "split", "minimal"];
+            layouts = [group, plan.Badge is not null ? "sale" : "split", plan.Occasion is not null ? "festive" : anyCutout ? "center" : "pattern"];
+        else if (hero is not null)
+            layouts = [plan.Badge is not null ? "sale" : "split", plan.Occasion is not null ? "festive" : hero.Cutout ? "showcase" : "split", "minimal"];
         else
             layouts = ["pattern", "center", plan.Occasion is not null ? "festive" : "minimal"];
+        if (layouts[1] == layouts[2])
+            layouts[2] = layouts[1] == "pattern" ? "center" : "pattern";
         if (plan.Occasion is not null && layouts[0] != "festive" && !layouts.Contains("festive"))
             layouts[2] = "festive";
 
@@ -644,14 +649,13 @@ public static class DesignBrief
             // دو نسخهٔ هم‌چیدمان (مثلاً split دوبار) ← دومی پالت دیگری می‌گیرد تا واقعاً متفاوت باشد.
             if (i > 0 && layouts[i] == layouts[i - 1] && ideas[i - 1].Spec.Palette == palette)
                 palette = palettes[Math.Min(i + 1, palettes.Count - 1)];
-            var withImage = layout switch
-            {
-                "photo" => photo,
-                "pattern" or "center" => null,
-                _ => image ?? pictures.FirstOrDefault(),
-            };
+            // دور ۲۷: عکس کالا و گالری به همهٔ چیدمان‌ها (جز الگو) داده می‌شود؛ قالب خودش بهترین استفاده را می‌کند
+            // (روی عکس دسته فقط کالای دوربری‌شده شناور می‌شود؛ وسط‌چین فقط کالای دوربری‌شده را در دو لبه می‌گذارد).
+            var noPictures = layout == "pattern";
+            var many = layout is "collage" or "showcase" && pictures.Count >= 2;
             var spec = new DesignSpec(layout, palette, headlines[i], plan.Subline, plan.Badge, string.IsNullOrWhiteSpace(plan.ButtonText) ? null : plan.ButtonText,
-                withImage, layout == "collage" ? null : price, layout == "collage" ? null : oldPrice, Kicker(plan), layout == "collage" ? pictures : null);
+                noPictures ? null : hero, many ? null : price, many ? null : oldPrice, Kicker(plan), noPictures || pictures.Count == 0 ? null : pictures,
+                layout == "photo" ? photo : null);
             ideas.Add(new DesignIdea($"brief:{productKey}:{hash}:{i + 1}", $"{plan.Title} – نسخهٔ {DesignTemplates.FaDigits((i + 1).ToString(CultureInfo.InvariantCulture))}",
                 string.IsNullOrWhiteSpace(reason) ? "ساخته‌شده از ایدهٔ شما با دادهٔ واقعی فروشگاه." : reason,
                 spec, plan.LinkUrl, plan.ExpiresAt, plan.Hero?.Id));

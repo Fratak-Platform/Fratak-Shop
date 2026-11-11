@@ -78,67 +78,165 @@ public static class ImageColors
     }
 
     /// <summary>
-    /// برش زمینهٔ سفید: پیکسل‌های تقریباً سفیدِ متصل به لبه‌ها شفاف می‌شوند (لبهٔ نرم یک پیکسلی). خروجی PNG یا null.
-    /// عکس بزرگ‌تر از ۸۰۰ پیکسل اول کوچک می‌شود (برای بنر کافی است).
+    /// برش زمینهٔ سفید (سازگاری با دور ۲۳): همان <see cref="Cutout"/> با سقف ۸۰۰ پیکسل؛ خروجی فقط PNG یا null.
     /// </summary>
-    public static byte[]? CutoutWhite(SKBitmap source)
+    public static byte[]? CutoutWhite(SKBitmap source) => Cutout(source, 800)?.Png;
+
+    /// <summary>
+    /// دور ۲۷ – «دوربری» حرفه‌ای عکس کالا با زمینهٔ سفید (بدون هوش مصنوعی و بدون سرویس بیرونی):
+    /// <list type="number">
+    /// <item>پیکسل‌های تقریباً سفید/خاکستری خیلی روشنِ متصل به لبه‌ها (و پیکسل‌های از قبل شفاف) با «پر کردن از لبه» زمینه شناخته می‌شوند؛
+    /// سفیدیِ داخل خود کالا (مثل صفحهٔ سفید گوشی) چون به لبه وصل نیست دست نمی‌خورد.</item>
+    /// <item>لبهٔ نرم: پیکسل‌های مرزی بر اساس «چقدر سفیدند» نیمه‌شفاف می‌شوند و رنگشان از ترکیب با سفید پاک می‌شود (هالهٔ سفید دور کالا نمی‌ماند).</item>
+    /// <item>حاشیهٔ خالی بریده می‌شود (کالا در بنر بزرگ و هم‌اندازه دیده شود) + ۲٪ فاصلهٔ امن.</item>
+    /// </list>
+    /// خروجی null: تصویر خالی، چیزی برای برش نبود (زمینه سفید نیست) یا تقریباً همه‌اش زمینه بود (کالا گم می‌شد).
+    /// مثال: عکس ۱۲۰۰×۱۲۰۰ هدفون مشکی روی سفید ← PNG حدود ۷۲۰×۸۷۰ با زمینهٔ شفاف.
+    /// </summary>
+    public static CutoutResult? Cutout(SKBitmap source, int maxSide = 900)
     {
         ArgumentNullException.ThrowIfNull(source);
-        using var bitmap = Resize(source, 800);
+        using var bitmap = Resize(source, Math.Clamp(maxSide, 64, 2000));
         if (bitmap is null)
             return null;
         int w = bitmap.Width, h = bitmap.Height;
-        var transparent = new bool[w * h];
+        // خواندن پیکسل‌ها با GetPixel (مستقل از قالب رنگ تصویر: RGB565، خاکستری، BGRA و …)
+        var pixels = new SKColor[w * h];
+        for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+                pixels[y * w + x] = bitmap.GetPixel(x, y);
+        var background = new bool[w * h];
         var queue = new Queue<int>();
-        void Seed(int x, int y)
+        void Seed(int i)
         {
-            var i = y * w + x;
-            if (!transparent[i] && IsWhite(bitmap.GetPixel(x, y)))
+            if (!background[i] && IsBackground(pixels[i]))
             {
-                transparent[i] = true;
+                background[i] = true;
                 queue.Enqueue(i);
             }
         }
 
         for (var x = 0; x < w; x++)
         {
-            Seed(x, 0);
-            Seed(x, h - 1);
+            Seed(x);
+            Seed((h - 1) * w + x);
         }
         for (var y = 0; y < h; y++)
         {
-            Seed(0, y);
-            Seed(w - 1, y);
+            Seed(y * w);
+            Seed(y * w + w - 1);
         }
         while (queue.Count > 0)
         {
             var i = queue.Dequeue();
             int x = i % w, y = i / w;
-            if (x > 0) Seed(x - 1, y);
-            if (x < w - 1) Seed(x + 1, y);
-            if (y > 0) Seed(x, y - 1);
-            if (y < h - 1) Seed(x, y + 1);
+            if (x > 0) Seed(i - 1);
+            if (x < w - 1) Seed(i + 1);
+            if (y > 0) Seed(i - w);
+            if (y < h - 1) Seed(i + w);
         }
 
-        using var output = new SKBitmap(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        // کادر کالا (پیکسل‌های غیرزمینه) و سهم آن از کل تصویر
+        int minX = w, minY = h, maxX = -1, maxY = -1, kept = 0;
         for (var y = 0; y < h; y++)
         {
             for (var x = 0; x < w; x++)
             {
-                var c = bitmap.GetPixel(x, y);
-                var i = y * w + x;
-                byte alpha = c.Alpha;
-                if (transparent[i])
-                    alpha = 0;
-                else if ((x > 0 && transparent[i - 1]) || (x < w - 1 && transparent[i + 1]) || (y > 0 && transparent[i - w]) || (y < h - 1 && transparent[i + w]))
-                    alpha = (byte)(alpha * 0.6); // لبهٔ نرم
-                output.SetPixel(x, y, new SKColor(c.Red, c.Green, c.Blue, alpha));
+                if (background[y * w + x])
+                    continue;
+                kept++;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+        var coverage = kept / (double)(w * h);
+        if (maxX < 0 || coverage < 0.03 || coverage > 0.985)
+            return null;
+        var pad = Math.Max(2, (int)Math.Round(Math.Max(w, h) * 0.02));
+        minX = Math.Max(0, minX - pad);
+        minY = Math.Max(0, minY - pad);
+        maxX = Math.Min(w - 1, maxX + pad);
+        maxY = Math.Min(h - 1, maxY + pad);
+        int cw = maxX - minX + 1, ch = maxY - minY + 1;
+
+        var output = new SKColor[cw * ch];
+        for (var y = 0; y < ch; y++)
+        {
+            for (var x = 0; x < cw; x++)
+            {
+                int sx = x + minX, sy = y + minY, i = sy * w + sx;
+                if (background[i])
+                {
+                    output[y * cw + x] = SKColors.Transparent;
+                    continue;
+                }
+                var c = pixels[i];
+                var edge = (sx > 0 && background[i - 1]) || (sx < w - 1 && background[i + 1]) || (sy > 0 && background[i - w]) || (sy < h - 1 && background[i + w]);
+                if (!edge)
+                {
+                    output[y * cw + x] = c;
+                    continue;
+                }
+                // لبه: هرچه به سفید نزدیک‌تر، شفاف‌تر؛ رنگ هم «از سفید جدا» می‌شود: c = a·رنگ‌واقعی + (1−a)·سفید.
+                var min = Math.Min(c.Red, Math.Min(c.Green, c.Blue));
+                var a = Math.Clamp((255 - min) / 55.0, 0.2, 1.0) * (c.Alpha / 255.0);
+                byte Unmix(byte v) => (byte)Math.Clamp(Math.Round((v - 255 * (1 - a)) / Math.Max(a, 0.2)), 0, 255);
+                output[y * cw + x] = new SKColor(Unmix(c.Red), Unmix(c.Green), Unmix(c.Blue), (byte)Math.Round(a * 255));
             }
         }
 
-        using var image = SKImage.FromBitmap(output);
+        using var result = new SKBitmap(new SKImageInfo(cw, ch, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        for (var y = 0; y < ch; y++)
+            for (var x = 0; x < cw; x++)
+                result.SetPixel(x, y, output[y * cw + x]);
+        using var image = SKImage.FromBitmap(result);
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return data?.ToArray();
+        return data is null ? null : new CutoutResult(data.ToArray(), cw, ch, coverage);
+    }
+
+    /// <summary>
+    /// زمینهٔ قابل برش: از قبل شفاف، یا تقریباً سفید/خاکستری خیلی روشنِ بی‌رنگ (هر سه کانال ≥ ۲۳۲ و اختلاف کانال‌ها ≤ ۱۸).
+    /// مثال: #f7f7f7 ← بله؛ #ffe4e1 (صورتی روشن) ← نه (رنگ کالاست، نه زمینه).
+    /// </summary>
+    public static bool IsBackground(SKColor c)
+    {
+        if (c.Alpha < 24)
+            return true;
+        if (c.Alpha <= 200)
+            return false;
+        var min = Math.Min(c.Red, Math.Min(c.Green, c.Blue));
+        var max = Math.Max(c.Red, Math.Max(c.Green, c.Blue));
+        return min >= 232 && max - min <= 18;
+    }
+
+    /// <summary>
+    /// دور ۲۷ – عکسِ از قبل «دوربری‌شده»؟ (کانال شفافیت دارد و دست‌کم ۳۰٪ پیکسل‌های قاب بیرونی شفاف‌اند).
+    /// مثال: PNG کالای بدون زمینه ← true؛ WebP معمولی ← false.
+    /// </summary>
+    public static bool HasTransparentBorder(SKBitmap source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.AlphaType == SKAlphaType.Opaque)
+            return false;
+        using var small = Resize(source, 200);
+        if (small is null)
+            return false;
+        var border = Math.Max(1, small.Width / 50);
+        int clear = 0, all = 0;
+        for (var y = 0; y < small.Height; y++)
+        {
+            for (var x = 0; x < small.Width; x++)
+            {
+                if (x >= border && x < small.Width - border && y >= border && y < small.Height - border)
+                    continue;
+                all++;
+                if (small.GetPixel(x, y).Alpha < 32)
+                    clear++;
+            }
+        }
+        return all > 0 && clear >= all * 0.3;
     }
 
     /// <summary>تقریباً سفید (هر سه کانال ≥ ۲۳۵ و کدر).</summary>
@@ -155,3 +253,6 @@ public static class ImageColors
         return source.Resize(info, new SKSamplingOptions(SKFilterMode.Linear));
     }
 }
+
+/// <summary>دور ۲۷ – نتیجهٔ دوربری: PNG شفاف، ابعاد (بعد از بریدن حاشیه) و سهم کالا از تصویر اصلی (۰ تا ۱).</summary>
+public sealed record CutoutResult(byte[] Png, int Width, int Height, double Coverage);

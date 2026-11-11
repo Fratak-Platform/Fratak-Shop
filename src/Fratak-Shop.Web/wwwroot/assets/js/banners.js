@@ -60,6 +60,9 @@
   'use strict';
   var nodes = document.querySelectorAll('.fsb-wrap');
   if (!nodes.length) return;
+  // دور ۲۷: JS فعال است ← عنصرهای ورودی تا لحظهٔ دیده شدن پنهان بمانند (بدون «چشمک» پیش از حرکت ورود).
+  Array.prototype.forEach.call(nodes, function (node) { node.classList.add('fsb-armed'); });
+  setupParallax(nodes);
   if (!('IntersectionObserver' in window)) {
     Array.prototype.forEach.call(nodes, function (node) { node.classList.add('is-live'); });
     return;
@@ -76,4 +79,53 @@
     });
   }, { threshold: 0.3 });
   Array.prototype.forEach.call(nodes, function (node) { observer.observe(node); });
+
+  /*
+   * دور ۲۷ – پارالاکس: لایه‌های fsb-z1..3 (پس‌زمینه، میانه، کالا) با سرعت متفاوت جابه‌جا می‌شوند.
+   * • موس (دستگاه دارای hover): موقعیت موس روی بنر ← --px/--py بین ‎-1 و 1.
+   * • لمسی: موقعیت بنر در صفحه هنگام اسکرول ← --py (کالا آرام بالا/پایین می‌رود).
+   * با requestAnimationFrame (حداکثر یک‌بار در هر فریم) و فقط برای بنرهای دیده‌شده؛ «کاهش حرکت» ← هیچ کاری نمی‌کند.
+   */
+  function setupParallax(list) {
+    if (!window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var items = Array.prototype.filter.call(list, function (node) { return node.querySelector('.fsb-z1, .fsb-z2, .fsb-z3'); });
+    if (!items.length) return;
+    var hover = window.matchMedia('(hover: hover)').matches;
+    var pending = false;
+    function set(node, x, y) {
+      node.style.setProperty('--px', Math.max(-1, Math.min(1, x)).toFixed(3));
+      node.style.setProperty('--py', Math.max(-1, Math.min(1, y)).toFixed(3));
+    }
+    if (hover) {
+      items.forEach(function (node) {
+        node.addEventListener('pointermove', function (event) {
+          if (pending) return;
+          pending = true;
+          requestAnimationFrame(function () {
+            pending = false;
+            var box = node.getBoundingClientRect();
+            if (!box.width || !box.height) return;
+            set(node, ((event.clientX - box.left) / box.width - 0.5) * 2, ((event.clientY - box.top) / box.height - 0.5) * 2);
+          });
+        }, { passive: true });
+        node.addEventListener('pointerleave', function () { set(node, 0, 0); }, { passive: true });
+      });
+      return;
+    }
+    function onScroll() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(function () {
+        pending = false;
+        var vh = window.innerHeight || 1;
+        items.forEach(function (node) {
+          if (!node.classList.contains('is-live') || node.classList.contains('is-paused')) return;
+          var box = node.getBoundingClientRect();
+          set(node, 0, ((box.top + box.height / 2) / vh - 0.5) * 2);
+        });
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
 })();

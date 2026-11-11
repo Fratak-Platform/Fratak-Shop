@@ -28,7 +28,8 @@
   const base = root.dataset.base;
   const FONT = "Vazirmatn";
   // دور ۲۶: fsAnim/fsAnimDelay = برچسب حرکت هر شیء برای «بنر زنده» (DesignLive) – با ذخیره حفظ می‌شود.
-  const EXTRA = ["fsRole", "fsAnim", "fsAnimDelay", "selectable", "evented", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
+  // دور ۲۷: fsDepth = عمق پارالاکس (۱ تا ۳)، fsCutout = عکس دوربری‌شده، fsPhoto = عکس فضاسازی تمام‌قاب.
+  const EXTRA = ["fsRole", "fsAnim", "fsAnimDelay", "fsDepth", "fsCutout", "fsPhoto", "selectable", "evented", "lockMovementX", "lockMovementY", "lockScalingX", "lockScalingY", "lockRotation", "hasControls"];
   const HISTORY_MAX = 30;
   // Fabric 7 مبدأ پیش‌فرض را «وسط» کرده؛ همهٔ محاسبه‌های این فایل و قالب‌های سرور با گوشهٔ بالا-چپ است.
   const O = { originX: "left", originY: "top" };
@@ -257,6 +258,58 @@
     }
   }
 
+  /**
+   * دور ۲۷ – دوربری عکس انتخاب‌شده: آدرس عکس ← handler «Cutout» ← عکس شفاف تازه با همان مرکز، زاویه و حداکثر همان قاب (contain).
+   * خروجی true = جایگزین شد. عکس غیرمحلی یا زمینهٔ غیرسفید ← پیام خطای فارسی و بدون تغییر.
+   */
+  async function cutoutImage(o) {
+    if (!o || !o.type || o.type.toLowerCase() !== "image") {
+      toast("اول یک عکس را روی بوم انتخاب کنید.", "error");
+      return false;
+    }
+    const src = (o.getSrc ? o.getSrc() : o.src) || "";
+    let path = src;
+    try { path = new URL(src, location.origin).pathname; } catch (e) { path = src; }
+    const form = new FormData();
+    form.append("url", path);
+    toast("در حال حذف زمینه…");
+    let res, data;
+    try {
+      res = await fetch(`${base}?handler=Cutout`, { method: "POST", body: form, headers: { RequestVerificationToken: csrf(), Accept: "application/json" } });
+      data = await res.json().catch(() => ({}));
+    } catch (e) {
+      toast("ارتباط با سرور برقرار نشد.", "error");
+      return false;
+    }
+    if (!res.ok || !data.url) {
+      toast(data.error || "حذف زمینه انجام نشد.", "error");
+      return false;
+    }
+    try {
+      const img = await ImageClass.fromURL(data.url, { crossOrigin: "anonymous" });
+      const boxW = o.getScaledWidth();
+      const boxH = o.getScaledHeight();
+      const iw = data.width || img.width || 1;
+      const ih = data.height || img.height || 1;
+      const scale = Math.min(boxW / iw, boxH / ih);
+      const c = o.getCenterPoint();
+      img.set({ scaleX: scale, scaleY: scale, angle: o.angle || 0, shadow: o.shadow || null, opacity: o.opacity == null ? 1 : o.opacity, fsRole: o.fsRole || "image", fsCutout: true });
+      EXTRA.forEach((k) => { if (k !== "fsCutout" && o[k] !== undefined && img[k] === undefined) img[k] = o[k]; });
+      const index = canvas.getObjects().indexOf(o);
+      canvas.add(img);
+      img.setPositionByOrigin(c, "center", "center");
+      img.setCoords();
+      if (index >= 0) canvas.moveObjectTo(img, index);
+      canvas.remove(o);
+      canvas.setActiveObject(img);
+      toast("زمینهٔ عکس حذف شد.");
+      return true;
+    } catch (e) {
+      toast("عکس تازه باز نشد.", "error");
+      return false;
+    }
+  }
+
   // ───────── پنل ویژگی‌ها ─────────
   const props = $("[data-ds-prop-body]");
   const empty = $("[data-ds-empty]");
@@ -389,6 +442,10 @@
       case "delete":
         each((x) => canvas.remove(x));
         canvas.discardActiveObject();
+        break;
+      case "cutout":
+        // دور ۲۷ – «حذف زمینهٔ سفید»: سرور زمینهٔ سفید عکس را شفاف و حاشیه را کوتاه می‌کند؛ عکس تازه همان‌جا و در همان قاب جایگزین می‌شود.
+        if (!(await cutoutImage(o))) return;
         break;
     }
     canvas.requestRenderAll();

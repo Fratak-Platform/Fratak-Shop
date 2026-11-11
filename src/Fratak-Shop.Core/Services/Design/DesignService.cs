@@ -34,6 +34,12 @@ public interface IDesignService
     /// <summary>کالاها و دسته‌های نامزد ایده (فقط فعال، موجود و دارای عکس). ابعاد عکس صفر است؛ لایهٔ وب از فایل می‌خواند.</summary>
     Task<IdeaInput> IdeaInputAsync(string siteName, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// دور ۲۷: تصویر فعلی و پیشنهادهای تصویر یک دستهٔ فعال (با شناسه یا نامک) برای «عکس فضاسازی» بنر. دسته نبود/غیرفعال ← null.
+    /// مثال: CategoryImagesAsync(null, "headphone") ← («headphone-photo-3fa1.webp»، [۳ پیشنهاد]).
+    /// </summary>
+    Task<CategoryImageSet?> CategoryImagesAsync(Guid? id, string? slug, CancellationToken cancellationToken = default);
+
     /// <summary>دور ۲۳: دادهٔ واقعی مرتبط با متن «ایده ← طرح» (دسته/برند منطبق و کالاهای موجود همان‌ها).</summary>
     Task<BriefData> BriefDataAsync(string text, BriefIntent intent, string siteName, CancellationToken cancellationToken = default);
 
@@ -153,6 +159,18 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             .ToListAsync(cancellationToken);
         list.AddRange(categories.Select(c => new BriefTargetOption("دسته‌ها", "cat:" + c.Id.ToString("D"), c.Parent is null ? c.Name : $"{c.Name} ({c.Parent})")));
         return list;
+    }
+
+    public async Task<CategoryImageSet?> CategoryImagesAsync(Guid? id, string? slug, CancellationToken cancellationToken = default)
+    {
+        if (id is null && string.IsNullOrWhiteSpace(slug))
+            return null;
+        var query = context.Categories.AsNoTracking().Where(c => c.IsActive && !c.IsSystem);
+        query = id is { } categoryId ? query.Where(c => c.Id == categoryId) : query.Where(c => c.Slug == slug);
+        var row = await query.Select(c => new { c.ImageName, c.ImageOptionsJson }).FirstOrDefaultAsync(cancellationToken);
+        return row is null
+            ? null
+            : new CategoryImageSet(row.ImageName, Fratak_Shop.Core.Services.Smart.CategoryImages.Parse(row.ImageOptionsJson) ?? Array.Empty<string>());
     }
 
     public async Task<IdeaInput> IdeaInputAsync(string siteName, CancellationToken cancellationToken = default)
@@ -536,3 +554,6 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         return text.Length > max ? text[..max] : text;
     }
 }
+
+/// <summary>دور ۲۷: تصویر فعلی دسته و پیشنهادهای تصویر آن (نام فایل‌ها در /uploads/categories).</summary>
+public sealed record CategoryImageSet(string? ImageName, IReadOnlyList<string> Options);

@@ -118,6 +118,18 @@ public class EditorModel(IDesignService designs, DesignStudio studio, IPostServi
         return new JsonResult(new { url = $"/uploads/{UploadArea.Content.Name}/{found.FileName}", width = found.Width, height = found.Height });
     }
 
+    /// <summary>
+    /// دور ۲۷ – «حذف زمینهٔ عکس»: عکس محلی انتخاب‌شده روی بوم ← نسخهٔ شفاف (زمینهٔ سفید/خیلی روشن برداشته و حاشیه بریده می‌شود).
+    /// پاسخ: {url, width, height} یا 400 با {error} فارسی. فقط عکس‌های خود سایت (/uploads/…) پذیرفته می‌شوند.
+    /// </summary>
+    public async Task<IActionResult> OnPostCutoutAsync(string? url)
+    {
+        var (image, error) = await studio.RemoveBackgroundAsync(url, HttpContext.RequestAborted);
+        if (image is null)
+            return BadRequest(new { error = error ?? "حذف زمینه انجام نشد." });
+        return new JsonResult(new { url = image.Url, width = image.Width, height = image.Height });
+    }
+
     /// <summary>آپلود عکس از کامپیوتر/گوشی (WebP، حداکثر ۱۰ مگابایت).</summary>
     public async Task<IActionResult> OnPostUploadAsync(IFormFile? file)
     {

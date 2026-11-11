@@ -19,6 +19,10 @@ namespace Fratak_Shop.Core.Services.Design;
 /// هیچ ورودی آزاد کاربر مستقیم در HTML نمی‌رود. شیء ناشناخته (گروه، مسیر، …) ← null ← سایت همان تصویر WebP را نشان می‌دهد.</item>
 /// <item><b>حرکت:</b> برچسب <c>fsAnim</c> هر شیء (rise, slide-r, slide-l, pop, float, pulse, shine, drift, zoom) + تأخیر <c>fsAnimDelay</c>.
 /// «نرم» = یک‌بار ورود؛ «چرخشی» = ورود، مکث، خروج و تکرار هر ۹ ثانیه. کاربرانی که «کاهش حرکت» را روشن کرده‌اند حرکتی نمی‌بینند (CSS).</item>
+/// <item><b>دور ۲۷ – حرکت‌های تازه:</b> hero (ورود + معلق ماندن کالا)، shadow (سایهٔ تماس هم‌گام با کالا)، reveal (پرده‌برداری تیتر از راست)،
+/// kenburns (بزرگ‌نمایی و جابه‌جایی آرام عکس فضاسازی)، twinkle (چشمک ستاره)، breathe (تنفس آرام هاله)، spin (چرخش آرام تزئین)،
+/// sweep (درخشش گذرا روی کل بنر) و fade. <c>fsDepth</c> (۱ تا ۳) ← کلاس پارالاکس <c>fsb-z1..3</c> (banners.js با موس/اسکرول جابه‌جا می‌کند).
+/// گرادیان شعاعی (هاله و سایهٔ تماس) هم پشتیبانی می‌شود.</item>
 /// </list>
 /// <para>محل استفاده: DesignService (انتشار/ذخیرهٔ بنر ← Banner.LiveHtml) و partial «_BannerArt» در صفحهٔ نخست و صفحهٔ دسته.</para>
 /// </summary>
@@ -34,6 +38,8 @@ public static class DesignLive
     public static readonly IReadOnlySet<string> Animations = new HashSet<string>(StringComparer.Ordinal)
     {
         "rise", "slide-r", "slide-l", "pop", "float", "pulse", "shine", "drift", "zoom",
+        // دور ۲۷
+        "hero", "shadow", "reveal", "kenburns", "twinkle", "breathe", "spin", "sweep", "fade",
     };
 
     private static readonly Regex HexColor = new("^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50));
@@ -131,6 +137,8 @@ public static class DesignLive
 
         var anim = Text(o["fsAnim"]);
         var animClass = anim is not null && Animations.Contains(anim) ? " fsb-a-" + anim : "";
+        // دور ۲۷: عمق پارالاکس فقط ۱ تا ۳ (عدد صحیح)؛ هر چیز دیگر نادیده.
+        var depthClass = Number(o["fsDepth"]) is { } depth && depth is 1d or 2d or 3d ? " fsb-z" + ((int)depth).ToString(CultureInfo.InvariantCulture) : "";
         if (animClass.Length > 0 && Number(o["fsAnimDelay"]) is { } delay && delay > 0)
             outer.Append(";--d:").Append(N(Math.Clamp(delay, 0, 4))).Append('s');
 
@@ -167,7 +175,8 @@ public static class DesignLive
         }
         else
         {
-            var fill = Fill(o["fill"], left, top, w, h);
+            var rawW = w / scaleX;
+            var fill = Fill(o["fill"], w, h, rawW, h / scaleY);
             if (fill is not null)
                 inner.Append("background:").Append(fill).Append(';');
             if (isCircle)
@@ -182,7 +191,7 @@ public static class DesignLive
         }
 
         var role = isText ? " fsb-t" : type == "image" ? " fsb-img" : "";
-        return "<div class=\"fsb-o" + role + "\" style=\"" + outer + "\"><div class=\"fsb-i" + animClass + "\"" +
+        return "<div class=\"fsb-o" + role + depthClass + "\" style=\"" + outer + "\"><div class=\"fsb-i" + animClass + "\"" +
                (inner.Length > 0 ? " style=\"" + inner.ToString().TrimEnd(';') + "\"" : "") + ">" + content + "</div></div>";
     }
 
@@ -197,24 +206,59 @@ public static class DesignLive
     }
 
     /// <summary>
-    /// رنگ یا گرادیان خطی فابریک ← CSS. گرادیان: جهت و جای توقف‌ها دقیقاً از مختصات فابریک (نسبت به گوشهٔ شیء) حساب می‌شود.
+    /// رنگ یا گرادیان فابریک ← CSS. خطی: جهت و جای توقف‌ها دقیقاً از مختصات فابریک (نسبت به گوشهٔ شیء) حساب می‌شود.
     /// مثال: از (w,0) تا (0,h) ← «linear-gradient(…deg, #a 0%, #b 100%)».
+    /// دور ۲۷ – شعاعی (هاله/سایهٔ تماس): فقط گرادیانِ هم‌مرکز با شیء ← «radial-gradient(closest-side, …)» (بیضی شدن با scaleY خودکار است).
+    /// گرادیان شعاعی نامتقارن ← null (شیء بدون رنگ؛ نه HTML خراب).
     /// </summary>
-    private static string? Fill(JsonNode? node, double left, double top, double w, double h)
+    /// <param name="w">عرض نهایی (با مقیاس).</param>
+    /// <param name="h">ارتفاع نهایی (با مقیاس).</param>
+    /// <param name="rawW">عرض بدون مقیاس (مختصات گرادیان فابریک با همین است).</param>
+    /// <param name="rawH">ارتفاع بدون مقیاس.</param>
+    private static string? Fill(JsonNode? node, double w, double h, double rawW, double rawH)
     {
         if (node is JsonValue)
             return Color(Text(node));
-        if (node is not JsonObject gradient || Text(gradient["type"]) != "linear" || gradient["colorStops"] is not JsonArray stops || stops.Count is < 2 or > 10)
+        if (node is not JsonObject gradient || gradient["colorStops"] is not JsonArray stops || stops.Count is < 2 or > 10)
             return null;
         if (gradient["coords"] is not JsonObject coords)
+            return null;
+        var type = Text(gradient["type"]);
+        var percentage = Text(gradient["gradientUnits"]) == "percentage";
+        if (type == "radial")
+        {
+            var cx = (Number(coords["x2"]) ?? 0) * (percentage ? rawW : 1);
+            var cy = (Number(coords["y2"]) ?? 0) * (percentage ? rawH : 1);
+            var radius = (Number(coords["r2"]) ?? 0) * (percentage ? Math.Max(rawW, rawH) : 1);
+            var half = Math.Max(rawW, rawH) / 2;
+            if (half <= 0 || radius <= 0 || Math.Abs(cx - rawW / 2) > rawW * 0.02 + 0.5 || Math.Abs(cy - rawH / 2) > rawH * 0.02 + 0.5)
+                return null;
+            var k = Math.Clamp(radius / half, 0.01, 10);
+            var radial = new StringBuilder("radial-gradient(closest-side");
+            foreach (var stop in stops)
+            {
+                if (stop is not JsonObject s || Color(Text(s["color"])) is not { } color)
+                    return null;
+                radial.Append(',').Append(color).Append(' ').Append(P(Math.Clamp(Number(s["offset"]) ?? 0, 0, 1) * k));
+            }
+            return radial.Append(')').ToString();
+        }
+        if (type != "linear")
             return null;
         var x1 = Number(coords["x1"]) ?? 0;
         var y1 = Number(coords["y1"]) ?? 0;
         var x2 = Number(coords["x2"]) ?? 0;
         var y2 = Number(coords["y2"]) ?? 0;
-        if (Text(gradient["gradientUnits"]) == "percentage")
+        if (percentage)
         {
             x1 *= w; x2 *= w; y1 *= h; y2 *= h;
+        }
+        else if (rawW > 0 && rawH > 0)
+        {
+            // دور ۲۷: مختصات «pixels» فابریک بدون مقیاس شیء است (مثلاً سکوی بیضی با scaleY=0.16)؛ به اندازهٔ نهایی می‌بریم.
+            var kx = w / rawW;
+            var ky = h / rawH;
+            x1 *= kx; x2 *= kx; y1 *= ky; y2 *= ky;
         }
         var dx = x2 - x1;
         var dy = y2 - y1;
@@ -280,7 +324,14 @@ public static class DesignLive
         return value.TryGetValue<string>(out var s) && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && double.IsFinite(parsed) ? parsed : null;
     }
 
-    private static string N(double value) => Math.Round(value, 3).ToString("0.###", CultureInfo.InvariantCulture);
+    private static string N(double value)
+    {
+        var rounded = Math.Round(value, 3);
+        // دور ۲۷: «‎-0» (صفر منفی از خطای گرد کردن) ← «0» تا CSS تمیز بماند.
+        if (rounded == 0)
+            rounded = 0;
+        return rounded.ToString("0.###", CultureInfo.InvariantCulture);
+    }
 
     private static string P(double ratio) => N(ratio * 100) + "%";
 }

@@ -26,6 +26,12 @@ public sealed record UploadArea(string Name, bool IsPublic, bool AllowPdf)
     public static readonly UploadArea Banners = new("banners", IsPublic: true, AllowPdf: false);
     public static readonly UploadArea Content = new("content", IsPublic: true, AllowPdf: false);
 
+    /// <summary>
+    /// دور ۲۷: عکس‌های «دوربری‌شده» (بدون زمینهٔ سفید) کالا/محتوا برای بنرها. نام فایل قطعی است («products-‹نام عکس اصلی›.webp»)
+    /// تا هر عکس فقط یک بار برش بخورد و همهٔ بنرها از همان استفاده کنند.
+    /// </summary>
+    public static readonly UploadArea Cutouts = new("cutouts", IsPublic: true, AllowPdf: false);
+
     /// <summary>کتابخانهٔ رسانهٔ پنل (/uploads/media): تصویرهای داخل متن محصول، مقاله و صفحات.</summary>
     public static readonly UploadArea Media = new("media", IsPublic: true, AllowPdf: false);
 }
@@ -59,6 +65,16 @@ public interface IUploadStore
     /// مثال: <c>await SaveImageAsync(UploadArea.Banners, pngBytes)</c> ← «9f3c….webp» (خطا یا تصویر نامعتبر ← null).
     /// </summary>
     Task<StoredFile?> SaveImageAsync(UploadArea area, byte[] data, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۷: مثل <see cref="SaveImageAsync"/> ولی با نام قطعی (stem فقط حروف کوچک لاتین، رقم و خط تیره؛ حداکثر ۹۰ نویسه) و جایگزینی امن
+    /// (اول فایل موقت، بعد جابه‌جایی) تا دو درخواست هم‌زمان فایل نیمه‌کاره نسازند. نام نامعتبر یا تصویر خراب ← null.
+    /// مثال: <c>SaveImageAsAsync(UploadArea.Cutouts, "products-9f3c", png)</c> ← «products-9f3c.webp».
+    /// </summary>
+    Task<StoredFile?> SaveImageAsAsync(UploadArea area, string stem, byte[] data, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۷: نام فایل‌های یک پوشه (حداکثر <paramref name="max"/>؛ پوشهٔ نبود ← خالی). برای پاک‌سازی فایل‌های بی‌صاحب.</summary>
+    IReadOnlyList<string> List(UploadArea area, int max = 5000);
 }
 
 public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadStore> logger) : IUploadStore
@@ -147,6 +163,57 @@ public sealed class UploadStore(IWebHostEnvironment environment, ILogger<UploadS
             return null;
         }
         return new StoredFile(name, image.ContentType, image.Data.Length, image.Width, image.Height);
+    }
+
+    public async Task<StoredFile?> SaveImageAsAsync(UploadArea area, string stem, byte[] data, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(stem) || stem.Length > 90 || !stem.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-') || stem[0] == '-')
+            return null;
+        if (data.Length == 0 || data.Length > 15 * 1024 * 1024)
+            return null;
+        var image = Infrastructure.Media.WebPEncoder.FromUpload(data, out _, logger);
+        if (image is null)
+            return null;
+        var folder = Folder(area);
+        Directory.CreateDirectory(folder);
+        var name = stem + image.Extension;
+        var temp = Path.Combine(folder, "." + Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant() + ".tmp");
+        try
+        {
+            await File.WriteAllBytesAsync(temp, image.Data, cancellationToken);
+            File.Move(temp, Path.Combine(folder, name), overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "Saving a named image {Name} of {Area} failed", name, area.Name);
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+                logger.LogDebug(cleanup, "Temp file {Temp} could not be removed", temp);
+            }
+            return null;
+        }
+        return new StoredFile(name, image.ContentType, image.Data.Length, image.Width, image.Height);
+    }
+
+    public IReadOnlyList<string> List(UploadArea area, int max = 5000)
+    {
+        var folder = Folder(area);
+        if (!Directory.Exists(folder))
+            return [];
+        try
+        {
+            return Directory.EnumerateFiles(folder).Select(f => Path.GetFileName(f)).Where(n => n is not null && !n.StartsWith('.')).Select(n => n!)
+                .Take(Math.Clamp(max, 1, 50_000)).ToList();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(exception, "Listing uploads of {Area} failed", area.Name);
+            return [];
+        }
     }
 
     public string? GetPath(UploadArea area, string fileName)

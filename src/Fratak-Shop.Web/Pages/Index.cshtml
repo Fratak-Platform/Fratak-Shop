@@ -95,46 +95,21 @@
           break;
 
         case HomeSectionType.PromoBanners:
-          var fullPromos = block.Banners.Take(2).All(p => string.IsNullOrWhiteSpace(p.Subtitle) && string.IsNullOrWhiteSpace(p.ButtonText));
-          <section class="@(fullPromos ? "flex flex-col md:flex-row gap-4 mt-10" : "flex flex-col md:flex-row items-center justify-center gap-x-5 gap-y-24 mt-28")" aria-label="@(title ?? "پیشنهادها")">
+          <section class="flex flex-col md:flex-row gap-4 mt-10" aria-label="@(title ?? "پیشنهادها")">
             @for (var i = 0; i < block.Banners.Count && i < 2; i++)
             {
               var promo = block.Banners[i];
-              var promoLink = UrlSafety.Link(promo.LinkUrl);
-              // دور ۲۳: بنر دوتایی کامل (۹۶۰×۴۰۰، متن روی خود تصویر – مثل دیجی‌کالا) وقتی زیرعنوان و دکمهٔ جدا ندارد.
+              // دور ۲۳: بنر دوتایی کامل (۹۶۰×۳۲۰، متن روی خود تصویر – مثل دیجی‌کالا) وقتی زیرعنوان و دکمهٔ جدا ندارد.
               if (string.IsNullOrWhiteSpace(promo.Subtitle) && string.IsNullOrWhiteSpace(promo.ButtonText))
               {
                 await Html.RenderPartialAsync("_BannerArt", new BannerArt(promo, "block w-full md:flex-1 overflow-hidden rounded-xl lg:rounded-3xl", "w-full h-auto", false, 960, 320, false));
                 continue;
               }
-              if (i == 0)
-              {
-                <div class="md:w-1/2 bg-gradient-to-r from-blue-400 to-blue-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2" data-banner="@promo.Id">
-                  <img class="absolute mx-auto w-96 md:w-[400px] -top-20" src="@ImageHelper.Banner(promo.ImageName)" alt="@(promo.ImageAlt ?? promo.Title)" loading="lazy" decoding="async">
-                  <div class="lg:absolute left-10 top-10 max-w-96 pt-64 lg:pt-0 mx-auto">
-                    <p class="text-white text-5xl lg:text-6xl text-wrap font-semibold text-left">@promo.Title</p>
-                    <p class="text-white lg:text-lg text-right my-2 lg:pr-16">@promo.Subtitle</p>
-                    <a href="@promoLink" class="mx-auto flex justify-center items-center gap-x-2 text-blue-500 bg-white hover:bg-gray-100 transition-all p-3 rounded-xl mt-4 lg:mr-16">
-                      @(promo.ButtonText ?? "مشاهده محصول")
-                      <svg class="fill-blue-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V72H40V56Zm0,144H40V88H216V200Zm-40-88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"></path></svg>
-                    </a>
-                  </div>
-                </div>
-              }
-              else
-              {
-                <div class="md:w-1/2 bg-gradient-to-r from-orange-400 to-orange-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2" data-banner="@promo.Id">
-                  <img class="absolute mx-auto w-72 md:w-[300px] -top-24 left-5" src="@ImageHelper.Banner(promo.ImageName)" alt="@(promo.ImageAlt ?? promo.Title)" loading="lazy" decoding="async">
-                  <div class="lg:absolute right-10 top-10 max-w-96 pt-64 lg:pt-0 mx-auto">
-                    <p class="text-white text-5xl lg:text-6xl text-wrap font-semibold text-left">@promo.Title</p>
-                    <p class="text-white lg:text-lg text-left my-2">@promo.Subtitle</p>
-                    <a href="@promoLink" class="mx-auto flex justify-center items-center gap-x-2 text-orange-500 bg-white hover:bg-gray-100 transition-all p-3 rounded-xl mt-4 lg:mr-16">
-                      @(promo.ButtonText ?? "مشاهده محصول")
-                      <svg class="fill-orange-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V72H40V56Zm0,144H40V88H216V200Zm-40-88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"></path></svg>
-                    </a>
-                  </div>
-                </div>
-              }
+              // دور ۲۷: کارت تبلیغاتی «عکس کالای بدون زمینه + متن» بازطراحی شد (به‌جای کارت گرادیانی قدیمی که عکسش از کادر بیرون می‌زد):
+              // گرادیان عمیق با نور، کالا معلق با سایه، تیتر/متن/دکمه در سمت راست؛ کل کارت لینک است و در موبایل هم مرتب می‌ماند.
+              var promoLink = UrlSafety.IsSafeLink(promo.LinkUrl) ? promo.LinkUrl!.Trim() : null;
+              var promoClass = "fr-promo md:flex-1 " + (i == 0 ? "fr-promo--a" : "fr-promo--b");
+              await Html.RenderPartialAsync("_PromoCard", new PromoCardModel(promo, promoClass, promoLink));
             }
           </section>
           break;

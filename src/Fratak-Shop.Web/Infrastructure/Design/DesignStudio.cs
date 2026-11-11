@@ -30,6 +30,11 @@ public sealed class DesignStudio(
     /// <summary>نام انجام‌دهندهٔ کارهای خودکار.</summary>
     public const string Actor = "دستیار هوشمند";
 
+    private BannerImagery? imagery;
+
+    /// <summary>دور ۲۷: عکس‌های واقعی بنر (دوربری کالا، عکس فضاسازی دسته، ابزار حذف زمینه).</summary>
+    public BannerImagery Imagery => imagery ??= new BannerImagery(uploads, logger);
+
     /// <summary>سقف حجم PNG دریافتی از ویرایشگر (۱۰ مگابایت).</summary>
     public const int MaxUploadKb = 10_240;
 
@@ -72,7 +77,9 @@ public sealed class DesignStudio(
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (await CreateIdeaAsync(idea, cancellationToken))
+                // دور ۲۷: پیش از ساخت، عکس‌ها «واقعی و حرفه‌ای» می‌شوند (کالای دوربری‌شده، عکس فضاسازی دسته، چیدمان متناسب).
+                var ready = await WithPicturesAsync(idea, input, cancellationToken);
+                if (await CreateIdeaAsync(ready, cancellationToken))
                     created++;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -80,7 +87,91 @@ public sealed class DesignStudio(
                 logger.LogWarning(exception, "Banner idea {Key} failed", idea.Key);
             }
         }
+        if (created > 0)
+        {
+            try
+            {
+                Imagery.PruneCutouts();
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                logger.LogDebug(exception, "Pruning banner cutouts failed");
+            }
+        }
         return created;
+    }
+
+    /// <summary>
+    /// دور ۲۷ – عکس‌دار کردن ایدهٔ خودکار (بدون دانلود از اینترنت؛ فقط فایل‌های خود سایت):
+    /// <list type="number">
+    /// <item>عکس کالاها (اصلی + گالری) ← نسخهٔ «دوربری‌شده» اگر زمینه سفید است (یک بار ساخته و بعد استفادهٔ دوباره).</item>
+    /// <item>ایدهٔ دسته («cat:» و «catdeal:») ← عکس فضاسازی واقعی همان دسته (اگر هست) و چیدمان «photo» (عکس تمام‌قاب + کالاهای شناور).</item>
+    /// <item>کاشی‌ها با کالای دوربری‌شده ← «ویترین» روی سکو.</item>
+    /// <item>«ارسال رایگان» (بدون کالا) ← دو کالای پرفروشِ دوربری‌شده در دو لبهٔ بنر وسط‌چین.</item>
+    /// </list>
+    /// هر خطا ← همان ایدهٔ اولیه (قالب خودش بدون عکس هم بنر کامل می‌سازد).
+    /// </summary>
+    public async Task<DesignIdea> WithPicturesAsync(DesignIdea idea, IdeaInput input, CancellationToken cancellationToken)
+    {
+        var cache = new Dictionary<string, DesignImage?>(StringComparer.Ordinal);
+        async Task<DesignImage?> Cut(DesignImage? source)
+        {
+            if (source is null)
+                return null;
+            if (!cache.TryGetValue(source.Url, out var result))
+            {
+                result = await Imagery.ProductAsync(source.Url, cancellationToken);
+                cache[source.Url] = result;
+            }
+            return result;
+        }
+
+        var spec = idea.Spec;
+        var image = await Cut(spec.Image) ?? spec.Image;
+        var gallery = new List<DesignImage>();
+        foreach (var item in spec.Gallery ?? Array.Empty<DesignImage>())
+        {
+            if (await Cut(item) is { } picture)
+                gallery.Add(picture);
+        }
+        var layout = spec.Layout;
+        var photo = spec.Photo;
+        var parts = idea.Key.Split(':');
+        if (photo is null && parts.Length >= 2 && parts[0] is "cat" or "catdeal")
+        {
+            var set = parts[0] == "cat" && Guid.TryParseExact(parts[1], "N", out var categoryId)
+                ? await designs.CategoryImagesAsync(categoryId, null, cancellationToken)
+                : await designs.CategoryImagesAsync(null, parts[1], cancellationToken);
+            if (set is not null)
+                photo = Imagery.CategoryPhoto(set.ImageName, set.Options);
+        }
+        var cutouts = gallery.Count(g => g.Cutout) + (image is { Cutout: true } && gallery.All(g => g.Url != image.Url) ? 1 : 0);
+        if (photo is not null && layout is "collage" or "split" or "pattern")
+            layout = "photo";
+        else if (layout == "collage" && cutouts >= 1)
+            layout = "showcase";
+        else if (idea.Key.StartsWith("freeship:", StringComparison.Ordinal) && gallery.Count == 0)
+        {
+            foreach (var product in input.Products.Where(p => p.Stock > 0 && p.ImageUrl is not null).OrderByDescending(p => p.Sales).ThenByDescending(p => p.Views).Take(6))
+            {
+                if (await Cut(new DesignImage(product.ImageUrl!, Math.Max(1, product.ImageWidth), Math.Max(1, product.ImageHeight))) is { Cutout: true } picture)
+                    gallery.Add(picture);
+                if (gallery.Count == 2)
+                    break;
+            }
+            if (gallery.Count > 0)
+                layout = "center";
+        }
+        return idea with
+        {
+            Spec = spec with
+            {
+                Layout = layout,
+                Image = image,
+                Gallery = gallery.Count > 0 ? gallery : spec.Gallery,
+                Photo = photo,
+            },
+        };
     }
 
     /// <summary>ایدهٔ شاد/جشن؟ (کلید مناسبت یا چیدمان festive). مثال: «occasion:yalda:1405» ← true.</summary>
@@ -187,41 +278,36 @@ public sealed class DesignStudio(
         var mourningPause = smart is not null && (await smart.GetAsync(cancellationToken)).PauseBannersOnMourning
                             && Fratak_Shop.Core.Services.Marketing.MourningCalendar.IsMourning(DateTimeOffset.UtcNow);
 
+        // دور ۲۷: عکس کالای اصلی ← رنگ غالب (برای پالت) + نسخهٔ دوربری‌شده (کالا آزاد روی رنگ/عکس بنر می‌نشیند).
         string? color = null;
         DesignImage? image = null;
-        string? cutoutFile = null;
-        if (plan.Hero?.ImageUrl is { } url && uploads.GetPath(UploadArea.Products, Path.GetFileName(url)) is { } path)
+        if (plan.Hero?.ImageUrl is { } url)
         {
-            try
-            {
-                using var bitmap = SKBitmap.Decode(path);
-                if (bitmap is not null)
-                {
-                    color = ImageColors.Dominant(bitmap);
-                    image = new DesignImage(url, bitmap.Width, bitmap.Height);
-                    if (ImageColors.HasWhiteBackground(bitmap) && ImageColors.CutoutWhite(bitmap) is { } png
-                        && await uploads.SaveImageAsync(UploadArea.Content, png, cancellationToken) is { } stored)
-                    {
-                        cutoutFile = stored.FileName;
-                        var scale = Math.Min(1.0, 800.0 / Math.Max(bitmap.Width, bitmap.Height));
-                        image = new DesignImage($"/uploads/{UploadArea.Content.Name}/{stored.FileName}",
-                            Math.Max(1, (int)Math.Round(bitmap.Width * scale)), Math.Max(1, (int)Math.Round(bitmap.Height * scale)));
-                    }
-                }
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
-            {
-                logger.LogWarning(exception, "Brief image analysis failed for {Path}", path);
-            }
+            color = Imagery.DominantColor(url);
+            image = await Imagery.ProductAsync(url, cancellationToken);
         }
 
-        // دور ۲۶: چند کالای دامنه برای چیدمان «کنار هم» (بنر دسته/کمپین) و عکس واقعی دسته برای «عکس تمام‌قاب».
+        // دور ۲۶/۲۷: چند کالای دامنه برای ویترین/کاشی (بنر دسته/کمپین) و عکس واقعی دسته برای «عکس تمام‌قاب».
         // کارت هدیه، باشگاه، بلاگ و بنر صفحه/اطلاع‌رسانی کالاهای تصادفی نمی‌گیرند.
         var galleryKinds = plan.Kind is BriefKind.Category or BriefKind.Deal or BriefKind.Campaign or BriefKind.Occasion or BriefKind.Brand;
-        var gallery = !galleryKinds ? new List<DesignImage>() : plan.Products.Concat(plan.Hero is null ? Array.Empty<IdeaProduct>() : new[] { plan.Hero })
-            .Where(p => !string.IsNullOrWhiteSpace(p.ImageUrl)).DistinctBy(p => p.Id).Take(3)
-            .Select(p => ProductPicture(p.ImageUrl!)).Where(p => p is not null).Select(p => p!).ToList();
-        var photo = CategoryPhoto(data.Category?.ImageName);
+        var gallery = new List<DesignImage>();
+        if (galleryKinds)
+        {
+            var members = plan.Products.Concat(plan.Hero is null ? Array.Empty<IdeaProduct>() : new[] { plan.Hero })
+                .Where(p => !string.IsNullOrWhiteSpace(p.ImageUrl)).DistinctBy(p => p.Id).Take(3).ToList();
+            foreach (var member in members)
+            {
+                var picture = member.ImageUrl == plan.Hero?.ImageUrl && image is not null ? image : await Imagery.ProductAsync(member.ImageUrl, cancellationToken);
+                if (picture is not null && gallery.All(g => g.Url != picture.Url))
+                    gallery.Add(picture);
+            }
+        }
+        DesignImage? photo = null;
+        if (data.Category is { } category)
+        {
+            var set = await designs.CategoryImagesAsync(category.Id, null, cancellationToken);
+            photo = Imagery.CategoryPhoto(set?.ImageName ?? category.ImageName, set?.Options);
+        }
         var ideas = DesignBrief.Variants(plan, color, image, DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture),
             gallery, photo);
         var warnings = offerWarnings.Concat(plan.Warnings).ToList();
@@ -247,8 +333,6 @@ public sealed class DesignStudio(
         }
         if (ids.Count == 0)
         {
-            if (cutoutFile is not null)
-                uploads.Delete(UploadArea.Content, [cutoutFile]);
             return OperationResult<BriefOutcome>.Error("ساخت طرح‌ها ناموفق بود؛ دوباره تلاش کنید.");
         }
         if (offer is not null && campaigns is not null && DesignBrief.VariantGroup(ideas[0].Key) is { } group)
@@ -260,46 +344,11 @@ public sealed class DesignStudio(
         return OperationResult<BriefOutcome>.Success(new BriefOutcome(ids, warnings, color), $"{ids.Count} نسخه از ایدهٔ شما ساخته شد.");
     }
 
-    /// <summary>عکس کالا با ابعاد واقعی (از سرآیند فایل). فایل نبود/خراب ← null.</summary>
-    private DesignImage? ProductPicture(string url)
-    {
-        var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(url));
-        if (path is null)
-            return null;
-        try
-        {
-            using var codec = SKCodec.Create(path);
-            return codec is null ? null : new DesignImage(url, codec.Info.Width, codec.Info.Height);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
-        {
-            return null;
-        }
-    }
-
     /// <summary>
-    /// دور ۲۶: عکس «فضاسازی» واقعی دسته (از جست‌وجوی وب؛ نام فایل «…-photo-….webp») برای چیدمان عکس تمام‌قاب.
-    /// فقط عکس افقی با عرض ≥ ۹۰۰؛ تصویر ساخته‌شده از کالاهای خود دسته (زمینهٔ سفید) استفاده نمی‌شود.
+    /// دور ۲۷ – ابزار «حذف زمینه» ویرایشگر: عکس محلی (کالا، آپلود، …) ← نسخهٔ شفاف دوربری‌شده یا پیام خطای فارسی.
     /// </summary>
-    private DesignImage? CategoryPhoto(string? imageName)
-    {
-        if (!Fratak_Shop.Core.Services.Smart.CategoryImages.IsPhoto(imageName))
-            return null;
-        var path = uploads.GetPath(UploadArea.Categories, imageName!);
-        if (path is null)
-            return null;
-        try
-        {
-            using var codec = SKCodec.Create(path);
-            return codec is { Info.Width: >= 900 } && codec.Info.Width > codec.Info.Height
-                ? new DesignImage($"/uploads/{UploadArea.Categories.Name}/{imageName}", codec.Info.Width, codec.Info.Height)
-                : null;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
-        {
-            return null;
-        }
-    }
+    public Task<(DesignImage? Image, string? Error)> RemoveBackgroundAsync(string? url, CancellationToken cancellationToken) =>
+        Imagery.RemoveBackgroundAsync(url, cancellationToken);
 
     /// <summary>رندر سرور و ذخیره (رندر ناموفق ← null؛ طرح بدون پیش‌نمایش ذخیره می‌شود و ویرایشگر خودش می‌سازد).</summary>
     public async Task<string?> RenderAndStoreAsync(string json, int width, int height, UploadArea area, CancellationToken cancellationToken)

@@ -48,7 +48,14 @@ public static class DesignPalettes
 }
 
 /// <summary>عکس داخل طرح: آدرس محلی (/uploads/…) + ابعاد واقعی (برای جا دادن بدون کشیدگی).</summary>
-public sealed record DesignImage(string Url, int Width, int Height);
+public sealed record DesignImage(string Url, int Width, int Height)
+{
+    /// <summary>
+    /// دور ۲۷: عکس «دوربری‌شده» کالاست (زمینهٔ سفید شفاف شده و حاشیه بریده)؟ بله ← کالا آزاد روی رنگ/عکس بنر می‌نشیند (با سایه)؛
+    /// نه ← داخل قاب گردگوشهٔ سفید (عکس محیطی کالا را نمی‌شود بی‌قاب روی رنگ گذاشت).
+    /// </summary>
+    public bool Cutout { get; init; }
+}
 
 /// <summary>
 /// محتوای یک طرح (بدون اندازه). مثال: چیدمان «sale»، پالت «festive»، تیتر «گوشی گلکسی A55»، نشان «۲۵٪ تخفیف»، قیمت «۱۸٬۹۰۰٬۰۰۰ تومان».
@@ -56,8 +63,13 @@ public sealed record DesignImage(string Url, int Width, int Height);
 /// <param name="Layout">split (متن + عکس)، center (وسط‌چین بدون عکس بزرگ)، sale (حراج با نشان بزرگ)، minimal (ساده)، festive (جشنواره).</param>
 /// <param name="Kicker">برچسب کوچک بالای تیتر. مثال: «پیشنهاد ویژهٔ این هفته».</param>
 /// <param name="Gallery">دور ۲۶: چند عکس (کالاهای یک دسته) برای چیدمان «collage»؛ نبود ← همان Image.</param>
+/// <param name="Photo">
+/// دور ۲۷: عکس «فضاسازی» (عکس واقعی محیط؛ مثل آشپزخانهٔ رنگی برای «لوازم آشپزخانه») برای پس‌زمینهٔ چیدمان‌های photo/duo/festive.
+/// جدا از عکس کالاست تا کالاهای دوربری‌شده روی همین عکس بنشینند. نبود ← چیدمان‌های عکس‌دار از Image (اگر دوربری‌شده نباشد) یا رنگ استفاده می‌کنند.
+/// </param>
 public sealed record DesignSpec(string Layout, string Palette, string Headline, string? Subline = null, string? Badge = null, string? ButtonText = null,
-    DesignImage? Image = null, string? Price = null, string? OldPrice = null, string? Kicker = null, IReadOnlyList<DesignImage>? Gallery = null);
+    DesignImage? Image = null, string? Price = null, string? OldPrice = null, string? Kicker = null, IReadOnlyList<DesignImage>? Gallery = null,
+    DesignImage? Photo = null);
 
 /// <summary>
 /// سازندهٔ طرح‌های آماده به زبان ویرایشگر Fabric.js (دور ۲۱) – بدون هیچ هوش مصنوعی: چیدمان با قواعد ثابت گرافیکی
@@ -85,9 +97,11 @@ public static class DesignTemplates
         ("minimal", "ساده و شیک"),
         ("festive", "جشنواره"),
         // دور ۲۶
-        ("photo", "عکس تمام‌قاب (دسته/کمپین)"),
-        ("collage", "چند کالا کنار هم"),
+        ("photo", "عکس فضاسازی تمام‌قاب + کالا"),
+        ("collage", "کاشی‌های شیشه‌ای چند کالا"),
         ("pattern", "طرح هندسی بدون عکس"),
+        // دور ۲۷
+        ("showcase", "ویترین: کالاهای دوربری‌شده روی سکو"),
     ];
 
     // ضریب ارتفاع خط Fabric: lineHeight(1.16) × _fontSizeMult(1.13).
@@ -135,81 +149,111 @@ public static class DesignTemplates
     // ───────────────────────────── چیدمان افقی (اسلایدر، بنر عریض، کاور) ─────────────────────────────
 
     /// <summary>
-    /// دور ۲۶ – بنر پهن و کوتاه با ۸ چیدمان. قاعدهٔ کلی (راست‌چین): متن سمت راست، تصویر/عنصر بصری سمت چپ؛ تیتر دست‌کم ۲۰٪ ارتفاع
-    /// (در موبایل هم خوانا، چون نسخهٔ موبایل جدا نداریم). هر شیء برچسب حرکت (fsAnim) دارد تا نسخهٔ زندهٔ بنر عنصرها را وارد/خارج کند.
+    /// دور ۲۷ – بازطراحی کامل بنر پهن و کوتاه. قاعدهٔ کلی (راست‌چین): متن سمت راست، «صحنهٔ تصویری» سمت چپ.
+    /// <list type="bullet">
+    /// <item><b>عکس واقعی همیشه:</b> عکس کالا (ترجیحاً «دوربری‌شده» = بدون زمینهٔ سفید) روی هالهٔ نور، دیسک رنگی یا سکوی نمایش با سایهٔ تماس زیر کالا؛
+    /// عکس فضاسازی دسته به‌صورت تمام‌قاب با پردهٔ رنگی پالت. عکسِ زمینه‌دار (دوربری‌نشدنی) داخل قاب گردگوشه می‌نشیند، نه خام روی رنگ.</item>
+    /// <item><b>حرکت:</b> هر شیء برچسب fsAnim (ورود پله‌ای، معلق ماندن کالا، Ken Burns عکس، درخشش، چشمک ستاره‌ها) و fsDepth (پارالاکس) دارد.</item>
+    /// <item><b>بی‌نقص در هر حالت:</b> هر چیدمانی بدون عکس هم خراب نمی‌شود (به چیدمان مناسب برمی‌گردد) و تیتر همیشه دست‌کم ۲۰٪ ارتفاع است
+    /// (در موبایل هم خوانا، چون نسخهٔ موبایل جدا نداریم).</item>
+    /// </list>
     /// </summary>
     private static void BuildWide(JsonArray o, DesignSpec spec, DesignPalette p, int w, int h)
     {
         var m = Math.Max(20, Math.Round(Math.Min(h * 0.13, w * 0.045)));
-        var layout = spec.Layout;
-        var gallery = (spec.Gallery ?? Array.Empty<DesignImage>()).Where(g => g.Width > 0 && g.Height > 0).Take(3).ToList();
-        if (gallery.Count == 0 && spec.Image is not null)
-            gallery.Add(spec.Image);
-        if (layout == "photo" && spec.Image is null)
-            layout = "pattern";
-        if (layout == "collage" && gallery.Count == 0)
-            layout = "pattern";
+        var pics = Pictures(spec);
+        var photo = ValidImage(spec.Photo);
+        var layout = Layouts.Any(l => l.Key == spec.Layout) ? spec.Layout : "center";
 
-        var visualShare = layout switch
-        {
-            "center" => 0.0,
-            "collage" => 0.5,
-            "photo" => 0.0,
-            "sale" => 0.44,
-            "pattern" or "festive" when gallery.Count == 0 => 0.0,
-            _ => gallery.Count > 0 ? 0.44 : 0.0,
-        };
-        var textOnSide = visualShare > 0 || layout == "photo";
-
-        // پس‌زمینه
+        // ── انتخاب نهایی چیدمان بر اساس عکس‌های موجود (هیچ چیدمانی خالی و بی‌معنا ساخته نمی‌شود) ──
         if (layout == "photo")
-            PhotoBackground(o, spec.Image!, p, w, h);
+        {
+            // سازگاری با قبل: عکس فضاسازی در Image (نه دوربری‌شده) ← همان پس‌زمینه می‌شود.
+            if (photo is null && spec.Image is { Cutout: false } legacy && ValidImage(legacy) is not null)
+            {
+                photo = legacy;
+                pics = pics.Where(x => x.Url != legacy.Url).ToList();
+            }
+            if (photo is null)
+                layout = pics.Count > 0 ? "showcase" : "pattern";
+        }
+        if (layout == "collage" && pics.Count < 2)
+            layout = pics.Count == 1 ? "showcase" : "pattern";
+        if (layout == "showcase" && pics.Count >= 2 && pics.All(x => !x.Cutout))
+            layout = "collage"; // چند عکسِ زمینه‌دار روی سکو زشت است ← کاشی‌ها
+        if (layout == "sale" && string.IsNullOrWhiteSpace(spec.Badge))
+            layout = pics.Count > 0 ? "split" : "pattern";
+        if (layout == "showcase" && pics.Count == 0)
+            layout = "pattern"; // ویترین بدون کالا معنا ندارد
+
+        var share = layout switch
+        {
+            "split" or "festive" when pics.Count > 0 => 0.46,
+            "showcase" when pics.Count > 0 => 0.5,
+            "collage" => 0.52,
+            "sale" => 0.48,
+            "minimal" when pics.Count > 0 => 0.42,
+            _ => 0.0,
+        };
+        var onPhoto = layout == "photo";
+        var textOnSide = share > 0 || onPhoto;
+        var textLeft = onPhoto ? w * (pics.Any(x => x.Cutout) ? 0.5 : 0.44) : share > 0 ? w * share + m * 0.3 : w * 0.14;
+        var textWidth = textOnSide ? w - m - textLeft : w * 0.72;
+
+        // ── پس‌زمینه ──
+        if (onPhoto)
+            PhotoScene(o, photo!, p, w, h, textLeft);
         else
         {
             o.Add(Background(p, w, h, layout));
-            Decorations(o, p, w, h, layout, visualShare);
+            Lights(o, p, w, h, layout);
+            Decorations(o, p, w, h, layout, share);
         }
 
-        // عنصر بصری سمت چپ
-        var area = (X: m * 0.8, Y: m * 0.45, W: w * visualShare - m * 1.1, H: h - m * 0.9);
+        // ── صحنهٔ تصویری سمت چپ ──
+        var area = (X: m * 0.6, Y: h * 0.06, W: w * share - m * 0.9, H: h * 0.88);
         switch (layout)
         {
+            case "photo":
+                var floating = pics.Where(x => x.Cutout).Take(2).ToList();
+                if (floating.Count > 0)
+                    Showcase(o, floating, p, (w * 0.25, h * 0.08, textLeft - w * 0.25 - m * 0.4, h * 0.86), podium: false);
+                break;
+            case "showcase":
+                Showcase(o, pics, p, area, podium: true);
+                break;
             case "collage":
-                Collage(o, gallery, p, area.X, area.Y, area.W, area.H);
+                Collage(o, pics, p, area);
                 break;
             case "sale":
-                SaleBurst(o, spec, p, area, gallery.FirstOrDefault(), h);
+                SaleBurst(o, spec, p, area, pics.FirstOrDefault(), h);
                 break;
-            case "photo" or "center":
+            case "festive" when pics.Count(x => x.Cutout) >= 2:
+                // جشن با چند کالای دوربری‌شده ← ویترین روی سکو (بین کاغذرنگی‌ها)
+                Showcase(o, pics.Where(x => x.Cutout).ToList(), p, area, podium: true);
                 break;
-            default:
-                if (visualShare > 0 && gallery.Count > 0)
-                {
-                    var r = Math.Min(area.W, area.H * 1.25) * 0.52;
-                    var blob = Circle("halo", area.X + area.W / 2 - r, area.Y + area.H / 2 - r, r, layout == "minimal" ? p.SubInk : p.Accent, layout == "minimal" ? 0.08 : 0.22);
-                    Anim(blob, "pop", 0.05);
-                    o.Add(blob);
-                    var ring = Circle("deco", area.X + area.W / 2 - r * 1.18, area.Y + area.H / 2 - r * 1.18, r * 1.18, "transparent", 1);
-                    ring["stroke"] = p.Ink;
-                    ring["strokeWidth"] = Math.Max(2, Math.Round(h * 0.006));
-                    ring["opacity"] = 0.18;
-                    Anim(ring, "drift", 0.1);
-                    o.Add(ring);
-                    var img = Image(gallery[0], area.X, area.Y, area.W, area.H);
-                    Anim(img, "slide-l", 0.2);
-                    o.Add(img);
-                }
+            case "split" or "festive" or "minimal" when pics.Count > 0:
+                Spotlight(o, pics[0], p, area, minimal: layout == "minimal");
+                break;
+            case "center":
+                SideProducts(o, pics.Where(x => x.Cutout).Take(2).ToList(), w, h, m);
                 break;
         }
 
-        // ستون متن (اگر بلند شد، همه با هم کوچک می‌شوند تا در ارتفاع جا شوند)
-        var textLeft = textOnSide ? (layout == "photo" ? w * 0.4 : w * visualShare + m * 0.3) : w * 0.14;
-        var textWidth = textOnSide ? w - m - textLeft : w * 0.72;
+        // ── درخشش گذرا روی کل بنر (فقط نسخهٔ زنده؛ در تصویر ثابت دیده نمی‌شود) ──
+        if (layout != "minimal")
+        {
+            var sweep = Rect("deco", 0, 0, w, h, "transparent", selectable: false);
+            Anim(sweep, "sweep", 1.6);
+            o.Add(sweep);
+        }
+
+        // ── ستون متن (اگر بلند شد، همه با هم کوچک می‌شوند تا در ارتفاع جا شوند) ──
         var align = textOnSide ? "right" : "center";
         var available = h - m * 1.1;
-        Stack stack = TextStack(spec, p, textLeft, textWidth, h, w, align, wide: true, scale: 1, onPhoto: layout == "photo");
+        var stack = TextStack(spec, p, textLeft, textWidth, h, w, align, wide: true, scale: 1, onPhoto: onPhoto);
         for (var scale = 0.92; stack.Height > available && scale > 0.5; scale *= 0.92)
-            stack = TextStack(spec, p, textLeft, textWidth, h, w, align, wide: true, scale: scale, onPhoto: layout == "photo");
+            stack = TextStack(spec, p, textLeft, textWidth, h, w, align, wide: true, scale: scale, onPhoto: onPhoto);
         var top = Math.Max(m * 0.55, (h - stack.Height) / 2);
         foreach (var item in stack.Items)
             o.Add(Offset(item, top));
@@ -217,18 +261,43 @@ public static class DesignTemplates
         if (!string.IsNullOrWhiteSpace(spec.Badge) && layout != "sale")
         {
             var r = h * 0.15;
-            var cx = textOnSide && layout != "photo" ? Math.Max(m * 0.4, w * visualShare - r * 1.6) : w - m * 0.5 - r * 2;
-            AddBadge(o, spec.Badge!, p, cx, m * 0.35, r);
+            var left = onPhoto ? m * 0.5 : share > 0 ? Math.Max(m * 0.4, w * share - r * 1.7) : w - m * 0.5 - r * 2;
+            AddBadge(o, spec.Badge!, p, left, m * 0.35, r);
         }
     }
 
-    /// <summary>عکس تمام‌قاب (cover) + پردهٔ تیرهٔ گرادیانی سمت متن تا متن سفید روی هر عکسی خوانا باشد.</summary>
-    private static void PhotoBackground(JsonArray o, DesignImage image, DesignPalette p, int w, int h)
+    /// <summary>عکس‌های قابل‌استفادهٔ طرح: گالری (حداکثر ۳) یا همان عکس اصلی؛ عکس با ابعاد نامعتبر کنار می‌رود.</summary>
+    private static List<DesignImage> Pictures(DesignSpec spec)
     {
-        o.Add(Rect("bg", 0, 0, w, h, "#0f172a", selectable: false));
+        var list = (spec.Gallery ?? Array.Empty<DesignImage>()).Select(ValidImage).Where(x => x is not null).Select(x => x!)
+            .DistinctBy(x => x.Url).Take(3).ToList();
+        if (list.Count == 0 && ValidImage(spec.Image) is { } single)
+            list.Add(single);
+        // عکس اصلی (کالای قهرمان) اول باشد تا بزرگ‌ترین جای صحنه را بگیرد.
+        var index = spec.Image is { } hero ? list.FindIndex(x => x.Url == hero.Url) : -1;
+        if (index > 0)
+        {
+            var item = list[index];
+            list.RemoveAt(index);
+            list.Insert(0, item);
+        }
+        return list;
+    }
+
+    private static DesignImage? ValidImage(DesignImage? image) =>
+        image is { Width: > 0, Height: > 0 } && !string.IsNullOrWhiteSpace(image.Url) ? image : null;
+
+    /// <summary>
+    /// دور ۲۷ – صحنهٔ «عکس فضاسازی»: عکس واقعی تمام‌قاب (cover) با حرکت آرام Ken Burns + پردهٔ گرادیانی <b>به رنگ پالت</b> از سمت متن
+    /// (متن با رنگ‌های خود پالت خوانا می‌ماند و بنر هویت رنگی دارد) + سایهٔ ملایم پایین و نوار رنگی باریک لبهٔ راست.
+    /// </summary>
+    private static void PhotoScene(JsonArray o, DesignImage image, DesignPalette p, int w, int h, double textLeft)
+    {
+        o.Add(Rect("bg", 0, 0, w, h, p.To, selectable: false));
         var iw = Math.Max(1, image.Width);
         var ih = Math.Max(1, image.Height);
-        var scale = Math.Max((double)w / iw, (double)h / ih);
+        // کمی بزرگ‌تر از قاب تا حرکت Ken Burns لبهٔ خالی نشان ندهد.
+        var scale = Math.Max((double)w / iw, (double)h / ih) * 1.04;
         var photo = Base("Image", "image", (w - iw * scale) / 2, (h - ih * scale) / 2);
         photo["src"] = image.Url;
         photo["width"] = iw;
@@ -236,93 +305,271 @@ public static class DesignTemplates
         photo["scaleX"] = Math.Round(scale, 5);
         photo["scaleY"] = Math.Round(scale, 5);
         photo["strokeWidth"] = 0;
-        Anim(photo, "zoom", 0);
+        photo["fsPhoto"] = true;
+        Anim(photo, "kenburns", 0);
+        Depth(photo, 1);
         o.Add(photo);
+
+        // پرده: از لبهٔ راست (رنگ پالت تقریباً کدر) تا کمی چپ‌تر از شروع متن (کاملاً شفاف).
+        var fadeEnd = Math.Max(0, textLeft - w * 0.2);
         var scrim = Rect("scrim", 0, 0, w, h, "#000000", selectable: false);
         scrim["fill"] = new JsonObject
         {
             ["type"] = "linear",
             ["gradientUnits"] = "pixels",
-            ["coords"] = new JsonObject { ["x1"] = w, ["y1"] = 0, ["x2"] = w * 0.25, ["y2"] = 0 },
+            ["coords"] = new JsonObject { ["x1"] = w, ["y1"] = 0, ["x2"] = R(fadeEnd), ["y2"] = 0 },
             ["colorStops"] = new JsonArray
             {
-                new JsonObject { ["offset"] = 0, ["color"] = "rgba(2,6,23,0.86)" },
-                new JsonObject { ["offset"] = 0.55, ["color"] = "rgba(2,6,23,0.55)" },
-                new JsonObject { ["offset"] = 1, ["color"] = "rgba(2,6,23,0)" },
+                new JsonObject { ["offset"] = 0, ["color"] = Rgba(p.To, 0.96) },
+                new JsonObject { ["offset"] = 0.5, ["color"] = Rgba(p.To, 0.86) },
+                new JsonObject { ["offset"] = 0.78, ["color"] = Rgba(p.To, 0.45) },
+                new JsonObject { ["offset"] = 1, ["color"] = Rgba(p.To, 0) },
             },
             ["offsetX"] = 0,
             ["offsetY"] = 0,
         };
         o.Add(scrim);
-        // نوار رنگی باریک پالت در لبهٔ راست (هویت رنگی بنر)
-        o.Add(Rect("deco", w - Math.Round(h * 0.03), 0, Math.Round(h * 0.03), h, p.Accent));
-    }
-
-    /// <summary>تا ۳ کارت سفید گردگوشه با سایه، کمی چرخیده، هر کدام یک عکس کالا (برای بنر دسته).</summary>
-    private static void Collage(JsonArray o, List<DesignImage> images, DesignPalette p, double x, double y, double areaW, double areaH)
-    {
-        var count = images.Count;
-        var cardH = areaH * 0.86;
-        var cardW = Math.Min(cardH * 0.82, areaW / (count == 1 ? 1.2 : count * 0.86));
-        var angles = count switch { 1 => new[] { -3.0 }, 2 => new[] { -5.0, 4.0 }, _ => new[] { -7.0, 0.0, 6.0 } };
-        var step = count == 1 ? 0 : (areaW - cardW) / (count - 1);
-        for (var i = 0; i < count; i++)
+        // سایهٔ پایین (عمق و جدا شدن کالاها از عکس)
+        var vignette = Rect("scrim", 0, h * 0.55, w, h * 0.45, "#000000", selectable: false);
+        vignette["fill"] = new JsonObject
         {
-            var cx = x + (count == 1 ? (areaW - cardW) / 2 : step * i);
-            var cy = y + (areaH - cardH) / 2 + (i == 1 ? -areaH * 0.03 : areaH * 0.02);
-            var card = Rect("card", cx, cy, cardW, cardH, "#ffffff");
-            card["rx"] = Math.Round(cardW * 0.08);
-            card["ry"] = Math.Round(cardW * 0.08);
-            card["angle"] = angles[i];
-            card["shadow"] = Shadow("rgba(15,23,42,0.22)", Math.Round(cardW * 0.08), Math.Round(cardW * 0.03));
-            Anim(card, "rise", 0.15 + i * 0.15);
-            o.Add(card);
-            var pad = cardW * 0.1;
-            // عکس داخل کارت (بدون چرخش تا رندر سرور و HTML یکی باشند؛ چرخش کم کارت به چشم نمی‌آید)
-            var img = Image(images[i], cx + pad, cy + pad, cardW - pad * 2, cardH - pad * 2, shadow: false);
-            Anim(img, "rise", 0.2 + i * 0.15);
-            o.Add(img);
-        }
-        var dot = Circle("deco", x + areaW * 0.02, y + areaH * 0.72, areaH * 0.09, p.Accent, 0.9);
-        Anim(dot, "float", 0.6);
-        o.Add(dot);
+            ["type"] = "linear",
+            ["gradientUnits"] = "pixels",
+            ["coords"] = new JsonObject { ["x1"] = 0, ["y1"] = R(h * 0.45), ["x2"] = 0, ["y2"] = 0 },
+            ["colorStops"] = new JsonArray
+            {
+                new JsonObject { ["offset"] = 0, ["color"] = "rgba(2,6,23,0.35)" },
+                new JsonObject { ["offset"] = 1, ["color"] = "rgba(2,6,23,0)" },
+            },
+            ["offsetX"] = 0,
+            ["offsetY"] = 0,
+        };
+        o.Add(vignette);
+        var bar = Rect("deco", w - Math.Round(h * 0.03), 0, Math.Round(h * 0.03), h, p.Accent);
+        Anim(bar, "rise", 0);
+        o.Add(bar);
     }
 
     /// <summary>
-    /// چیدمان حراج: دایرهٔ بزرگ رنگ تأکیدی با درصد درشت (از نشان؛ مثل «۲۵٪») نیمه‌بیرون از قاب + عکس کالا روی آن.
-    /// نشان بدون عدد ← همان متن نشان. بدون نشان ← فقط عکس.
+    /// دور ۲۷ – نورپردازی پس‌زمینه: دو هالهٔ نرم (گرادیان شعاعی) یکی به رنگ تأکیدی بالا-چپ و یکی روشن پایین-راست؛
+    /// گرادیان تخت را «حرفه‌ای» و عمق‌دار می‌کند. چیدمان ساده (minimal) نور ندارد.
+    /// </summary>
+    private static void Lights(JsonArray o, DesignPalette p, int w, int h, string layout)
+    {
+        if (layout == "minimal")
+            return;
+        var s = Math.Max(w, h);
+        o.Add(Depth(Anim(Glow("deco", w * 0.12, -h * 0.1, s * 0.32, p.Accent, 0.32), "breathe", 0), 1));
+        o.Add(Depth(Anim(Glow("deco", w * 0.9, h * 1.05, s * 0.28, "#ffffff", 0.16), "breathe", 1.5), 1));
+    }
+
+    /// <summary>
+    /// دور ۲۷ – «نورافکن» یک کالا: هالهٔ نور، دیسک رنگی گرادیانی، حلقهٔ نازک، ستاره‌های چشمک‌زن، سایهٔ تماس و خود کالا که معلق می‌ماند.
+    /// minimal ← فقط سایه و حلقهٔ کم‌رنگ (شیک و خلوت).
+    /// </summary>
+    private static void Spotlight(JsonArray o, DesignImage image, DesignPalette p, (double X, double Y, double W, double H) area, bool minimal)
+    {
+        var cx = area.X + area.W / 2;
+        var cy = area.Y + area.H / 2;
+        var discR = Math.Min(area.W * 0.44, area.H * 0.5);
+        if (!minimal)
+        {
+            o.Add(Depth(Anim(Glow("halo", cx, cy, discR * 1.9, p.Accent, 0.5), "breathe", 0), 1));
+            var disc = Circle("halo", cx - discR, cy - discR, discR, p.Accent, 1);
+            disc["fill"] = Linear(discR * 2, discR * 2, DesignColors.Mix(p.Accent, "#ffffff", 0.18), DesignColors.Mix(p.Accent, p.To, 0.5));
+            disc["opacity"] = 0.95;
+            o.Add(Depth(Anim(disc, "pop", 0.05), 1));
+            Sparkles(o, p, cx, cy, discR * 1.25, 3);
+        }
+        var ring = Circle("deco", cx - discR * 1.18, cy - discR * 1.18, discR * 1.18, "transparent", 1);
+        ring["stroke"] = minimal ? p.SubInk : p.Ink;
+        ring["strokeWidth"] = Math.Max(2, Math.Round(area.H * 0.008));
+        ring["opacity"] = minimal ? 0.25 : 0.2;
+        o.Add(Depth(Anim(ring, "breathe", 0.3), 1));
+        Product(o, image, area.X, area.Y, area.W, area.H, 0.25, 3, center: true);
+    }
+
+    /// <summary>
+    /// دور ۲۷ – «ویترین»: کالای اصلی بزرگ وسط و تا دو کالای کوچک‌تر پشت سرش، روی سکوی بیضی رنگی (یا بدون سکو روی عکس فضاسازی)،
+    /// همه با سایهٔ تماس و حرکت معلق با تأخیر متفاوت (حس زنده و سه‌بعدی).
+    /// </summary>
+    private static void Showcase(JsonArray o, List<DesignImage> images, DesignPalette p, (double X, double Y, double W, double H) area, bool podium)
+    {
+        if (images.Count == 0 || area.W <= 10 || area.H <= 10)
+            return;
+        var cx = area.X + area.W / 2;
+        var ground = area.Y + area.H * (podium ? 0.92 : 0.98);
+        if (podium)
+        {
+            o.Add(Depth(Anim(Glow("halo", cx, area.Y + area.H * 0.45, Math.Min(area.W * 0.6, area.H * 1.1), p.Accent, 0.55), "breathe", 0), 1));
+            var pr = Math.Min(area.W * 0.46, area.H * 1.4);
+            var stage = Circle("deco", cx - pr, ground - pr * 0.16, pr, p.Accent, 1);
+            stage["scaleY"] = 0.16;
+            stage["fill"] = Linear(pr * 2, pr * 2, DesignColors.Mix(p.Accent, "#ffffff", 0.35), DesignColors.Mix(p.Accent, "#000000", 0.2), vertical: true);
+            stage["shadow"] = Shadow("rgba(2,6,23,0.3)", Math.Round(area.H * 0.06), Math.Round(area.H * 0.03));
+            o.Add(Depth(Anim(stage, "rise", 0.05), 2));
+            Sparkles(o, p, cx, area.Y + area.H * 0.42, Math.Min(area.W * 0.5, area.H * 0.9), 4);
+        }
+        // کالاهای کناری (پشت کالای اصلی)
+        var sideH = area.H * (podium ? 0.6 : 0.62);
+        var sideW = area.W * 0.36;
+        var sides = images.Skip(1).Take(2).ToList();
+        for (var i = 0; i < sides.Count; i++)
+        {
+            var x = i == 0 ? area.X : area.X + area.W - sideW;
+            Product(o, sides[i], x, ground - sideH - area.H * 0.02, sideW, sideH, 0.45 + i * 0.15, 2);
+        }
+        var heroW = area.W * (sides.Count > 0 ? 0.5 : 0.8);
+        var heroH = area.H * (podium ? 0.84 : 0.9);
+        Product(o, images[0], cx - heroW / 2, ground - heroH, heroW, heroH, 0.25, 3);
+    }
+
+    /// <summary>
+    /// دور ۲۷ – کاشی‌های «شیشه‌ای» (به‌جای کارت سفید قدیمی): تا ۳ کاشی گردگوشهٔ نیمه‌شفاف با کمی چرخش، کاشی وسط بالاتر،
+    /// هر کدام یک کالا (دوربری‌شده آزاد با سایه؛ زمینه‌دار با حاشیهٔ کم). چرخش کاشی و عکس دور یک مرکز حساب می‌شود (ویرایشگر، تصویر ثابت و
+    /// نسخهٔ زنده یکسان‌اند).
+    /// </summary>
+    private static void Collage(JsonArray o, List<DesignImage> images, DesignPalette p, (double X, double Y, double W, double H) area)
+    {
+        var count = Math.Min(3, images.Count);
+        if (count == 0)
+            return;
+        var lightInk = DesignColors.TryParse(p.Ink, out var inkRgb) && DesignColors.Luminance(inkRgb) > 0.5;
+        var tileH = area.H * 0.82;
+        var gap = area.W * 0.035;
+        var tileW = Math.Min(tileH * 0.86, (area.W - gap * (count - 1)) / count);
+        var total = tileW * count + gap * (count - 1);
+        var startX = area.X + (area.W - total) / 2;
+        var angles = count switch { 1 => new[] { -3.0 }, 2 => new[] { -4.0, 4.0 }, _ => new[] { -6.0, 0.0, 6.0 } };
+        o.Add(Depth(Anim(Glow("halo", area.X + area.W / 2, area.Y + area.H / 2, Math.Min(area.W * 0.55, area.H * 1.2), p.Accent, 0.45), "breathe", 0), 1));
+        for (var i = 0; i < count; i++)
+        {
+            var raised = count == 3 && i == 1;
+            var x = startX + i * (tileW + gap);
+            var y = area.Y + (area.H - tileH) / 2 + (raised ? -area.H * 0.04 : area.H * 0.03);
+            var c = (X: x + tileW / 2, Y: y + tileH / 2);
+            var angle = angles[i];
+            var delay = 0.15 + i * 0.15;
+
+            var tile = Rect("card", 0, 0, tileW, tileH, lightInk ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.78)");
+            tile["rx"] = Math.Round(tileW * 0.1);
+            tile["ry"] = Math.Round(tileW * 0.1);
+            tile["stroke"] = lightInk ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.95)";
+            tile["strokeWidth"] = Math.Max(1, Math.Round(tileW * 0.012));
+            tile["shadow"] = Shadow("rgba(2,6,23,0.22)", Math.Round(tileW * 0.12), Math.Round(tileW * 0.05));
+            Place(tile, c, -tileW / 2, -tileH / 2, angle);
+            o.Add(Depth(Anim(tile, "hero", delay), raised ? 3 : 2));
+
+            var pad = tileW * (images[i].Cutout ? 0.1 : 0.06);
+            var iw = Math.Max(1, images[i].Width);
+            var ih = Math.Max(1, images[i].Height);
+            var scale = Math.Min((tileW - pad * 2) / iw, (tileH - pad * 2) / ih);
+            var img = ImageObject(images[i], 0, 0, scale);
+            if (images[i].Cutout)
+                img["shadow"] = Shadow("rgba(2,6,23,0.28)", Math.Round(tileW * 0.06), Math.Round(tileW * 0.03));
+            Place(img, c, -iw * scale / 2, -ih * scale / 2, angle);
+            o.Add(Depth(Anim(img, "hero", delay), raised ? 3 : 2));
+        }
+    }
+
+    /// <summary>
+    /// چیدمان حراج: دایرهٔ بزرگ رنگ تأکیدی با درصد درشت (از نشان؛ مثل «۲۵٪») نیمه‌بیرون از قاب + هالهٔ تپنده + کالا با سایه روی آن.
+    /// نشان بدون عدد ← همان متن نشان.
     /// </summary>
     private static void SaleBurst(JsonArray o, DesignSpec spec, DesignPalette p, (double X, double Y, double W, double H) area, DesignImage? image, int h)
     {
         var r = h * 0.62;
-        var burst = Circle("badge-bg", area.X - r * 0.55, h / 2.0 - r, r, p.Accent, 1);
-        Anim(burst, "pop", 0.05);
-        o.Add(burst);
+        var burstLeft = area.X - r * 0.55;
+        o.Add(Depth(Anim(Glow("halo", burstLeft + r, h / 2.0, r * 1.45, p.Accent, 0.5), "breathe", 0), 1));
+        var burst = Circle("badge-bg", burstLeft, h / 2.0 - r, r, p.Accent, 1);
+        burst["fill"] = Linear(r * 2, r * 2, DesignColors.Mix(p.Accent, "#ffffff", 0.12), DesignColors.Mix(p.Accent, "#000000", 0.12));
+        burst["shadow"] = Shadow("rgba(2,6,23,0.25)", Math.Round(r * 0.12), Math.Round(r * 0.04));
+        o.Add(Depth(Anim(burst, "pop", 0.05), 2));
+        var ring = Circle("deco", burstLeft - r * 0.08, h / 2.0 - r * 1.08, r * 1.08, "transparent", 1);
+        ring["stroke"] = p.Accent;
+        ring["strokeWidth"] = Math.Max(2, Math.Round(h * 0.01));
+        ring["opacity"] = 0.45;
+        o.Add(Depth(Anim(ring, "breathe", 0.2), 1));
         if (!string.IsNullOrWhiteSpace(spec.Badge))
         {
             var match = System.Text.RegularExpressions.Regex.Match(spec.Badge!, @"[۰-۹0-9]{1,2}\s*[٪%]", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(50));
             var big = match.Success ? match.Value.Replace(" ", "", StringComparison.Ordinal) : spec.Badge!;
             var rest = match.Success ? spec.Badge!.Replace(match.Value, "", StringComparison.Ordinal).Trim() : null;
             var textW = r * 1.05;
-            var left = area.X - r * 0.55 + r - textW / 2 + r * 0.22;
+            var left = burstLeft + r - textW / 2 + r * 0.22;
             var (fs, lines) = Fit(big, textW, h * (match.Success ? 0.36 : 0.16), h * 0.1, match.Success ? 1 : 2);
-            var top = h / 2.0 - (lines * fs * LineFactor + (rest is null ? 0 : h * 0.09)) / 2;
+            var top = h / 2.0 - (lines * fs * LineFactor + (string.IsNullOrWhiteSpace(rest) ? 0 : h * 0.09)) / 2;
             var number = Text("badge", big, left, top, textW, fs, 900, p.AccentInk, "center");
-            Anim(number, "pop", 0.3);
-            o.Add(number);
+            o.Add(Depth(Anim(number, "pop", 0.3), 2));
             if (!string.IsNullOrWhiteSpace(rest))
             {
                 var label = Text("badge", rest!, left, top + lines * fs * LineFactor - h * 0.02, textW, Math.Round(h * 0.075), 800, p.AccentInk, "center");
-                Anim(label, "rise", 0.45);
-                o.Add(label);
+                o.Add(Depth(Anim(label, "rise", 0.45), 2));
             }
         }
         if (image is not null)
+            Product(o, image, area.X + area.W * 0.4, area.Y + area.H * 0.04, area.W * 0.6, area.H * 0.92, 0.4, 3);
+    }
+
+    /// <summary>دور ۲۷ – چیدمان وسط‌چین: کالای دوربری‌شده در دو لبهٔ بنر (قرینه) تا بنر بدون عکس نماند.</summary>
+    private static void SideProducts(JsonArray o, List<DesignImage> images, int w, int h, double m)
+    {
+        var zoneW = w * 0.14 - m * 0.3;
+        if (images.Count == 0 || zoneW < h * 0.25)
+            return;
+        Product(o, images[0], m * 0.3, h * 0.1, zoneW, h * 0.8, 0.3, 3);
+        if (images.Count > 1)
+            Product(o, images[1], w - m * 0.3 - zoneW, h * 0.1, zoneW, h * 0.8, 0.45, 3);
+    }
+
+    /// <summary>
+    /// دور ۲۷ – گذاشتن یک کالا در ناحیه (contain، پایین‌چین یا وسط‌چین) با حرکت «hero» (ورود + معلق ماندن).
+    /// دوربری‌شده ← آزاد با سایهٔ نرم و سایهٔ تماس بیضی زیرش؛ زمینه‌دار ← داخل قاب گردگوشهٔ سفید با سایه (هر دو با هم حرکت می‌کنند).
+    /// </summary>
+    private static void Product(JsonArray o, DesignImage image, double x, double y, double areaW, double areaH, double delay, int depth, bool center = false)
+    {
+        if (areaW <= 4 || areaH <= 4)
+            return;
+        var iw = Math.Max(1, image.Width);
+        var ih = Math.Max(1, image.Height);
+        if (image.Cutout)
         {
-            var imgArea = (X: area.X + area.W * 0.42, Y: area.Y + area.H * 0.06, W: area.W * 0.58, H: area.H * 0.88);
-            var img = Image(image, imgArea.X, imgArea.Y, imgArea.W, imgArea.H);
-            Anim(img, "slide-l", 0.35);
-            o.Add(img);
+            var scale = Math.Min(areaW / iw, areaH / ih);
+            var pw = iw * scale;
+            var ph = ih * scale;
+            var px = x + (areaW - pw) / 2;
+            var py = center ? y + (areaH - ph) / 2 : y + areaH - ph;
+            var contact = Glow("shadow", px + pw / 2, py + ph * 0.985, pw * 0.46, "#020617", 0.42, scaleY: 0.12);
+            o.Add(Depth(Anim(contact, "shadow", delay), depth));
+            var img = ImageObject(image, px, py, scale);
+            img["shadow"] = Shadow("rgba(2,6,23,0.25)", Math.Round(Math.Min(pw, ph) * 0.06), Math.Round(Math.Min(pw, ph) * 0.03));
+            o.Add(Depth(Anim(img, "hero", delay), depth));
+            return;
+        }
+        var pad = Math.Min(areaW, areaH) * 0.045;
+        var inner = Math.Min((areaW - pad * 2) / iw, (areaH - pad * 2) / ih);
+        var cw = iw * inner + pad * 2;
+        var ch = ih * inner + pad * 2;
+        var cx = x + (areaW - cw) / 2;
+        var cy = center ? y + (areaH - ch) / 2 : y + areaH - ch;
+        var card = Rect("card", cx, cy, cw, ch, "#ffffff");
+        card["rx"] = Math.Round(Math.Min(cw, ch) * 0.07);
+        card["ry"] = Math.Round(Math.Min(cw, ch) * 0.07);
+        card["shadow"] = Shadow("rgba(2,6,23,0.25)", Math.Round(Math.Min(cw, ch) * 0.09), Math.Round(Math.Min(cw, ch) * 0.04));
+        o.Add(Depth(Anim(card, "hero", delay), depth));
+        o.Add(Depth(Anim(ImageObject(image, cx + pad, cy + pad, inner), "hero", delay), depth));
+    }
+
+    /// <summary>ستاره‌های ریز چشمک‌زن دور صحنه (موقعیت ثابت؛ هر بار همان طرح).</summary>
+    private static void Sparkles(JsonArray o, DesignPalette p, double cx, double cy, double radius, int count)
+    {
+        double[] angles = [215, 330, 70, 150];
+        for (var i = 0; i < Math.Min(count, angles.Length); i++)
+        {
+            var a = angles[i] * Math.PI / 180;
+            var r = Math.Max(3, radius * (i % 2 == 0 ? 0.045 : 0.03));
+            var dot = Circle("deco", cx + Math.Cos(a) * radius - r, cy - Math.Sin(a) * radius - r, r, i % 2 == 0 ? "#ffffff" : p.Accent, 0.9);
+            o.Add(Depth(Anim(dot, "twinkle", 0.4 + i * 0.35), 2));
         }
     }
 
@@ -334,28 +581,39 @@ public static class DesignTemplates
         return item;
     }
 
+    /// <summary>دور ۲۷ – عمق پارالاکس (۱ = دور/پس‌زمینه، ۳ = نزدیک/کالا): با حرکت موس یا اسکرول لایه‌ها با سرعت متفاوت جابه‌جا می‌شوند.</summary>
+    private static JsonObject Depth(JsonObject item, int depth)
+    {
+        item["fsDepth"] = Math.Clamp(depth, 1, 3);
+        return item;
+    }
+
     // ───────────────────────────── چیدمان مربعی/عمودی (پست، استوری، نسخهٔ موبایل) ─────────────────────────────
 
     private static void BuildTall(JsonArray o, DesignSpec spec, DesignPalette p, int w, int h)
     {
         var m = Math.Max(24, Math.Round(w * 0.07));
-        o.Add(Background(p, w, h, spec.Layout));
-        Decorations(o, p, w, h, spec.Layout);
+        var layout = Layouts.Any(l => l.Key == spec.Layout) ? spec.Layout : "center";
+        o.Add(Background(p, w, h, layout));
+        Lights(o, p, w, h, layout);
+        Decorations(o, p, w, h, layout);
 
         var stack = TextStack(spec, p, m, w - m * 2, h, w, "center", wide: false);
         var top = m;
         foreach (var item in stack.Items)
             o.Add(Offset(item, top));
 
-        if (spec.Image is not null)
+        var pics = Pictures(spec);
+        if (pics.Count > 0 && layout is not ("pattern" or "center"))
         {
             var y = top + stack.Height + m * 0.4;
             var area = (X: m, Y: y, W: w - m * 2, H: h - y - m * 0.6);
             if (area.H > h * 0.18)
             {
-                var r = Math.Min(area.W, area.H) * 0.5;
-                o.Add(Circle("halo", area.X + area.W / 2 - r, area.Y + area.H / 2 - r, r, p.Ink, 0.14));
-                o.Add(Image(spec.Image, area.X, area.Y, area.W, area.H));
+                if (pics.Count >= 2 && pics.Any(x => x.Cutout))
+                    Showcase(o, pics, p, area, podium: true);
+                else
+                    Spotlight(o, pics[0], p, area, minimal: layout == "minimal");
             }
         }
 
@@ -371,8 +629,8 @@ public static class DesignTemplates
     private static void BuildCutout(JsonArray o, DesignSpec spec, DesignPalette p, int w, int h)
     {
         var m = Math.Round(Math.Min(w, h) * 0.04);
-        if (spec.Image is not null)
-            o.Add(Image(spec.Image, m, m, w - m * 2, h - m * 2, shadow: true));
+        if (ValidImage(spec.Image) is { } image)
+            o.Add(Image(image, m, m, w - m * 2, h - m * 2, shadow: true));
         if (!string.IsNullOrWhiteSpace(spec.Badge))
         {
             var r = Math.Min(w, h) * 0.14;
@@ -387,7 +645,7 @@ public static class DesignTemplates
     /// <summary>
     /// ستون متن: برچسب (کپسول رنگی)، تیتر، متن دوم، قیمت و دکمه (با «←»)، با فاصلهٔ متناسب. top هر شیء نسبی است (بعداً جابه‌جا می‌شود).
     /// دور ۲۶: در بنر پهن تیتر تا ۲۲٪ ارتفاع (خوانا در موبایل)؛ <paramref name="scale"/> برای جا شدن ستون بلند در ارتفاع کم.
-    /// <paramref name="onPhoto"/> = روی عکس تمام‌قاب ← متن سفید.
+    /// <paramref name="onPhoto"/> = روی عکس فضاسازی (دور ۲۷: پرده به رنگ پالت است، پس متن همان رنگ پالت را می‌گیرد؛ متن روشن سایهٔ نرم می‌گیرد).
     /// </summary>
     private static Stack TextStack(DesignSpec spec, DesignPalette p, double left, double width, int h, int w, string align, bool wide, double scale = 1, bool onPhoto = false)
     {
@@ -395,8 +653,9 @@ public static class DesignTemplates
         var items = new List<JsonObject>();
         var y = 0.0;
         var gap = unit * 0.04;
-        var ink = onPhoto ? "#ffffff" : p.Ink;
-        var subInk = onPhoto ? "#e2e8f0" : p.SubInk;
+        var ink = p.Ink;
+        var subInk = p.SubInk;
+        var lightInk = DesignColors.TryParse(ink, out var inkRgb) && DesignColors.Luminance(inkRgb) > 0.5;
 
         if (!string.IsNullOrWhiteSpace(spec.Kicker))
         {
@@ -419,9 +678,10 @@ public static class DesignTemplates
         var maxHead = unit * (spec.Layout == "minimal" ? 0.17 : wide ? 0.22 : 0.11);
         var (headFs, headLines) = Fit(spec.Headline, width, maxHead, unit * 0.09, 2);
         var head = Text("headline", spec.Headline, left, y, width, headFs, spec.Layout == "minimal" ? 800 : 900, ink, align);
-        if (onPhoto)
+        if (onPhoto && lightInk)
             head["shadow"] = Shadow("rgba(0,0,0,0.35)", Math.Round(headFs * 0.2), Math.Round(headFs * 0.04));
-        Anim(head, "slide-r", 0.2);
+        // دور ۲۷: تیتر با «پرده‌برداری» از راست به چپ (جهت خواندن فارسی) ظاهر می‌شود.
+        Anim(head, "reveal", 0.2);
         items.Add(head);
         y += headLines * headFs * LineFactor + gap;
 
@@ -516,7 +776,8 @@ public static class DesignTemplates
 
     /// <summary>
     /// تزئین پس‌زمینه بر اساس چیدمان (موقعیت‌ها ثابت‌اند؛ هر بار همان طرح، نه تصادفی).
-    /// pattern ← نوارهای مورب و شبکهٔ نقطه؛ festive ← کاغذرنگی؛ بقیه ← دو دایرهٔ محو. visualShare = سهم ناحیهٔ تصویر از عرض.
+    /// pattern ← نوارهای مورب، مربع‌های گردگوشهٔ چرخان و شبکهٔ نقطه؛ festive ← کاغذرنگی و ریسه؛ بقیه ← دو دایرهٔ محو.
+    /// visualShare = سهم ناحیهٔ تصویر از عرض.
     /// </summary>
     private static void Decorations(JsonArray o, DesignPalette p, int w, int h, string layout, double visualShare = 0)
     {
@@ -529,23 +790,33 @@ public static class DesignTemplates
             return;
         }
         var s = Math.Min(w, h);
-        var c1 = Circle("deco", -s * 0.25, -s * 0.35, s * 0.6, p.Ink, 0.07);
-        Anim(c1, "drift", 0);
-        o.Add(c1);
-        var c2 = Circle("deco", w - s * 0.55, h - s * 0.45, s * 0.45, p.Ink, 0.06);
-        Anim(c2, "drift", 0.4);
-        o.Add(c2);
+        var c1 = Circle("deco", -s * 0.25, -s * 0.35, s * 0.6, p.Ink, 0.06);
+        o.Add(Depth(Anim(c1, "drift", 0), 1));
+        var c2 = Circle("deco", w - s * 0.55, h - s * 0.45, s * 0.45, p.Ink, 0.05);
+        o.Add(Depth(Anim(c2, "drift", 0.4), 1));
         if (layout == "pattern")
         {
-            // نوارهای مورب پهن در نیمهٔ چپ + شبکهٔ نقطه‌ها: پس‌زمینهٔ زنده بدون نیاز به عکس.
+            // نوارهای مورب پهن در نیمهٔ چپ + مربع‌های گردگوشهٔ چرخان + شبکهٔ نقطه‌ها: پس‌زمینهٔ زنده بدون نیاز به عکس.
             var span = visualShare > 0 ? w * visualShare : w * 0.4;
             for (var i = 0; i < 6; i++)
             {
                 var stripe = Rect("deco", span * (i * 0.2) - h * 0.2, -h * 0.3, h * 0.12, h * 1.8, i % 2 == 0 ? p.Accent : p.Ink);
                 stripe["angle"] = -24;
                 stripe["opacity"] = i % 2 == 0 ? 0.16 : 0.07;
-                Anim(stripe, "drift", 0.1 * i);
-                o.Add(stripe);
+                o.Add(Depth(Anim(stripe, "drift", 0.1 * i), 1));
+            }
+            double[][] squares = [[0.05, 0.18, 0.62, 0.16], [0.19, 0.55, 0.42, 0.1], [0.9, -0.2, 0.5, 0.08]];
+            var index = 0;
+            foreach (var q in squares)
+            {
+                var size = h * q[2];
+                var square = Rect("deco", w * q[0], h * q[1], size, size, index % 2 == 0 ? p.Accent : p.Ink);
+                square["rx"] = Math.Round(size * 0.22);
+                square["ry"] = Math.Round(size * 0.22);
+                square["opacity"] = q[3];
+                square["angle"] = 18 + index * 14;
+                o.Add(Depth(Anim(square, "spin", index * 0.5), index == 1 ? 2 : 1));
+                index++;
             }
             for (var row = 0; row < 3; row++)
                 for (var col = 0; col < 5; col++)
@@ -553,7 +824,7 @@ public static class DesignTemplates
         }
         if (layout == "festive")
         {
-            // کاغذرنگی (دایره و مستطیل چرخیده) با رنگ تأکیدی و متن.
+            // کاغذرنگی (دایره و مستطیل چرخیده) با رنگ تأکیدی و متن + ریسه‌های باریک مورب.
             double[][] dots = [[0.06, 0.15, 0.018], [0.2, 0.82, 0.012], [0.38, 0.1, 0.014], [0.6, 0.88, 0.02], [0.76, 0.1, 0.012], [0.92, 0.62, 0.016], [0.5, 0.2, 0.01]];
             var index = 0;
             foreach (var d in dots)
@@ -566,9 +837,17 @@ public static class DesignTemplates
                     piece["angle"] = 25 + index * 15;
                     piece["opacity"] = 0.5;
                 }
-                Anim(piece, "float", 0.1 * index);
-                o.Add(piece);
+                o.Add(Depth(Anim(piece, index % 3 == 0 ? "twinkle" : "float", 0.1 * index), index % 2 == 0 ? 2 : 1));
                 index++;
+            }
+            double[][] streamers = [[0.3, -0.1, 28], [0.7, -0.15, -22], [0.55, 0.75, 35]];
+            foreach (var st in streamers)
+            {
+                var streamer = Rect("deco", w * st[0], h * st[1], h * 0.018, h * 0.5, p.Accent);
+                streamer["rx"] = Math.Round(h * 0.009);
+                streamer["angle"] = st[2];
+                streamer["opacity"] = 0.55;
+                o.Add(Depth(Anim(streamer, "drift", 0.3), 1));
             }
         }
     }
@@ -648,6 +927,89 @@ public static class DesignTemplates
         if (shadow)
             o["shadow"] = Shadow("rgba(0,0,0,0.22)", Math.Round(Math.Min(areaW, areaH) * 0.06), Math.Round(Math.Min(areaW, areaH) * 0.03));
         return o;
+    }
+
+    /// <summary>دور ۲۷ – شیء عکس با مقیاس مشخص (گوشهٔ بالا-چپ در x,y).</summary>
+    private static JsonObject ImageObject(DesignImage image, double x, double y, double scale)
+    {
+        var o = Base("Image", "image", x, y);
+        o["src"] = image.Url;
+        o["width"] = Math.Max(1, image.Width);
+        o["height"] = Math.Max(1, image.Height);
+        o["scaleX"] = Math.Round(scale, 5);
+        o["scaleY"] = Math.Round(scale, 5);
+        o["strokeWidth"] = 0;
+        if (image.Cutout)
+            o["fsCutout"] = true;
+        return o;
+    }
+
+    /// <summary>
+    /// دور ۲۷ – هالهٔ نور: دایره با گرادیان شعاعی از رنگ (با شفافیت alpha) تا کاملاً شفاف. <paramref name="scaleY"/> کوچک ← بیضی پهن
+    /// (سایهٔ تماس زیر کالا). مثال: Glow("halo", 400, 200, 300, "#facc15", 0.5) ← درخشش زرد نرم دور نقطهٔ (۴۰۰، ۲۰۰).
+    /// </summary>
+    private static JsonObject Glow(string role, double cx, double cy, double radius, string color, double alpha, double scaleY = 1)
+    {
+        radius = Math.Max(1, radius);
+        var g = Circle(role, cx - radius, cy - radius * scaleY, radius, color, 1);
+        var r = R(radius);
+        g["fill"] = new JsonObject
+        {
+            ["type"] = "radial",
+            ["gradientUnits"] = "pixels",
+            ["coords"] = new JsonObject { ["x1"] = r, ["y1"] = r, ["r1"] = 0, ["x2"] = r, ["y2"] = r, ["r2"] = r },
+            ["colorStops"] = new JsonArray
+            {
+                new JsonObject { ["offset"] = 0, ["color"] = Rgba(color, alpha) },
+                new JsonObject { ["offset"] = 0.55, ["color"] = Rgba(color, alpha * 0.4) },
+                new JsonObject { ["offset"] = 1, ["color"] = Rgba(color, 0) },
+            },
+            ["offsetX"] = 0,
+            ["offsetY"] = 0,
+        };
+        if (Math.Abs(scaleY - 1) > 0.0001)
+            g["scaleY"] = Math.Round(scaleY, 4);
+        return g;
+    }
+
+    /// <summary>دور ۲۷ – گرادیان خطی دو رنگ برای شیء w×h: مورب (بالا-راست ← پایین-چپ) یا عمودی (بالا ← پایین).</summary>
+    private static JsonObject Linear(double w, double h, string from, string to, bool vertical = false) => new()
+    {
+        ["type"] = "linear",
+        ["gradientUnits"] = "pixels",
+        ["coords"] = vertical
+            ? new JsonObject { ["x1"] = 0, ["y1"] = 0, ["x2"] = 0, ["y2"] = R(h) }
+            : new JsonObject { ["x1"] = R(w), ["y1"] = 0, ["x2"] = 0, ["y2"] = R(h) },
+        ["colorStops"] = new JsonArray
+        {
+            new JsonObject { ["offset"] = 0, ["color"] = from },
+            new JsonObject { ["offset"] = 1, ["color"] = to },
+        },
+        ["offsetX"] = 0,
+        ["offsetY"] = 0,
+    };
+
+    /// <summary>
+    /// دور ۲۷ – چرخاندن شیء دور یک مرکز مشترک: (dx, dy) = فاصلهٔ گوشهٔ بالا-چپ شیء از مرکز پیش از چرخش.
+    /// فابریک، رندر سرور و نسخهٔ زنده همه دور گوشهٔ بالا-چپ می‌چرخانند؛ پس گوشه را خودمان جابه‌جا می‌کنیم تا کاشی و عکسش روی هم بمانند.
+    /// </summary>
+    private static void Place(JsonObject item, (double X, double Y) center, double dx, double dy, double angle)
+    {
+        var rad = angle * Math.PI / 180;
+        var cos = Math.Cos(rad);
+        var sin = Math.Sin(rad);
+        item["left"] = R(center.X + dx * cos - dy * sin);
+        item["top"] = R(center.Y + dx * sin + dy * cos);
+        if (Math.Abs(angle) > 0.001)
+            item["angle"] = Math.Round(angle, 2);
+    }
+
+    /// <summary>رنگ hex ← «rgba(r,g,b,a)» با فرهنگ ثابت. مثال: Rgba("#ff0000", 0.5) ← «rgba(255,0,0,0.5)».</summary>
+    public static string Rgba(string hex, double alpha)
+    {
+        if (!DesignColors.TryParse(hex, out var c))
+            c = (0, 0, 0);
+        return string.Create(CultureInfo.InvariantCulture, $"rgba({c.R},{c.G},{c.B},{Math.Round(Math.Clamp(alpha, 0, 1), 3)})");
     }
 
     private static JsonObject Shadow(string color, double blur, double offsetY) => new()

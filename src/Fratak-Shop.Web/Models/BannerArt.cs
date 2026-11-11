@@ -18,3 +18,12 @@ namespace Fratak_Shop.Web.Models;
 /// <param name="Height">ارتفاع طبیعی تصویر.</param>
 /// <param name="Sizes">srcset خودکار بسازد؟ (اسلایدر و بنر عریض بله).</param>
 public sealed record BannerArt(BannerDto Banner, string WrapperClass, string ImageClass, bool Eager, int Width, int Height, bool Sizes = true);
+
+/// <summary>
+/// دور ۲۷: ورودی partial «_PromoCard» (کارت تبلیغاتی صفحهٔ نخست با عکس کالای بدون زمینه، تیتر، متن و دکمه).
+/// مثال: <c>new PromoCardModel(banner, "fr-promo md:flex-1 fr-promo--a", "/category/headphone")</c>.
+/// </summary>
+/// <param name="Banner">بنر (تصویر = عکس کالای بدون زمینه/PNG).</param>
+/// <param name="CssClass">کلاس‌های کارت (fr-promo + رنگ a یا b).</param>
+/// <param name="Link">لینک امن (null ← کارت بدون لینک و بدون دکمه).</param>
+public sealed record PromoCardModel(BannerDto Banner, string CssClass, string? Link);
