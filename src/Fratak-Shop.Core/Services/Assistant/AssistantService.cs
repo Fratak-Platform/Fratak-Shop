@@ -183,7 +183,8 @@ public sealed class AssistantService(
     IAssistantHandoffService? handoffs = null,
     IOrderService? orderActions = null,
     IReturnService? returns = null,
-    IAssistantTeachingService? teachings = null) : IAssistantService
+    IAssistantTeachingService? teachings = null,
+    IAssistantFactService? facts = null) : IAssistantService
 {
     /// <summary>نام انجام‌دهندهٔ کارهایی که دستیار در صف هوشمند می‌گذارد.</summary>
     public const string Actor = "دستیار فروشگاه";
@@ -262,6 +263,43 @@ public sealed class AssistantService(
         if (similarBase == Guid.Empty)
             similarBase = null;
 
+        // دور ۲۸: «مغز» دستیار – راهنمای خرید («برای خرید پاوربانک به چی دقت کنم»)، واژه‌نامه («ANC یعنی چی») و گپ کوتاه انسانی
+        // («خسته نباشی»، «ربات هستی؟»). فقط وقتی قانون‌ها پیام را جست‌وجو/نامفهوم/بی‌ربط دیده‌اند (یا «راهنما» برای راهنمای خرید)؛
+        // کارهای حساس (لغو، مرجوعی، پرداخت) و جریان‌های دکمه‌ای هرگز از این مسیر نمی‌گذرند.
+        BrainHit? brain = null;
+        if (facts is not null && taught is null && finder is null && similarBase is null && request.ActionProductId is null
+            && (understood.Route is AssistantIntent.Search or AssistantIntent.Unknown or AssistantIntent.OffTopic or AssistantIntent.Help
+                || understood.Route == AssistantIntent.ProductQuestion && request.CurrentProductId is null && last.Count == 0))
+        {
+            try
+            {
+                // تصمیم با مسیر قانون‌ها (پیش از نظر مدل یادگیرنده): دانستنیِ دقیق بر حدس آماری مقدم است.
+                brain = AssistantBrain.Match(text, await facts.FactsAsync(cancellationToken));
+                if (brain is not null && understood.Route == AssistantIntent.Help && brain.Fact.Kind != AssistantFactKind.Guide)
+                    brain = null;
+                // «ANC یعنی چی» بدون کالای در گفت‌وگو: پرسش معنی است نه پرسش دربارهٔ یک کالا.
+                if (brain is not null && understood.Route == AssistantIntent.ProductQuestion && brain.Fact.Kind != AssistantFactKind.Glossary)
+                    brain = null;
+                // «باشه» وقتی کالایی در گفت‌وگو هست یعنی «دربارهٔ همین بگو» (مسیر قبلی)، نه گپ کوتاه.
+                if (brain is { Fact.Kind: AssistantFactKind.SmallTalk } && (request.CurrentProductId is not null || last.Count > 0)
+                    && brain.Fact.Term == "باشه")
+                    brain = null;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Assistant knowledge match failed");
+            }
+        }
+
+        // گپ کوتاه در برابر مدل یادگیرنده کوتاه می‌آید («ربات نمیخوام» یعنی «کارشناس»، نه «نه ممنون»)؛ راهنما و واژه‌نامه دقیق‌ترند و مقدم.
+        if (brain is { Fact.Kind: AssistantFactKind.SmallTalk } && learnedRoute)
+            brain = null;
+        if (brain is not null)
+        {
+            intent = understood.Route;
+            learnedRoute = false;
+        }
+
         Outcome outcome;
         try
         {
@@ -269,6 +307,7 @@ public sealed class AssistantService(
             {
                 _ when taught is { Intent: null } => Taught(taught),
                 _ when similarBase is { } baseId => await SimilarAsync(baseId, voice, cancellationToken),
+                _ when brain is not null => await BrainAsync(brain, intent, voice, cancellationToken),
                 AssistantIntent.Greeting => Greeting(voice, store.SiteName, options.AssistantName),
                 AssistantIntent.Thanks => Simple(AssistantIntent.Thanks, voice.Thanks()),
                 AssistantIntent.Help => Help(voice, store.SiteName, options.AssistantName),
@@ -901,6 +940,14 @@ public sealed class AssistantService(
         if (!parse.ShopCue && AssistantNlu.Words(query).Count <= 2 && await ContextProductAsync(request, cancellationToken) is { } current)
             return Clarify(current, voice) with { Query = query };
 
+        // دور ۲۸: هم‌معنی‌های جدول دانش («لبتاپ» ← «لپ تاپ»، «هنذفری» ← «هدفون») پیش از «موجود نداریم».
+        if (facts is not null && AssistantBrain.Canonical(query, await facts.FactsAsync(cancellationToken)) is { } canonical)
+        {
+            var again = await FindAsync(canonical, ProductSortBy.BestSelling, cancellationToken);
+            if (again.Count > 0)
+                return Cards(AssistantIntent.Search, $"منظورتان «{canonical}» بود؟ این‌ها را پیدا کردم:", again, actions, canonical);
+        }
+
         if (parse.ShopCue || AssistantNlu.Words(query).Count is >= 1 and <= 4)
         {
             // کالای درخواستی که نداریم: هم در گزارش جست‌وجوهای بی‌نتیجه (خلاصهٔ روزانه) و هم در پنل دستیار.
@@ -913,6 +960,51 @@ public sealed class AssistantService(
         return new Outcome(new AssistantReply($"متوجه نشدم{voice.Comma}. می‌توانم در پیدا کردن کالا، قیمت و موجودی، سبد خرید و پیگیری سفارش کمک کنم.", [], Suggestions(), AssistantIntent.Unknown),
             Answered: false, Query: query);
     }
+
+    /// <summary>
+    /// دور ۲۸: جواب از جدول دانش. راهنمای خرید ← نکته‌های شماره‌دار + «نمایش کالاها» و «کمکم کن انتخاب کنم»؛ واژه‌نامه ← توضیح کوتاه؛
+    /// گپ کوتاه ← یکی از چند جواب (چرخشی، تا تکراری و رباتی نباشد). موضوع پیام «دانش:شناسه» است تا 👍/👎 مشتری در یادگیری شبانه بنشیند.
+    /// </summary>
+    private async Task<Outcome> BrainAsync(BrainHit hit, AssistantIntent intent, AssistantVoice voice, CancellationToken cancellationToken)
+    {
+        var fact = hit.Fact;
+        await facts!.RecordShownAsync(fact.Id, cancellationToken);
+        var topic = AssistantBrain.TopicPrefix + (fact.Id?.ToString() ?? "بذر");
+        var links = new List<AssistantAction>();
+        if (fact.Url is { Length: > 1 } url && url.StartsWith('/') && !url.StartsWith("//", StringComparison.Ordinal))
+            links.Add(new("بیشتر بخوانید", url));
+        string reply;
+        switch (fact.Kind)
+        {
+            case AssistantFactKind.Guide:
+            {
+                var tips = AssistantBrain.Tips(fact.Answer);
+                var lines = tips.Select((t, i) => $"{DesignTipNumber(i + 1)}. {t}");
+                reply = $"چند نکتهٔ کاربردی برای خرید {fact.Term}{voice.Comma}:\n" + string.Join("\n", lines);
+                links.Add(new($"نمایش {fact.Term}", Say: fact.Term));
+                links.Add(new("کمکم کن انتخاب کنم", Say: "کمکم کن انتخاب کنم", Flow: AssistantFinder.Build(null)));
+                break;
+            }
+            case AssistantFactKind.SmallTalk:
+                reply = AssistantBrain.Pick(fact.Answer, Environment.TickCount / 1000);
+                if (links.Count == 0)
+                    links.AddRange(Suggestions().Take(3));
+                break;
+            case AssistantFactKind.Glossary:
+                reply = $"«{fact.Term}»: {fact.Answer}";
+                break;
+            default:
+                reply = fact.Answer;
+                break;
+        }
+        // پیام بی‌ربط (مثل «جوک بگو») همان «بی‌ربط» گزارش می‌شود؛ بقیه «راهنما».
+        var shown = intent == AssistantIntent.OffTopic ? AssistantIntent.OffTopic : AssistantIntent.Help;
+        return new Outcome(new AssistantReply(reply, [], links, shown), Answered: true, Topic: topic);
+    }
+
+    /// <summary>شمارهٔ فارسی نکته. مثال: ۳ ← «۳».</summary>
+    private static string DesignTipNumber(int number) =>
+        new(number.ToString(System.Globalization.CultureInfo.InvariantCulture).Select(c => (char)('۰' + (c - '0'))).ToArray());
 
     /// <summary>کالای در حال گفت‌وگو: کالای همین صفحه یا اولین کارتی که دستیار نشان داده (یا null).</summary>
     private async Task<ProductFilterData?> ContextProductAsync(AssistantRequest request, CancellationToken cancellationToken)

@@ -452,8 +452,11 @@ public class InsightsTests
         Assert.Equal("tasks", layout[1].Widget.Key);
         Assert.False(layout[1].Visible);
         // ویجت‌های تازه (در تنظیم ذخیره‌شده نیستند) به ترتیب پیش‌فرض و نمایان اضافه می‌شوند.
-        Assert.Equal("sales-stats", layout[2].Widget.Key);
+        // دور ۲۸ (#۹۴): «کارهای امروز» اولین ویجت پیش‌فرض است.
+        Assert.Equal("today", layout[2].Widget.Key);
         Assert.True(layout[2].Visible);
+        Assert.Equal("sales-stats", layout[3].Widget.Key);
+        Assert.True(layout[3].Visible);
         Assert.DoesNotContain(layout, a => a.Widget.Key is "goal" or "unknown");
         Assert.Equal(layout.Count, layout.Select(a => a.Widget.Key).Distinct().Count());
     }
@@ -480,6 +483,7 @@ public class InsightsTests
     {
         var none = AdminAccess.None(Guid.NewGuid());
         var available = DashboardLayout.Widgets.Where(w => w.IsAvailable(none)).Select(w => w.Key).ToList();
-        Assert.Equal("tasks", string.Join("|", available));
+        // دور ۲۸: «کارهای امروز» هم بی‌مجوز است چون فقط بخش‌های مجاز هر کارمند (و کارهای خودش) را نشان می‌دهد.
+        Assert.Equal("today|tasks", string.Join("|", available));
     }
 }

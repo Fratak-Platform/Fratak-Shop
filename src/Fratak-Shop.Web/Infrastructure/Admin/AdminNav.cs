@@ -64,6 +64,9 @@ public static class AdminNav
             new AdminNavItem("گفت‌وگو با کارشناس", "/admin/smart/assistant/handoffs", "Chat", [P.TicketsManage, P.MessagesManage]),
             // دور ۲۵: جواب‌هایی که کارکنان به دستیار یاد می‌دهند.
             new AdminNavItem("آموزش دستیار", "/admin/smart/assistant/teach", "Brain", [P.ProductsManage, P.MarketingManage, P.TicketsManage]),
+            // دور ۲۸: جدول «دانش دستیار» و «دستیار مدیریت» (پرسش و فرمان کارکنان به زبان ساده).
+            new AdminNavItem("دانش دستیار", "/admin/smart/assistant/knowledge", "Lightbulb", [P.ProductsManage, P.MarketingManage, P.TicketsManage]),
+            new AdminNavItem("دستیار مدیریت", "/admin/smart/assistant/ops", "Robot", [P.OrdersView, P.ProductsView, P.ReportsView]),
             new AdminNavItem("تنظیمات هوشمند", "/admin/smart/settings", "Gear", [P.SettingsManage])),
         new("محتوا و سئو",
             new AdminNavItem("مقاله‌ها", "/admin/blog", "Article", [P.BlogWrite, P.BlogPublish], "drafts"),

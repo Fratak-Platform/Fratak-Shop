@@ -52,3 +52,13 @@ public class AssistantTeachingConfiguration : IEntityTypeConfiguration<Assistant
         builder.HasIndex(t => t.IsActive);
     }
 }
+
+/// <summary>دور ۲۸: هر دانستنی با (نوع، واژه) یکتاست؛ فقط فعال‌ها خوانده می‌شوند.</summary>
+public class AssistantFactConfiguration : IEntityTypeConfiguration<AssistantFact>
+{
+    public void Configure(EntityTypeBuilder<AssistantFact> builder)
+    {
+        builder.HasIndex(f => new { f.Kind, f.Term }).IsUnique();
+        builder.HasIndex(f => f.IsActive);
+    }
+}

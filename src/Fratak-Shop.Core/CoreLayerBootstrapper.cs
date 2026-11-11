@@ -68,6 +68,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Assistant.IAssistantHandoffService, Services.Assistant.AssistantHandoffService>();
         // دور ۲۵: جواب‌هایی که کارکنان به دستیار یاد می‌دهند.
         services.AddScoped<Services.Assistant.IAssistantTeachingService, Services.Assistant.AssistantTeachingService>();
+        // دور ۲۸: جدول «دانش دستیار» (واژه‌نامه، راهنمای خرید، گپ کوتاه، هم‌معنی‌ها، یادگرفته‌ها).
+        services.AddScoped<Services.Assistant.IAssistantFactService, Services.Assistant.AssistantFactService>();
         // دور ۲۴ (بستهٔ B): رتبه‌بندی یادگیرندهٔ جست‌وجو، تضمین قیمت، آمار واقعی خرید و «سفارش دوباره».
         services.AddScoped<Services.Searches.ISearchLearningService, Services.Searches.SearchLearningService>();
         services.AddScoped<Services.Marketing.IPriceMatchService, Services.Marketing.PriceMatchService>();

@@ -91,6 +91,8 @@ public sealed class EngagementMaintenanceService(IServiceScopeFactory scopeFacto
         await RunAsync("Assistant gaps feed", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantService>().FeedGapsAsync(10, token), token);
         // دور ۲۴: مدل یادگیرندهٔ نیت پیام هر شب با پیام‌های واقعی ۹۰ روز اخیر دوباره آموزش می‌بیند؛ گفت‌وگوهای کارشناس بی‌پیام ۲۴ ساعته بسته می‌شوند.
         await RunAsync("Assistant intent model", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantService>().RetrainIntentModelAsync(token), token);
+        // دور ۲۸: جدول دانش دستیار از 👍/👎 مشتری‌ها یاد می‌گیرد (دانستنی بی‌فایده خودکار خاموش می‌شود).
+        await RunAsync("Assistant knowledge learning", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantFactService>().LearnAsync(token), token);
         await RunAsync("Assistant handoff auto-close", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Assistant.IAssistantHandoffService>().AutoCloseAsync(token), token);
         // دور ۲۴: کلیک‌های جست‌وجوی قدیمی کم‌وزن و خیلی قدیمی‌ها پاک می‌شوند (رتبه‌بندی یادگیرنده سلیقهٔ تازه را دنبال کند).
         await RunAsync("Search learning maintenance", sp => sp.GetRequiredService<Fratak_Shop.Core.Services.Searches.ISearchLearningService>().MaintainAsync(token), token);

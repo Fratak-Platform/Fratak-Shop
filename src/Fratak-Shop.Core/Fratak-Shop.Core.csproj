@@ -17,6 +17,8 @@
   <ItemGroup>
     <!-- مرحلهٔ شانزدهم: دادهٔ اولیهٔ جدول دانش سئو (واژه‌نامهٔ hazm با مجوز MIT + فهرست‌های دست‌نوشته؛ سازنده: tools/seo-knowledge/build_seed.py). -->
     <EmbeddedResource Include="Services\Seo\Knowledge\Data\seo-knowledge.tsv.gz" LogicalName="Fratak_Shop.Core.SeoKnowledge.tsv.gz" />
+    <!-- دور ۲۸: دادهٔ اولیهٔ «دانش دستیار» (واژه‌نامه، راهنمای خرید، گپ کوتاه، هم‌معنی‌ها؛ سازنده: tools/assistant-knowledge/build_seed.py). -->
+    <EmbeddedResource Include="Services\Assistant\Knowledge\Data\assistant-knowledge.tsv.gz" LogicalName="Fratak_Shop.Core.AssistantKnowledge.tsv.gz" />
   </ItemGroup>
 
 </Project>
