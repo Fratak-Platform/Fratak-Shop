@@ -261,7 +261,9 @@ public sealed class BannerRound27Tests
     [InlineData("4", null)]
     [InlineData("1.5", null)]
     [InlineData("-2", null)]
-    [InlineData("\"3\"", null)]
+    [InlineData("\"9\"", null)]
+    [InlineData("\"z3\"", null)]
+    [InlineData("null", null)]
     public void Parallax_depth_accepts_only_one_to_three(string depth, string? expected)
     {
         var rect = "{\"type\":\"rect\",\"left\":0,\"top\":0,\"width\":100,\"height\":100,\"fill\":\"#ff0000\",\"fsDepth\":" + depth + "}";
