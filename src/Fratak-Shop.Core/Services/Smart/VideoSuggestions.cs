@@ -130,10 +130,14 @@ public static partial class VideoSuggestionRules
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("videobysearch", out var list) || list.ValueKind != JsonValueKind.Array)
+            // ریشه یا آیتم غیرشیء (آرایه، رشته، …) ← نادیده (TryGetProperty روی غیرشیء استثنا می‌دهد).
+            if (doc.RootElement.ValueKind != JsonValueKind.Object
+                || !doc.RootElement.TryGetProperty("videobysearch", out var list) || list.ValueKind != JsonValueKind.Array)
                 return hits;
             foreach (var item in list.EnumerateArray().Take(10))
             {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
                 var uid = item.TryGetProperty("uid", out var u) && u.ValueKind == JsonValueKind.String ? u.GetString() : null;
                 if (string.IsNullOrWhiteSpace(uid) || !SafeId().IsMatch(uid))
                     continue;

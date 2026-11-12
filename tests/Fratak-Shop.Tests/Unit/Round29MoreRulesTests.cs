@@ -98,6 +98,8 @@ public class Round29MoreRulesTests
     [InlineData("{")]
     [InlineData("[]")]
     [InlineData("{\"videobysearch\":\"x\"}")]
+    [InlineData("{\"videobysearch\":[1,\"x\",null,[]]}")]
+    [InlineData("\"text\"")]
     public void FromAparat_BrokenJson_IsEmpty(string? json)
     {
         Assert.Empty(VideoSuggestionRules.FromAparat(json));
