@@ -117,12 +117,148 @@ public static class ImageSignature
                 if (bitmap.ExtractSubset(middle, center) && ComputeRaw(middle) is { } mid)
                     list.Add(mid);
             }
+            // دور ۲۹ (#۱): «سوژهٔ جداشده» – زمینهٔ شلوغ عکس مشتری (میز، دست، اتاق) حذف و کالا روی زمینهٔ شفاف گذاشته می‌شود؛
+            // درست مثل عکس اصلی کاتالوگ (سفید/دوربری‌شده). (نسخهٔ آینه‌ای عمداً ساخته نمی‌شود: کالای دیگری با جهت برعکس را «همان» می‌دید.)
+            using var subject = Isolate(bitmap);
+            if (subject is not null && Compute(subject) is { } isolated)
+                list.Add(isolated);
         }
         catch (Exception)
         {
             list.Clear();
         }
         return list;
+    }
+
+    /// <summary>
+    /// دور ۲۹ (#۱) – رنگ‌های «زمینه» از روی حاشیهٔ تصویر: حاشیهٔ ۳ نقطه‌ای نسخهٔ ۶۴×۶۴ به خانه‌های رنگی درشت تقسیم می‌شود و
+    /// تا ۳ رنگ پرتکرار (هر کدام دست‌کم ۸٪ حاشیه) زمینه حساب می‌شوند. اگر این رنگ‌ها کمتر از نیمی از حاشیه را بپوشانند (زمینهٔ خیلی شلوغ)
+    /// ← null (جدا کردن سوژه مطمئن نیست). مثال: عکس لیوان روی میز چوبی کرم ← [کرم، قهوه‌ای روشن].
+    /// </summary>
+    public static List<SKColor>? BackgroundPalette(SKBitmap small)
+    {
+        var w = small.Width;
+        var h = small.Height;
+        if (w < 16 || h < 16)
+            return null;
+        var buckets = new Dictionary<int, (long R, long G, long B, int N)>();
+        var ring = 0;
+        for (var y = 0; y < h; y++)
+        {
+            for (var x = 0; x < w; x++)
+            {
+                if (x >= 3 && x < w - 3 && y >= 3 && y < h - 3)
+                    continue;
+                var c = small.GetPixel(x, y);
+                ring++;
+                // شفاف = سفید (مثل بقیهٔ امضا).
+                var (r, g, b) = c.Alpha < 128 ? (255, 255, 255) : ((int)c.Red, (int)c.Green, (int)c.Blue);
+                var key = (r >> 5) << 6 | (g >> 5) << 3 | (b >> 5);
+                buckets.TryGetValue(key, out var acc);
+                buckets[key] = (acc.R + r, acc.G + g, acc.B + b, acc.N + 1);
+            }
+        }
+        var top = buckets.Values.Where(v => v.N >= ring * 0.08).OrderByDescending(v => v.N).Take(3).ToList();
+        if (top.Count == 0 || top.Sum(v => v.N) < ring * 0.5)
+            return null;
+        return top.Select(v => new SKColor((byte)(v.R / v.N), (byte)(v.G / v.N), (byte)(v.B / v.N))).ToList();
+    }
+
+    /// <summary>فاصلهٔ رنگ تا نزدیک‌ترین رنگ زمینه (اقلیدسی RGB). پیکسل شفاف ← ۰ (زمینه).</summary>
+    private static double BackgroundDistance(SKColor c, IReadOnlyList<SKColor> palette)
+    {
+        if (c.Alpha < 128)
+            return 0;
+        var best = double.MaxValue;
+        foreach (var p in palette)
+        {
+            double dr = c.Red - p.Red, dg = c.Green - p.Green, db = c.Blue - p.Blue;
+            var d = Math.Sqrt(dr * dr + dg * dg + db * db);
+            if (d < best)
+                best = d;
+        }
+        return best;
+    }
+
+    /// <summary>کمترین فاصلهٔ رنگ از زمینه برای «سوژه» بودن یک پیکسل.</summary>
+    public const double SubjectDistance = 56;
+
+    /// <summary>
+    /// دور ۲۹ (#۱) – کادر سوژهٔ اصلی: پیکسل‌هایی که رنگشان از همهٔ رنگ‌های زمینه دور است «سوژه»اند؛ کادر = صدک ۲ تا ۹۸ مختصات آن‌ها
+    /// به‌اضافهٔ ۴٪ حاشیه (نویز پراکنده کادر را بزرگ نمی‌کند). سوژهٔ خیلی کوچک (کمتر از ۳٪) یا تمام‌قاب (بیش از ۹۰٪) یا زمینهٔ نامطمئن ← null.
+    /// مثال: عکس ۴۰۰×۳۰۰ قوری سفید وسط میز قهوه‌ای ← کادر دور قوری.
+    /// </summary>
+    public static SKRectI? SubjectBox(SKBitmap bitmap)
+    {
+        if (bitmap.Width < 16 || bitmap.Height < 16)
+            return null;
+        var sampling = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None);
+        using var small = bitmap.Resize(new SKImageInfo(64, 64, SKColorType.Rgba8888, SKAlphaType.Unpremul), sampling);
+        if (small is null || BackgroundPalette(small) is not { } palette)
+            return null;
+        var xs = new List<int>();
+        var ys = new List<int>();
+        for (var y = 0; y < 64; y++)
+        {
+            for (var x = 0; x < 64; x++)
+            {
+                if (BackgroundDistance(small.GetPixel(x, y), palette) > SubjectDistance)
+                {
+                    xs.Add(x);
+                    ys.Add(y);
+                }
+            }
+        }
+        var share = xs.Count / (64.0 * 64.0);
+        if (share < 0.03 || share > 0.9)
+            return null;
+        xs.Sort();
+        ys.Sort();
+        int Pick(List<int> v, double q) => v[Math.Clamp((int)Math.Round(q * (v.Count - 1)), 0, v.Count - 1)];
+        double left = Pick(xs, 0.02), right = Pick(xs, 0.98) + 1, top = Pick(ys, 0.02), bottom = Pick(ys, 0.98) + 1;
+        var margin = 64 * 0.04;
+        var sx = bitmap.Width / 64.0;
+        var sy = bitmap.Height / 64.0;
+        var box = new SKRectI(
+            Math.Max(0, (int)Math.Floor((left - margin) * sx)), Math.Max(0, (int)Math.Floor((top - margin) * sy)),
+            Math.Min(bitmap.Width, (int)Math.Ceiling((right + margin) * sx)), Math.Min(bitmap.Height, (int)Math.Ceiling((bottom + margin) * sy)));
+        return box.Width >= 8 && box.Height >= 8 ? box : null;
+    }
+
+    /// <summary>
+    /// دور ۲۹ (#۱) – سوژهٔ جداشده: برش به <see cref="SubjectBox"/> و شفاف کردن پیکسل‌های هم‌رنگ زمینه (حداکثر ۱۶۰ نقطه در ضلع بزرگ).
+    /// نتیجه شبیه عکس اصلی کاتالوگ (کالا روی زمینهٔ سفید/شفاف) است. سوژهٔ نامطمئن ← null. خروجی را فراخواننده Dispose می‌کند.
+    /// </summary>
+    public static SKBitmap? Isolate(SKBitmap bitmap)
+    {
+        if (SubjectBox(bitmap) is not { } box)
+            return null;
+        using var crop = new SKBitmap();
+        if (!bitmap.ExtractSubset(crop, box))
+            return null;
+        var scale = Math.Min(1.0, 160.0 / Math.Max(box.Width, box.Height));
+        var info = new SKImageInfo(Math.Max(8, (int)Math.Round(box.Width * scale)), Math.Max(8, (int)Math.Round(box.Height * scale)),
+            SKColorType.Rgba8888, SKAlphaType.Unpremul);
+        var result = crop.Resize(info, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
+        if (result is null)
+            return null;
+        // زمینه از حاشیهٔ تصویر کامل (نه برش) حدس زده می‌شود.
+        using var small = bitmap.Resize(new SKImageInfo(64, 64, SKColorType.Rgba8888, SKAlphaType.Unpremul), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
+        var palette = small is null ? null : BackgroundPalette(small);
+        if (palette is null)
+        {
+            result.Dispose();
+            return null;
+        }
+        for (var y = 0; y < result.Height; y++)
+        {
+            for (var x = 0; x < result.Width; x++)
+            {
+                if (BackgroundDistance(result.GetPixel(x, y), palette) <= SubjectDistance)
+                    result.SetPixel(x, y, SKColors.Transparent);
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -226,6 +362,7 @@ public static class ImageSignature
     /// </summary>
     public static double Score(IReadOnlyList<Signature> queries, Stored candidate)
     {
+        // (ثابت‌ها: ShapeFloor و ColorOnlyCap پایین همین کلاس.)
         double best = 0;
         foreach (var query in queries)
         {
@@ -235,12 +372,24 @@ public static class ImageSignature
                 var shapeD = Math.Clamp(1 - Hamming(query.Hash, dHash) / 40.0, 0, 1);
                 var shapeP = Math.Clamp(1 - Hamming(query.PHash, pHash) / 40.0, 0, 1);
                 var score = 0.65 * (0.6 * shapeP + 0.4 * shapeD) + 0.35 * color;
+                // دور ۲۹ (#۱): شکل کاملاً متفاوت (یکی از دو هش در حد تصادفی) ← فقط هم‌رنگ است، نه همان کالا؛ هرگز نشان داده نمی‌شود.
+                // (امضای قدیمی بدون pHash فقط با dHash سنجیده می‌شود.)
+                if ((pHash == 0 ? shapeD : Math.Min(shapeD, shapeP)) < ShapeFloor)
+                    score = Math.Min(score, ColorOnlyCap);
                 if (score > best)
                     best = score;
             }
         }
         return best;
     }
+
+    /// <summary>
+    /// دور ۲۹ (#۱): کمترین شباهت هر هش شکل (۰٫۲۵ = فاصلهٔ ۳۰ بیت از ۶۴؛ دو عکس بی‌ربط معمولاً حدود ۳۲ بیت فاصله دارند).
+    /// </summary>
+    public const double ShapeFloor = 0.25;
+
+    /// <summary>دور ۲۹ (#۱): سقف امتیاز عکسی که فقط رنگش شبیه است (کمتر از حد «شاید» ۰٫۴۷ ← نشان داده نمی‌شود).</summary>
+    public const double ColorOnlyCap = 0.44;
 
     /// <summary>
     /// دور ۲۶: بسته‌بندی جفت هش‌های چند عکس در یک آرایهٔ بایت (هر عکس ۱۶ بایت؛ حداکثر <see cref="MaxShapes"/> عکس) برای ستون Hashes.

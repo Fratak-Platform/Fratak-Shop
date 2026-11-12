@@ -97,7 +97,9 @@ public static class CommerceEndpoints
                 data = buffer.ToArray();
             }
 
-            var result = await images.SearchAsync(data, http.RequestAborted);
+            // دور ۲۹ (#۱): متن کادر جست‌وجو (اختیاری) برای دقیق‌تر کردن نتیجه؛ حداکثر ۶۰ نویسه.
+            var hint = form["q"].ToString().Trim();
+            var result = await images.SearchAsync(data, hint.Length > 60 ? hint[..60] : hint, http.RequestAborted);
             if (result.Busy)
                 return Results.Json(new { error = "سرور الان شلوغ است؛ چند ثانیه بعد دوباره امتحان کنید." }, statusCode: StatusCodes.Status503ServiceUnavailable);
             if (result.Invalid)

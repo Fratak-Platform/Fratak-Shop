@@ -415,7 +415,13 @@
     }
   }
 
-  function pickImage() {
+  /** دور ۲۹ (#۱): متن کادر جست‌وجوی همان فرم (اگر مشتری چیزی نوشته) برای دقیق‌تر کردن نتیجه؛ حداکثر ۶۰ نویسه. */
+  function searchHint(button) {
+    const box = button && button.closest("form") ? button.closest("form").querySelector("input[name=q]") : null;
+    return box ? String(box.value || "").trim().slice(0, 60) : "";
+  }
+
+  function pickImage(hint) {
     const input = el("input");
     input.type = "file";
     input.accept = "image/*";
@@ -423,13 +429,13 @@
     input.addEventListener("change", () => {
       const file = input.files && input.files[0];
       input.remove();
-      if (file) imageSearch(file);
+      if (file) imageSearch(file, hint || "");
     });
     document.body.appendChild(input);
     input.click();
   }
 
-  async function imageSearch(file) {
+  async function imageSearch(file, hint) {
     const d = dialog("جست‌وجو با عکس");
     const small = await shrink(file);
     const upload = small || file;
@@ -449,6 +455,7 @@
 
     const form = new FormData();
     form.append("image", upload, small ? "photo.jpg" : file.name || "image");
+    if (hint) form.append("q", hint);
     const r = await send("/api/search/image", form);
     if (r.status !== 200 || !r.data) {
       status.className = "fc-error";
@@ -462,9 +469,9 @@
       status.textContent = "کالای شبیهی پیدا نشد. می‌توانید نام کالا را جست‌وجو کنید یا از دستیار فروشگاه بپرسید.";
       return;
     }
-    status.textContent = r.data.approximate
+    status.textContent = (r.data.approximate
       ? "کالای دقیقاً مشابهی پیدا نشد؛ شاید یکی از این‌ها همان باشد که می‌خواهید:"
-      : "این کالاها بیشترین شباهت را به عکس شما دارند:";
+      : "این کالاها بیشترین شباهت را به عکس شما دارند:") + (hint ? " (با توجه به «" + hint + "»)" : "");
     const grid = el("div", "fc-grid");
     products.forEach((p) => {
       const a = el("a", "fc-card");
@@ -662,7 +669,7 @@
     if (!target) return;
     if (target.hasAttribute("data-quick-view")) { e.preventDefault(); quickView(target.getAttribute("data-quick-view"), target); }
     else if (target.hasAttribute("data-compare-add")) { e.preventDefault(); compareAdd(target.getAttribute("data-compare-add"), target); }
-    else if (target.hasAttribute("data-image-search")) { e.preventDefault(); pickImage(); }
+    else if (target.hasAttribute("data-image-search")) { e.preventDefault(); pickImage(searchHint(target)); }
     else if (target.hasAttribute("data-price-match")) { e.preventDefault(); priceMatch(target); }
   });
 

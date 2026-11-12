@@ -68,38 +68,121 @@ public sealed class ImageSearchService(
 
 
     /// <summary>جست‌وجوی کالاهای شبیه به عکس (بایت‌های فایل).</summary>
-    public async Task<ImageSearchResult> SearchAsync(byte[] data, CancellationToken cancellationToken)
+    public Task<ImageSearchResult> SearchAsync(byte[] data, CancellationToken cancellationToken) => SearchAsync(data, null, cancellationToken);
+
+    /// <summary>
+    /// دور ۲۹ (#۱) – جست‌وجوی دقیق‌تر با عکس:
+    /// <list type="number">
+    /// <item>نسخه‌های عکس مشتری (بدون حاشیه، کل قاب، وسط، و تازه: «سوژهٔ جداشده» بدون زمینهٔ شلوغ) با همهٔ عکس‌های هر کالا مقایسه می‌شوند.</item>
+    /// <item>عکسی که فقط هم‌رنگ است ولی شکلش فرق دارد دیگر نتیجه نمی‌شود (<see cref="ImageSignature.ShapeFloor"/>).</item>
+    /// <item><paramref name="hint"/> (متنی که مشتری در کادر جست‌وجو نوشته، اختیاری): کالایی که نامش آن واژه را دارد امتیاز بیشتری می‌گیرد.</item>
+    /// <item>هم‌خوانی دسته: وقتی بهترین نتیجه مطمئن است، کالای دستهٔ دیگر فقط اگر تقریباً هم‌امتیاز باشد می‌آید.</item>
+    /// </list>
+    /// </summary>
+    public async Task<ImageSearchResult> SearchAsync(byte[] data, string? hint, CancellationToken cancellationToken)
     {
         if (!await Gate.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken))
             return new ImageSearchResult([], Busy: true);
         try
         {
-            // دور ۲۶: چند نسخه از عکس مشتری (بدون حاشیه، کل قاب، وسط) و مقایسه با همهٔ عکس‌های هر کالا.
             var variants = ImageSignature.ComputeVariants(data);
             if (variants.Count == 0)
                 return new ImageSearchResult([], Invalid: true);
 
             var entries = await LoadAsync(cancellationToken);
-            var ids = Rank(variants, entries);
-            var approximate = false;
-            if (ids.Count == 0)
-            {
-                // دور ۲۸: نتیجهٔ دقیق نبود ← شبیه‌ترین‌ها با برچسب «شاید» (نه صفحهٔ خالی).
-                ids = RankApproximate(variants, entries);
-                approximate = ids.Count > 0;
-            }
-            if (ids.Count == 0)
+            var scored = entries
+                .Select(e => (e.ProductId, Score: ImageSignature.Score(variants, e)))
+                .Where(x => x.Score >= CandidateFloor)
+                .OrderByDescending(x => x.Score).ThenBy(x => x.ProductId)
+                .Take(MaxCandidates)
+                .ToList();
+            if (scored.Count == 0)
                 return new ImageSearchResult([]);
-            var cards = await products.GetCardsByIdsAsync(ids);
-            // ترتیب امتیاز حفظ شود (GetCardsByIdsAsync ترتیب خودش را دارد).
-            var order = ids.Select((id, index) => (id, index)).ToDictionary(x => x.id, x => x.index);
-            var sorted = cards.OrderBy(c => order.GetValueOrDefault(c.Id, int.MaxValue)).ToList();
-            return new ImageSearchResult(sorted, Approximate: approximate);
+            // کارت‌ها (نام و دسته) فقط برای همین چند نامزد – یک پرس‌وجو.
+            var cards = await products.GetCardsByIdsAsync(scored.Select(x => x.ProductId));
+            var byId = cards.GroupBy(c => c.Id).ToDictionary(g => g.Key, g => g.First());
+            var candidates = scored.Where(x => byId.ContainsKey(x.ProductId))
+                .Select(x => new ImageCandidate(x.ProductId, x.Score, byId[x.ProductId].CategoryId, byId[x.ProductId].Name + " " + byId[x.ProductId].EnglishName))
+                .ToList();
+            var (ids, approximate) = Decide(candidates, HintTokens(hint));
+            return new ImageSearchResult(ids.Select(id => byId[id]).ToList(), Approximate: approximate);
         }
         finally
         {
             Gate.Release();
         }
+    }
+
+    /// <summary>دور ۲۹: یک نامزد امتیازدار برای تصمیم نهایی (خالص و آزمون‌پذیر).</summary>
+    public sealed record ImageCandidate(Guid ProductId, double Score, Guid CategoryId, string Name);
+
+    /// <summary>دور ۲۹: امتیاز اضافهٔ کالایی که نامش واژهٔ متن مشتری را دارد.</summary>
+    public const double HintBoost = 0.12;
+
+    /// <summary>دور ۲۹: کمترین امتیاز تصویری برای بررسی (با امتیاز متن هم به حد «شاید» نمی‌رسد اگر کمتر باشد).</summary>
+    public const double CandidateFloor = ApproximateScore - HintBoost;
+
+    /// <summary>دور ۲۹: بیشترین نامزد بررسی‌شده (کارت‌هایشان با یک پرس‌وجو خوانده می‌شود).</summary>
+    public const int MaxCandidates = 30;
+
+    /// <summary>دور ۲۹: وقتی بهترین نتیجه دست‌کم این‌قدر از حد اصلی بالاتر است، کالای دستهٔ دیگر باید حداکثر <see cref="CrossCategoryGap"/> ضعیف‌تر باشد.</summary>
+    public const double ConfidentMargin = 0.1;
+
+    /// <summary>دور ۲۹: بیشترین فاصلهٔ امتیاز کالای دستهٔ دیگر از بهترین نتیجهٔ مطمئن.</summary>
+    public const double CrossCategoryGap = 0.08;
+
+    /// <summary>
+    /// دور ۲۹ (#۱) – تصمیم نهایی (خالص): امتیاز متن ← حد اصلی (همان عکس؛ هم‌خوانی دسته) ← اگر هیچ، «شاید»ها.
+    /// مثال: عکس قوری با متن «قوری» ← قوری‌ها اول؛ بهترین نتیجه «قوری» با ۰٫۸ ← لیوانِ دستهٔ دیگر با ۰٫۶ کنار می‌رود.
+    /// </summary>
+    public static (List<Guid> Ids, bool Approximate) Decide(IReadOnlyList<ImageCandidate> candidates, IReadOnlyList<string> hintTokens)
+    {
+        var list = candidates
+            .Select(c => hintTokens.Count > 0 && HintMatches(c.Name, hintTokens) ? c with { Score = c.Score + HintBoost } : c)
+            .OrderByDescending(c => c.Score).ThenBy(c => c.ProductId)
+            .ToList();
+        var main = list.Where(c => c.Score >= MinScore).ToList();
+        if (main.Count > 0)
+        {
+            var best = main[0];
+            if (best.Score >= ExactScore)
+                main = main.Where(c => c.Score >= best.Score - 0.2).ToList();
+            if (best.Score >= MinScore + ConfidentMargin)
+                main = main.Where(c => c.CategoryId == best.CategoryId || c.Score >= best.Score - CrossCategoryGap).ToList();
+            return (main.Take(MaxResults).Select(c => c.ProductId).ToList(), false);
+        }
+        var approximate = list.Where(c => c.Score >= ApproximateScore).Take(MaxApproximate).Select(c => c.ProductId).ToList();
+        return (approximate, approximate.Count > 0);
+    }
+
+    /// <summary>واژه‌هایی از متن مشتری که چیزی دربارهٔ «کدام کالا» نمی‌گویند.</summary>
+    private static readonly HashSet<string> HintStopWords = new(StringComparer.Ordinal)
+    {
+        "خرید", "قیمت", "ارزان", "اصل", "و", "با", "برای", "مدل", "جدید", "عکس", "این", "همین", "شبیه", "مثل",
+    };
+
+    /// <summary>
+    /// واژه‌های متن مشتری (نرمال‌شده، حداقل ۲ نویسه، بدون واژه‌های عمومی، حداکثر ۶). مثال: «خرید قوری چینی» ← [قوری، چینی].
+    /// </summary>
+    public static List<string> HintTokens(string? hint)
+    {
+        if (string.IsNullOrWhiteSpace(hint))
+            return [];
+        var text = Fratak_Shop.Core.Services.Seo.Engine.PersianText.Normalize(hint.Length > 60 ? hint[..60] : hint);
+        return text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(t => t.Length >= 2 && !HintStopWords.Contains(t))
+            .Distinct(StringComparer.Ordinal)
+            .Take(6)
+            .ToList();
+    }
+
+    /// <summary>آیا نام کالا (نرمال‌شده) یکی از واژه‌ها را دارد؟ مثال: («قوری چینی گل‌دار»، [قوری]) ← true.</summary>
+    public static bool HintMatches(string? name, IReadOnlyList<string> tokens)
+    {
+        if (tokens.Count == 0 || string.IsNullOrWhiteSpace(name))
+            return false;
+        var normalized = Fratak_Shop.Core.Services.Seo.Engine.PersianText.Normalize(name);
+        return tokens.Any(t => normalized.Contains(t, StringComparison.Ordinal));
     }
 
     /// <summary>

@@ -1,9 +1,11 @@
 using Fratak_Shop.Core.Services.Design;
 using Fratak_Shop.Core.Services.Smart;
 using Fratak_Shop.Web.Areas.Admin.Pages.Content;
+using Fratak_Shop.Web.Infrastructure.Commerce;
 using Fratak_Shop.Web.Infrastructure.Marketing;
 using Fratak_Shop.Web.Infrastructure.PageCache;
 using Fratak_Shop.Web.Infrastructure.Smart;
+using SkiaSharp;
 
 namespace Fratak_Shop.Tests.Unit;
 
@@ -352,5 +354,134 @@ public class Round29MoreRulesTests
         Assert.Equal(1, DiscountBoundaryWatcher.RotationWindow(at(7), 6));
         // صفر/منفی ← هر ساعت.
         Assert.Equal(7, DiscountBoundaryWatcher.RotationWindow(at(7), 0));
+    }
+    // ───────────── #۱ جست‌وجوی دقیق‌تر با عکس ─────────────
+
+    private static ImageSearchService.ImageCandidate Cand(double score, Guid category, string name) => new(Guid.NewGuid(), score, category, name);
+
+    [Fact]
+    public void ImageDecide_HintLiftsMatchingNames()
+    {
+        var cat = Guid.NewGuid();
+        var teapot = Cand(0.50, cat, "قوری چینی گل دار");
+        var mug = Cand(0.52, cat, "ماگ سرامیکی");
+        // بدون متن: هر دو زیر حد اصلی ← «شاید»، ماگ اول.
+        var (plain, approx) = ImageSearchService.Decide([teapot, mug], []);
+        Assert.True(approx);
+        Assert.Equal(mug.ProductId, plain[0]);
+        // با متن «قوری»: قوری از حد اصلی می‌گذرد و اول می‌آید.
+        var (hinted, approx2) = ImageSearchService.Decide([teapot, mug], ImageSearchService.HintTokens("خرید قوری"));
+        Assert.False(approx2);
+        Assert.Equal(teapot.ProductId, Assert.Single(hinted));
+    }
+
+    [Fact]
+    public void ImageDecide_ConfidentBestDropsOtherCategories()
+    {
+        Guid kitchen = Guid.NewGuid(), toys = Guid.NewGuid();
+        var best = Cand(0.80, kitchen, "قوری");
+        var sameCategory = Cand(0.60, kitchen, "کتری");
+        var otherCategory = Cand(0.62, toys, "عروسک");
+        var closeOther = Cand(0.75, toys, "اسباب بازی");
+        var (ids, approx) = ImageSearchService.Decide([best, sameCategory, otherCategory, closeOther], []);
+        Assert.False(approx);
+        Assert.Equal(best.ProductId, ids[0]);
+        Assert.Contains(sameCategory.ProductId, ids);
+        Assert.Contains(closeOther.ProductId, ids);
+        Assert.DoesNotContain(otherCategory.ProductId, ids);
+    }
+
+    [Fact]
+    public void ImageDecide_NothingRelevant_IsEmpty()
+    {
+        var (ids, approx) = ImageSearchService.Decide([Cand(0.40, Guid.NewGuid(), "x")], []);
+        Assert.Empty(ids);
+        Assert.False(approx);
+        Assert.Empty(ImageSearchService.Decide([], ImageSearchService.HintTokens("قوری")).Ids);
+    }
+
+    [Theory]
+    [InlineData("خرید قوری چینی", 2)]
+    [InlineData("  ", 0)]
+    [InlineData(null, 0)]
+    [InlineData("قیمت و خرید", 0)]
+    public void HintTokens_DropGenericWords(string? hint, int expected)
+    {
+        Assert.Equal(expected, ImageSearchService.HintTokens(hint).Count);
+    }
+
+    [Fact]
+    public void HintMatches_IsNormalized()
+    {
+        Assert.True(ImageSearchService.HintMatches("قوري چيني", ImageSearchService.HintTokens("قوری")));
+        Assert.False(ImageSearchService.HintMatches("ماگ", ImageSearchService.HintTokens("قوری")));
+        Assert.False(ImageSearchService.HintMatches(null, ImageSearchService.HintTokens("قوری")));
+    }
+
+    [Fact]
+    public void ImageScore_ColorOnlyMatch_IsCapped()
+    {
+        var colors = Enumerable.Repeat((byte)30, ImageSignature.Bins).ToArray();
+        var query = new ImageSignature.Signature(0L, colors, 0x00FF00FF00FF00FFL);
+        // همان رنگ و همان pHash، ولی dHash کاملاً برعکس ← بدون سقف ۰٫۷۴ می‌شد؛ حالا «فقط هم‌رنگ» حساب می‌شود.
+        var stored = new ImageSignature.Stored(Guid.NewGuid(), new[] { (-1L, 0x00FF00FF00FF00FFL) }, colors);
+        Assert.True(ImageSignature.Score(new[] { query }, stored) <= ImageSignature.ColorOnlyCap);
+        var same = stored with { Shapes = new[] { (0L, 0x00FF00FF00FF00FFL) } };
+        Assert.True(ImageSignature.Score(new[] { query }, same) > 0.95);
+    }
+
+    /// <summary>عکس آزمایشی: مربع رنگی وسط زمینهٔ یکدست (مثل کالا روی میز).</summary>
+    private static SKBitmap Scene(SKColor background, SKColor subject, int size = 200)
+    {
+        var bitmap = new SKBitmap(new SKImageInfo(size, size, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        for (var y = 0; y < size; y++)
+            for (var x = 0; x < size; x++)
+                bitmap.SetPixel(x, y, x >= size * 0.35 && x < size * 0.65 && y >= size * 0.3 && y < size * 0.7 ? subject : background);
+        return bitmap;
+    }
+
+    [Fact]
+    public void SubjectBox_FindsTheObjectOnAPlainTable()
+    {
+        using var scene = Scene(new SKColor(150, 110, 70), new SKColor(20, 60, 200));
+        var box = ImageSignature.SubjectBox(scene);
+        Assert.NotNull(box);
+        Assert.InRange(box.Value.Left, 50, 75);
+        Assert.InRange(box.Value.Right, 125, 150);
+        Assert.InRange(box.Value.Top, 40, 65);
+        Assert.InRange(box.Value.Bottom, 135, 160);
+
+        using var isolated = ImageSignature.Isolate(scene);
+        Assert.NotNull(isolated);
+        // گوشهٔ برش (زمینه) شفاف شده و وسط (کالا) مانده است.
+        Assert.Equal(0, isolated.GetPixel(0, 0).Alpha);
+        Assert.Equal(255, isolated.GetPixel(isolated.Width / 2, isolated.Height / 2).Alpha);
+    }
+
+    [Fact]
+    public void SubjectBox_PlainImage_HasNoSubject()
+    {
+        using var plain = Scene(new SKColor(150, 110, 70), new SKColor(150, 110, 70));
+        Assert.Null(ImageSignature.SubjectBox(plain));
+        Assert.Null(ImageSignature.Isolate(plain));
+        using var tiny = new SKBitmap(8, 8);
+        Assert.Null(ImageSignature.SubjectBox(tiny));
+    }
+
+    [Fact]
+    public void Variants_IncludeIsolatedSubject_ForClutteredPhotos()
+    {
+        using var scene = Scene(new SKColor(150, 110, 70), new SKColor(20, 60, 200));
+        using var image = SKImage.FromBitmap(scene);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        var variants = ImageSignature.ComputeVariants(data.ToArray());
+        Assert.True(variants.Count >= 3, $"variants={variants.Count}");
+
+        // همان کالا روی زمینهٔ سفید (عکس کاتالوگ) با نسخهٔ «سوژهٔ جداشده» بهتر جور می‌شود تا با کل قاب.
+        using var catalog = Scene(SKColors.White, new SKColor(20, 60, 200));
+        var stored = ImageSignature.Compute(catalog)!;
+        var candidate = new ImageSignature.Stored(Guid.NewGuid(), new[] { (stored.Hash, stored.PHash) }, stored.Colors);
+        Assert.True(ImageSignature.Score(variants, candidate) >= ImageSearchService.MinScore,
+            $"score={ImageSignature.Score(variants, candidate)}");
     }
 }
