@@ -2731,6 +2731,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("bit");
+
                     b.Property<string>("LinkUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -3386,6 +3389,9 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<bool>("UserDeletable")
+                        .HasColumnType("bit");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3413,6 +3419,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("HiddenAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<bool>("IsDeleted")

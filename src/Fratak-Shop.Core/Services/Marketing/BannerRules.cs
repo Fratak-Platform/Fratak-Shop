@@ -137,6 +137,40 @@ public static class BannerRules
         return others[Math.Clamp(index, 0, others.Count - 1)];
     }
 
+    /// <summary>
+    /// دور ۲۹ (#۱۶) – سقف و چرخش نوبتی بنرهای یک جایگاه.
+    /// <list type="bullet">
+    /// <item>سنجاق‌شده‌ها همیشه اول و همیشه دیده می‌شوند (اگر بیشتر از سقف باشند، به ترتیب نمایش تا سقف).</item>
+    /// <item>جای خالی باقی‌مانده با بقیهٔ بنرها به نوبت پر می‌شود: هر <paramref name="rotateHours"/> ساعت یک «پنجره»؛
+    /// در هر پنجره گروه بعدی (چرخشی) نمایش داده می‌شود ← همهٔ بنرها به‌مرور دیده می‌شوند.</item>
+    /// <item>قطعی (بدون عدد تصادفی): در یک پنجره همهٔ بازدیدکننده‌ها همان بنرها را می‌بینند ← کش صفحه درست کار می‌کند.</item>
+    /// </list>
+    /// مثال: سقف ۲، بنرهای [A، B، C] بدون سنجاق، پنجرهٔ ۶ ساعته ← ساعت ۰ تا ۶: A، B؛ ۶ تا ۱۲: C، A؛ ۱۲ تا ۱۸: B، C.
+    /// </summary>
+    public static List<BannerDto> Slots(IReadOnlyList<BannerDto> banners, int max, int rotateHours, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(banners);
+        if (max <= 0 || banners.Count == 0)
+            return [];
+        if (banners.Count <= max)
+            return banners.ToList();
+
+        var pinned = banners.Where(b => b.IsPinned).Take(max).ToList();
+        var free = max - pinned.Count;
+        var rest = banners.Where(b => !b.IsPinned).ToList();
+        if (free <= 0 || rest.Count == 0)
+            return pinned;
+
+        var window = now.ToUnixTimeSeconds() / 3600 / Math.Max(1, rotateHours);
+        var start = (int)(window * free % rest.Count);
+        var chosen = new HashSet<Guid>();
+        for (var k = 0; k < free && k < rest.Count; k++)
+            chosen.Add(rest[(start + k) % rest.Count].Id);
+
+        // ترتیب نمایش اصلی حفظ می‌شود (سنجاق‌شده‌ها اول، بقیه به ترتیب DisplayOrder).
+        return pinned.Concat(rest.Where(b => chosen.Contains(b.Id))).ToList();
+    }
+
     /// <summary>روز سوگواری: فقط بنرهای گروه «mourning» و سربرگ دسته‌ها.</summary>
     public static List<BannerDto> ForMourning(IEnumerable<BannerDto> banners) =>
         banners.Where(b => b.Position == BannerPosition.CategoryHeader

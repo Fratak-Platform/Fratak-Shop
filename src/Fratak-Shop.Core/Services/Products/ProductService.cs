@@ -23,7 +23,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
             return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
 
         // دور ۱۹ (C27): محافظ سود – قیمت فروش/تخفیف کمتر از قیمت خرید ذخیره نمی‌شود (قابل خاموش کردن در تنظیمات هوشمند).
-        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss && await Smart.ProfitGuard.IsEnabledAsync(context))
+        // دور ۲۹ (#۱۳): تخفیف زیان‌ده/سر‌به‌سر همیشه رد می‌شود؛ خاموش کردن محافظ فقط قیمت پایهٔ زیر خرید را آزاد می‌کند.
+        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss
+            && (Smart.ProfitGuard.IsDiscountLoss(command.Price, command.DiscountPrice, command.PurchasePrice) || await Smart.ProfitGuard.IsEnabledAsync(context)))
             return OperationResult.Error(loss);
 
         var category = await context.Categories.Where(x => x.Id == command.CategoryId).Select(x => new { x.IsSystem }).FirstOrDefaultAsync();
@@ -116,7 +118,9 @@ public class ProductService(FratakShopDbContext context) : IProductService
             return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
 
         // دور ۱۹ (C27): محافظ سود – قیمت فروش/تخفیف کمتر از قیمت خرید ذخیره نمی‌شود (قابل خاموش کردن در تنظیمات هوشمند).
-        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss && await Smart.ProfitGuard.IsEnabledAsync(context))
+        // دور ۲۹ (#۱۳): تخفیف زیان‌ده/سر‌به‌سر همیشه رد می‌شود؛ خاموش کردن محافظ فقط قیمت پایهٔ زیر خرید را آزاد می‌کند.
+        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss
+            && (Smart.ProfitGuard.IsDiscountLoss(command.Price, command.DiscountPrice, command.PurchasePrice) || await Smart.ProfitGuard.IsEnabledAsync(context)))
             return OperationResult.Error(loss);
 
         var category = await context.Categories.Where(x => x.Id == command.CategoryId).Select(x => new { x.IsSystem }).FirstOrDefaultAsync();

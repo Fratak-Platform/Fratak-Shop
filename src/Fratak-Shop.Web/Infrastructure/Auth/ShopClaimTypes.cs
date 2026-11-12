@@ -8,6 +8,9 @@ public static class ShopClaimTypes
     public const string Phone = "phone_number";
     public const string Role = "role";
 
+    /// <summary>دور ۲۹: خطاب مناسب نسل («محمد عزیز»، «ناظری گرامی») که هنگام صدور توکن از نام و تاریخ تولد ساخته می‌شود.</summary>
+    public const string Greeting = "greet";
+
     /// <summary>Security stamp of the user when the token was issued.</summary>
     public const string SecurityStamp = "sst";
 

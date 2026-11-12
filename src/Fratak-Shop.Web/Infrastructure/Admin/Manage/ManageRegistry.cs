@@ -219,11 +219,7 @@ public static class ManageRegistry
                 new("ImageName", "تصویر دسکتاپ", MKind.Image)
                 {
                     Required = true, InList = true, Area = UploadArea.Banners,
-                    Help = "اندازه‌ها (مثل دیجی‌کالا): اسلایدر ۱۹۲۰×۴۸۰، بنر عریض ۱۹۲۰×۳۲۰، بنر دوتایی ۹۶۰×۴۰۰، سربرگ دسته ۱۹۲۰×۳۰۰",
-                },
-                new("MobileImageName", "تصویر موبایل", MKind.Image)
-                {
-                    Area = UploadArea.Banners, Help = "اسلایدر ۱۰۸۰×۵۴۰، بنر عریض و سربرگ دسته ۱۰۸۰×۳۶۰؛ خالی ← همان تصویر دسکتاپ",
+                    Help = "یک تصویر برای همهٔ دستگاه‌ها (در موبایل خودکار بهتر چیده می‌شود): اسلایدر ۱۹۲۰×۴۲۰، بنر عریض ۱۹۲۰×۳۰۰، بنر دوتایی ۹۶۰×۳۲۰، سربرگ دسته ۱۹۲۰×۳۰۰",
                 },
                 new("Title", "عنوان", MKind.Text) { InList = true },
                 new("Subtitle", "زیرعنوان", MKind.Text),
@@ -240,6 +236,10 @@ public static class ManageRegistry
                 {
                     Ltr = true, Placeholder = "yalda-1405",
                     Help = "چند بنر هم‌جایگاه با یک گروه به نوبت نمایش داده می‌شوند و پرکلیک‌تر بیشتر دیده می‌شود؛ «mourning» = بنر روزهای سوگواری",
+                },
+                new("IsPinned", "سنجاق (همیشه نمایش، بیرون از چرخش)", MKind.Bool)
+                {
+                    InList = true, Help = "اگر بنرهای فعال یک جایگاه از سقف بیشتر باشند، بقیه به نوبت نمایش داده می‌شوند؛ بنر سنجاق‌شده همیشه می‌ماند. سقف هر جایگاه: پنل ← محتوای هوشمند ← تنظیمات.",
                 },
                 new("Views", "نمایش", MKind.ReadOnly) { InList = true },
                 new("Clicks", "کلیک", MKind.ReadOnly) { InList = true },

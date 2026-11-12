@@ -18,10 +18,20 @@ public static class ProfitGuard
         if (purchasePrice is not > 0 || price <= 0)
             return null;
         var lowest = discountPrice is > 0 && discountPrice < price ? discountPrice.Value : price;
-        return lowest < purchasePrice.Value
-            ? $"زیان: کمترین قیمت فروش ({lowest:N0} تومان) کمتر از قیمت خرید ({purchasePrice.Value:N0} تومان) است. اگر حراج عمدی است، «محافظ سود» را در تنظیمات محتوای هوشمند خاموش کنید."
+        if (lowest < purchasePrice.Value)
+            return $"زیان: کمترین قیمت فروش ({lowest:N0} تومان) کمتر از قیمت خرید ({purchasePrice.Value:N0} تومان) است. اگر حراج عمدی است، «محافظ سود» را در تنظیمات محتوای هوشمند خاموش کنید.";
+        // دور ۲۹ (#۱۳): «سر‌به‌سر» هم سود ندارد ← مثل زیان رد می‌شود. مثال: خرید ۱۲۰ هزار و تخفیف ۱۲۰ هزار ← رد.
+        return lowest == purchasePrice.Value
+            ? $"زیان یا بدون سود: کمترین قیمت فروش ({lowest:N0} تومان) با قیمت خرید برابر است؛ قیمت فروش باید بیشتر از قیمت خرید باشد."
             : null;
     }
+
+    /// <summary>
+    /// دور ۲۹ (#۱۳ – «همیشه سود»): آیا زیان از «تخفیف» می‌آید؟ تخفیفِ زیان‌ده یا سر‌به‌سر همیشه رد می‌شود، حتی اگر «محافظ سود» خاموش باشد
+    /// (خاموش کردن محافظ فقط برای قیمت پایهٔ حراج عمدی است). مثال: قیمت ۲۰۰، تخفیف ۱۵۰، خرید ۱۵۰ ← true؛ قیمت ۹۰ بدون تخفیف، خرید ۱۲۰ ← false.
+    /// </summary>
+    public static bool IsDiscountLoss(decimal price, decimal? discountPrice, decimal? purchasePrice) =>
+        purchasePrice is > 0 && price > purchasePrice && discountPrice is > 0 && discountPrice < price && discountPrice <= purchasePrice;
 
     /// <summary>روشن بودن محافظ (پیش‌فرض روشن؛ بدون ردیف تنظیمات هم روشن).</summary>
     public static async Task<bool> IsEnabledAsync(FratakShopDbContext context, CancellationToken cancellationToken = default)

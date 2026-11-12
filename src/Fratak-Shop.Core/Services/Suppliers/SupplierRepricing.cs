@@ -143,8 +143,8 @@ public static class SupplierRepricing
         if (newDiscount is { } disc)
         {
             disc = RoundUp(Math.Max(disc, floor), policy.Rounding);
-            // قانون ۳: تخفیف باید از قیمت اصلی کمتر باشد.
-            newDiscount = disc < newPrice ? disc : null;
+            // قانون ۳: تخفیف باید از قیمت اصلی کمتر باشد. دور ۲۹ (#۱۳): و همیشه بیشتر از قیمت خرید (تخفیف سر‌به‌سر/زیان‌ده ← حذف تخفیف).
+            newDiscount = disc < newPrice && disc > newCost ? disc : null;
         }
 
         var changed = newPrice != price || newDiscount != discountPrice;

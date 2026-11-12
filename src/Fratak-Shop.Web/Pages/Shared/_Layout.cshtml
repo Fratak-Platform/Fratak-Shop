@@ -55,6 +55,8 @@
     @* The header (with the announcement bar) is fixed: keep the page content below it. *@
     <div class="@Site.Announcement.HeightClass" data-ann-spacer aria-hidden="true"></div>
   }
+  @* دور ۲۹ (#۳): جای ردیف جست‌وجوی موبایل بالای صفحه (هدر ثابت است؛ فقط زیر ۷۶۸ پیکسل ارتفاع دارد). *@
+  <div class="fs-msearch-spacer" aria-hidden="true"></div>
   <partial name="_StatusMessage" />
   @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Top })
   <span id="fs-main" tabindex="-1" class="fs-main-anchor"></span>

@@ -160,9 +160,13 @@
             <label class="a-check"><input type="checkbox" name="Form.ScaleDiscount" value="true" checked="@f.ScaleDiscount"> حراج فعلی هم به همان نسبت تغییر کند</label>
             <input type="hidden" name="Form.ScaleDiscount" value="false">
           </div>
+          @* دور ۲۹ (#۱۳): قیمت فروش/حراجی که به زیان یا سر‌به‌سر برسد «همیشه» رد می‌شود؛ تیک فقط برای تغییر «قیمت خرید» معنا دارد. *@
+          <div class="a-alert a-alert-info text-sm" data-show-when="#bp-target=0|1">
+            محافظ سود همیشه روشن است: کالایی که با قیمت یا تخفیف تازه به قیمت خرید برسد یا کمتر شود (زیان یا بدون سود) تغییر نمی‌کند و در پیش‌نمایش با دلیل نشان داده می‌شود.
+          </div>
           @if (cost)
           {
-            <label class="a-check"><input type="checkbox" name="Form.SkipLoss" value="true" checked="@f.SkipLoss"> محصولاتی که با قیمت تازه زیان می‌دهند (کمتر از قیمت خرید) تغییر نکنند</label>
+            <label class="a-check" data-show-when="#bp-target=2"><input type="checkbox" name="Form.SkipLoss" value="true" checked="@f.SkipLoss"> اگر قیمت خرید تازه از قیمت فروش بیشتر یا برابر شد، آن کالا تغییر نکند</label>
           }
           else
           {

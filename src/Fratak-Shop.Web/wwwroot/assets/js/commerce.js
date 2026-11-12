@@ -666,6 +666,17 @@
     else if (target.hasAttribute("data-price-match")) { e.preventDefault(); priceMatch(target); }
   });
 
+  // دور ۲۹ (#۳): دکمهٔ «جست‌وجو» نوار پایین موبایل ← رفتن به بالای صفحه و فوکوس روی کادر جست‌وجوی بالا (بدون باز شدن صفحهٔ دیگر).
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest("[data-focus-search]");
+    if (!link) return;
+    const input = document.querySelector("[data-msearch-input]");
+    if (!input || input.offsetParent === null) return; // دسکتاپ یا کادر پنهان ← همان صفحهٔ /search
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    input.focus({ preventScroll: true });
+  });
+
   function init() {
     trackSearchClicks();
     setupVoice();

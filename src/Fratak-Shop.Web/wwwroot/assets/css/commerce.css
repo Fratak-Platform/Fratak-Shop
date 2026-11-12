@@ -362,3 +362,88 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible, input:focu
 
 /* دور ۲۸ (#۱۳۱): output.css پیش‌ساخته است؛ پنهان شدن نوار پایین در دسکتاپ را مستقل از ترتیب بارگذاری تضمین می‌کنیم. */
 @media (min-width: 768px) { .fs-bnav { display: none !important; } }
+
+/* ── دور ۲۹ (#۲۰/#۲۵/#۲۶): ستون حساب کاربری ─────────────────────
+   دسکتاپ: کارت سفید با گروه‌های عنوان‌دار. موبایل: همان ردیف‌ها به شکل «تراشه»های افقی قابل اسکرول
+   تا محتوای صفحه زیر یک فهرست بلند گم نشود. */
+.fs-pside { background: #fff; border-radius: 1rem; box-shadow: 0 10px 30px -12px rgba(15,23,42,.18); padding: 1rem; }
+.fs-pside-head { display: flex; align-items: center; gap: .75rem; padding: .25rem .25rem 1rem; border-bottom: 1px solid #f1f5f9; margin-bottom: .5rem; }
+.fs-pside-avatar { flex: none; width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 1.25rem;
+  color: #fff; background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+.fs-pside-greet { font-weight: 700; color: #27272a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-pside-phone { font-size: .75rem; color: #a1a1aa; text-align: end; }
+.fs-pside-group { padding: .35rem 0; }
+.fs-pside-group + .fs-pside-group { border-top: 1px dashed #f1f5f9; }
+.fs-pside-title { font-size: .7rem; font-weight: 700; color: #a1a1aa; padding: .25rem .6rem; letter-spacing: 0; }
+.fs-pside ul { list-style: none; margin: 0; padding: 0; }
+.fs-pside-link { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .55rem .6rem; border-radius: .7rem; color: #3f3f46; font-size: .9rem;
+  background: none; border: 0; text-align: start; transition: background-color .15s ease, color .15s ease; }
+.fs-pside-link svg { flex: none; fill: #71717a; transition: fill .15s ease; }
+.fs-pside-link:hover { background: #f0f9ff; color: #0284c7; }
+.fs-pside-link:hover svg, .fs-pside-link.is-active svg { fill: #0284c7; }
+.fs-pside-link.is-active { background: #e0f2fe; color: #0369a1; font-weight: 700; box-shadow: inset -3px 0 0 #0ea5e9; }
+.fs-pside-link.is-staff { color: #0369a1; font-weight: 700; background: linear-gradient(90deg, #f0f9ff, #fff); }
+.fs-pside-link.is-staff svg { fill: #0369a1; }
+.fs-pside-link.is-logout { color: #ef4444; }
+.fs-pside-link.is-logout svg { fill: #ef4444; }
+.fs-pside-link.is-logout:hover { background: #fef2f2; color: #dc2626; }
+@media (max-width: 767.98px) {
+  .fs-pside { padding: .75rem; }
+  .fs-pside-head { padding-bottom: .6rem; }
+  .fs-pside nav { display: flex; gap: .4rem; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: .25rem; scrollbar-width: none; }
+  .fs-pside nav::-webkit-scrollbar { display: none; }
+  .fs-pside-group, .fs-pside-group + .fs-pside-group { display: contents; border: 0; }
+  .fs-pside-title { display: none; }
+  .fs-pside ul { display: contents; }
+  .fs-pside-link { flex: none; width: auto; white-space: nowrap; border: 1px solid #e4e4e7; border-radius: 999px; padding: .4rem .8rem; font-size: .8rem; scroll-snap-align: start; }
+  .fs-pside-link.is-active { box-shadow: none; border-color: #7dd3fc; }
+}
+
+/* ── دور ۲۹ (#۱۵): دسته‌های صفحهٔ نخست وسط‌چین ─────────────────────
+   همان تعداد ستون قبلی (۲/۴/۵/۷/۱۰) ولی با flex-wrap و justify-content:center ← ردیف ناقص (یا چند دستهٔ کم) وسط می‌نشیند. */
+.fs-cat-grid { --cols: 2; --gap: .75rem; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); }
+.fs-cat-grid > a { flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); max-width: calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); }
+@media (min-width: 640px) { .fs-cat-grid { --cols: 4; } }
+@media (min-width: 768px) { .fs-cat-grid { --cols: 5; --gap: 1.25rem; } }
+@media (min-width: 1024px) { .fs-cat-grid { --cols: 7; } }
+@media (min-width: 1280px) { .fs-cat-grid { --cols: 10; } }
+
+/* ── دور ۲۹ (#۱۲): بنرها در موبایل (همان تصویر، بدون نسخهٔ جدا) ─────────
+   • اسلایدر بالای صفحه لبه‌به‌لبه می‌شود (عرض بیشتر = متن بنر درشت‌تر)، گوشه‌ها کمی گرد؛
+   • دکمه‌های قبلی/بعدی که روی متن بنر می‌افتادند در موبایل پنهان‌اند (کشیدن با انگشت کافی است)؛ نقطه‌ها زیر بنر می‌روند؛
+   • بنر عریض و دوتایی فاصلهٔ کمتر و گوشهٔ ملایم‌تر دارند تا صفحه شلوغ نشود. */
+@media (max-width: 767.98px) {
+  .heroSlider { margin-inline: -.5rem; border-radius: .9rem; padding-bottom: 22px; }
+  .heroSlider .swiper-slide { border-radius: .9rem; overflow: hidden; }
+  .heroSlider .swiper-slide img { width: 100%; height: auto; display: block; }
+  .heroSlider .swiper-button-next, .heroSlider .swiper-button-prev { display: none !important; }
+  .heroSlider .swiper-pagination { bottom: 0 !important; }
+  .heroSlider .swiper-pagination-bullet { width: 7px; height: 7px; background: #94a3b8; opacity: .6; transition: width .25s ease; }
+  .heroSlider .swiper-pagination-bullet-active { width: 18px; border-radius: 999px; background: #0284c7; opacity: 1; }
+  .fs-promo-row { gap: .75rem; margin-top: 1.5rem; }
+  main [data-banner].my-14 { margin-block: 1.75rem; border-radius: .9rem; }
+}
+
+/* ── دور ۲۹ (#۳): جست‌وجوی موبایل بالای صفحه ─────────────────────
+   یک کادر بزرگ و همیشه دیدنی زیر لوگو: آیکن ذره‌بین، متن، میکروفون (اگر مرورگر پشتیبانی کند) و دوربین (اگر جست‌وجوی عکس روشن است).
+   هدر ثابت است ← fs-msearch-spacer هم‌اندازهٔ همین ردیف، محتوای صفحه را پایین می‌برد. */
+.fs-msearch { padding: 0 .75rem .6rem; margin-top: -.6rem; }
+.fs-msearch-form { position: relative; display: flex; align-items: center; gap: .25rem; height: 46px; padding: 0 .4rem 0 .5rem; border-radius: 14px;
+  background: #f1f5f9; border: 1px solid #e2e8f0; transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.fs-msearch-form:focus-within { background: #fff; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,.18); }
+.fs-msearch-icon { display: flex; padding-inline: .35rem; }
+.fs-msearch-icon svg { fill: #64748b; }
+.fs-msearch-form input { flex: 1 1 auto; min-width: 0; height: 100%; background: transparent; border: 0; outline: none; font-size: 16px; color: #334155; }
+.fs-msearch-form input::placeholder { color: #94a3b8; }
+.fs-msearch-form input:focus-visible { outline: none; }
+.fs-msearch-btn { flex: none; width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; }
+.fs-msearch-btn.hidden { display: none; }
+.fs-msearch-btn svg { fill: #475569; }
+.fs-msearch-btn:hover, .fs-msearch-btn:focus-visible { background: #e0f2fe; }
+.fs-msearch-btn:hover svg { fill: #0284c7; }
+.fs-msearch-spacer { display: none; }
+@media (max-width: 767.98px) { .fs-msearch-spacer { display: block; height: 46px; } }
+body.fs-no-header .fs-msearch-spacer { display: none !important; }
+.dark .fs-msearch-form { background: #111827; border-color: #1f2937; }
+.dark .fs-msearch-form input { color: #e5e7eb; }
+@media print { .fs-msearch, .fs-msearch-spacer { display: none !important; } }

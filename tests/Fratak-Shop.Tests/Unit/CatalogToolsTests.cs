@@ -75,8 +75,9 @@ public class CatalogToolsTests
     }
 
     [Fact]
-    public void Loss_making_change_is_skipped_or_warned_based_on_the_option()
+    public void Loss_making_price_change_is_always_skipped_even_without_the_option()
     {
+        // دور ۲۹ (#۱۳ – «همیشه سود»): تیک SkipLoss دیگر اجازهٔ عبور زیان را نمی‌دهد.
         var old = Snap(400_000, purchase: 300_000);
 
         var skipped = BulkPriceRules.Compute(old, new BulkPriceOperation(BulkPriceTarget.Price, BulkPriceMode.Percent, -50, SkipLoss: true), Now);
@@ -84,10 +85,59 @@ public class CatalogToolsTests
         Assert.StartsWith("زیان", skipped.SkipReason);
         Assert.Equal(old, skipped.New);
 
-        var warned = BulkPriceRules.Compute(old, new BulkPriceOperation(BulkPriceTarget.Price, BulkPriceMode.Percent, -50, SkipLoss: false), Now);
+        var alsoSkipped = BulkPriceRules.Compute(old, new BulkPriceOperation(BulkPriceTarget.Price, BulkPriceMode.Percent, -50, SkipLoss: false), Now);
+        Assert.True(alsoSkipped.IsSkipped);
+        Assert.StartsWith("زیان", alsoSkipped.SkipReason);
+        Assert.Equal(old, alsoSkipped.New);
+    }
+
+    [Fact]
+    public void Break_even_discount_is_blocked_as_no_profit()
+    {
+        // خرید ۳۰۰ هزار، قیمت ۶۰۰ هزار، تخفیف ۵۰٪ ← ۳۰۰ هزار = سر‌به‌سر ← رد.
+        var old = Snap(600_000, purchase: 300_000);
+        var result = BulkPriceRules.Compute(old, new BulkPriceOperation(BulkPriceTarget.DiscountPrice, BulkPriceMode.PercentOff, 50), Now);
+
+        Assert.True(result.IsSkipped);
+        Assert.StartsWith("زیان یا بدون سود", result.SkipReason, StringComparison.Ordinal);
+        Assert.Equal(old, result.New);
+    }
+
+    [Fact]
+    public void Discount_one_step_above_purchase_is_allowed()
+    {
+        // ۴۹٪ تخفیف ← ۳۰۶ هزار > ۳۰۰ هزار ← مجاز (سود کم ولی مثبت).
+        var result = BulkPriceRules.Compute(Snap(600_000, purchase: 300_000),
+            new BulkPriceOperation(BulkPriceTarget.DiscountPrice, BulkPriceMode.PercentOff, 49), Now);
+
+        Assert.False(result.IsSkipped);
+        Assert.Equal(306_000, result.New.DiscountPrice);
+    }
+
+    [Fact]
+    public void Raising_the_purchase_price_warns_unless_skip_loss_is_checked()
+    {
+        // تغییر «قیمت خرید» واقعیت خرید است ← بدون تیک فقط هشدار، با تیک رد.
+        var old = Snap(400_000, purchase: 300_000);
+
+        var warned = BulkPriceRules.Compute(old, new BulkPriceOperation(BulkPriceTarget.PurchasePrice, BulkPriceMode.Percent, 40, SkipLoss: false), Now);
         Assert.False(warned.IsSkipped);
-        Assert.Equal(200_000, warned.New.Price);
-        Assert.Equal(2, warned.Warnings.Count); // زیان + تغییر ≥ ۵۰٪
+        Assert.Equal(420_000, warned.New.PurchasePrice);
+        Assert.Contains(warned.Warnings, w => w.StartsWith("زیان", StringComparison.Ordinal));
+
+        var skipped = BulkPriceRules.Compute(old, new BulkPriceOperation(BulkPriceTarget.PurchasePrice, BulkPriceMode.Percent, 40, SkipLoss: true), Now);
+        Assert.True(skipped.IsSkipped);
+        Assert.StartsWith("زیان", skipped.SkipReason);
+    }
+
+    [Fact]
+    public void Purchase_price_equal_to_the_selling_price_is_flagged_as_no_profit()
+    {
+        var result = BulkPriceRules.Compute(Snap(400_000, purchase: 300_000),
+            new BulkPriceOperation(BulkPriceTarget.PurchasePrice, BulkPriceMode.Set, 400_000, SkipLoss: true), Now);
+
+        Assert.True(result.IsSkipped);
+        Assert.StartsWith("زیان یا بدون سود", result.SkipReason, StringComparison.Ordinal);
     }
 
     [Fact]

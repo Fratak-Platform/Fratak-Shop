@@ -11,6 +11,8 @@
   </div>
   <div class="a-btn-group">
     <form method="post" asp-page-handler="ReadAll" class="m-0"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("Check", null, 18) همه خوانده شد</button></form>
+    @* دور ۲۹ (#۲۸): پاک کردن همهٔ خوانده‌شده‌ها؛ خوانده‌شده‌ها خودکار هم بعد از یک هفته پاک می‌شوند. *@
+    <form method="post" asp-page-handler="DeleteRead" class="m-0" data-confirm="همهٔ اعلان‌های خوانده‌شده حذف شوند؟" data-confirm-danger><button class="a-btn a-btn-light" type="submit">@Icons.Svg("Trash", null, 18) حذف خوانده‌شده‌ها</button></form>
     <form method="post" asp-page-handler="Test" class="m-0"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("BellRinging", null, 18) اعلان آزمایشی</button></form>
   </div>
 </div>
@@ -48,6 +50,9 @@
                 <button class="a-btn a-btn-light a-btn-xs" type="submit" title="خوانده شد">@Icons.Svg("Check", null, 14)</button>
               </form>
             }
+            <form method="post" asp-page-handler="Delete" asp-route-id="@n.Id" asp-route-page="@Model.PageNumber" asp-route-unread="@Model.UnreadOnly" class="m-0">
+              <button class="a-btn a-btn-light a-btn-xs" type="submit" title="حذف اعلان" aria-label="حذف اعلان">@Icons.Svg("Trash", null, 14)</button>
+            </form>
           </li>
         }
       </ul>

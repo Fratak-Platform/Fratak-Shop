@@ -17,10 +17,7 @@
   void StaticImage(string css, bool lazy)
   {
     <picture>
-      @if (!string.IsNullOrWhiteSpace(banner.MobileImageName))
-      {
-        <source media="(max-width: 768px)" srcset="@ImageHelper.Banner(banner.MobileImageName)">
-      }
+      @* دور ۲۹: نسخهٔ موبایل جدا حذف شد؛ همین تصویر با srcset و چیدمان موبایل (commerce.css) نمایش داده می‌شود. *@
       <img class="@css" src="@src" srcset="@srcset" sizes="@(srcset is null ? null : "100vw")" alt="@alt" width="@Model.Width" height="@Model.Height"
            loading="@(lazy ? "lazy" : "eager")" fetchpriority="@(lazy ? "auto" : "high")" decoding="async">
     </picture>

@@ -17,6 +17,9 @@ public class HeaderViewModel
     public CartDto? Cart { get; init; }
     public bool IsSignedIn { get; init; }
     public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>دور ۲۹: خطاب مناسب نسل («محمد عزیز»، «ناظری گرامی») برای سرِ منوی کاربر.</summary>
+    public string Greeting { get; init; } = string.Empty;
     public string? SearchQuery { get; init; }
     public string CurrentPath { get; init; } = "/";
 
@@ -65,6 +68,7 @@ public class HeaderViewComponent(
             Cart = await cartSession.GetCartAsync(),
             IsSignedIn = UserClaimsPrincipal.IsSignedIn(),
             DisplayName = UserClaimsPrincipal.GetDisplayName(),
+            Greeting = UserClaimsPrincipal.GetGreeting(),
             SearchQuery = HttpContext.Request.Query["q"].ToString(),
             CurrentPath = HttpContext.Request.Path.Value ?? "/",
             MainMenu = site.MenuItems(MenuLocation.HeaderMain),

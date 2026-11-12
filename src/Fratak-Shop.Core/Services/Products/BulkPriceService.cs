@@ -334,11 +334,17 @@ public static class BulkPriceRules
         if (result == old)
             return new PriceComputation(old, "بدون تغییر.", warnings);
 
-        // هشدار/رد زیان: کمترین قیمت فروش نباید کمتر از قیمت خرید شود.
-        if (result.PurchasePrice is > 0 && LowestSellingPrice(result, now) < result.PurchasePrice)
+        // دور ۲۹ (#۱۳) – «همیشه سود»: وقتی قیمت فروش یا تخفیف عوض می‌شود، کمترین قیمت فروش باید «بیشتر» از قیمت خرید بماند.
+        // زیان (کمتر) و سر‌به‌سر (مساوی) هر دو «همیشه» رد می‌شوند – تیک SkipLoss دیگر اجازهٔ عبور نمی‌دهد.
+        // مثال: خرید ۳۰۰ هزار، تخفیف ۵۰٪ روی قیمت ۶۰۰ هزار ← ۳۰۰ هزار = سر‌به‌سر ← رد با پیام «زیان یا بدون سود».
+        // استثنا: تغییر خود «قیمت خرید» (واقعیت خرید است، نباید جلوی ثبتش را گرفت) ← فقط هشدار، یا رد اگر SkipLoss.
+        if (result.PurchasePrice is > 0 && LowestSellingPrice(result, now) <= result.PurchasePrice)
         {
-            var text = $"زیان: قیمت فروش ({LowestSellingPrice(result, now):N0}) کمتر از قیمت خرید ({result.PurchasePrice:N0}) می‌شود.";
-            if (op.SkipLoss)
+            var lowest = LowestSellingPrice(result, now);
+            var text = lowest < result.PurchasePrice
+                ? $"زیان: قیمت فروش ({lowest:N0}) کمتر از قیمت خرید ({result.PurchasePrice:N0}) می‌شود."
+                : $"زیان یا بدون سود: قیمت فروش ({lowest:N0}) برابر قیمت خرید ({result.PurchasePrice:N0}) می‌شود.";
+            if (op.Target != BulkPriceTarget.PurchasePrice || op.SkipLoss)
                 return new PriceComputation(old, text, warnings);
             warnings.Add(text);
         }

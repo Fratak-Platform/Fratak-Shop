@@ -47,7 +47,7 @@ public class BannerService(FratakShopDbContext context, ISmartConfigService? sma
             Title = command.Title,
             Subtitle = command.Subtitle,
             ImageName = command.ImageName.Trim(),
-            MobileImageName = command.MobileImageName,
+            MobileImageName = null, // دور ۲۹: بدون نسخهٔ موبایل جدا
             ImageAlt = command.ImageAlt,
             ButtonText = command.ButtonText,
             LinkUrl = command.LinkUrl,
@@ -82,7 +82,8 @@ public class BannerService(FratakShopDbContext context, ISmartConfigService? sma
         banner.Title = command.Title;
         banner.Subtitle = command.Subtitle;
         banner.ImageName = command.ImageName.Trim();
-        banner.MobileImageName = command.MobileImageName;
+        // دور ۲۹: بنر نسخهٔ موبایل جدا ندارد.
+        banner.MobileImageName = null;
         banner.ImageAlt = command.ImageAlt;
         banner.ButtonText = command.ButtonText;
         banner.LinkUrl = command.LinkUrl;
@@ -133,6 +134,18 @@ public class BannerService(FratakShopDbContext context, ISmartConfigService? sma
             banners = BannerRules.ForMourning(banners);
         if (options?.BannerAbTest != false)
             banners = BannerRules.Rotate(banners, Random.Shared.NextDouble);
+
+        // دور ۲۹ (#۱۶): سقف بنر فعال هر جایگاه + چرخش نوبتی بقیه (سنجاق‌شده‌ها همیشه می‌مانند). سربرگ دسته سقف ندارد.
+        if (options is not null)
+        {
+            var hours = options.BannerRotateHours;
+            var hero = BannerRules.Slots(banners.Where(b => b.Position == BannerPosition.HeroSlider).ToList(), options.BannerSlotsHero, hours, now);
+            var wide = BannerRules.Slots(banners.Where(b => b.Position == BannerPosition.WideBanner).ToList(), options.BannerSlotsWide, hours, now);
+            var promo = BannerRules.Slots(banners.Where(b => b.Position == BannerPosition.PromoCard).ToList(), options.BannerSlotsPromo, hours, now);
+            var keep = hero.Concat(wide).Concat(promo).Select(b => b.Id).ToHashSet();
+            banners = banners.Where(b => keep.Contains(b.Id)
+                                         || b.Position is not (BannerPosition.HeroSlider or BannerPosition.WideBanner or BannerPosition.PromoCard)).ToList();
+        }
         return banners;
     }
 
@@ -186,7 +199,8 @@ public class BannerService(FratakShopDbContext context, ISmartConfigService? sma
                         && (!x.StartAt.HasValue || x.StartAt <= now)
                         && (!x.EndAt.HasValue || x.EndAt >= now)
                         && (x.ProductId == null || context.Products.Any(p => p.Id == x.ProductId && p.IsActive && p.StockQuantity > 0)))
-            .OrderBy(x => x.DisplayOrder)
+            .OrderByDescending(x => x.IsPinned)
+            .ThenBy(x => x.DisplayOrder)
             .ThenBy(x => x.CreatedAt);
 
     public async Task<BannerDto?> GetBannerByIdAsync(Guid id)

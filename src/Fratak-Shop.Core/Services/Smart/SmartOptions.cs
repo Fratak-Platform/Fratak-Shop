@@ -39,10 +39,10 @@ public sealed class SmartOptions
     public int MaxImageCandidates { get; set; } = 40;
 
     /// <summary>«تکمیل هوشمند» اگر محصول کمتر از این تعداد عکس داشت، بهترین عکس‌های با اطمینان بالا را خودکار اضافه می‌کند.</summary>
-    public int AutoImagesWhenFewerThan { get; set; } = 2;
+    public int AutoImagesWhenFewerThan { get; set; } = 5;
 
     /// <summary>حداکثر عکسی که خودکار اضافه می‌شود (بقیه برای انتخاب کارشناس می‌ماند).</summary>
-    public int AutoImagesMax { get; set; } = 3;
+    public int AutoImagesMax { get; set; } = 5;
 
     /// <summary>
     /// دور بیستم: هیچ عکسی بدون تأیید کارشناس روی محصول نمی‌نشیند (پیش‌فرض روشن). عکس اشتباه یعنی مشتری یک چیز می‌بیند و
@@ -83,7 +83,7 @@ public sealed class SmartOptions
     public int OptionsVersion { get; set; }
 
     /// <summary>نسخهٔ فعلی تنظیمات.</summary>
-    public const int CurrentVersion = 23;
+    public const int CurrentVersion = 29;
 
     /// <summary>دور بیستم: برای هر نتیجهٔ کار هوشمند اعلان پنل (با لینک مستقیم به همان بخش) فرستاده شود.</summary>
     public bool NotifyResults { get; set; } = true;
@@ -218,6 +218,86 @@ public sealed class SmartOptions
     /// </summary>
     public bool WinBackEnabled { get; set; }
 
+    // ── دور ۲۹: دستیار (جای دکمه، هویت، صدا) ─────────────────────────
+
+    /// <summary>
+    /// دور ۲۹: جای پیش‌فرض دکمهٔ دستیار روی صفحه. مقدارها: «br» پایین راست، «bl» پایین چپ، «mr» وسط راست، «ml» وسط چپ.
+    /// پیش‌فرض «br» (پایین راست) چون سمت چپ با دکمه‌ها و پنجره‌های دیگر (سبد خرید، اعلان‌ها) تداخل داشت.
+    /// </summary>
+    public string AssistantPosition { get; set; } = "br";
+
+    /// <summary>دور ۲۹: مشتری بتواند دکمهٔ دستیار را با کشیدن جابه‌جا کند (جای انتخابی در مرورگر خودش می‌ماند). پیش‌فرض روشن.</summary>
+    public bool AssistantDraggable { get; set; } = true;
+
+    /// <summary>دور ۲۹: زیرعنوان سربرگ پنجرهٔ دستیار (حداکثر ۴۰ نویسه). مثال: «دستیار هوشمند فروشگاه · پاسخ خودکار».</summary>
+    public string AssistantSubtitle { get; set; } = "دستیار هوشمند فروشگاه · پاسخ خودکار";
+
+    /// <summary>
+    /// دور ۲۹: لوگوی دستیار (آدرس داخلی یک تصویر آپلودشده، مثلاً «/uploads/media/ava.webp»). خالی ← آیکون ربات.
+    /// فقط مسیر داخلی پذیرفته می‌شود (آدرس بیرونی یا «//» ← خالی) تا هیچ تصویری از سایت دیگر بار نشود.
+    /// </summary>
+    public string? AssistantLogo { get; set; }
+
+    /// <summary>دور ۲۹: رنگ اصلی دکمه و سربرگ دستیار (هگز ۶ رقمی؛ نامعتبر ← فیروزه‌ای پیش‌فرض).</summary>
+    public string AssistantColor { get; set; } = "#0f766e";
+
+    /// <summary>دور ۲۹: «پیام صوتی» – مشتری با میکروفون صحبت کند و متنش (با تشخیص گفتار خود مرورگر، رایگان) فرستاده شود. پیش‌فرض روشن.</summary>
+    public bool AssistantVoiceInput { get; set; } = true;
+
+    /// <summary>دور ۲۹: «پاسخ صوتی» – پاسخ متنی دستیار با صدای خود مرورگر هم خوانده شود (مشتری می‌تواند خاموشش کند). پیش‌فرض خاموش.</summary>
+    public bool AssistantVoiceReply { get; set; }
+
+    // ── دور ۲۹: عکس کالا ────────────────────────────────────────────
+
+    /// <summary>
+    /// دور ۲۹: کمترین تعداد عکس هر کالا (پیش‌فرض ۵). کار روزانه برای کالاهای کمتر از این عدد عکس تازه پیدا می‌کند؛
+    /// فقط عکس «دقیقاً همان کالا» (منبع مطمئن یا همان مدل + شباهت ظاهری با عکس اصلی) خودکار اضافه می‌شود و بقیه منتظر تأیید می‌ماند.
+    /// </summary>
+    public int MinProductImages { get; set; } = 5;
+
+    /// <summary>دور ۲۹: عکس اصلی هر کالا خودکار «دوربری‌شده» (زمینهٔ شفاف، قاب یکسان) شود. پیش‌فرض روشن.</summary>
+    public bool PrimaryCutout { get; set; } = true;
+
+    /// <summary>دور ۲۹: لوگو/واترمارک عکس‌ها (گوشه‌ها، نوشتهٔ کم‌رنگ روی زمینه) خودکار پاک شود؛ پاک‌نشدنی ← عکس کنار می‌رود. پیش‌فرض روشن.</summary>
+    public bool CleanWatermarks { get; set; } = true;
+
+    /// <summary>دور ۲۹: لوگوی کم‌رنگ فراتک روی عکس کالاها (فقط نسخه‌های بهینهٔ نمایش؛ فایل اصلی دست نمی‌خورد). پیش‌فرض خاموش.</summary>
+    public bool ImageLogoOverlay { get; set; }
+
+    /// <summary>دور ۲۹: جای لوگو روی عکس: «br»، «bl»، «tr»، «tl» یا «c» (وسط).</summary>
+    public string ImageLogoPosition { get; set; } = "br";
+
+    /// <summary>دور ۲۹: میزان پیدایی لوگو (۳ تا ۳۰ درصد؛ پیش‌فرض ۸ = خیلی کم‌رنگ).</summary>
+    public int ImageLogoOpacity { get; set; } = 8;
+
+    /// <summary>دور ۲۹: کدام لوگو: «mark» نشان برند (مربعی) یا «full» لوگوی کامل (افقی).</summary>
+    public string ImageLogoKind { get; set; } = "mark";
+
+    /// <summary>دور ۲۹: بازبینی و اصلاح خودکار دستهٔ کالاهای اشتباه (مثل «سرویس ۶ پارچه» در «چندراهی برق»). پیش‌فرض روشن.</summary>
+    public bool Recategorize { get; set; } = true;
+
+    // ── دور ۲۹: جایگاه بنرها ─────────────────────────────────────────
+
+    /// <summary>دور ۲۹: حداکثر بنر فعال هم‌زمان در اسلایدر بالای صفحه (۱ تا ۱۰؛ پیش‌فرض ۵). بقیه به نوبت نمایش داده می‌شوند.</summary>
+    public int BannerSlotsHero { get; set; } = 5;
+
+    /// <summary>دور ۲۹: حداکثر بنر پهن میانهٔ صفحه (۱ تا ۶؛ پیش‌فرض ۲).</summary>
+    public int BannerSlotsWide { get; set; } = 2;
+
+    /// <summary>دور ۲۹: حداکثر بنر دوتایی/کارت تبلیغاتی (۱ تا ۴؛ پیش‌فرض ۲ = یک ردیف دوتایی؛ ۴ = دو ردیف).</summary>
+    public int BannerSlotsPromo { get; set; } = 2;
+
+    /// <summary>دور ۲۹: هر چند ساعت بنرهای اضافه (سنجاق‌نشده) جابه‌جا شوند (۱ تا ۷۲؛ پیش‌فرض ۶).</summary>
+    public int BannerRotateHours { get; set; } = 6;
+
+    // ── دور ۲۹: اعلان‌ها ─────────────────────────────────────────────
+
+    /// <summary>دور ۲۹: اعلان‌های مشتری قدیمی‌تر از این چند روز کامل از پایگاه داده پاک شوند (۰ = خاموش؛ ۳۰ تا ۷۳۰). پیش‌فرض خاموش.</summary>
+    public int NotificationPurgeDays { get; set; }
+
+    /// <summary>دور ۲۹: اعلان‌های پنل مدیریت چند روز بعد از خوانده شدن خودکار پاک شوند (۰ = هرگز؛ ۱ تا ۹۰؛ پیش‌فرض ۷).</summary>
+    public int StaffNotificationReadDays { get; set; } = 7;
+
     /// <summary>درصد تخفیف کد برگشت (۵ تا ۲۰؛ پیش‌فرض ۱۰).</summary>
     public int WinBackPercent { get; set; } = 10;
 
@@ -244,8 +324,16 @@ public sealed class SmartOptions
         ImageCandidates = Math.Clamp(ImageCandidates, 6, 15);
         if (OptionsVersion < CurrentVersion)
         {
-            if (NightlyCompletePerDay == 20)
+            if (OptionsVersion < 23 && NightlyCompletePerDay == 20)
                 NightlyCompletePerDay = 120;
+            // دور ۲۹ (#۹): «حداقل ۵ عکس برای هر کالا» ← پیش‌فرض‌های قدیمی (۲ و ۳) یک بار به ۵ می‌رسند؛ عدد دلخواه مدیر دست نمی‌خورد.
+            if (OptionsVersion < 29)
+            {
+                if (AutoImagesWhenFewerThan == 2)
+                    AutoImagesWhenFewerThan = 5;
+                if (AutoImagesMax == 3)
+                    AutoImagesMax = 5;
+            }
             OptionsVersion = CurrentVersion;
         }
         NightlyCompletePerDay = Math.Clamp(NightlyCompletePerDay, 0, 500);
@@ -276,7 +364,57 @@ public sealed class SmartOptions
         ReplenishBody = Limit(ReplenishBody, 600, "اگر لازم دارید، دوباره سفارش دهید.");
         ReplenishSmsText = Limit(ReplenishSmsText, 300, "");
         AssistantName = Limit(AssistantName, 20, "آوا");
+        // دور ۲۹: مقدارهای خارج از فهرست مجاز ← پیش‌فرض (هیچ متن دلخواهی به HTML/CSS صفحه نمی‌رسد).
+        AssistantPosition = Pick(AssistantPosition, ["br", "bl", "mr", "ml"], "br");
+        AssistantSubtitle = Limit(AssistantSubtitle, 40, "دستیار هوشمند فروشگاه · پاسخ خودکار");
+        AssistantLogo = SafeLocalPath(AssistantLogo);
+        AssistantColor = HexColor(AssistantColor, "#0f766e");
+        MinProductImages = Math.Clamp(MinProductImages, 1, 12);
+        ImageLogoPosition = Pick(ImageLogoPosition, ["br", "bl", "tr", "tl", "c"], "br");
+        ImageLogoOpacity = Math.Clamp(ImageLogoOpacity, 3, 30);
+        ImageLogoKind = Pick(ImageLogoKind, ["mark", "full"], "mark");
+        BannerSlotsHero = Math.Clamp(BannerSlotsHero, 1, 10);
+        BannerSlotsWide = Math.Clamp(BannerSlotsWide, 1, 6);
+        BannerSlotsPromo = Math.Clamp(BannerSlotsPromo, 1, 4);
+        BannerRotateHours = Math.Clamp(BannerRotateHours, 1, 72);
+        NotificationPurgeDays = NotificationPurgeDays <= 0 ? 0 : Math.Clamp(NotificationPurgeDays, 30, 730);
+        StaffNotificationReadDays = Math.Clamp(StaffNotificationReadDays, 0, 90);
         return this;
+    }
+
+    /// <summary>دور ۲۹: فقط یکی از مقدارهای مجاز (کوچک‌شده)؛ بقیه ← پیش‌فرض. مثال: Pick("BR", ["br","bl"], "br") ← «br».</summary>
+    private static string Pick(string? value, string[] allowed, string fallback)
+    {
+        var clean = (value ?? "").Trim().ToLowerInvariant();
+        return Array.IndexOf(allowed, clean) >= 0 ? clean : fallback;
+    }
+
+    /// <summary>دور ۲۹: رنگ هگز ۶ رقمی با «#» (کوچک‌شده)؛ نامعتبر ← پیش‌فرض. مثال: «#0F766E» ← «#0f766e»؛ «red» ← پیش‌فرض.</summary>
+    public static string HexColor(string? value, string fallback)
+    {
+        var clean = (value ?? "").Trim().ToLowerInvariant();
+        if (clean.Length == 7 && clean[0] == '#' && clean.Skip(1).All(Uri.IsHexDigit))
+            return clean;
+        return fallback;
+    }
+
+    /// <summary>
+    /// دور ۲۹: مسیر داخلی امن یک تصویر (فقط «/uploads/…» یا «/assets/…»، بدون «..»، فاصله، کوتیشن یا پروتکل)؛ بقیه ← null.
+    /// مثال: «/uploads/media/a.webp» ← همان؛ «https://x/a.png» یا «//x/a.png» یا «/uploads/../web.config» ← null.
+    /// </summary>
+    public static string? SafeLocalPath(string? value)
+    {
+        var clean = value?.Trim();
+        if (string.IsNullOrEmpty(clean) || clean.Length > 300 || clean.Contains("..", StringComparison.Ordinal))
+            return null;
+        if (!(clean.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) || clean.StartsWith("/assets/", StringComparison.OrdinalIgnoreCase)))
+            return null;
+        foreach (var c in clean)
+        {
+            if (char.IsWhiteSpace(c) || c is '"' or '\'' or '<' or '>' or '\\' or '(' or ')' or ';')
+                return null;
+        }
+        return clean;
     }
 
     private static string Limit(string? text, int max, string fallback)

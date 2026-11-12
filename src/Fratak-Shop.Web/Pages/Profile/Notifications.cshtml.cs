@@ -47,6 +47,13 @@ public class NotificationsModel(INotificationService notificationService) : Shop
         return RedirectToPage(new { page = (int?)null, unread = Unread ? true : (bool?)null });
     }
 
+    /// <summary>دور ۲۹ (#۲۴): حذف اعلان به دست خود مشتری؛ سرویس فقط اعلان «قابل حذف» همین کاربر را حذف می‌کند.</summary>
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    {
+        ShowResult(await notificationService.DeleteAsync(CurrentUserId!.Value, id));
+        return RedirectToPage(new { page = PageNumber > 1 ? PageNumber : (int?)null, unread = Unread ? true : (bool?)null });
+    }
+
     public async Task<IActionResult> OnPostReadAllAsync()
     {
         ShowResult(await notificationService.MarkAllReadAsync(CurrentUserId!.Value));

@@ -66,6 +66,7 @@
       <div class="flex flex-wrap gap-4">
         <label class="a-check text-sm"><input type="checkbox" name="Broadcast.IsPinned" value="true" checked="@Model.Broadcast.IsPinned"><input type="hidden" name="Broadcast.IsPinned" value="false"> سنجاق در بالای لیست اعلان‌ها</label>
         <label class="a-check text-sm"><input type="checkbox" name="Broadcast.SendPush" value="true" checked="@Model.Broadcast.SendPush" disabled="@(!Model.PushEnabled)"><input type="hidden" name="Broadcast.SendPush" value="false"> ارسال اعلان مرورگر به مشترکان (حداکثر ۲۰٬۰۰۰)</label>
+        <label class="a-check text-sm"><input type="checkbox" name="Broadcast.UserDeletable" value="true" checked="@Model.Broadcast.UserDeletable"><input type="hidden" name="Broadcast.UserDeletable" value="false"> مشتری بتواند این پیام را از فهرست خودش حذف کند</label>
       </div>
       <div><button class="a-btn" type="submit">@Icons.Svg("PaperPlaneTilt", null, 18) انتشار</button></div>
     </form>
@@ -83,6 +84,7 @@
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendPush" value="true" checked="@Model.Direct.SendPush"><input type="hidden" name="Direct.SendPush" value="false"> اعلان مرورگر</label>
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendSms" value="true" checked="@Model.Direct.SendSms"><input type="hidden" name="Direct.SendSms" value="false"> پیامک هم ارسال شود</label>
       <label class="a-check text-sm"><input type="checkbox" name="Direct.SendEmail" value="true" checked="@Model.Direct.SendEmail"><input type="hidden" name="Direct.SendEmail" value="false"> ایمیل هم ارسال شود (اگر ایمیل مشتری تأیید شده باشد)</label>
+      <label class="a-check text-sm"><input type="checkbox" name="Direct.UserDeletable" value="true" checked="@Model.Direct.UserDeletable"><input type="hidden" name="Direct.UserDeletable" value="false"> مشتری بتواند این پیام را حذف کند</label>
       <div><button class="a-btn" type="submit">ارسال</button></div>
     </form>
   </div>
@@ -97,7 +99,7 @@
         @foreach (var n in Model.Items.Items)
         {
           <tr>
-            <td data-label="پیام"><b>@n.Title</b> @if (n.IsPinned) { <span class="a-badge a-badge-purple">سنجاق</span> }<div class="a-muted text-xs line-clamp-2">@n.Body</div>@if (n.LinkUrl is not null) { <div class="a-ltr text-xs text-right">@n.LinkUrl</div> }</td>
+            <td data-label="پیام"><b>@n.Title</b> @if (n.IsPinned) { <span class="a-badge a-badge-purple">سنجاق</span> } @if (n.UserDeletable) { <span class="a-badge a-badge-gray" title="مشتری می‌تواند از فهرست خودش حذف کند">قابل حذف</span> }<div class="a-muted text-xs line-clamp-2">@n.Body</div>@if (n.LinkUrl is not null) { <div class="a-ltr text-xs text-right">@n.LinkUrl</div> }</td>
             <td data-label="مخاطبان" class="text-sm">@IndexModel.AudienceTitle(n.Audience)@if (n.TierName is not null) { <span>: @n.TierName</span> }<div class="a-muted text-xs">@IndexModel.CategoryTitle(n.Category)</div></td>
             <td data-label="بازه" class="text-xs nowrap">@(n.PublishAt is { } p ? Format.Date(p) : Format.Date(n.CreatedAt)) @if (n.ExpiresAt is { } e) { <span>تا @Format.Date(e)</span> }</td>
             <td data-label="خوانده‌شده" class="num">@Format.Number(n.Reads)</td>
@@ -113,4 +115,50 @@
     @if (Model.Items.Items.Count == 0) { <div class="a-empty">هنوز پیام همگانی ارسال نشده است.</div> }
   </div>
   <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>
+
+@* دور ۲۹ (#۲۴): اعلان‌های شخصی (فقط مدیر می‌تواند اعلان «غیرقابل حذف» را پاک کند) و پاک‌سازی دوره‌ای. *@
+<div class="a-grid xl:grid-cols-3 mt-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">اعلان‌های شخصی مشتری‌ها</span></div>
+    <form method="get" class="a-card-body flex flex-wrap items-end gap-2">
+      <div class="a-field"><label class="a-label" for="p-phone">موبایل مشتری</label><input id="p-phone" name="phone" value="@Model.PersonalPhone" class="a-input a-ltr" placeholder="09121234567" inputmode="numeric"></div>
+      <button class="a-btn a-btn-light" type="submit">نمایش</button>
+    </form>
+    @if (Model.PersonalPhone is not null)
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>اعلان</th><th>زمان</th><th>وضعیت</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var n in Model.Personal)
+            {
+              <tr>
+                <td data-label="اعلان"><b>@n.Title</b><div class="a-muted text-xs line-clamp-2">@n.Body</div></td>
+                <td data-label="زمان" class="text-xs nowrap">@Format.DateTime(n.CreatedAt)</td>
+                <td data-label="وضعیت">@(n.ReadAt is null ? "خوانده‌نشده" : "خوانده‌شده") @if (n.UserDeletable) { <span class="a-badge a-badge-gray">قابل حذف برای مشتری</span> } else { <span class="a-badge a-badge-yellow">فقط مدیر</span> }</td>
+                <td class="nowrap"><form method="post" asp-page-handler="DeletePersonal" asp-route-id="@n.Id" asp-route-phone="@Model.PersonalPhone" class="inline" data-confirm="این اعلان برای مشتری حذف شود؟" data-confirm-danger><button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">حذف</button></form></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (Model.Personal.Count == 0) { <div class="a-empty">اعلانی برای این شماره پیدا نشد.</div> }
+      </div>
+    }
+  </div>
+  @if (Model.Can(AdminPermissions.SettingsManage))
+  {
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">پاک‌سازی خودکار</span></div>
+    <form method="post" asp-page-handler="Retention" class="a-card-body a-form-grid">
+      <div class="a-field"><label class="a-label" for="r-cust">اعلان‌های مشتری قدیمی‌تر از … روز کامل پاک شوند</label>
+        <input id="r-cust" name="customerDays" type="number" min="0" max="730" value="@Model.CustomerPurgeDays" class="a-input a-ltr">
+        <div class="a-help">۰ = هرگز. کمترین مقدار ۳۰ روز است. پیام همگانی سنجاق‌شده‌ای که هنوز اعتبار دارد پاک نمی‌شود.</div></div>
+      <div class="a-field"><label class="a-label" for="r-staff">اعلان‌های پنل مدیریت … روز بعد از خوانده شدن پاک شوند</label>
+        <input id="r-staff" name="staffDays" type="number" min="0" max="90" value="@Model.StaffReadDays" class="a-input a-ltr">
+        <div class="a-help">پیش‌فرض ۷ روز (یک هفته)؛ ۰ = هرگز. خوانده‌نشده‌ها هرگز خودکار پاک نمی‌شوند.</div></div>
+      <div><button class="a-btn" type="submit">ذخیره</button></div>
+    </form>
+  </div>
+  }
 </div>

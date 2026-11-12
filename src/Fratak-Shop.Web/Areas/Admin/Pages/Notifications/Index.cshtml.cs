@@ -27,6 +27,18 @@ public sealed class AdminBroadcastRow
     public DateTimeOffset? PublishAt { get; init; }
     public DateTimeOffset? ExpiresAt { get; init; }
     public int Reads { get; init; }
+    public bool UserDeletable { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+/// <summary>دور ۲۹: یک اعلان شخصی در فهرست مدیر (برای حذف اعلان‌های «فقط مدیر»).</summary>
+public sealed class AdminPersonalRow
+{
+    public Guid Id { get; init; }
+    public string Title { get; init; } = "";
+    public string Body { get; init; } = "";
+    public DateTimeOffset? ReadAt { get; init; }
+    public bool UserDeletable { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
 }
 
@@ -43,6 +55,9 @@ public sealed class BroadcastInput
     public string? PublishDate { get; set; }
     public string? ExpireDate { get; set; }
     public bool SendPush { get; set; }
+
+    /// <summary>دور ۲۹ (#۲۴): مشتری بتواند پیام را از فهرست خودش بردارد.</summary>
+    public bool UserDeletable { get; set; } = true;
 }
 
 public sealed class DirectInput
@@ -54,10 +69,14 @@ public sealed class DirectInput
     public bool SendPush { get; set; } = true;
     public bool SendSms { get; set; }
     public bool SendEmail { get; set; }
+
+    /// <summary>دور ۲۹ (#۲۴): مشتری بتواند پیام را حذف کند.</summary>
+    public bool UserDeletable { get; set; } = true;
 }
 
 [AdminPermission(AdminPermissions.NotificationsSend)]
-public partial class IndexModel(IAdminDataService data, INotificationService notifications, IPushSender pushSender, IStoreSettingService settings, IMonitoringService monitoring, IWebPushService webPush) : AdminPageModel
+public partial class IndexModel(IAdminDataService data, INotificationService notifications, IPushSender pushSender, IStoreSettingService settings, IMonitoringService monitoring, IWebPushService webPush,
+    Fratak_Shop.Core.Services.Smart.ISmartConfigService smartConfig) : AdminPageModel
 {
     private const int MaxPushRecipients = 20000;
 
@@ -69,6 +88,13 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
     [BindProperty] public DirectInput Direct { get; set; } = new();
     [FromQuery(Name = "page")] public int PageNumber { get; set; } = 1;
     [FromQuery(Name = "user")] public Guid? PrefillUserId { get; set; }
+
+    /// <summary>دور ۲۹: موبایل مشتری برای فهرست اعلان‌های شخصی.</summary>
+    [FromQuery(Name = "phone")] public string? PersonalPhone { get; set; }
+
+    public List<AdminPersonalRow> Personal { get; private set; } = [];
+    public int CustomerPurgeDays { get; private set; }
+    public int StaffReadDays { get; private set; }
 
     public PagedList<AdminBroadcastRow> Items { get; private set; } = new([], 0, 1, 20);
     public List<LoyaltyTier> Tiers { get; private set; } = [];
@@ -112,6 +138,7 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
             LinkUrl = Broadcast.LinkUrl,
             LinkText = Broadcast.LinkText,
             IsPinned = Broadcast.IsPinned,
+            UserDeletable = Broadcast.UserDeletable,
             PublishAt = publish is { } p ? IranClock.StartOfDay(p) : null,
             ExpiresAt = expire is { } e ? IranClock.StartOfDay(e.AddDays(1)) : null,
         };
@@ -156,6 +183,7 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
             Category = NotificationCategory.System,
             LinkUrl = string.IsNullOrWhiteSpace(Direct.LinkUrl) ? null : Direct.LinkUrl.Trim(),
             Content = new NotificationContent { Title = title, Body = body, InSite = true, Push = Direct.SendPush, SmsText = Direct.SendSms ? $"{title}\n{body}" : null, Email = Direct.SendEmail },
+            UserDeletable = Direct.UserDeletable,
         });
         await monitoring.LogActionAsync("notification.direct", "User", user.Id, $"پیام مستقیم: {title}");
         SuccessMessage = "پیام برای مشتری ارسال شد.";
@@ -182,6 +210,37 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
             await monitoring.LogActionAsync("notification.delete", "Notification", id, "حذف پیام همگانی");
         ShowResult(result);
         return BackToList();
+    }
+
+    /// <summary>دور ۲۹ (#۲۴): حذف یک اعلان شخصی به دست مدیر (حتی اگر برای مشتری «غیرقابل حذف» باشد).</summary>
+    public async Task<IActionResult> OnPostDeletePersonalAsync(Guid id, string? phone)
+    {
+        var notification = await data.Query<Notification>().Where(n => n.Id == id).Select(n => new { n.UserId, n.Title }).FirstOrDefaultAsync();
+        if (notification?.UserId is null)
+            return NotFound();
+        var result = await data.DeleteAsync<Notification>(id);
+        if (Succeeded(result))
+            await monitoring.LogActionAsync("notification.delete-personal", "User", notification.UserId, $"حذف اعلان شخصی: {notification.Title.ToPlainText(80)}");
+        ShowResult(result);
+        return RedirectToPage(new { phone = SearchText.NormalizeDigits((phone ?? "").Trim()) });
+    }
+
+    /// <summary>دور ۲۹ (#۲۴/#۲۸): ذخیرهٔ تنظیم پاک‌سازی خودکار (در تنظیمات هوشمند نگه‌داری می‌شود؛ بازه‌ها در Normalize کنترل می‌شوند).</summary>
+    [AdminPermission(AdminPermissions.SettingsManage)]
+    public async Task<IActionResult> OnPostRetentionAsync(int customerDays, int staffDays)
+    {
+        var options = await smartConfig.GetAsync(HttpContext.RequestAborted);
+        options.NotificationPurgeDays = customerDays;
+        options.StaffNotificationReadDays = staffDays;
+        var result = await smartConfig.SaveAsync(options, HttpContext.RequestAborted);
+        if (Succeeded(result))
+        {
+            await monitoring.LogActionAsync("notification.retention", "Settings", null, $"پاک‌سازی اعلان: مشتری {options.NotificationPurgeDays} روز، پنل {options.StaffNotificationReadDays} روز");
+            SuccessMessage = "تنظیم پاک‌سازی اعلان‌ها ذخیره شد.";
+        }
+        else
+            ShowResult(result);
+        return RedirectToPage();
     }
 
     private async Task<int> PushToAudienceAsync(CreateBroadcastCommand command)
@@ -223,6 +282,20 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
         PushSubscribers = await data.Query<WebPushSubscription>().Where(s => s.UserId != null).Select(s => s.UserId).Distinct().CountAsync();
         Customers = await data.Query<User>().CountAsync();
 
+        var smart = await smartConfig.GetAsync(HttpContext.RequestAborted);
+        CustomerPurgeDays = smart.NotificationPurgeDays;
+        StaffReadDays = smart.StaffNotificationReadDays;
+        if (!string.IsNullOrWhiteSpace(PersonalPhone))
+        {
+            PersonalPhone = SearchText.NormalizeDigits(PersonalPhone.Trim());
+            var phone = PersonalPhone;
+            Personal = await data.Query<Notification>()
+                .Where(n => n.UserId != null && n.User!.PhoneNumber == phone)
+                .OrderByDescending(n => n.CreatedAt).Take(50)
+                .Select(n => new AdminPersonalRow { Id = n.Id, Title = n.Title, Body = n.Body, ReadAt = n.ReadAt, UserDeletable = n.UserDeletable, CreatedAt = n.CreatedAt })
+                .ToListAsync();
+        }
+
         var query = data.Query<Notification>().Where(n => n.UserId == null);
         var total = await query.CountAsync();
         var pageNumber = ClampPage(PageNumber, total, 20);
@@ -231,7 +304,7 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
             {
                 Id = n.Id, Title = n.Title, Body = n.Body, Audience = n.Audience, TierName = n.LoyaltyTier != null ? n.LoyaltyTier.Name : null,
                 Category = n.Category, LinkUrl = n.LinkUrl, IsPinned = n.IsPinned, IsActive = n.IsActive, PublishAt = n.PublishAt, ExpiresAt = n.ExpiresAt,
-                Reads = data.Query<NotificationRead>().Count(r => r.NotificationId == n.Id), CreatedAt = n.CreatedAt,
+                Reads = data.Query<NotificationRead>().Count(r => r.NotificationId == n.Id), UserDeletable = n.UserDeletable, CreatedAt = n.CreatedAt,
             })
             .ToListAsync();
         Items = new PagedList<AdminBroadcastRow>(rows, total, pageNumber, 20);

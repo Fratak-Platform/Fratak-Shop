@@ -18,6 +18,9 @@ public class BannerDto : BaseDto
     public DateTimeOffset? EndAt { get; set; }
     public bool IsActive { get; set; }
 
+    /// <summary>دور ۲۹: سنجاق‌شده ← همیشه نمایش، بیرون از چرخش نوبتی.</summary>
+    public bool IsPinned { get; set; }
+
     /// <summary>دور ۲۳: کالای اصلی بنر (ناموجود/غیرفعال ← بنر خودکار پنهان).</summary>
     public Guid? ProductId { get; set; }
 

@@ -71,6 +71,18 @@ public interface IStaffNotificationService
     /// <summary>پاک‌سازی اعلان‌های قدیمی (کار نگه‌داری روزانه).</summary>
     Task<int> PurgeAsync(TimeSpan olderThan);
 
+    /// <summary>
+    /// دور ۲۹ (#۲۸): اعلان‌هایی که بیش از <paramref name="days"/> روز از خوانده شدنشان گذشته کامل پاک می‌شوند (۰ = هرگز).
+    /// مثال: days = 7 ← اعلانی که ۸ روز پیش خوانده شده پاک می‌شود؛ خوانده‌نشده‌ها هرگز.
+    /// </summary>
+    Task<int> PurgeReadAsync(int days, DateTimeOffset now);
+
+    /// <summary>دور ۲۹ (#۲۸): حذف یک اعلان پنل به دست گیرندهٔ خودش (اعلان دیگران حذف نمی‌شود). خروجی: حذف شد؟</summary>
+    Task<bool> DeleteAsync(Guid userId, Guid notificationId);
+
+    /// <summary>دور ۲۹ (#۲۸): حذف همهٔ اعلان‌های خوانده‌شدهٔ همین کارمند. خروجی: تعداد.</summary>
+    Task<int> DeleteReadAsync(Guid userId);
+
     /// <summary>شناسهٔ کارکنان فعالی که حداقل یکی از مجوزها را دارند (به‌علاوهٔ مالک‌ها).</summary>
     Task<List<Guid>> GetRecipientsAsync(IReadOnlyCollection<string> anyOfPermissions);
 }
@@ -280,6 +292,35 @@ public sealed class StaffNotificationService(
             if (ids.Count < 2000)
                 return total;
         }
+    }
+
+    public async Task<int> PurgeReadAsync(int days, DateTimeOffset now)
+    {
+        if (days <= 0)
+            return 0;
+        var cutoff = now.AddDays(-days);
+        return await context.StaffNotifications.IgnoreQueryFilters()
+            .Where(n => n.ReadAt != null && n.ReadAt < cutoff)
+            .ExecuteDeleteAsync();
+    }
+
+    public async Task<bool> DeleteAsync(Guid userId, Guid notificationId)
+    {
+        // شرط گیرنده داخل خود دستور حذف است ← هیچ کارمندی نمی‌تواند اعلان دیگری را با حدس شناسه پاک کند.
+        var removed = await context.StaffNotifications.IgnoreQueryFilters()
+            .Where(n => n.Id == notificationId && n.RecipientUserId == userId)
+            .ExecuteDeleteAsync();
+        cache.Remove(UnreadKey(userId));
+        return removed > 0;
+    }
+
+    public async Task<int> DeleteReadAsync(Guid userId)
+    {
+        var removed = await context.StaffNotifications.IgnoreQueryFilters()
+            .Where(n => n.RecipientUserId == userId && n.ReadAt != null)
+            .ExecuteDeleteAsync();
+        cache.Remove(UnreadKey(userId));
+        return removed;
     }
 
     public async Task<List<Guid>> GetRecipientsAsync(IReadOnlyCollection<string> anyOfPermissions)

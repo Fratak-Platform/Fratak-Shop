@@ -7,7 +7,6 @@ public enum ProfileSection
     Orders,
     Addresses,
     Favorites,
-    Messages,
     PersonalInfo,
     Password,
     Wallet,

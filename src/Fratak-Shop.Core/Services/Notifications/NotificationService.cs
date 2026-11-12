@@ -29,6 +29,18 @@ public interface INotificationService
 
     Task<OperationResult> MarkAllReadAsync(Guid userId);
 
+    /// <summary>
+    /// دور ۲۹ (#۲۴): حذف یک اعلان به دست خود مشتری – فقط اگر با پرچم «قابل حذف» فرستاده شده باشد.
+    /// اعلان شخصی ← حذف نرم؛ پیام همگانی ← فقط از فهرست همین مشتری برداشته می‌شود. بقیه ← خطا «فقط مدیر…».
+    /// </summary>
+    Task<OperationResult> DeleteAsync(Guid userId, Guid notificationId);
+
+    /// <summary>
+    /// دور ۲۹ (#۲۴): پاک‌سازی دوره‌ای – اعلان‌های مشتری قدیمی‌تر از <paramref name="days"/> روز (۰ = خاموش) کامل از پایگاه داده
+    /// پاک می‌شوند (حذف‌نرم‌شده‌ها هم). پیام همگانیِ سنجاق‌شدهٔ هنوز معتبر می‌ماند. خروجی: تعداد اعلان پاک‌شده.
+    /// </summary>
+    Task<int> PurgeAsync(int days, DateTimeOffset now, CancellationToken cancellationToken = default);
+
     /// <summary>Admin: sends a message to a customer group (stored once).</summary>
     Task<OperationResult> CreateBroadcastAsync(CreateBroadcastCommand command);
 
@@ -96,6 +108,7 @@ public partial class NotificationService(
                     Body = Limit(Render(body, request.Values), 2000),
                     LinkUrl = IsSafeLink(request.LinkUrl) ? request.LinkUrl : null,
                     LinkText = linkText is null ? null : Limit(linkText, 100),
+                    UserDeletable = request.UserDeletable ?? NotificationRequest.DeletableByDefault(request.Category),
                 };
                 context.Notifications.Add(notification);
 
@@ -171,6 +184,7 @@ public partial class NotificationService(
             IsBroadcast = n.UserId == null,
             IsRead = (n.UserId != null && n.ReadAt != null)
                      || (n.UserId == null && context.NotificationReads.Any(r => r.NotificationId == n.Id && r.UserId == userId)),
+            UserDeletable = n.UserDeletable,
             CreatedAt = n.PublishAt ?? n.CreatedAt,
         });
 
@@ -289,6 +303,7 @@ public partial class NotificationService(
             IsPinned = command.IsPinned,
             PublishAt = command.PublishAt ?? DateTimeOffset.UtcNow,
             ExpiresAt = command.ExpiresAt,
+            UserDeletable = command.UserDeletable,
         });
 
         await context.SaveChangesAsync();
@@ -334,7 +349,76 @@ public partial class NotificationService(
                 && (n.Audience == NotificationAudience.AllCustomers
                     || (n.Audience == NotificationAudience.CustomersWithOrders && hasOrders)
                     || (n.Audience == NotificationAudience.CustomersWithoutOrders && !hasOrders)
-                    || (n.Audience == NotificationAudience.LoyaltyTier && tierId != null && n.LoyaltyTierId == tierId)))));
+                    || (n.Audience == NotificationAudience.LoyaltyTier && tierId != null && n.LoyaltyTierId == tierId))
+                // دور ۲۹: پیام همگانی که همین مشتری از فهرستش برداشته دیگر دیده نمی‌شود.
+                && !context.NotificationReads.Any(r => r.NotificationId == n.Id && r.UserId == userId && r.HiddenAt != null))));
+    }
+
+    public async Task<OperationResult> DeleteAsync(Guid userId, Guid notificationId)
+    {
+        var query = await VisibleAsync(userId);
+        var notification = await query.Where(n => n.Id == notificationId)
+            .Select(n => new { n.Id, n.UserId, n.UserDeletable })
+            .FirstOrDefaultAsync();
+        if (notification is null)
+            return OperationResult.NotFound("اعلان مورد نظر یافت نشد.");
+        if (!notification.UserDeletable)
+            return OperationResult.Error("این اعلان مهم است و فقط مدیر فروشگاه می‌تواند حذفش کند.");
+
+        var now = DateTimeOffset.UtcNow;
+        if (notification.UserId.HasValue)
+        {
+            // حذف نرم (برای گزارش و بازگردانی مدیر می‌ماند؛ پاک‌سازی دوره‌ای بعداً کامل پاکش می‌کند).
+            await context.Notifications
+                .Where(n => n.Id == notificationId && n.UserId == userId && n.UserDeletable)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsDeleted, true).SetProperty(n => n.DeletedAt, now).SetProperty(n => n.UpdatedAt, now));
+        }
+        else
+        {
+            // پیام همگانی: فقط برای همین مشتری پنهان می‌شود (ردیف «خوانده‌شده» با زمان پنهان شدن).
+            var updated = await context.NotificationReads
+                .Where(r => r.NotificationId == notificationId && r.UserId == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenAt, now).SetProperty(r => r.UpdatedAt, now));
+            if (updated == 0)
+            {
+                context.NotificationReads.Add(new NotificationRead { NotificationId = notificationId, UserId = userId, ReadAt = now, HiddenAt = now });
+                try
+                {
+                    await context.SaveChangesAsync();
+                }
+                catch (DbUpdateException)
+                {
+                    // هم‌زمان «خوانده شد» ثبت شد (کلید یکتا) ← همان ردیف را پنهان می‌کنیم.
+                    context.ChangeTracker.Clear();
+                    await context.NotificationReads
+                        .Where(r => r.NotificationId == notificationId && r.UserId == userId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(r => r.HiddenAt, now).SetProperty(r => r.UpdatedAt, now));
+                }
+            }
+        }
+
+        cache.Remove(UnreadKey(userId));
+        return OperationResult.Success("اعلان حذف شد.");
+    }
+
+    public async Task<int> PurgeAsync(int days, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        var customer = 0;
+        if (days > 0)
+        {
+            var before = now.AddDays(-days);
+            // اول ردیف‌های «خوانده‌شده»ی پیام‌های همگانی قدیمی (کلید خارجی)، بعد خود اعلان‌ها – شامل حذف‌نرم‌شده‌ها.
+            // ردیف‌های پیام سنجاق‌شدهٔ هنوز معتبر می‌مانند (وگرنه دوباره «خوانده‌نشده» یا پنهان‌شده دوباره دیده می‌شد).
+            await context.NotificationReads.IgnoreQueryFilters()
+                .Where(r => r.Notification.CreatedAt < before
+                            && !(r.Notification.UserId == null && r.Notification.IsPinned && r.Notification.IsActive
+                                 && (r.Notification.ExpiresAt == null || r.Notification.ExpiresAt > now)))
+                .ExecuteDeleteAsync(cancellationToken);
+            customer = await context.Notifications.IgnoreQueryFilters()
+                .Where(n => n.CreatedAt < before && !(n.UserId == null && n.IsPinned && n.IsActive && (n.ExpiresAt == null || n.ExpiresAt > now)))
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+        return customer;
     }
 
     private async Task AddBroadcastReadsAsync(Guid userId, List<Guid> notificationIds, DateTimeOffset now)

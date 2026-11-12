@@ -38,7 +38,8 @@
         case HomeSectionType.Categories:
           <section>
             <h2 class="text-center text-3xl font-semibold text-gray-800 mt-12 mb-4">@(title ?? "دسته بندی محصولات")</h2>
-            <div class="px-10 lg:px-16 mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-10 gap-3 md:gap-5 mb-10">
+            @* دور ۲۹ (#۱۵): چیدمان flex-wrap وسط‌چین (fs-cat-grid در commerce.css) ← چند دستهٔ کم هم وسط صفحه می‌نشینند، نه گوشهٔ راست. *@
+            <div class="px-10 lg:px-16 mx-auto fs-cat-grid mb-10">
               @foreach (var category in block.Categories)
               {
                 <a href="/category/@category.Slug" class="rounded-xl group hover:shadow-xl hover:bg-blue-500 shadow-lg transition-all delay-75 bg-gray-50 hover:scale-105 relative">
@@ -95,8 +96,9 @@
           break;
 
         case HomeSectionType.PromoBanners:
-          <section class="flex flex-col md:flex-row gap-4 mt-10" aria-label="@(title ?? "پیشنهادها")">
-            @for (var i = 0; i < block.Banners.Count && i < 2; i++)
+          @* دور ۲۹ (#۱۶): تا ۴ بنر (سقف جایگاه در تنظیمات)؛ دوتایی کنار هم، بیشتر ← ردیف دوم. *@
+          <section class="@(block.Banners.Count > 1 ? "grid grid-cols-1 md:grid-cols-2" : "flex flex-col") gap-4 mt-10 fs-promo-row" aria-label="@(title ?? "پیشنهادها")">
+            @for (var i = 0; i < block.Banners.Count && i < 4; i++)
             {
               var promo = block.Banners[i];
               // دور ۲۳: بنر دوتایی کامل (۹۶۰×۳۲۰، متن روی خود تصویر – مثل دیجی‌کالا) وقتی زیرعنوان و دکمهٔ جدا ندارد.
@@ -108,7 +110,7 @@
               // دور ۲۷: کارت تبلیغاتی «عکس کالای بدون زمینه + متن» بازطراحی شد (به‌جای کارت گرادیانی قدیمی که عکسش از کادر بیرون می‌زد):
               // گرادیان عمیق با نور، کالا معلق با سایه، تیتر/متن/دکمه در سمت راست؛ کل کارت لینک است و در موبایل هم مرتب می‌ماند.
               var promoLink = UrlSafety.IsSafeLink(promo.LinkUrl) ? promo.LinkUrl!.Trim() : null;
-              var promoClass = "fr-promo md:flex-1 " + (i == 0 ? "fr-promo--a" : "fr-promo--b");
+              var promoClass = "fr-promo md:flex-1 " + (i % 2 == 0 ? "fr-promo--a" : "fr-promo--b");
               await Html.RenderPartialAsync("_PromoCard", new PromoCardModel(promo, promoClass, promoLink));
             }
           </section>

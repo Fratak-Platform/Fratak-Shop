@@ -251,6 +251,10 @@ public sealed class ProductImportService(FratakShopDbContext context, IBulkPrice
         if (discount is { } d && d >= price)
             return (changes, $"قیمت با تخفیف ({d:N0}) باید کمتر از قیمت ({price:N0}) باشد.", null);
 
+        // دور ۲۹ (#۱۳ – «همیشه سود»): تخفیف زیان‌ده یا سر‌به‌سر اعمال نمی‌شود (قیمت پایهٔ زیر خرید فقط هشدار می‌گیرد).
+        if (discount is { } dd && Smart.ProfitGuard.IsDiscountLoss(price, dd, purchase))
+            return (changes, $"زیان یا بدون سود: قیمت با تخفیف ({dd:N0}) باید بیشتر از قیمت خرید ({purchase:N0}) باشد.", null);
+
         if (price != product.Price)
             changes.Add(new("قیمت", $"{product.Price:N0}", $"{price:N0}"));
         if (discount != product.DiscountPrice)

@@ -29,6 +29,7 @@ public static class NotificationPlaceholders
         new("FirstName", "نام", "علی"),
         new("LastName", "نام خانوادگی", "رضایی"),
         new("FullName", "نام کامل", "علی رضایی"),
+        new("Greeting", "خطاب مناسب سن (دور ۲۹)", "علی عزیز"),
         new("Name", "نام نمایشی", "علی"),
         new("Phone", "موبایل", "09121234567"),
         new("WalletBalance", "موجودی کیف پول", "۲۵۰٬۰۰۰ تومان"),

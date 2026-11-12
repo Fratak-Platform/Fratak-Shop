@@ -78,6 +78,21 @@ public class IndexModel(IStaffNotificationService staffNotifications, IWebPushSe
         return RedirectToPage(new { page = PageNumber, unread = UnreadOnly });
     }
 
+    /// <summary>دور ۲۹ (#۲۸): حذف یک اعلان خودِ همین کارمند (سرویس شرط گیرنده را در دستور حذف می‌گذارد).</summary>
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    {
+        await staffNotifications.DeleteAsync(ActorId, id);
+        return RedirectToPage(new { page = PageNumber, unread = UnreadOnly });
+    }
+
+    /// <summary>دور ۲۹ (#۲۸): حذف همهٔ اعلان‌های خوانده‌شدهٔ همین کارمند.</summary>
+    public async Task<IActionResult> OnPostDeleteReadAsync()
+    {
+        var removed = await staffNotifications.DeleteReadAsync(ActorId);
+        TempData["SuccessMessage"] = removed > 0 ? $"{removed} اعلان خوانده‌شده حذف شد." : "اعلان خوانده‌شده‌ای وجود نداشت.";
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostReadAllAsync()
     {
         await staffNotifications.MarkAllReadAsync(ActorId);

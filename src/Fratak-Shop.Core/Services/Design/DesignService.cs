@@ -354,8 +354,8 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         if (doc.BannerId is { } bannerId && await context.Banners.AsTracking().FirstOrDefaultAsync(b => b.Id == bannerId, cancellationToken) is { } banner)
         {
             banner.ImageName = doc.ImageName ?? banner.ImageName;
-            if (doc.MobileImageName is not null && banner.Position == BannerPosition.HeroSlider)
-                banner.MobileImageName = doc.MobileImageName;
+            // دور ۲۹: بنر نسخهٔ موبایل جدا ندارد (همین تصویر در موبایل بهتر چیده می‌شود).
+            banner.MobileImageName = null;
             // دور ۲۶: نسخهٔ زنده هم با طرح تازه به‌روز می‌شود (حرکت خاموش ← null ← تصویر ثابت).
             banner.LiveHtml = LiveFor(doc, banner.Position);
             doc.Status = DesignStatus.Published;
@@ -421,8 +421,8 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
             context.Banners.Add(banner);
         }
         banner.ImageName = doc.ImageName!;
-        // دور ۲۳: اسلایدر، بنر عریض و سربرگ دسته نسخهٔ موبایل جدا دارند (اندازه‌های دیجی‌کالایی).
-        banner.MobileImageName = position is BannerPosition.HeroSlider or BannerPosition.WideBanner or BannerPosition.CategoryHeader ? doc.MobileImageName : null;
+        // دور ۲۹ (خواستهٔ صریح کاربر): بنر نسخهٔ موبایل جدا ندارد؛ همین تصویر در موبایل بهتر چیده می‌شود.
+        banner.MobileImageName = null;
         banner.Title = Cut(doc.Headline ?? doc.Title, 250);
         banner.ImageAlt = Cut(doc.Headline ?? doc.Title, 250);
         // بنر دوتایی کامل (متن روی خود تصویر) ← زیرعنوان/دکمهٔ جدا لازم نیست و صفحهٔ نخست آن را «تصویر کامل» نشان می‌دهد.

@@ -33,10 +33,10 @@ public partial class NotificationService
 
         bool Need(string key) => used.Contains(key) && !values.ContainsKey(key);
 
-        if (Need("FirstName") || Need("LastName") || Need("FullName") || Need("Name") || Need("Phone") || Need("WalletBalance") || Need("LoyaltyPoints"))
+        if (Need("FirstName") || Need("LastName") || Need("FullName") || Need("Name") || Need("Greeting") || Need("Phone") || Need("WalletBalance") || Need("LoyaltyPoints"))
         {
             var user = await context.Users.Where(u => u.Id == userId)
-                .Select(u => new { u.FirstName, u.LastName, u.PhoneNumber, u.WalletBalance, u.WalletBonusBalance, u.LoyaltyPoints })
+                .Select(u => new { u.FirstName, u.LastName, u.BirthDate, u.PhoneNumber, u.WalletBalance, u.WalletBonusBalance, u.LoyaltyPoints })
                 .FirstOrDefaultAsync();
             if (user is not null)
             {
@@ -45,6 +45,9 @@ public partial class NotificationService
                 values.TryAdd("LastName", user.LastName?.Trim() ?? string.Empty);
                 values.TryAdd("FullName", $"{user.FirstName} {user.LastName}".Trim() is { Length: > 0 } full ? full : "کاربر");
                 values.TryAdd("Name", first);
+                // دور ۲۹: خطاب مناسب نسل، مثلاً «علی جان» برای جوان‌ها و «رضایی گرامی» برای میان‌سال‌ها.
+                values.TryAdd("Greeting", Fratak_Shop.Core.Services.Users.UserGreeting.For(user.FirstName, user.LastName, user.BirthDate,
+                    IranClock.Today(DateTimeOffset.UtcNow)));
                 values.TryAdd("Phone", user.PhoneNumber);
                 values.TryAdd("WalletBalance", $"{user.WalletBalance + user.WalletBonusBalance:N0} تومان");
                 values.TryAdd("LoyaltyPoints", user.LoyaltyPoints.ToString("N0"));

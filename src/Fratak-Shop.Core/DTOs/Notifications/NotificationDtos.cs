@@ -13,6 +13,9 @@ public class NotificationDto
     public bool IsPinned { get; set; }
     public bool IsBroadcast { get; set; }
     public bool IsRead { get; set; }
+
+    /// <summary>دور ۲۹: مشتری می‌تواند این اعلان را حذف کند (پرچم فرستنده).</summary>
+    public bool UserDeletable { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 
@@ -42,6 +45,15 @@ public class NotificationRequest
     /// reminder steps). Placeholders are rendered the same way.
     /// </summary>
     public NotificationContent? Content { get; set; }
+
+    /// <summary>
+    /// دور ۲۹ (#۲۴): مشتری بتواند این اعلان را حذف کند؟ null ← پیش‌فرض: همه به‌جز اعلان‌های امنیتی
+    /// (تغییر رمز، ورود از دستگاه تازه و…) که فقط مدیر حذفشان می‌کند. <see cref="DeletableByDefault"/>.
+    /// </summary>
+    public bool? UserDeletable { get; set; }
+
+    /// <summary>دور ۲۹: پیش‌فرض «قابل حذف بودن» یک دستهٔ اعلان. مثال: Security ← false؛ Order ← true.</summary>
+    public static bool DeletableByDefault(NotificationCategory category) => category != NotificationCategory.Security;
 }
 
 /// <summary>Texts of a notification that doesn't use a <see cref="NotificationTemplate"/>.</summary>
@@ -79,4 +91,7 @@ public class CreateBroadcastCommand
     public bool IsPinned { get; set; }
     public DateTimeOffset? PublishAt { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
+
+    /// <summary>دور ۲۹ (#۲۴): هر مشتری بتواند این پیام همگانی را از فهرست خودش بردارد (برای بقیه می‌ماند).</summary>
+    public bool UserDeletable { get; set; } = true;
 }

@@ -45,6 +45,12 @@ public class Notification : BaseEntity
     /// <summary>Highlighted (pinned) broadcast, e.g. a running campaign.</summary>
     public bool IsPinned { get; set; }
 
+    /// <summary>
+    /// دور ۲۹ (#۲۴): مشتری اجازه دارد این اعلان را از فهرست خودش حذف کند؟ فقط وقتی فرستنده این پرچم را زده باشد؛
+    /// در غیر این صورت (مثلاً هشدار امنیتی یا اطلاعیهٔ مهم) فقط مدیر می‌تواند حذفش کند.
+    /// </summary>
+    public bool UserDeletable { get; set; }
+
     /// <summary>Personal notifications: when the customer read it.</summary>
     public DateTimeOffset? ReadAt { get; set; }
 
@@ -70,6 +76,11 @@ public class NotificationRead : BaseEntity
     public Guid UserId { get; set; }
 
     public DateTimeOffset ReadAt { get; set; }
+
+    /// <summary>
+    /// دور ۲۹ (#۲۴): مشتری این پیام همگانیِ «قابل حذف» را از فهرست خودش برداشت (پیام برای بقیه می‌ماند). null ← دیده می‌شود.
+    /// </summary>
+    public DateTimeOffset? HiddenAt { get; set; }
 
     [ForeignKey(nameof(NotificationId))]
     public Notification Notification { get; set; } = null!;

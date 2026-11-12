@@ -118,6 +118,16 @@
                       <button type="submit" class="text-xs text-zinc-500 hover:text-zinc-700">علامت به عنوان خوانده شده</button>
                     </form>
                   }
+                  @* دور ۲۹ (#۲۴): دکمهٔ حذف فقط برای اعلان‌هایی که فرستنده «قابل حذف» علامت زده است. *@
+                  @if (item.UserDeletable)
+                  {
+                    <form method="post" asp-page-handler="Delete" class="mr-auto" data-confirm="این اعلان از فهرست شما حذف شود؟">
+                      <input type="hidden" name="id" value="@item.Id" />
+                      <button type="submit" class="flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600" aria-label="حذف اعلان «@item.Title»">
+                        @Icons.Svg("Trash", "fill-rose-500", 16) حذف
+                      </button>
+                    </form>
+                  }
                 </div>
               </div>
             </li>

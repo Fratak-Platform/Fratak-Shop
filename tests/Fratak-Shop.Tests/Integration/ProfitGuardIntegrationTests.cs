@@ -140,4 +140,32 @@ public class ProfitGuardIntegrationTests(SqlServerFixture db)
             await SetGuardAsync(previous);
         }
     }
+
+    [SqlFact]
+    public async Task Break_even_or_losing_discount_is_blocked_even_when_the_guard_is_off()
+    {
+        // دور ۲۹ (#۱۳ – «همیشه سود»): خاموش بودن محافظ فقط قیمت پایهٔ حراج عمدی را آزاد می‌کند؛ تخفیف بدون سود هرگز.
+        var previous = await SetGuardAsync(false);
+        try
+        {
+            await using var scope = db.Scope();
+            var products = scope.ServiceProvider.GetRequiredService<IProductService>();
+
+            var breakEven = await products.CreateProductAsync(NewCommand(200_000, 150_000, 150_000));
+            Assert.Equal(EnOperationResultStatus.Error, breakEven.Status);
+            Assert.StartsWith("زیان یا بدون سود", breakEven.Message, StringComparison.Ordinal);
+
+            var losing = await products.CreateProductAsync(NewCommand(200_000, 140_000, 150_000));
+            Assert.Equal(EnOperationResultStatus.Error, losing.Status);
+            Assert.StartsWith("زیان", losing.Message, StringComparison.Ordinal);
+
+            // تخفیف سودده از محافظ عبور می‌کند (به بررسی دسته می‌رسد ← «یافت نشد»).
+            var fine = await products.CreateProductAsync(NewCommand(200_000, 151_000, 150_000));
+            Assert.Equal(EnOperationResultStatus.NotFound, fine.Status);
+        }
+        finally
+        {
+            await SetGuardAsync(previous);
+        }
+    }
 }

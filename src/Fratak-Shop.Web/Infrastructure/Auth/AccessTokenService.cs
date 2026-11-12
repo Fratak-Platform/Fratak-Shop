@@ -46,6 +46,10 @@ public class AccessTokenService(IOptions<JwtOptions> options, JwtSigningKeyProvi
         if (!string.IsNullOrWhiteSpace(user.FullName))
             claims[ShopClaimTypes.Name] = user.FullName;
 
+        // دور ۲۹: خطاب مناسب نسل برای منوی کاربر و پیشخوان (بدون پرس‌وجوی پایگاه داده در هر صفحه).
+        claims[ShopClaimTypes.Greeting] = Fratak_Shop.Core.Services.Users.UserGreeting.For(user.FirstName, user.LastName, user.BirthDate,
+            Fratak_Shop.Core.Utilities.IranClock.Today(now));
+
         var descriptor = new SecurityTokenDescriptor
         {
             Issuer = jwt.Issuer,

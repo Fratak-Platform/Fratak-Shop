@@ -334,10 +334,32 @@ public class SmartContentTests
     [InlineData(150_000, 130_000, 120_000, false)]
     [InlineData(150_000, null, null, false)]
     [InlineData(0, null, 120_000, false)]
+    [InlineData(150_000, 120_000, 120_000, true)] // دور ۲۹: تخفیف سر‌به‌سر = بدون سود
+    [InlineData(120_000, null, 120_000, true)]    // دور ۲۹: قیمت برابر خرید = بدون سود
+    [InlineData(150_000, 121_000, 120_000, false)]
     public void ProfitGuard_flags_only_real_losses(int price, int? discount, int? purchase, bool loss)
     {
         var message = ProfitGuard.Check((decimal)price, (decimal?)discount, (decimal?)purchase);
         Assert.Equal(loss, message is not null);
+    }
+
+    [Fact]
+    public void ProfitGuard_break_even_message_says_no_profit()
+    {
+        Assert.StartsWith("زیان یا بدون سود", ProfitGuard.Check(150_000, 120_000, 120_000), StringComparison.Ordinal);
+        Assert.StartsWith("زیان:", ProfitGuard.Check(150_000, 110_000, 120_000), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(200_000, 150_000, 150_000, true)]  // تخفیف سر‌به‌سر ← همیشه رد
+    [InlineData(200_000, 140_000, 150_000, true)]  // تخفیف زیان‌ده ← همیشه رد
+    [InlineData(200_000, 160_000, 150_000, false)] // تخفیف سودده
+    [InlineData(90_000, null, 120_000, false)]     // قیمت پایه زیر خرید، بدون تخفیف ← تابع تنظیم محافظ
+    [InlineData(100_000, 90_000, 120_000, false)]  // قیمت پایه خودش زیان‌ده است ← تابع تنظیم محافظ
+    [InlineData(200_000, 150_000, null, false)]    // بدون قیمت خرید
+    public void Discount_losses_are_detected_separately_from_base_price_losses(int price, int? discount, int? purchase, bool expected)
+    {
+        Assert.Equal(expected, ProfitGuard.IsDiscountLoss(price, discount, purchase));
     }
 
     [Fact]

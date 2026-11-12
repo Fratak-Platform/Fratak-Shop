@@ -19,7 +19,8 @@ public class Banner : BaseEntity
     public string ImageName { get; set; } = null!;
 
     /// <summary>
-    /// File name of the mobile image stored on the server.
+    /// قدیمی: تصویر موبایل جدا. دور ۲۹ (خواستهٔ صریح کاربر): بنر نسخهٔ موبایل جدا ندارد؛ همین یک تصویر در موبایل بهتر چیده می‌شود.
+    /// ستون فقط برای سازگاری پایگاه داده مانده و همیشه خالی است (مهاجرت دور ۲۹ مقدارهای قبلی را پاک کرد).
     /// </summary>
     [MaxLength(250)]
     public string? MobileImageName { get; set; }
@@ -51,6 +52,12 @@ public class Banner : BaseEntity
     public DateTimeOffset? EndAt { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// دور ۲۹ (#۱۶): بنر «سنجاق‌شده» همیشه در جایگاهش دیده می‌شود و در چرخش نوبتی بیرون نمی‌رود.
+    /// مثال: سقف اسلایدر ۵ و ۸ بنر فعال (۲ سنجاق) ← ۲ سنجاق همیشه + ۳ تا از ۶ بنر دیگر به نوبت (هر چند ساعت).
+    /// </summary>
+    public bool IsPinned { get; set; }
 
     /// <summary>
     /// دور ۲۳: کالای اصلی بنر (اختیاری). کالا ناموجود یا غیرفعال شود ← بنر خودکار نمایش داده نمی‌شود (پنهان، نه حذف) تا مشتری به

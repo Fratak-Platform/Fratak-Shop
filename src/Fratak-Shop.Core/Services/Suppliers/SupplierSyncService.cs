@@ -969,7 +969,8 @@ public class SupplierSyncService(
                     if (product.DiscountPrice is { } discount)
                     {
                         var adjusted = discount + delta;
-                        product.DiscountPrice = adjusted > 0 && adjusted < product.Price ? adjusted : null;
+                        // دور ۲۹ (#۱۳): تخفیفی که به قیمت خرید برسد (بدون سود) حذف می‌شود.
+                        product.DiscountPrice = adjusted > 0 && adjusted < product.Price && adjusted > newPurchase ? adjusted : null;
                     }
                     priceAdjusted++;
                 }

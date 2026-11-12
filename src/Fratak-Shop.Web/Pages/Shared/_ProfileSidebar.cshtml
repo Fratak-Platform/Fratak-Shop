@@ -1,65 +1,52 @@
 @model ProfileSection
+@*
+  دور ۲۹ – ستون کناری حساب کاربری (بازطراحی):
+  • فهرست و ترتیب از ProfileMenu (همان منبع منوی کشویی هدر) ← ترتیب همیشه یکی است؛ «پنل مدیریت» برای کارکنان اول است.
+  • گروه‌بندی با عنوان کوچک (حساب من، خریدها، علاقه‌مندی‌ها، ارتباط) تا پیدا کردن هر بخش ساده باشد.
+  • بالای ستون: حرف اول نام در دایره، خطاب مناسب نسل («محمد عزیز» / «ناظری گرامی») و شمارهٔ موبایل.
+  • موبایل: ستون به‌صورت کارت‌های افقی قابل اسکرول (fs-pside در commerce.css) تا صفحه زیر منو گم نشود.
+*@
+@inject Fratak_Shop.Core.Services.Admin.IAdminAccessService AdminAccess
 @{
-    var items = new List<(ProfileSection Section, string Page, string Title, string Icon)>
-    {
-        (ProfileSection.Dashboard, "/Profile/Index", "پیشخوان", "Home"),
-        (ProfileSection.Orders, "/Profile/Orders", "سفارش ها", "Orders"),
-        (ProfileSection.Addresses, "/Profile/Addresses", "آدرس ها", "MapPin"),
-        (ProfileSection.Favorites, "/Profile/Favorites", "علاقه مندی ها", "HeartThin"),
-        (ProfileSection.Notifications, "/Profile/Notifications", "اعلان ها", "Bell"),
-        (ProfileSection.Messages, "/Profile/Messages", "پیغام ها", "Mail"),
-        (ProfileSection.PersonalInfo, "/Profile/PersonalInfo", "اطلاعات حساب کاربری", "UserCircle"),
-        (ProfileSection.Password, "/Profile/Password", "رمز عبور و امنیت", "Shield"),
-        (ProfileSection.Sessions, "/Profile/Sessions", "دستگاه های فعال", "Devices"),
-    };
-    if (Site.Settings.IsWalletEnabled)
-    {
-        items.Insert(2, (ProfileSection.Wallet, "/Profile/Wallet", "کیف پول", "Wallet"));
-    }
-    if (Site.Settings.IsLoyaltyEnabled)
-    {
-        items.Insert(Site.Settings.IsWalletEnabled ? 3 : 2, (ProfileSection.Club, "/Profile/Club", Site.Settings.LoyaltyName, "Crown"));
-    }
-
-    // Round 5 sections, each behind its own store setting.
-    var at = items.FindIndex(i => i.Section == ProfileSection.Addresses);
-    var extra = new List<(ProfileSection Section, string Page, string Title, string Icon)>();
-    if (Site.Settings.IsReturnEnabled) extra.Add((ProfileSection.Returns, "/Profile/Returns", "مرجوعی ها", "ArrowUUpLeft"));
-    if (Site.Settings.IsGiftCardEnabled) extra.Add((ProfileSection.GiftCards, "/Profile/GiftCards", "کارت هدیه", "Gift"));
-    if (Site.Settings.IsReferralEnabled) extra.Add((ProfileSection.Invite, "/Profile/Invite", "دعوت از دوستان", "UsersThree"));
-    items.InsertRange(at < 0 ? items.Count : at, extra);
-
-    var favorites = items.FindIndex(i => i.Section == ProfileSection.Favorites);
-    if (Site.Settings.IsProductAlertEnabled) items.Insert(favorites + 1, (ProfileSection.Alerts, "/Profile/Alerts", "خبرم کن", "Target"));
-    var messages = items.FindIndex(i => i.Section == ProfileSection.Messages);
-    if (Site.Settings.IsTicketEnabled) items.Insert(messages + 1, (ProfileSection.Tickets, "/Profile/Tickets", "تیکت های پشتیبانی", "Headset"));
+    // کارمند بودن از همان سرویس دسترسی هدر (کش‌شده) خوانده می‌شود.
+    var userId = User.GetUserId();
+    var isStaff = userId.HasValue && (await AdminAccess.GetAccessAsync(userId.Value)).IsStaff;
+    var items = ProfileMenu.Build(Site.Settings, isStaff);
+    var displayName = User.GetDisplayName();
+    var initial = string.IsNullOrWhiteSpace(displayName) ? "؟" : displayName.Trim()[..1];
 }
-<div class="md:w-3/12 bg-white shadow-lg rounded-2xl py-3 h-fit">
-  @Icons.Svg("Profile", "fill-zinc-700 mx-auto", 60)
-  <div class="text-center font-semibold text-lg md:text-xl text-zinc-700">
-    @User.GetDisplayName()
+<aside class="fs-pside md:w-3/12 h-fit" aria-label="منوی حساب کاربری">
+  <div class="fs-pside-head">
+    <span class="fs-pside-avatar" aria-hidden="true">@initial</span>
+    <div class="min-w-0">
+      <div class="fs-pside-greet">@User.GetGreeting()</div>
+      <div class="fs-pside-phone" dir="ltr">@User.GetPhoneNumber()</div>
+    </div>
   </div>
-  <div class="text-center text-xs text-zinc-400 mt-1" dir="ltr">@User.GetPhoneNumber()</div>
-  <ul class="px-5 py-3 space-y-1">
-    @foreach (var item in items)
+  <nav>
+    @foreach (var group in items.GroupBy(i => i.Group))
     {
-      var active = item.Section == Model;
-      <li class="px-3 py-2 group flex gap-x-2 items-center rounded-lg @(active ? "bg-sky-50" : "hover:bg-gray-50")">
-        <span class="h-5 w-0.5 rounded-full @(active ? "bg-sky-500" : "bg-transparent group-hover:bg-sky-300")"></span>
-        <a asp-page="@item.Page" class="flex items-center gap-x-2 w-full @(active ? "text-sky-600" : "text-zinc-700 hover:text-sky-600")" aria-current="@(active ? "page" : null)">
-          @Icons.Svg(item.Icon, active ? "fill-sky-600" : "fill-zinc-600 group-hover:fill-sky-600")
-          @item.Title
-        </a>
-      </li>
+      <div class="fs-pside-group">
+        <div class="fs-pside-title">@group.Key</div>
+        <ul>
+          @foreach (var item in group)
+          {
+            var active = item.Section is { } itemSection && itemSection == Model;
+            <li>
+              <a href="@item.Url" class="fs-pside-link@(active ? " is-active" : "")@(item.Staff ? " is-staff" : "")" aria-current="@(active ? "page" : null)">
+                @Icons.Svg(item.Icon, null, 20)
+                <span>@item.Title</span>
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
     }
-    <li class="px-3 py-2 group flex gap-x-2 items-center rounded-lg hover:bg-red-50">
-      <span class="h-5 w-0.5 rounded-full bg-transparent group-hover:bg-red-400"></span>
-      <form method="post" asp-page="/Logout" class="w-full">
-        <button type="submit" class="flex items-center gap-x-2 w-full text-red-500 hover:text-red-600">
-          @Icons.Svg("SignOut", "fill-red-500")
-          خروج از حساب کاربری
-        </button>
-      </form>
-    </li>
-  </ul>
-</div>
+    <form method="post" asp-page="/Logout" class="fs-pside-group">
+      <button type="submit" class="fs-pside-link is-logout">
+        @Icons.Svg("SignOut", null, 20)
+        <span>خروج از حساب کاربری</span>
+      </button>
+    </form>
+  </nav>
+</aside>
