@@ -40,6 +40,11 @@
       {
         <a href="/admin/manage/product-videos?parent=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("VideoCamera", null, 18) ویدئوها (@Model.VideoCount)</a>
       }
+      @if (Model.Can(AdminPermissions.ProductsManage))
+      {
+        @* دور ۲۹ (#۱۸): ویدیوهای پیشنهادی همین کالا (پیدا‌شده در تأمین‌کننده/آپارات/یوتیوب) *@
+        <a href="/admin/smart/videos?product=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("PlayCircle", null, 18) ویدیوی پیشنهادی@(Model.VideoSuggestionCount > 0 ? " (" + Model.VideoSuggestionCount + ")" : "")</a>
+      }
       @if (Model.Can(AdminPermissions.CommentsModerate))
       {
         <a href="/admin/comments?product=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("Chat", null, 18) نظرات و پرسش‌ها</a>

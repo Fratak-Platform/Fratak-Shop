@@ -139,6 +139,8 @@ public static class WebServiceCollectionExtensions
         // دور نوزدهم (B/C، A31): محتوای هوشمند – منابع بیرونی مؤدب، عکس‌یاب، اجراکنندهٔ کارها، کارگر پس‌زمینه و دستیار محلی مدیر.
         services.AddScoped<Infrastructure.Smart.SmartSources>();
         services.AddScoped<Infrastructure.Smart.SmartImageFinder>();
+        // دور ۲۹ (#۱۸): ویدیوی پیشنهادی کالا (فقط پیشنهاد).
+        services.AddScoped<Infrastructure.Smart.VideoSuggestionFinder>();
         services.AddScoped<Infrastructure.Smart.SmartOrchestrator>();
         services.AddScoped<Infrastructure.Smart.SmartNotifier>();
         services.AddHostedService<Infrastructure.Smart.SmartWorker>();

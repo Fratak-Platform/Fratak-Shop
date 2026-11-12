@@ -117,6 +117,61 @@ public sealed class DesignStudio(
     }
 
     /// <summary>
+    /// دور ۲۹ (#۱۷) – بنر سربرگ برای <b>همهٔ</b> دسته‌های اصلی: هر دستهٔ اصلیِ دارای کالا که بنر سربرگ فعال یا پیشنهاد منتظر ندارد،
+    /// یک پیشنهاد «سربرگ دسته» (۱۹۲۰×۳۰۰، وصل به همان دسته) با چیدمان متنوع می‌گیرد (<see cref="DesignIdeas.CategoryHeader"/>).
+    /// مثل بقیهٔ ایده‌ها خودکار منتشر نمی‌شود؛ در «طراحی ← پیشنهادها» منتظر تأیید است و با «انتشار» روی صفحهٔ دسته می‌نشیند.
+    /// <para>سبک برای سرور: هر نوبت حداکثر <paramref name="max"/> دسته (پیش‌فرض کار روزانه ۴)؛ دسته‌ای که این ماه پیشنهادش رد شده تا ماه بعد
+    /// دوباره ساخته نمی‌شود (کلید ماهانه).</para>
+    /// خروجی: تعداد پیشنهاد ساخته‌شده.
+    /// </summary>
+    public async Task<int> SuggestCategoryHeadersAsync(int max, CancellationToken cancellationToken)
+    {
+        max = Math.Clamp(max, 0, 10);
+        if (max == 0)
+            return 0;
+        var candidates = await designs.CategoryHeaderCandidatesAsync(max * 2, cancellationToken);
+        if (candidates.Count == 0)
+            return 0;
+        var now = DateTimeOffset.UtcNow;
+        var preset = DesignPresets.Find(DesignPresets.CategoryHeader)!;
+        var store = await settings.GetAsync(cancellationToken);
+        var ideas = candidates.Select((c, i) => (Candidate: c, Idea: DesignIdeas.CategoryHeader(c.Category, c.Products, i, now))).ToList();
+        var existing = await designs.ExistingIdeaKeysAsync(ideas.Select(x => x.Idea.Key), cancellationToken);
+        var created = 0;
+        foreach (var (candidate, idea) in ideas.Where(x => !existing.Contains(x.Idea.Key)))
+        {
+            if (created >= max)
+                break;
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                // ابعاد واقعی عکس‌ها (بدون کشیدگی) و سپس عکس‌دار کردن (کالای دوربری‌شده، عکس فضاسازی دسته).
+                var input = WithImageSizes(new IdeaInput(candidate.Products, [candidate.Category], store.SiteName));
+                var sized = DesignIdeas.CategoryHeader(input.Categories[0], input.Products, ideas.FindIndex(x => x.Idea.Key == idea.Key), now);
+                DesignIdea ready;
+                try
+                {
+                    ready = await WithPicturesAsync(sized, input, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogWarning(exception, "Category header pictures for {Key} failed; using the plain idea", idea.Key);
+                    ready = sized;
+                }
+                var id = await CreateIdeaAsync(ready, preset, Actor, cancellationToken, candidate.Category.Id, requireImage: true)
+                         ?? await CreateIdeaAsync(Plain(sized), preset, Actor, cancellationToken, candidate.Category.Id);
+                if (id is not null)
+                    created++;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Category header idea {Key} failed", idea.Key);
+            }
+        }
+        return created;
+    }
+
+    /// <summary>
     /// دور ۲۷ – عکس‌دار کردن ایدهٔ خودکار (بدون دانلود از اینترنت؛ فقط فایل‌های خود سایت):
     /// <list type="number">
     /// <item>عکس کالاها (اصلی + گالری) ← نسخهٔ «دوربری‌شده» اگر زمینه سفید است (یک بار ساخته و بعد استفادهٔ دوباره).</item>
@@ -152,9 +207,11 @@ public sealed class DesignStudio(
         var layout = spec.Layout;
         var photo = spec.Photo;
         var parts = idea.Key.Split(':');
-        if (photo is null && parts.Length >= 2 && parts[0] is "cat" or "catdeal")
+        // دور ۲۹ (#۱۷): سربرگ دسته فقط در چیدمان تک‌کالا/هندسی عکس فضاسازی می‌گیرد تا سربرگ‌ها همه «عکس تمام‌قاب» نشوند (تنوع طرح).
+        var headerPhoto = parts.Length >= 2 && parts[0] == DesignIdeas.CategoryHeaderPrefix && layout is "split" or "pattern";
+        if (photo is null && parts.Length >= 2 && (parts[0] is "cat" or "catdeal" || headerPhoto))
         {
-            var set = parts[0] == "cat" && Guid.TryParseExact(parts[1], "N", out var categoryId)
+            var set = parts[0] is "cat" or DesignIdeas.CategoryHeaderPrefix && Guid.TryParseExact(parts[1], "N", out var categoryId)
                 ? await designs.CategoryImagesAsync(categoryId, null, cancellationToken)
                 : await designs.CategoryImagesAsync(null, parts[1], cancellationToken);
             if (set is not null)

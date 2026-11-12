@@ -62,6 +62,7 @@ public static class AdminNav
             new AdminNavItem("صف کارهای هوشمند", "/admin/smart", "MagicWand", [P.ProductsManage, P.CatalogManage, P.BlogPublish]),
             new AdminNavItem("خلاصهٔ روزانهٔ فروشگاه", "/admin/smart/brief", "ListChecks", [P.ReportsView, P.ProductsManage]),
             new AdminNavItem("دسته‌بندی خودکار و درخت دسته‌ها", "/admin/smart/categories", "Stack", [P.CatalogManage]),
+            new AdminNavItem("ویدیوهای پیشنهادی کالا", "/admin/smart/videos", "VideoCamera", [P.ProductsManage]),
             new AdminNavItem("تقویم مقاله‌های خودکار", "/admin/smart/blog", "Sparkle", [P.BlogPublish]),
             new AdminNavItem("پیشنهادهای خودکار رشد فروش", "/admin/smart/growth", "TrendUp", [P.ReportsView, P.MarketingManage, P.SeoManage]),
             new AdminNavItem("گزارش دستیار گفت‌وگوی مشتری", "/admin/smart/assistant", "Robot", [P.ProductsManage, P.ReportsView, P.MarketingManage, P.TicketsManage]),

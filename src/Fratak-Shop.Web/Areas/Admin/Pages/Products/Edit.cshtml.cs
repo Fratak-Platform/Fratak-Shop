@@ -112,6 +112,9 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
     public int SalesCount { get; private set; }
     public int ViewCount { get; private set; }
     public int VideoCount { get; private set; }
+
+    /// <summary>دور ۲۹ (#۱۸): تعداد ویدیوهای پیشنهادیِ تازه (بررسی‌نشده) برای این کالا.</summary>
+    public int VideoSuggestionCount { get; private set; }
     public DateTimeOffset? CreatedAt { get; private set; }
     public bool IsNew => ProductId is null;
 
@@ -634,6 +637,8 @@ public class EditModel(IProductService products, IAdminDataService data, IUpload
         if (ProductId is { } id)
         {
             VideoCount = await data.Query<ProductVideo>().CountAsync(v => v.ProductId == id);
+            VideoSuggestionCount = await data.Query<Fratak_Shop.Data.Entities.Smart.ProductVideoSuggestion>()
+                .CountAsync(v => v.ProductId == id && v.Status == Fratak_Shop.Data.Entities.Smart.VideoSuggestionStatus.New);
             var input = await data.Query<Product>().Where(p => p.Id == id).Select(ProductCompleteness.Projection).FirstOrDefaultAsync();
             Completeness = input is null ? null : ProductCompleteness.Evaluate(input);
             if (Can(AdminPermissions.ProductsView))

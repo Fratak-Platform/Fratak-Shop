@@ -236,6 +236,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Smart.ISmartConfigService, Services.Smart.SmartConfigService>();
         services.AddScoped<Services.Smart.ISmartTaskQueue, Services.Smart.SmartTaskQueue>();
         services.AddScoped<Services.Smart.ISmartResearchStore, Services.Smart.SmartResearchStore>();
+        // دور ۲۹ (#۱۸): ویدیوهای پیشنهادی کالا.
+        services.AddScoped<Services.Smart.IVideoSuggestionService, Services.Smart.VideoSuggestionService>();
         services.AddScoped<Services.Smart.IProductInsightService, Services.Smart.ProductInsightService>();
         services.AddScoped<Services.Smart.ISmartCatalogService, Services.Smart.SmartCatalogService>();
         // دور ۲۸ (#۵۱–۵۹): «سلامت داده» – امتیاز اطمینان هر کالا، درست کردن خودکار و بررسی دوبارهٔ عکس‌ها.

@@ -50,6 +50,8 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         // دور ۲۹: SmartContentConfig از این فهرست بیرون آمد – سقف/چرخش بنرها و حالت سوگواری در صفحهٔ اصلی دیده می‌شوند،
         // پس ذخیرهٔ تنظیمات هوشمند (فقط دستی از پنل، نادر) باید کش صفحه‌ها را تازه کند.
         "SmartTask", "SmartResearchCache", "BlogPlanItem", "CustomerReminder",
+        // دور ۲۹ (#۱۸): ویدیوهای پیشنهادی کالا فقط در پنل‌اند.
+        "ProductVideoSuggestion",
     };
 
     // ── آمار کش صفحات از زمان روشن شدن سایت (کارت «کش» در /admin/system) ──

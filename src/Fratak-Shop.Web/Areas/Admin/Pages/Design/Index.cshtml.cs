@@ -185,4 +185,15 @@ public class IndexModel(IDesignService designs, DesignStudio studio, IPostServic
             ErrorMessage = "ایدهٔ تازه‌ای پیدا نشد (ایده‌های این هفته قبلاً ساخته یا رد شده‌اند، یا کالای موجود با عکس کم است).";
         return LocalRedirect("/admin/design?status=Suggested");
     }
+
+    /// <summary>دور ۲۹ (#۱۷): ساخت بنر سربرگ برای دسته‌های اصلیِ بی‌سربرگ همین حالا (حداکثر ۶؛ همان کار روزانه).</summary>
+    public async Task<IActionResult> OnPostCategoryHeadersAsync()
+    {
+        var count = await studio.SuggestCategoryHeadersAsync(6, HttpContext.RequestAborted);
+        if (count > 0)
+            SuccessMessage = $"{Format.Number(count)} بنر سربرگ دسته ساخته شد و منتظر تأیید است.";
+        else
+            ErrorMessage = "همهٔ دسته‌های اصلیِ دارای کالا بنر سربرگ فعال یا پیشنهاد منتظر دارند.";
+        return LocalRedirect("/admin/design?status=Suggested");
+    }
 }

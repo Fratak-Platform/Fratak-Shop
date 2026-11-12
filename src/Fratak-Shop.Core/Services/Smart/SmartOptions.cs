@@ -279,8 +279,10 @@ public sealed class SmartOptions
     /// <summary>دور ۲۹: کدام لوگو: «mark» نشان برند (مربعی) یا «full» لوگوی کامل (افقی).</summary>
     public string ImageLogoKind { get; set; } = "mark";
 
-    /// <summary>دور ۲۹: بازبینی و اصلاح خودکار دستهٔ کالاهای اشتباه (مثل «سرویس ۶ پارچه» در «چندراهی برق»). پیش‌فرض روشن.</summary>
-    public bool Recategorize { get; set; } = true;
+    /// <summary>
+    /// دور ۲۹ (#۱۸): جست‌وجوی «ویدیوی پیشنهادی» برای کالاهای بی‌ویدیو (صفحهٔ تأمین‌کننده، آپارات، یوتیوب). فقط پیشنهاد؛ مدیر بررسی و اضافه می‌کند.
+    /// </summary>
+    public bool VideoSuggestions { get; set; } = true;
 
     // ── دور ۲۹: جایگاه بنرها ─────────────────────────────────────────
 

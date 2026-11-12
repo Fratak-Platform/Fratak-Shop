@@ -208,6 +208,24 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
     }
 
     /// <summary>
+    /// دور ۲۹ (#۱۸) – ویدیوهای پیشنهادی تازه: یک اعلان قابل کلیک به فهرست «ویدیوهای پیشنهادی» (فقط پیشنهاد؛ مدیر بررسی می‌کند). صفر ← بی‌صدا.
+    /// </summary>
+    public async Task NotifyVideoSuggestionsAsync(int suggestions, int products)
+    {
+        if (suggestions <= 0)
+            return;
+        try
+        {
+            await SendAsync(null, $"{PersianText.Digits(suggestions)} ویدیوی پیشنهادی برای {PersianText.Digits(products)} کالا",
+                "ویدیوی معرفی همین کالاها پیدا شد. لینک را باز کنید، اگر همان کالا بود دانلود و اضافه کنید.", "/admin/smart/videos", AdminPermissions.ProductsManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Video suggestion notification failed");
+        }
+    }
+
+    /// <summary>
     /// دور ۲۳ – خلاصهٔ روزانهٔ «آمادهٔ انتشار»: اگر پیش‌نویس کاملی منتظر است، یک اعلان با لینک فیلتر همان فهرست
     /// (/admin/products?missing=ready). سیستم هرگز خودش منتشر نمی‌کند. صفر ← بی‌صدا.
     /// </summary>

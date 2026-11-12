@@ -1030,3 +1030,10 @@ html[data-theme="dark"] .a-smart-chips .a-chip.is-main { color: #85C4FF; }
 .fs-hm-preset span { font-size: 11.5px; color: var(--a-muted); }
 .fs-hm-preset[disabled] { cursor: default; opacity: .55; }
 @media (max-width: 900px) { .fs-hm-form { grid-template-columns: 1fr 1fr; } .fs-hm-url { grid-column: 1 / -1; } }
+
+/* دور ۲۹ (#۱۸): ویدیوهای پیشنهادی کالا – تصویر کوچک ۱۶:۹ کنار عنوان. */
+.fs-video-thumb { width: 96px; aspect-ratio: 16 / 9; flex: none; object-fit: cover; border-radius: 8px; background: #f1f5f9; border: 1px solid var(--a-border); display: inline-flex; align-items: center; justify-content: center; color: var(--a-muted); }
+.fs-video-sugg td a { text-decoration: none; color: inherit; }
+.fs-video-sugg td a:hover .font-semibold { color: var(--a-primary); }
+.fs-video-sugg .a-ltr { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-theme="dark"] .fs-video-thumb { background: #1f2937; }

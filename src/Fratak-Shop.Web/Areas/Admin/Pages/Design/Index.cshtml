@@ -22,6 +22,8 @@
   </div>
   <div class="a-btn-group">
     <form method="post" asp-page-handler="Suggest" class="inline"><button class="a-btn a-btn-primary" type="submit">@Icons.Svg("MagicWand", null, 18) ساخت ایده الان</button></form>
+    @* دور ۲۹ (#۱۷): سربرگ برای همهٔ دسته‌های اصلی. *@
+    <form method="post" asp-page-handler="CategoryHeaders" class="inline"><button class="a-btn a-btn-light" type="submit" title="برای هر دستهٔ اصلی که سربرگ ندارد">@Icons.Svg("SquaresFour", null, 18) سربرگ همهٔ دسته‌ها</button></form>
     <a class="a-btn a-btn-light" href="#new-design">@Icons.Svg("Plus", null, 18) طرح تازه</a>
     <a class="a-btn a-btn-light" href="/admin/manage/banners">@Icons.Svg("Image", null, 18) بنرهای سایت</a>
   </div>

@@ -281,12 +281,41 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Product image care failed");
         }
         count += await TopUpProductImagesAsync(services, now, cancellationToken);
+        count += await SuggestVideosAsync(services, now, cancellationToken);
         count += await RecategorizeAsync(services, now, cancellationToken);
         count += await PlanOccasionCouponsAsync(services, now, cancellationToken);
         count += await RefreshOldPostsAsync(services, now, cancellationToken);
         count += await PurgeCategoryCollagesAsync(services, now, cancellationToken);
         count += await BackfillCategoryPhotosAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastVideoTicks;
+
+    /// <summary>
+    /// دور ۲۹ (#۱۸): «ویدیوی پیشنهادی» – هر ۶ ساعت ۸ کالای بی‌ویدیو (روزی ~۳۲؛ هر کالا هر ۳۰ روز یک بار) در صفحهٔ تأمین‌کننده، آپارات و یوتیوب
+    /// جست‌وجو می‌شوند و ویدیوهای «همین کالا» با یک اعلان قابل کلیک به مدیر پیشنهاد می‌شوند. هیچ ویدیویی خودکار اضافه نمی‌شود.
+    /// </summary>
+    public static async Task<int> SuggestVideosAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken, bool force = false)
+    {
+        var last = Interlocked.Read(ref _lastVideoTicks);
+        if (!force && last != 0 && now.UtcTicks - last < TimeSpan.FromHours(6).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastVideoTicks, now.UtcTicks);
+        try
+        {
+            var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
+            if (!options.Enabled || !options.VideoSuggestions)
+                return 0;
+            var (saved, products) = await services.GetRequiredService<VideoSuggestionFinder>().RunAsync(8, cancellationToken);
+            await services.GetRequiredService<SmartNotifier>().NotifyVideoSuggestionsAsync(saved, products);
+            return saved;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Video suggestions failed");
+            return 0;
+        }
     }
 
     private static long _lastRecategorizeTicks;
@@ -651,6 +680,21 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
                 {
                     services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Banner ideas failed");
                 }
+            }
+            // دور ۲۹ (#۱۷): سربرگ برای همهٔ دسته‌های اصلی (روزی حداکثر ۴ پیشنهاد تازه تا همه پوشش داده شوند؛ منتظر تأیید مدیر).
+            try
+            {
+                var headers = await services.GetRequiredService<Fratak_Shop.Web.Infrastructure.Design.DesignStudio>().SuggestCategoryHeadersAsync(4, cancellationToken);
+                if (headers > 0)
+                {
+                    ideas += headers;
+                    await growth.LogAsync(IranClock.Today(now), GrowthActionKind.BannerIdeas, headers, null,
+                        $"{PersianText.Digits(headers)} بنر سربرگ دسته منتظر تأیید است.", cancellationToken);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Category header ideas failed");
             }
             await services.GetRequiredService<SmartNotifier>().NotifyGrowthAsync(report, ideas);
             return report.SeoLifted + report.ProductsQueued + ideas;

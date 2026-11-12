@@ -41,6 +41,13 @@ public class ProductInsightConfiguration : IEntityTypeConfiguration<ProductInsig
         builder.HasIndex(i => i.ProductId).IsUnique();
 }
 
+/// <summary>دور ۲۹ (#۱۸): هر لینک ویدیو برای هر کالا فقط یک بار پیشنهاد می‌شود.</summary>
+public class ProductVideoSuggestionConfiguration : IEntityTypeConfiguration<ProductVideoSuggestion>
+{
+    public void Configure(EntityTypeBuilder<ProductVideoSuggestion> builder) =>
+        builder.HasIndex(v => new { v.ProductId, v.PageUrl }).IsUnique();
+}
+
 public class BlogPlanItemConfiguration : IEntityTypeConfiguration<BlogPlanItem>
 {
     public void Configure(EntityTypeBuilder<BlogPlanItem> builder) =>

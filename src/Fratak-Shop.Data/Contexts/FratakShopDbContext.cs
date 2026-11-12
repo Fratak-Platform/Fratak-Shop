@@ -314,6 +314,8 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
     public DbSet<Fratak_Shop.Data.Entities.Smart.SmartTask> SmartTasks { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.SmartResearchCache> SmartResearchCaches { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.ProductInsight> ProductInsights { get; set; } = null!;
+    // دور ۲۹ (#۱۸): ویدیوهای پیشنهادی کالا (فقط پنل).
+    public DbSet<Fratak_Shop.Data.Entities.Smart.ProductVideoSuggestion> ProductVideoSuggestions { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.BlogPlanItem> BlogPlanItems { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.CustomerReminder> CustomerReminders { get; set; } = null!;
     public DbSet<Fratak_Shop.Data.Entities.Smart.SmartContentConfig> SmartContentConfigs { get; set; } = null!;

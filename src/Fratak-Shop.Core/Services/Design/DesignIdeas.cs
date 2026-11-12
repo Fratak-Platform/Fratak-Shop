@@ -268,6 +268,66 @@ public static class DesignIdeas
             "/products", now.AddDays(30)));
     }
 
+    /// <summary>کلید ایدهٔ «سربرگ دسته» (دور ۲۹، #۱۷). مثال: «cathead:3fa1…:1405-08» – هر دسته هر ماه یک پیشنهاد تازه.</summary>
+    public const string CategoryHeaderPrefix = "cathead";
+
+    /// <summary>
+    /// دور ۲۹ (#۱۷) – بنر سربرگ برای <b>هر</b> دستهٔ اصلی (اجباری؛ DesignStudio.SuggestCategoryHeadersAsync دسته‌های بی‌سربرگ را پیدا می‌کند).
+    /// <para>طرح‌ها عمداً متنوع‌اند: چیدمان از بین «کنار هم / تک‌کالا / طرح هندسی / حراج» با کلید پایدار دسته + ماه + جایگاه در فهرست
+    /// انتخاب می‌شود تا دسته‌های کنار هم شبیه هم نشوند؛ پالت، تیتر کوچک و متن هم چرخشی‌اند. بعداً عکس فضاسازی واقعی دسته (اگر هست)
+    /// برای چیدمان‌های تک‌کالا/هندسی جایش می‌نشیند.</para>
+    /// <para>بدون ادعای ساختگی: نشان تخفیف فقط وقتی تخفیف واقعی ≥۱۰٪ در همان دسته هست؛ تعداد کالا همان تعداد موجود واقعی است.</para>
+    /// مثال: دستهٔ «لوازم آشپزخانه» با ۴۰ کالای موجود و بیشترین تخفیف ۱۸٪ ← تیتر «لوازم آشپزخانه»، نشان «تا ۱۸٪ تخفیف»، لینک /category/kitchen.
+    /// </summary>
+    /// <param name="category">دستهٔ اصلی (InStock = کالای موجود خودش و زیردسته‌ها).</param>
+    /// <param name="products">بهترین کالاهای موجودِ عکس‌دار همان دسته (حداکثر ۳ استفاده می‌شود).</param>
+    /// <param name="index">جایگاه دسته در فهرست همین نوبت (برای تنوع چیدمان دسته‌های پشت سر هم).</param>
+    public static DesignIdea CategoryHeader(IdeaCategory category, IReadOnlyList<IdeaProduct> products, int index, DateTimeOffset now)
+    {
+        var month = MonthKey(now);
+        var palettes = DesignPalettes.All.Select(p => p.Key).Where(k => k != "clean").ToArray();
+        var members = products.Where(p => !string.IsNullOrWhiteSpace(p.ImageUrl)).Take(3).ToList();
+        var gallery = Images(members);
+        var maxOff = products.Select(p => p.DiscountPercent).DefaultIfEmpty(0).Max();
+        var badge = maxOff >= 10 ? $"تا {DesignTemplates.FaDigits(maxOff + "%")} تخفیف" : null;
+        var layout = CategoryHeaderLayout(category.Id.ToString("N") + month, index, gallery.Count, badge is not null);
+        var count = DesignTemplates.FaDigits(Math.Max(0, category.InStock).ToString(CultureInfo.InvariantCulture));
+        var seed = category.Id.ToString("N") + month;
+        var subline = category.InStock > 0
+            ? Variant(seed + "s", $"{count} کالای موجود، با قیمت روز", $"از {count} انتخاب، مناسب خودتان را پیدا کنید", $"{count} کالای موجود با ارسال سریع")
+            : Variant(seed + "s", "انتخاب‌های تازه به‌زودی", "به‌زودی با کالاهای تازه");
+        var kicker = Variant(seed + "k", "دسته‌بندی", "دنیای " + category.Name, "انتخاب هوشمند");
+        var main = layout == "sale"
+            ? Image(products.OrderByDescending(p => p.DiscountPercent).First())
+            : gallery.FirstOrDefault();
+        return new DesignIdea($"{CategoryHeaderPrefix}:{category.Id:N}:{month}", "سربرگ دستهٔ " + category.Name,
+            $"دستهٔ اصلی «{category.Name}» هنوز بنر سربرگ فعال ندارد ({count} کالای موجود" + (badge is null ? ")." : $"، بیشترین تخفیف واقعی {DesignTemplates.FaDigits(maxOff + "%")})."),
+            new DesignSpec(layout, Pick(palettes, category.Id, 4 + index), DesignTemplates.Shorten(category.Name, 40), subline, badge,
+                layout == "sale" ? "دیدن تخفیف‌ها" : "دیدن همه", main, Kicker: kicker, Gallery: gallery.Count > 0 ? gallery : null),
+            layout == "sale" ? $"/category/{category.Slug}?Discounted=true" : "/category/" + category.Slug, now.AddDays(45));
+    }
+
+    /// <summary>
+    /// چیدمان متنوع سربرگ دسته با توجه به عکس‌های موجود. بدون عکس ← همیشه «طرح هندسی»؛ یک عکس ← تک‌کالا یا هندسی؛
+    /// دو عکس به بالا ← کنار هم، تک‌کالا یا هندسی؛ تخفیف واقعی ← «حراج» هم به گزینه‌ها اضافه می‌شود.
+    /// مثال: (seed ثابت، index 0 و 1، ۳ عکس) ← دو چیدمان متفاوت.
+    /// </summary>
+    public static string CategoryHeaderLayout(string seed, int index, int images, bool discounted)
+    {
+        var pool = new List<string>();
+        if (images >= 2)
+            pool.Add("collage");
+        if (images >= 1)
+            pool.Add("split");
+        pool.Add("pattern");
+        if (discounted && images >= 1)
+            pool.Add("sale");
+        var hash = 17;
+        foreach (var c in seed)
+            hash = unchecked(hash * 31 + c);
+        return pool[(int)(((uint)hash + (uint)Math.Max(0, index)) % (uint)pool.Count)];
+    }
+
     /// <summary>
     /// دور ۲۸: انتخاب پایدار یکی از چند متن با کلید (همان کلید ← همان متن؛ ماه بعد متن دیگری). مثال: Variant("pay1405-08", "الف", "ب").
     /// </summary>

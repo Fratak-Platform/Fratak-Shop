@@ -191,6 +191,52 @@ public class SmartResearchCache : BaseEntity
     public DateTimeOffset ExpiresAt { get; set; }
 }
 
+/// <summary>دور ۲۹ (#۱۸): وضعیت پیشنهاد ویدیو.</summary>
+public enum VideoSuggestionStatus : byte
+{
+    /// <summary>تازه؛ منتظر بررسی مدیر.</summary>
+    New = 0,
+
+    /// <summary>مدیر ویدیو را دانلود و به کالا اضافه کرد.</summary>
+    Used = 1,
+
+    /// <summary>مدیر رد کرد (همان کالا نبود یا کیفیت نداشت)؛ دوباره پیشنهاد نمی‌شود.</summary>
+    Dismissed = 2,
+}
+
+/// <summary>
+/// دور ۲۹ (#۱۸) – «ویدیوی پیشنهادی» یک کالا: جایی که ویدیوی معرفی همین کالا پیدا شده (صفحهٔ تأمین‌کننده، آپارات، یوتیوب).
+/// فقط پیشنهاد است؛ هیچ ویدیویی خودکار دانلود یا روی سایت گذاشته نمی‌شود. مدیر لینک را باز می‌کند، اگر همان کالا بود دانلود و
+/// در «ویدیوهای معرفی محصول» اضافه می‌کند و «استفاده شد» یا «رد» می‌زند.
+/// مثال: (کالای «هدفون Sony WH-1000XM5»، aparat، https://www.aparat.com/v/abc12، «آنباکسینگ سونی WH-1000XM5»، امتیاز ۸۵).
+/// </summary>
+public class ProductVideoSuggestion : BaseEntity
+{
+    public Guid ProductId { get; set; }
+
+    /// <summary>منبع: supplier، aparat یا youtube.</summary>
+    [Required]
+    [MaxLength(30)]
+    public string Source { get; set; } = null!;
+
+    /// <summary>آدرس صفحه‌ای که ویدیو در آن است (برای باز کردن و دانلود توسط مدیر).</summary>
+    [Required]
+    [MaxLength(500)]
+    public string PageUrl { get; set; } = null!;
+
+    [MaxLength(300)]
+    public string? Title { get; set; }
+
+    /// <summary>تصویر کوچک ویدیو (آدرس بیرونی؛ فقط در پنل نمایش داده می‌شود).</summary>
+    [MaxLength(500)]
+    public string? ThumbnailUrl { get; set; }
+
+    /// <summary>میزان تطبیق عنوان ویدیو با نام کالا (۰ تا ۱۰۰). ویدیوی صفحهٔ خود تأمین‌کننده ۹۵.</summary>
+    public int Score { get; set; }
+
+    public VideoSuggestionStatus Status { get; set; }
+}
+
 /// <summary>وضعیت جمع‌بندی محصول.</summary>
 public enum ProductInsightStatus : byte
 {

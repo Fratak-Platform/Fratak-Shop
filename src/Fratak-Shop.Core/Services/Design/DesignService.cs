@@ -35,6 +35,13 @@ public interface IDesignService
     Task<IdeaInput> IdeaInputAsync(string siteName, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// دور ۲۹ (#۱۷): دسته‌های اصلیِ فعالی که بنر سربرگ ندارند – نه بنر سربرگ فعال (هنوز تمام‌نشده) و نه پیشنهاد سربرگِ منتظر تأیید –
+    /// به‌اضافهٔ حداکثر ۳ کالای موجودِ عکس‌دار هر کدام (از خود دسته و زیردسته‌ها). دستهٔ اصلی بدون هیچ کالای فعال کنار گذاشته می‌شود
+    /// (صفحهٔ خالی بنر لازم ندارد). ترتیب: بیشترین کالای موجود اول.
+    /// </summary>
+    Task<List<CategoryHeaderCandidate>> CategoryHeaderCandidatesAsync(int max, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// دور ۲۷: تصویر فعلی و پیشنهادهای تصویر یک دستهٔ فعال (با شناسه یا نامک) برای «عکس فضاسازی» بنر. دسته نبود/غیرفعال ← null.
     /// مثال: CategoryImagesAsync(null, "headphone") ← («headphone-photo-3fa1.webp»، [۳ پیشنهاد]).
     /// </summary>
@@ -77,6 +84,9 @@ public interface IDesignService
     /// </summary>
     Task<List<(string Url, string Title)>> ProductImagesAsync(string? query, int take = 24, CancellationToken cancellationToken = default);
 }
+
+/// <summary>دور ۲۹ (#۱۷): دستهٔ اصلیِ بدون بنر سربرگ + بهترین کالاهای موجودش (برای ساخت پیشنهاد سربرگ).</summary>
+public sealed record CategoryHeaderCandidate(IdeaCategory Category, IReadOnlyList<IdeaProduct> Products);
 
 public sealed class DesignService(FratakShopDbContext context) : IDesignService
 {
@@ -224,6 +234,57 @@ public sealed class DesignService(FratakShopDbContext context) : IDesignService
         // دور ۲۸: تعداد مقاله‌های منتشرشده برای بنر «مجله» (فقط وقتی دست‌کم ۳ مقاله هست).
         var posts = await context.BlogPosts.AsNoTracking().CountAsync(p => p.IsPublished && (p.PublishedAt == null || p.PublishedAt <= now), cancellationToken);
         return new IdeaInput(products.Select(p => p.Product).ToList(), categories, siteName) { PublishedPosts = posts };
+    }
+
+    public async Task<List<CategoryHeaderCandidate>> CategoryHeaderCandidatesAsync(int max, CancellationToken cancellationToken = default)
+    {
+        max = Math.Clamp(max, 0, 20);
+        if (max == 0)
+            return [];
+        var now = DateTimeOffset.UtcNow;
+        var header = DesignPresets.CategoryHeader;
+        var tops = await context.Categories.AsNoTracking()
+            .Where(c => c.ParentId == null && c.IsActive && !c.IsSystem)
+            // بنر سربرگ فعال و تمام‌نشده دارد ← لازم نیست.
+            .Where(c => !context.Banners.Any(b => b.CategoryId == c.Id && b.Position == BannerPosition.CategoryHeader && b.IsActive
+                                                  && (b.EndAt == null || b.EndAt > now)))
+            // پیشنهاد سربرگ منتظر تأیید دارد ← دوباره ساخته نمی‌شود.
+            .Where(c => !context.DesignDocs.Any(d => d.CategoryId == c.Id && d.PresetKey == header && d.Status == DesignStatus.Suggested))
+            .Select(c => new
+            {
+                c.Id, c.Name, c.Slug,
+                InStock = context.Products.Count(p => p.IsActive && p.StockQuantity > 0 && (p.CategoryId == c.Id || p.Category.ParentId == c.Id)),
+                Active = context.Products.Any(p => p.IsActive && (p.CategoryId == c.Id || p.Category.ParentId == c.Id)),
+            })
+            .Where(c => c.Active)
+            .OrderByDescending(c => c.InStock).ThenBy(c => c.Name)
+            .Take(max)
+            .ToListAsync(cancellationToken);
+
+        var result = new List<CategoryHeaderCandidate>(tops.Count);
+        foreach (var top in tops)
+        {
+            var id = top.Id;
+            var rows = await context.Products.AsNoTracking()
+                .Where(p => p.IsActive && p.StockQuantity > 0 && p.Images.Any() && (p.CategoryId == id || p.Category.ParentId == id))
+                .OrderByDescending(p => p.SalesCount * 5 + p.ViewCount)
+                .Take(3)
+                .Select(p => new
+                {
+                    p.Id, p.Name, p.Slug, p.Price, p.DiscountPrice, p.DiscountStartAt, p.DiscountEndAt, p.StockQuantity, p.ViewCount, p.SalesCount, p.CreatedAt,
+                    Image = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault(),
+                })
+                .ToListAsync(cancellationToken);
+            var products = rows.Select(r =>
+            {
+                var discounted = r.DiscountPrice is > 0 && r.DiscountPrice < r.Price
+                                 && (r.DiscountStartAt == null || r.DiscountStartAt <= now) && (r.DiscountEndAt == null || r.DiscountEndAt >= now);
+                return new IdeaProduct(r.Id, r.Name, r.Slug, r.Image is null ? null : "/uploads/products/" + r.Image, 0, 0,
+                    r.Price, discounted ? r.DiscountPrice!.Value : r.Price, r.StockQuantity, r.ViewCount, r.SalesCount, top.Name, top.Slug, r.CreatedAt);
+            }).ToList();
+            result.Add(new CategoryHeaderCandidate(new IdeaCategory(top.Id, top.Name, top.Slug, top.InStock, products.FirstOrDefault()), products));
+        }
+        return result;
     }
 
     /// <summary>
