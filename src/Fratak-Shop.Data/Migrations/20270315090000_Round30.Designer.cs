@@ -6551,6 +6551,9 @@ namespace Fratak_Shop.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<DateTimeOffset?>("LastRaiseAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<DateTimeOffset?>("LastRewriteAt")
                         .HasColumnType("datetimeoffset");
 

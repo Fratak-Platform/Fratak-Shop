@@ -44,4 +44,25 @@ public static class AutoApprovePolicy
         if (!state.MetaEmpty) fields |= SeoFields.MetaDescription;
         return fields & proposed;
     }
+
+    /// <summary>
+    /// دور ۳۰ (#۹) – بخش‌های مجاز برای «بالا بردن نمرهٔ صفحهٔ ضعیف» (کار شبانه، بدون انسان، ضد جریمه):
+    /// <list type="bullet">
+    /// <item>همهٔ «پر کردن»های <see cref="Fill"/>.</item>
+    /// <item>متن صفحه، پرسش‌وپاسخ و Alt تصویرها اگر موتور پیشنهاد داده (موتور فقط برای بخش «ضعیف» پیشنهاد می‌دهد و متن فعلی را نگه می‌دارد).</item>
+    /// <item>عنوان/توضیحات موجود فقط وقتی <paramref name="titleSafe"/> (آزمایش عنوانِ در جریان نیست، بازنویسی اخیر نبوده و دادهٔ سرچ کنسول
+    /// نمی‌گوید عنوان فعلی خوب کار می‌کند).</item>
+    /// <item>نامک و کلمهٔ کلیدی موجود: هرگز.</item>
+    /// </list>
+    /// مثال: صفحهٔ کم‌متن با عنوان خوب و پرکلیک ← فقط متن و FAQ؛ عنوان دست نمی‌خورد.
+    /// </summary>
+    public static SeoFields Raise(SeoFields proposed, FieldState state, bool titleSafe)
+    {
+        var fields = Fill(proposed, state) | SeoFields.Description | SeoFields.Faq | SeoFields.ImageAlt;
+        if (titleSafe)
+            fields |= SeoFields.Title | SeoFields.MetaDescription;
+        if (!state.FocusEmpty)
+            fields &= ~SeoFields.FocusKeyword;
+        return fields & proposed & ~SeoFields.Slug;
+    }
 }

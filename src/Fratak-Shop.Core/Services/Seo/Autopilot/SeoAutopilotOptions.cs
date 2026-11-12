@@ -53,6 +53,21 @@ public sealed class SeoAutopilotOptions
     /// <summary>صفحه‌های فرود «بهترین ... زیر ... تومان» و «مقایسهٔ ... و ...» که از دادهٔ واقعی محصولات ساخته می‌شوند.</summary>
     public SeoAutoMode Landings { get; set; } = SeoAutoMode.Auto;
 
+    /// <summary>
+    /// دور ۳۰ (#۹) – «بالا بردن نمرهٔ صفحه‌های ضعیف»: هر شب صفحه‌هایی که نمرهٔ سئویشان زیر <see cref="RaiseTarget"/> است
+    /// (کالا، دسته، مقاله، برند، صفحه) پیدا و بخش‌های ضعیفشان با موتور سئو بهتر می‌شود؛ هر تغییر در تاریخچه با امکان برگشت.
+    /// </summary>
+    public SeoAutoMode RaiseLowScores { get; set; } = SeoAutoMode.Auto;
+
+    /// <summary>دور ۳۰ (#۹): نمرهٔ هدف (۶۰ تا ۹۵). صفحهٔ زیر این نمره در صف بهبود است.</summary>
+    public int RaiseTarget { get; set; } = 85;
+
+    /// <summary>دور ۳۰ (#۹): بیشترین صفحهٔ بهبودیافته در هر شب (۵ تا ۳۰۰) تا بار سرور و تغییر ناگهانی کنترل شود.</summary>
+    public int RaiseNightly { get; set; } = 60;
+
+    /// <summary>دور ۳۰ (#۹): فاصلهٔ دو بهبود یک صفحه (۷ تا ۱۸۰ روز) – تغییر پشت‌سرهم یک صفحه برای گوگل نشانهٔ بدی است.</summary>
+    public int RaiseCooldownDays { get; set; } = 14;
+
     /// <summary>اعلام فوری صفحه‌های تازه/تغییرکرده به بینگ و یاندکس (IndexNow – رایگان).</summary>
     public bool IndexNow { get; set; } = true;
 
@@ -141,6 +156,9 @@ public sealed class SeoAutopilotOptions
         MaxAutoLinks = Math.Clamp(MaxAutoLinks, 0, 15);
         CrawlMaxPages = Math.Clamp(CrawlMaxPages, 50, 10000);
         MaxLandingPages = Math.Clamp(MaxLandingPages, 0, 300);
+        RaiseTarget = Math.Clamp(RaiseTarget, 60, 95);
+        RaiseNightly = Math.Clamp(RaiseNightly, 5, 300);
+        RaiseCooldownDays = Math.Clamp(RaiseCooldownDays, 7, 180);
         BlockedWords = string.IsNullOrWhiteSpace(BlockedWords) ? null : BlockedWords.Trim();
         if (BlockedWords is { Length: > 2000 })
             BlockedWords = BlockedWords[..2000];
@@ -154,6 +172,7 @@ public sealed class SeoAutopilotOptions
         if (!Enum.IsDefined(Rewrite)) Rewrite = SeoAutoMode.Auto;
         if (!Enum.IsDefined(InternalLinks)) InternalLinks = SeoAutoMode.Auto;
         if (!Enum.IsDefined(Landings)) Landings = SeoAutoMode.Auto;
+        if (!Enum.IsDefined(RaiseLowScores)) RaiseLowScores = SeoAutoMode.Auto;
         return this;
     }
 

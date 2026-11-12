@@ -251,6 +251,7 @@
               ("Rewrite", "بازنویسی داده‌محور", "فقط صفحه‌های کم‌کلیک با دادهٔ Search Console، با آزمون و برگشت خودکار", o.Rewrite),
               ("InternalLinks", "لینک داخلی", "هنگام نمایش صفحه؛ متن ذخیره‌شده تغییر نمی‌کند", o.InternalLinks),
               ("Landings", "صفحه‌های قیمت", "«قیمت … زیر X تومان» فقط وقتی محصول کافی دارد", o.Landings),
+              ("RaiseLowScores", "بالا بردن نمرهٔ صفحه‌های ضعیف", "هر شب کالا، دسته، مقاله و صفحه‌های زیر نمرهٔ هدف بهتر می‌شوند (بدون تغییر نامک، با تاریخچه)", o.RaiseLowScores),
           })
           {
             <div class="a-field">
@@ -283,6 +284,18 @@
           <div class="a-field">
             <label class="a-label" asp-for="Options.RewriteCooldownDays">فاصلهٔ بازنویسی یک صفحه (روز)</label>
             <input class="a-input" asp-for="Options.RewriteCooldownDays" type="number" min="21" max="365">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.RaiseTarget">نمرهٔ هدف سئو (۶۰ تا ۹۵)</label>
+            <input class="a-input" asp-for="Options.RaiseTarget" type="number" min="60" max="95">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.RaiseNightly">بهبود صفحه‌های ضعیف در هر شب</label>
+            <input class="a-input" asp-for="Options.RaiseNightly" type="number" min="5" max="300">
+          </div>
+          <div class="a-field">
+            <label class="a-label" asp-for="Options.RaiseCooldownDays">فاصلهٔ دو بهبود یک صفحه (روز)</label>
+            <input class="a-input" asp-for="Options.RaiseCooldownDays" type="number" min="7" max="180">
           </div>
           <div class="a-field">
             <label class="a-label" asp-for="Options.RewriteWeeklyPercent">سقف بازنویسی هفتگی (٪ صفحه‌ها)</label>

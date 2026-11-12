@@ -1,4 +1,5 @@
 using Fratak_Shop.Core.Services.Seo.Autopilot;
+using Fratak_Shop.Core.Services.Seo.Knowledge;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Entities.SeoEngine;
 
@@ -54,28 +55,73 @@ public sealed partial class SeoEngineService
         var before = SeoAnalyzer.Analyze(subject, site, store);
         var models = await BuildModelsAsync(null, cancellationToken);
         var keyword = PersianText.Clean(subject.FocusKeyword);
-        var ctx = new WriterContext
-        {
-            Subject = subject, Store = store, Keyword = keyword, Language = models.Language, Site = site, Notes = notes,
-        };
-        var written = ContentWriter.ProductReview(ctx, string.IsNullOrWhiteSpace(keepHtml) ? null : keepHtml.Trim());
-        if (written is null)
-            return OperationResult<ProductReviewDraft>.Error("مشخصات کافی نیست؛ برای «توضیحات محصول» دست‌کم ۲ مشخصهٔ قابل استفاده لازم است.");
+        var kb = await knowledge.GetAsync(cancellationToken);
+        var keep = string.IsNullOrWhiteSpace(keepHtml) ? null : keepHtml.Trim();
 
+        // دور ۳۰ (#۱۲) – «هشدار را خود سیستم درست می‌کند»: به‌جای نشان دادن هشدار به ادمین، نسخه‌های دیگر متن (تنوع واژه، کوتاه‌تر،
+        // کم‌تبلیغ‌تر، بلندتر) ساخته و سنجیده می‌شوند تا نسخه‌ای بی‌ایراد پیدا شود. فقط اگر هیچ نسخه‌ای سالم نشد، کم‌ایرادترین
+        // نسخه با فهرست ایرادها برمی‌گردد (و اعمال خودکار نمی‌شود).
+        ProductReviewDraft? best = null;
+        foreach (var (variant, style) in ReviewAttempts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var ctx = new WriterContext
+            {
+                Subject = subject, Store = store, Keyword = keyword, Language = models.Language, Site = site, Notes = notes,
+                Variant = variant, Style = style,
+            };
+            var written = ContentWriter.ProductReview(ctx, keep);
+            if (written is null)
+            {
+                if (variant == 0)
+                    return OperationResult<ProductReviewDraft>.Error("مشخصات کافی نیست؛ برای «توضیحات محصول» دست‌کم ۲ مشخصهٔ قابل استفاده لازم است.");
+                continue;
+            }
+            var draft = CheckReview(subject, written, keyword, kb, site, store, before.Score);
+            if (best is null || draft.Problems.Count < best.Problems.Count
+                || (draft.Problems.Count == best.Problems.Count && draft.ScoreAfter > best.ScoreAfter))
+                best = draft;
+            if (draft.Safe)
+                break;
+        }
+        return best is null
+            ? OperationResult<ProductReviewDraft>.Error("مشخصات کافی نیست؛ برای «توضیحات محصول» دست‌کم ۲ مشخصهٔ قابل استفاده لازم است.")
+            : OperationResult<ProductReviewDraft>.Success(best);
+    }
+
+    /// <summary>دور ۳۰ (#۱۲): نسخه‌هایی که برای رفع خودکار ایرادها امتحان می‌شوند (به همین ترتیب؛ اولی = همان نسخهٔ قبلی).</summary>
+    public static readonly (int Variant, WriterStyle Style)[] ReviewAttempts =
+    [
+        (0, WriterStyle.None),
+        (1, WriterStyle.None),
+        (2, WriterStyle.LessPromotional),
+        (3, WriterStyle.Shorter),
+        (4, WriterStyle.Longer),
+        (5, WriterStyle.LessPromotional | WriterStyle.Shorter),
+    ];
+
+    /// <summary>
+    /// سنجش یک نسخهٔ «توضیحات محصول» با همهٔ سنجه‌های ایمنی (طول، ستون، طبیعی بودن، جریمه، تکرار/تراکم، افت نمره).
+    /// قبل از سنجش، دروازهٔ کیفیت (<see cref="Fratak_Shop.Core.Services.Smart.ContentQualityGate.Clean"/>) جمله‌های بی‌جا را حذف می‌کند.
+    /// </summary>
+    private ProductReviewDraft CheckReview(SeoSubject subject, string written, string keyword, SeoKnowledgeBase kb, SeoSiteIndex site,
+        StoreFacts store, int beforeScore)
+    {
         // پاک‌سازی امنیتی همان پاک‌سازی ذخیرهٔ دستی است؛ ساختار ما (h2/h3/ul/table/strong/em/class/data-fs) از آن عبور می‌کند.
-        var html = written.SanitizeText();
+        var html = Fratak_Shop.Core.Services.Smart.ContentQualityGate.Clean(written.SanitizeText());
         var problems = new List<string>();
         var stats = PersianText.AnalyzeHtml(html);
         if (stats.Words < ReviewMinWords)
             problems.Add($"متن کوتاه است ({PersianText.Digits(stats.Words)} واژه؛ دست‌کم {PersianText.Digits(ReviewMinWords)}).");
         if (!FitsColumn(SeoEntityKind.Product, html))
             problems.Add("متن از سقف ستون توضیحات محصول بلندتر است.");
+        foreach (var issue in Fratak_Shop.Core.Services.Smart.ContentQualityGate.Issues(html, style: false))
+            problems.Add(issue);
 
         var natural = AiPatternGuard.Analyze(stats.Text);
         if (natural.Score < ReviewMinNatural)
             problems.Add($"نمرهٔ طبیعی بودن متن پایین است ({PersianText.Digits(natural.Score)} از ۱۰۰).");
 
-        var kb = await knowledge.GetAsync(cancellationToken);
         foreach (var risk in SeoPenaltyGuard.Check(subject.EffectiveTitle, subject.EffectiveDescription, html, keyword, kb).Where(r => r.Blocking))
             problems.Add("خطر جریمه: " + risk.Message);
 
@@ -83,18 +129,18 @@ public sealed partial class SeoEngineService
         var report = SeoAnalyzer.Analyze(after, site, store);
         foreach (var check in report.Checks.Where(c => c.Level == SeoCheckLevel.Bad && ReviewBlockingChecks.Contains(c.Id)))
             problems.Add(check.Message);
-        if (report.Score < before.Score)
-            problems.Add($"نمرهٔ سئوی صفحه پایین می‌آید ({PersianText.Digits(before.Score)} ← {PersianText.Digits(report.Score)}).");
+        if (report.Score < beforeScore)
+            problems.Add($"نمرهٔ سئوی صفحه پایین می‌آید ({PersianText.Digits(beforeScore)} ← {PersianText.Digits(report.Score)}).");
 
-        return OperationResult<ProductReviewDraft>.Success(new ProductReviewDraft
+        return new ProductReviewDraft
         {
             Html = html,
             Words = stats.Words,
-            ScoreBefore = before.Score,
+            ScoreBefore = beforeScore,
             ScoreAfter = report.Score,
             NaturalScore = natural.Score,
             Safe = problems.Count == 0,
             Problems = problems,
-        });
+        };
     }
 }

@@ -77,6 +77,17 @@
     <None Update="Assets\Fonts\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!--
+    دور ۳۰ – حجم انتشار (مدل دوربری ۴٫۴ مگ و صدای فارسی ۱ مگ اضافه شد؛ سقف لینوکس ۱۶۰ و ویندوز ۱۲۰ مگابایت):
+    1) نسخه‌های ‎.gz/.br ساخت‌زمانِ wwwroot ساخته نمی‌شوند: برنامه از UseStaticFiles + PrecompressedStaticFilesMiddleware استفاده می‌کند
+       که خودش یک بار در حافظه فشرده می‌کند؛ آن فایل‌ها هرگز خوانده نمی‌شدند و فقط جا می‌گرفتند.
+    2) فایل‌های اشکال‌زدایی (pdb) در خروجی انتشار کپی نمی‌شوند (در build و آزمون‌ها هستند)؛ گزارش خطا همچنان نام کلاس و متد را دارد.
+  -->
+  <PropertyGroup>
+    <CompressionEnabled>false</CompressionEnabled>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(FratakPublishTarget)' == ''">
     <FratakPublishTarget Condition="$([MSBuild]::IsOSPlatform('Windows'))">windows</FratakPublishTarget>
     <FratakPublishTarget Condition="!$([MSBuild]::IsOSPlatform('Windows'))">linux</FratakPublishTarget>
@@ -103,6 +114,11 @@
       <_FratakLocalDataFile Include="@(ResolvedFileToPublish)"
                             Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.RelativePath)', '(?i)^(wwwroot[\\/]uploads|App_Data)[\\/]'))" />
       <ResolvedFileToPublish Remove="@(_FratakLocalDataFile)" />
+    </ItemGroup>
+    <!-- دور ۳۰: pdb پروژه‌های Core/Data هم (از مسیر ارجاع پروژه) منتشر نمی‌شود. -->
+    <ItemGroup>
+      <_FratakSymbolFile Include="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'" />
+      <ResolvedFileToPublish Remove="@(_FratakSymbolFile)" />
     </ItemGroup>
   </Target>
 

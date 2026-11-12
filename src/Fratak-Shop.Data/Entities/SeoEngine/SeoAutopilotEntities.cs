@@ -79,6 +79,9 @@ public class SeoAutoState : BaseEntity
     /// <summary>آخرین بازنویسی دادهٔ‌محور عنوان/توضیحات (فاصلهٔ حداقل ۲۱ روزه، ضد جریمه).</summary>
     public DateTimeOffset? LastRewriteAt { get; set; }
 
+    /// <summary>دور ۳۰ (#۹): آخرین «بالا بردن نمرهٔ صفحهٔ ضعیف» (فاصلهٔ حداقل RaiseCooldownDays، ضد تغییر پشت‌سرهم).</summary>
+    public DateTimeOffset? LastRaiseAt { get; set; }
+
     /// <summary>هش HTML بعد از آخرین مرتب‌سازی (اگر متن عوض نشده باشد، دوباره پردازش نمی‌شود).</summary>
     [MaxLength(64)]
     public string? LastHtmlHash { get; set; }

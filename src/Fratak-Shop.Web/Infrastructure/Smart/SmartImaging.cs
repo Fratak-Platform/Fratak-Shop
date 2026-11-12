@@ -507,6 +507,77 @@ public sealed class SmartImageFinder(
         return banner is null ? null : await StoreAsync(banner, target, cancellationToken);
     }
 
+    /// <summary>
+    /// دور ۳۰ (#۶) – «کاور هوشمند مقاله» (جایگزین بنر سادهٔ قبلی): کالاهای مقاله (تا ۳ عکس اصلی، ترجیحاً نسخهٔ دوربری‌شده) با
+    /// <see cref="ArticleCover"/> روی زمینهٔ هم‌رنگ چیده می‌شوند. مقاله کالای عکس‌دار ندارد ← عکس فضاسازی آزاد (CC0) از Openverse
+    /// با موضوع مقاله/دسته جست‌وجو و اعتبارسنجی می‌شود (افقی، رنگی، بدون زمینهٔ سفید، نه لوگو/وکتور، نه سایت استوک واترمارک‌دار).
+    /// خروجی: نام فایل در پوشهٔ مقاله‌ها یا null (مقاله بدون کاور می‌ماند و کار شبانه دوباره تلاش می‌کند).
+    /// مثال: مقالهٔ «بهترین هدفون‌های بی‌سیم» با ۳ هدفون ← هر ۳ هدفون دوربری‌شده روی زمینهٔ آبی روشن.
+    /// </summary>
+    public async Task<string?> ArticleCoverAsync(IReadOnlyList<string> productImageNames, string topic, CategoryPhotoSubject? category, CancellationToken cancellationToken)
+    {
+        var pictures = new List<byte[]>();
+        foreach (var name in productImageNames.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.Ordinal).Take(ArticleCover.MaxProducts))
+        {
+            var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(name));
+            if (path is not null && File.Exists(path))
+                pictures.Add(await File.ReadAllBytesAsync(path, cancellationToken));
+        }
+        byte[]? backdrop = null;
+        if (pictures.Count == 0)
+            backdrop = await ArticleBackdropAsync(topic, category, cancellationToken);
+        var cover = ArticleCover.Compose(pictures, backdrop);
+        if (cover is null && pictures.Count > 0)
+        {
+            // آخرین راه: بنر قبلی از عکس کالای اول (بهتر از مقالهٔ بی‌تصویر).
+            cover = BannerGenerator.Create(pictures[0]);
+        }
+        return cover is null ? null : await StoreAsync(cover, UploadArea.Blogs, cancellationToken);
+    }
+
+    /// <summary>
+    /// عکس فضاسازی مقاله از Openverse (فقط مجوز آزاد CC0/مالکیت عمومی، عکس واقعی، افقی و بزرگ). عبارت‌ها از نامک انگلیسی دسته و
+    /// موضوع مقاله ساخته می‌شوند؛ حداکثر ۸ دانلود. قانون پذیرش همان عکس فضاسازی دسته است (<see cref="CategoryPhotos.IsAcceptable"/>).
+    /// </summary>
+    private async Task<byte[]?> ArticleBackdropAsync(string topic, CategoryPhotoSubject? category, CancellationToken cancellationToken)
+    {
+        var queries = new List<string>();
+        if (category is not null)
+            queries.AddRange(CategoryPhotos.EnglishQueries(category));
+        var topicWords = CategoryPhotos.SlugWords(Fratak_Shop.Data.Utilities.EnglishSlug.From(topic, 60));
+        if (topicWords.Length > 0)
+            queries.Add(topicWords + " lifestyle");
+        var hits = new List<PhotoHit>();
+        foreach (var query in queries.Distinct(StringComparer.Ordinal).Take(4))
+        {
+            hits.AddRange(await sources.OpenversePhotosAsync(query, cancellationToken));
+            if (hits.Count >= 20)
+                break;
+        }
+        var downloads = 0;
+        byte[]? best = null;
+        var bestScore = -1.0;
+        foreach (var hit in hits.Where(h => SmartParsers.CleanImageUrl(h.Url) is not null && CategoryPhotos.IsUsefulHit(h.Title, h.Url, h.PageUrl))
+                     .DistinctBy(h => SmartImageRules.UrlKey(h.Url)))
+        {
+            if (++downloads > 8)
+                break;
+            var bytes = await DownloadAsync(hit.Url, cancellationToken);
+            if (bytes is null || SmartImageAnalyzer.Analyze(bytes) is not { } info || SmartImageAnalyzer.Metrics(bytes) is not { } metrics
+                || !CategoryPhotos.IsAcceptable(info.Width, info.Height, metrics))
+                continue;
+            var score = CategoryPhotos.Score(info.Width, info.Height, metrics, info.Quality);
+            if (score > bestScore)
+            {
+                best = bytes;
+                bestScore = score;
+            }
+            if (bestScore >= 0.7)
+                break;
+        }
+        return best;
+    }
+
     /// <summary>بیشترین عرض عکس فضاسازی ذخیره‌شده (پیکسل).</summary>
     public const int CategoryPhotoMaxWidth = 1600;
 
@@ -745,6 +816,10 @@ public sealed class SmartImageFinder(
             return name;
         }
     }
+
+    /// <summary>دور ۳۰: حذف فایل‌های یک پوشهٔ دلخواه (فقط نام فایل ساده؛ مثلاً کاور مقاله‌ای که دیگر لازم نشد).</summary>
+    public void DeleteFiles(UploadArea area, IEnumerable<string> names) =>
+        uploads.Delete(area, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
 
     public void DeleteProductFiles(IEnumerable<string> names) => uploads.Delete(UploadArea.Products, names.Select(n => Path.GetFileName(n)).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
 

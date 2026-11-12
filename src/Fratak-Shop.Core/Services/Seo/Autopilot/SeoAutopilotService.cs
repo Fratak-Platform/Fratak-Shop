@@ -24,7 +24,8 @@ public sealed record AutopilotPageResult(bool Changed, string? Path, IReadOnlyLi
 }
 
 /// <summary>خلاصهٔ کار شبانه.</summary>
-public sealed record AutopilotNightResult(int Processed, int Filled, int Rewritten, int TestsJudged, int Reverted, string Message);
+/// <param name="Raised">دور ۳۰ (#۹): تعداد صفحه‌های ضعیفی که نمره‌شان بالا رفت.</param>
+public sealed record AutopilotNightResult(int Processed, int Filled, int Rewritten, int TestsJudged, int Reverted, string Message, int Raised = 0);
 
 /// <summary>
 /// خلبان خودکار سئو (موارد ۱ تا ۱۸ و ۱۵۰ تا ۱۶۴ پیشنهاد سئو): سایت بدون کارشناس سئو، خودش سئو می‌شود.
@@ -353,13 +354,106 @@ public sealed class SeoAutopilotService(
             }
         }
 
+        // دور ۳۰ (#۹): صفحه‌های زیر نمرهٔ هدف یکی‌یکی بهتر می‌شوند (هر شب تا سقف، با فاصلهٔ ضد جریمه).
+        var raised = 0;
+        if (options.Can(options.RaiseLowScores))
+            raised = await RaiseLowScoresAsync(options, cancellationToken);
+
         var message = $"پردازش {PersianText.Digits(processed)} صفحه، پر کردن {PersianText.Digits(filled)}، بازنویسی داده‌محور {PersianText.Digits(rewritten)}، " +
+                      $"بالا بردن نمرهٔ {PersianText.Digits(raised)} صفحهٔ ضعیف، " +
                       $"داوری {PersianText.Digits(judged)} آزمایش عنوان ({PersianText.Digits(reverted)} برگشت).";
         var config = await GetConfigAsync(cancellationToken);
         config.LastNightlyRunAt = DateTimeOffset.UtcNow;
         config.LastNightlySummary = message.Length > 1000 ? message[..1000] : message;
         await context.SaveChangesAsync(cancellationToken);
-        return new AutopilotNightResult(processed, filled, rewritten, judged, reverted, message);
+        return new AutopilotNightResult(processed, filled, rewritten, judged, reverted, message, raised);
+    }
+
+    /// <summary>
+    /// دور ۳۰ (#۹) – «سئوی هوشمند همیشه در حال بهتر کردن»: صفحه‌های زنده با نمرهٔ کمتر از <see cref="SeoAutopilotOptions.RaiseTarget"/>
+    /// (ضعیف‌ترین و پربازدیدترین اول) با موتور سئو بهتر می‌شوند.
+    /// <list type="bullet">
+    /// <item>ضد جریمه: هر صفحه حداکثر هر <see cref="SeoAutopilotOptions.RaiseCooldownDays"/> روز یک بار؛ نامک و کلمهٔ کلیدی موجود هرگز؛
+    /// عنوانِ پرکلیک یا در حال آزمایش دست نمی‌خورد (<see cref="AutoApprovePolicy.Raise"/>)؛ نگهبان اسپم موتور روی همهٔ متن‌ها.</item>
+    /// <item>فقط وقتی موتور بهبود واقعی نمره را نشان دهد (حداقل افزایش موتور) چیزی عوض می‌شود؛ هر تغییر در تاریخچه با برگشت یک‌کلیکی.</item>
+    /// <item>صفحه‌ای که موتور برایش پیشنهاد مفیدی ندارد هم «زمان تلاش» می‌گیرد تا هر شب بی‌فایده دوباره سنجیده نشود.</item>
+    /// </list>
+    /// خروجی: تعداد صفحه‌هایی که واقعاً بهتر شدند.
+    /// </summary>
+    private async Task<int> RaiseLowScoresAsync(SeoAutopilotOptions options, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var cutoff = now.AddDays(-options.RaiseCooldownDays);
+        var rewriteCutoff = now.AddDays(-options.RewriteCooldownDays);
+        var cooling = (await context.SeoAutoStates.AsNoTracking()
+                .Where(s => s.LastRaiseAt != null && s.LastRaiseAt >= cutoff)
+                .Select(s => new { s.Kind, s.EntityId })
+                .ToListAsync(cancellationToken))
+            .Select(s => (s.Kind, s.EntityId)).ToHashSet();
+        var low = await context.SeoScores.AsNoTracking()
+            .Where(s => s.Score < options.RaiseTarget)
+            .OrderBy(s => s.Score).ThenByDescending(s => s.Views)
+            .Select(s => new { s.Kind, s.EntityId })
+            .Take(options.RaiseNightly * 4 + cooling.Count)
+            .ToListAsync(cancellationToken);
+        var stats = await PageStatsAsync(cancellationToken);
+
+        var raised = 0;
+        var tried = 0;
+        using var _ = SeoChangeFeed.Suppress();
+        foreach (var item in low.Where(l => !cooling.Contains((l.Kind, l.EntityId))))
+        {
+            if (tried >= options.RaiseNightly)
+                break;
+            cancellationToken.ThrowIfCancellationRequested();
+            tried++;
+            try
+            {
+                var page = await SeoPages.LoadAsync(context, item.Kind, item.EntityId, cancellationToken);
+                context.ChangeTracker.Clear();
+                if (page is null || !page.IsLive)
+                    continue;
+                var state = FieldStateOf(page);
+                var autoState = await context.SeoAutoStates.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Kind == item.Kind && s.EntityId == item.EntityId, cancellationToken);
+                var running = await context.SeoTitleTests.AnyAsync(t => t.Kind == item.Kind && t.EntityId == item.EntityId && t.Status == SeoTitleTestStatus.Running, cancellationToken);
+                var recentRewrite = autoState?.LastRewriteAt is { } lastRewrite && lastRewrite >= rewriteCutoff;
+                // عنوانی که در سرچ کنسول خوب کلیک می‌خورد «امن برای تغییر» نیست (تغییرش ریسک افت رتبه دارد).
+                var performing = stats.TryGetValue(SeoPaths.Normalize(page.Path), out var sample) && !CtrModel.IsUnderperforming(sample);
+                var titleSafe = !running && !recentRewrite && !performing;
+
+                var generated = await engine.GenerateAsync(item.Kind, item.EntityId, cancellationToken);
+                context.ChangeTracker.Clear();
+                var applied = SeoFields.None;
+                if (generated.IsSuccess())
+                {
+                    var suggestion = await context.SeoSuggestions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == generated.Data, cancellationToken);
+                    var fields = suggestion is null ? SeoFields.None : AutoApprovePolicy.Raise(suggestion.Fields, state, titleSafe);
+                    if (suggestion is not null && fields != SeoFields.None)
+                    {
+                        var result = await engine.ApproveAsync(suggestion.Id, fields, null, ActorName, cancellationToken);
+                        context.ChangeTracker.Clear();
+                        if (result.IsSuccess())
+                            applied = fields;
+                    }
+                }
+
+                var row = await StateAsync(item.Kind, item.EntityId, cancellationToken);
+                row.LastRaiseAt = now;
+                if ((applied & (SeoFields.Title | SeoFields.MetaDescription)) != SeoFields.None && !state.TitleEmpty)
+                    row.LastRewriteAt = now;
+                await context.SaveChangesAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+                if (applied != SeoFields.None)
+                    raised++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "SEO raise failed for {Kind} {Id}", item.Kind, item.EntityId);
+                context.ChangeTracker.Clear();
+            }
+        }
+        return raised;
     }
 
     /// <summary>صف صفحه‌های نیازمند پردازش: بدون وضعیت، یا آخرین پر کردن قدیمی‌تر از ۳۰ روز.</summary>

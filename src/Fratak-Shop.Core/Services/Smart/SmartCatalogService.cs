@@ -119,6 +119,15 @@ public interface ISmartCatalogService
 
     Task<(string Title, string? ImageName, string? Excerpt)?> GetPostAsync(Guid postId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// دور ۳۰ (#۶): شناسهٔ کالاهای فعالِ عکس‌دار که در متن مقاله کارت/قیمتشان آمده (کدهای کوتاه [[product:…]] و [[price:…]])، به ترتیب
+    /// ظاهر شدن در متن؛ حداکثر ۶ تا. برای ساخت کاور مقاله‌های بدون تصویر.
+    /// </summary>
+    Task<List<Guid>> PostProductIdsAsync(Guid postId, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۳۰ (#۶): مقاله‌های بدون تصویر (جدیدترها اول) برای کار شبانهٔ «کاور هوشمند»؛ حداکثر <paramref name="take"/> تا.</summary>
+    Task<List<(Guid Id, string Title)>> ListPostsWithoutImageAsync(int take, CancellationToken cancellationToken = default);
+
     /// <summary>دور بیستم: فهرست سیاه عکس‌های ردشدهٔ یک محصول (آدرس + اثر انگشت). محل استفاده: SmartImageFinder.</summary>
     Task<ImageBlacklist> GetImageBlacklistAsync(Guid productId, CancellationToken cancellationToken = default);
 
@@ -611,7 +620,8 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             Title = PersianText.Truncate(article.Title, 250),
             Slug = slug,
             Excerpt = PersianText.Truncate(article.Excerpt, 500),
-            Content = article.Html,
+            // دور ۳۰ (#۶): متن مقاله هم از «دروازهٔ کیفیت» می‌گذرد (جملهٔ بی‌جا، لینک خراب، قالب پرنشده حذف می‌شود).
+            Content = ContentQualityGate.Clean(article.Html),
             ImageName = imageName,
             ImageAlt = imageAlt is null ? null : PersianText.Truncate(imageAlt, 250),
             IsPublished = publish,
@@ -630,6 +640,26 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         var cleanAlt = PersianText.Truncate(alt, 250);
         return await context.BlogPosts.Where(p => p.Id == postId && (p.ImageName == null || p.ImageName == ""))
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.ImageName, imageName).SetProperty(p => p.ImageAlt, cleanAlt).SetProperty(p => p.UpdatedAt, now), cancellationToken) == 1;
+    }
+
+    public async Task<List<Guid>> PostProductIdsAsync(Guid postId, CancellationToken cancellationToken = default)
+    {
+        var content = await context.BlogPosts.Where(p => p.Id == postId).Select(p => p.Content).FirstOrDefaultAsync(cancellationToken);
+        var slugs = BlogShortcodes.ProductSlugs(content);
+        if (slugs.Count == 0)
+            return [];
+        var rows = await context.Products.Where(p => slugs.Contains(p.Slug) && p.IsActive && p.Images.Any())
+            .Select(p => new { p.Id, p.Slug }).ToListAsync(cancellationToken);
+        return slugs.Select(s => rows.FirstOrDefault(r => string.Equals(r.Slug, s, StringComparison.OrdinalIgnoreCase)))
+            .Where(r => r is not null).Select(r => r!.Id).Distinct().Take(6).ToList();
+    }
+
+    public async Task<List<(Guid Id, string Title)>> ListPostsWithoutImageAsync(int take, CancellationToken cancellationToken = default)
+    {
+        var rows = await context.BlogPosts.Where(p => p.ImageName == null || p.ImageName == "")
+            .OrderByDescending(p => p.CreatedAt).Take(Math.Clamp(take, 1, 100))
+            .Select(p => new { p.Id, p.Title }).ToListAsync(cancellationToken);
+        return rows.Select(r => (r.Id, r.Title)).ToList();
     }
 
     public async Task<(string Title, string? ImageName, string? Excerpt)?> GetPostAsync(Guid postId, CancellationToken cancellationToken = default)

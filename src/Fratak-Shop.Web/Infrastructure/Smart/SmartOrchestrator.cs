@@ -869,10 +869,9 @@ public sealed class SmartOrchestrator(
             var report = BlogWriter.Check(article, titles, products.Select(p => p.Name), hashes, Math.Clamp(options.BlogQualityMin, 50, 100));
             var publish = report.Passed && options.BlogAutoPublish;
 
-            string? image = null;
-            var first = await catalog.GetProductAsync(products.First(p => p.InStock).Id, cancellationToken);
-            if (first?.ImageNames.FirstOrDefault() is { } productImage)
-                image = await images.BannerFromProductImageAsync(productImage, UploadArea.Blogs, cancellationToken);
+            // دور ۳۰ (#۶): کاور هوشمند – عکس اصلی تا ۳ کالای موجود مقاله، دوربری‌شده روی زمینهٔ هم‌رنگ؛ بدون عکس کالا ← عکس فضاسازی آزاد.
+            var coverImages = await CoverImagesAsync(products.Where(p => p.InStock).Select(p => p.Id), cancellationToken);
+            var image = await images.ArticleCoverAsync(coverImages, row.Keyword ?? row.Topic, CoverSubject(category), cancellationToken);
 
             var postId = await catalog.CreatePostAsync(article, image, image is null ? null : article.Title, publish, null, cancellationToken);
             try
@@ -918,12 +917,38 @@ public sealed class SmartOrchestrator(
         {
             // بدون محصول مرجع.
         }
-        if (productId is null || await catalog.GetProductAsync(productId.Value, cancellationToken) is not { } product || product.ImageNames.Count == 0)
-            return new SmartOutcome(SmartTaskStatus.Skipped, "کالای مرجعی با تصویر برای ساخت بنر مقاله مشخص نشده است.");
-        var image = await images.BannerFromProductImageAsync(product.ImageNames[0], UploadArea.Blogs, cancellationToken);
+        // دور ۳۰ (#۶): کالای مرجع اختیاری است. ترتیب: کالای مرجع ← کالاهایی که در متن مقاله کارتشان آمده ← عکس فضاسازی آزاد با موضوع مقاله.
+        var ids = new List<Guid>();
+        if (productId is { } given)
+            ids.Add(given);
+        ids.AddRange(await catalog.PostProductIdsAsync(postId, cancellationToken));
+        var coverImages = await CoverImagesAsync(ids.Distinct(), cancellationToken);
+        var image = await images.ArticleCoverAsync(coverImages, post.Value.Title, null, cancellationToken);
         if (image is null)
-            return new SmartOutcome(SmartTaskStatus.Failed, "ساخت بنر ممکن نشد.");
-        await catalog.SetPostImageAsync(postId, image, post.Value.Title, cancellationToken);
-        return new SmartOutcome(SmartTaskStatus.Applied, "بنر بدون متن برای مقاله ساخته و ثبت شد.");
+            return new SmartOutcome(SmartTaskStatus.Failed, "کاور مناسبی برای مقاله پیدا یا ساخته نشد؛ دفعهٔ بعد دوباره تلاش می‌شود.");
+        if (!await catalog.SetPostImageAsync(postId, image, post.Value.Title, cancellationToken))
+        {
+            images.DeleteFiles(UploadArea.Blogs, [image]);
+            return new SmartOutcome(SmartTaskStatus.Skipped, "مقاله در این فاصله تصویر گرفت.");
+        }
+        return new SmartOutcome(SmartTaskStatus.Applied, "کاور هوشمند مقاله ساخته و ثبت شد.");
     }
+
+    /// <summary>دور ۳۰ (#۶): عکس اصلی (اولین عکس = نسخهٔ دوربری‌شده اگر باشد) تا ۳ کالا، به ترتیب داده‌شده.</summary>
+    private async Task<List<string>> CoverImagesAsync(IEnumerable<Guid> productIds, CancellationToken cancellationToken)
+    {
+        var names = new List<string>();
+        foreach (var id in productIds.Take(6))
+        {
+            if (await catalog.GetProductAsync(id, cancellationToken) is { } product && product.ImageNames.FirstOrDefault() is { } name)
+                names.Add(name);
+            if (names.Count >= ArticleCover.MaxProducts)
+                break;
+        }
+        return names;
+    }
+
+    /// <summary>موضوع جست‌وجوی عکس فضاسازی از دستهٔ مقاله (نداشت ← null).</summary>
+    private static CategoryPhotoSubject? CoverSubject(SmartCategorySubject? category) =>
+        category is null ? null : new CategoryPhotoSubject(category.Id, category.Name, category.Slug, category.ParentName, category.ParentSlug);
 }

@@ -287,7 +287,43 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         count += await RefreshOldPostsAsync(services, now, cancellationToken);
         count += await PurgeCategoryCollagesAsync(services, now, cancellationToken);
         count += await BackfillCategoryPhotosAsync(services, now, cancellationToken);
+        count += await BackfillPostCoversAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastPostCoverTicks;
+
+    /// <summary>
+    /// دور ۳۰ (#۶): «کاور هوشمند» برای مقاله‌های بدون تصویر (نوشتهٔ دستی یا مقاله‌ای که موقع نوشتن کاورش ساخته نشد).
+    /// هر ۶ ساعت حداکثر ۳ مقاله؛ مقاله‌ای که در ۳ روز گذشته تلاش شده دوباره نمی‌آید. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> BackfillPostCoversAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken, bool force = false)
+    {
+        var last = Interlocked.Read(ref _lastPostCoverTicks);
+        if (!force && last != 0 && now.UtcTicks - last < TimeSpan.FromHours(6).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastPostCoverTicks, now.UtcTicks);
+        try
+        {
+            var queue = services.GetRequiredService<ISmartTaskQueue>();
+            var recent = (await queue.RecentTargetsAsync(SmartTaskKind.BlogImage, now.AddDays(-3), cancellationToken: cancellationToken)).ToHashSet();
+            var count = 0;
+            foreach (var (id, title) in await services.GetRequiredService<ISmartCatalogService>().ListPostsWithoutImageAsync(20, cancellationToken))
+            {
+                if (recent.Contains(id))
+                    continue;
+                await queue.EnqueueAsync(SmartTaskKind.BlogImage, SmartTarget.BlogPost, id, title, SmartPriority.Nightly,
+                    userName: SmartOrchestrator.Actor, cancellationToken: cancellationToken);
+                if (++count >= 3)
+                    break;
+            }
+            return count;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Post cover backfill failed");
+            return 0;
+        }
     }
 
     private static long _lastVideoTicks;

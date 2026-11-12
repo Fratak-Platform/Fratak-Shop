@@ -12,6 +12,7 @@ namespace Fratak_Shop.Data.Migrations
     /// (انتخاب = تأیید، حذف = رد) تا فیلتر دفعه‌های بعد بهتر شود.</item>
     /// <item>ProductImageSignatures.Hashes ← ۵۱۲ بایت (تا ۸ عکس × ۳ نسخه) و ستون تازهٔ Palettes (رنگ هر عکس) برای جست‌وجوی تصویری دقیق.
     /// امضاهای قبلی Palettes ندارند و خودکار دوباره ساخته می‌شوند.</item>
+    /// <item>SeoAutoStates.LastRaiseAt – زمان آخرین «بالا بردن نمرهٔ صفحهٔ ضعیف» (فاصلهٔ ضد جریمه بین دو تغییر).</item>
     /// </list>
     /// </summary>
     public partial class Round30 : Migration
@@ -70,12 +71,19 @@ namespace Fratak_Shop.Data.Migrations
                 type: "varbinary(1024)",
                 maxLength: 1024,
                 nullable: true);
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "LastRaiseAt",
+                table: "SeoAutoStates",
+                type: "datetimeoffset",
+                nullable: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(name: "CategoryImageFeedbacks");
+            migrationBuilder.DropColumn(name: "LastRaiseAt", table: "SeoAutoStates");
             migrationBuilder.DropColumn(name: "Palettes", table: "ProductImageSignatures");
             // امضاهای بزرگ‌تر از ستون قدیمی جا نمی‌شوند؛ خالی می‌شوند تا دوباره ساخته شوند.
             migrationBuilder.Sql("UPDATE [ProductImageSignatures] SET [Hashes] = NULL WHERE DATALENGTH([Hashes]) > 128;");
