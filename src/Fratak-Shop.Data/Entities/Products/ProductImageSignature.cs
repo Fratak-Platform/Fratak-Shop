@@ -31,8 +31,16 @@ public class ProductImageSignature : BaseEntity
     /// دور ۲۶: جفت هش شکل (dHash + pHash) همهٔ عکس‌های کالا (هر عکس ۱۶ بایت، حداکثر ۶ عکس) تا عکس غیراصلی هم پیدا شود.
     /// null = امضای قدیمی (دوباره ساخته می‌شود).
     /// </summary>
-    [MaxLength(128)]
+    /// <remarks>دور ۳۰ (#۱): تا ۸ عکس × ۳ نسخه (بدون حاشیه، کل قاب، وسط ۹۰٪) = ۲۴ شکل ← ۵۱۲ بایت.</remarks>
+    [MaxLength(512)]
     public byte[]? Hashes { get; set; }
+
+    /// <summary>
+    /// دور ۳۰ (#۱): هیستوگرام رنگ «هر شکل» (۳۲ بایت، هم‌ترتیب با <see cref="Hashes"/>) تا عکس دوم/سوم کالا هم با رنگ خودش سنجیده شود.
+    /// null = امضای قدیمی (دوباره ساخته می‌شود).
+    /// </summary>
+    [MaxLength(1024)]
+    public byte[]? Palettes { get; set; }
 
     /// <summary>دور ۲۶: تعداد عکس‌های کالا هنگام ساخت امضا؛ عکس اضافه/حذف شود ← امضا دوباره ساخته می‌شود.</summary>
     public int ImageCount { get; set; }

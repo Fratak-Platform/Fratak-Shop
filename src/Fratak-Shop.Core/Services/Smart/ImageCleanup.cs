@@ -99,6 +99,25 @@ public static class ImageCleanup
     }
 
     /// <summary>
+    /// دور ۳۰ (#۱) – کادر «بزرگ‌ترین تکهٔ پیوسته» یک ماسک (برای جست‌وجوی تصویری با اسکرین‌شات: عکس کالا بزرگ‌ترین تکه است).
+    /// ماسک خالی یا ابعاد نادرست ← null. مثال: یک مربع بزرگ و دو نقطهٔ کوچک ← کادر همان مربع.
+    /// </summary>
+    /// <param name="mask">ماسک (true = غیرزمینه)، ردیف به ردیف.</param>
+    /// <param name="width">عرض.</param>
+    /// <param name="height">ارتفاع.</param>
+    public static (int MinX, int MinY, int MaxX, int MaxY, int Size)? LargestPartBox(bool[] mask, int width, int height)
+    {
+        ArgumentNullException.ThrowIfNull(mask);
+        if (width <= 0 || height <= 0 || mask.Length < width * height)
+            return null;
+        var (_, parts) = Components(mask, width, height);
+        if (parts.Count == 0)
+            return null;
+        var main = parts.OrderByDescending(p => p.Size).First();
+        return (main.MinX, main.MinY, main.MaxX, main.MaxY, main.Size);
+    }
+
+    /// <summary>
     /// برنامهٔ تمیزکاری یک عکس (روی نسخهٔ کوچک RGB).
     /// <list type="number">
     /// <item>زمینه از حاشیهٔ عکس خوانده می‌شود؛ زمینهٔ شلوغ (عکس صحنه) ← بدون تغییر (این‌جا تشخیص مطمئن ممکن نیست).</item>
@@ -107,7 +126,21 @@ public static class ImageCleanup
     /// </list>
     /// مثال: هدفون روی سفید با «digikala» در گوشه ← Clean با یک کادر؛ عکس آشپزخانه ← None.
     /// </summary>
-    public static CleanupPlan Plan(ReadOnlySpan<byte> rgb, int width, int height)
+    public static CleanupPlan Plan(ReadOnlySpan<byte> rgb, int width, int height) => Plan(rgb, width, height, null, null);
+
+    /// <summary>
+    /// دور ۳۰ (#۱۰) – همان <see cref="Plan(ReadOnlySpan{byte},int,int)"/> با «ماسک سوژه» از مدل دوربری (U²-Net).
+    /// <para>با ماسک سوژه، لوگو/نوشته/واترمارک «هر جای زمینه» (نه فقط نوار لبه) پیدا می‌شود: هر تکهٔ غیرزمینه که با سوژه (کمی بزرگ‌تر)
+    /// هیچ تماسی ندارد، کوچک است و مدل آن را سوژه نمی‌داند (<see cref="OutsideSubject"/>). نوشتهٔ چاپ‌شده روی خود کالا (اسم کالا روی
+    /// جعبه) داخل ماسک سوژه است و هرگز دست نمی‌خورد.</para>
+    /// مثال: کتری وسط + «www.shop.ir» زیر آن روی زمینهٔ سفید (دور از لبه) ← Clean با یک کادر؛ نوشتهٔ روی بدنهٔ کتری ← دست‌نخورده.
+    /// </summary>
+    /// <param name="rgb">پیکسل‌های نسخهٔ کوچک.</param>
+    /// <param name="width">عرض.</param>
+    /// <param name="height">ارتفاع.</param>
+    /// <param name="subject">ماسک سوژهٔ تأییدشده (هم‌اندازهٔ تصویر) یا null.</param>
+    /// <param name="soft">احتمال سوژه بودن هر پیکسل از مدل (۰ تا ۱) یا null.</param>
+    public static CleanupPlan Plan(ReadOnlySpan<byte> rgb, int width, int height, bool[]? subject, float[]? soft)
     {
         if (width < 16 || height < 16 || rgb.Length < width * height * 3)
             return CleanupPlan.Nothing(width, height, "عکس خوانده نشد");
@@ -134,6 +167,12 @@ public static class ImageCleanup
         }
 
         var drop = StrayIslands(fg, width, height);
+        if (subject is not null && subject.Length >= width * height)
+        {
+            var outside = OutsideSubject(fg, subject, soft, width, height);
+            for (var i = 0; i < drop.Length; i++)
+                drop[i] |= outside[i];
+        }
         var boxes = BoxesOf(drop, width, height);
         var fillGhost = white && bgCount > 0 && ghost / (double)bgCount >= 0.30;
         if (boxes.Count == 0 && !fillGhost)
@@ -141,6 +180,108 @@ public static class ImageCleanup
         var reason = boxes.Count > 0 && fillGhost ? "لوگوی گوشه و نوشتهٔ کم‌رنگ پاک می‌شود"
             : boxes.Count > 0 ? $"{boxes.Count} لوگو/نوشتهٔ جدا از کالا پاک می‌شود" : "نوشتهٔ کم‌رنگ روی زمینه پاک می‌شود";
         return new CleanupPlan(CleanupAction.Clean, boxes, bg, fillGhost, width, height, reason);
+    }
+
+    /// <summary>
+    /// دور ۳۰ (#۱۰) – تکه‌های «بیرون از سوژه» که لوگو/نوشته/واترمارک‌اند. یک تکهٔ غیرزمینه فقط وقتی حذف می‌شود که همهٔ این‌ها برقرار باشد:
+    /// <list type="bullet">
+    /// <item>هیچ پیکسلش، و حتی کادر دورش، با سوژهٔ «۳٪ بزرگ‌تر» تماس ندارد (رنگ زمینه روی کادر کشیده می‌شود و نباید به کالا برسد).</item>
+    /// <item>از ۸٪ سطح سوژه کوچک‌تر است (لوازم جانبی بزرگ کنار کالا دست نمی‌خورند).</item>
+    /// <item>میانگین احتمال سوژه بودنش در مدل کمتر از ۰٫۲۵ است (مدل آن را جزو کالا نمی‌داند).</item>
+    /// </list>
+    /// مثال: نوشتهٔ «shop.ir» وسط پایین عکس، ۵۰ پیکسل زیر کالا ← حذف؛ کابل کنار شارژر که مدل سوژه می‌داند ← دست‌نخورده.
+    /// </summary>
+    public static bool[] OutsideSubject(bool[] foreground, bool[] subject, float[]? soft, int width, int height)
+    {
+        ArgumentNullException.ThrowIfNull(foreground);
+        ArgumentNullException.ThrowIfNull(subject);
+        var drop = new bool[foreground.Length];
+        if (width <= 0 || height <= 0 || foreground.Length < width * height || subject.Length < width * height)
+            return drop;
+        var subjectSize = 0;
+        for (var i = 0; i < width * height; i++)
+            if (subject[i]) subjectSize++;
+        if (subjectSize == 0)
+            return drop;
+        var near = Dilate(subject, width, height, Math.Max(2, (int)Math.Round(Math.Min(width, height) * 0.03)));
+        var (labels, parts) = Components(foreground, width, height);
+        var dropIds = new HashSet<int>();
+        foreach (var part in parts)
+        {
+            if (part.Size > subjectSize * 0.08)
+                continue;
+            // کادر تکه (+۲ پیکسل) نباید به سوژهٔ بزرگ‌شده برسد.
+            var touches = false;
+            for (var y = Math.Max(0, part.MinY - 2); y <= Math.Min(height - 1, part.MaxY + 2) && !touches; y++)
+            {
+                for (var x = Math.Max(0, part.MinX - 2); x <= Math.Min(width - 1, part.MaxX + 2); x++)
+                {
+                    if (near[y * width + x])
+                    {
+                        touches = true;
+                        break;
+                    }
+                }
+            }
+            if (!touches)
+                dropIds.Add(part.Id);
+        }
+        if (dropIds.Count == 0)
+            return drop;
+        if (soft is not null && soft.Length >= width * height)
+        {
+            var sum = new Dictionary<int, double>();
+            var count = new Dictionary<int, int>();
+            for (var i = 0; i < width * height; i++)
+            {
+                var label = labels[i];
+                if (label == 0 || !dropIds.Contains(label))
+                    continue;
+                sum[label] = sum.GetValueOrDefault(label) + soft[i];
+                count[label] = count.GetValueOrDefault(label) + 1;
+            }
+            foreach (var (label, total) in sum)
+            {
+                if (total / Math.Max(1, count[label]) >= 0.25)
+                    dropIds.Remove(label);
+            }
+        }
+        for (var i = 0; i < width * height; i++)
+            drop[i] = labels[i] > 0 && dropIds.Contains(labels[i]);
+        return drop;
+    }
+
+    /// <summary>بزرگ کردن ماسک به اندازهٔ radius پیکسل (مربعی، با جمع پیشوندی؛ سریع حتی برای عکس بزرگ).</summary>
+    internal static bool[] Dilate(bool[] mask, int width, int height, int radius)
+    {
+        var result = new bool[width * height];
+        if (radius <= 0)
+        {
+            Array.Copy(mask, result, Math.Min(mask.Length, result.Length));
+            return result;
+        }
+        // جمع پیشوندی دوبعدی؛ هر پیکسل اگر در مربع (2r+1) دورش پیکسل سوژه باشد، سوژه می‌شود.
+        var sat = new int[(width + 1) * (height + 1)];
+        for (var y = 0; y < height; y++)
+        {
+            var row = 0;
+            for (var x = 0; x < width; x++)
+            {
+                row += mask[y * width + x] ? 1 : 0;
+                sat[(y + 1) * (width + 1) + x + 1] = sat[y * (width + 1) + x + 1] + row;
+            }
+        }
+        for (var y = 0; y < height; y++)
+        {
+            int y0 = Math.Max(0, y - radius), y1 = Math.Min(height - 1, y + radius);
+            for (var x = 0; x < width; x++)
+            {
+                int x0 = Math.Max(0, x - radius), x1 = Math.Min(width - 1, x + radius);
+                var total = sat[(y1 + 1) * (width + 1) + x1 + 1] - sat[y0 * (width + 1) + x1 + 1] - sat[(y1 + 1) * (width + 1) + x0] + sat[y0 * (width + 1) + x0];
+                result[y * width + x] = total > 0;
+            }
+        }
+        return result;
     }
 
     /// <summary>

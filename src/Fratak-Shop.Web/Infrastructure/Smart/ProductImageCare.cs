@@ -14,14 +14,17 @@ namespace Fratak_Shop.Web.Infrastructure.Smart;
 /// <item><b>پاک کردن لوگو/واترمارک</b> (تنظیم CleanWatermarks): هر عکس یک بار با <see cref="ImageCleanup.Plan"/> بررسی می‌شود؛
 /// لوگوی گوشه یا نوشتهٔ کم‌رنگ روی زمینهٔ یکدست با رنگ زمینه پوشانده می‌شود و نسخهٔ تمیز جای عکس می‌نشیند.
 /// عکسی که بعد از تمیزکاری هنوز «واترمارک‌دار» است و کالا عکس سالم دیگری دارد کنار گذاشته می‌شود (حذف نرم؛ از سطل بازیابی برمی‌گردد).</item>
-/// <item><b>عکس اصلی یکدست</b> (تنظیم PrimaryCutout): بهترین عکس با <see cref="ImageCleanup.PickPrimary"/> اصلی می‌شود (زمینهٔ سفید اول)؛
-/// بعد زمینهٔ سفید آن با <see cref="ImageColors.Cutout"/> حذف و روی بوم مربعِ شفاف با حاشیهٔ یکسان گذاشته می‌شود تا همهٔ کارت‌های سایت
-/// یک‌شکل دیده شوند. عکس‌های دیگر زمینهٔ خودشان را نگه می‌دارند.</item>
+/// <item><b>عکس اصلی بدون زمینه</b> (تنظیم PrimaryCutout): بهترین عکس با <see cref="ImageCleanup.PickPrimary"/> انتخاب می‌شود؛
+/// بعد با «دوربری مطمئن» (<see cref="SubjectMatting"/>: مدل U²-Net + اعتبارسنجی <see cref="CutoutMask"/>) زمینه‌اش حذف و روی بوم
+/// مربعِ شفاف با حاشیهٔ یکسان گذاشته می‌شود تا همهٔ کارت‌های سایت یک‌شکل دیده شوند.
+/// <para><b>دور ۳۰ (#۴): عکس اصلی هرگز عوض/پاک نمی‌شود.</b> عکس بدون زمینه یک <b>عکس تازه</b> است که اول گالری و «اصلی» می‌شود و عکس
+/// زمینه‌دار درست بعد از آن می‌ماند. مثال: کالا با ۲ عکس ← بعد از دوربری ۳ عکس (بدون زمینه، اصلیِ زمینه‌دار، عکس دوم).
+/// دوربری‌ای که اعتبارسنجی را رد کند (خطر پاک شدن بخشی از کالا) اصلاً ساخته نمی‌شود.</para></item>
 /// </list>
 /// <para>سبک برای هاست ضعیف: هر ساعت حداکثر <see cref="CleanPerRun"/> عکس و <see cref="CutoutPerRun"/> کالا؛ پردازش فقط با مجوز
 /// <see cref="WebPEncoder.Gate"/> (هم‌زمان با تبدیل‌های دیگر سنگین نمی‌شود). نتیجهٔ هر عکس با بیت‌های SubjectFlags علامت می‌خورد
 /// (<see cref="ImageCleanup.CareDone"/>، <see cref="ImageCleanup.CutoutDone"/>، <see cref="CutoutTried"/>) تا دوباره کار نشود.</para>
-/// <para>فایل قبلی روی دیسک می‌ماند (ممکن است در بنری استفاده شده باشد)؛ فقط ردیف عکس به فایل تازه اشاره می‌کند.</para>
+/// <para>تمیزکاری لوگو: فایل قبلی روی دیسک می‌ماند (ممکن است در بنری استفاده شده باشد)؛ فقط ردیف عکس به فایل تازه اشاره می‌کند.</para>
 /// <para>اجرا: SmartWorker (همان حلقهٔ ساعتی اثر انگشت عکس‌ها). خطای یک عکس فقط ثبت می‌شود و بقیه ادامه می‌یابند.</para>
 /// </summary>
 public static class ProductImageCare
@@ -32,7 +35,10 @@ public static class ProductImageCare
     /// <summary>بیشترین کالا برای «عکس اصلی دوربری‌شده» در هر اجرا.</summary>
     public const int CutoutPerRun = 20;
 
-    /// <summary>بیت «دوربری امتحان شد ولی ممکن نبود» (زمینهٔ غیرسفید/عکس صحنه) تا هر ساعت تکرار نشود.</summary>
+    /// <summary>
+    /// بیت «دوربری این عکس امتحان شد» تا هر ساعت تکرار نشود: یا ممکن نبود (اعتبارسنجی رد کرد)، یا (دور ۳۰) نسخهٔ بدون زمینه‌اش
+    /// به‌صورت عکس جدا ساخته شده و این همان عکس اصلیِ زمینه‌دار است که نگه داشته شده.
+    /// </summary>
     public const byte CutoutTried = 128;
 
     /// <summary>ضلع نسخهٔ کوچکی که بررسی لوگو روی آن انجام می‌شود.</summary>
@@ -198,7 +204,9 @@ public static class ProductImageCare
             using var oriented = MediaEndpoints.Orient(decoded, codec.EncodedOrigin);
             var bitmap = oriented ?? decoded;
             var (rgb, w, h) = SmallRgb(bitmap, AnalysisSide);
-            var plan = ImageCleanup.Plan(rgb, w, h);
+            // دور ۳۰ (#۱۰): ماسک سوژه از مدل دوربری ← لوگو/نوشتهٔ «هر جای زمینه» پیدا می‌شود؛ نوشتهٔ روی خود کالا دست نمی‌خورد.
+            var subject = SubjectMatting.SubjectMask(rgb, w, h);
+            var plan = ImageCleanup.Plan(rgb, w, h, subject?.Mask, subject?.Soft);
             if (plan.Action != CleanupAction.Clean)
                 return new CleanResult(null, plan.Reason);
 
@@ -308,9 +316,10 @@ public static class ProductImageCare
             byte flags = primary.SubjectFlags ?? (byte)0;
             if ((flags & doneOrTried) != 0)
                 continue;
-            if (ImageCleanup.Tier(primary.SubjectFlags) == 0)
+            if ((flags & (4 | 8)) != 0)
             {
-                // آدم/واترمارک/صحنه: دوربری مطمئن ممکن نیست؛ جایگزینش را جست‌وجوی روزانهٔ عکس پیدا می‌کند.
+                // آدم/واترمارک: دوربری مطمئن ممکن نیست (مدل آدم را هم سوژه می‌بیند)؛ جایگزینش را جست‌وجوی روزانهٔ عکس پیدا می‌کند.
+                // دور ۳۰: عکس «صحنه» (کالا روی میز/در محیط) دیگر رد نمی‌شود؛ مدل U²-Net کالا را جدا و CutoutMask اعتبارسنجی می‌کند.
                 primary.SubjectFlags = (byte)(flags | CutoutTried);
                 continue;
             }
@@ -349,12 +358,10 @@ public static class ProductImageCare
                 primary.SubjectFlags = (byte)(flags | CutoutTried);
                 continue;
             }
-            var info = SmartImageAnalyzer.Analyze(outcome.Png!);
-            primary.ImageName = stored;
-            if (info is not null)
-                primary.Hash = unchecked((long)info.Hash);
-            // کیفیت و امتیاز سوژه همان عکس اصلی می‌ماند (فقط زمینه برداشته شد)؛ نشانه‌ها: سفید/یکدست + دوربری‌شده.
-            primary.SubjectFlags = (byte)((flags & ~ImageCleanup.ProblemBits) | 1 | 2 | ImageCleanup.CareDone | ImageCleanup.CutoutDone);
+            // دور ۳۰ (#۴): عکس بدون زمینه یک ردیف تازه است؛ عکس زمینه‌دار دست‌نخورده می‌ماند (فقط دیگر «اصلی» نیست).
+            context.ProductImages.Add(CutoutRow(primary, images, stored, SmartImageAnalyzer.Analyze(outcome.Png!)?.Hash));
+            primary.IsPrimary = false;
+            primary.SubjectFlags = (byte)(flags | CutoutTried);
             cutouts++;
         }
         await context.SaveChangesAsync(cancellationToken);
@@ -374,7 +381,44 @@ public static class ProductImageCare
     private sealed record CutoutOutcome(CutoutKind Kind, byte[]? Png = null);
 
     /// <summary>
-    /// دوربری و قاب یکسان: زمینهٔ سفید حذف، کالا وسط بوم مربعِ شفاف با ۶٪ حاشیه از هر طرف (ضلع ۸۰۰ تا ۱۴۰۰ پیکسل).
+    /// دور ۳۰ (#۴) – ردیف عکس «بدون زمینه» کنار عکس اصلی (خالص؛ آزمون‌پذیر). عکس تازه اصلی و اول گالری می‌شود و بقیه یک خانه عقب
+    /// می‌روند؛ متن جایگزین، کیفیت و امتیاز سوژه از عکس اصلی گرفته می‌شود (فقط زمینه برداشته شده) و نشانه‌ها: سفید + یکدست +
+    /// تمیزشده + دوربری‌شده. مثال: گالری [A (۰، اصلی)، B (۱)] ← [برش (۰، اصلی)، A (۱)، B (۲)].
+    /// </summary>
+    /// <param name="original">عکس اصلیِ زمینه‌دار (ردیف آن این‌جا تغییر نمی‌کند؛ صدا زننده IsPrimary را خاموش می‌کند).</param>
+    /// <param name="gallery">همهٔ عکس‌های همان کالا (ترتیب نمایش‌شان یک خانه جلو می‌رود).</param>
+    /// <param name="imageName">نام فایل ذخیره‌شدهٔ عکس بدون زمینه.</param>
+    /// <param name="hash">اثر انگشت dHash عکس تازه (یا null).</param>
+    public static Fratak_Shop.Data.Entities.Products.ProductImage CutoutRow(Fratak_Shop.Data.Entities.Products.ProductImage original,
+        IReadOnlyList<Fratak_Shop.Data.Entities.Products.ProductImage> gallery, string imageName, ulong? hash)
+    {
+        ArgumentNullException.ThrowIfNull(original);
+        ArgumentNullException.ThrowIfNull(gallery);
+        var first = gallery.Count == 0 ? 0 : Math.Max(0, gallery.Min(i => i.DisplayOrder));
+        foreach (var image in gallery)
+        {
+            if (image.DisplayOrder >= first)
+                image.DisplayOrder++;
+        }
+        var flags = original.SubjectFlags ?? (byte)0;
+        return new Fratak_Shop.Data.Entities.Products.ProductImage
+        {
+            Id = Guid.NewGuid(),
+            ProductId = original.ProductId,
+            ImageName = imageName,
+            AltText = original.AltText,
+            DisplayOrder = first,
+            IsPrimary = true,
+            Hash = hash is { } h && h != 0 ? unchecked((long)h) : null,
+            Quality = original.Quality,
+            SubjectScore = original.SubjectScore,
+            SubjectFlags = (byte)((flags & ~ImageCleanup.ProblemBits & ~CutoutTried) | 1 | 2 | ImageCleanup.CareDone | ImageCleanup.CutoutDone),
+        };
+    }
+
+    /// <summary>
+    /// دوربری مطمئن و قاب یکسان: زمینه با <see cref="SubjectMatting"/> حذف (رد اعتبارسنجی ← NotPossible و عکس اصلی دست‌نخورده)،
+    /// کالا وسط بوم مربعِ شفاف با ۶٪ حاشیه از هر طرف (ضلع ۸۰۰ تا ۱۴۰۰ پیکسل).
     /// مثال: هدفون ۷۲۰×۸۷۰ ← بوم ۹۸۹×۹۸۹ با هدفون وسط.
     /// </summary>
     private static CutoutOutcome MakeCutout(string path)
@@ -392,7 +436,7 @@ public static class ProductImageCare
             if (ImageColors.HasTransparentBorder(decoded))
                 return new CutoutOutcome(CutoutKind.AlreadyTransparent);
             using var oriented = MediaEndpoints.Orient(decoded, codec.EncodedOrigin);
-            var cut = ImageColors.Cutout(oriented ?? decoded, 1200);
+            var cut = SubjectMatting.Cutout(oriented ?? decoded, SubjectMatting.DefaultSide);
             if (cut is null)
                 return new CutoutOutcome(CutoutKind.NotPossible);
             using var piece = SKBitmap.Decode(cut.Png);

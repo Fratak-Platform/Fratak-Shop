@@ -5847,8 +5847,8 @@ namespace Fratak_Shop.Data.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<byte[]>("Hashes")
-                        .HasMaxLength(128)
-                        .HasColumnType("varbinary(128)");
+                        .HasMaxLength(512)
+                        .HasColumnType("varbinary(512)");
 
                     b.Property<int>("ImageCount")
                         .HasColumnType("int");
@@ -5860,6 +5860,10 @@ namespace Fratak_Shop.Data.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<byte[]>("Palettes")
+                        .HasMaxLength(1024)
+                        .HasColumnType("varbinary(1024)");
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
@@ -9575,6 +9579,66 @@ namespace Fratak_Shop.Data.Migrations
                     b.HasIndex("Status", "PlannedFor");
 
                     b.ToTable("BlogPlanItems");
+                });
+
+            modelBuilder.Entity("Fratak_Shop.Data.Entities.Smart.CategoryImageFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte>("Decision")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Features")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<long>("Hash")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ImageName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Query")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UrlKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId", "ImageName");
+
+                    b.HasIndex("Decision");
+
+                    b.ToTable("CategoryImageFeedbacks");
                 });
 
             modelBuilder.Entity("Fratak_Shop.Data.Entities.Smart.CustomerReminder", b =>

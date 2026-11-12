@@ -14,8 +14,8 @@ public sealed record AdminNavItem(string Title, string Url, string Icon, string[
 }
 
 /// <summary>
-/// گروه منو. دور ۲۳: در نوار کناری «تاشو» است (وضعیت باز/بسته در مرورگر کارمند ذخیره می‌شود؛ admin-nav.js) و گروهی که صفحهٔ فعلی
-/// در آن است همیشه باز نمایش داده می‌شود. گروه بی‌عنوان (داشبورد و موارد شخصی) همیشه باز است.
+/// گروه منو. دور ۳۰ (#۱۱): در نوار کناری «تاشو» و «پیش‌فرض بسته» است – حتی گروه صفحهٔ فعلی – و فقط با کلیک باز می‌شود
+/// (admin-nav.js؛ با باز کردن یک گروه، بقیه بسته می‌شوند). گروه بی‌عنوان فقط «داشبورد» است و همیشه دیده می‌شود.
 /// </summary>
 public sealed record AdminNavGroup(string Title, params AdminNavItem[] Items);
 
@@ -28,7 +28,9 @@ public static class AdminNav
 {
     public static readonly AdminNavGroup[] Groups =
     [
-        new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour"), new AdminNavItem("صندوق اعلان‌های من", "/admin/inbox", "Tray"),
+        // دور ۳۰ (#۱۱): فقط «داشبورد» بیرون از گروه‌هاست؛ بقیهٔ موارد شخصی هم در یک گروه تاشو (پیش‌فرض بسته) رفتند.
+        new("", new AdminNavItem("داشبورد", "/admin", "SquaresFour")),
+        new("میز کار من", new AdminNavItem("صندوق اعلان‌های من", "/admin/inbox", "Tray"),
             new AdminNavItem("میانبرهای سنجاق‌شدهٔ من", "/admin/ux", "PushPin"),
             // مرحلهٔ هفتم – فاز ۱۰: کار تیمی و امنیت کارکنان.
             new AdminNavItem("کارهای سپرده‌شده به من", "/admin/tasks", "ListChecks", null, "tasks"),

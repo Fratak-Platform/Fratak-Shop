@@ -105,7 +105,8 @@
         {
           var items = access is null ? Array.Empty<AdminNavItem>() : group.Items.Where(i => i.IsVisible(access)).ToArray();
           if (items.Length == 0) { continue; }
-          // دور ۲۳: گروه‌های تاشو؛ گروه صفحهٔ فعلی همیشه باز است و بقیه طبق انتخاب قبلی کارمند (localStorage) باز/بسته می‌شوند.
+          // دور ۳۰ (#۱۱): همهٔ گروه‌ها «پیش‌فرض بسته‌اند» – حتی گروه صفحهٔ فعلی – و فقط با کلیک باز می‌شوند (شلوغی منو کم می‌شود).
+          // گروه صفحهٔ فعلی فقط با یک نقطه و رنگ روشن‌تر روی عنوانش مشخص است تا کارمند بداند کجاست.
           var hasActive = items.Any(i => i.Url == activeUrl);
           var groupBadges = items.Sum(i => i.BadgeKey is not null && badges.TryGetValue(i.BadgeKey, out var gc) ? gc : 0);
           if (string.IsNullOrEmpty(group.Title))
@@ -123,8 +124,8 @@
             </div>
             continue;
           }
-          <details class="a-nav-sec" data-nav-sec data-nav-group="@group.Title" open="@hasActive" data-nav-active="@(hasActive ? "1" : null)">
-            <summary class="a-nav-group">
+          <details class="a-nav-sec" data-nav-sec data-nav-group="@group.Title" data-nav-active="@(hasActive ? "1" : null)">
+            <summary class="a-nav-group @(hasActive ? "is-current" : "")">
               <span class="flex-1">@group.Title</span>
               @if (groupBadges > 0) { <span class="a-nav-badge" data-nav-sum>@(groupBadges > 99 ? "99+" : groupBadges.ToString())</span> }
               @Icons.Svg("CaretDown", "a-nav-caret", 14)

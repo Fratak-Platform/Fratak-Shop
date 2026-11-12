@@ -1,50 +1,43 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  دور ۲۳ – منوی کناری پنل: گروه‌های تاشو با حافظه + جست‌وجوی منو
-//  • هر گروه (details[data-nav-group]) باز/بسته بودنش را در localStorage مرورگر همان کارمند نگه می‌دارد
-//    (کلید «fs.nav.v1»). گروهی که صفحهٔ فعلی در آن است (data-nav-active) همیشه باز می‌ماند.
-//  • کادر جست‌وجو (input[data-nav-search]) لینک‌ها را با متن فیلتر می‌کند؛ «ي/ك» عربی، نیم‌فاصله و فاصلهٔ اضافه
-//    یکسان می‌شوند (مثال: «سفارشها» ← «سفارش‌ها»). Enter ← اولین نتیجه؛ Escape ← پاک کردن.
+//  منوی کناری پنل: گروه‌های تاشو + جست‌وجوی منو
+//  دور ۳۰ (#۱۱): «همهٔ گروه‌ها پیش‌فرض بسته‌اند» (مثل «فنی» یا «محتوا و سئو») و فقط با کلیک باز می‌شوند.
+//  • حالت باز/بسته دیگر در مرورگر ذخیره نمی‌شود (قبلاً گروه‌هایی که یک بار باز شده بودند همیشه باز می‌ماندند و منو شلوغ می‌شد).
+//    کلید قدیمی «fs.nav.v1» هم پاک می‌شود.
+//  • «آکاردئون»: با باز کردن یک گروه، گروه باز دیگر بسته می‌شود تا همیشه فقط یک فهرست کوتاه دیده شود.
+//  • گروه صفحهٔ فعلی هم بسته است؛ فقط عنوانش با نقطهٔ آبی (کلاس is-current) مشخص می‌شود.
+//  • کادر جست‌وجو (input[data-nav-search]) لینک‌ها را با متن فیلتر می‌کند و گروه‌های دارای نتیجه را موقتاً باز می‌کند؛
+//    با پاک شدن جست‌وجو همه دوباره بسته می‌شوند. «ي/ك» عربی، نیم‌فاصله و فاصلهٔ اضافه یکسان می‌شوند
+//    (مثال: «سفارشها» ← «سفارش‌ها»). Enter ← اولین نتیجه؛ Escape ← پاک کردن.
 //  بدون اسکریپت درون‌خطی (سازگار با CSP) و بدون وابستگی.
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {
   "use strict";
-  var KEY = "fs.nav.v1";
   var nav = document.querySelector(".a-nav");
   if (!nav) return;
 
-  function load() {
-    try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; }
-  }
-  function save(state) {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* حالت خصوصی مرورگر: فقط ذخیره نمی‌شود */ }
-  }
+  // پاک کردن حافظهٔ قدیمی باز/بسته (دور ۲۳) تا هیچ گروهی خودبه‌خود باز نشود.
+  try { localStorage.removeItem("fs.nav.v1"); } catch (e) { /* حالت خصوصی مرورگر */ }
+
   function norm(text) {
     return (text || "").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/[\u200c\u200f\u200e]/g, "").replace(/\s+/g, "").toLowerCase();
   }
 
-  var state = load();
   var groups = Array.prototype.slice.call(nav.querySelectorAll("details[data-nav-group]"));
   var searching = false;
 
-  // بازگرداندن وضعیت قبلی (گروه صفحهٔ فعلی همیشه باز).
-  groups.forEach(function (group) {
-    var name = group.getAttribute("data-nav-group");
-    if (group.hasAttribute("data-nav-active")) { group.open = true; return; }
-    if (Object.prototype.hasOwnProperty.call(state, name)) group.open = !!state[name];
-  });
+  // همه بسته (حتی اگر مرورگر حالت قبلی را از کش صفحه برگرداند).
+  function closeAll(except) {
+    groups.forEach(function (group) { if (group !== except) group.open = false; });
+  }
+  closeAll(null);
+  window.addEventListener("pageshow", function (event) { if (event.persisted && !searching) closeAll(null); });
+
+  // آکاردئون: باز شدن یک گروه ← بسته شدن بقیه (هنگام جست‌وجو نه، چون چند گروه نتیجه دارند).
   groups.forEach(function (group) {
     group.addEventListener("toggle", function () {
-      if (searching) return; // باز شدن خودکار هنگام جست‌وجو ذخیره نمی‌شود
-      state[group.getAttribute("data-nav-group")] = group.open;
-      save(state);
+      if (!searching && group.open) closeAll(group);
     });
   });
-
-  // لینک فعال در دید باشد (منوی بلند).
-  var active = nav.querySelector(".a-nav-link.is-active");
-  if (active && active.scrollIntoView) {
-    try { active.scrollIntoView({ block: "nearest" }); } catch (e) { /* مرورگر قدیمی */ }
-  }
 
   var input = document.querySelector("[data-nav-search]");
   var empty = nav.querySelector("[data-nav-empty]");
@@ -63,18 +56,10 @@
         if (match) shown++;
       });
       section.hidden = searching && shown === 0;
-      if (section.tagName === "DETAILS") {
-        if (searching) { if (shown > 0) section.open = true; }
-        else {
-          var name = section.getAttribute("data-nav-group");
-          section.open = section.hasAttribute("data-nav-active") || !!state[name];
-        }
-      }
+      if (section.tagName === "DETAILS") section.open = searching && shown > 0;
       visible += shown;
     });
     if (empty) empty.hidden = !(searching && visible === 0);
-    // پایان جست‌وجو: رویدادهای toggle همگام‌شده ذخیره نشوند.
-    if (!searching) setTimeout(function () { searching = false; }, 0);
   }
 
   input.addEventListener("input", filter);

@@ -205,6 +205,67 @@ public class UserService(FratakShopDbContext context, Events.IShopEvents events,
         return OperationResult.Success("رمز عبور با موفقیت تغییر کرد.");
     }
 
+    // رمزهای بسیار رایجی که در «بازیابی رمز» پذیرفته نمی‌شوند (اولین حدس‌های هر حمله).
+    private static readonly HashSet<string> CommonPasswords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "123456", "1234567", "12345678", "123456789", "1234567890", "111111", "000000", "654321", "123123", "121212",
+        "password", "password1", "qwerty", "qwerty123", "abc123", "iloveyou", "a123456", "admin123",
+    };
+
+    /// <summary>
+    /// دور ۳۰: ایراد رمز تازه در «بازیابی رمز» (null = قبول). قانون‌ها: حداقل ۶ نویسه، رمزهای بسیار رایج نه، خود شماره موبایل نه،
+    /// یک نویسهٔ تکراری (مثل «aaaaaa») نه. مثال: PasswordProblem("09121234567", "123456") ← «این رمز بسیار رایج است …».
+    /// </summary>
+    public static string? PasswordProblem(string? phoneNumber, string? password)
+    {
+        var value = password?.Trim() ?? string.Empty;
+        if (value.Length < MinimumPasswordLength)
+            return $"رمز عبور جدید باید حداقل {MinimumPasswordLength} کاراکتر باشد.";
+        if (value.Length > 128)
+            return "رمز عبور خیلی طولانی است (حداکثر ۱۲۸ کاراکتر).";
+        if (CommonPasswords.Contains(value))
+            return "این رمز بسیار رایج است و به‌راحتی حدس زده می‌شود؛ رمز دیگری انتخاب کنید.";
+        if (!string.IsNullOrWhiteSpace(phoneNumber) && value.Contains(phoneNumber.Trim()[1..], StringComparison.Ordinal))
+            return "رمز عبور نباید شماره موبایل شما باشد.";
+        if (value.Distinct().Count() == 1)
+            return "رمز عبور نباید فقط از یک نویسهٔ تکراری ساخته شود.";
+        return null;
+    }
+
+    public async Task<bool> CanResetPasswordAsync(string phoneNumber)
+    {
+        var phone = phoneNumber?.Trim() ?? string.Empty;
+        if (!phone.IsValidMobile())
+            return false;
+        return await context.Users.AsNoTracking().AnyAsync(x => x.PhoneNumber == phone && !x.IsBlocked);
+    }
+
+    public async Task<OperationResult<Guid>> ResetPasswordAsync(string phoneNumber, string newPassword)
+    {
+        var phone = phoneNumber?.Trim() ?? string.Empty;
+        if (!phone.IsValidMobile())
+            return OperationResult<Guid>.Error("شماره موبایل معتبر نیست.");
+        if (PasswordProblem(phone, newPassword) is { } problem)
+            return OperationResult<Guid>.Error(problem);
+
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+        // پیام یکسان برای «حساب نیست» و «مسدود است»: صفحهٔ بازیابی نباید وجود حساب را لو بدهد.
+        if (user is null || user.IsBlocked)
+            return OperationResult<Guid>.Error("کد وارد شده صحیح نیست یا منقضی شده است.");
+
+        user.PasswordHash = PasswordHasher.Hash(newPassword);
+        user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+        user.FailedLoginCount = 0;
+        user.LockoutEndAt = null;
+        // کد پیامکی ثابت کرد شماره مال همین شخص است.
+        user.IsPhoneVerified = true;
+
+        await context.SaveChangesAsync();
+        ForgetStamp(user.Id);
+        await events.SecurityEventAsync(user.Id, NotificationEvent.PasswordChanged);
+        return OperationResult<Guid>.Success(user.Id, "رمز عبور تازه ثبت شد؛ حالا با رمز جدید وارد شوید.");
+    }
+
     public async Task<OperationResult> SetTwoFactorAsync(Guid userId, bool enabled)
     {
         var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == userId);

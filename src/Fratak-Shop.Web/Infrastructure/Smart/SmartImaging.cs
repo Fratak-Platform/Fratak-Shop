@@ -546,10 +546,14 @@ public sealed class SmartImageFinder(
 
         // دور ۲۸: «عکس سوژهٔ دسته» – خود موضوع دسته، ترجیحاً روی زمینهٔ سفید؛ آدم، صحنهٔ شلوغ، لوگو و واترمارک رد می‌شود
         // (CategorySubjectImages + ImageSubjectCheck در حالت سخت‌گیر). جست‌وجو از چند منبع ادامه پیدا می‌کند تا عکس درست پیدا شود.
-        var hits = new List<PhotoHit>();
+        // دور ۳۰ (#۵): «حافظهٔ یادگرفته» از تصمیم‌های ادمین (انتخاب = تأیید، حذف = رد): عکس/منبع ردشده کنار می‌رود و عکس‌های شبیه
+        // ردشده‌ها با مدل یادگرفته رد می‌شوند. دور ۳۰ (#۳): هر عکس باید «دوربری مطمئن» را بگذراند (یک سوژهٔ واضح و کامل) و نسخهٔ
+        // نهایی روی سفید خالص ساخته می‌شود (لوگو و زمینهٔ کثیف حذف).
+        var memory = await catalog.CategoryImageMemoryAsync(subject.Id, cancellationToken);
+        var hits = new List<(PhotoHit Hit, string Query)>();
         foreach (var query in CategorySubjectImages.EnglishQueries(subject))
         {
-            hits.AddRange(await sources.OpenverseSubjectAsync(query, cancellationToken));
+            hits.AddRange((await sources.OpenverseSubjectAsync(query, cancellationToken)).Select(h => (h, query)));
             if (hits.Count >= 30)
                 break;
         }
@@ -557,28 +561,31 @@ public sealed class SmartImageFinder(
         {
             if (hits.Count >= 70)
                 break;
-            hits.AddRange((await sources.BingImageResultsAsync(query, 0, cancellationToken)).Select(h => new PhotoHit(h.Url, h.Title, h.PageUrl, 0, 0, "bing")));
+            hits.AddRange((await sources.BingImageResultsAsync(query, 0, cancellationToken))
+                .Select(h => (new PhotoHit(h.Url, h.Title, h.PageUrl, 0, 0, "bing"), query)));
         }
         var candidates = hits
-            .Where(h => SmartParsers.CleanImageUrl(h.Url) is not null && CategorySubjectImages.IsUsefulHit(h.Title, h.Url, h.PageUrl))
-            .Where(h => h.Width == 0 || CategorySubjectImages.IsSizeOk(h.Width, h.Height))
-            .DistinctBy(h => SmartImageRules.UrlKey(h.Url))
+            .Where(h => SmartParsers.CleanImageUrl(h.Hit.Url) is not null && CategorySubjectImages.IsUsefulHit(h.Hit.Title, h.Hit.Url, h.Hit.PageUrl))
+            .Where(h => h.Hit.Width == 0 || CategorySubjectImages.IsSizeOk(h.Hit.Width, h.Hit.Height))
+            .Where(h => !memory.Blocks(h.Hit.Url, 0) && !memory.SourceBlocked(CategorySourceKey(h.Hit)))
+            .DistinctBy(h => SmartImageRules.UrlKey(h.Hit.Url))
             .Take(30)
             .ToList();
 
-        var accepted = new List<(byte[] Bytes, double Score, ulong Hash)>();
+        var accepted = new List<(byte[] Bytes, double Score, ulong Hash, CategoryImageNote Note)>();
         var rejected = 0;
+        var reasons = new List<string>();
         using var throttle = new SemaphoreSlim(2);
         foreach (var batch in candidates.Chunk(4))
         {
             if (accepted.Count >= want + 1)
                 break;
-            var downloads = batch.Select(async hit =>
+            var downloads = batch.Select(async candidate =>
             {
                 await throttle.WaitAsync(cancellationToken);
                 try
                 {
-                    return (Hit: hit, Bytes: await DownloadAsync(hit.Url, cancellationToken));
+                    return (Candidate: candidate, Bytes: await DownloadAsync(candidate.Hit.Url, cancellationToken));
                 }
                 finally
                 {
@@ -587,38 +594,90 @@ public sealed class SmartImageFinder(
             }).ToList();
             foreach (var task in downloads)
             {
-                var (hit, bytes) = await task;
+                var (candidate, bytes) = await task;
+                var hit = candidate.Hit;
                 if (bytes is null || SmartImageAnalyzer.Analyze(bytes) is not { } info || !CategorySubjectImages.IsSizeOk(info.Width, info.Height))
                     continue;
                 if (blocked.Any(h => ImageHash.IsDuplicate(h, info.Hash)) || accepted.Any(a => ImageHash.IsDuplicate(a.Hash, info.Hash)))
                     continue;
-                // تطابق عنوان با نام/نامک دسته (عنوان نامعلوم ← ۰٫۵).
-                var match = string.IsNullOrWhiteSpace(hit.Title) ? 0.5
-                    : Math.Max(SmartParsers.TitleMatch(subject.Name, hit.Title), SmartParsers.TitleMatch(CategoryPhotos.SlugWords(subject.Slug), hit.Title));
-                var verdict = SmartImageAnalyzer.Subject(bytes, Math.Max(0.4, match), info.Quality, strict: true);
-                if (verdict is not { Accept: true, PlainBackground: true })
+                if (memory.Blocks(null, info.Hash))
                 {
                     rejected++;
                     continue;
                 }
-                accepted.Add((SmartImageAnalyzer.Downscale(bytes, 1200), CategorySubjectImages.Score(verdict, info.Width, info.Height, info.Quality), info.Hash));
+                // تطابق عنوان با نام/نامک دسته (عنوان نامعلوم ← ۰٫۵).
+                var match = string.IsNullOrWhiteSpace(hit.Title) ? 0.5
+                    : Math.Max(SmartParsers.TitleMatch(subject.Name, hit.Title), SmartParsers.TitleMatch(CategoryPhotos.SlugWords(subject.Slug), hit.Title));
+                var verdict = SmartImageAnalyzer.Subject(bytes, Math.Max(0.4, match), info.Quality, strict: true);
+                if (verdict is not { Accept: true, PlainBackground: true } || CategoryComposite.IsCollage(bytes))
+                {
+                    rejected++;
+                    continue;
+                }
+                var cutout = SubjectMatting.Cutout(bytes, 1200, out var matte);
+                if (cutout is null)
+                {
+                    rejected++;
+                    if (matte is not null && reasons.Count < 5)
+                        reasons.Add(matte.Reason);
+                    continue;
+                }
+                var features = CategoryImageLearning.Features(verdict, info.Width, info.Height, info.Quality, match, matte);
+                if (memory.Rejects(features))
+                {
+                    rejected++;
+                    reasons.Add("شبیه تصویرهایی که قبلاً رد کرده‌اید");
+                    continue;
+                }
+                var scale = Math.Min(1.0, 1200.0 / Math.Max(info.Width, info.Height));
+                var clean = SubjectMatting.OnWhite(cutout, Math.Max(16, (int)Math.Round(info.Width * scale)), Math.Max(16, (int)Math.Round(info.Height * scale)));
+                if (clean is null)
+                {
+                    rejected++;
+                    continue;
+                }
+                var source = CategorySourceKey(hit);
+                var score = memory.Rank(CategorySubjectImages.Score(verdict, info.Width, info.Height, info.Quality), features, source);
+                accepted.Add((clean, score, info.Hash, new CategoryImageNote("", hit.Url, info.Hash, source, candidate.Query, features)));
             }
         }
         if (rejected > 0)
-            logger.LogInformation("Category subject check rejected {Count} images for {Category}", rejected, subject.Name);
+            logger.LogInformation("Category subject check rejected {Count} images for {Category} ({Reasons})", rejected, subject.Name,
+                string.Join("، ", reasons.Distinct()));
 
+        var notes = new List<CategoryImageNote>();
         foreach (var photo in accepted.OrderByDescending(a => a.Score).Take(want))
         {
             var stored = await StoreAsync(photo.Bytes, UploadArea.Categories, cancellationToken);
             if (stored is null)
                 continue;
-            results.Add(RenameIn(UploadArea.Categories, stored, CategorySubjectImages.FileName(subject.Slug)));
+            var name = RenameIn(UploadArea.Categories, stored, CategorySubjectImages.FileName(subject.Slug));
+            results.Add(name);
+            notes.Add(photo.Note with { ImageName = name });
+        }
+        if (notes.Count > 0)
+        {
+            try
+            {
+                await catalog.NoteCategoryImagesAsync(subject.Id, notes, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // ثبت یادداشت یادگیری نباید ذخیرهٔ تصویر را خراب کند.
+                logger.LogWarning(exception, "Category image notes were not saved for {Category}", subject.Name);
+            }
         }
 
         // دور ۲۹ (#۸): «کلاژ عکس کالاها» حذف شد (خواستهٔ کاربر: عکس دسته باید شبیه آیکن و مرتبط باشد، نه ترکیب عکس کالاها).
         // وب عکس درستی نداد ← فهرست خالی؛ صفحهٔ اصلی آیکن نوع دسته را نشان می‌دهد و دفعهٔ بعد دوباره جست‌وجو می‌شود.
         return results;
     }
+
+    /// <summary>
+    /// دور ۳۰ (#۵): کلید منبع عکس دسته برای یادگیری. مثال: Openverse ← «openverse»؛ بینگ از «https://www.shop.ir/p» ← «bing:shop.ir».
+    /// </summary>
+    public static string CategorySourceKey(PhotoHit hit) =>
+        SmartImageRules.SourceKey(hit.Source, string.IsNullOrWhiteSpace(hit.PageUrl) ? hit.Url : hit.PageUrl);
 
     /// <summary>حذف فایل‌های تصویر دسته (فقط نام فایل ساده داخل پوشهٔ دسته‌ها).</summary>
     public void DeleteCategoryFiles(IEnumerable<string> names) =>

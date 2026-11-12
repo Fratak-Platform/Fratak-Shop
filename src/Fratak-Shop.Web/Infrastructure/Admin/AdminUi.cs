@@ -84,6 +84,7 @@ public static class AdminUi
         Data.Entities.Admin.SecurityEventType.TotpFailed => "کد نادرست برنامهٔ احراز هویت",
         Data.Entities.Admin.SecurityEventType.ReauthFailed => "تأیید دوبارهٔ ناموفق",
         Data.Entities.Admin.SecurityEventType.TotpRecoveryUsed => "استفاده از کد بازیابی",
+        Data.Entities.Admin.SecurityEventType.PasswordReset => "بازیابی رمز عبور با کد پیامکی",
         _ => type.ToString(),
     };
 
@@ -94,7 +95,7 @@ public static class AdminUi
             or Data.Entities.Admin.SecurityEventType.TotpFailed or Data.Entities.Admin.SecurityEventType.ReauthFailed
             or Data.Entities.Admin.SecurityEventType.TotpRecoveryUsed => "a-badge-yellow",
         Data.Entities.Admin.SecurityEventType.RolesChanged or Data.Entities.Admin.SecurityEventType.SessionsRevoked
-            or Data.Entities.Admin.SecurityEventType.TotpEnabled => "a-badge-blue",
+            or Data.Entities.Admin.SecurityEventType.TotpEnabled or Data.Entities.Admin.SecurityEventType.PasswordReset => "a-badge-blue",
         _ => "a-badge-red",
     };
 

@@ -40,7 +40,9 @@ public class HttpSecurityE2ETests(ShopApp app)
         Assert.Contains("script-src 'self'", csp, StringComparison.Ordinal);
         Assert.Contains("frame-ancestors 'self'", csp, StringComparison.Ordinal);
         Assert.Contains("object-src 'none'", csp, StringComparison.Ordinal);
-        Assert.DoesNotContain("unsafe-eval", csp, StringComparison.Ordinal);
+        // دور ۳۰: فقط 'wasm-unsafe-eval' (کامپایل WebAssembly) مجاز است؛ eval جاوااسکریپت و inline نه.
+        Assert.DoesNotContain("'unsafe-eval'", csp, StringComparison.Ordinal);
+        Assert.Contains("script-src 'self' 'wasm-unsafe-eval';", csp, StringComparison.Ordinal);
         Assert.False(headers.Contains("Server"));
         Assert.False(headers.Contains("X-Powered-By"));
         Assert.True(headers.Contains("Strict-Transport-Security"), "HSTS is missing in production.");

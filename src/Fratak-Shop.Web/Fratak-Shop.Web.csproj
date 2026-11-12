@@ -50,6 +50,8 @@
   <!-- مدل ONNX کپچا کنار برنامه کپی می‌شود (build و publish)؛ مسیر خواندن: AppContext.BaseDirectory/Resources/Captcha/digits.onnx -->
   <ItemGroup>
     <None Update="Resources\Captcha\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- دور ۳۰: مدل دوربری U²-Net کوچک (Apache-2.0)؛ مسیر خواندن: AppContext.BaseDirectory/Resources/Cutout/u2netp.onnx -->
+    <None Update="Resources\Cutout\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--

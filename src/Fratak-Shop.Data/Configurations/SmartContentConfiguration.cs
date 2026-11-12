@@ -34,6 +34,16 @@ public class SmartImageFeedbackConfiguration : IEntityTypeConfiguration<SmartIma
         builder.HasIndex(f => f.ProductId);
 }
 
+/// <summary>دور ۳۰ (#۵): تصمیم‌های تصویر دسته با (دسته، نام فایل) پیدا و برای آموزش با «تصمیم» خوانده می‌شوند.</summary>
+public class CategoryImageFeedbackConfiguration : IEntityTypeConfiguration<CategoryImageFeedback>
+{
+    public void Configure(EntityTypeBuilder<CategoryImageFeedback> builder)
+    {
+        builder.HasIndex(f => new { f.CategoryId, f.ImageName });
+        builder.HasIndex(f => f.Decision);
+    }
+}
+
 /// <summary>هر محصول حداکثر یک جمع‌بندی.</summary>
 public class ProductInsightConfiguration : IEntityTypeConfiguration<ProductInsight>
 {

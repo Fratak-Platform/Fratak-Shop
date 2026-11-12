@@ -221,12 +221,13 @@ public static partial class AssistantEndpoints
         });
 
         // دور ۲۹: ظاهر و قابلیت‌های دکمهٔ دستیار (جای پیش‌فرض، کشیدنی بودن، نام، زیرعنوان، لوگو، رنگ، صدای ورودی/خروجی).
-        // سبک و قابل کش (۵ دقیقه): assistant.js یک بار در هر نشست می‌گیرد و در localStorage نگه می‌دارد تا صفحهٔ بعد بی‌پرش نمایش داده شود.
+        // دور ۳۰: «no-cache» (قبلاً ۵ دقیقه کش مرورگر + یک بار در هر نشست): روشن/خاموش کردن پاسخ صوتی در پنل فوراً به مشتری می‌رسد.
+        // پاسخ کوچک است و تنظیمات در سرور کش است؛ assistant.js نسخهٔ قبلی را در localStorage برای نمایش بی‌پرش نگه می‌دارد.
         // همهٔ مقدارها در SmartOptions.Normalize پاک‌سازی شده‌اند (جای دکمه از فهرست ثابت، رنگ فقط هگز، لوگو فقط مسیر داخلی).
         app.MapGet("/api/assistant/look", async (HttpContext http, Fratak_Shop.Core.Services.Smart.ISmartConfigService smart) =>
         {
             var o = await smart.GetAsync(http.RequestAborted);
-            http.Response.Headers.CacheControl = "public, max-age=300";
+            http.Response.Headers.CacheControl = "no-cache";
             return Results.Ok(new
             {
                 name = o.AssistantName,

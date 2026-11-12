@@ -260,47 +260,69 @@ public sealed class ImageSearchService(
         return await BuildSignaturesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// امضای همهٔ کالاها از حافظه (۱۰ دقیقه). دور ۳۰ (#۱): کالای غیرفعال (مثلاً «آمادهٔ انتشار») هم امضا دارد تا به‌محض انتشار
+    /// پیدا شود؛ نمایش فقط برای کالای فعال است (GetCardsByIdsAsync فقط کالای فعال را برمی‌گرداند).
+    /// </summary>
     private async Task<List<ImageSignature.Stored>> LoadAsync(CancellationToken cancellationToken)
     {
         if (cache.TryGetValue(CacheKey, out List<ImageSignature.Stored>? cached) && cached is not null)
             return cached;
         var rows = await context.ProductImageSignatures
-            .Where(s => context.Products.Any(p => p.Id == s.ProductId && p.IsActive))
-            .Select(s => new { s.ProductId, s.Hash, s.Colors, s.Hashes })
+            .Select(s => new { s.ProductId, s.Hash, s.Colors, s.Hashes, s.Palettes })
             .ToListAsync(cancellationToken);
         // امضای قدیمی (بدون Hashes) فقط dHash دارد؛ تا ساخت دوباره با همان یک هش مقایسه می‌شود.
         // دور ۲۸: ردیف عکس خراب (همه‌چیز صفر) کنار می‌رود.
-        var list = rows.Where(r => IsUsable(r.Hash, r.Hashes)).Select(r =>
-        {
-            var shapes = ImageSignature.Unpack(r.Hashes);
-            if (shapes.Count == 0)
-                shapes.Add((r.Hash, 0));
-            return new ImageSignature.Stored(r.ProductId, shapes, r.Colors);
-        }).ToList();
+        var list = rows.Where(r => IsUsable(r.Hash, r.Hashes)).Select(r => ToStored(r.ProductId, r.Hash, r.Colors, r.Hashes, r.Palettes)).ToList();
         cache.Set(CacheKey, list, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), Size = 1 });
         return list;
     }
 
+    /// <summary>دور ۳۰ (#۱): ردیف ذخیره‌شده ← امضای قابل مقایسه (شکل‌ها + رنگ هر شکل). امضای قدیمی ← فقط همان یک هش.</summary>
+    public static ImageSignature.Stored ToStored(Guid productId, long hash, byte[] colors, byte[]? hashes, byte[]? palettes)
+    {
+        var shapes = ImageSignature.Unpack(hashes);
+        if (shapes.Count == 0)
+            shapes.Add((hash, 0));
+        var colorList = ImageSignature.UnpackPalettes(palettes);
+        return new ImageSignature.Stored(productId, shapes, colors, colorList is not null && colorList.Count == shapes.Count ? colorList : null);
+    }
+
     /// <summary>
     /// ساخت/به‌روزرسانی امضای حداکثر <see cref="BatchSize"/> کالا و پاک کردن امضای کالاهای حذف‌شده. خروجی: تعداد تغییرها.
+    /// <para>دور ۳۰ (#۱) – چرا «عکس دقیق خود کالا» پیدا نمی‌شد و چه شد:</para>
+    /// <list type="bullet">
+    /// <item>فقط کالاهای فعال امضا می‌گرفتند ← حالا همهٔ کالاهای عکس‌دار (کالای تازه منتشرشده بی‌درنگ پیدا می‌شود).</item>
+    /// <item>عوض شدن فایل یک عکس (تمیزکاری، عکس بدون زمینهٔ تازه) امضا را تازه نمی‌کرد ← حالا هر عکسی که بعد از ساخت امضا
+    /// تغییر کرده/اضافه شده امضا را دوباره می‌سازد.</item>
+    /// <item>هر عکس فقط با یک نسخه (بدون حاشیه) ذخیره می‌شد ← حالا ۳ نسخه و رنگ جدای هر عکس.</item>
+    /// </list>
     /// </summary>
     public async Task<int> BuildSignaturesAsync(CancellationToken cancellationToken)
     {
         var removed = await context.ProductImageSignatures
             .Where(s => !context.Products.Any(p => p.Id == s.ProductId))
             .ExecuteDeleteAsync(cancellationToken);
+        // کالایی که دیگر عکسی ندارد ← امضای کهنه‌اش هم پاک می‌شود (وگرنه با عکس قدیمی پیدا می‌شد).
+        removed += await context.ProductImageSignatures
+            .Where(s => !context.ProductImages.Any(i => i.ProductId == s.ProductId))
+            .ExecuteDeleteAsync(cancellationToken);
 
-        // دور ۲۶: امضا دوباره ساخته می‌شود اگر عکس اصلی عوض شد، تعداد عکس‌ها تغییر کرد یا امضا قدیمی است (بدون Hashes).
+        // امضا دوباره ساخته می‌شود اگر: عکس اصلی عوض شد، تعداد عکس‌ها تغییر کرد، امضا قدیمی است (بدون Hashes/Palettes)
+        // یا یکی از عکس‌ها بعد از ساخت امضا اضافه/ویرایش شد. کالاهای فعال اول.
         var pending = await context.Products
-            .Where(p => p.IsActive)
             .Select(p => new
             {
                 p.Id,
+                p.IsActive,
                 Image = p.Images.OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).FirstOrDefault(),
                 Count = p.Images.Count,
             })
             .Where(p => p.Image != null
-                        && !context.ProductImageSignatures.Any(s => s.ProductId == p.Id && s.ImageName == p.Image && s.ImageCount == p.Count && s.Hashes != null))
+                        && !context.ProductImageSignatures.Any(s => s.ProductId == p.Id && s.ImageName == p.Image && s.ImageCount == p.Count
+                            && s.Hashes != null && s.Palettes != null
+                            && !context.ProductImages.Any(i => i.ProductId == p.Id && i.UpdatedAt > s.ComputedAt)))
+            .OrderByDescending(p => p.IsActive)
             .Take(BatchSize)
             .ToListAsync(cancellationToken);
 
@@ -308,19 +330,21 @@ public sealed class ImageSearchService(
         foreach (var item in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var signature = await SignAsync(item.Image!, item.Id, cancellationToken);
-            // دور ۲۶: شکل همهٔ عکس‌های کالا (اصلی اول؛ حداکثر ۶).
+            // همهٔ عکس‌های کالا (اصلی اول؛ حداکثر ۸)، هر کدام تا ۳ نسخه با رنگ خودش.
             var names = await context.ProductImages.Where(i => i.ProductId == item.Id)
-                .OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName).Take(ImageSignature.MaxShapes).ToListAsync(cancellationToken);
-            var shapes = new List<(long, long)>();
-            if (signature is not null)
-                shapes.Add((signature.Hash, signature.PHash));
+                .OrderByDescending(i => i.IsPrimary).ThenBy(i => i.DisplayOrder).Select(i => i.ImageName)
+                .Take(ImageSignature.MaxImages).ToListAsync(cancellationToken);
+            var primary = await SignAllAsync(item.Image!, item.Id, cancellationToken);
+            var shapes = new List<ImageSignature.Signature>(primary);
             foreach (var name in names.Where(n => !string.Equals(n, item.Image, StringComparison.Ordinal)))
             {
                 if (shapes.Count >= ImageSignature.MaxShapes)
                     break;
-                if (await SignAsync(name, item.Id, cancellationToken) is { } extra)
-                    shapes.Add((extra.Hash, extra.PHash));
+                foreach (var extra in await SignAllAsync(name, item.Id, cancellationToken))
+                {
+                    if (shapes.Count < ImageSignature.MaxShapes && shapes.All(x => x.Hash != extra.Hash || x.PHash != extra.PHash))
+                        shapes.Add(extra);
+                }
             }
 
             var row = await context.ProductImageSignatures.AsTracking().FirstOrDefaultAsync(s => s.ProductId == item.Id, cancellationToken);
@@ -330,10 +354,12 @@ public sealed class ImageSearchService(
                 context.ProductImageSignatures.Add(row);
             }
             // تصویر خراب/گمشده هم ثبت می‌شود (با امضای خالی) تا هر ۵ دقیقه دوباره امتحان نشود؛ با عوض شدن تصویر دوباره ساخته می‌شود.
+            var main = primary.Count > 0 ? primary[0] : null;
             row.ImageName = item.Image!.Length > 200 ? item.Image[..200] : item.Image;
-            row.Hash = signature?.Hash ?? 0;
-            row.Colors = signature?.Colors ?? new byte[ImageSignature.Bins];
-            row.Hashes = ImageSignature.Pack(shapes);
+            row.Hash = main?.Hash ?? 0;
+            row.Colors = main?.Colors ?? new byte[ImageSignature.Bins];
+            row.Hashes = ImageSignature.Pack(shapes.Select(x => (x.Hash, x.PHash)));
+            row.Palettes = ImageSignature.PackPalettes(shapes.Select(x => x.Colors));
             row.ImageCount = item.Count;
             row.ComputedAt = DateTimeOffset.UtcNow;
             changed++;
@@ -341,26 +367,27 @@ public sealed class ImageSearchService(
         if (changed > 0)
         {
             await context.SaveChangesAsync(cancellationToken);
-            cache.Remove(CacheKey);
         }
+        if (changed + removed > 0)
+            cache.Remove(CacheKey);
         return changed + removed;
     }
 
-    /// <summary>امضای یک فایل عکس کالا؛ فایل نبود/خراب بود ← null.</summary>
-    private async Task<ImageSignature.Signature?> SignAsync(string imageName, Guid productId, CancellationToken cancellationToken)
+    /// <summary>دور ۳۰ (#۱): همهٔ نسخه‌های ذخیره‌ای یک فایل عکس کالا (<see cref="ImageSignature.ComputeStored"/>)؛ فایل نبود/خراب ← خالی.</summary>
+    private async Task<List<ImageSignature.Signature>> SignAllAsync(string imageName, Guid productId, CancellationToken cancellationToken)
     {
         var path = uploads.GetPath(UploadArea.Products, imageName);
         if (path is null || !File.Exists(path))
-            return null;
+            return [];
         try
         {
             var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-            return ImageSignature.Compute(bytes);
+            return ImageSignature.ComputeStored(bytes);
         }
         catch (IOException exception)
         {
             logger.LogDebug(exception, "Image signature read failed for {Product}", productId);
-            return null;
+            return [];
         }
     }
 }

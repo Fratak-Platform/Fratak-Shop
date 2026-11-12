@@ -195,6 +195,20 @@ public interface ISmartCatalogService
     /// (نه «[]») تا جست‌وجوی عکس درست دوباره انجام شود؛ تا آن موقع صفحهٔ اصلی آیکن دسته را نشان می‌دهد. خروجی: نام‌های حذف‌شده.
     /// </summary>
     Task<IReadOnlyList<string>> DropCategoryImagesAsync(Guid categoryId, IReadOnlyCollection<string> names, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۳۰ (#۵): «حافظهٔ یادگرفته» برای جست‌وجوی عکس یک دسته: آخرین ۲۰۰۰ تصمیم ادمین (همهٔ دسته‌ها) ← فهرست سیاه، امتیاز منبع و مدل.
+    /// </summary>
+    Task<CategoryImageMemory> CategoryImageMemoryAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۳۰ (#۵): ثبت تصویرهای تازه‌ای که برای دسته ذخیره شد (تصمیم «هنوز هیچ»).</summary>
+    Task NoteCategoryImagesAsync(Guid categoryId, IReadOnlyList<CategoryImageNote> notes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۳۰ (#۵): ثبت تصمیم ادمین روی تصویرهای دسته (approved = انتخاب، false = حذف). نامی که یادداشت قبلی ندارد (عکس قدیمی)
+    /// با اثر انگشت ۰ و بدون ویژگی ثبت می‌شود تا دست‌کم فهرست سیاه و آمار درست بماند. خروجی: تعداد ردیف‌های به‌روز/تازه.
+    /// </summary>
+    Task<int> DecideCategoryImagesAsync(Guid categoryId, IReadOnlyCollection<string> names, bool approved, CancellationToken cancellationToken = default);
 }
 
 /// <summary>نتیجهٔ <see cref="ISmartCatalogService.ApplyIdentityAsync"/>: کدام بخش‌ها عوض شدند. Slug = نامک تازه (یا null).</summary>
@@ -854,6 +868,8 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             await context.SaveChangesAsync(cancellationToken);
         }
         context.ChangeTracker.Clear();
+        // دور ۳۰ (#۵): انتخاب ادمین = «تأیید» این تصویر (یادگیری).
+        await DecideCategoryImagesAsync(categoryId, [option], approved: true, cancellationToken);
         return true;
     }
 
@@ -872,7 +888,78 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
             category.ImageName = remaining.FirstOrDefault();
         await context.SaveChangesAsync(cancellationToken);
         context.ChangeTracker.Clear();
+        // دور ۳۰ (#۵): حذف ادمین (یکی یا همه) = «رد» این تصویرها (یادگیری).
+        await DecideCategoryImagesAsync(categoryId, removed, approved: false, cancellationToken);
         return removed;
+    }
+
+    public async Task<CategoryImageMemory> CategoryImageMemoryAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        var rows = await context.CategoryImageFeedbacks
+            .Where(f => f.Decision == 1 || f.Decision == 2)
+            .OrderByDescending(f => f.DecidedAt)
+            .Take(2000)
+            .Select(f => new { f.CategoryId, f.UrlKey, f.Hash, f.Source, f.Features, f.Decision })
+            .ToListAsync(cancellationToken);
+        if (rows.Count == 0)
+            return CategoryImageMemory.Empty;
+        return new CategoryImageMemory(categoryId,
+            rows.Select(r => new CategoryImageSample(r.CategoryId, r.UrlKey, r.Hash, r.Source, r.Features, r.Decision == 1)).ToList());
+    }
+
+    public async Task NoteCategoryImagesAsync(Guid categoryId, IReadOnlyList<CategoryImageNote> notes, CancellationToken cancellationToken = default)
+    {
+        var clean = notes.Where(n => CategoryImages.IsSafeName(n.ImageName)).DistinctBy(n => n.ImageName, StringComparer.Ordinal).Take(20).ToList();
+        if (clean.Count == 0)
+            return;
+        foreach (var note in clean)
+        {
+            context.CategoryImageFeedbacks.Add(new CategoryImageFeedback
+            {
+                CategoryId = categoryId,
+                ImageName = SmartTaskQueue.Limit(note.ImageName, 200)!,
+                UrlKey = string.IsNullOrWhiteSpace(note.Url) ? null : SmartImageRules.UrlKey(note.Url),
+                Hash = unchecked((long)note.Hash),
+                Source = SmartTaskQueue.Limit(note.Source, 100),
+                Query = SmartTaskQueue.Limit(note.Query, 200),
+                Features = SmartTaskQueue.Limit(CategoryImageLearning.Serialize(note.Features), 400),
+            });
+        }
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+    }
+
+    public async Task<int> DecideCategoryImagesAsync(Guid categoryId, IReadOnlyCollection<string> names, bool approved, CancellationToken cancellationToken = default)
+    {
+        var clean = names.Where(CategoryImages.IsSafeName).Distinct(StringComparer.Ordinal).Take(20).ToList();
+        if (clean.Count == 0)
+            return 0;
+        var rows = await context.CategoryImageFeedbacks.AsTracking()
+            .Where(f => f.CategoryId == categoryId && clean.Contains(f.ImageName))
+            .ToListAsync(cancellationToken);
+        var decision = approved ? (byte)1 : (byte)2;
+        var now = DateTimeOffset.UtcNow;
+        foreach (var name in clean)
+        {
+            var matches = rows.Where(r => r.ImageName == name).ToList();
+            if (matches.Count == 0)
+            {
+                // عکس قدیمی‌تر از دور ۳۰ (بی‌یادداشت): دست‌کم تصمیم ثبت می‌شود.
+                context.CategoryImageFeedbacks.Add(new CategoryImageFeedback
+                {
+                    CategoryId = categoryId, ImageName = name, Decision = decision, DecidedAt = now,
+                });
+                continue;
+            }
+            foreach (var row in matches)
+            {
+                row.Decision = decision;
+                row.DecidedAt = now;
+            }
+        }
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return clean.Count;
     }
 
     public async Task<IReadOnlyList<string>> DropCategoryImagesAsync(Guid categoryId, IReadOnlyCollection<string> names, CancellationToken cancellationToken = default)

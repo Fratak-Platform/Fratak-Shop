@@ -11,7 +11,9 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
     private const string ContentSecurityPolicy =
         "default-src 'self'; " +
         "img-src 'self' data: blob: https:; " +
-        "script-src 'self'; " +
+        // دور ۳۰: 'wasm-unsafe-eval' فقط کامپایل WebAssembly را مجاز می‌کند (موتور آفلاین پاسخ صوتی دستیار)؛
+        // eval جاوااسکریپت و اسکریپت درون‌خطی همچنان ممنوع است.
+        "script-src 'self' 'wasm-unsafe-eval'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "font-src 'self' data:; " +
         // Product videos: uploads are same-origin, "direct URL" videos may live on a CDN.

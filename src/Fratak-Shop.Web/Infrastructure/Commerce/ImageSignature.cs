@@ -34,7 +34,11 @@ public static class ImageSignature
     /// دور ۲۶: امضای ذخیره‌شدهٔ یک کالا برای مقایسه: شکل همهٔ عکس‌های کالا (هر عکس یک جفت dHash/pHash) + رنگ عکس اصلی.
     /// مثال: کالایی با ۳ عکس ← Shapes با ۳ جفت؛ مشتری عکس دوم را بفرستد هم پیدا می‌شود.
     /// </summary>
-    public sealed record Stored(Guid ProductId, IReadOnlyList<(long DHash, long PHash)> Shapes, byte[] Colors);
+    /// <param name="ProductId">کالا.</param>
+    /// <param name="Shapes">جفت هش شکل هر عکس (اصلی اول).</param>
+    /// <param name="Colors">هیستوگرام رنگ عکس اصلی.</param>
+    /// <param name="Palettes">دور ۳۰ (#۱): هیستوگرام رنگ «هر عکس» هم‌ترتیب با Shapes (یا null برای امضای قدیمی ← Colors).</param>
+    public sealed record Stored(Guid ProductId, IReadOnlyList<(long DHash, long PHash)> Shapes, byte[] Colors, IReadOnlyList<byte[]>? Palettes = null);
 
     /// <summary>
     /// امضای بایت‌های یک تصویر (JPEG/PNG/WebP/GIF). تصویر خراب، خیلی بزرگ یا غیرتصویری ← null (هرگز استثنا نمی‌دهد).
@@ -122,6 +126,18 @@ public static class ImageSignature
             using var subject = Isolate(bitmap);
             if (subject is not null && Compute(subject) is { } isolated)
                 list.Add(isolated);
+            // دور ۳۰ (#۱): اسکرین‌شات صفحهٔ کالا/پنل ← فقط بزرگ‌ترین تکه (خود عکس کالا)، هم با حاشیه و هم بدون آن.
+            if (MainPartBox(bitmap) is { } part)
+            {
+                using var crop = new SKBitmap();
+                if (bitmap.ExtractSubset(crop, part))
+                {
+                    if (ComputeRaw(crop) is { } partRaw && list.All(x => x.PHash != partRaw.PHash || x.Hash != partRaw.Hash))
+                        list.Add(partRaw);
+                    if (Compute(crop) is { } partTrim && list.All(x => x.PHash != partTrim.PHash || x.Hash != partTrim.Hash))
+                        list.Add(partTrim);
+                }
+            }
         }
         catch (Exception)
         {
@@ -277,12 +293,19 @@ public static class ImageSignature
         var bg = corners[0];
         if (corners.Any(c => Distance(c, bg) > 60))
             return all;
+        // دور ۳۰ (#۱): تکه‌های کوچکِ جدا در نوار لبه (لوگوی کم‌رنگ فروشگاه روی نسخهٔ نمایشی، مهر/آدرس سایت) جزو کادر نیستند؛
+        // وگرنه عکسِ «همان کالا با لوگو» کادر دیگری می‌گرفت و هشش با عکس کاتالوگ نمی‌خواند.
+        var foreground = new bool[w * h];
+        for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+                foreground[y * w + x] = Distance(Flat(bitmap.GetPixel(x, y)), bg) > 48;
+        var stray = Fratak_Shop.Core.Services.Smart.ImageCleanup.StrayIslands(foreground, w, h);
         int minX = w, minY = h, maxX = -1, maxY = -1;
         for (var y = 0; y < h; y++)
         {
             for (var x = 0; x < w; x++)
             {
-                if (Distance(Flat(bitmap.GetPixel(x, y)), bg) <= 48)
+                if (!foreground[y * w + x] || stray[y * w + x])
                     continue;
                 if (x < minX) minX = x;
                 if (x > maxX) maxX = x;
@@ -366,9 +389,13 @@ public static class ImageSignature
         double best = 0;
         foreach (var query in queries)
         {
-            var color = ColorSimilarity(query.Colors, candidate.Colors);
-            foreach (var (dHash, pHash) in candidate.Shapes)
+            var primaryColor = ColorSimilarity(query.Colors, candidate.Colors);
+            for (var index = 0; index < candidate.Shapes.Count; index++)
             {
+                var (dHash, pHash) = candidate.Shapes[index];
+                // دور ۳۰ (#۱): رنگ همان عکسی که شکلش مقایسه می‌شود (نه فقط عکس اصلی)؛ عکس دوم کالا هم امتیاز رنگ کامل می‌گیرد.
+                var palette = candidate.Palettes is { } palettes && index < palettes.Count && palettes[index] is { Length: Bins } own ? own : null;
+                var color = palette is null ? primaryColor : Math.Max(primaryColor, ColorSimilarity(query.Colors, palette));
                 var shapeD = Math.Clamp(1 - Hamming(query.Hash, dHash) / 40.0, 0, 1);
                 var shapeP = Math.Clamp(1 - Hamming(query.PHash, pHash) / 40.0, 0, 1);
                 var score = 0.65 * (0.6 * shapeP + 0.4 * shapeD) + 0.35 * color;
@@ -376,11 +403,40 @@ public static class ImageSignature
                 // (امضای قدیمی بدون pHash فقط با dHash سنجیده می‌شود.)
                 if ((pHash == 0 ? shapeD : Math.Min(shapeD, shapeP)) < ShapeFloor)
                     score = Math.Min(score, ColorOnlyCap);
+                // دور ۳۰ (#۱): «همان عکس» (هر دو هش تقریباً یکسان و هر دو پرمعنا) همیشه پیدا می‌شود، حتی اگر رنگ‌ها کمی فرق کنند
+                // (لوگوی کم‌رنگ فروشگاه، فشرده‌سازی، زمینهٔ سفیدشده).
+                if (IsExact(query, dHash, pHash))
+                    score = Math.Max(score, ExactMatchScore);
                 if (score > best)
                     best = score;
             }
         }
         return best;
+    }
+
+    /// <summary>دور ۳۰ (#۱): امتیاز تضمینی «همان عکس».</summary>
+    public const double ExactMatchScore = 0.96;
+
+    /// <summary>دور ۳۰ (#۱): بیشترین فاصلهٔ pHash برای «همان عکس».</summary>
+    public const int ExactPHashDistance = 6;
+
+    /// <summary>دور ۳۰ (#۱): بیشترین فاصلهٔ dHash برای «همان عکس».</summary>
+    public const int ExactDHashDistance = 8;
+
+    /// <summary>
+    /// دور ۳۰ (#۱) – «همان عکس»؟ هر دو هش نزدیک (pHash ≤ ۶ و dHash ≤ ۸ بیت) و هر دو «پرمعنا»: هشِ تقریباً همه‌صفر/همه‌یک مال
+    /// تصویر یکدست یا شیب ساده است و دو تصویر بی‌ربطِ ساده را یکی می‌دید (مثلاً دو شیب رنگی متفاوت)؛ آن‌ها فقط با امتیاز عادی سنجیده می‌شوند.
+    /// مثال: عکس کالا که مشتری از خود سایت ذخیره کرده (با لوگوی کم‌رنگ و JPEG) ← true؛ شیب آبی و شیب زرد ← false.
+    /// </summary>
+    public static bool IsExact(Signature query, long dHash, long pHash) =>
+        pHash != 0 && Informative(query.PHash) && Informative(pHash) && Informative(query.Hash) && Informative(dHash)
+        && Hamming(query.PHash, pHash) <= ExactPHashDistance && Hamming(query.Hash, dHash) <= ExactDHashDistance;
+
+    /// <summary>هش پرمعنا: بین ۱۰ و ۵۴ بیتِ یک (نه یکدست، نه شیب ساده).</summary>
+    private static bool Informative(long hash)
+    {
+        var bits = BitOperations.PopCount((ulong)hash);
+        return bits is >= 10 and <= 54;
     }
 
     /// <summary>
@@ -417,8 +473,123 @@ public static class ImageSignature
         return list;
     }
 
-    /// <summary>بیشترین عکس هر کالا که امضای شکل می‌گیرد.</summary>
-    public const int MaxShapes = 6;
+    /// <summary>
+    /// بیشترین تعداد «شکل» ذخیره‌شدهٔ هر کالا. دور ۳۰ (#۱): ۲۴ = تا ۸ عکس × ۳ نسخه (بدون حاشیه، کل قاب، وسط ۹۰٪) – ستون ۵۱۲ بایتی.
+    /// </summary>
+    public const int MaxShapes = 24;
+
+    /// <summary>دور ۳۰ (#۱): بیشترین عکس هر کالا که امضا می‌گیرد (عکس بدون زمینه + عکس اصلی زمینه‌دار + بقیهٔ گالری).</summary>
+    public const int MaxImages = 8;
+
+    /// <summary>
+    /// دور ۳۰ (#۱) – نسخه‌های ذخیره‌شدهٔ «یک عکس کاتالوگ»: بدون حاشیه، کل قاب (اگر فرق داشت) و وسط ۹۰٪ (اگر فرق داشت).
+    /// چرا؟ مشتری ممکن است همان عکس را با برش کمی متفاوت بفرستد (اسکرین‌شات، ذخیره از صفحهٔ کالا با لوگوی کم‌رنگ، برش گوشی)؛
+    /// هر سه نسخه ذخیره می‌شوند تا «همان عکس» همیشه پیدا شود. فایل خراب/غیرتصویر ← فهرست خالی.
+    /// مثال: کالای قرمز وسط بوم سفید ← [کادر کالا، کل بوم، وسط بوم].
+    /// </summary>
+    public static List<Signature> ComputeStored(byte[] data)
+    {
+        var list = new List<Signature>();
+        if (data is null || data.Length == 0 || data.Length > MaxBytes * 4)
+            return list;
+        try
+        {
+            using var stream = new SKMemoryStream(data);
+            using var codec = SKCodec.Create(stream);
+            if (codec is null)
+                return list;
+            var info = codec.Info;
+            if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxPixels)
+                return list;
+            using var decoded = DecodeSmall(codec);
+            if (decoded is null)
+                return list;
+            using var bitmap = Orient(decoded, codec.EncodedOrigin);
+            void Add(Signature? signature)
+            {
+                if (signature is not null && list.All(x => x.Hash != signature.Hash || x.PHash != signature.PHash))
+                    list.Add(signature);
+            }
+            Add(Compute(bitmap));
+            Add(ComputeRaw(bitmap));
+            var w = bitmap.Width;
+            var h = bitmap.Height;
+            var inner = new SKRectI((int)(w * 0.05), (int)(h * 0.05), (int)Math.Ceiling(w * 0.95), (int)Math.Ceiling(h * 0.95));
+            if (inner.Width >= 8 && inner.Height >= 8)
+            {
+                using var middle = new SKBitmap();
+                if (bitmap.ExtractSubset(middle, inner))
+                    Add(ComputeRaw(middle));
+            }
+        }
+        catch (Exception)
+        {
+            list.Clear();
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// دور ۳۰ (#۱) – «بزرگ‌ترین تکهٔ تصویر»: در اسکرین‌شات صفحهٔ کالا عکس کالا بزرگ‌ترین تکهٔ پیوستهٔ غیرزمینه است و نوشته‌ها،
+    /// دکمه‌ها و نوار بالای گوشی تکه‌های کوچک جدا هستند. کادر همان تکه (اگر با کل محتوا فرق داشت) برگردانده می‌شود؛ وگرنه null.
+    /// مثال: اسکرین‌شات با عکس کالا وسط و متن زیرش ← فقط کادر عکس کالا.
+    /// </summary>
+    public static SKRectI? MainPartBox(SKBitmap bitmap)
+    {
+        var w = bitmap.Width;
+        var h = bitmap.Height;
+        if (w < 16 || h < 16)
+            return null;
+        var bg = Flat(bitmap.GetPixel(0, 0));
+        var mask = new bool[w * h];
+        for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+                mask[y * w + x] = Distance(Flat(bitmap.GetPixel(x, y)), bg) > 48;
+        // یک پیکسل گسترش تا اجزای خود کالا (مثلاً بند و بدنهٔ ساعت) یکی شوند ولی متن جدا بماند.
+        var grown = new bool[mask.Length];
+        for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+                grown[y * w + x] = mask[y * w + x]
+                    || (x > 0 && mask[y * w + x - 1]) || (x < w - 1 && mask[y * w + x + 1])
+                    || (y > 0 && mask[(y - 1) * w + x]) || (y < h - 1 && mask[(y + 1) * w + x]);
+        if (Fratak_Shop.Core.Services.Smart.ImageCleanup.LargestPartBox(grown, w, h) is not { } part)
+            return null;
+        var box = new SKRectI(part.MinX, part.MinY, part.MaxX + 1, part.MaxY + 1);
+        var trim = TrimBox(bitmap);
+        // تکهٔ خیلی کوچک (نویز) یا تقریباً همان کادر کل محتوا ← نسخهٔ تازه‌ای نیست.
+        if (box.Width < 12 || box.Height < 12 || (long)box.Width * box.Height < (long)w * h * 0.06)
+            return null;
+        if ((long)box.Width * box.Height > (long)trim.Width * trim.Height * 0.9)
+            return null;
+        return box;
+    }
+
+    /// <summary>
+    /// دور ۳۰ (#۱): بسته‌بندی هیستوگرام رنگ هر عکس (هر کدام <see cref="Bins"/> بایت؛ حداکثر <see cref="MaxShapes"/>) برای ستون Palettes.
+    /// هیستوگرام با طول اشتباه صفر ذخیره می‌شود تا ترتیب با Shapes به هم نخورد.
+    /// </summary>
+    public static byte[] PackPalettes(IEnumerable<byte[]?> palettes)
+    {
+        var list = palettes.Take(MaxShapes).ToList();
+        var bytes = new byte[list.Count * Bins];
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i] is { Length: Bins } palette)
+                palette.CopyTo(bytes, i * Bins);
+        }
+        return bytes;
+    }
+
+    /// <summary>باز کردن <see cref="PackPalettes"/>. ورودی خالی/خراب ← null.</summary>
+    public static List<byte[]>? UnpackPalettes(byte[]? bytes)
+    {
+        if (bytes is null || bytes.Length == 0 || bytes.Length % Bins != 0)
+            return null;
+        var list = new List<byte[]>();
+        for (var i = 0; i + Bins <= bytes.Length && list.Count < MaxShapes; i += Bins)
+            list.Add(bytes.AsSpan(i, Bins).ToArray());
+        return list;
+    }
 
     /// <summary>
     /// دور ۲۶: اعمال جهت EXIF (عکس گوشی معمولاً چرخیده ذخیره می‌شود و فقط برچسب جهت دارد). بدون این، عکس عمودی گوشی
@@ -555,8 +726,13 @@ public static class ImageSignature
     public static double Score(Signature query, long hash, byte[] colors) =>
         0.55 * (1 - Hamming(query.Hash, hash) / 64.0) + 0.45 * ColorSimilarity(query.Colors, colors);
 
-    private static float Gray(SKColor c) =>
-        c.Alpha < 128 ? 255f : 0.299f * c.Red + 0.587f * c.Green + 0.114f * c.Blue;
+    // دور ۳۰ (#۱): پیکسل نیمه‌شفاف (لبهٔ عکس بدون زمینه) با سفید ترکیب می‌شود – درست مثل مرورگر که عکس را روی سفید می‌کشد؛
+    // قبلاً لبه‌ها سیاه/سفید پرشی بودند و هش عکس شفاف با عکس ذخیره‌شده از سایت کمی فرق می‌کرد.
+    private static float Gray(SKColor c)
+    {
+        var (r, g, b) = Flat(c);
+        return 0.299f * r + 0.587f * g + 0.114f * b;
+    }
 
     /// <summary>باز کردن کوچک‌شده (تا حدود ۲۵۶ نقطه در ضلع بزرگ؛ JPEG مستقیم با ۱/۲ تا ۱/۸ باز می‌شود).</summary>
     private static SKBitmap? DecodeSmall(SKCodec codec)

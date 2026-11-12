@@ -1,0 +1,14 @@
+eSpeak NG – text-to-speech engine (offline voice reply of the shop assistant)
+=============================================================================
+Files: espeak-ng.js, espeak-fa.wasm.gz
+Upstream: https://github.com/espeak-ng/espeak-ng (C sources)
+Build used: npm package "espeak-ng" version 1.0.2 (https://www.npmjs.com/package/espeak-ng), compiled to WebAssembly with Emscripten.
+License: GNU General Public License v3.0 or later (see LICENSE.txt in this folder).
+
+Modification (Fratak, round 30): to keep the download small, the embedded voice data of all languages except
+Persian (fa) and English (en) was zeroed inside espeak-ng.wasm; the result was gzip-compressed (espeak-fa.wasm.gz).
+No code was changed. The complete corresponding source is the upstream repository/npm package above; the data
+removal is reproducible by zeroing the "*_dict" files (other than fa_dict and en_dict) in the wasm data segments.
+
+This engine runs only in the visitor's browser as an independent program (it is fetched on demand when the visitor
+turns on spoken replies and the browser has no Persian voice). It is not linked into the shop's server code.

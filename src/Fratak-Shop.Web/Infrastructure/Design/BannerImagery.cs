@@ -10,7 +10,7 @@ namespace Fratak_Shop.Web.Infrastructure.Design;
 /// دور ۲۷ – «عکس‌های بنر»: هر بنری که ساخته می‌شود عکس واقعی می‌گیرد، نه فقط رنگ و متن.
 /// <list type="bullet">
 /// <item><b>عکس کالا ← دوربری‌شده</b> (<see cref="ProductAsync"/>): اگر زمینهٔ عکس سفید باشد، زمینه شفاف و حاشیه بریده می‌شود
-/// (<see cref="ImageColors.Cutout"/>) و یک بار در پوشهٔ /uploads/cutouts با نام قطعی ذخیره می‌شود؛ دفعه‌های بعد همان فایل استفاده می‌شود.
+/// (دور ۳۰: دوربری مطمئن <see cref="Fratak_Shop.Web.Infrastructure.Smart.SubjectMatting"/> با مدل U²-Net و اعتبارسنجی؛ هرگز بخشی از کالا پاک نمی‌شود) و یک بار در پوشهٔ /uploads/cutouts با نام قطعی ذخیره می‌شود؛ دفعه‌های بعد همان فایل استفاده می‌شود.
 /// عکس زمینه‌دار (عکس محیطی) همان‌طور برمی‌گردد و قالب آن را داخل قاب می‌گذارد.</item>
 /// <item><b>عکس فضاسازی دسته</b> (<see cref="CategoryPhoto"/>): عکس واقعی «-photo-» دسته (از جست‌وجوی وب دور ۲۶) یا عکسی که مدیر خودش
 /// برای دسته گذاشته (افقی، پهنای ≥ ۹۰۰ و نه زمینهٔ سفید).</item>
@@ -160,7 +160,7 @@ public sealed class BannerImagery(IUploadStore uploads, ILogger logger)
             return (null, "نام این عکس پشتیبانی نمی‌شود؛ عکس را دوباره آپلود کنید.");
         var made = await MakeCutoutAsync(parsed.Area, parsed.FileName, stem, requireWhite: false, cancellationToken);
         return made is null
-            ? (null, "زمینهٔ این عکس سفید یکدست نیست؛ این ابزار فقط زمینهٔ سفید/خیلی روشن را برمی‌دارد.")
+            ? (null, "دوربری مطمئن این عکس ممکن نشد (سوژهٔ مشخصی پیدا نشد یا خطر بریدن بخشی از کالا بود)؛ عکس دیگری امتحان کنید.")
             : (made, null);
     }
 
@@ -180,7 +180,8 @@ public sealed class BannerImagery(IUploadStore uploads, ILogger logger)
                 return null;
             if (requireWhite && !ImageColors.HasWhiteBackground(bitmap))
                 return null;
-            png = ImageColors.Cutout(bitmap, CutoutSide)?.Png;
+            // دور ۳۰: دوربری مطمئن (مدل + اعتبارسنجی)؛ رد اعتبارسنجی ← null و عکس اصلی همان‌طور استفاده می‌شود.
+            png = Fratak_Shop.Web.Infrastructure.Smart.SubjectMatting.Cutout(bitmap, CutoutSide)?.Png;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {

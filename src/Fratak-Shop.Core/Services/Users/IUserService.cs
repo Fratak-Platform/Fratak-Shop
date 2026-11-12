@@ -20,6 +20,18 @@ public interface IUserService
     Task<OperationResult> ChangePasswordAsync(ChangePasswordCommand command);
 
     /// <summary>
+    /// دور ۳۰ (#۷): آیا برای این شماره «بازیابی رمز» ممکن است؟ (حساب فعال و مسدودنشده وجود دارد).
+    /// فقط برای تصمیم «پیامک بفرستیم یا نه» است؛ صفحه هرگز نتیجه را به کاربر نشان نمی‌دهد (جلوگیری از کشف شماره‌های عضو).
+    /// </summary>
+    Task<bool> CanResetPasswordAsync(string phoneNumber);
+
+    /// <summary>
+    /// دور ۳۰ (#۷): ثبت رمز تازه بعد از تأیید کد پیامکی «فراموشی رمز» (رمز فعلی لازم نیست).
+    /// مهر امنیتی عوض می‌شود (همهٔ توکن‌ها باطل)، قفل ورود پاک می‌شود و شماره «تأییدشده» ثبت می‌شود. خروجی: شناسهٔ کاربر.
+    /// </summary>
+    Task<OperationResult<Guid>> ResetPasswordAsync(string phoneNumber, string newPassword);
+
+    /// <summary>
     /// بررسی شماره موبایل و رمز عبور؛ در صورت درستی، کاربر را برمی‌گرداند و
     /// زمان آخرین ورود را ثبت می‌کند. پس از ۵ تلاش ناموفق، ورود با رمز ۱۵ دقیقه قفل می‌شود.
     /// </summary>

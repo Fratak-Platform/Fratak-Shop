@@ -609,7 +609,13 @@ public sealed class AssistantService(
         var phone = AssistantNlu.Phone(request.Text);
         var n = PersianText.Normalize(text);
         var withPassword = (n.Contains("رمز", StringComparison.Ordinal) || n.Contains("پسورد", StringComparison.Ordinal)) && !n.Contains("فراموش", StringComparison.Ordinal);
-        var intro = n.Contains("فراموش", StringComparison.Ordinal)
+        var forgot = n.Contains("فراموش", StringComparison.Ordinal) || n.Contains("یادم رفته", StringComparison.Ordinal) || n.Contains("بازیابی رمز", StringComparison.Ordinal);
+        // دور ۳۰ (#۷): فراموشی رمز ← صفحهٔ امن «بازیابی رمز عبور» (کد پیامکی + رمز تازه).
+        if (forgot)
+            return Simple(AssistantIntent.Login,
+                "نگران نباشید؛ در صفحهٔ «بازیابی رمز عبور» شماره‌تان را بنویسید، کد پیامکی می‌آید و رمز تازه می‌گذارید. من هیچ‌وقت رمز یا کد را در چت نمی‌پرسم.",
+                [new("بازیابی رمز عبور", "/forgot-password"), new("ورود با کد پیامکی", "/login?mode=otp")]);
+        var intro = forgot
             ? "نگران نباشید؛ با کد پیامکی وارد می‌شوید و بعد از ورود از «حساب کاربری ← تغییر رمز» رمز تازه بگذارید."
             : withPassword
                 ? "شما را به ورود با رمز می‌برم؛ رمزتان را خودتان در کادر بنویسید (من هیچ‌وقت رمز نمی‌پرسم)."

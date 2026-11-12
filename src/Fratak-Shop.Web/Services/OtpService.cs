@@ -13,6 +13,12 @@ public enum OtpPurpose
 
     /// <summary>تأیید دوبارهٔ هویت کارمند پیش از کار حساس در پنل (مرحلهٔ هفتم – فاز ۱۰).</summary>
     Reauth = 4,
+
+    /// <summary>
+    /// دور ۳۰ (#۷): «فراموشی رمز عبور». کد این هدف فقط در صفحهٔ /forgot-password/reset پذیرفته می‌شود و برای ورود
+    /// به کار نمی‌آید (کد ورود هم برای تغییر رمز پذیرفته نمی‌شود).
+    /// </summary>
+    ResetPassword = 5,
 }
 
 /// <summary>
@@ -87,6 +93,7 @@ public class OtpService(IMemoryCache cache, ISmsSender smsSender) : IOtpService
             OtpPurpose.Login => $"کد ورود شما: {code}\nاین کد را در اختیار دیگران قرار ندهید.",
             OtpPurpose.TwoFactor => $"کد تایید دو مرحله‌ای: {code}\nاگر شما درخواست ورود نداده‌اید، رمز عبور خود را تغییر دهید.",
             OtpPurpose.Reauth => $"کد تایید عملیات حساس در پنل مدیریت: {code}\nاگر شما درخواست نداده‌اید، فوراً به مدیر فروشگاه خبر دهید.",
+            OtpPurpose.ResetPassword => $"کد بازیابی رمز عبور: {code}\nاگر شما درخواست نداده‌اید، این پیام را نادیده بگیرید و کد را به کسی ندهید.",
             _ => $"کد تایید شما: {code}",
         };
 

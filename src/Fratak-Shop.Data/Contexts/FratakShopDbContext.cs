@@ -322,6 +322,8 @@ public partial class FratakShopDbContext(DbContextOptions<FratakShopDbContext> o
 
     // دور بیستم: بازخورد کارشناس روی عکس‌های پیشنهادی (فهرست سیاه + رتبهٔ منبع).
     public DbSet<Fratak_Shop.Data.Entities.Smart.SmartImageFeedback> SmartImageFeedbacks { get; set; } = null!;
+    /// <summary>دور ۳۰ (#۵): تصمیم‌های ادمین روی تصویرهای پیشنهادی دسته (یادگیری).</summary>
+    public DbSet<Fratak_Shop.Data.Entities.Smart.CategoryImageFeedback> CategoryImageFeedbacks { get; set; } = null!;
 
     // دور ۲۱: استودیوی طراحی (بنر/کاور)، صفحه‌ساز کمپین و گزارش رشد خودکار.
     public DbSet<Fratak_Shop.Data.Entities.Design.DesignDoc> DesignDocs { get; set; } = null!;

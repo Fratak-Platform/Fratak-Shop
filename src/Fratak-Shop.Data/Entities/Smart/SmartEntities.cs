@@ -172,6 +172,48 @@ public class SmartImageFeedback : BaseEntity
 }
 
 /// <summary>
+/// دور ۳۰ (#۵) – «یادگیری تصویر دسته»: هر تصویر پیشنهادی دسته یک ردیف دارد (ویژگی‌ها، منبع، عبارت جست‌وجو) و تصمیم ادمین روی آن
+/// (انتخاب = تأیید، حذف = رد) همین‌جا ثبت می‌شود. جست‌وجوی بعدی عکس دسته از روی این ردیف‌ها یاد می‌گیرد (CategoryImageMemory):
+/// عکس ردشده دیگر پیشنهاد نمی‌شود، منبع بد کنار می‌رود و عکس‌های شبیه ردشده‌ها پیش از ذخیره رد می‌شوند.
+/// <para>مثال ردیف: CategoryId=…، ImageName=«kettles-photo-w-3fa2c1.webp»، Source=«openverse»، Query=«electric kettle product»،
+/// Features=«0.82,0.31,1,1,1,0,0.7,0.5,0.6,0.55,0.9»، Decision=1 (تأیید).</para>
+/// </summary>
+public class CategoryImageFeedback : BaseEntity
+{
+    public Guid CategoryId { get; set; }
+
+    /// <summary>نام فایل تصویر در پوشهٔ دسته‌ها (همان نام فهرست پیشنهادها).</summary>
+    [Required]
+    [MaxLength(200)]
+    public string ImageName { get; set; } = null!;
+
+    /// <summary>SHA-256 هگز آدرس اصلی عکس در اینترنت (یا null).</summary>
+    [MaxLength(64)]
+    public string? UrlKey { get; set; }
+
+    /// <summary>اثر انگشت dHash (۰ = نامعلوم).</summary>
+    public long Hash { get; set; }
+
+    /// <summary>کلید منبع. مثال: «openverse»، «bing:example.com».</summary>
+    [MaxLength(100)]
+    public string? Source { get; set; }
+
+    /// <summary>عبارتی که عکس با آن پیدا شد.</summary>
+    [MaxLength(200)]
+    public string? Query { get; set; }
+
+    /// <summary>بردار ویژگی (عددهای جدا با ویرگول؛ CategoryImageLearning.Features).</summary>
+    [MaxLength(400)]
+    public string? Features { get; set; }
+
+    /// <summary>۰ = هنوز تصمیمی نیست، ۱ = تأیید (انتخاب شد)، ۲ = رد (حذف شد).</summary>
+    public byte Decision { get; set; }
+
+    /// <summary>زمان تصمیم ادمین.</summary>
+    public DateTimeOffset? DecidedAt { get; set; }
+}
+
+/// <summary>
 /// کش ماندگار تحقیق اینترنتی (B22). کلید = منبع + پرس‌وجوی یکسان‌شده؛ مثال: «dk-search:هدفون هایلو t15».
 /// <para>چرا در پایگاه داده؟ تا بعد از ری‌استارت هم یک محصول دوباره از منابع پرسیده نشود (ادب در برابر منابع، سرعت، حافظهٔ کم).</para>
 /// </summary>

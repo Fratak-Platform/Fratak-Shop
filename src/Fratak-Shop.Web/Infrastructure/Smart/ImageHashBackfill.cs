@@ -86,7 +86,7 @@ public static class ImageHashBackfill
         var productIds = rows.Select(r => r.ProductId).Distinct().ToList();
         var fingerprints = await context.ProductImages.AsNoTracking()
             .Where(i => productIds.Contains(i.ProductId) && i.Hash != null && i.Hash != 0)
-            .Select(i => new ImageFingerprint(i.Id, i.ProductId, i.IsPrimary, i.DisplayOrder, i.Hash))
+            .Select(i => new ImageFingerprint(i.Id, i.ProductId, i.IsPrimary, i.DisplayOrder, i.Hash, i.SubjectFlags))
             .ToListAsync(cancellationToken);
         var redundant = ImageDuplicates.Redundant(fingerprints);
         if (redundant.Count > 0)

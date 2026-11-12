@@ -145,4 +145,7 @@ public enum SecurityEventType
 
     /// <summary>یکی از کدهای بازیابی برنامهٔ احراز هویت مصرف شد (احتمالاً گوشی در دسترس نیست).</summary>
     TotpRecoveryUsed = 15,
+
+    /// <summary>دور ۳۰: رمز عبور با «فراموشی رمز» (کد پیامکی) عوض شد و همهٔ نشست‌های حساب بسته شد.</summary>
+    PasswordReset = 16,
 }

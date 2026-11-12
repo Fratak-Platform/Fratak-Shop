@@ -26,6 +26,15 @@
  *  • پیام صوتی: دکمهٔ میکروفون کنار «ارسال» (تشخیص گفتار خود مرورگر، فارسی، رایگان)؛ متن شنیده‌شده خودکار فرستاده می‌شود.
  *  • پاسخ صوتی: دکمهٔ بلندگو در سربرگ؛ پاسخ متنی با صدای فارسی خود مرورگر هم خوانده می‌شود. اگر مشتری با صدا پرسیده باشد، همان پاسخ خودکار خوانده می‌شود.
  *    هر کدام فقط وقتی مدیر روشنش کرده و مرورگر پشتیبانی می‌کند دیده می‌شود.
+ *
+ * دور ۳۰ (#۲) – «پاسخ صوتی کار نمی‌کرد»؛ سه علت پیدا و رفع شد:
+ *  ۱) بیشتر مرورگرها (کروم دسکتاپ، فایرفاکس، بسیاری از گوشی‌ها) صدای فارسی ندارند و کد قبلی بی‌صدا برمی‌گشت.
+ *     حالا اگر صدای فارسی خود مرورگر بود از همان استفاده می‌شود (اج و اندروید صدای طبیعی دارند)، وگرنه موتور آفلاین و رایگان
+ *     eSpeak-NG (WebAssembly، فقط فارسی/انگلیسی، ۸۳۰ کیلوبایت فشرده) «فقط بار اول نیاز» دانلود می‌شود و متن را می‌خواند.
+ *  ۲) کروم و سافاری پخش صدا بدون «اشارهٔ کاربر» را رد می‌کنند؛ حالا با اولین کلیک/Enter داخل پنل، پخش‌کننده «باز» می‌شود
+ *     (صدای خالی کوتاه + resume موتور گفتار) و پاسخ‌های بعدی بدون مانع پخش می‌شوند.
+ *  ۳) تنظیمات ظاهر/صدا تا پایان نشست مرورگر کش می‌ماند؛ اگر مدیر پاسخ صوتی را روشن می‌کرد، مشتری تا نشست بعد نمی‌دید.
+ *     حالا در هر بار باز شدن صفحه (بی‌صدا و در پس‌زمینه) تازه گرفته می‌شود.
  * API: Web/Infrastructure/Assistant/AssistantEndpoints.cs
  */
 (function () {
@@ -237,7 +246,6 @@
 
   // ── دور ۲۹: ظاهر از پنل مدیریت ───────────────────────────────
   var LOOK_KEY = "fs.assist.look";
-  var LOOK_FRESH_KEY = "fs.assist.look.fresh";
   var SPOT_KEY = "fs.assist.spot";
   var SPEAK_KEY = "fs.assist.speak";
   var POSITIONS = ["br", "bl", "mr", "ml"];
@@ -291,14 +299,14 @@
     placeSpot();
   }
 
+  // دور ۳۰: هر بار باز شدن صفحه تازه گرفته می‌شود (پاسخ کوچک و کش‌شده در سرور است)؛ نسخهٔ localStorage فقط برای نمایش بی‌پرش اولیه است.
   function loadLook() {
-    if (read(LOOK_FRESH_KEY, false)) return;
-    fetch("/api/assistant/look", { credentials: "same-origin", headers: { Accept: "application/json" } })
+    write("fs.assist.look.fresh", null); // کلید قدیمی دور ۲۹
+    fetch("/api/assistant/look", { credentials: "same-origin", cache: "no-cache", headers: { Accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || typeof data !== "object") return;
         write(LOOK_KEY, data, "local");
-        write(LOOK_FRESH_KEY, true);
         applyLook(data);
       })
       .catch(function () { /* بی‌اهمیت؛ ظاهر قبلی می‌ماند */ });
@@ -372,48 +380,178 @@
   var resizeTimer = 0;
   window.addEventListener("resize", function () { window.clearTimeout(resizeTimer); resizeTimer = window.setTimeout(placeSpot, 150); });
 
-  // ── دور ۲۹: پاسخ صوتی ───────────────────────────────────────
-  var faVoice = null;
-  function findVoice() {
+  // ── دور ۲۹ + ۳۰: پاسخ صوتی ──────────────────────────────────
+  // ترتیب: صدای فارسی خود مرورگر (اگر هست) ← موتور آفلاین eSpeak-NG (WebAssembly). هر دو رایگان و بدون سرویس بیرونی.
+  var ESPEAK_DIR = "/assets/vendor/espeak/";
+  var ESPEAK_VER = "?v=102fa1"; // نسخهٔ فایل‌ها (کش یک‌ساله؛ با تغییر فایل این عدد عوض شود)
+  var canEspeak = typeof WebAssembly === "object" && typeof DecompressionStream === "function" && typeof Response === "function"
+    && typeof Blob === "function" && typeof URL === "function" && typeof URL.createObjectURL === "function" && typeof Audio === "function";
+  var espeak = null;      // Promise<{ factory, module }> – فقط یک بار دانلود و کامپایل می‌شود
+  var player = null;      // یک عنصر Audio برای همهٔ پاسخ‌ها (سافاری فقط عنصری را که با اشارهٔ کاربر باز شده پخش می‌کند)
+  var playerUrl = null;
+  var utterance = null;   // نگه داشتن ارجاع (باگ کروم: گفتاری که ارجاع ندارد وسط کار قطع می‌شود)
+  var audioUnlocked = false;
+
+  function nativeVoice() {
     if (!synth) return null;
-    var voices = synth.getVoices() || [];
-    for (var i = 0; i < voices.length; i++) if (/^fa/i.test(voices[i].lang || "")) return voices[i];
+    var voices = [];
+    try { voices = synth.getVoices() || []; } catch (e) { voices = []; }
+    for (var i = 0; i < voices.length; i++) {
+      var v = voices[i];
+      if (/^fa([-_]|$)/i.test(v.lang || "") || /persian|farsi|فارسی/i.test(v.name || "")) return v;
+    }
     return null;
   }
+  function voiceAvailable() { return canEspeak || !!nativeVoice(); }
   function speakOn() { return read(SPEAK_KEY, false, "local") === true; }
+
   function updateSpeak() {
-    faVoice = faVoice || findVoice();
-    var allowed = look.voiceOut === true && !!synth;
+    var allowed = look.voiceOut === true && (canEspeak || !!synth);
     speak.hidden = !allowed;
     if (!allowed) return;
+    var ready = voiceAvailable();
     while (speak.firstChild) speak.removeChild(speak.firstChild);
-    var on = speakOn() && !!faVoice;
+    var on = speakOn() && ready;
     speak.appendChild(icon(on ? SPEAKER_ON : SPEAKER_OFF, 20));
     speak.setAttribute("aria-pressed", on ? "true" : "false");
-    speak.disabled = !faVoice;
-    var label = !faVoice ? "مرورگر شما صدای فارسی ندارد" : on ? "خاموش کردن پاسخ صوتی" : "روشن کردن پاسخ صوتی";
+    speak.disabled = !ready;
+    var label = !ready ? "مرورگر شما پخش صدای فارسی را پشتیبانی نمی‌کند" : on ? "خاموش کردن پاسخ صوتی" : "روشن کردن پاسخ صوتی";
     speak.setAttribute("aria-label", label);
     speak.title = label;
   }
-  if (synth && "onvoiceschanged" in synth) synth.addEventListener("voiceschanged", function () { faVoice = findVoice(); updateSpeak(); });
+  if (synth && typeof synth.addEventListener === "function") synth.addEventListener("voiceschanged", updateSpeak);
+
+  // متن قابل خواندن: بدون نشانی اینترنتی، شکلک و نمادهای فهرست؛ حداکثر ~۴۰۰ نویسه تا آخرین جملهٔ کامل.
+  function speakable(text) {
+    var t = String(text || "")
+      .replace(/https?:\/\/\S+/g, " ")
+      .replace(/[\u2190-\u21FF\u2600-\u27BF\u2B00-\u2BFF]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, " ")
+      .replace(/[*_#`~•|<>\[\]{}]/g, " ")
+      .replace(/\s+/g, " ").trim();
+    if (t.length <= 400) return t;
+    var cut = t.slice(0, 400);
+    var end = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("؟"), cut.lastIndexOf("!"), cut.lastIndexOf("؛"));
+    return (end > 120 ? cut.slice(0, end + 1) : cut).trim();
+  }
+
+  // یک فایل WAV بی‌صدای خیلی کوتاه (برای باز کردن قفل پخش در اولین اشارهٔ کاربر؛ data: در CSP مجاز نیست، پس Blob).
+  function silentWav() {
+    var samples = 800, buf = new ArrayBuffer(44 + samples * 2), d = new DataView(buf);
+    function str(o, s) { for (var i = 0; i < s.length; i++) d.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, "RIFF"); d.setUint32(4, 36 + samples * 2, true); str(8, "WAVE"); str(12, "fmt ");
+    d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 16000, true);
+    d.setUint32(28, 32000, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); str(36, "data"); d.setUint32(40, samples * 2, true);
+    return new Blob([buf], { type: "audio/wav" });
+  }
+  function audioEl() {
+    if (!player && typeof Audio === "function") { player = new Audio(); player.preload = "auto"; }
+    return player;
+  }
+  function playBlob(blob) {
+    var a = audioEl();
+    if (!a) return;
+    if (playerUrl) { try { URL.revokeObjectURL(playerUrl); } catch (e) { /* بی‌اهمیت */ } }
+    playerUrl = URL.createObjectURL(blob);
+    a.src = playerUrl;
+    var p = a.play();
+    if (p && typeof p.catch === "function") p.catch(function () { audioUnlocked = false; });
+  }
+  function stopSpeaking() {
+    if (player) { try { player.pause(); } catch (e) { /* بی‌اهمیت */ } }
+    if (synth) { try { synth.cancel(); } catch (e) { /* بی‌اهمیت */ } }
+  }
+
+  // اولین اشارهٔ کاربر داخل پنل (کلیک، لمس، Enter): پخش‌کننده باز، موتور گفتار بیدار و اگر لازم است موتور آفلاین پیش‌بارگذاری می‌شود.
+  function unlockAudio() {
+    if (look.voiceOut !== true) return;
+    if (!audioUnlocked) {
+      audioUnlocked = true;
+      if (canEspeak) {
+        var a = audioEl();
+        if (a) {
+          var url = URL.createObjectURL(silentWav());
+          a.src = url;
+          var p = a.play();
+          if (p && typeof p.catch === "function") p.catch(function () { audioUnlocked = false; });
+        }
+      }
+      if (synth) {
+        try { synth.resume(); synth.speak(new SpeechSynthesisUtterance(" ")); } catch (e) { /* بی‌اهمیت */ }
+      }
+    }
+    if (canEspeak && !nativeVoice() && (speakOn() || voiceAsked)) loadEspeak().catch(function () { /* بعداً دوباره */ });
+  }
+
+  function loadEspeak() {
+    if (!espeak) {
+      espeak = Promise.all([
+        import(ESPEAK_DIR + "espeak-ng.js" + ESPEAK_VER).then(function (m) { return m["default"]; }),
+        fetch(ESPEAK_DIR + "espeak-fa.wasm.gz" + ESPEAK_VER, { credentials: "same-origin" })
+          .then(function (r) {
+            if (!r.ok || !r.body) throw new Error("espeak " + r.status);
+            return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+          })
+          .then(function (bytes) { return WebAssembly.compile(bytes); }),
+      ]).then(function (parts) { return { factory: parts[0], module: parts[1] }; });
+      espeak.catch(function () { espeak = null; });
+    }
+    return espeak;
+  }
+
+  // خواندن با eSpeak-NG: هر بار یک نمونهٔ تازه از همان ماژول کامپایل‌شده (حدود ۱۰۰ میلی‌ثانیه) و پخش WAV حاصل.
+  function espeakSay(text) {
+    return loadEspeak().then(function (engine) {
+      return engine.factory({
+        arguments: ["-v", "fa", "-s", "160", "-w", "/out.wav", text],
+        print: function () { /* خروجی متنی لازم نیست */ },
+        printErr: function () { /* خروجی متنی لازم نیست */ },
+        locateFile: function (path) { return ESPEAK_DIR + path; },
+        instantiateWasm: function (imports, done) {
+          WebAssembly.instantiate(engine.module, imports).then(function (instance) { done(instance, engine.module); });
+          return {};
+        },
+      });
+    }).then(function (instance) {
+      playBlob(new Blob([instance.FS.readFile("/out.wav")], { type: "audio/wav" }));
+    });
+  }
+
   speak.addEventListener("click", function () {
-    write(SPEAK_KEY, !speakOn(), "local");
-    if (!speakOn() && synth) synth.cancel();
+    var turnOn = !speakOn();
+    write(SPEAK_KEY, turnOn, "local");
+    unlockAudio();
+    if (!turnOn) stopSpeaking();
     updateSpeak();
+    // بازخورد فوری: مشتری همان لحظه می‌شنود که صدا کار می‌کند.
+    if (turnOn) sayAloud("پاسخ صوتی روشن شد.");
   });
+  panel.addEventListener("pointerdown", unlockAudio, true);
+  panel.addEventListener("keydown", function (event) { if (event.key === "Enter") unlockAudio(); }, true);
+
   var voiceAsked = false;
   function sayAloud(text) {
-    if (!synth || look.voiceOut !== true || !text) return;
-    faVoice = faVoice || findVoice();
-    if (!faVoice) return;
-    try {
-      synth.cancel();
-      var u = new SpeechSynthesisUtterance(String(text).replace(/https?:\/\/\S+/g, "").slice(0, 600));
-      u.voice = faVoice;
-      u.lang = faVoice.lang || "fa-IR";
-      u.rate = 1;
-      synth.speak(u);
-    } catch (e) { /* بی‌اهمیت */ }
+    if (look.voiceOut !== true) return;
+    var clean = speakable(text);
+    if (!clean) return;
+    stopSpeaking();
+    var voice = nativeVoice();
+    if (voice && synth) {
+      try {
+        utterance = new SpeechSynthesisUtterance(clean);
+        utterance.voice = voice;
+        utterance.lang = voice.lang || "fa-IR";
+        utterance.rate = 1;
+        // خطای موتور مرورگر (نه قطع عمدی) ← همان متن با موتور آفلاین.
+        utterance.onerror = function (event) {
+          if (event && (event.error === "interrupted" || event.error === "canceled")) return;
+          if (canEspeak) espeakSay(clean).catch(function () { /* بی‌صدا */ });
+        };
+        synth.resume();
+        synth.speak(utterance);
+        return;
+      } catch (e) { /* ← موتور آفلاین */ }
+    }
+    if (canEspeak) espeakSay(clean).catch(function () { /* شبکه/مرورگر؛ متن روی صفحه هست */ });
   }
 
   // ── دور ۲۹: پیام صوتی ───────────────────────────────────────
