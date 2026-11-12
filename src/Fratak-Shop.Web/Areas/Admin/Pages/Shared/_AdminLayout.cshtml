@@ -105,8 +105,8 @@
         {
           var items = access is null ? Array.Empty<AdminNavItem>() : group.Items.Where(i => i.IsVisible(access)).ToArray();
           if (items.Length == 0) { continue; }
-          // دور ۳۰ (#۱۱): همهٔ گروه‌ها «پیش‌فرض بسته‌اند» – حتی گروه صفحهٔ فعلی – و فقط با کلیک باز می‌شوند (شلوغی منو کم می‌شود).
-          // گروه صفحهٔ فعلی فقط با یک نقطه و رنگ روشن‌تر روی عنوانش مشخص است تا کارمند بداند کجاست.
+          // دور ۳۱ (#۷): فقط گروهی که صفحهٔ فعلی در آن است باز است (مثلاً «هوشمند (خودکار)» در «ویدیوهای پیشنهادی کالا»)
+          // و ردیف همان صفحه آبی (is-active) است؛ بقیهٔ گروه‌ها بسته‌اند. زیرصفحه‌ها (مثل ویرایش محصول) گروه و ردیف والد را باز/آبی می‌کنند.
           var hasActive = items.Any(i => i.Url == activeUrl);
           var groupBadges = items.Sum(i => i.BadgeKey is not null && badges.TryGetValue(i.BadgeKey, out var gc) ? gc : 0);
           if (string.IsNullOrEmpty(group.Title))

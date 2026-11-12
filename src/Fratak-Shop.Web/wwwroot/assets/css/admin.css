@@ -60,7 +60,7 @@ details.a-nav-sec > summary.a-nav-group:focus-visible { outline: 2px solid var(-
 .a-nav-caret { transition: transform .15s; flex-shrink: 0; }
 details.a-nav-sec[open] .a-nav-caret { transform: rotate(180deg); }
 details.a-nav-sec[open] [data-nav-sum] { display: none; }
-/* دور ۳۰: گروه صفحهٔ فعلی (بسته) با نقطهٔ آبی و رنگ روشن‌تر مشخص است. */
+/* دور ۳۱: گروه صفحهٔ فعلی (باز) با نقطهٔ آبی و رنگ روشن‌تر مشخص است؛ ردیف صفحه هم آبی است. */
 details.a-nav-sec > summary.a-nav-group.is-current { color: #c7d3e0; font-weight: 700; }
 details.a-nav-sec > summary.a-nav-group.is-current::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--a-primary); flex-shrink: 0; }
 details.a-nav-sec > summary.a-nav-group { padding: 7px 6px; margin: 6px 4px 2px; }

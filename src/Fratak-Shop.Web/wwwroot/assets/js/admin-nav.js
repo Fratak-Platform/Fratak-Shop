@@ -35,13 +35,21 @@
   }
   function restore() { closeAll(current); }
   restore();
-  window.addEventListener("pageshow", function (event) { if (event.persisted && !searching) restore(); });
+  // بازگشت با دکمهٔ «عقب» مرورگر (صفحه از کش برمی‌گردد): دوباره فقط گروه صفحهٔ همان صفحه باز می‌شود.
+  window.addEventListener("pageshow", function (event) { if (event.persisted && !searching) { restore(); revealActive(); } });
 
-  // لینک صفحهٔ فعلی در منوی بلند دیده شود (بدون پرش صفحهٔ اصلی).
-  var activeLink = current && current.querySelector(".a-nav-link.is-active");
-  if (activeLink && typeof activeLink.scrollIntoView === "function") {
-    try { activeLink.scrollIntoView({ block: "nearest" }); } catch (e) { /* مرورگر قدیمی */ }
+  // لینک صفحهٔ فعلی در منوی بلند دیده شود: فقط خود منو اسکرول می‌شود (scrollIntoView صفحهٔ اصلی را هم جابه‌جا می‌کرد).
+  // مثال: در «ویدیوهای پیشنهادی کالا» گروه «هوشمند (خودکار)» باز است و ردیف آبی وسط منو دیده می‌شود.
+  function revealActive() {
+    var link = (current && current.querySelector(".a-nav-link.is-active")) || nav.querySelector(".a-nav-link.is-active");
+    if (!link) return;
+    var navBox = nav.getBoundingClientRect();
+    var linkBox = link.getBoundingClientRect();
+    if (linkBox.top < navBox.top || linkBox.bottom > navBox.bottom) {
+      nav.scrollTop += linkBox.top - navBox.top - (nav.clientHeight - link.offsetHeight) / 2;
+    }
   }
+  revealActive();
 
   // آکاردئون: باز شدن یک گروه ← بسته شدن بقیه (هنگام جست‌وجو نه، چون چند گروه نتیجه دارند).
   groups.forEach(function (group) {

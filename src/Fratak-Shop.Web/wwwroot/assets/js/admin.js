@@ -38,8 +38,7 @@
   $$("[data-sidebar-open]").forEach((b) => b.addEventListener("click", () => setSidebar(true)));
   $$("[data-sidebar-close]").forEach((b) => b.addEventListener("click", () => setSidebar(false)));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setSidebar(false); });
-  const active = $(".a-nav-link.is-active");
-  if (active && active.scrollIntoView) active.scrollIntoView({ block: "center" });
+  // لینک صفحهٔ فعلی در منو را admin-nav.js فقط داخل خود منو به دید می‌آورد (بدون پرش صفحهٔ اصلی).
 
   // ── Dropdown ─────────────────────────────────────────────────────────
   $$("[data-dropdown]").forEach((root) => {
