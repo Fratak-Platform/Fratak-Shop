@@ -3,7 +3,9 @@
 //  دور ۳۰ (#۱۱): «همهٔ گروه‌ها پیش‌فرض بسته‌اند» (مثل «فنی» یا «محتوا و سئو») و فقط با کلیک باز می‌شوند — جز گروه صفحهٔ فعلی (دور ۳۱).
 //  • حالت باز/بسته دیگر در مرورگر ذخیره نمی‌شود (قبلاً گروه‌هایی که یک بار باز شده بودند همیشه باز می‌ماندند و منو شلوغ می‌شد).
 //    کلید قدیمی «fs.nav.v1» هم پاک می‌شود.
-//  • «آکاردئون»: با باز کردن یک گروه، گروه باز دیگر بسته می‌شود تا همیشه فقط یک فهرست کوتاه دیده شود.
+//  • «آکاردئون»: با باز کردن یک گروه، گروه باز دیگر بسته می‌شود تا فهرست کوتاه بماند؛ ولی گروه صفحهٔ فعلی (پس از دور ۳۱)
+//    هیچ‌وقت خودکار بسته نمی‌شود و ردیف آبی‌اش همیشه دیده می‌شود.
+//  • اگر سرور گروه فعال را علامت نزده باشد، اسکریپت از روی آدرس صفحه دقیق‌ترین لینک را پیدا و فعال می‌کند (پشتیبان).
 //  • دور ۳۱ (#۷): گروهِ صفحهٔ فعلی (data-nav-active="1"، مثلاً «فنی» وقتی در «امنیت» هستید) باز است و ردیف صفحه پررنگ (is-active)؛
 //    بقیهٔ گروه‌ها بسته‌اند. با پاک شدن جست‌وجو هم همین حالت برمی‌گردد. لینک فعال در دید منو اسکرول می‌شود.
 //  • کادر جست‌وجو (input[data-nav-search]) لینک‌ها را با متن فیلتر می‌کند و گروه‌های دارای نتیجه را موقتاً باز می‌کند؛
@@ -29,9 +31,46 @@
   // گروه صفحهٔ فعلی (یا null در داشبورد/صفحه‌های بیرون از گروه).
   var current = nav.querySelector("details[data-nav-group][data-nav-active]");
 
-  // همه بسته به‌جز گروه داده‌شده (حتی اگر مرورگر حالت قبلی را از کش صفحه برگرداند).
+  // پشتیبان سمت مرورگر: اگر سرور گروه/ردیف فعال را علامت نزده بود (مثلاً HTML قدیمی از کش، یا آدرسی که سرور نشناخت)،
+  // همین‌جا از روی آدرس صفحه دقیق‌ترین لینک منو پیدا می‌شود: «/admin/products/edit/12» ← «/admin/products».
+  // همان لینک آبی (is-active) و گروهش باز و علامت‌دار (is-current) می‌شود. داشبورد («/admin») گروهی باز نمی‌کند.
+  function pathOf(href) {
+    try { return new URL(href, window.location.origin).pathname.replace(/\/+$/, "").toLowerCase() || "/"; }
+    catch (e) { return ""; }
+  }
+  if (!current) {
+    var here = pathOf(window.location.href);
+    var best = null, bestLength = -1;
+    Array.prototype.forEach.call(nav.querySelectorAll("details[data-nav-group] .a-nav-link"), function (link) {
+      var target = pathOf(link.getAttribute("href"));
+      if (!target || target === "/admin") return;
+      var match = here === target || here.indexOf(target + "/") === 0;
+      if (match && target.length > bestLength) { best = link; bestLength = target.length; }
+    });
+    if (best) {
+      Array.prototype.forEach.call(nav.querySelectorAll("details[data-nav-group] .a-nav-link.is-active"), function (link) {
+        link.classList.remove("is-active");
+        link.removeAttribute("aria-current");
+      });
+      best.classList.add("is-active");
+      best.setAttribute("aria-current", "page");
+      current = best.closest("details[data-nav-group]");
+      if (current) {
+        current.setAttribute("data-nav-active", "1");
+        var summary = current.querySelector("summary");
+        if (summary) summary.classList.add("is-current");
+      }
+    }
+  }
+
+  // همه بسته به‌جز گروه داده‌شده و گروه صفحهٔ فعلی (حتی اگر مرورگر حالت قبلی را از کش صفحه برگرداند).
+  // گروه صفحهٔ فعلی هیچ‌وقت خودکار بسته نمی‌شود: با باز کردن گروه دیگر (مثلاً «فنی» وقتی در «فهرست محصولات» هستید)
+  // «محصولات و انبار» باز و ردیفش آبی می‌ماند؛ فقط اگر خود کاربر روی عنوانش بزند بسته می‌شود.
   function closeAll(except) {
-    groups.forEach(function (group) { group.open = group === except; });
+    groups.forEach(function (group) {
+      var keep = group === except || group === current;
+      if (group.open !== keep) group.open = keep;
+    });
   }
   function restore() { closeAll(current); }
   restore();
@@ -51,7 +90,7 @@
   }
   revealActive();
 
-  // آکاردئون: باز شدن یک گروه ← بسته شدن بقیه (هنگام جست‌وجو نه، چون چند گروه نتیجه دارند).
+  // آکاردئون: باز شدن یک گروه ← بسته شدن بقیهٔ گروه‌ها جز گروه صفحهٔ فعلی (هنگام جست‌وجو نه، چون چند گروه نتیجه دارند).
   groups.forEach(function (group) {
     group.addEventListener("toggle", function () {
       if (!searching && group.open) closeAll(group);
