@@ -173,7 +173,7 @@ public sealed class SmartOrchestrator(
         var found = await images.FindForProductAsync(subject, want, Math.Clamp(round, 0, 20), cancellationToken);
         if (topUp)
         {
-            // فقط «همان کالا»: منبع مطمئن یا همان مدل، با اطمینان بررسی سوژه ≥ ۰٫۷۲ و بدون آدم/واترمارک/صحنه. بقیه (طرح مشابه،
+            // فقط «همان کالا»: منبع مطمئن یا همان مدل، با اطمینان بررسی سوژه ≥ ۰٫۷۲ و بدون آدم/واترمارک. بقیه (طرح مشابه،
             // نامرتبط) اصلاً پیشنهاد هم نمی‌شوند و فایلشان پاک می‌شود. سقف: تا رسیدن به حداقل تعداد عکس.
             var exact = ExactImages(found, Math.Max(0, options.MinProductImages - subject.ImageNames.Count));
             images.DeleteProductFiles(found.Except(exact).Select(f => f.FileName));

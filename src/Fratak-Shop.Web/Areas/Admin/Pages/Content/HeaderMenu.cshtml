@@ -1,0 +1,108 @@
+@page "/admin/content/header-menu"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Content.HeaderMenuModel
+@*
+  دور ۲۹ (#۲۷): «منوی بالای سایت» – ویرایش عنوان و آدرس لینک‌های نوار منوی هدر، افزودن لینک تازه و افزودن سریع لینک‌های آماده.
+  هر ردیف یک فرم جداست (فرم تودرتو نداریم)؛ جابه‌جایی و حذف هم فرم‌های کوچک جدا هستند.
+*@
+@{
+    ViewData["Title"] = "منوی بالای سایت";
+    var existing = Model.Items.Select(i => (i.Url ?? "").ToLowerInvariant()).ToHashSet();
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>منوی بالای سایت</h2>
+    <p class="a-muted text-sm mt-1">لینک‌های نوار منوی هدر (دسکتاپ و منوی کشویی موبایل). تغییرها بلافاصله بعد از ذخیره در سایت دیده می‌شوند.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/" target="_blank" rel="noopener">@Icons.Svg("Globe", null, 18) دیدن سایت</a>
+    <a class="a-btn a-btn-light" href="/admin/manage/menu-items">@Icons.Svg("Sliders", null, 18) زیرمنوها و زمان‌بندی</a>
+  </div>
+</div>
+
+@if (Model.Current is null)
+{
+  <div class="a-card">
+    <div class="a-card-body a-stack">
+      <p>منوی بالای سایت هنوز ساخته نشده است.</p>
+      <form method="post" asp-page-handler="Create"><button class="a-btn" type="submit">@Icons.Svg("Plus", null, 18) ساخت منوی بالای سایت</button></form>
+    </div>
+  </div>
+}
+else
+{
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("List", null, 18) لینک‌های فعلی (به ترتیب نمایش، از راست)</h3></div>
+    <div class="a-card-body a-stack">
+      @if (Model.Items.Count == 0)
+      {
+        <p class="a-muted">هنوز لینکی ندارد؛ از بخش پایین اضافه کنید.</p>
+      }
+      @for (var index = 0; index < Model.Items.Count; index++)
+      {
+        var item = Model.Items[index];
+        var mega = item.Type == Fratak_Shop.Data.Entities.Contents.MenuItemType.CategoriesMegaMenu;
+        <div class="fs-hm-row @(item.IsActive ? "" : "is-off")">
+          <form method="post" asp-page-handler="Save" class="fs-hm-form">
+            <input type="hidden" name="id" value="@item.Id">
+            <div><label class="a-label">عنوان</label><input class="a-input" name="title" value="@item.Title" maxlength="40" required></div>
+            <div class="fs-hm-url"><label class="a-label">آدرس @(mega ? "(مگامنوی دسته‌ها)" : "")</label><input class="a-input a-ltr" name="url" value="@item.Url" maxlength="500" dir="ltr" placeholder="/search?discounted=true" @(mega ? "" : "required")></div>
+            <div><label class="a-label">برچسب</label><input class="a-input" name="badge" value="@item.BadgeText" maxlength="12" placeholder="جدید"></div>
+            <div class="fs-hm-order"><label class="a-label">ترتیب</label><input class="a-input" type="number" name="order" value="@item.DisplayOrder" min="0" max="999"></div>
+            <div class="fs-hm-checks">
+              <label class="flex items-center gap-2"><input type="checkbox" name="active" value="true" @(item.IsActive ? "checked" : "")> نمایش</label>
+              <label class="flex items-center gap-2" title="فقط برای لینک بیرونی"><input type="checkbox" name="newTab" value="true" @(item.OpenInNewTab ? "checked" : "")> برگهٔ تازه</label>
+            </div>
+            <button class="a-btn" type="submit">@Icons.Svg("Check", null, 16) ذخیره</button>
+          </form>
+          <div class="fs-hm-tools">
+            @if (Model.ChildCounts.TryGetValue(item.Id, out var children))
+            {
+              <span class="a-badge a-badge-gray">@Format.Number(children) زیرمنو</span>
+            }
+            @if (mega)
+            {
+              <span class="a-badge a-badge-yellow">مگامنو</span>
+            }
+            <form method="post" asp-page-handler="Move"><input type="hidden" name="id" value="@item.Id"><input type="hidden" name="step" value="-1"><button class="a-btn a-btn-light a-btn-sm" type="submit" title="جلوتر (راست‌تر)" @(index == 0 ? "disabled" : "")>@Icons.Svg("ArrowLeft", "rotate-180", 14)</button></form>
+            <form method="post" asp-page-handler="Move"><input type="hidden" name="id" value="@item.Id"><input type="hidden" name="step" value="1"><button class="a-btn a-btn-light a-btn-sm" type="submit" title="عقب‌تر (چپ‌تر)" @(index == Model.Items.Count - 1 ? "disabled" : "")>@Icons.Svg("ArrowLeft", null, 14)</button></form>
+            @if (!mega)
+            {
+              <form method="post" asp-page-handler="Delete" data-confirm="«@item.Title» از منوی بالا حذف شود؟ (از سطل بازیافت برمی‌گردد)"><input type="hidden" name="id" value="@item.Id"><button class="a-btn a-btn-light a-btn-sm" type="submit" title="حذف">@Icons.Svg("Trash", null, 14)</button></form>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Plus", null, 18) افزودن لینک تازه</h3></div>
+    <div class="a-card-body">
+      <form method="post" asp-page-handler="Add" class="fs-hm-form">
+        <div><label class="a-label">عنوان</label><input class="a-input" name="title" maxlength="40" required placeholder="تخفیف‌دارها"></div>
+        <div class="fs-hm-url"><label class="a-label">آدرس</label><input class="a-input a-ltr" name="url" maxlength="500" dir="ltr" required placeholder="/search?discounted=true"></div>
+        <div><label class="a-label">برچسب (اختیاری)</label><input class="a-input" name="badge" maxlength="12" placeholder="٪"></div>
+        <button class="a-btn" type="submit">@Icons.Svg("Plus", null, 16) افزودن</button>
+      </form>
+      <p class="a-muted text-xs mt-2">آدرس داخلی با «/» شروع می‌شود (مثلاً /category/headphone یا /search?sort=BestSelling). آدرس کامل سایت دیگر هم مجاز است.</p>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Lightning", null, 18) افزودن سریع</h3></div>
+    <div class="a-card-body fs-hm-presets">
+      @foreach (var preset in Fratak_Shop.Web.Areas.Admin.Pages.Content.HeaderMenuRules.Presets)
+      {
+        var added = existing.Contains(preset.Url.ToLowerInvariant());
+        <form method="post" asp-page-handler="Preset">
+          <input type="hidden" name="key" value="@preset.Key">
+          <button class="fs-hm-preset" type="submit" @(added ? "disabled" : "") title="@preset.Url">
+            <strong>@preset.Title</strong>
+            <span>@(added ? "در منو هست" : preset.Hint)</span>
+          </button>
+        </form>
+      }
+    </div>
+  </div>
+}

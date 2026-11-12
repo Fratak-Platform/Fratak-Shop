@@ -261,6 +261,12 @@ public sealed class SmartOptions
     /// <summary>دور ۲۹: لوگو/واترمارک عکس‌ها (گوشه‌ها، نوشتهٔ کم‌رنگ روی زمینه) خودکار پاک شود؛ پاک‌نشدنی ← عکس کنار می‌رود. پیش‌فرض روشن.</summary>
     public bool CleanWatermarks { get; set; } = true;
 
+    /// <summary>
+    /// دور ۲۹ (#۱۰): بازبینی روزانهٔ دستهٔ کالاها. کالایی که آشکارا در دستهٔ اشتباه است (مثل «ظرف شیش‌پارچه» در «چندراهی برق»)
+    /// خودکار به دستهٔ درست می‌رود (حداکثر ۲۵ کالا در روز، با اعلان)؛ کالای مشکوک فقط گزارش می‌شود.
+    /// </summary>
+    public bool Recategorize { get; set; } = true;
+
     /// <summary>دور ۲۹: لوگوی کم‌رنگ فراتک روی عکس کالاها (فقط نسخه‌های بهینهٔ نمایش؛ فایل اصلی دست نمی‌خورد). پیش‌فرض خاموش.</summary>
     public bool ImageLogoOverlay { get; set; }
 
@@ -500,6 +506,8 @@ public sealed class SmartConfigService(FratakShopDbContext context, IMemoryCache
         row.OptionsJson = JsonSerializer.Serialize(options.Normalize(), Json);
         await context.SaveChangesAsync(cancellationToken);
         cache.Remove(CacheKey);
+        // دور ۲۹: بعد از پاک شدن کش تنظیمات، کش صفحه‌ها یک بار دیگر خالی می‌شود تا صفحه‌ای که در همین فاصله با تنظیم قبلی ساخته شد نماند.
+        Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(SmartContentConfig));
         return OperationResult.Success("تنظیمات محتوای هوشمند ذخیره شد.");
     }
 

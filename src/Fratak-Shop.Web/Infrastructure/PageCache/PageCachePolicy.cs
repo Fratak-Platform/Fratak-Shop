@@ -47,7 +47,9 @@ public sealed class PageCachePolicy : IOutputCachePolicy
         "SmsProviderConfig",
         // دور نوزدهم: صف و کش تحقیق هوشمند، تقویم محتوا، یادآوری‌های مشتری و تنظیمات هوشمند فقط در پنل‌اند.
         // ProductInsight عمداً این‌جا نیست: جمع‌بندی تأییدشده در صفحهٔ محصول نمایش داده می‌شود و باید کش را تازه کند.
-        "SmartTask", "SmartResearchCache", "BlogPlanItem", "CustomerReminder", "SmartContentConfig",
+        // دور ۲۹: SmartContentConfig از این فهرست بیرون آمد – سقف/چرخش بنرها و حالت سوگواری در صفحهٔ اصلی دیده می‌شوند،
+        // پس ذخیرهٔ تنظیمات هوشمند (فقط دستی از پنل، نادر) باید کش صفحه‌ها را تازه کند.
+        "SmartTask", "SmartResearchCache", "BlogPlanItem", "CustomerReminder",
     };
 
     // ── آمار کش صفحات از زمان روشن شدن سایت (کارت «کش» در /admin/system) ──

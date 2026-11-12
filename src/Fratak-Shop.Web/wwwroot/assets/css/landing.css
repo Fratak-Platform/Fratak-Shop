@@ -88,3 +88,7 @@ body.fs-no-footer .fs-lp { margin-bottom: 0; }
 .fs-lp-grid .fs-product-card__btn { align-self: center; }
 
 .fs-lp-ended { margin: 0 auto; max-width: 760px; padding: 16px; border-radius: 14px; background: #fef3c7; color: #92400e; text-align: center; font-weight: 700; }
+
+/* دور ۲۹ (#۱۱): قاب «حالت کد» – تمام‌عرض، بدون حاشیه؛ تا رسیدن ارتفاع واقعی، یک صفحه ارتفاع دارد. */
+.fs-lp-code { display: block; width: 100%; min-height: 70vh; border: 0; background: transparent; }
+.fs-lp-code.is-sized { min-height: 0; }

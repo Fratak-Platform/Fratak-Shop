@@ -56,10 +56,33 @@
           }
         </section>
 
-        <section class="grid grid-cols-3 gap-3 text-center">
-          <div class="rounded-xl border p-3"><div class="text-xs text-zinc-500">دعوت‌شده</div><div class="mt-1 text-xl font-bold text-zinc-700">@Format.Number(stats.InvitedCount)</div></div>
-          <div class="rounded-xl border p-3"><div class="text-xs text-zinc-500">خرید کرده‌اند</div><div class="mt-1 text-xl font-bold text-emerald-600">@Format.Number(stats.PurchasedCount)</div></div>
-          <div class="rounded-xl border p-3"><div class="text-xs text-zinc-500">امتیاز دریافتی</div><div class="mt-1 text-xl font-bold text-amber-500">@Format.Number(stats.PointsEarned)</div></div>
+        @{
+            // دور ۲۹ (#۲۳): کارت‌های آمار دعوت با آیکن، رنگ و «نرخ خرید» (چند درصد دعوت‌شده‌ها خرید کرده‌اند).
+            var rate = stats.InvitedCount > 0 ? (int)Math.Round(100.0 * stats.PurchasedCount / stats.InvitedCount) : 0;
+        }
+        <section class="fs-inv-stats" aria-label="آمار دعوت‌های شما">
+          <div class="fs-inv-stat fs-inv-sky">
+            <span class="fs-inv-icon">@Icons.Svg("UsersThree", null, 22)</span>
+            <div><div class="fs-inv-label">دوستان دعوت‌شده</div><div class="fs-inv-value">@Format.Number(stats.InvitedCount)</div></div>
+          </div>
+          <div class="fs-inv-stat fs-inv-green">
+            <span class="fs-inv-icon">@Icons.Svg("Cart", null, 22)</span>
+            <div>
+              <div class="fs-inv-label">خرید کرده‌اند</div>
+              <div class="fs-inv-value">@Format.Number(stats.PurchasedCount)</div>
+              <div class="fs-inv-bar" role="img" aria-label="نرخ خرید @Format.Number(rate) درصد"><span style="width:@(rate)%"></span></div>
+              <div class="fs-inv-hint">نرخ خرید: @Format.Number(rate)٪</div>
+            </div>
+          </div>
+          <div class="fs-inv-stat fs-inv-amber">
+            <span class="fs-inv-icon">@Icons.Svg("Crown", null, 22)</span>
+            <div><div class="fs-inv-label">امتیاز دریافتی</div><div class="fs-inv-value">@Format.Number(stats.PointsEarned)</div>
+              @if (stats.RewardPointsPerFriend > 0)
+              {
+                <div class="fs-inv-hint">هر دوست خریدار: @Format.Number(stats.RewardPointsPerFriend) امتیاز</div>
+              }
+            </div>
+          </div>
         </section>
 
         <section>

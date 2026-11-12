@@ -193,6 +193,9 @@ details.a-nav-sec[open] [data-nav-sum] { display: none; }
 .a-table .num { text-align: left; direction: ltr; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .a-table .nowrap { white-space: nowrap; }
 .a-table .actions { white-space: nowrap; text-align: left; }
+/* دور ۲۹ (#۲۲): سرستون هم‌تراز ستون خودش (table-align.js بقیهٔ حالت‌ها را از روی ردیف اول درست می‌کند). */
+.a-table th.num, .a-table th.actions { text-align: left; }
+.a-table th.text-center, .a-table td.text-center { text-align: center; }
 .a-table .sel { width: 36px; }
 .a-table-compact td, .a-table-compact th { padding: 7px 10px; }
 .a-empty { padding: 40px 16px; text-align: center; color: var(--a-muted); }
@@ -1011,3 +1014,19 @@ html[data-theme="dark"] .a-smart-chips .a-chip.is-main { color: #85C4FF; }
 .a-today-item.is-p3 { border-inline-start-color: #9ca3af; }
 .a-today-item a { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: inherit; text-decoration: none; }
 .a-today-item a:hover b { text-decoration: underline; }
+
+/* ── دور ۲۹ (#۲۷): صفحهٔ «منوی بالای سایت» ───────────────────────────── */
+.fs-hm-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 12px; border: 1px solid var(--a-border); border-radius: 12px; }
+.fs-hm-row.is-off { opacity: .6; background: repeating-linear-gradient(135deg, transparent 0 10px, rgba(0, 0, 0, .025) 10px 20px); }
+.fs-hm-form { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) minmax(80px, .7fr) 80px auto auto; gap: 10px; align-items: end; flex: 1 1 640px; }
+.fs-hm-checks { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.fs-hm-tools { display: flex; align-items: center; gap: 6px; }
+.fs-hm-tools form { margin: 0; }
+.fs-hm-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.fs-hm-presets form { margin: 0; }
+.fs-hm-preset { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px dashed var(--a-border);
+  border-radius: 12px; background: transparent; text-align: right; cursor: pointer; transition: border-color .15s, background .15s; }
+.fs-hm-preset:hover:not([disabled]) { border-color: var(--a-primary, #0ea5e9); background: rgba(14, 165, 233, .06); }
+.fs-hm-preset span { font-size: 11.5px; color: var(--a-muted); }
+.fs-hm-preset[disabled] { cursor: default; opacity: .55; }
+@media (max-width: 900px) { .fs-hm-form { grid-template-columns: 1fr 1fr; } .fs-hm-url { grid-column: 1 / -1; } }

@@ -277,6 +277,11 @@ app.UseStaticFiles(new StaticFileOptions
             return;
         }
 
+        // دور ۲۹ (#۱۱): قاب ایزولهٔ «حالت کد» کمپین مبدأ جدا (null) دارد و مرورگر فونت را فقط با CORS به آن می‌دهد؛
+        // فونت‌ها عمومی‌اند، پس اجازهٔ همه بی‌خطر است.
+        if (path.StartsWithSegments("/assets/font"))
+            headers[HeaderNames.AccessControlAllowOrigin] = "*";
+
         headers[HeaderNames.CacheControl] = context.Context.Request.Query.ContainsKey("v")
             ? "public, max-age=31536000, immutable"
             : "public, max-age=604800";
@@ -323,6 +328,8 @@ Fratak_Shop.Web.Infrastructure.Analytics.AnalyticsEndpoints.MapAnalyticsEndpoint
 // دور ۲۸ (#۱۱۹): گزارش نقض سیاست امنیت محتوا (CSP) از مرورگرها.
 Fratak_Shop.Web.Infrastructure.Middleware.CspReports.Map(app);
 app.MapMediaEndpoints();
+// دور ۲۹ (#۱۱): قاب ایزولهٔ «حالت کد» صفحه‌های کمپین.
+Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.MapCampaignFrame(app);
 Fratak_Shop.Web.Infrastructure.Seo.OgImageRenderer.Map(app);
 
 // Uptime monitors: database reachability only (details are in the admin panel).

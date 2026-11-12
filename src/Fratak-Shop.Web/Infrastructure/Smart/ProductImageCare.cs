@@ -223,14 +223,16 @@ public static class ProductImageCare
             if (plan.FillGhost)
             {
                 // نوشتهٔ کم‌رنگ روی زمینه: پیکسل‌های نزدیک به رنگ زمینه یکدست می‌شوند (همان آستانهٔ ImageCleanup.Apply).
-                for (var y = 0; y < full.Height; y++)
+                // مستقیم روی بایت‌های RGBA (چند برابر سریع‌تر از GetPixel/SetPixel روی عکس بزرگ).
+                var pixels = full.GetPixelSpan();
+                for (var i = 0; i + 3 < pixels.Length; i += 4)
                 {
-                    for (var x = 0; x < full.Width; x++)
-                    {
-                        var c = full.GetPixel(x, y);
-                        if (ImageSubjectCheck.Distance((c.Red, c.Green, c.Blue), plan.Background) <= 38)
-                            full.SetPixel(x, y, fill);
-                    }
+                    if (ImageSubjectCheck.Distance((pixels[i], pixels[i + 1], pixels[i + 2]), plan.Background) > 38)
+                        continue;
+                    pixels[i] = r;
+                    pixels[i + 1] = g;
+                    pixels[i + 2] = b;
+                    pixels[i + 3] = 255;
                 }
             }
             using var image = SKImage.FromBitmap(full);
@@ -373,7 +375,7 @@ public static class ProductImageCare
 
     /// <summary>
     /// دوربری و قاب یکسان: زمینهٔ سفید حذف، کالا وسط بوم مربعِ شفاف با ۶٪ حاشیه از هر طرف (ضلع ۸۰۰ تا ۱۴۰۰ پیکسل).
-    /// مثال: هدفون ۷۲۰×۸۷۰ ← بوم ۹۷۴×۹۷۴ با هدفون وسط.
+    /// مثال: هدفون ۷۲۰×۸۷۰ ← بوم ۹۸۹×۹۸۹ با هدفون وسط.
     /// </summary>
     private static CutoutOutcome MakeCutout(string path)
     {

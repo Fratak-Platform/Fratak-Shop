@@ -1885,6 +1885,18 @@ namespace Fratak_Shop.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CodeCss")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CodeHtml")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CodeJs")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("CodeMode")
+                        .HasColumnType("bit");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 

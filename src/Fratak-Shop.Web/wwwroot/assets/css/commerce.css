@@ -447,3 +447,27 @@ body.fs-no-header .fs-msearch-spacer { display: none !important; }
 .dark .fs-msearch-form { background: #111827; border-color: #1f2937; }
 .dark .fs-msearch-form input { color: #e5e7eb; }
 @media print { .fs-msearch, .fs-msearch-spacer { display: none !important; } }
+
+/* ── دور ۲۹ (#۲۳): کارت‌های آمار «دعوت از دوستان» ───────────────────────── */
+.fs-inv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 640px) { .fs-inv-stats { grid-template-columns: 1fr; } }
+.fs-inv-stat { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-radius: 16px;
+  border: 1px solid var(--fs-inv-border, #e0f2fe); background: linear-gradient(135deg, var(--fs-inv-soft, #f0f9ff), #fff 70%);
+  transition: transform .2s ease, box-shadow .2s ease; }
+.fs-inv-stat:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(15, 23, 42, .35); }
+.fs-inv-stat::after { content: ""; position: absolute; inset-inline-end: -28px; bottom: -28px; width: 96px; height: 96px; border-radius: 50%;
+  background: var(--fs-inv-main, #0ea5e9); opacity: .07; }
+.fs-inv-icon { flex-shrink: 0; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--fs-inv-main, #0ea5e9);
+  box-shadow: 0 8px 18px -10px var(--fs-inv-main, #0ea5e9); }
+.fs-inv-icon svg { fill: #fff; }
+.fs-inv-label { font-size: 12px; color: #64748b; }
+.fs-inv-value { margin-top: 2px; font-size: 26px; line-height: 1.2; font-weight: 800; color: var(--fs-inv-text, #0369a1); font-variant-numeric: tabular-nums; }
+.fs-inv-hint { margin-top: 4px; font-size: 11px; color: #94a3b8; }
+.fs-inv-bar { margin-top: 8px; height: 6px; width: 100%; min-width: 96px; border-radius: 99px; background: rgba(15, 23, 42, .08); overflow: hidden; }
+.fs-inv-bar span { display: block; height: 100%; border-radius: inherit; background: var(--fs-inv-main, #10b981); transition: width .6s ease; }
+.fs-inv-sky { --fs-inv-main: #0ea5e9; --fs-inv-soft: #f0f9ff; --fs-inv-border: #e0f2fe; --fs-inv-text: #0369a1; }
+.fs-inv-green { --fs-inv-main: #10b981; --fs-inv-soft: #ecfdf5; --fs-inv-border: #d1fae5; --fs-inv-text: #047857; }
+.fs-inv-amber { --fs-inv-main: #f59e0b; --fs-inv-soft: #fffbeb; --fs-inv-border: #fef3c7; --fs-inv-text: #b45309; }
+.dark .fs-inv-stat { background: linear-gradient(135deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); border-color: rgba(255, 255, 255, .1); }
+.dark .fs-inv-value { color: #e2e8f0; }
+@media (prefers-reduced-motion: reduce) { .fs-inv-stat, .fs-inv-bar span { transition: none; } }

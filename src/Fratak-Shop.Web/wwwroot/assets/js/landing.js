@@ -54,6 +54,19 @@
     }, 1000);
   }
 
+  // دور ۲۹ (#۱۱): قاب «حالت کد» ارتفاع محتوایش را با postMessage می‌فرستد؛ فقط پیام همان قاب پذیرفته می‌شود
+  // (منبع پیام = پنجرهٔ قاب) و عدد در بازهٔ معقول محدود می‌شود تا کد قاب نتواند صفحه را بی‌نهایت بلند کند.
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (!data || typeof data.fsLpHeight !== "number") return;
+    document.querySelectorAll("iframe[data-fs-lp-frame]").forEach(function (frame) {
+      if (frame.contentWindow !== event.source) return;
+      var h = Math.max(120, Math.min(60000, Math.round(data.fsLpHeight)));
+      frame.style.height = h + "px";
+      frame.classList.add("is-sized");
+    });
+  });
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();

@@ -137,6 +137,7 @@ public static class CategoryIcons
         ["refrigerator"] = "Home", ["washing-machine"] = "Home", ["tea-maker"] = "Home", ["coffee-maker"] = "Home", ["blender"] = "Home", ["iron"] = "Home",
         ["perfume"] = "Sparkle", ["wristwatch"] = "Clock", ["bag"] = "ShoppingBag", ["shoes"] = "ShoppingBag", ["massager"] = "Heart",
         ["power-strip"] = "Plug", ["hair-straightener"] = "Sparkle", ["flashlight"] = "Lightbulb", ["toy"] = "Gift",
+        ["kitchenware"] = "Home",
     };
 
     /// <summary>نام آیکون برای نام/نامک دسته.</summary>

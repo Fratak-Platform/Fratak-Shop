@@ -7,7 +7,7 @@
 }
 @section Head {
   <link rel="stylesheet" href="~/assets/css/landing.css" asp-append-version="true">
-  @if (!string.IsNullOrWhiteSpace(landing.Css) && !landing.Ended)
+  @if (!string.IsNullOrWhiteSpace(landing.Css) && !landing.Ended && !landing.CodeMode)
   {
     <style>@Html.Raw(landing.Css)</style>
   }
@@ -23,6 +23,13 @@
         <p class="text-center mt-6"><a class="fs-lp-btn fs-lp-btn--accent" href="/products?Discounted=true&amp;Sort=MostDiscounted">تخفیف‌های امروز</a></p>
       </div>
     </section>
+  }
+  else if (landing.CodeMode)
+  {
+    @* دور ۲۹ (#۱۱): حالت کد – HTML/CSS/JS خام مدیر در قاب ایزوله (بدون دسترسی به حساب و کوکی). ارتفاع را landing.js تنظیم می‌کند. *@
+    <iframe class="fs-lp-code" src="@Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.PathFor(landing.Slug)"
+            sandbox="@Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.SandboxFlags" title="@landing.Title"
+            referrerpolicy="strict-origin-when-cross-origin" data-fs-lp-frame></iframe>
   }
   else
   {

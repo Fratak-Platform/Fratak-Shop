@@ -61,6 +61,8 @@
               <td data-label="آخرین ویرایش" class="text-xs">@AdminUi.Ago(p.UpdatedAt) @p.UpdatedByName</td>
               <td class="actions">
                 <a class="a-btn a-btn-light a-btn-xs" href="/admin/campaigns/edit/@p.Id">@Icons.Svg("PencilSimple", null, 16) صفحه‌ساز</a>
+                @* دور ۲۹ (#۱۱): ویرایشگر کد خام (جایگزین صفحه‌ساز). *@
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/campaigns/code/@p.Id" title="کد خام HTML/CSS/JS">&lt;/&gt; کد</a>
                 <form method="post" asp-page-handler="Delete" asp-route-id="@p.Id" class="inline"><button class="a-btn a-btn-light a-btn-xs" type="submit" data-confirm="صفحه به سطل بازیافت برود؟">@Icons.Svg("Trash", null, 16)</button></form>
               </td>
             </tr>

@@ -12,6 +12,7 @@ namespace Fratak_Shop.Data.Migrations
     /// <item>NotificationReads.HiddenAt – پیام همگانی که مشتری از فهرست خودش برداشته (برای بقیه می‌ماند).</item>
     /// <item>Banners.IsPinned – بنر سنجاق‌شده همیشه نمایش داده می‌شود و در چرخش نوبتی بیرون نمی‌رود.</item>
     /// <item>Banners.MobileImageName – بنر دیگر نسخهٔ موبایل جدا ندارد؛ مقدارهای قبلی خالی می‌شوند (ستون برای سازگاری می‌ماند).</item>
+    /// <item>LandingPages.CodeMode/CodeHtml/CodeCss/CodeJs – «حالت کد» صفحهٔ کمپین (HTML/CSS/JS خام داخل iframe ایزوله).</item>
     /// </list>
     /// </summary>
     public partial class Round29 : Migration
@@ -39,6 +40,31 @@ namespace Fratak_Shop.Data.Migrations
                 nullable: false,
                 defaultValue: false);
 
+            migrationBuilder.AddColumn<bool>(
+                name: "CodeMode",
+                table: "LandingPages",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<string>(
+                name: "CodeHtml",
+                table: "LandingPages",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "CodeCss",
+                table: "LandingPages",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "CodeJs",
+                table: "LandingPages",
+                type: "nvarchar(max)",
+                nullable: true);
+
             // پیام‌های همگانیِ قبلی (غیر امنیتی) را مشتری می‌تواند از فهرستش بردارد؛ اعلان‌های شخصی قبلی «فقط مدیر» می‌مانند.
             migrationBuilder.Sql("UPDATE [Notifications] SET [UserDeletable] = 1 WHERE [UserId] IS NULL;");
 
@@ -52,6 +78,10 @@ namespace Fratak_Shop.Data.Migrations
             migrationBuilder.DropColumn(name: "UserDeletable", table: "Notifications");
             migrationBuilder.DropColumn(name: "HiddenAt", table: "NotificationReads");
             migrationBuilder.DropColumn(name: "IsPinned", table: "Banners");
+            migrationBuilder.DropColumn(name: "CodeMode", table: "LandingPages");
+            migrationBuilder.DropColumn(name: "CodeHtml", table: "LandingPages");
+            migrationBuilder.DropColumn(name: "CodeCss", table: "LandingPages");
+            migrationBuilder.DropColumn(name: "CodeJs", table: "LandingPages");
         }
     }
 }

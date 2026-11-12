@@ -190,6 +190,21 @@ public class LandingPage : BaseEntity
     [MaxLength(40)]
     public string? TemplateKey { get; set; }
 
+    /// <summary>
+    /// دور ۲۹ (#۱۱): «حالت کد» به جای صفحه‌ساز. روشن ← صفحهٔ عمومی کد خام HTML/CSS/JS زیر را داخل یک iframe ایزوله
+    /// (sandbox بدون دسترسی به کوکی و حساب کاربر، با CSP جدا) نشان می‌دهد؛ خروجی صفحه‌ساز دست نمی‌خورد و با خاموش کردن برمی‌گردد.
+    /// </summary>
+    public bool CodeMode { get; set; }
+
+    /// <summary>دور ۲۹ (#۱۱): HTML خام حالت کد (پاک‌سازی نمی‌شود؛ فقط داخل iframe ایزوله اجرا می‌شود).</summary>
+    public string? CodeHtml { get; set; }
+
+    /// <summary>دور ۲۹ (#۱۱): CSS خام حالت کد.</summary>
+    public string? CodeCss { get; set; }
+
+    /// <summary>دور ۲۹ (#۱۱): جاوااسکریپت خام حالت کد.</summary>
+    public string? CodeJs { get; set; }
+
     [MaxLength(150)]
     public string? UpdatedByName { get; set; }
 }

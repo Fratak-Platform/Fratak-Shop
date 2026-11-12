@@ -20,7 +20,13 @@ public sealed record LandingSaveInput(Guid? Id, string Title, string? Slug, stri
 
 /// <summary>دادهٔ نمایش عمومی. Ended = زمان کمپین تمام شده (صفحه پیام پایان و لینک فروشگاه نشان می‌دهد، ۴۰۴ نمی‌دهد تا لینک‌های پخش‌شده نسوزند).</summary>
 public sealed record LandingView(Guid Id, string Slug, string Title, string? MetaTitle, string? MetaDescription, string? ImageUrl, string Html, string Css,
-    bool ShowHeader, bool ShowFooter, bool Ended, DateTimeOffset UpdatedAt, DateTimeOffset? EndAt = null);
+    bool ShowHeader, bool ShowFooter, bool Ended, DateTimeOffset UpdatedAt, DateTimeOffset? EndAt = null, bool CodeMode = false);
+
+/// <summary>دور ۲۹ (#۱۱): ورودی ذخیرهٔ «حالت کد» صفحهٔ کمپین (کد خام؛ فقط داخل iframe ایزوله اجرا می‌شود).</summary>
+public sealed record LandingCodeInput(Guid Id, bool CodeMode, string? Html, string? Css, string? Js);
+
+/// <summary>دور ۲۹ (#۱۱): کد خام صفحهٔ کمپین برای قاب ایزوله (/campaign/{slug}/frame).</summary>
+public sealed record LandingCode(string Title, string Html, string Css, string Js);
 
 /// <summary>
 /// صفحه‌ساز کمپین (دور ۲۱): ذخیره، نمایش عمومی و کدهای کوتاه کالا.
@@ -43,6 +49,15 @@ public interface ILandingPageService
     Task<OperationResult<Guid>> SaveAsync(LandingSaveInput input, string? actor, CancellationToken cancellationToken = default);
 
     Task<OperationResult> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>دور ۲۹ (#۱۱): ذخیرهٔ «حالت کد» (HTML/CSS/JS خام). خروجی صفحه‌ساز دست نمی‌خورد.</summary>
+    Task<OperationResult> SaveCodeAsync(LandingCodeInput input, string? actor, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۹ (#۱۱): کد خام صفحه برای قاب ایزوله؛ فقط وقتی حالت کد روشن است و کمپین تمام نشده.
+    /// includeHidden مثل <see cref="GetPublicAsync"/> فقط برای پیش‌نمایش کارمند است.
+    /// </summary>
+    Task<LandingCode?> GetCodeAsync(string slug, DateTimeOffset now, CancellationToken cancellationToken = default, bool includeHidden = false);
 
     /// <summary>جایگزینی کدهای فهرستی ([[deals:8]] …) با کدهای تک‌کالا داخل شبکهٔ کارت‌ها.</summary>
     Task<string> ExpandListsAsync(string html, CancellationToken cancellationToken = default);
@@ -68,12 +83,49 @@ public sealed partial class LandingPageService(FratakShopDbContext context) : IL
             return null;
         var page = await context.LandingPages.AsNoTracking()
             .Where(p => p.Slug == slug && (includeHidden || (p.IsActive && (p.StartAt == null || p.StartAt <= now))))
-            .Select(p => new { p.Id, p.Slug, p.Title, p.MetaTitle, p.MetaDescription, p.ImageUrl, p.Html, p.Css, p.ShowHeader, p.ShowFooter, p.EndAt, p.UpdatedAt })
+            .Select(p => new { p.Id, p.Slug, p.Title, p.MetaTitle, p.MetaDescription, p.ImageUrl, p.Html, p.Css, p.ShowHeader, p.ShowFooter, p.EndAt, p.UpdatedAt, p.CodeMode })
             .FirstOrDefaultAsync(cancellationToken);
         if (page is null)
             return null;
         return new LandingView(page.Id, page.Slug, page.Title, page.MetaTitle, page.MetaDescription, page.ImageUrl, page.Html ?? "", page.Css ?? "",
-            page.ShowHeader, page.ShowFooter, page.EndAt is { } end && end <= now, page.UpdatedAt, page.EndAt);
+            page.ShowHeader, page.ShowFooter, page.EndAt is { } end && end <= now, page.UpdatedAt, page.EndAt, page.CodeMode);
+    }
+
+    public async Task<LandingCode?> GetCodeAsync(string slug, DateTimeOffset now, CancellationToken cancellationToken = default, bool includeHidden = false)
+    {
+        if (!EnglishSlug.IsEnglish(slug) || slug.Length > 200)
+            return null;
+        // همان شرط نمایش عمومی + حالت کد روشن + کمپین تمام‌نشده (کمپین تمام‌شده پیام پایان خودش را دارد، نه کد).
+        var page = await context.LandingPages.AsNoTracking()
+            .Where(p => p.Slug == slug && p.CodeMode && (p.EndAt == null || p.EndAt > now)
+                && (includeHidden || (p.IsActive && (p.StartAt == null || p.StartAt <= now))))
+            .Select(p => new { p.Title, p.CodeHtml, p.CodeCss, p.CodeJs })
+            .FirstOrDefaultAsync(cancellationToken);
+        return page is null ? null : new LandingCode(page.Title, page.CodeHtml ?? "", page.CodeCss ?? "", page.CodeJs ?? "");
+    }
+
+    public async Task<OperationResult> SaveCodeAsync(LandingCodeInput input, string? actor, CancellationToken cancellationToken = default)
+    {
+        // سقف اندازه: هر بخش حداکثر ۵۰۰ هزار نویسه (مثل HTML صفحه‌ساز) تا دیتابیس و پاسخ صفحه سنگین نشوند.
+        if ((input.Html?.Length ?? 0) > MaxHtmlLength || (input.Css?.Length ?? 0) > MaxHtmlLength || (input.Js?.Length ?? 0) > MaxHtmlLength)
+            return OperationResult.Error("کد خیلی بزرگ است (هر بخش حداکثر ۵۰۰ هزار نویسه). عکس‌ها را از کتابخانهٔ رسانه لینک کنید، نه به‌صورت base64.");
+        if (input.CodeMode && string.IsNullOrWhiteSpace(input.Html))
+            return OperationResult.Error("برای روشن کردن حالت کد، بخش HTML نباید خالی باشد.");
+        var page = await context.LandingPages.AsTracking().FirstOrDefaultAsync(p => p.Id == input.Id, cancellationToken);
+        if (page is null)
+            return OperationResult.NotFound("صفحه پیدا نشد.");
+        page.CodeMode = input.CodeMode;
+        page.CodeHtml = Blank(input.Html);
+        page.CodeCss = Blank(input.Css);
+        page.CodeJs = Blank(input.Js);
+        page.UpdatedByName = Cut(actor, 150);
+        await context.SaveChangesAsync(cancellationToken);
+        return OperationResult.Success(input.CodeMode
+            ? "کد ذخیره شد؛ صفحهٔ کمپین حالا همین کد را نشان می‌دهد."
+            : "کد ذخیره شد؛ صفحهٔ کمپین خروجی صفحه‌ساز را نشان می‌دهد (حالت کد خاموش است).");
+
+        // متن فقط‌فاصله = خالی (null) تا ستون بی‌دلیل پر نشود.
+        static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     public async Task<OperationResult<Guid>> SaveAsync(LandingSaveInput input, string? actor, CancellationToken cancellationToken = default)

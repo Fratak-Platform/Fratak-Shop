@@ -488,8 +488,10 @@ public class SmartContentTests
     public void Smart_background_tables_do_not_evict_the_public_page_cache()
     {
         Assert.False(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.AffectsPages(
-            [typeof(SmartTask), typeof(SmartResearchCache), typeof(BlogPlanItem), typeof(CustomerReminder), typeof(SmartContentConfig)]));
+            [typeof(SmartTask), typeof(SmartResearchCache), typeof(BlogPlanItem), typeof(CustomerReminder)]));
         Assert.True(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.AffectsPages([typeof(ProductInsight)]));
+        // دور ۲۹: تنظیمات هوشمند (سقف و چرخش بنرها) در صفحهٔ اصلی اثر دارد ← کش باید تازه شود.
+        Assert.True(Fratak_Shop.Web.Infrastructure.PageCache.PageCachePolicy.AffectsPages([typeof(SmartContentConfig)]));
     }
 
     [Fact]

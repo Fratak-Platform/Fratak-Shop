@@ -30,6 +30,8 @@
         <option value="">قالب‌ها…</option>
         @foreach (var t in LandingTemplates.List) { <option value="@t.Key">@t.Title</option> }
       </select>
+      @* دور ۲۹ (#۱۱): رفتن به حالت کد خام. *@
+      <a class="a-btn a-btn-light a-btn-xs" href="/admin/campaigns/code/@p.Id" title="نوشتن صفحه با کد خام HTML/CSS/JS">&lt;/&gt; حالت کد@(p.CodeMode ? " (روشن)" : "")</a>
       <a class="a-btn a-btn-light a-btn-xs" href="/campaign/@p.Slug" target="_blank" rel="noopener" data-pb-view>@Icons.Svg("Eye", null, 16) مشاهده</a>
       <button type="button" class="a-btn a-btn-primary a-btn-xs" data-pb-save>@Icons.Svg("FloppyDisk", null, 16) ذخیره</button>
     </div>

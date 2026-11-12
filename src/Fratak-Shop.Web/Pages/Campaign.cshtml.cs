@@ -43,7 +43,8 @@ public class CampaignModel(ILandingPageService landings, IBuyerGuideService buye
             return NotFound();
         Landing = landing;
 
-        if (!landing.Ended)
+        // دور ۲۹ (#۱۱): در «حالت کد» بدنه یک قاب ایزوله است (CampaignFrameEndpoint)؛ خروجی صفحه‌ساز ساخته نمی‌شود.
+        if (!landing.Ended && !landing.CodeMode)
         {
             var html = await landings.ExpandListsAsync(landing.Html, ct);
             var slugs = BlogShortcodes.ProductSlugs(html);
