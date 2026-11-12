@@ -214,6 +214,44 @@ public sealed class SmartSources(
     }
 
     /// <summary>
+    /// دور ۳۱ (#۱) – «دستهٔ کالا در صفحهٔ تأمین‌کننده» (قانون پروژه: سیستم دسته را نفهمید ← لینک تأمین‌کننده را باز کن و دستهٔ آن را بخوان).
+    /// <list type="bullet">
+    /// <item>صفحهٔ کالای دیجی‌کالا (dkp-123) ← مسیر دسته از API رسمی همان کالا (دقیق‌تر از HTML).</item>
+    /// <item>هر فروشگاه دیگر ← HTML صفحه: JSON-LD BreadcrumbList، فیلد category، نوار مسیر، «دسته:» ووکامرس، متای product:category
+    /// (<see cref="SmartParsers.SupplierCategoryPath"/>).</item>
+    /// </list>
+    /// مؤدبانه (دروازهٔ هر میزبان، فاصلهٔ ۲ ثانیه، توقف خودکار بعد از مسدود شدن) و ۱۴ روز کش (نبود مسیر هم کش می‌شود).
+    /// مثال: «https://shop.ir/product/kettle-kt2000» ← [«لوازم آشپزخانه»، «کتری و قوری»]. آدرس نامعتبر/صفحهٔ خراب ← null.
+    /// </summary>
+    public async Task<IReadOnlyList<string>?> SupplierCategoryAsync(string url, string productName, CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+            return null;
+        var key = "supcat:v1:" + url;
+        var cached = await store.GetAsync<CachedText>(key, cancellationToken);
+        if (cached is not null)
+            return string.IsNullOrWhiteSpace(cached.Value) ? null : CategoryNames.Path(cached.Value);
+
+        IReadOnlyList<string> path = [];
+        var dkp = System.Text.RegularExpressions.Regex.Match(url, @"digikala\.com/product/dkp-(?<id>\d{3,12})", System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            TimeSpan.FromMilliseconds(200));
+        if (dkp.Success && long.TryParse(dkp.Groups["id"].Value, out var id))
+        {
+            path = CategoryNames.Path((await DigikalaDetailsAsync(id, cancellationToken))?.Category);
+        }
+        else
+        {
+            var html = await GetAsync(Supplier + ":" + uri.Host, url, false, cancellationToken);
+            if (html is null)
+                return null; // شکست شبکه کش نمی‌شود تا دفعهٔ بعد دوباره امتحان شود.
+            path = SmartParsers.SupplierCategoryPath(html, productName);
+        }
+        var text = path.Count > 0 ? CategoryNames.Join(path) : "";
+        await store.SetAsync(key, uri.Host, new CachedText(text), TimeSpan.FromDays(14), cancellationToken);
+        return path.Count > 0 ? path : null;
+    }
+
+    /// <summary>
     /// دور ۲۶ – «جای خالی داده را از سایت‌های دیگر پر کن»: نام انگلیسی کالا از ترب (name2) وقتی دیجی‌کالا نام انگلیسی نداد.
     /// فقط نتیجه با شباهت نام ≥ ۷۵٪ (<see cref="SmartParsers.TorobEnglishName"/>). ۷ روز کش؛ شکست ← null.
     /// </summary>

@@ -246,6 +246,8 @@ public static class CoreLayerBootstrapper
         services.AddScoped<Services.Smart.ISmartCategoryService, Services.Smart.SmartCategoryService>();
         // دور ۲۲: ورود هوشمند کالا (دسته‌بندی چند دقیقه بعد از ساخت + صف «تکمیل هوشمند» + سئوی بعد از انتشار).
         services.AddScoped<Services.Smart.IProductIntakeService, Services.Smart.ProductIntakeService>();
+        // دور ۳۱ (#۱): کالایی که سیستم دسته‌اش را نفهمید ← دسته از صفحهٔ تأمین‌کننده (SupplierUrl) خوانده و دقیق‌تر می‌شود.
+        services.AddScoped<Services.Smart.ISupplierCategoryService, Services.Smart.SupplierCategoryService>();
         services.AddScoped<Services.Smart.ICategoryTreeService, Services.Smart.CategoryTreeService>(); // دور ۲۳: ممیز ساعتی درخت دسته‌ها
         services.AddScoped<Services.Products.ISpecFacetService, Services.Products.SpecFacetService>(); // دور ۲۳: فیلتر مشخصات خودکار
         services.AddScoped<Services.Smart.IBlogPlanService, Services.Smart.BlogPlanService>();

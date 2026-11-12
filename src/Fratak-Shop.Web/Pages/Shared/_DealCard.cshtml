@@ -7,9 +7,6 @@
   {
     <div class="countdown flex flex-row-reverse justify-start items-center gap-x-1 text-white bg-cyan-500 rounded-full px-2 py-1 mr-auto w-fit" data-countdown="@Format.UnixMilliseconds(Model.DiscountEndAt.Value)">
       @Icons.Svg("Clock", "fill-white", 16)
-      <div class="days-container hidden">
-        <span data-cd="days" class="text-xs md:text-base"></span>
-      </div>
       <div class="hours-container">
         <span data-cd="hours" class="text-xs md:text-base">00</span>
       </div>
@@ -21,6 +18,11 @@
       <div class="seconds-container">
         <span data-cd="seconds" class="text-xs md:text-base">00</span>
       </div>
+      @* دور ۳۱ (#۱۰): تخفیف چندروزه – روزها با برچسب «روز» سمت راست ساعت نشان داده می‌شوند («۲ روز و ۱۲:۳۰:۴۵») (قبلاً «۲» به «۲۳:۵۹:۵۹» می‌چسبید و «۲۲۳:…» دیده می‌شد). *@
+      <div class="days-container hidden items-center gap-x-1">
+        <span data-cd="days" class="text-xs md:text-base"></span>
+        <span class="text-[10px] md:text-xs">روز و</span>
+      </div>
     </div>
   }
   @if (Model.AverageRating > 0)
@@ -31,7 +33,7 @@
     </div>
   }
   <a href="@url" class="image-box mb-6 block">
-    <img class="w-full mx-auto" src="@ImageHelper.Product(Model.PrimaryImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(Model.PrimaryImageName), Site.Settings.IsImageOptimizationEnabled, 640)" sizes="(min-width: 768px) 240px, 45vw" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" decoding="async" />
+    <img class="w-full fs-pimg" src="@ImageHelper.Product(Model.PrimaryImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(Model.PrimaryImageName), Site.Settings.IsImageOptimizationEnabled, 640)" sizes="(min-width: 768px) 240px, 45vw" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" decoding="async" />
   </a>
   @if (!string.IsNullOrWhiteSpace(Model.EnglishName))
   {

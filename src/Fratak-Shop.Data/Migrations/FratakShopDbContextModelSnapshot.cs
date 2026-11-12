@@ -5469,6 +5469,13 @@ namespace Fratak_Shop.Data.Migrations
                     b.Property<int>("StockQuantity")
                         .HasColumnType("int");
 
+                    b.Property<string>("SupplierCategory")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTimeOffset?>("SupplierCategoryAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uniqueidentifier");
 

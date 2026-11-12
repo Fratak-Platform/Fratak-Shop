@@ -146,6 +146,15 @@
     return v.jm >= 1 && v.jm <= 12 && v.jd >= 1 && v.jd <= monthLength(v.jy, v.jm) ? v : null;
   }
 
+  /**
+   * ساعت پیش‌فرض وقتی هنوز ساعتی انتخاب نشده: data-jalali-time="23:59" (مثلاً «پایان تخفیف» ← آخر روز)، وگرنه ۰۰:۰۰
+   * (قبلاً ۱۲:۰۰ بود و پایان حراج ۳ روزه وسط روز سوم تمام می‌شد).
+   */
+  function defaultTime(input) {
+    const m = String(input.dataset.jalaliTime || "").match(/^(\d{1,2}):(\d{2})$/);
+    return m ? { hh: Math.min(23, +m[1]), mi: Math.min(59, +m[2]) } : { hh: 0, mi: 0 };
+  }
+
   function closePicker() {
     if (popup) popup.hidden = true;
     current = null;
@@ -184,7 +193,7 @@
     }
 
     const time = current.withTime
-      ? `<div class="fa-jp-time"><label>ساعت <input data-jp-hh inputmode="numeric" maxlength="2" value="${pad(selected?.hh ?? 12)}"></label>:<input data-jp-mi inputmode="numeric" maxlength="2" value="${pad(selected?.mi ?? 0)}"></div>`
+      ? `<div class="fa-jp-time"><label>ساعت <input data-jp-hh inputmode="numeric" maxlength="2" value="${pad(selected?.hh ?? defaultTime(input).hh)}"></label>:<input data-jp-mi inputmode="numeric" maxlength="2" value="${pad(selected?.mi ?? defaultTime(input).mi)}"></div>`
       : "";
 
     popup.innerHTML =
@@ -223,6 +232,13 @@
       document.body.appendChild(popup);
       popup.addEventListener("mousedown", (e) => { if (!e.target.closest("input")) e.preventDefault(); });
       popup.addEventListener("click", onPopupClick);
+      // دور ۳۱ (#۱۰): تغییر ساعت/دقیقه بعد از انتخاب روز هم در ورودی نوشته می‌شود (قبلاً فقط کلیک روی روز ساعت را ثبت می‌کرد و
+      // ساعتی که بعداً عوض می‌شد گم می‌شد؛ حراج چندروزه با ساعت دلخواه درست ذخیره نمی‌شد).
+      popup.addEventListener("input", (e) => {
+        if (!current || !current.withTime || !e.target.matches("[data-jp-hh], [data-jp-mi]")) return;
+        const selected = parseValue(current.input.value);
+        if (selected) writeValue(selected.jy, selected.jm, selected.jd);
+      });
     }
     const value = parseValue(input.value) || toJalali(new Date());
     current = { input, withTime: input.dataset.jalali === "datetime" || / \d\d:\d\d$/.test(input.placeholder || ""), jy: value.jy, jm: value.jm };

@@ -471,3 +471,20 @@ body.fs-no-header .fs-msearch-spacer { display: none !important; }
 .dark .fs-inv-stat { background: linear-gradient(135deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); border-color: rgba(255, 255, 255, .1); }
 .dark .fs-inv-value { color: #e2e8f0; }
 @media (prefers-reduced-motion: reduce) { .fs-inv-stat, .fs-inv-bar span { transition: none; } }
+
+/* ───────────── دور ۳۱ (#۲): عکس کالا همیشه وسط قاب ─────────────
+   عکس‌ها اندازه و نسبت‌های مختلف دارند (۳۰۰×۵۰۰، ۱۲۰۰×۸۰۰ …). قبلاً عکسِ کوچک‌تر از کارت به لبهٔ راست می‌چسبید و عکس کشیده قاب را
+   بلند/کوتاه می‌کرد. حالا قاب همیشه مربع است و عکس با object-fit: contain (بدون بریدن یا کشیدگی) دقیقاً وسط آن می‌نشیند. */
+.fs-pimg {
+  display: block;
+  margin-inline: auto;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  -o-object-fit: contain;
+     object-fit: contain;
+  -o-object-position: center;
+     object-position: center;
+}
+/* عکس بزرگ گالری (مودال): ارتفاع محدود، ولی همچنان وسط. */
+.fs-pimg--free { aspect-ratio: auto; max-height: 60vh; width: auto; }

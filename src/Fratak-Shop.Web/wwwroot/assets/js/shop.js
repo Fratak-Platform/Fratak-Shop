@@ -52,7 +52,11 @@
           if (el) el.textContent = values[key];
         });
         const daysBox = timer.querySelector(".days-container");
-        if (daysBox) daysBox.classList.toggle("hidden", days === 0);
+        if (daysBox) {
+          // R31 (#10): multi-day discounts show "N روز و HH:MM:SS".
+          daysBox.classList.toggle("hidden", days === 0);
+          daysBox.classList.toggle("flex", days > 0);
+        }
       });
     };
     tick();

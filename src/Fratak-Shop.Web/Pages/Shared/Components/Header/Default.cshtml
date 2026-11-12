@@ -279,7 +279,8 @@
             <ul class="space-y-1 p-2">
               <li class="border-b pb-1">
                 <a class="flex flex-col rounded-lg p-2 text-zinc-700 transition hover:bg-gray-100" href="/profile">
-                  <span class="text-sm font-semibold">@Model.Greeting</span>
+                  @* دور ۳۱ (#۴): نام کامل (نام + نام خانوادگی) بدون «جان»؛ بی‌نام ← شمارهٔ موبایل. *@
+                  <span class="text-sm font-semibold truncate" title="@Model.DisplayName">@Model.DisplayName</span>
                   <span class="text-xs text-zinc-400">پیشخوان حساب کاربری</span>
                 </a>
               </li>

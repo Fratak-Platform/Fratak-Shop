@@ -156,5 +156,16 @@ public class ReviewModel(ISeoEngineService engine, IAdminDataService data, IStor
         return BackToList();
     }
 
+    /// <summary>
+    /// دور ۳۱ (#۱۳): «حذف همهٔ پیشنهادهای منتظر» (kind = فقط همان نوع صفحه). فقط وضعیت «منتظر تأیید» حذف می‌شود تا
+    /// موتور پیشنهادهای تازه و غیرتکراری بسازد؛ داده‌های اعمال‌شده و ذخیره‌شده هرگز پاک نمی‌شوند.
+    /// </summary>
+    public async Task<IActionResult> OnPostDeletePendingAsync(SeoEntityKind? kind)
+    {
+        ShowResult(await engine.DeletePendingAsync(kind, ActorId, ActorName, HttpContext.RequestAborted));
+        badges.Invalidate();
+        return LocalRedirect(kind is { } k ? $"/admin/seo/review?kind={k}" : "/admin/seo/review");
+    }
+
     public string UrlWith(params (string Key, string? Value)[] values) => AdminUi.With(Request, values);
 }

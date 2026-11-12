@@ -154,6 +154,19 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
             var sources = services.GetRequiredService<SmartSources>();
             var report = await services.GetRequiredService<IProductIntakeService>()
                 .RunAsync(now, sources.MarketCategoryAsync, null, ProductIntakeService.DefaultTake, cancellationToken);
+            // دور ۳۱ (#۱) – قانون پروژه: کالایی که سیستم خودش دسته‌اش را نفهمید ← همین حالا صفحهٔ تأمین‌کننده‌اش خوانده می‌شود.
+            var rescued = 0;
+            if (report.Unplaced.Count > 0)
+            {
+                var supplier = await SupplierCategoriesAsync(services, now, cancellationToken, report.Unplaced);
+                rescued = supplier.Moved;
+                if (rescued > 0)
+                {
+                    var still = supplier.Unplaced.ToHashSet();
+                    var read = (supplier.Checked ?? Array.Empty<Guid>()).ToHashSet();
+                    report = report with { Categorized = report.Categorized + rescued, Unplaced = report.Unplaced.Where(id => !read.Contains(id) || still.Contains(id)).ToList() };
+                }
+            }
             await services.GetRequiredService<SmartNotifier>().NotifyIntakeAsync(report);
             return report.Examined + report.Seo;
         }
@@ -249,6 +262,8 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         if (!options.Enabled)
             return 0;
         var count = await CategorizeAsync(services, services.GetRequiredService<ISmartTaskQueue>(), cancellationToken);
+        // دور ۳۱ (#۱): کالاهایی که هنوز بی‌دسته/کلی مانده‌اند ← دسته از صفحهٔ تأمین‌کننده (هر ساعت حداکثر ۱۲ کالا، هر کالا هر ۱۴ روز).
+        count += (await SupplierCategoriesAsync(services, now, cancellationToken)).Moved;
         try
         {
             var report = await services.GetRequiredService<ICategoryTreeService>().AuditAsync(now, cancellationToken);
@@ -351,6 +366,30 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         {
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Video suggestions failed");
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// دور ۳۱ (#۱) – «دسته از لینک تأمین‌کننده»: کالاهای بی‌دسته/کلی که لینک تأمین‌کننده دارند (یا فقط <paramref name="only"/>) ← مسیر دسته از
+    /// صفحهٔ تأمین‌کننده (<see cref="SmartSources.SupplierCategoryAsync"/>) و دسته‌بندی دوباره؛ دستهٔ کلی تأمین‌کننده خودکار دقیق‌تر می‌شود.
+    /// کالایی که حالا دسته گرفت ← اعلان قابل کلیک به کارکنان. خطا فقط ثبت می‌شود (هرگز کار دیگر را متوقف نمی‌کند).
+    /// </summary>
+    public static async Task<SupplierCategoryReport> SupplierCategoriesAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken,
+        IReadOnlyCollection<Guid>? only = null, bool force = false)
+    {
+        try
+        {
+            var sources = services.GetRequiredService<SmartSources>();
+            var report = await services.GetRequiredService<ISupplierCategoryService>()
+                .RunAsync(now, sources.SupplierCategoryAsync, only, SupplierCategoryService.DefaultTake, force, cancellationToken);
+            if (report.Moved > 0)
+                await services.GetRequiredService<SmartNotifier>().NotifySupplierCategoriesAsync(report);
+            return report;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Supplier category fallback failed");
+            return SupplierCategoryReport.Empty;
         }
     }
 

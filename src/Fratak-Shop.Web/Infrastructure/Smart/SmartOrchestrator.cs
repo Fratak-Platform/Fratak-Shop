@@ -117,6 +117,7 @@ public sealed class SmartOrchestrator(
     ISmartCategoryService categorizer,
     ISmartTaskQueue queue,
     IMarketPricingService pricing,
+    ISupplierCategoryService supplierCategories,
     ILogger<SmartOrchestrator> logger)
 {
     public const string Actor = "دستیار هوشمند";
@@ -444,7 +445,16 @@ public sealed class SmartOrchestrator(
                 null, null, Actor, cancellationToken);
         }
         if (report.Moved == 0)
-            return new SmartOutcome(SmartTaskStatus.NeedsReview, "دستهٔ مطمئنی پیدا نشد؛ یک دسته انتخاب کنید (کالای بی‌دسته منتشر نمی‌شود).");
+        {
+            // دور ۳۱ (#۱) – قانون پروژه: سیستم خودش دسته را نفهمید ← صفحهٔ تأمین‌کنندهٔ همین کالا خوانده می‌شود (بدون فاصلهٔ ۱۴ روزه).
+            var supplier = await supplierCategories.RunAsync(DateTimeOffset.UtcNow, sources.SupplierCategoryAsync, [productId], 1, true, cancellationToken);
+            if (supplier.Moved > 0)
+            {
+                var placed = await catalog.GetProductAsync(productId, cancellationToken);
+                return new SmartOutcome(SmartTaskStatus.Applied, $"دسته از صفحهٔ تأمین‌کننده خوانده شد؛ کالا به دستهٔ «{placed?.CategoryName}» رفت.");
+            }
+            return new SmartOutcome(SmartTaskStatus.NeedsReview, "دستهٔ مطمئنی پیدا نشد (صفحهٔ تأمین‌کننده هم دسته‌ای نداشت)؛ یک دسته انتخاب کنید (کالای بی‌دسته منتشر نمی‌شود).");
+        }
         var subject = await catalog.GetProductAsync(productId, cancellationToken);
         return new SmartOutcome(SmartTaskStatus.Applied, $"کالا به دستهٔ «{subject?.CategoryName}» رفت"
             + (report.Created.Count > 0 ? " (دستهٔ تازه)." : report.General > 0 ? " (دستهٔ کلی؛ با کالاهای مشابه بیشتر، دستهٔ اختصاصی ساخته می‌شود)." : "."));

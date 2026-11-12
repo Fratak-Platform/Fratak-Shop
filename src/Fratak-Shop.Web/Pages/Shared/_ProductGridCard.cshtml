@@ -14,7 +14,7 @@
       @Model.AverageRating.ToString("0.0")
     </div>
   }
-  <img class="mx-auto fc-img-skel @(Model.IsInStock ? "" : "grayscale opacity-60")" src="@ImageHelper.Product(Model.PrimaryImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(Model.PrimaryImageName), Site.Settings.IsImageOptimizationEnabled, 640)" sizes="(min-width: 1280px) 18vw, (min-width: 768px) 30vw, 48vw" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" decoding="async">
+  <img class="w-full fs-pimg fc-img-skel @(Model.IsInStock ? "" : "grayscale opacity-60")" src="@ImageHelper.Product(Model.PrimaryImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(Model.PrimaryImageName), Site.Settings.IsImageOptimizationEnabled, 640)" sizes="(min-width: 1280px) 18vw, (min-width: 768px) 30vw, 48vw" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" decoding="async">
   <div class="mt-5">
     <div class="flex flex-col gap-y-1">
       @if (!string.IsNullOrWhiteSpace(Model.BrandName))

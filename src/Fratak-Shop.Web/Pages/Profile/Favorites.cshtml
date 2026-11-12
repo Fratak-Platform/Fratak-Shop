@@ -40,7 +40,7 @@
                   </form>
                 </div>
                 <a href="@url" class="image-box mb-6 block">
-                  <img class="max-w-52 mx-auto @(favorite.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(favorite.ProductImageName)" alt="@favorite.ProductName" loading="lazy">
+                  <img class="w-full max-w-52 fs-pimg @(favorite.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(favorite.ProductImageName)" alt="@favorite.ProductName" loading="lazy">
                 </a>
                 <div class="space-y-5">
                   <span class="mb-2 h-8 md:h-10 flex justify-between">

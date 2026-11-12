@@ -145,7 +145,9 @@ public sealed partial class SeoEngineService
         };
 
         AddTitles(draft, ctx, kb, PageTypeOf(subject.Kind));
+        // دور ۳۱ (#۹): توضیحاتی که صفحهٔ دیگری همان را دارد گزینه نمی‌شود (محتوای تکراری).
         foreach (var meta in ContentWriter.RankedMetas(ctx, 8).Select(m => SpamGuard.CleanText(m, kb)).Where(m => m.Length >= 50)
+                     .Where(m => SeoSiteIndex.Others(site.Descriptions, m, subject.EntityId) == 0)
                      .Distinct(StringComparer.Ordinal).Take(3))
             draft.Metas.Add(new SeoDraftOption(meta, meta.Length, meta.Length));
 
@@ -160,10 +162,16 @@ public sealed partial class SeoEngineService
 
         // متن تکمیلی فقط برای صفحهٔ کم‌محتوا (متن انسانی بلند هرگز بازنویسی نمی‌شود).
         var words = PersianText.WordCount(PersianText.HtmlToText(subject.BodyHtml));
-        if (words < SeoLimits.ThinContentWords && ContentWriter.Body(ctx) is { } body && FitsColumn(subject.Kind, body))
+        // دور ۳۱ (#۹): متن تقریباً تکراری با صفحهٔ دیگر پیشنهاد نمی‌شود؛ پرسش‌هایی که عیناً روی صفحهٔ دیگری هست هم حذف می‌شوند.
+        if (words < SeoLimits.ThinContentWords && ContentWriter.Body(ctx) is { } body && FitsColumn(subject.Kind, body)
+            && !SeoDuplicateGuard.IsNearDuplicateBody(body, subject.EntityId, site))
             draft.BodyHtml = body;
         if (subject.Kind is SeoEntityKind.Product or SeoEntityKind.Category or SeoEntityKind.BlogPost && subject.Faq.Count < 2)
-            draft.Faq.AddRange(ContentWriter.Faq(ctx).Take(6));
+        {
+            var faq = ContentWriter.Faq(ctx).Where(f => SeoSiteIndex.Others(site.FaqQuestions, f.Question, subject.EntityId) == 0).Take(6).ToList();
+            if (faq.Count >= 2)
+                draft.Faq.AddRange(faq);
+        }
 
         proposal.Title = draft.Titles.FirstOrDefault()?.Text;
         proposal.MetaDescription = draft.Metas.FirstOrDefault()?.Text;
@@ -197,6 +205,8 @@ public sealed partial class SeoEngineService
         var titles = ContentWriter.RankedTitles(ctx, 10)
             .Select(t => SpamGuard.CleanTitle(t, kb))
             .Where(t => t.Length > 0 && !Rejected(t))
+            // دور ۳۱ (#۹): عنوانی که صفحهٔ دیگری دارد هرگز گزینه نمی‌شود.
+            .Where(t => ctx.Site is null || SeoSiteIndex.Others(ctx.Site.Titles, t, ctx.Subject.EntityId) == 0)
             .Distinct(StringComparer.Ordinal)
             .Take(3)
             .ToList();

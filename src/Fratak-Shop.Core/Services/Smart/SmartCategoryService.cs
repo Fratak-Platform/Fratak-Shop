@@ -217,9 +217,19 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
 
         // کالای تک با مسیر دستهٔ سایت دیگر (دور ۲۳): برگ مسیر اگر نام درست و کاملی است ← دستهٔ دقیق زیر دستهٔ «کلی» همان مسیر
         // (مثلاً «ماساژور» زیر «لوازم شخصی برقی»)؛ برگ ناجور ← فقط دستهٔ کلی (بعداً با کالاهای بیشتر دقیق می‌شود).
-        foreach (var group in leftovers.Select(l => (Product: l, General: GeneralLevel(l.SourceCategory, brands), Leaf: LeafName(l.SourceCategory, brands)))
+        // دور ۳۱ (#۱): اگر مسیر سایت دیگر/تأمین‌کننده «کلی» است (مثلاً فقط «لوازم آشپزخانه»)، دستهٔ دقیق‌تر از نام خود کالا ساخته می‌شود
+        // (CategoryRefiner: «کتری برقی پارس خزر مدل KT-2000» ← «کتری برقی» زیر «لوازم آشپزخانه»).
+        foreach (var group in leftovers.Select(l =>
+                     {
+                         var general = GeneralLevel(l.SourceCategory, brands);
+                         var leaf = LeafName(l.SourceCategory, brands);
+                         var finer = (general is not null || leaf is not null) && CategoryRefiner.IsCoarse(CategoryNames.Path(l.SourceCategory))
+                             ? CategoryRefiner.FinerName(l.Name, leaf ?? general?.Name, brands)
+                             : null;
+                         return (Product: l, General: general, Leaf: leaf, Finer: finer);
+                     })
                      .Where(x => x.General is not null || x.Leaf is not null)
-                     .GroupBy(x => (x.General?.Name ?? "") + "|" + (x.Leaf ?? ""), StringComparer.Ordinal))
+                     .GroupBy(x => (x.General?.Name ?? "") + "|" + (x.Leaf ?? "") + "|" + (x.Finer ?? ""), StringComparer.Ordinal))
         {
             var first = group.First();
             Guid? generalId = null;
@@ -240,6 +250,13 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
                 targetId = onlyGeneral;
             else
                 continue;
+            // دستهٔ دقیق‌تر زیر همان دستهٔ کلی (دستهٔ هم‌نام موجود ← همان؛ نبود ← ساخته می‌شود).
+            if (first.Finer is { } finer && !CategoryNames.Same(finer, first.Leaf) && !CategoryNames.Same(finer, first.General?.Name))
+            {
+                targetId = targets.FirstOrDefault(t => CategoryNames.Same(finer, t.Name, t.Slug))?.Id
+                           ?? (await NewCategoryAsync(created, finer, null, targetId, group.Any(x => x.Product.IsActive), cancellationToken)).Id;
+                exactLeaf = true;
+            }
             foreach (var item in group)
                 moves[item.Product.Id] = new Move(targetId, exactLeaf ? ProductCategorySource.Smart : ProductCategorySource.General);
         }

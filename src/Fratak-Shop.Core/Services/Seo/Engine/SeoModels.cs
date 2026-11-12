@@ -263,6 +263,9 @@ public sealed class SeoSiteIndex
     public Dictionary<string, List<Guid>> Descriptions { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, List<Guid>> FocusKeywords { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>دور ۳۱ (#۹): پرسش‌های «پرسش‌وپاسخ» هر صفحه (نرمال‌شده) تا پیشنهاد تازه FAQ تکراری صفحهٔ دیگری را نسازد.</summary>
+    public Dictionary<string, List<Guid>> FaqQuestions { get; } = new(StringComparer.Ordinal);
+
     /// <summary>اثر انگشت متن هر صفحه برای پیدا کردن متن‌های تقریباً تکراری (مثلاً توضیحات کپی‌شده از تأمین‌کننده).</summary>
     public Dictionary<Guid, ulong> BodyFingerprints { get; } = [];
 
@@ -295,6 +298,8 @@ public sealed class SeoSiteIndex
         AddTo(Titles, PersianText.Normalize(subject.EffectiveTitle), subject.EntityId);
         AddTo(Descriptions, PersianText.Normalize(subject.EffectiveDescription), subject.EntityId);
         AddTo(FocusKeywords, PersianText.Normalize(subject.FocusKeyword), subject.EntityId);
+        foreach (var item in subject.Faq)
+            AddTo(FaqQuestions, PersianText.Normalize(item.Question), subject.EntityId);
         Paths.Add(subject.Path);
         var text = PersianText.HtmlToText(subject.BodyHtml);
         if (PersianText.WordCount(text) >= 60)
@@ -319,6 +324,8 @@ public sealed class SeoSiteIndex
         RemoveFrom(Titles, PersianText.Normalize(before.EffectiveTitle), before.EntityId);
         RemoveFrom(Descriptions, PersianText.Normalize(before.EffectiveDescription), before.EntityId);
         RemoveFrom(FocusKeywords, PersianText.Normalize(before.FocusKeyword), before.EntityId);
+        foreach (var item in before.Faq)
+            RemoveFrom(FaqQuestions, PersianText.Normalize(item.Question), before.EntityId);
         Paths.Remove(before.Path);
         BodyFingerprints.Remove(before.EntityId);
         Usage.Unregister(before.EntityId);

@@ -144,7 +144,8 @@ public static partial class AssistantPersona
             return new AssistantVoice(null, null, tone == AssistantTone.Auto ? AssistantTone.Respectful : tone);
         var address = tone switch
         {
-            AssistantTone.Casual => first ?? last + " جان",
+            // دور ۳۱: «جان» هرگز (خواستهٔ صریح کاربر)؛ لحن خودمانی فقط نام کوچک.
+            AssistantTone.Casual => first ?? last,
             AssistantTone.Friendly => (first ?? last) + " عزیز",
             AssistantTone.Formal => string.Join(' ', new[] { first, last }.Where(n => n is not null)) + " گرامی",
             _ => (last ?? first) + " گرامی",

@@ -19,7 +19,8 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.SmartContent;
 /// با عکس‌های فضاسازی تازه از اینترنت عوض می‌شوند.</para>
 /// </summary>
 [AdminPermission(AdminPermissions.CatalogManage)]
-public class CategoriesModel(ISmartCatalogService catalog, ISmartTaskQueue queue, ISmartCategoryService categorizer, SmartImageFinder images) : AdminPageModel
+public class CategoriesModel(ISmartCatalogService catalog, ISmartTaskQueue queue, ISmartCategoryService categorizer, SmartImageFinder images,
+    ISupplierCategoryService supplierCategories, SmartSources sources) : AdminPageModel
 {
     /// <summary>دور ۲۲: تصویر فعلی و پیشنهادهای هر دسته.</summary>
     public Dictionary<Guid, CategoryImageState> ImageStates { get; private set; } = [];
@@ -51,7 +52,11 @@ public class CategoriesModel(ISmartCatalogService catalog, ISmartTaskQueue queue
         var report = await categorizer.RunAsync(null, 500, ct);
         foreach (var category in report.Created)
             await queue.EnqueueAsync(SmartTaskKind.CategoryComplete, SmartTarget.Category, category.Id, category.Name, SmartPriority.Batch, null, ActorId, ActorName, ct);
-        SuccessMessage = "دسته‌بندی هوشمند: " + report.Summary;
+        // دور ۳۱ (#۱): کالاهایی که هنوز بی‌دسته ماندند ← دسته از صفحهٔ تأمین‌کننده (۶ کالا در همین درخواست؛ بقیه را کار ساعتی انجام می‌دهد).
+        var supplier = report.Waiting > 0
+            ? await supplierCategories.RunAsync(DateTimeOffset.UtcNow, sources.SupplierCategoryAsync, null, 6, false, ct)
+            : SupplierCategoryReport.Empty;
+        SuccessMessage = "دسته‌بندی هوشمند: " + report.Summary + (supplier.Examined > 0 ? " " + supplier.Summary : "");
         return BackToList();
     }
 

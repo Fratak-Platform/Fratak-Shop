@@ -130,6 +130,13 @@ public interface ISeoEngineService
     /// <para>محل استفاده: SmartOrchestrator (تکمیل محصول و کار «توضیحات محصول»).</para>
     /// </summary>
     Task<OperationResult<ProductReviewDraft>> WriteProductReviewAsync(Guid productId, string? keepHtml, ReviewNotes? notes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۳۱ (#۱۳): «حذف همهٔ پیشنهادهای منتظر» (اختیاری فقط یک نوع صفحه). فقط پیشنهادهای «منتظر تأیید» حذف می‌شوند؛
+    /// اعمال‌شده، ردشده، کهنه و خود صفحه‌ها دست نمی‌خورند. اجرای بعدی موتور برای همان صفحه‌ها پیشنهاد تازه می‌سازد.
+    /// Data = تعداد حذف‌شده.
+    /// </summary>
+    Task<OperationResult<int>> DeletePendingAsync(SeoEntityKind? kind, Guid? userId, string? userName, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc cref="ISeoEngineService"/>
@@ -252,6 +259,9 @@ public sealed partial class SeoEngineService(
         {
             if (!bySubject.TryGetValue((suggestion.Kind, suggestion.EntityId), out var subject) || subject.ContentHash != suggestion.ContentHash)
                 suggestion.Status = SeoSuggestionStatus.Stale;
+            else
+                // دور ۳۱ (#۹): متن پیشنهادهای منتظرِ اجراهای قبل هم «رزرو» می‌شود تا پیشنهاد تازهٔ صفحهٔ دیگر همان عنوان/توضیحات/متن را نگیرد.
+                site.Replace(subject, subject.With(SeoProposal.FromJson(suggestion.ProposalJson), suggestion.Fields));
         }
         await context.SaveChangesAsync(cancellationToken);
 
@@ -437,6 +447,10 @@ public sealed partial class SeoEngineService(
         // نسخهٔ بعد از رد: بخش‌هایی که کارشناس رد نکرده، همان متن نسخهٔ قبل می‌ماند.
         if (previous is not null && rejectedFields != SeoFields.None)
             KeepUnrejected(proposal, SeoProposal.FromJson(previous.ProposalJson), previous.Fields & ~rejectedFields);
+
+        // دور ۳۱ (#۹): عنوان/توضیحات/متن/پرسش‌وپاسخی که صفحهٔ دیگر یا پیشنهاد منتظر دیگری همان را دارد هرگز پیشنهاد نمی‌شود
+        // (جلوگیری از جریمهٔ «محتوای تکراری/کم‌ارزش» گوگل و هشدار سرچ کنسول).
+        SeoDuplicateGuard.Prune(proposal, subject.EntityId, site);
 
         // هرس: بخشی که نمره را بالا نمی‌برد، حذف می‌شود (کارشناس فقط تغییرهای مفید را می‌بیند).
         var fields = proposal.Fields;
@@ -647,6 +661,24 @@ public sealed partial class SeoEngineService(
         var avoid = await AvoidAsync(subject.Kind, subject.EntityId, cancellationToken);
         return await BuildSuggestionAsync(subject, before, store, site, models, research, current.SeoAllowSlugChanges,
             variant, previous, rejectedFields, style, avoid, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<OperationResult<int>> DeletePendingAsync(SeoEntityKind? kind, Guid? userId, string? userName, CancellationToken cancellationToken = default)
+    {
+        if (kind is { } k && (!Enum.IsDefined(k) || k == SeoEntityKind.None))
+            return OperationResult<int>.Error("نوع صفحه نامعتبر است.");
+        // حذف واقعی (نه حذف نرم): پیشنهاد منتظر داده‌ای نیست که لازم باشد بماند و هیچ جدول دیگری به آن اشاره نمی‌کند.
+        // IgnoreQueryFilters: ExecuteDelete با فیلتر سراسری «حذف‌نشده» ترجمه نمی‌شود؛ شرط وضعیت کافی است.
+        var query = context.SeoSuggestions.IgnoreQueryFilters().Where(s => s.Status == SeoSuggestionStatus.Pending);
+        if (kind is { } only)
+            query = query.Where(s => s.Kind == only);
+        var deleted = await query.ExecuteDeleteAsync(cancellationToken);
+        if (deleted > 0)
+            _logger.LogInformation("{User} deleted {Count} pending SEO suggestions (kind: {Kind})", userName ?? userId?.ToString() ?? "system", deleted, kind?.ToString() ?? "all");
+        return OperationResult<int>.Success(deleted, deleted == 0
+            ? "پیشنهاد منتظری برای حذف نبود."
+            : $"{PersianText.Digits(deleted)} پیشنهاد منتظر حذف شد؛ موتور سئو در اجرای بعدی برای همین صفحه‌ها پیشنهاد تازه و غیرتکراری می‌سازد.");
     }
 
     public async Task<OperationResult> ApproveAsync(Guid suggestionId, SeoFields fields, Guid? userId, string? userName, CancellationToken cancellationToken = default)
@@ -921,6 +953,24 @@ public sealed partial class SeoEngineService(
             if (item.RejectedFields.HasFlag(SeoFields.Slug) && proposal.Slug is not null) avoid.Slugs.Add(proposal.Slug);
             if (item.RejectedFields.HasFlag(SeoFields.Description) && proposal.DescriptionHtml is not null) avoid.BodyHashes.Add(PersianText.Hash(proposal.DescriptionHtml));
             if (item.RejectedFields.HasFlag(SeoFields.Faq) && proposal.Faq.Count > 0) avoid.FaqHashes.Add(PersianText.Hash(SeoFaq.Serialize(proposal.Faq)));
+        }
+
+        // دور ۳۱ (#۹): متن پیشنهادهای «منتظر تأیید» صفحه‌های دیگر هم کنار گذاشته می‌شود تا ساخت دستی/نسخهٔ بعد از رد،
+        // عنوان، توضیحات یا متنی را که برای صفحهٔ دیگری پیشنهاد شده تکرار نکند (محتوای تکراری = جریمهٔ گوگل).
+        // فقط ۵۰۰ پیشنهاد تازه‌تر خوانده می‌شود تا پاسخ سریع بماند.
+        var pending = await context.SeoSuggestions.AsNoTracking()
+            .Where(s => s.Status == SeoSuggestionStatus.Pending && !(s.Kind == kind && s.EntityId == id))
+            .OrderByDescending(s => s.CreatedAt)
+            .Take(500)
+            .Select(s => s.ProposalJson)
+            .ToListAsync(cancellationToken);
+        foreach (var json in pending)
+        {
+            var proposal = SeoProposal.FromJson(json);
+            if (!string.IsNullOrWhiteSpace(proposal.Title)) avoid.Texts.Add(PersianText.Normalize(proposal.Title));
+            if (!string.IsNullOrWhiteSpace(proposal.MetaDescription)) avoid.Texts.Add(PersianText.Normalize(proposal.MetaDescription));
+            if (!string.IsNullOrWhiteSpace(proposal.DescriptionHtml)) avoid.BodyHashes.Add(PersianText.Hash(proposal.DescriptionHtml));
+            if (proposal.Faq.Count > 0) avoid.FaqHashes.Add(PersianText.Hash(SeoFaq.Serialize(proposal.Faq)));
         }
         return avoid;
     }

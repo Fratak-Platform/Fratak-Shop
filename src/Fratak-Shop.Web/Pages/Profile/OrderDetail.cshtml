@@ -61,7 +61,7 @@
             var item = order.Items[i];
           <div class="mt-7 flex flex-col md:flex-row @(i < order.Items.Count - 1 ? "border-b pb-4" : "")">
             <div class="w-10/12 mx-auto md:max-w-32">
-              <img src="@ImageHelper.Product(item.ProductImageName)" alt="@item.ProductName" loading="lazy">
+              <img class="w-full fs-pimg" src="@ImageHelper.Product(item.ProductImageName)" alt="@item.ProductName" loading="lazy">
             </div>
             <div class="mr-2 md:mr-5 w-full">
               @* title *@

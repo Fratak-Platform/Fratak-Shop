@@ -132,7 +132,10 @@ public class Round26BlogTests
         Assert.Contains("نگهداری هدفون", article.Title, StringComparison.Ordinal);
         Assert.Contains("راهنما", article.Html, StringComparison.Ordinal);
         Assert.True(System.Text.RegularExpressions.Regex.Matches(article.Html, "<h2").Count >= 3);
-        Assert.Contains("[[product:", article.Html, StringComparison.Ordinal);
+        // دور ۳۱ (#۱۲): مقالهٔ آموزشی تبلیغ کالا ندارد؛ فقط لینک ملایم صفحهٔ دسته.
+        Assert.True(article.Educational);
+        Assert.DoesNotContain("[[product:", article.Html, StringComparison.Ordinal);
+        Assert.Contains("href=\"/category/headphones\"", article.Html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -178,7 +181,10 @@ public class Round26BlogTests
         {
             var article = BlogWriter.Write(new BlogBrief(type, "موضوع آزمایشی هدفون", "هدفون", "هدفون", "headphones", one, Now));
             Assert.False(string.IsNullOrWhiteSpace(article.Html));
-            Assert.Contains("[[product:sony-a1]]", article.Html, StringComparison.Ordinal);
+            if (type == BlogArticleType.HowTo)
+                Assert.DoesNotContain("[[product:", article.Html, StringComparison.Ordinal); // دور ۳۱: آموزشی، بدون تبلیغ
+            else
+                Assert.Contains("[[product:sony-a1]]", article.Html, StringComparison.Ordinal);
         }
     }
 }

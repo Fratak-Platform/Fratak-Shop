@@ -8,7 +8,7 @@ namespace Fratak_Shop.Core.Services.Users;
 /// قاعده (همان نسل‌بندی دستیار، <see cref="AssistantPersona.Generation"/>؛ جنسیت ثبت نمی‌شود پس «آقا/خانم» به کار نمی‌رود):
 /// </para>
 /// <list type="bullet">
-/// <item>زیر ۳۰ سال ← «محمد جان»</item>
+/// <item>زیر ۳۰ سال ← «محمد عزیز» (دور ۳۱: «جان» هرگز به کار نمی‌رود؛ خواستهٔ صریح کاربر – فقط «عزیز» یا «گرامی»)</item>
 /// <item>۳۰ تا ۴۴ سال یا سن نامعلوم ← «محمد عزیز»</item>
 /// <item>۴۵ تا ۵۹ سال ← «ناظری گرامی» (نام خانوادگی؛ نبود ← نام کوچک)</item>
 /// <item>۶۰ سال و بالاتر ← «محمد ناظری گرامی»</item>
@@ -21,7 +21,7 @@ public static class UserGreeting
     public const string Anonymous = "کاربر عزیز";
 
     /// <summary>
-    /// خطاب مناسب. مثال: («محمد»، «ناظری»، تولد ۱۹۹۸، امروز ۲۰۲۶) ← «محمد جان»؛ (…، تولد ۱۹۶۰) ← «محمد ناظری گرامی»؛
+    /// خطاب مناسب. مثال: («محمد»، «ناظری»، تولد ۱۹۹۸، امروز ۲۰۲۶) ← «محمد عزیز»؛ (…، تولد ۱۹۶۰) ← «محمد ناظری گرامی»؛
     /// (null، null، …) ← «کاربر عزیز».
     /// </summary>
     public static string For(string? firstName, string? lastName, DateOnly? birthDate, DateOnly today)
@@ -32,7 +32,7 @@ public static class UserGreeting
             return Anonymous;
         return AssistantPersona.Generation(birthDate, today) switch
         {
-            AssistantGeneration.Young => (first ?? last) + " جان",
+            AssistantGeneration.Young => (first ?? last) + " عزیز",
             AssistantGeneration.Middle => (last ?? first) + " گرامی",
             AssistantGeneration.Senior => string.Join(' ', new[] { first, last }.Where(n => n is not null)) + " گرامی",
             _ => (first ?? last) + " عزیز",

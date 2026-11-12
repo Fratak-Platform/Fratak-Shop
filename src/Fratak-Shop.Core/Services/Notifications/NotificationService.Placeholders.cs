@@ -45,7 +45,7 @@ public partial class NotificationService
                 values.TryAdd("LastName", user.LastName?.Trim() ?? string.Empty);
                 values.TryAdd("FullName", $"{user.FirstName} {user.LastName}".Trim() is { Length: > 0 } full ? full : "کاربر");
                 values.TryAdd("Name", first);
-                // دور ۲۹: خطاب مناسب نسل، مثلاً «علی جان» برای جوان‌ها و «رضایی گرامی» برای میان‌سال‌ها.
+                // دور ۲۹/۳۱: خطاب مناسب نسل، مثلاً «علی عزیز» برای جوان‌ها و «رضایی گرامی» برای میان‌سال‌ها (هرگز «جان»).
                 values.TryAdd("Greeting", Fratak_Shop.Core.Services.Users.UserGreeting.For(user.FirstName, user.LastName, user.BirthDate,
                     IranClock.Today(DateTimeOffset.UtcNow)));
                 values.TryAdd("Phone", user.PhoneNumber);

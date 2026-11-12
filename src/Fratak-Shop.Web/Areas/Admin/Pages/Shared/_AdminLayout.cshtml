@@ -124,7 +124,8 @@
             </div>
             continue;
           }
-          <details class="a-nav-sec" data-nav-sec data-nav-group="@group.Title" data-nav-active="@(hasActive ? "1" : null)">
+          @* دور ۳۱ (#۷): گروهِ صفحهٔ فعلی (مثلاً «فنی» برای «امنیت») از سرور باز رندر می‌شود و ردیفش is-active است؛ بقیهٔ گروه‌ها بسته. *@
+          <details class="a-nav-sec" data-nav-sec data-nav-group="@group.Title" data-nav-active="@(hasActive ? "1" : null)" open="@hasActive">
             <summary class="a-nav-group @(hasActive ? "is-current" : "")">
               <span class="flex-1">@group.Title</span>
               @if (groupBadges > 0) { <span class="a-nav-badge" data-nav-sum>@(groupBadges > 99 ? "99+" : groupBadges.ToString())</span> }

@@ -208,6 +208,25 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
     }
 
     /// <summary>
+    /// دور ۳۱ (#۱) – «دسته از لینک تأمین‌کننده»: کالاهایی که با خواندن صفحهٔ تأمین‌کننده دسته گرفتند ← یک اعلان قابل کلیک
+    /// (یک کالا ← صفحهٔ همان کالا؛ بیشتر ← دسته‌بندی هوشمند). صفر ← بی‌صدا.
+    /// </summary>
+    public async Task NotifySupplierCategoriesAsync(SupplierCategoryReport report)
+    {
+        if (report.Moved <= 0)
+            return;
+        try
+        {
+            await SendAsync(null, $"دسته از صفحهٔ تأمین‌کننده: {PersianText.Digits(report.Moved)} کالا دسته گرفت", Cut(report.Summary, 300),
+                "/admin/smart/categories", AdminPermissions.CatalogManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Supplier category notification failed");
+        }
+    }
+
+    /// <summary>
     /// دور ۲۹ (#۱۸) – ویدیوهای پیشنهادی تازه: یک اعلان قابل کلیک به فهرست «ویدیوهای پیشنهادی» (فقط پیشنهاد؛ مدیر بررسی می‌کند). صفر ← بی‌صدا.
     /// </summary>
     public async Task NotifyVideoSuggestionsAsync(int suggestions, int products)

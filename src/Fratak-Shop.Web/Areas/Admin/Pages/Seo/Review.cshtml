@@ -27,6 +27,15 @@
   </div>
   <div class="a-btn-group">
     <a class="a-btn a-btn-light" href="/admin/seo/engine">@Icons.Svg("MagicWand", null, 18) داشبورد موتور</a>
+    @* دور ۳۱ (#۱۳): حذف همهٔ پیشنهادهای «منتظر تأیید» (با فیلتر نوع، فقط همان نوع)؛ اعمال‌شده/ردشده و خود صفحه‌ها دست نمی‌خورند. *@
+    @if (Model.Counts.GetValueOrDefault("pending") > 0)
+    {
+      var scope = Model.Kind is { } selectedKind ? "«" + SeoEngineUi.KindTitle(selectedKind) + "»" : "همهٔ صفحه‌ها";
+      <form method="post" asp-page-handler="DeletePending" data-confirm="همهٔ پیشنهادهای منتظر تأیید @scope حذف شوند؟ پیشنهادهای اعمال‌شده و ردشده و محتوای صفحه‌ها دست نمی‌خورند و موتور در اجرای بعدی پیشنهاد تازه می‌سازد.">
+        @if (Model.Kind is { } k) { <input type="hidden" name="kind" value="@k"> }
+        <button type="submit" class="a-btn a-btn-danger-soft">@Icons.Svg("Trash", null, 18) حذف همهٔ پیشنهادهای منتظر</button>
+      </form>
+    }
   </div>
 </div>
 

@@ -117,7 +117,7 @@ public class Round29RulesTests
     private static readonly DateOnly Today = new(2026, 10, 22);
 
     [Theory]
-    [InlineData("محمد", "ناظری", 2002, "محمد جان")]          // ۲۴ سال
+    [InlineData("محمد", "ناظری", 2002, "محمد عزیز")]          // ۲۴ سال
     [InlineData("محمد", "ناظری", 1990, "محمد عزیز")]         // ۳۶ سال
     [InlineData("محمد", "ناظری", 1975, "ناظری گرامی")]       // ۵۱ سال
     [InlineData("محمد", "ناظری", 1955, "محمد ناظری گرامی")]  // ۷۱ سال

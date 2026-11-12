@@ -41,7 +41,7 @@
           <div class="mt-7 flex flex-col md:flex-row gap-y-5 border-b pb-4">
             <div class="w-10/12 mx-auto md:max-w-36">
               <a href="/product/@item.ProductSlug">
-                <img src="@ImageHelper.Sized(ImageHelper.Product(item.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@(item.ImageAlt ?? item.ProductName)" loading="lazy" decoding="async">
+                <img class="w-full fs-pimg" src="@ImageHelper.Sized(ImageHelper.Product(item.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@(item.ImageAlt ?? item.ProductName)" loading="lazy" decoding="async">
               </a>
               @if (item.IsAvailable)
               {

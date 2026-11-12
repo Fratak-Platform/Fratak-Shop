@@ -50,9 +50,21 @@ public static class ProductImageCare
     /// <summary>خلاصهٔ یک اجرا.</summary>
     public sealed record CareReport(int Checked, int Cleaned, int Removed, int Cutouts, int PrimarySwitched);
 
+    /// <summary>
+    /// دور ۳۱ (#۸) – «پنجره‌های زمانی»: کار تکراری خودکار هر ساعت اجرا می‌شود و تا وقتی عکسِ تمیزنشده/دوربری‌نشده مانده ادامه می‌دهد.
+    /// شب‌ها (ساعت ۱ تا ۷ به وقت ایران، کم‌بازدیدترین ساعت‌ها) سهم هر اجرا ۳ برابر است تا صف زودتر تمام شود و روزها سایت سبک بماند.
+    /// مثال: ساعت ۳ بامداد ← (۱۲۰، ۶۰)؛ ساعت ۱۵ ← (۴۰، ۲۰).
+    /// </summary>
+    public static (int Clean, int Cutout) Batch(DateTimeOffset now)
+    {
+        var hour = Fratak_Shop.Core.Utilities.IranClock.ToLocal(now).Hour;
+        return hour is >= 1 and < 7 ? (CleanPerRun * 3, CutoutPerRun * 3) : (CleanPerRun, CutoutPerRun);
+    }
+
     /// <summary>یک اجرای کامل (هر دو بخش، طبق تنظیمات). خاموش بودن «محتوای هوشمند» ← هیچ کاری.</summary>
     public static async Task<CareReport> RunAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
+        var (cleanTake, cutoutTake) = Batch(DateTimeOffset.UtcNow);
         var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
         if (!options.Enabled)
             return new CareReport(0, 0, 0, 0, 0);
@@ -60,10 +72,10 @@ public static class ProductImageCare
         var uploads = services.GetRequiredService<IUploadStore>();
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Fratak.ImageCare");
         var (checkedCount, cleaned, removed) = options.CleanWatermarks
-            ? await CleanAsync(context, uploads, logger, cancellationToken)
+            ? await CleanAsync(context, uploads, logger, cleanTake, cancellationToken)
             : (0, 0, 0);
         var (cutouts, switched) = options.PrimaryCutout
-            ? await PrimaryAsync(context, uploads, logger, cancellationToken)
+            ? await PrimaryAsync(context, uploads, logger, cutoutTake, cancellationToken)
             : (0, 0);
         context.ChangeTracker.Clear();
         return new CareReport(checkedCount, cleaned, removed, cutouts, switched);
@@ -72,14 +84,14 @@ public static class ProductImageCare
     // ───────────────────────────── ۱) لوگو و واترمارک ─────────────────────────────
 
     private static async Task<(int Checked, int Cleaned, int Removed)> CleanAsync(FratakShopDbContext context, IUploadStore uploads, ILogger logger,
-        CancellationToken cancellationToken)
+        int take, CancellationToken cancellationToken)
     {
         // فقط عکس‌هایی که «بررسی سوژه» شده‌اند (SubjectScore پر است) و هنوز تمیزکاری نشده‌اند؛ کالای منتشرشده و عکس تازه اول.
         var rows = await context.ProductImages.AsTracking()
             .Where(i => i.SubjectScore != null && (i.SubjectFlags == null || (i.SubjectFlags & ImageCleanup.CareDone) == 0))
             .OrderByDescending(i => i.Product.IsActive)
             .ThenByDescending(i => i.CreatedAt)
-            .Take(CleanPerRun)
+            .Take(take)
             .ToListAsync(cancellationToken);
         if (rows.Count == 0)
             return (0, 0, 0);
@@ -253,6 +265,27 @@ public static class ProductImageCare
         }
     }
 
+    /// <summary>
+    /// دور ۳۱ (#۸): برش قاب رنگی دور عکس با <see cref="ImageFrame.Inner"/> (روی نسخهٔ کوچک تشخیص، روی اندازهٔ واقعی برش).
+    /// قاب ندارد ← null (همان عکس استفاده می‌شود).
+    /// </summary>
+    private static SKBitmap? WithoutFrame(SKBitmap bitmap)
+    {
+        var (rgb, w, h) = SmallRgb(bitmap, AnalysisSide);
+        if (ImageFrame.Inner(rgb, w, h) is not { } box)
+            return null;
+        var sx = bitmap.Width / (double)w;
+        var sy = bitmap.Height / (double)h;
+        var rect = SKRectI.Create((int)Math.Ceiling(box.Left * sx), (int)Math.Ceiling(box.Top * sy),
+            (int)Math.Floor(box.Width * sx), (int)Math.Floor(box.Height * sy));
+        rect.Intersect(new SKRectI(0, 0, bitmap.Width, bitmap.Height));
+        if (rect.Width < 64 || rect.Height < 64)
+            return null;
+        // زیرمجموعه پیکسل‌ها را با عکس اصلی شریک است؛ Copy یک بیت‌مپ مستقل می‌سازد.
+        using var subset = new SKBitmap();
+        return bitmap.ExtractSubset(subset, rect) ? subset.Copy() : null;
+    }
+
     /// <summary>نسخهٔ کوچک RGB (پیکسل شفاف = سفید) برای موتور تمیزکاری.</summary>
     private static (byte[] Rgb, int Width, int Height) SmallRgb(SKBitmap bitmap, int side)
     {
@@ -280,7 +313,7 @@ public static class ProductImageCare
     // ───────────────────────────── ۲) عکس اصلی یکدست ─────────────────────────────
 
     private static async Task<(int Cutouts, int Switched)> PrimaryAsync(FratakShopDbContext context, IUploadStore uploads, ILogger logger,
-        CancellationToken cancellationToken)
+        int take, CancellationToken cancellationToken)
     {
         const byte doneOrTried = ImageCleanup.CutoutDone | CutoutTried;
         // کالاهایی که عکس اصلی‌شان هنوز دوربری نشده (یا اصلاً عکس اصلی ندارند)؛ عکس‌ها باید «بررسی سوژه» شده باشند.
@@ -290,7 +323,7 @@ public static class ProductImageCare
             .OrderByDescending(p => p.IsActive)
             .ThenByDescending(p => p.CreatedAt)
             .Select(p => new { p.Id, p.Slug })
-            .Take(CutoutPerRun)
+            .Take(take)
             .ToListAsync(cancellationToken);
         if (productIds.Count == 0)
             return (0, 0);
@@ -316,10 +349,11 @@ public static class ProductImageCare
             byte flags = primary.SubjectFlags ?? (byte)0;
             if ((flags & doneOrTried) != 0)
                 continue;
-            if ((flags & (4 | 8)) != 0)
+            if (!CutoutAllowed(flags))
             {
-                // آدم/واترمارک: دوربری مطمئن ممکن نیست (مدل آدم را هم سوژه می‌بیند)؛ جایگزینش را جست‌وجوی روزانهٔ عکس پیدا می‌کند.
+                // آدم: دوربری مطمئن ممکن نیست (مدل آدم را هم سوژه می‌بیند)؛ جایگزینش را جست‌وجوی روزانهٔ عکس پیدا می‌کند.
                 // دور ۳۰: عکس «صحنه» (کالا روی میز/در محیط) دیگر رد نمی‌شود؛ مدل U²-Net کالا را جدا و CutoutMask اعتبارسنجی می‌کند.
+                // دور ۳۱: عکس «واترمارک/نوشتهٔ پشت کالا» هم دوربری می‌شود (نوشته و لوگوی زمینه با خود زمینه برداشته می‌شود).
                 primary.SubjectFlags = (byte)(flags | CutoutTried);
                 continue;
             }
@@ -369,6 +403,13 @@ public static class ProductImageCare
             logger.LogInformation("Image care: {Cutouts} primary cutouts, {Switched} primary images switched", cutouts, switched);
         return (cutouts, switched);
     }
+
+    /// <summary>
+    /// دور ۳۱ (#۸): آیا عکس اصلی برای دوربری امتحان شود؟ فقط عکس «آدم‌دار» (بیت ۴) کنار می‌رود. عکس واترمارک‌دار/نوشته پشت کالا (بیت ۸)،
+    /// صحنهٔ آشپزخانه/میز (بیت ۱۶) و قاب‌دار امتحان می‌شوند؛ اعتبارسنجی CutoutMask جلوی هر نتیجهٔ ناقص را می‌گیرد و عکس اصلی هم همیشه می‌ماند.
+    /// مثال: ۸ ← true؛ ۱۶ ← true؛ ۴ ← false؛ ۴|۸ ← false.
+    /// </summary>
+    public static bool CutoutAllowed(byte flags) => (flags & 4) == 0;
 
     private enum CutoutKind
     {
@@ -436,7 +477,9 @@ public static class ProductImageCare
             if (ImageColors.HasTransparentBorder(decoded))
                 return new CutoutOutcome(CutoutKind.AlreadyTransparent);
             using var oriented = MediaEndpoints.Orient(decoded, codec.EncodedOrigin);
-            var cut = SubjectMatting.Cutout(oriented ?? decoded, SubjectMatting.DefaultSide);
+            // دور ۳۱ (#۸): قاب رنگی دور عکس پیش از دوربری بریده می‌شود (مدل قاب را سوژه نبیند).
+            using var unframed = WithoutFrame(oriented ?? decoded);
+            var cut = SubjectMatting.Cutout(unframed ?? oriented ?? decoded, SubjectMatting.DefaultSide);
             if (cut is null)
                 return new CutoutOutcome(CutoutKind.NotPossible);
             using var piece = SKBitmap.Decode(cut.Png);
