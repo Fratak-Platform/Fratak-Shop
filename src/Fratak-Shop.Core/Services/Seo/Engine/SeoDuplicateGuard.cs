@@ -57,6 +57,31 @@ public static class SeoDuplicateGuard
     }
 
     /// <summary>
+    /// دور ۳۱ (#۱۱): بخش‌هایی از <b>محتوای فعلی</b> یک صفحه که با صفحهٔ دیگری از سایت تکراری است (همان قاعده‌های <see cref="Prune"/>).
+    /// موتور سئو این صفحه‌ها را جلوی صف بازنویسی می‌گذارد، چون عنوان/توضیحات/متن تکراری بیشترین خطر «محتوای کم‌ارزش» را دارد.
+    /// مثال: دو کالا با توضیحات متای یکسان ← برای هر دو SeoFields.MetaDescription.
+    /// </summary>
+    public static SeoFields Conflicts(SeoSubject subject, SeoSiteIndex site)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentNullException.ThrowIfNull(site);
+        var self = subject.EntityId;
+        var found = SeoFields.None;
+        if (SeoSiteIndex.Others(site.Titles, subject.EffectiveTitle, self) > 0)
+            found |= SeoFields.Title;
+        if (SeoSiteIndex.Others(site.Descriptions, subject.EffectiveDescription, self) > 0)
+            found |= SeoFields.MetaDescription;
+        // اثر انگشت متن همین صفحه از قبل در نمایه هست (متن ≥ ۶۰ واژه)؛ دوباره ساخته نمی‌شود.
+        if (site.BodyFingerprints.TryGetValue(self, out var mine)
+            && site.BodyFingerprints.Any(p => p.Key != self && TextModels.Hamming(mine, p.Value) <= NearBody))
+            found |= SeoFields.Description;
+        var faq = subject.Faq;
+        if (faq.Count > 0 && faq.Count(f => SeoSiteIndex.Others(site.FaqQuestions, f.Question, self) > 0) * 2 > faq.Count)
+            found |= SeoFields.Faq;
+        return found;
+    }
+
+    /// <summary>
     /// آیا متن با متن صفحهٔ دیگری تقریباً یکی است؟ متن کوتاه (کمتر از ۶۰ واژه) سنجیده نمی‌شود (اثر انگشت‌اش قابل اعتماد نیست).
     /// </summary>
     public static bool IsNearDuplicateBody(string html, Guid self, SeoSiteIndex site)

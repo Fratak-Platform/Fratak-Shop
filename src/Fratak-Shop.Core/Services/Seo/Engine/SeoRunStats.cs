@@ -19,6 +19,9 @@ public sealed class SeoRunStats
     /// <summary>تعداد صفحه‌های نمره‌دهی‌شده.</summary>
     public int Scored { get; init; }
 
+    /// <summary>دور ۳۱ (#۱۱): صفحه‌هایی که عنوان/توضیحات/متن/پرسش‌وپاسخ تکراری با صفحهٔ دیگری دارند (اولویت اول بازنویسی).</summary>
+    public int Duplicates { get; init; }
+
     /// <summary>میانگین نمرهٔ همهٔ صفحه‌ها.</summary>
     public double AverageScore { get; init; }
 
@@ -103,6 +106,8 @@ public sealed class SeoRunStats
         {
             $"{D(Scored)} صفحه نمره‌دهی شد (میانگین {D((long)Math.Round(AverageScore))}، {D(Perfect)} صفحه ۱۰۰/۱۰۰)",
         };
+        if (Duplicates > 0)
+            parts.Add($"{D(Duplicates)} صفحه محتوای تکراری با صفحهٔ دیگر دارد (اولویت اول بازنویسی)");
         if (Queued == 0)
         {
             parts.Add("صفحه‌ای برای بازنویسی در صف نبود (همه یا کامل‌اند یا پیشنهادشان منتظر بررسی/اخیراً بررسی‌شده است)");

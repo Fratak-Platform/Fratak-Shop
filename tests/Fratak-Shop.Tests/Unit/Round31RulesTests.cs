@@ -90,8 +90,8 @@ public class Round31RulesTests
     {
         Assert.Equal("لوازم آشپزخانه > کتری", SupplierCategoryService.MergeSource(null, ["لوازم آشپزخانه", "کتری"]));
         Assert.Equal("لوازم آشپزخانه > کتری", SupplierCategoryService.MergeSource("آشپزخانه", ["لوازم آشپزخانه", "کتری"]));
-        Assert.Null(SupplierCategoryService.MergeSource("الف > ب > ج", ["الف"]));
-        Assert.Null(SupplierCategoryService.MergeSource("الف > ب", []));
+        Assert.Null(SupplierCategoryService.MergeSource("لوازم خانگی > لوازم آشپزخانه > کتری برقی", ["لوازم خانگی"]));
+        Assert.Null(SupplierCategoryService.MergeSource("لوازم خانگی > کتری برقی", []));
     }
 
     [Theory]
@@ -315,6 +315,60 @@ public class Round31RulesTests
         site.FaqQuestions[PersianText.Normalize("سؤال قدیمی؟")] = [id];
         Assert.Equal(1, SeoSiteIndex.Others(site.FaqQuestions, "سؤال قدیمی؟", Guid.NewGuid()));
         Assert.Equal(0, SeoSiteIndex.Others(site.FaqQuestions, "سؤال قدیمی؟", id));
+    }
+
+    // ───────────── #۱۱ صفحه‌های دارای محتوای تکراری جلوی صف ─────────────
+
+    private static SeoSubject Page(string title, string meta, string? body = null) => new()
+    {
+        Kind = SeoEntityKind.Product,
+        EntityId = Guid.NewGuid(),
+        Name = title,
+        Slug = "p-" + Guid.NewGuid().ToString("N")[..6],
+        PathPrefix = "/product/",
+        SeoTitle = title,
+        MetaDescription = meta,
+        BodyHtml = body,
+    };
+
+    [Fact]
+    public void Conflicts_FindsTitleMetaAndBodyThatAnotherPageShares()
+    {
+        var body = LongText("کتری برقی");
+        var a = Page("خرید کتری برقی", "توضیحات مشترک کتری برقی با ارسال سریع", body);
+        var b = Page("خرید کتری برقی", "توضیحات مشترک کتری برقی با ارسال سریع", body);
+        var other = "<p>" + string.Join(" ", Enumerable.Range(1, 15).Select(i =>
+            $"ماگ شمارهٔ {i} از سرامیک لعاب‌دار ساخته شده، در ماشین ظرف‌شویی سالم می‌ماند و برای چای صبحگاهی یا هدیهٔ تولد انتخاب خوبی است.")) + "</p>";
+        var unique = Page("خرید ماگ سرامیکی", "ماگ سرامیکی طرح گل برای هدیه", other);
+        var site = SeoSiteIndex.Build([a, b, unique]);
+
+        Assert.Equal(SeoFields.Title | SeoFields.MetaDescription | SeoFields.Description, SeoDuplicateGuard.Conflicts(a, site));
+        Assert.Equal(SeoFields.None, SeoDuplicateGuard.Conflicts(unique, site));
+    }
+
+    [Fact]
+    public void Conflicts_ASinglePageNeverConflictsWithItself()
+    {
+        var only = Page("خرید کتری برقی", "توضیحات کتری", LongText("کتری"));
+        Assert.Equal(SeoFields.None, SeoDuplicateGuard.Conflicts(only, SeoSiteIndex.Build([only])));
+    }
+
+    [Fact]
+    public void Priority_PutsDuplicatePagesFirst_AtTheSameScore()
+    {
+        var page = Page("خرید کتری برقی", "توضیحات");
+        var plain = SeoEngineService.Priority(page, 60);
+        var duplicate = SeoEngineService.Priority(page, 60, SeoFields.MetaDescription);
+        Assert.True(duplicate > plain);
+        Assert.Equal(plain, SeoEngineService.Priority(page, 60, SeoFields.None));
+        Assert.Equal(0, SeoEngineService.Priority(page, 100, SeoFields.Title)); // صفحهٔ کامل همچنان در صف نیست
+    }
+
+    [Fact]
+    public void RunReport_MentionsDuplicatePages_OnlyWhenThereAreAny()
+    {
+        Assert.Contains("۳ صفحه محتوای تکراری", new SeoRunStats { Scored = 10, Queued = 3, Duplicates = 3 }.Report(), StringComparison.Ordinal);
+        Assert.DoesNotContain("تکراری", new SeoRunStats { Scored = 10, Queued = 0 }.Report(), StringComparison.Ordinal);
     }
 
     // ───────────── #۱۰ حراج چندروزه ─────────────

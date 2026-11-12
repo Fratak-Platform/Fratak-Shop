@@ -133,12 +133,12 @@ public sealed class ProductIntakeService(
                     continue;
                 }
                 var clean = CategoryNames.Path(found?.Path);
-                // دور ۳۱ (#۱): مسیر تک‌بخشی (مثلاً فقط «لوازم آشپزخانه») هم وقتی کالا هیچ مسیری ندارد نگه داشته می‌شود تا
-                // CategoryRefiner دستهٔ دقیق‌تر را از نام کالا زیر همان دستهٔ کلی بسازد.
-                var text = clean.Count >= 2 ? CategoryNames.Truncate(CategoryNames.Join(clean), 300)
-                    : clean.Count == 1 && string.IsNullOrWhiteSpace(row.SourceCategory) ? CategoryNames.Truncate(clean[0], 300)
-                    : null;
                 var market = CategoryNames.Truncate(CategoryNames.Proper(found?.MarketCategory), 150);
+                // دور ۳۱ (#۱): مسیر تک‌بخشی (مثلاً فقط «لوازم آشپزخانه») هم وقتی کالا هیچ مسیری و هیچ «رأی رقبا»یی ندارد نگه داشته
+                // می‌شود تا CategoryRefiner دستهٔ دقیق‌تر را از نام کالا زیر همان دستهٔ کلی بسازد. با رأی رقبا، فقط رأی ذخیره می‌شود (دور ۲۶).
+                var text = clean.Count >= 2 ? CategoryNames.Truncate(CategoryNames.Join(clean), 300)
+                    : clean.Count == 1 && market is null && string.IsNullOrWhiteSpace(row.SourceCategory) ? CategoryNames.Truncate(clean[0], 300)
+                    : null;
                 if (text is null && market is null)
                     continue;
                 // مسیر کامل تازه فقط وقتی جای مسیر قبلی را می‌گیرد که چیزی داشته باشیم؛ رأی اکثریت جدا ذخیره می‌شود.

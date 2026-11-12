@@ -236,6 +236,9 @@ public sealed partial class SeoEngineService(
         // نمای این اجرا جداست (پیشنهادها در آن «رزرو» می‌شوند)؛ کش مشترک فقط پاک می‌شود تا از داده‌های تازه ساخته شود.
         var site = SeoSiteIndex.Build(subjects);
         cache.Remove(SiteIndexCacheKey);
+        // دور ۳۱ (#۱۱): صفحه‌هایی که محتوای فعلی‌شان با صفحهٔ دیگری تکراری است جلوی صف بازنویسی می‌آیند
+        // (همین‌جا و پیش از «رزرو» متن پیشنهادهای منتظر حساب می‌شود تا فقط محتوای واقعی روی سایت سنجیده شود).
+        var conflicts = subjects.ToDictionary(s => (s.Kind, s.EntityId), s => SeoDuplicateGuard.Conflicts(s, site));
 
         // ۱) نمره‌دهی همه
         var reports = new Dictionary<(SeoEntityKind, Guid), SeoReport>();
@@ -280,7 +283,7 @@ public sealed partial class SeoEngineService(
             .Where(s => !s.NoIndex && !s.HasCanonicalElsewhere && !blocked.Contains((s.Kind, s.EntityId)))
             .Select(s => (Subject: s, Report: reports[(s.Kind, s.EntityId)]))
             .Where(x => x.Report.Score < 100 && x.Report.WeakFields != SeoFields.None)
-            .OrderByDescending(x => Priority(x.Subject, x.Report.Score))
+            .OrderByDescending(x => Priority(x.Subject, x.Report.Score, conflicts[(x.Subject.Kind, x.Subject.EntityId)]))
             .Take(Math.Clamp(current.SeoEngineBatchSize, 5, 200))
             .ToList();
 
@@ -293,6 +296,7 @@ public sealed partial class SeoEngineService(
             AverageScore = reports.Count == 0 ? 0 : reports.Values.Average(r => r.Score),
             Perfect = reports.Values.Count(r => r.Score >= 100),
             Queued = queue.Count,
+            Duplicates = conflicts.Values.Count(c => c != SeoFields.None),
         };
         if (queue.Count > 0)
         {
@@ -349,7 +353,11 @@ public sealed partial class SeoEngineService(
     /// اولویت صف: صفحه‌های کم‌نمره و پربازدید اول. وزن نوع: دسته ۱٫۳ (صفحهٔ فرود پرجست‌وجو)، محصول ۱٫۲، مقاله ۱،
     /// برند ۰٫۹، صفحهٔ محتوا ۰٫۵. صفحهٔ تازه (زیر ۱۴ روز) کمی جلو می‌افتد تا از روز اول درست ایندکس شود.
     /// </summary>
-    public static double Priority(SeoSubject subject, int score)
+    /// <param name="subject">صفحه.</param>
+    /// <param name="score">نمرهٔ فعلی.</param>
+    /// <param name="duplicates">دور ۳۱ (#۱۱): بخش‌های تکراری با صفحهٔ دیگر (<see cref="SeoDuplicateGuard.Conflicts"/>)؛ هر بخش تکراری اولویت را ۱٫۵ برابر می‌کند
+    /// (عنوان و توضیحات تکراری مستقیم در سرچ کنسول «تکراری» گزارش می‌شوند).</param>
+    public static double Priority(SeoSubject subject, int score, SeoFields duplicates = SeoFields.None)
     {
         var kindWeight = subject.Kind switch
         {
@@ -361,7 +369,8 @@ public sealed partial class SeoEngineService(
             _ => 0.5,
         };
         var fresh = DateTimeOffset.UtcNow - subject.CreatedAt < SlugAdvisor.YoungAge ? 1.2 : 1.0;
-        return (100 - score) * (1 + Math.Log10(1 + Math.Max(0, subject.Views))) * kindWeight * fresh;
+        var duplicate = duplicates == SeoFields.None ? 1.0 : 1.5;
+        return (100 - score) * (1 + Math.Log10(1 + Math.Max(0, subject.Views))) * kindWeight * fresh * duplicate;
     }
 
     // ── ساخت پیشنهاد ────────────────────────────────────────────────────
