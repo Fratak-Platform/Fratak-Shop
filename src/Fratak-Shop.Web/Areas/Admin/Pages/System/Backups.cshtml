@@ -1,0 +1,126 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.BackupsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@using Fratak_Shop.Data.Entities.Ops
+@{
+    ViewData["Title"] = "پشتیبان‌گیری";
+    var o = Model.Overview;
+    var canManage = Model.Can(AdminPermissions.SystemManage);
+    string StatusBadge(BackupStatus s) => s switch
+    {
+        BackupStatus.Succeeded => "a-badge-green",
+        BackupStatus.Failed => "a-badge-red",
+        BackupStatus.Running => "a-badge-blue",
+        _ => "a-badge-gray",
+    };
+    string StatusTitle(BackupStatus s) => s switch
+    {
+        BackupStatus.Succeeded => "موفق",
+        BackupStatus.Failed => "ناموفق",
+        BackupStatus.Running => "در حال اجرا",
+        BackupStatus.Removed => "حذف‌شده",
+        _ => s.ToString(),
+    };
+    var hoursSince = o.LastSuccess is null ? (double?)null : (DateTimeOffset.UtcNow - o.LastSuccess.CreatedAt).TotalHours;
+}
+<div class="a-page-head">
+  <div>
+    <h2>پشتیبان‌گیری</h2>
+    <p class="a-muted text-sm mt-1">نسخهٔ پشتیبان کامل پایگاه داده (سفارش‌ها، مشتریان، محصولات، تنظیمات…) و در صورت نیاز فایل‌های آپلود. زمان‌بندی در «تنظیمات ← پشتیبان‌گیری».</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-btn a-btn-light" href="/admin/settings?tab=backup">@Icons.Svg("Gear", null, 18) تنظیمات زمان‌بندی</a> }
+  </div>
+</div>
+
+@if (!o.Enabled)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div><b>پشتیبان‌گیری خودکار خاموش است.</b> اگر سرور یا پایگاه داده آسیب ببیند، اطلاعات قابل بازگشت نیست. آن را در تنظیمات روشن کنید یا به‌صورت دستی پشتیبان بگیرید.</div></div>
+}
+else if (o.LastFailure is not null && (o.LastSuccess is null || o.LastFailure.CreatedAt > o.LastSuccess.CreatedAt))
+{
+  <div class="a-alert a-alert-danger mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div><b>آخرین پشتیبان‌گیری ناموفق بود:</b> @o.LastFailure.Message</div></div>
+}
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">آخرین پشتیبان موفق</div>
+    <div class="a-stat-value text-base @(hoursSince is null || hoursSince > 48 ? "text-red-600" : "")">@(o.LastSuccess is null ? "هنوز گرفته نشده" : AdminUi.Ago(o.LastSuccess.CreatedAt))</div>
+    <div class="a-stat-sub">@(o.LastSuccess is null ? "" : Format.DateTime(o.LastSuccess.CreatedAt) + " · " + AdminUi.FileSize(o.LastSuccess.SizeBytes ?? 0))</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">نوبت بعدی</div>
+    <div class="a-stat-value text-base">@(o.NextRunAt is { } next ? Format.DateTime(next) : "خاموش")</div>
+    <div class="a-stat-sub">@(o.Enabled ? $"{o.RunsPerDay} بار در روز از ساعت {o.StartHour}" : "پشتیبان خودکار خاموش است")</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">نگهداری</div>
+    <div class="a-stat-value">@Format.Number(o.KeepCount) <small class="text-sm">نسخه</small></div>
+    <div class="a-stat-sub">حجم کل نسخه‌های موجود: @AdminUi.FileSize(o.TotalBytes)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">محل ذخیره</div>
+    <div class="a-stat-value text-xs a-ltr text-right break-all">@(o.Folder ?? o.DefaultFolder ?? "پوشهٔ پیش‌فرض SQL Server")</div>
+    <div class="a-stat-sub">@(o.Edition is null ? "" : "SQL Server " + o.Edition) @(o.VerifyEnabled ? "· بررسی سلامت فایل روشن" : "")</div>
+  </div>
+</div>
+
+@if (canManage)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Database", null, 18) پشتیبان‌گیری دستی</span></div>
+    <form method="post" asp-page-handler="Run" class="a-card-body flex flex-wrap items-center gap-4" data-confirm="پشتیبان‌گیری الان شروع شود؟ بسته به حجم پایگاه داده ممکن است چند دقیقه طول بکشد (سایت در این مدت کار می‌کند).">
+      @if (o.UploadsAvailable)
+      {
+        <label class="a-check"><input type="checkbox" name="includeUploads" value="true"> <span>فایل‌های آپلود (تصاویر) را هم zip کن</span></label>
+      }
+      <button class="a-btn" type="submit">@Icons.Svg("Database", null, 18) پشتیبان‌گیری الان</button>
+      <p class="a-help w-full">پیش از تغییرات بزرگ (مثل ورود گروهی محصولات یا تغییر گروهی قیمت) یک پشتیبان دستی بگیرید. پشتیبان‌ها COPY_ONLY هستند و زنجیرهٔ پشتیبان‌های دیگرِ سرور را به هم نمی‌زنند.</p>
+    </form>
+  </div>
+}
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ListChecks", null, 18) نسخه‌های پشتیبان</span><span class="a-muted text-xs">۱۰۰ مورد آخر</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>زمان</th><th>نوع</th><th>وضعیت</th><th>حجم</th><th>مدت</th><th>آغازکننده</th><th>فایل / پیام</th><th></th></tr></thead>
+      <tbody>
+        @foreach (var r in Model.Records)
+        {
+          <tr>
+            <td data-label="زمان" class="nowrap text-xs">@Format.DateTime(r.CreatedAt)</td>
+            <td data-label="نوع">@(r.Kind == BackupKind.Database ? "پایگاه داده" : "فایل‌های آپلود")</td>
+            <td data-label="وضعیت">
+              <span class="a-badge @StatusBadge(r.Status)">@StatusTitle(r.Status)</span>
+              @if (r.IsVerified) { <span class="a-badge a-badge-green" title="RESTORE VERIFYONLY موفق">سالم</span> }
+            </td>
+            <td data-label="حجم" class="num">@(r.SizeBytes is { } size ? AdminUi.FileSize(size) : "-")</td>
+            <td data-label="مدت" class="text-xs">@(r.FinishedAt is { } done ? AdminUi.Duration(done - r.CreatedAt) : "-")</td>
+            <td data-label="آغازکننده" class="text-xs">@(r.IsManual ? (r.StartedBy ?? "دستی") : "خودکار")</td>
+            <td data-label="فایل / پیام" class="text-xs">
+              @if (r.FilePath is not null) { <div class="a-ltr text-right break-all">@r.FilePath</div> }
+              @if (r.Message is not null) { <div class="@(r.Status == BackupStatus.Failed ? "text-red-600" : "a-muted")">@r.Message</div> }
+            </td>
+            <td data-label="" class="nowrap">
+              @if (canManage && BackupsModel.CanDownload(r))
+              {
+                <a class="a-btn a-btn-xs a-btn-light" href="/admin/system/backups?handler=Download&id=@r.Id">دانلود</a>
+              }
+              @if (canManage && r.Status != BackupStatus.Removed && r.Status != BackupStatus.Running)
+              {
+                <form method="post" asp-page-handler="Delete" class="inline" data-confirm="این نسخهٔ پشتیبان (و فایلش در صورت دسترسی) حذف شود؟" data-confirm-danger>
+                  <input type="hidden" name="id" value="@r.Id"><button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">حذف</button>
+                </form>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Records.Count == 0) { <div class="a-empty">هنوز پشتیبانی گرفته نشده است.</div> }
+  </div>
+  <div class="a-card-body pt-0">
+    <p class="a-help">برای بازگردانی، فایل .bak را در SQL Server Management Studio با «Restore Database» بازگردانی کنید (یا از مدیر سرور بخواهید). اگر پایگاه داده روی سرور جداگانه است، فایل روی همان سرور ذخیره می‌شود و از اینجا قابل دانلود نیست.</p>
+  </div>
+</div>

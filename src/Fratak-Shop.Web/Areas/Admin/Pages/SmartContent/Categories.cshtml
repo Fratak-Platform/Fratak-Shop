@@ -1,0 +1,100 @@
+@page "/admin/smart/categories"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.CategoriesModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@* تکمیل هوشمند دسته‌ها: جدول دسته‌ها + دکمهٔ تکمیل هر ردیف. *@
+@{
+    ViewData["Title"] = "تکمیل هوشمند دسته‌ها";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تکمیل هوشمند دسته‌ها</h2>
+    <p class="a-muted text-sm mt-1">توضیح خریدمحور (برندها، بازهٔ قیمت، نکته‌های انتخاب و پرسش‌های رایج) و ۴ عکس فضاسازی پیشنهادی (عکس واقعی، رنگی و افقی که از اینترنت پیدا، به WebP تبدیل و روی سایت خودمان ذخیره می‌شود؛ هرگز عکس کالاهای خود دسته نیست؛ یکی خودکار فعال می‌شود و شما می‌توانید دیگری را انتخاب یا حذف کنید). دسته‌های کمتر از ۳ کالا متن نمی‌گیرند تا محتوای کم‌ارزش ساخته نشود.
+      کالای درون‌ریزی‌شدهٔ بدون دسته خودکار دسته می‌گیرد؛ کالاهای مهم (مثل گوشی) و هر ۳ کالای مشابه دستهٔ تازه با نامک انگلیسی می‌سازند.</p>
+  </div>
+  <div class="a-btn-group">
+    @* دور ۲۱: دسته‌بندی هوشمند کالاهای «دسته‌بندی نشده» و «سایر» (هر ۶ ساعت هم خودکار اجرا می‌شود). *@
+    <form method="post" asp-page-handler="Categorize" class="inline"><button class="a-btn a-btn-primary" type="submit">@Icons.Svg("MagicWand", null, 18) دسته‌بندی هوشمند الان</button></form>
+    <a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a>
+  </div>
+</div>
+
+<div class="a-card">
+  @if (Model.Items.Count == 0)
+  {
+    <div class="a-empty">دسته‌ای تعریف نشده.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>دسته</th><th>کالا</th><th>توضیح</th><th>تصویر</th><th>آخرین کار</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var c in Model.Items)
+          {
+            Model.Latest.TryGetValue(c.Id, out var last);
+            <tr>
+              <td data-label="دسته" class="font-bold">@c.Name</td>
+              <td data-label="کالا">@Format.Number(c.Products)</td>
+              <td data-label="توضیح">@(c.HasDescription ? "✓" : "—")</td>
+              <td data-label="تصویر">
+                @{ Model.ImageStates.TryGetValue(c.Id, out var imgState); var options = imgState?.Options ?? Array.Empty<string>(); }
+                @if (options.Count == 0)
+                {
+                  if (!string.IsNullOrWhiteSpace(imgState?.ImageName))
+                  {
+                    <img src="@ImageHelper.Category(imgState.ImageName)" alt="تصویر دستهٔ @c.Name" class="a-cat-thumb-img is-active" loading="lazy" width="96" height="48">
+                  }
+                  else
+                  {
+                    <span class="a-muted">—</span>
+                  }
+                }
+                else
+                {
+                  <div class="a-cat-thumbs">
+                    @foreach (var option in options)
+                    {
+                      var active = option == imgState!.ImageName;
+                      <div class="a-cat-thumb">
+                        <img src="@ImageHelper.Category(option)" alt="تصویر پیشنهادی دستهٔ @c.Name" class="a-cat-thumb-img @(active ? "is-active" : null)" loading="lazy" width="96" height="48">
+                        <div class="a-cat-thumb-actions">
+                          @if (active)
+                          {
+                            <span class="a-badge a-badge-blue">فعال</span>
+                          }
+                          else
+                          {
+                            <form method="post" asp-page-handler="ChooseImage" class="inline"><input type="hidden" name="id" value="@c.Id"><input type="hidden" name="option" value="@option"><button type="submit" class="a-btn a-btn-xs a-btn-light" title="این تصویر روی سایت برود">انتخاب</button></form>
+                          }
+                          <form method="post" asp-page-handler="DeleteImage" class="inline"><input type="hidden" name="id" value="@c.Id"><input type="hidden" name="option" value="@option"><button type="submit" class="a-btn a-btn-xs a-btn-danger" title="حذف این تصویر" data-confirm="این تصویر پیشنهادی حذف شود؟">حذف</button></form>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <form method="post" asp-page-handler="DeleteImage" class="inline"><input type="hidden" name="id" value="@c.Id"><input type="hidden" name="all" value="true"><button type="submit" class="a-btn a-btn-xs a-btn-light mt-1" data-confirm="همهٔ تصویرهای پیشنهادی این دسته حذف شوند؟ دیگر خودکار ساخته نمی‌شوند (با «پیشنهاد دوباره» می‌توانید دوباره بسازید).">حذف همه</button></form>
+                }
+              </td>
+              <td data-label="آخرین کار" class="text-xs">
+                @if (last is not null)
+                {
+                  var (statusTitle, badge) = SmartUi.Status(last.Status);
+                  <span class="a-badge @badge">@statusTitle</span> <span class="a-muted">@AdminUi.Ago(last.FinishedAt ?? last.CreatedAt)</span>
+                  if (!string.IsNullOrWhiteSpace(last.Summary)) { <div>@last.Summary</div> }
+                }
+              </td>
+              <td data-label="">
+                @* دور ۲۲: دستهٔ کوچک هم «تکمیل» می‌گیرد (تصویرهای پیشنهادی)؛ متن فقط با ۳ کالا و بیشتر نوشته می‌شود. *@
+                <form method="post" asp-page-handler="Run" class="inline"><input type="hidden" name="id" value="@c.Id"><button type="submit" class="a-btn a-btn-xs a-btn-soft" disabled="@(c.Products == 0 ? "disabled" : null)">@Icons.Svg("MagicWand", null, 14) تکمیل</button></form>
+                @if (c.Products > 0)
+                {
+                  <form method="post" asp-page-handler="Resuggest" class="inline"><input type="hidden" name="id" value="@c.Id"><button type="submit" class="a-btn a-btn-xs a-btn-light" title="تصویر انتخاب‌شده می‌ماند و بقیه با گزینه‌های تازه عوض می‌شوند">@Icons.Svg("ArrowsClockwise", null, 14) پیشنهاد دوبارهٔ تصویر</button></form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

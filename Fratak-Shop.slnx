@@ -4,4 +4,7 @@
     <Project Path="src/Fratak-Shop.Data/Fratak-Shop.Data.csproj" />
     <Project Path="src/Fratak-Shop.Web/Fratak-Shop.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fratak-Shop.Tests/Fratak-Shop.Tests.csproj" />
+  </Folder>
 </Solution>

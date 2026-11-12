@@ -1,0 +1,96 @@
+@page "/admin/smart/videos"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.VideosModel
+@using Fratak_Shop.Data.Entities.Smart
+@using Fratak_Shop.Web.Helpers
+@* دور ۲۹ (#۱۸): ویدیوهای پیشنهادی کالا – فقط پیشنهاد؛ مدیر لینک را باز می‌کند، بررسی می‌کند و اضافه یا رد می‌کند. *@
+@{
+    ViewData["Title"] = "ویدیوهای پیشنهادی کالا";
+    var productQuery = Model.ProductId is { } pid ? "&product=" + pid : "";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>ویدیوهای پیشنهادی کالا</h2>
+    <p class="a-muted text-sm mt-1">ویدیوی معرفی <b>همین کالا</b> که سیستم در صفحهٔ تأمین‌کننده، آپارات یا یوتیوب پیدا کرده است. لینک را باز کنید؛ اگر همان کالا بود دانلود و اضافه کنید.</p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Scan" asp-route-product="@Model.ProductId">
+      <button type="submit" class="a-btn">@Icons.Svg("MagnifyingGlass", null, 18) @(Model.ProductId is null ? "جست‌وجوی الان" : "جست‌وجوی همین کالا")</button>
+    </form>
+    @if (Model.ProductId is { } back)
+    {
+      <a class="a-btn a-btn-light" href="/admin/products/edit/@back">@Icons.Svg("ArrowLeft", "rotate-180", 18) بازگشت به کالا</a>
+    }
+  </div>
+</div>
+
+<div class="a-tabs">
+  <a class="a-tab @(Model.Status == VideoSuggestionStatus.New ? "is-active" : "")" href="/admin/smart/videos?status=new@(productQuery)">تازه @if (Model.PendingCount > 0) { <span class="a-badge a-badge-blue">@Format.Number(Model.PendingCount)</span> }</a>
+  <a class="a-tab @(Model.Status == VideoSuggestionStatus.Used ? "is-active" : "")" href="/admin/smart/videos?status=used@(productQuery)">استفاده‌شده</a>
+  <a class="a-tab @(Model.Status == VideoSuggestionStatus.Dismissed ? "is-active" : "")" href="/admin/smart/videos?status=dismissed@(productQuery)">ردشده</a>
+</div>
+
+<div class="a-card">
+  @if (Model.Items.Count == 0)
+  {
+    <div class="a-empty">@(Model.Status == VideoSuggestionStatus.New ? "فعلاً پیشنهاد تازه‌ای نیست. جست‌وجوی خودکار هر روز برای کالاهای بی‌ویدیو انجام می‌شود." : "موردی نیست.")</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards fs-video-sugg">
+        <thead><tr><th>ویدیو</th><th>کالا</th><th>منبع</th><th class="num">تطبیق</th><th class="actions">اقدام</th></tr></thead>
+        <tbody>
+        @foreach (var v in Model.Items)
+        {
+          <tr>
+            <td data-label="ویدیو">
+              <a href="@v.PageUrl" target="_blank" rel="noopener noreferrer nofollow" class="flex items-center gap-2">
+                @if (!string.IsNullOrEmpty(v.ThumbnailUrl))
+                {
+                  <img src="@v.ThumbnailUrl" alt="@(v.Title ?? "ویدیو")" class="fs-video-thumb" loading="lazy" referrerpolicy="no-referrer">
+                }
+                else
+                {
+                  <span class="fs-video-thumb fs-video-thumb-empty">@Icons.Svg("PlayCircle", null, 22)</span>
+                }
+                <span>
+                  <span class="block font-semibold">@(v.Title ?? "ویدیوی صفحهٔ تأمین‌کننده")</span>
+                  <span class="block a-muted text-xs a-ltr">@v.PageUrl</span>
+                </span>
+              </a>
+            </td>
+            <td data-label="کالا"><a href="/admin/products/edit/@v.ProductId">@v.ProductName</a></td>
+            <td data-label="منبع">@VideosModel.SourceTitle(v.Source)</td>
+            <td data-label="تطبیق" class="num"><span class="a-badge @(v.Score >= 90 ? "a-badge-green" : "a-badge-yellow")">@Format.Number(v.Score)٪</span></td>
+            <td data-label="اقدام" class="actions">
+              @if (v.Status == VideoSuggestionStatus.New)
+              {
+                <div class="a-btn-group">
+                  @if (v.Source == "aparat" || v.PageUrl.StartsWith("https://www.aparat.com/v/", StringComparison.Ordinal))
+                  {
+                    <form method="post" asp-page-handler="Aparat" asp-route-id="@v.Id" asp-route-product="@Model.ProductId" data-confirm="این ویدیوی آپارات به کالا اضافه شود؟ (مطمئن شوید همان کالاست)">
+                      <button type="submit" class="a-btn a-btn-sm">@Icons.Svg("Plus", null, 16) افزودن از آپارات</button>
+                    </form>
+                  }
+                  <form method="post" asp-page-handler="Used" asp-route-id="@v.Id" asp-route-product="@Model.ProductId">
+                    <button type="submit" class="a-btn a-btn-sm a-btn-light">@Icons.Svg("Check", null, 16) استفاده شد</button>
+                  </form>
+                  <form method="post" asp-page-handler="Dismiss" asp-route-id="@v.Id" asp-route-product="@Model.ProductId">
+                    <button type="submit" class="a-btn a-btn-sm a-btn-light">رد</button>
+                  </form>
+                </div>
+              }
+              else
+              {
+                <span class="a-muted text-sm">@(v.Status == VideoSuggestionStatus.Used ? "استفاده شد" : "رد شد")</span>
+              }
+            </td>
+          </tr>
+        }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+<p class="a-help mt-3">فقط پیشنهاد است: هیچ ویدیویی خودکار دانلود یا منتشر نمی‌شود. ویدیوی آپارات را می‌توان مستقیم اضافه کرد؛ بقیه را دانلود و در «ویدیوهای معرفی» صفحهٔ ویرایش کالا بارگذاری کنید. حق نشر ویدیو را رعایت کنید.</p>

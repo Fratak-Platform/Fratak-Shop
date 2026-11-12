@@ -1,0 +1,82 @@
+@page "/admin/abandoned-carts"
+@model Fratak_Shop.Web.Areas.Admin.Pages.AbandonedCarts.IndexModel
+@using Fratak_Shop.Data.Entities.Shopping
+@using Fratak_Shop.Web.Areas.Admin.Pages.AbandonedCarts
+@{
+    ViewData["Title"] = "سبدهای رهاشده";
+    var request = HttpContext.Request;
+    var s = Model.Stats;
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+}
+<div class="a-page-head">
+  <div>
+    <h2>سبدهای رهاشده</h2>
+    <p class="a-muted text-sm mt-1">مشتریانی که کالا در سبد گذاشتند و خرید نکردند؛ یادآوری خودکار (اعلان/پیامک/کوپن) طبق مراحل تعریف‌شده ارسال می‌شود · بازه: <b>@Model.Period.Label</b></p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.MarketingManage)) { <a class="a-btn a-btn-light" href="/admin/manage/cart-reminders">@Icons.Svg("Gear", null, 18) مراحل یادآوری</a> }
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+  </div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <div class="a-pills mb-3">
+      @foreach (var (key, title) in AdminPeriods.Presets) { <a class="a-pill @(Model.Period.Preset == key ? "is-active" : "")" href="/admin/abandoned-carts?period=@key">@title</a> }
+    </div>
+    <form method="get" class="a-filters">
+      <input type="hidden" name="period" value="@Model.Preset">
+      <div class="a-field"><label class="a-label" for="ac-from">از تاریخ</label><input id="ac-from" name="from" value="@(Model.Period.Preset == "custom" ? Model.Period.FromText : Model.From)" class="a-input a-ltr" placeholder="1404/01/01"></div>
+      <div class="a-field"><label class="a-label" for="ac-to">تا تاریخ</label><input id="ac-to" name="to" value="@(Model.Period.Preset == "custom" ? Model.Period.ToText : Model.To)" class="a-input a-ltr" placeholder="1404/12/29"></div>
+      <div class="a-field"><label class="a-label" for="ac-status">وضعیت</label>
+        <select id="ac-status" name="status" class="a-select" data-autosubmit>
+          <option value="">همه</option>
+          @foreach (var st in new[] { AbandonedCartStatus.Open, AbandonedCartStatus.Recovered, AbandonedCartStatus.Expired, AbandonedCartStatus.Cleared }) { <option value="@st" selected="@(Model.Status == st)">@IndexModel.StatusTitle(st)</option> }
+        </select></div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">سبد رهاشده</div><div class="a-stat-value">@Format.Number(s.TotalCount)</div><div class="a-stat-sub">@Format.Toman(s.TotalAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">باز (در حال یادآوری)</div><div class="a-stat-value">@Format.Number(s.OpenCount)</div><div class="a-stat-sub">@Format.Toman(s.OpenAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">بازگشت و خرید</div><div class="a-stat-value a-up">@Format.Number(s.RecoveredCount)</div><div class="a-stat-sub">@Format.Toman(s.RecoveredAmount) · نرخ @s.RecoveryRate.ToString("0.#", inv)٪</div></div>
+  <div class="a-stat"><div class="a-stat-label">از دست رفته</div><div class="a-stat-value a-down">@Format.Number(s.ExpiredCount)</div><div class="a-stat-sub">@Format.Toman(s.LostAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">یادآوری / کوپن</div><div class="a-stat-value">@Format.Number(s.RemindersSent)</div><div class="a-stat-sub">@Format.Number(s.CouponsIssued) کوپن صادر شد</div></div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="a-card xl:col-span-2">
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>مشتری</th><th>کالاها</th><th>مبلغ</th><th>یادآوری</th><th>وضعیت</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Items.Items)
+          {
+            <tr>
+              <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@Pii.NameOrPhone(r.CustomerName, r.Phone)</a> } else { @Pii.NameOrPhone(r.CustomerName, r.Phone) }<div class="a-muted text-xs">@AdminUi.Ago(r.AbandonedAt)</div></td>
+              <td data-label="کالاها" class="text-xs">@string.Join("، ", r.Products)@if (r.ItemCount > r.Products.Count) { <span class="a-muted"> …</span> }</td>
+              <td data-label="مبلغ" class="num">@Format.Price(r.CartAmount)<div class="a-muted text-xs">@r.ItemCount کالا</div></td>
+              <td data-label="یادآوری" class="text-xs">@r.RemindersSent بار @if (r.CouponCode is not null) { <div class="a-ltr">@r.CouponCode</div> }</td>
+              <td data-label="وضعیت"><span class="a-badge @IndexModel.StatusBadge(r.Status)">@IndexModel.StatusTitle(r.Status)</span>
+                @if (r.RecoveredOrderId is { } orderId && Model.Can(AdminPermissions.OrdersView)) { <div class="text-xs"><a class="a-link" href="/admin/orders/@orderId">سفارش @Format.Price(r.RecoveredAmount)</a></div> }</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Items.Items.Count == 0) { <div class="a-empty">موردی در این بازه نیست.</div> }
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">پرتکرارترین کالاها در سبدهای باز</span></div>
+    <div class="a-card-body">
+      @if (Model.TopProducts.Count == 0) { <div class="a-empty">—</div> }
+      <ol class="a-stack text-sm">
+        @foreach (var (name, count) in Model.TopProducts) { <li class="flex justify-between gap-2"><span>@name</span><b class="num">@Format.Number(count)</b></li> }
+      </ol>
+      <p class="a-help mt-3">پیشنهاد: برای این کالاها کمپین تخفیف یا کوپن یادآوری در نظر بگیرید.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,75 @@
+@page "/admin/marketing/price-match"
+@model Fratak_Shop.Web.Areas.Admin.Pages.PriceMatch.IndexModel
+@using Fratak_Shop.Data.Entities.Marketing
+@using Fratak_Shop.Web.Areas.Admin.Pages.PriceMatch
+@* دور ۲۴ (پیشنهاد ۱۱): درخواست‌های «قیمت کمتر دیدید؟» – تأیید (کد تخفیف شخصی فقط برای همان کالا) یا رد با دلیل. *@
+@{
+    ViewData["Title"] = "تضمین قیمت";
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تضمین قیمت</h2>
+    <p class="a-muted text-sm mt-1">مشتری‌ها نوشته‌اند همین کالا را جای دیگر ارزان‌تر دیده‌اند. پیوند را باز کنید و اگر کالا و شرایط یکی بود تأیید کنید؛ کد تخفیف ۷۲ ساعته فقط برای همان کالا و به اندازهٔ اختلاف قیمت امروز ساخته می‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn @(Model.Status is null ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/marketing/price-match">همه</a>
+    <a class="a-btn @(Model.Status == PriceMatchStatus.Pending ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/marketing/price-match?status=Pending">در انتظار (@Format.Number(Model.Pending))</a>
+    <a class="a-btn @(Model.Status == PriceMatchStatus.Approved ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/marketing/price-match?status=Approved">تأییدشده</a>
+    <a class="a-btn @(Model.Status == PriceMatchStatus.Rejected ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/marketing/price-match?status=Rejected">ردشده</a>
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>کالا</th><th>مشتری</th><th>قیمت‌ها</th><th>فروشگاه دیگر</th><th>وضعیت</th><th>اقدام</th></tr></thead>
+      <tbody>
+        @foreach (var r in Model.Items)
+        {
+          <tr>
+            <td data-label="کالا">
+              @if (r.ProductSlug is not null) { <a class="a-link" href="/product/@r.ProductSlug" target="_blank" rel="noopener">@r.ProductName</a> } else { @r.ProductName }
+              <div class="a-muted text-xs">@AdminUi.Ago(r.CreatedAt)</div>
+            </td>
+            <td data-label="مشتری">
+              @if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@r.UserId">@Pii.NameOrPhone(r.CustomerName, r.CustomerPhone)</a> } else { @Pii.NameOrPhone(r.CustomerName, r.CustomerPhone) }
+            </td>
+            <td data-label="قیمت‌ها" class="text-xs">
+              <div>رقیب: <b class="num">@Format.Price(r.CompetitorPrice)</b></div>
+              <div>ما (زمان درخواست): <span class="num">@Format.Price(r.OurPrice)</span> <span class="a-muted">(@IndexModel.GapPercent(r.OurPrice, r.CompetitorPrice)٪)</span></div>
+              @if (r.CurrentPrice != r.OurPrice) { <div class="text-amber-700">ما (امروز): <span class="num">@Format.Price(r.CurrentPrice)</span></div> }
+            </td>
+            <td data-label="فروشگاه دیگر" class="text-xs">
+              <a class="a-link a-ltr" href="@r.CompetitorUrl" target="_blank" rel="noopener noreferrer nofollow">@r.CompetitorHost</a>
+            </td>
+            <td data-label="وضعیت">
+              <span class="a-badge @IndexModel.StatusBadge(r.Status)">@IndexModel.StatusTitle(r.Status)</span>
+              @if (r.CouponCode is not null) { <div class="a-ltr text-xs mt-1">@r.CouponCode</div> }
+              @if (!string.IsNullOrEmpty(r.AdminNote)) { <div class="a-muted text-xs mt-1">@r.AdminNote</div> }
+              @if (r.ReviewerName is not null) { <div class="a-muted text-xs">@r.ReviewerName – @AdminUi.Ago(r.ReviewedAt ?? r.CreatedAt)</div> }
+            </td>
+            <td data-label="اقدام">
+              @if (r.Status == PriceMatchStatus.Pending)
+              {
+                <form method="post" asp-page-handler="Approve" asp-route-id="@r.Id" class="a-stack" data-confirm="کد تخفیف شخصی برای این مشتری ساخته شود؟">
+                  <input class="a-input" name="note" maxlength="500" placeholder="یادداشت (اختیاری)" />
+                  <button type="submit" class="a-btn a-btn-primary a-btn-sm">تأیید و ساخت کد</button>
+                </form>
+                <form method="post" asp-page-handler="Reject" asp-route-id="@r.Id" class="a-stack mt-2">
+                  <input class="a-input" name="note" maxlength="500" placeholder="دلیل رد (به مشتری نشان داده می‌شود)" />
+                  <button type="submit" class="a-btn a-btn-light a-btn-sm">رد</button>
+                </form>
+              }
+              else
+              {
+                <span class="a-muted text-xs">—</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Count == 0) { <div class="a-empty">درخواستی نیست.</div> }
+  </div>
+</div>

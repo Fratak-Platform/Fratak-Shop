@@ -1,0 +1,73 @@
+/*
+  استودیوی طراحی و صفحه‌ساز کمپین (دور ۲۱) – فقط در همین صفحه‌های پنل بار می‌شود.
+  چیدمان: نوار بالا، ابزارها (راست)، بوم (وسط)، ویژگی‌ها (چپ). در موبایل ستون‌ها زیر هم می‌آیند.
+*/
+.ds { display: flex; flex-direction: column; gap: 12px; }
+.ds-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--a-card, #fff); border: 1px solid var(--a-border, #e4e8ee); border-radius: 14px; padding: 10px 12px; }
+.ds-title { max-width: 280px; }
+.ds-top-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-inline-start: auto; }
+.ds-flip { transform: scaleX(-1); }
+.ds-tabs { margin-bottom: 0; align-items: center; }
+.ds-tabs button.a-tab { background: none; border-top: 0; border-left: 0; border-right: 0; cursor: pointer; }
+
+.ds-body { display: grid; grid-template-columns: 200px minmax(0, 1fr) 240px; gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .ds-body { grid-template-columns: 1fr; } .ds-tools, .ds-props { position: static !important; } }
+
+.ds-tools, .ds-props { background: var(--a-card, #fff); border: 1px solid var(--a-border, #e4e8ee); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 12px; position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto; }
+.ds-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.ds-group > b { width: 100%; font-size: 12.5px; color: var(--a-muted, #6b7787); }
+.ds-tool { border: 1px solid var(--a-border, #e4e8ee); background: #fff; border-radius: 10px; padding: 6px 10px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.ds-tool:hover { border-color: var(--a-primary, #0069fd); color: var(--a-primary, #0069fd); }
+.ds-tool.is-active { background: var(--a-primary-soft, #ebf5ff); border-color: var(--a-primary, #0069fd); }
+.ds-danger:hover { border-color: #dc2626; color: #dc2626; }
+.ds-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.ds-row label { display: inline-flex; align-items: center; gap: 6px; }
+.ds-wrap { gap: 6px; }
+.ds-num { width: 80px; }
+.ds-props textarea { font-family: inherit; }
+.ds-prop-body { display: flex; flex-direction: column; gap: 10px; }
+input[type="color"] { width: 40px; height: 30px; padding: 0; border: 1px solid var(--a-border, #e4e8ee); border-radius: 8px; background: none; cursor: pointer; }
+
+.ds-stage { background: repeating-conic-gradient(#eef1f5 0% 25%, #f8fafc 0% 50%) 50% / 20px 20px; border: 1px solid var(--a-border, #e4e8ee); border-radius: 14px; padding: 16px; min-height: 300px; display: flex; flex-direction: column; align-items: center; gap: 10px; overflow: hidden; }
+.ds-canvas-wrap { box-shadow: 0 10px 30px rgba(15, 23, 42, .18); line-height: 0; direction: ltr; }
+.ds-hint { font-size: 12px; color: var(--a-muted, #6b7787); text-align: center; }
+
+.ds-modal { position: fixed; inset: 0; z-index: 80; background: rgba(15, 23, 42, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ds-modal[hidden] { display: none; }
+.ds-modal-box { background: #fff; border-radius: 16px; width: min(860px, 100%); max-height: 90vh; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.ds-modal-sm { width: min(460px, 100%); }
+.ds-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.ds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.ds-grid button { border: 1px solid var(--a-border, #e4e8ee); border-radius: 12px; background: #f8fafc; padding: 4px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #475569; }
+.ds-grid button:hover { border-color: var(--a-primary, #0069fd); }
+.ds-grid img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 8px; }
+.ds-grid span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-grid .is-busy { opacity: .5; pointer-events: none; }
+
+/* ───────── صفحه‌ساز کمپین (GrapesJS) ───────── */
+.pb { display: flex; flex-direction: column; gap: 12px; }
+.pb-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--a-card, #fff); border: 1px solid var(--a-border, #e4e8ee); border-radius: 14px; padding: 10px 12px; }
+.pb-devices { display: inline-flex; gap: 4px; }
+.pb-body { display: grid; grid-template-columns: 230px minmax(0, 1fr) 280px; gap: 12px; height: calc(100vh - 200px); min-height: 560px; }
+@media (max-width: 1100px) { .pb-body { grid-template-columns: 1fr; height: auto; } .pb-canvas { height: 70vh; } }
+.pb-side { background: var(--a-card, #fff); border: 1px solid var(--a-border, #e4e8ee); border-radius: 14px; overflow: auto; }
+.pb-side-tabs { display: flex; border-bottom: 1px solid var(--a-border, #e4e8ee); position: sticky; top: 0; background: #fff; z-index: 2; }
+.pb-side-tabs button { flex: 1; padding: 8px; border: 0; background: none; cursor: pointer; font-weight: 600; color: var(--a-muted, #6b7787); border-bottom: 2px solid transparent; }
+.pb-side-tabs button.is-active { color: var(--a-primary, #0069fd); border-bottom-color: var(--a-primary, #0069fd); }
+.pb-canvas { border: 1px solid var(--a-border, #e4e8ee); border-radius: 14px; overflow: hidden; background: #e2e8f0; min-height: 400px; }
+.pb-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.pb .gjs-one-bg { background-color: #fff; }
+.pb .gjs-two-color { color: #334155; }
+.pb .gjs-three-bg { background-color: var(--a-primary, #0069fd); color: #fff; }
+.pb .gjs-four-color, .pb .gjs-four-color-h:hover { color: var(--a-primary, #0069fd); }
+.pb .gjs-block { width: calc(50% - 10px); min-height: 70px; margin: 5px; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--a-border, #e4e8ee); box-shadow: none; font-family: inherit; font-size: 12px; }
+.pb .gjs-block:hover { border-color: var(--a-primary, #0069fd); }
+.pb .gjs-block svg { width: 28px; height: 28px; margin: 0 auto 4px; display: block; }
+.pb .gjs-block-category .gjs-title { font-family: inherit; font-size: 12.5px; background: #f8fafc; border-bottom: 1px solid var(--a-border, #e4e8ee); }
+.pb .gjs-sm-sector .gjs-sm-sector-title, .pb .gjs-layer-name, .pb .gjs-trt-trait, .pb .gjs-sm-label, .pb .gjs-field { font-family: inherit; }
+.pb .gjs-field { background: #f1f5f9; color: #0f172a; border-radius: 8px; }
+.pb .gjs-sm-sector-title { background: #f8fafc; }
+.pb .gjs-layer { background: #fff; }
+.pb .gjs-cv-canvas { width: 100%; height: 100%; top: 0; }
+.pb .gjs-editor { background: none; }
+.pb-canvas > [data-pb-editor] { height: 100%; }

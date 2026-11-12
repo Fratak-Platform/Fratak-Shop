@@ -1,324 +1,258 @@
-@page
+@page "/"
 @model IndexModel
+@using Fratak_Shop.Data.Entities.Contents
 @{
-    ViewData["Title"] = "صفحه اصلی";
     Layout = "_Layout";
+    var heroRendered = false;
 }
 
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <h1 class="sr-only">@(string.IsNullOrWhiteSpace(Site.Settings.Tagline) ? Site.Settings.SiteName : $"{Site.Settings.SiteName} - {Site.Settings.Tagline}")</h1>
+    @foreach (var block in Model.Blocks)
+    {
+      var homeSection = block.Section;
+      var title = homeSection.Title;
+      var link = UrlSafety.IsSafeLink(homeSection.LinkUrl) ? homeSection.LinkUrl!.Trim() : null;
+      switch (homeSection.Type)
+      {
+        case HomeSectionType.HeroSlider:
+          <section aria-label="@(title ?? "اسلایدر")">
+            <div class="swiper heroSlider rounded-xl relative" data-slider="hero">
+              <div class="swiper-wrapper">
+                @for (var i = 0; i < block.Banners.Count; i++)
+                {
+                  var banner = block.Banners[i];
+                  var first = !heroRendered && i == 0;
+                  @* دور ۲۶: یک نسخهٔ پهن و کوتاه (۱۹۲۰×۴۲۰) برای همهٔ صفحه‌ها، بدون برش؛ نسخهٔ زنده اگر باشد. *@
+                  await Html.RenderPartialAsync("_BannerArt", new BannerArt(banner, "swiper-slide", "w-full h-auto", first, 1920, 420));
+                }
+              </div>
+              <div class="swiper-button-next shadow-lg"></div>
+              <div class="swiper-button-prev shadow-lg"></div>
+              <div class="swiper-pagination"></div>
+            </div>
+          </section>
+          heroRendered = true;
+          break;
 
-  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">+
-    <!-- hero slider -->
-    <div>
-      <div class="swiper heroSlider rounded-xl relative">
-        <div class="swiper-wrapper">
-          @foreach (var item in Model.HeroSlides) {<a href="" class="swiper-slide">
-            @Html.Raw(item.ImageTag)
-          </a>
+        case HomeSectionType.Categories:
+          <section>
+            <h2 class="text-center text-3xl font-semibold text-gray-800 mt-12 mb-4">@(title ?? "دسته بندی محصولات")</h2>
+            @* دور ۲۹ (#۱۵): چیدمان flex-wrap وسط‌چین (fs-cat-grid در commerce.css) ← چند دستهٔ کم هم وسط صفحه می‌نشینند، نه گوشهٔ راست. *@
+            <div class="px-10 lg:px-16 mx-auto fs-cat-grid mb-10">
+              @foreach (var category in block.Categories)
+              {
+                <a href="/category/@category.Slug" class="rounded-xl group hover:shadow-xl hover:bg-blue-500 shadow-lg transition-all delay-75 bg-gray-50 hover:scale-105 relative">
+                  @if (string.IsNullOrWhiteSpace(category.ImageName))
+                  {
+                    @* دور ۲۳: دستهٔ بدون عکس ← آیکن نوع دسته (به‌جای عکس پیش‌فرض تکراری) *@
+                    <span class="flex aspect-square items-center justify-center p-5 text-sky-600 group-hover:text-white md:group-hover:scale-110 transition-all duration-500">@Icons.Svg(Icons.Has(category.IconKey) ? category.IconKey! : "Tag", "w-1/2 h-1/2", 64)</span>
+                  }
+                  else if (Fratak_Shop.Core.Services.Smart.CategoryImages.IsPhoto(category.ImageName))
+                  {
+                    @* دور ۲۶: عکس فضاسازی دسته (از اینترنت) ← کاشی ۴:۳ تمام‌قد با برش هوشمند؛ بدون حاشیهٔ داخلی *@
+                    <span class="cat-tile-photo"><img src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 480, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async"></span>
+                  }
+                  else
+                  {
+                    <img class="rounded-xl p-5 md:group-hover:scale-125 transition-all duration-500" src="@ImageHelper.Sized(ImageHelper.Category(category.ImageName), 320, Site.Settings.IsImageOptimizationEnabled)" alt="@category.Name" loading="lazy" decoding="async">
+                  }
+                  <p class="text-center text-zinc-500 group-hover:text-zinc-50 pb-2 delay-75">@category.Name</p>
+                </a>
+              }
+            </div>
+          </section>
+          break;
+
+        case HomeSectionType.Deals:
+          <section class="flex gap-x-5 mt-32 mb-20 relative h-[620px]" aria-label="@(title ?? "تخفیف ها")">
+            <div class="bg-blue-400 w-full h-96 rounded-2xl -top-10 absolute z-0"></div>
+            <div class="w-full">
+              <div class="swiper offSlider" data-slider="deals">
+                <div class="swiper-wrapper items-start pb-5">
+                  <div class="card swiper-slide">
+                    <div class="z-50 mt-14">
+                      <div class="flex flex-col justify-center items-center">
+                        <h2 class="text-center text-white text-sm md:text-xl font-semibold mb-2">@(title ?? "تخفیف های ویژه زمان دار")</h2>
+                        <p class="text-center text-white mb-5 text-xs md:text-base">@(homeSection.Subtitle ?? "همین حالا سفارشتان را ثبت کنید!")</p>
+                        <img class="w-10/12 mx-auto" src="~/assets/image/off.webp" alt="" loading="lazy">
+                        <a href="@(link ?? "/products?discounted=true")" class="group border border-gray-300 bg-white hover:bg-blue-500 transition flex items-center justify-center gap-x-2 h-auto text-gray-600 hover:text-white mt-5 text-sm rounded-lg py-3 w-10/12 md:w-6/12 text-center">
+                          مشاهده همه
+                          <svg class="fill-gray-600 group-hover:fill-white" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  @foreach (var product in block.Products)
+                  {
+                    <partial name="_DealCard" model="product" />
+                  }
+                </div>
+                <div class="swiper-button-next"></div>
+                <div class="swiper-button-prev"></div>
+              </div>
+            </div>
+          </section>
+          break;
+
+        case HomeSectionType.PromoBanners:
+          @* دور ۲۹ (#۱۶): تا ۴ بنر (سقف جایگاه در تنظیمات)؛ دوتایی کنار هم، بیشتر ← ردیف دوم. *@
+          <section class="@(block.Banners.Count > 1 ? "grid grid-cols-1 md:grid-cols-2" : "flex flex-col") gap-4 mt-10 fs-promo-row" aria-label="@(title ?? "پیشنهادها")">
+            @for (var i = 0; i < block.Banners.Count && i < 4; i++)
+            {
+              var promo = block.Banners[i];
+              // دور ۲۳: بنر دوتایی کامل (۹۶۰×۳۲۰، متن روی خود تصویر – مثل دیجی‌کالا) وقتی زیرعنوان و دکمهٔ جدا ندارد.
+              if (string.IsNullOrWhiteSpace(promo.Subtitle) && string.IsNullOrWhiteSpace(promo.ButtonText))
+              {
+                await Html.RenderPartialAsync("_BannerArt", new BannerArt(promo, "block w-full md:flex-1 overflow-hidden rounded-xl lg:rounded-3xl", "w-full h-auto", false, 960, 320, false));
+                continue;
+              }
+              // دور ۲۷: کارت تبلیغاتی «عکس کالای بدون زمینه + متن» بازطراحی شد (به‌جای کارت گرادیانی قدیمی که عکسش از کادر بیرون می‌زد):
+              // گرادیان عمیق با نور، کالا معلق با سایه، تیتر/متن/دکمه در سمت راست؛ کل کارت لینک است و در موبایل هم مرتب می‌ماند.
+              var promoLink = UrlSafety.IsSafeLink(promo.LinkUrl) ? promo.LinkUrl!.Trim() : null;
+              var promoClass = "fr-promo md:flex-1 " + (i % 2 == 0 ? "fr-promo--a" : "fr-promo--b");
+              await Html.RenderPartialAsync("_PromoCard", new PromoCardModel(promo, promoClass, promoLink));
+            }
+          </section>
+          break;
+
+        case HomeSectionType.BestSellers:
+        case HomeSectionType.Newest:
+        case HomeSectionType.MostViewed:
+        case HomeSectionType.CategoryProducts:
+        case HomeSectionType.RecommendedForYou:
+        case HomeSectionType.RecentlyViewed:
+          var moreLink = link ?? homeSection.Type switch
+          {
+              HomeSectionType.BestSellers => "/products?sort=BestSelling",
+              HomeSectionType.MostViewed => "/products?sort=MostViewed",
+              HomeSectionType.CategoryProducts when !string.IsNullOrWhiteSpace(homeSection.CategorySlug) => $"/category/{homeSection.CategorySlug}",
+              _ => "/products?sort=Newest",
+          };
+          var sliderTitle = title ?? homeSection.Type switch
+          {
+              HomeSectionType.BestSellers => "پرفروش ترین محصولات",
+              HomeSectionType.MostViewed => "پربازدیدترین محصولات",
+              HomeSectionType.CategoryProducts => homeSection.CategoryTitle ?? "محصولات",
+              HomeSectionType.RecommendedForYou => "پیشنهاد برای شما",
+              HomeSectionType.RecentlyViewed => "بازدیدهای اخیر شما",
+              _ => "جدیدترین محصولات",
+          };
+          <section id="@block.DomId">
+            <div>
+              <h2 class="text-center text-3xl font-semibold text-gray-800 mt-20">@sliderTitle</h2>
+              @if (!string.IsNullOrWhiteSpace(homeSection.Subtitle))
+              {
+                <p class="text-center text-zinc-500 mt-2">@homeSection.Subtitle</p>
+              }
+              <a href="@moreLink" class="flex justify-center items-center gap-x-1 group mb-6 mt-4 w-fit mx-auto text-blue-600">
+                مشاهده همه
+                <svg class="group-hover:-translate-x-1 transition fill-blue-600" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
+              </a>
+            </div>
+            <div class="w-full relative">
+              <div class="bg-blue-400 w-full h-44 rounded-3xl bottom-0 absolute z-0"></div>
+              <div class="swiper" data-slider="products">
+                <div class="swiper-wrapper items-start pb-5">
+                  @foreach (var product in block.Products)
+                  {
+                    <partial name="_ProductSlideCard" model="product" />
+                  }
+                </div>
+                <div class="swiper-button-next"></div>
+                <div class="swiper-button-prev"></div>
+              </div>
+            </div>
+          </section>
+          break;
+
+        case HomeSectionType.WideBanners:
+          foreach (var banner in block.Banners)
+          {
+            <div>
+              @* دور ۲۶: بنر عریض ۱۹۲۰×۳۰۰ – یک نسخه برای همه؛ بنر بدون لینک ← div *@
+              @await Html.PartialAsync("_BannerArt", new BannerArt(banner, "block my-14 overflow-hidden rounded-xl lg:rounded-3xl", "rounded-xl lg:rounded-3xl w-full h-auto", false, 1920, 300))
+            </div>
           }
-        </div>
-        <div class="swiper-button-next shadow-lg"></div>
-        <div class="swiper-button-prev shadow-lg"></div>
-        <div class="swiper-pagination"></div>
-      </div>
-    </div>
-    <!-- category section -->
-    <div class="text-center text-3xl font-semibold text-gray-800 mt-12 mb-4">
-      دسته بندی محصولات
-    </div>
-    <div class="px-10 lg:px-16 mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-10 gap-3 md:gap-5 mb-10">
-      @foreach (var item in Model.Categories) {@Html.Raw(item.LinkHtml)
-        <p class="text-center text-zinc-500 group-hover:text-zinc-50 pb-2 delay-75">
-          @item.Name
-        </p>
-      </a>
-      }
-    </div>
-    <!-- off slider -->
-    <div class="flex gap-x-5 mt-32 mb-20 relative h-[620px]">
-      <div class="bg-blue-400 w-full h-96 rounded-2xl -top-10 absolute z-0">
-      </div>
-      <div class="w-full">
-        <div class="swiper offSlider">
-          <div class="swiper-wrapper items-start pb-5">
-            <div class="card swiper-slide">
-              <div class="z-50 mt-14">
+          break;
+
+        case HomeSectionType.Features:
+          <section class="my-28">
+            <h2 class="text-center text-3xl font-semibold text-zinc-800 mb-10">@(title ?? $"چرا {Site.Settings.SiteName}؟")</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 md:gap-5 items-start">
+              @foreach (var feature in block.Features)
+              {
+                var icon = Icons.Has(feature.IconKey) ? feature.IconKey! : "SealCheck";
+                var featureLink = UrlSafety.IsSafeLink(feature.LinkUrl) ? feature.LinkUrl!.Trim() : null;
                 <div class="flex flex-col justify-center items-center">
-                  <p class="text-center text-white text-sm md:text-xl font-semibold mb-2">
-                    تخفیف های ویژه زمان دار
-                  </p>
-                  <p class="text-center text-white mb-5 text-xs md:text-base">
-                    همین حالا سفارشتان را ثبت کنید!
-                  </p>
-                  <img class="w-10/12 mx-auto" src="~/assets/image/off.png" alt="">
-                  <a href="" class="group border border-gray-300 bg-white hover:bg-blue-500 transition flex items-center justify-center gap-x-2 h-auto text-gray-600 hover:text-white mt-5 text-sm rounded-lg py-3 w-10/12 md:w-6/12 text-center">
-                    مشاهده همه
-                    <svg class="fill-gray-600 group-hover:fill-white" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
-                  </a>
+                  @Icons.Svg(icon, "fill-blue-600", 64)
+                  <h3 class="md:text-lg font-semibold mb-2 mt-2">
+                    @if (featureLink is null)
+                    {
+                      @feature.Title
+                    }
+                    else
+                    {
+                      <a href="@featureLink" class="hover:text-blue-600">@feature.Title</a>
+                    }
+                  </h3>
+                  @if (!string.IsNullOrWhiteSpace(feature.Description))
+                  {
+                    <p class="text-center text-zinc-600">@feature.Description</p>
+                  }
+                </div>
+              }
+            </div>
+          </section>
+          break;
+
+        case HomeSectionType.Brands:
+          <section class="mt-20">
+            <h2 class="text-center text-2xl font-semibold text-zinc-800">@(title ?? "محبوب ترین برند ها")</h2>
+            <div class="containerPSlider swiper">
+              <div class="partnerCompany px-1" data-slider="brands">
+                <div class="card-wrapper swiper-wrapper py-2 flex items-center">
+                  @foreach (var brand in block.Brands)
+                  {
+                    <a href="/brand/@brand.Slug" class="card swiper-slide my-2 border-l p-2 sm:p-4" title="@brand.Name">
+                      <img class="grayscale hover:grayscale-0 transition-all" src="@ImageHelper.Brand(brand.LogoName)" alt="@brand.Name" loading="lazy" decoding="async">
+                    </a>
+                  }
                 </div>
               </div>
             </div>
-            @foreach (var item in Model.OffProducts) {<div class="card swiper-slide my-2 p-2 md:p-3 bg-white rounded-xl relative group shadow-lg">
-              <div class="countdown flex flex-row-reverse justify-start items-center gap-x-1 text-white bg-cyan-500 rounded-full px-2 py-1 mr-auto w-fit">
-                <svg class="fill-white" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="" viewBox="0 0 256 256"><path d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,216ZM61.66,37.66l-32,32A8,8,0,0,1,18.34,58.34l32-32A8,8,0,0,1,61.66,37.66Zm176,32a8,8,0,0,1-11.32,0l-32-32a8,8,0,0,1,11.32-11.32l32,32A8,8,0,0,1,237.66,69.66ZM184,128a8,8,0,0,1,0,16H128a8,8,0,0,1-8-8V80a8,8,0,0,1,16,0v48Z"></path></svg>
-                <div class="days-container hidden">
-                  <span id="days" class="text-xs md:text-base"></span>
-                </div>
-                <div class="hours-container">
-                  <span id="hours" class="text-xs md:text-base"></span>
-                </div>
-                <div>:</div>
-                <div class="minutes-container">
-                  <span id="minutes" class="text-xs md:text-base"></span>
-                </div>
-                <div>:</div>
-                <div class="seconds-container">
-                  <span id="seconds" class="text-xs md:text-base"></span>
-                </div>
-              </div>
-              <div class="absolute left-3 mt-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-all text-sm md:text-base flex flex-col items-center">
-                <svg class="fill-gray-500 size-4 md:size-6" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="" viewBox="0 0 256 256"><path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z"></path></svg>
-                4.7
-              </div>
-              <div class="image-box mb-6 ">
-                @Html.Raw(item.ImageTag)
-              </div>
-              <p class="text-xs md:text-sm text-gray-400">
-                apple watch s pro ff
-              </p>
-              <a href="" class="text-gray-700 font-semibold text-sm md:text-base">
-                ساعت هوشمند اپل واچ سری 7 نسخه 35 میلی متری
-              </a>
-              <div class="mt-8 flex flex-row-reverse items-center justify-between">
-                <div class="space-y-2">
-                  <div class="flex justify-end opacity-65">
-                    <div class="line-through decoration-gray-500 text-xs">1.350.000</div>
-                    <div class="line-through decoration-gray-500 text-xs">تومان</div>
-                  </div>
-                  <div class="flex flex-row-reverse items-center gap-x-1">
-                    <div class="flex justify-end mt-1 mb-1 text-zinc-800 font-semibold">
-                      <div class="text-sm md:text-base">1.100.000</div>
-                      <div class="text-sm md:text-base">تومان</div>
-                    </div>
-                    <div class="bg-blue-500 h-fit text-white rounded-full text-xs md:text-sm px-2 py-1">
-                      30%
-                    </div>
-                  </div>
-                </div>
-                <a href="" class="group/edit border border-gray-300 p-1 md:p-2 rounded-md shadow-lg hover:bg-blue-500 transition">
-                  <svg class="group-hover/edit:fill-white transition" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#000000" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM176,88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"></path></svg>
-                </a>
-              </div>
-              <div class="hidden group-hover:flex opacity-0 group-hover:opacity-100 transition-all items-center justify-between border-t mt-5 pt-5 gap-x-4">
-                <div class="group/edit border bg-gray-100 border-gray-300 p-2 h-auto rounded-lg shadow-md hover:bg-red-500 transition cursor-pointer">
-                  <svg class="group-hover/edit:fill-white transition" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="" viewBox="0 0 256 256"><path d="M178,40c-20.65,0-38.73,8.88-50,23.89C116.73,48.88,98.65,40,78,40a62.07,62.07,0,0,0-62,62c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,228.66,240,172,240,102A62.07,62.07,0,0,0,178,40ZM128,214.8C109.74,204.16,32,155.69,32,102A46.06,46.06,0,0,1,78,56c19.45,0,35.78,10.36,42.6,27a8,8,0,0,0,14.8,0c6.82-16.67,23.15-27,42.6-27a46.06,46.06,0,0,1,46,46C224,155.61,146.24,204.15,128,214.8Z"></path></svg>
-                </div>
-                <a href="" class="bg-blue-600 hover:bg-blue-500 transition h-auto text-white text-sm rounded-lg py-3 w-full text-center">
-                  جزئیات محصول
-                </a>
-              </div>
-            </div>
-            }  
-          </div>
-          <div class="swiper-button-next"></div>
-          <div class="swiper-button-prev"></div>
-        </div>
-      </div>
-    </div>
-    <!-- 2 image -->
-    <div class="flex flex-col md:flex-row items-center justify-center gap-x-5 gap-y-24">
-      <div class="md:w-1/2 bg-gradient-to-r from-blue-400 to-blue-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2">
-        <img class="absolute mx-auto w-96 md:w-[400px] -top-20" src="~/assets/image/products/8.webp" alt="">
-        <div class="lg:absolute left-10 top-10 max-w-96 pt-64 lg:pt-0 mx-auto">
-          <p class="text-white text-5xl lg:text-6xl text-wrap font-semibold text-left">
-            MacBook Pro 2024
-          </p>
-          <p class="text-white lg:text-lg text-right my-2 lg:pr-16">
-            چرا از نسخه های جدید استفاده نمیکنی؟
-          </p>
-          <a href="" class="mx-auto flex justify-center items-center gap-x-2 text-blue-500 bg-white hover:bg-gray-100 transition-all p-3 rounded-xl mt-4 lg:mr-16">
-            مشاهده محصول
-            <svg class="fill-blue-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V72H40V56Zm0,144H40V88H216V200Zm-40-88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"></path></svg>
-          </a>
-        </div>
-      </div>
-      <div class="md:w-1/2 bg-gradient-to-r from-orange-400 to-orange-600 w-full lg:h-72 rounded-xl lg:rounded-3xl relative p-2">
-        <img class="absolute mx-auto w-72 md:w-[300px] -top-24 left-5" src="~/assets/image/products/9.webp" alt="">
-        <div class="lg:absolute right-10 top-10 max-w-96 pt-64 lg:pt-0 mx-auto">
-          <p class="text-white text-5xl lg:text-6xl text-wrap font-semibold text-left">
-            Gaming Case 2024
-          </p>
-          <p class="text-white lg:text-lg text-left my-2">
-            کیس های اسمبل شده گیمینگ با طراحی زیبا
-          </p>
-          <a href="" class="mx-auto flex justify-center items-center gap-x-2 text-orange-500 bg-white hover:bg-gray-100 transition-all p-3 rounded-xl mt-4 lg:mr-16">
-            مشاهده محصول
-            <svg class="fill-orange-500" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V72H40V56Zm0,144H40V88H216V200Zm-40-88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Z"></path></svg>
-          </a>
-        </div>
-      </div>
-    </div>
-    <!-- slider 1 -->
-    <div>
-      <div>
-        <div class="text-center text-3xl font-semibold text-gray-800 mt-20">
-          محبوب ترین محصولات
-        </div>
-        <a href="" class="flex justify-center items-center gap-x-1 group mb-6 mt-4 w-fit mx-auto text-blue-600">
-          مشاهده همه
-          <svg class="group-hover:-translate-x-1 transition fill-blue-600" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
-        </a>
-      </div>
-      <div class="w-full relative">
-        <div class="bg-blue-400 w-full h-44 rounded-3xl bottom-0 absolute z-0">
-        </div>
-        <div class="swiper productSlider1">
-          <div class="swiper-wrapper items-start pb-5">
-            @foreach (var item in Model.Slider1Products) {<div class="card swiper-slide relative my-2 p-2 md:p-3 bg-white rounded-xl group shadow-lg border border-zinc-200">
-              <div class="absolute left-3 text-gray-600 opacity-0 group-hover:opacity-100 transition-all text-xs md:text-sm flex flex-col items-center">
-                <svg class="fill-yellow-500 size-4 md:size-6" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="" viewBox="0 0 256 256"><path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z"></path></svg>
-                4.@item.DiscountPercent
-              </div>
-              @Html.Raw(item.ImageTag)
-              <div class="my-5">
-                <div class="flex flex-col gap-y-1">
-                  <a href="" class="text-zinc-700 text-sm md:text-base">
-                    @item.Title
-                  </a>
-                  <div class="text-blue-800 text-base md:text-lg">
-                    @item.Price تومان
-                  </div>
-                </div>
-              </div>
-              <a href="" class="w-full block text-center p-2 rounded-lg shadow-lg bg-blue-500 hover:bg-blue-400 text-white transition">
-                مشاهده و خرید
+          </section>
+          break;
+
+        case HomeSectionType.LatestPosts:
+          <section>
+            <div>
+              <h2 class="text-center text-3xl font-semibold text-gray-800 mt-20">@(title ?? $"خواندنی های {Site.Settings.SiteName}")</h2>
+              <a href="@(link ?? "/blog")" class="flex justify-center items-center gap-x-1 group mb-6 mt-4 w-fit mx-auto text-blue-600">
+                مشاهده همه
+                <svg class="group-hover:-translate-x-1 transition fill-blue-600" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
               </a>
             </div>
-            }
-          </div>
-          <div class="swiper-button-next next-btn-2"></div>
-          <div class="swiper-button-prev prev-btn-2"></div>
-        </div>
-      </div>
-    </div>
-    <!-- banner 1 -->
-    <div>
-      <a href="">
-        <img class="rounded-xl lg:rounded-3xl my-14" src="~/assets/image/banner/1.webp" alt="">
-      </a>
-    </div>
-    <!-- slider 2 -->
-    <div>
-      <div>
-        <div class="text-center text-3xl font-semibold text-gray-800 mt-20">
-          جدیدترین محصولات
-        </div>
-        <a href="" class="flex justify-center items-center gap-x-1 group mb-6 mt-4 w-fit mx-auto text-blue-600">
-          مشاهده همه
-          <svg class="group-hover:-translate-x-1 transition fill-blue-600" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
-        </a>
-      </div>
-      <div class="w-full relative">
-        <div class="bg-blue-400 w-full h-44 rounded-3xl bottom-0 absolute z-0">
-        </div>
-        <div class="swiper productSlider2">
-          <div class="swiper-wrapper items-start pb-5">
-            @foreach (var item in Model.Slider2Products) {<div class="card swiper-slide relative my-2 p-2 md:p-3 bg-white rounded-xl group shadow-lg border border-zinc-200">
-              <div class="absolute left-3 text-gray-600 opacity-0 group-hover:opacity-100 transition-all text-xs md:text-sm flex flex-col items-center">
-                <svg class="fill-yellow-500 size-4 md:size-6" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="" viewBox="0 0 256 256"><path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z"></path></svg>
-                4.@item.DiscountPercent
-              </div>
-              @Html.Raw(item.ImageTag)
-              <div class="my-5">
-                <div class="flex flex-col gap-y-1">
-                  <a href="" class="text-zinc-700 text-sm md:text-base">
-                    @item.Title
-                  </a>
-                  <div class="text-blue-800 text-base md:text-lg">
-                    @item.Price تومان
-                  </div>
-                </div>
-              </div>
-              <a href="" class="w-full block text-center p-2 rounded-lg shadow-lg bg-blue-500 hover:bg-blue-400 text-white transition">
-                مشاهده و خرید
-              </a>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+              @foreach (var post in block.Posts)
+              {
+                <partial name="_BlogCard" model="post" />
+              }
             </div>
-            }
-          </div>
-          <div class="swiper-button-next next-btn-3"></div>
-          <div class="swiper-button-prev prev-btn-3"></div>
-        </div>
-      </div>
-    </div>
-    <!-- what? -->
-    <div class="my-28">
-      <div class="text-center text-3xl font-semibold text-zinc-800 mb-10">
-        چرا هایپر استار؟
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 md:gap-5 items-start">
-        @foreach (var item in Model.Services) {<div class="flex flex-col justify-center items-center">
-          <svg class="fill-blue-600" xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="" viewBox="0 0 256 256">@Html.Raw(item.IconPath1)</path>@Html.Raw(item.IconPath2)</path></svg>
-          <p class="md:text-lg font-semibold mb-2">
-            @item.Title
-          </p>
-          <p class="text-center text-zinc-600">
-            @item.Text
-          </p>
-        </div>
-        }
-      </div>
-    </div>
-    <!-- partner company -->
-    <div>
-      <!-- top companys -->
-      <div class="text-center text-2xl font-semibold text-zinc-800">
-        محبوب ترین برند ها
-      </div>
-      <!-- main companys -->
-      <div class="containerPSlider swiper">
-        <div class="partnerCompany px-1">
-          <div class="card-wrapper swiper-wrapper py-2 flex items-center">
-            @foreach (var item in Model.PartnerBrands) {<a href="" class="card swiper-slide my-2 border-l p-2 sm:p-4">
-              @Html.Raw(item.ImageTag)
-            </a>
-            }
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- blog -->
-    <div>
-      <div>
-        <div class="text-center text-3xl font-semibold text-gray-800 mt-20">
-          خواندنی های هایپر استار
-        </div>
-        <a href="" class="flex justify-center items-center gap-x-1 group mb-6 mt-4 w-fit mx-auto text-blue-600">
-          مشاهده همه
-          <svg class="group-hover:-translate-x-1 transition fill-blue-600" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
-        </a>
-      </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-        @foreach (var item in Model.BlogCards) {<div class="bg-white rounded-2xl border border-zinc-300 group">
-          <a href="" class="image-box">
-            @Html.Raw(item.ImageTag)
-          </a>
-          <div class="p-2 md:p-4 mt-2">
-            <a asp-page="/BlogSingle" class="font-semibold text-zinc-800">
-              ۷ ترفند برای افزایش طول عمر هدفون
-            </a>
-            <p class="mb-4 mt-5 text-zinc-600">
-              اگر از جمله کاربرانی هستید که هدفون‌های شما بعد از حدود یک یا دو سال استفاده خراب...
-            </p>
-            <a asp-page="/BlogSingle" class="flex items-center justify-center w-fit mx-auto text-blue-600 hover:text-blue-400 transition">
-              ادامه مطلب
-            </a>
-          </div>
-        </div>
-        }
-      </div>
-    </div>
+          </section>
+          break;
+      }
+    }
   </main>
 
 @section Scripts {
-    <script src="~/assets/js/dependencies/swiper.min.js"></script>
-    <script src="~/assets/js/sliders.js"></script>
+  @if (Model.Blocks.Any(b => b.Banners.Count > 0))
+  {
+    <script src="~/assets/js/banners.js" asp-append-version="true" defer></script>
+  }
+  @if (Model.NeedsSlider)
+  {
+    <script src="~/assets/js/dependencies/swiper.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/sliders.js" asp-append-version="true"></script>
+  }
 }

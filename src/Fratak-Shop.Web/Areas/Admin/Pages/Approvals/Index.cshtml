@@ -1,0 +1,60 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.ApprovalsModel
+@using Fratak_Shop.Data.Entities.Team
+@using Fratak_Shop.Web.Areas.Admin.Pages.TeamPages
+@{
+    ViewData["Title"] = "تأییدهای دونفره";
+    var request = HttpContext.Request;
+    var status = string.IsNullOrEmpty(Model.Status) ? "pending" : Model.Status;
+    var enabled = Site.Settings.IsTwoPersonApprovalEnabled;
+    // کارت هر درخواست (_ApprovalCard) برای «می‌تواند تصمیم بگیرد؟» به مدل صفحه نیاز دارد.
+    ViewData["ApprovalsPage"] = Model;
+}
+<div class="a-page-head">
+  <div>
+    <h2>تأییدهای دونفره</h2>
+    <p class="a-muted text-sm mt-1">کارهای حساسِ بزرگ (تغییر دستی کیف پول، پرداخت برداشت، تغییر نقش کارکنان) با تأیید یک همکار دوم انجام می‌شوند. هر درخواست @Format.Number((int)ApprovalServiceLifetime.TotalHours) ساعت مهلت دارد.</p>
+  </div>
+</div>
+
+@if (!enabled)
+{
+  <div class="a-alert a-alert-info mb-4">@Icons.Svg("Info", "shrink-0", 20)<div>تأیید دونفره در تنظیمات «امنیت کارکنان» خاموش است؛ کارهای جدید بدون تأیید انجام می‌شوند. درخواست‌های قبلی همچنان اینجا قابل تصمیم‌اند.</div></div>
+}
+
+@if (Model.Focus is { } f)
+{
+  <div class="mb-4">
+    <partial name="_ApprovalCard" model="f" />
+  </div>
+}
+
+<div class="a-list-toolbar mb-3">
+  <div class="a-pills">
+    <a class="a-pill @(status == "pending" ? "is-active" : "")" href="@AdminUi.With(request, ("status", null), ("page", null), ("id", null))">در انتظار</a>
+    <a class="a-pill @(status == "Approved" ? "is-active" : "")" href="@AdminUi.With(request, ("status", "Approved"), ("page", null), ("id", null))">انجام‌شده</a>
+    <a class="a-pill @(status == "Rejected" ? "is-active" : "")" href="@AdminUi.With(request, ("status", "Rejected"), ("page", null), ("id", null))">ردشده</a>
+    <a class="a-pill @(status == "Failed" ? "is-active" : "")" href="@AdminUi.With(request, ("status", "Failed"), ("page", null), ("id", null))">ناموفق</a>
+    <a class="a-pill @(status == "all" ? "is-active" : "")" href="@AdminUi.With(request, ("status", "all"), ("page", null), ("id", null))">همه</a>
+  </div>
+  <div class="a-pills">
+    <a class="a-pill @(Model.Mine ? "" : "is-active")" href="@AdminUi.With(request, ("mine", null), ("page", null), ("id", null))">همهٔ درخواست‌ها</a>
+    <a class="a-pill @(Model.Mine ? "is-active" : "")" href="@AdminUi.With(request, ("mine", "true"), ("page", null), ("id", null))">درخواست‌های من</a>
+  </div>
+</div>
+
+<div class="a-stack">
+  @foreach (var r in Model.Requests.Items.Where(x => x.Id != Model.Focus?.Id))
+  {
+    <partial name="_ApprovalCard" model="r" />
+  }
+  @if (Model.Requests.Items.Count == 0)
+  {
+    <div class="a-card"><div class="a-empty">@(status == "pending" ? "درخواستی منتظر تأیید نیست." : "موردی یافت نشد.")</div></div>
+  }
+</div>
+<partial name="_AdminPager" model="new PagerModel(Model.Requests.Page, Model.Requests.PageCount, Model.Requests.Total)" />
+
+@functions {
+    private static TimeSpan ApprovalServiceLifetime => Fratak_Shop.Core.Services.Team.ApprovalService.Lifetime;
+}

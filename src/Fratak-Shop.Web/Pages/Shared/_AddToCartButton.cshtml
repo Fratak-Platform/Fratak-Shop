@@ -1,0 +1,15 @@
+@model ProductFilterData
+@if (Model.IsInStock)
+{
+  <form method="post" asp-page="/Cart" asp-page-handler="Add">
+    <input type="hidden" name="productId" value="@Model.Id" />
+    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+    <button type="submit" title="افزودن به سبد خرید" aria-label="افزودن به سبد خرید" class="group/edit border border-gray-300 p-1 md:p-2 rounded-md shadow-lg hover:bg-blue-500 transition">
+      @Icons.Svg("Bag", "group-hover/edit:fill-white transition fill-black", 24)
+    </button>
+  </form>
+}
+else
+{
+  <span class="text-xs text-red-500">ناموجود</span>
+}

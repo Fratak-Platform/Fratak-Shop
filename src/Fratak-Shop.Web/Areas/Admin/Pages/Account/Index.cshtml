@@ -1,0 +1,148 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.TeamPages.AccountModel
+@using Fratak_Shop.Data.Entities.Admin
+@{
+    ViewData["Title"] = "امنیت حساب من";
+    var s = Model.Status;
+}
+<div class="a-page-head">
+  <div>
+    <h2>امنیت حساب من</h2>
+    <p class="a-muted text-sm mt-1">برنامهٔ احراز هویت، تاریخچهٔ ورودها و دستگاه‌هایی که با حساب شما وارد پنل شده‌اند.</p>
+  </div>
+</div>
+
+@if (Model.SetupReason == "required" && !s.Active)
+{
+  <div class="a-alert a-alert-warn mb-4">
+    @Icons.Svg("ShieldWarning", "shrink-0", 20)
+    <div><b>فعال کردن برنامهٔ احراز هویت برای همهٔ کارکنان اجباری شده است.</b> تا آن را راه‌اندازی نکنید، بخش‌های دیگر پنل باز نمی‌شوند. چند دقیقه بیشتر طول نمی‌کشد.</div>
+  </div>
+}
+
+@if (Model.NewRecoveryCodes.Count > 0)
+{
+  <div class="a-alert a-alert-success mb-4">
+    @Icons.Svg("Key", "shrink-0", 20)
+    <div class="w-full">
+      <b>کدهای بازیابی شما (فقط همین یک بار نمایش داده می‌شوند):</b>
+      <div class="a-recovery-codes a-ltr my-2">
+        @foreach (var c in Model.NewRecoveryCodes) { <code>@c</code> }
+      </div>
+      <div class="text-xs">اگر گوشی‌تان گم شد، با هر کدام از این‌ها یک بار می‌توانید وارد شوید. آن‌ها را چاپ کنید یا در جای امنی (نه در همین گوشی) نگه دارید.</div>
+      <button type="button" class="a-btn a-btn-xs a-btn-light mt-2" data-copy="@string.Join(" ", Model.NewRecoveryCodes)">کپی همهٔ کدها</button>
+    </div>
+  </div>
+}
+
+<div class="a-grid lg:grid-cols-2 gap-4">
+  <div class="a-card" id="totp">
+    <div class="a-card-head">
+      <span class="a-card-title">برنامهٔ احراز هویت (رمز دوم)</span>
+      @if (s.Active) { <span class="a-badge a-badge-green">فعال</span> } else if (s.Pending) { <span class="a-badge a-badge-yellow">در حال راه‌اندازی</span> } else { <span class="a-badge a-badge-gray">غیرفعال</span> }
+    </div>
+    <div class="a-card-body a-stack">
+      @if (!s.FeatureEnabled)
+      {
+        <p class="a-muted text-sm">این قابلیت در تنظیمات «امنیت کارکنان» خاموش است.</p>
+      }
+      else if (s.Active)
+      {
+        <p class="text-sm">ورود شما به سایت علاوه بر رمز یا کد پیامکی، با کد ۶ رقمی برنامهٔ احراز هویت گوشی‌تان تأیید می‌شود.@if (s.EnabledAt is { } at) { <span class="a-muted"> فعال‌شده @AdminUi.Ago(at).</span> }</p>
+        <p class="text-sm">کدهای بازیابی باقی‌مانده: <b class="@(s.RecoveryCodesLeft <= 2 ? "text-red-600" : "")">@Format.Number(s.RecoveryCodesLeft)</b> از ۱۰</p>
+        <details class="a-details">
+          <summary class="a-link text-sm">ساخت کدهای بازیابی تازه</summary>
+          <form method="post" asp-page-handler="Recovery" class="flex flex-wrap gap-2 items-end mt-2">
+            <div class="a-field"><label class="a-label" for="rc-code">کد فعلی برنامه</label><input id="rc-code" name="code" class="a-input a-ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="20" required></div>
+            <button class="a-btn a-btn-sm a-btn-soft" type="submit">ساخت کدهای جدید</button>
+          </form>
+          <p class="a-help mt-1">کدهای قبلی بلافاصله باطل می‌شوند.</p>
+        </details>
+        <details class="a-details">
+          <summary class="a-link text-sm">غیرفعال کردن / تعویض گوشی</summary>
+          <form method="post" asp-page-handler="Disable" class="flex flex-wrap gap-2 items-end mt-2" data-confirm="برنامهٔ احراز هویت غیرفعال شود؟">
+            <div class="a-field"><label class="a-label" for="ds-code">کد فعلی برنامه یا کد بازیابی</label><input id="ds-code" name="code" class="a-input a-ltr" autocomplete="one-time-code" maxlength="20" required></div>
+            <button class="a-btn a-btn-sm a-btn-danger-soft" type="submit">غیرفعال کردن</button>
+          </form>
+          <p class="a-help mt-1">برای انتقال به گوشی جدید، اینجا غیرفعال و بلافاصله دوباره راه‌اندازی کنید.@if (s.Required) { <span> چون اجباری است، بعد از غیرفعال کردن تا راه‌اندازی دوباره فقط همین صفحه باز می‌شود.</span> }</p>
+        </details>
+      }
+      else if (Model.Setup is { } setup)
+      {
+        <ol class="a-steps text-sm">
+          <li>برنامهٔ <b>Google Authenticator</b>، <b>Microsoft Authenticator</b> یا هر برنامهٔ TOTP دیگر را روی گوشی نصب کنید.</li>
+          <li>در برنامه گزینهٔ «اسکن کد QR» را بزنید و کد زیر را اسکن کنید.</li>
+          <li>کد ۶ رقمی‌ای که برنامه نشان می‌دهد را وارد کنید.</li>
+        </ol>
+        <div class="a-qr">@Html.Raw(Model.QrSvg)</div>
+        <details class="a-details">
+          <summary class="a-link text-sm">اسکن نمی‌شود؟ کلید را دستی وارد کنید</summary>
+          <div class="flex flex-wrap items-center gap-2 mt-2"><code class="a-mono a-ltr text-sm">@Fratak_Shop.Core.Services.Team.StaffTotpService.GroupSecret(setup.Secret)</code><button type="button" class="a-btn a-btn-xs a-btn-light" data-copy="@setup.Secret">کپی</button></div>
+          <p class="a-help mt-1">نوع: «بر اساس زمان»، ۶ رقم، هر ۳۰ ثانیه.</p>
+        </details>
+        <form method="post" asp-page-handler="Confirm" class="flex flex-wrap gap-2 items-end">
+          <div class="a-field"><label class="a-label" for="cf-code">کد ۶ رقمی برنامه</label><input id="cf-code" name="code" class="a-input a-ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9۰-۹ ]*" required autofocus></div>
+          <button class="a-btn a-btn-sm" type="submit">تأیید و فعال‌سازی</button>
+        </form>
+        <form method="post" asp-page-handler="Begin"><button class="a-link text-xs" type="submit">ساخت کلید جدید</button></form>
+      }
+      else
+      {
+        <p class="text-sm">با فعال کردن این گزینه، حتی اگر کسی رمز یا گوشی پیامکی شما را داشته باشد، بدون کد برنامهٔ احراز هویت نمی‌تواند وارد پنل شود. پیامک هم لازم نیست و هزینه‌ای ندارد.</p>
+        <form method="post" asp-page-handler="Begin"><button class="a-btn a-btn-sm" type="submit">@Icons.Svg("ShieldCheck", null, 18) شروع راه‌اندازی</button></form>
+      }
+    </div>
+  </div>
+
+  <div class="a-card" id="sessions">
+    <div class="a-card-head">
+      <span class="a-card-title">دستگاه‌های فعال</span>
+      @if (Model.Sessions.Count(x => !x.IsCurrent) > 0)
+      {
+        <form method="post" asp-page-handler="RevokeOthers" data-confirm="همهٔ دستگاه‌های دیگر خارج شوند؟"><button class="a-btn a-btn-xs a-btn-danger-soft" type="submit">خروج همهٔ دستگاه‌های دیگر</button></form>
+      }
+    </div>
+    <div class="a-card-body">
+      <ul class="a-stack">
+        @foreach (var x in Model.Sessions)
+        {
+          <li class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <b class="text-sm">@Display.Device(x.UserAgent)</b>
+              @if (x.IsCurrent) { <span class="a-badge a-badge-blue">همین دستگاه</span> }
+              <div class="a-muted text-xs"><span class="a-ltr">@(x.IpAddress ?? "-")</span> · آخرین فعالیت @AdminUi.Ago(x.LastActiveAt) · ورود @Format.DateTime(x.StartedAt)</div>
+            </div>
+            <form method="post" asp-page-handler="Revoke" data-confirm="@(x.IsCurrent ? "از همین دستگاه خارج می‌شوید؟" : "این دستگاه خارج شود؟")">
+              <input type="hidden" name="familyId" value="@x.FamilyId">
+              <button class="a-btn a-btn-xs a-btn-light" type="submit">@(x.IsCurrent ? "خروج" : "خارج کردن")</button>
+            </form>
+          </li>
+        }
+      </ul>
+      @if (Model.Sessions.Count == 0) { <div class="a-empty">نشست فعالی یافت نشد.</div> }
+    </div>
+  </div>
+</div>
+
+<div class="a-card mt-4" id="history">
+  <div class="a-card-head"><span class="a-card-title">تاریخچهٔ ورود و رویدادهای امنیتی من (۹۰ روز اخیر)</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>رویداد</th><th>زمان</th><th>IP</th><th>دستگاه</th><th>جزئیات</th></tr></thead>
+      <tbody>
+        @foreach (var e in Model.LoginHistory)
+        {
+          <tr>
+            <td data-label="رویداد"><span class="a-badge @AdminUi.SecurityEventBadge(e.Type)">@AdminUi.SecurityEvent(e.Type)</span></td>
+            <td data-label="زمان" class="text-xs nowrap" title="@Format.DateTime(e.CreatedAt)">@AdminUi.Ago(e.CreatedAt)</td>
+            <td data-label="IP" class="text-xs a-ltr">@(e.IpAddress ?? "-")</td>
+            <td data-label="دستگاه" class="text-xs">@Display.Device(e.UserAgent)</td>
+            <td data-label="جزئیات" class="text-xs">@(e.Details ?? "")</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.LoginHistory.Count == 0) { <div class="a-empty">رویدادی ثبت نشده است.</div> }
+  </div>
+  <div class="a-card-body pt-0"><p class="a-help">اگر ورودی را نمی‌شناسید، فوراً «خروج همهٔ دستگاه‌های دیگر» را بزنید، رمزتان را عوض کنید و به مدیر فروشگاه خبر دهید.</p></div>
+</div>

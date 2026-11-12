@@ -1,10 +1,22 @@
-using Fratak_Shop.Core.DTOs.Orders.Command;
+﻿using Fratak_Shop.Core.DTOs.Orders.Command;
 using Fratak_Shop.Core.DTOs.Orders.Query;
+using Fratak_Shop.Core.DTOs.Settings;
+using Fratak_Shop.Core.DTOs.Shipping;
+using Fratak_Shop.Core.DTOs.Wallets;
+using Fratak_Shop.Core.DTOs.Marketing;
 using Fratak_Shop.Core.Mappers.Orders;
+using Fratak_Shop.Core.Services.Events;
+using Fratak_Shop.Core.Services.Marketing;
+using Fratak_Shop.Core.Services.Settings;
+using Fratak_Shop.Core.Services.Shipping;
+using Fratak_Shop.Core.Services.Wallets;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Orders;
+using Fratak_Shop.Data.Entities.Wallets;
 using Microsoft.EntityFrameworkCore;
+using StockLedger = Fratak_Shop.Data.Utilities.StockLedger;
+using StockMovementReason = Fratak_Shop.Data.Entities.Products.StockMovementReason;
 
 namespace Fratak_Shop.Core.Services.Orders;
 
@@ -12,7 +24,14 @@ namespace Fratak_Shop.Core.Services.Orders;
 /// مدیریت سفارش‌ها: ثبت سفارش با اسنپ‌شات قیمت و آدرس، گردش وضعیت سفارش،
 /// وضعیت پرداخت، کد رهگیری و بازمحاسبه مبالغ.
 /// </summary>
-public class OrderService(FratakShopDbContext context) : IOrderService
+public class OrderService(
+    FratakShopDbContext context,
+    IStoreSettingService settingService,
+    IShippingService shippingService,
+    IWalletService walletService,
+    ICouponService couponService,
+    IShopEvents events,
+    ICashOnDeliveryPolicy codPolicy) : IOrderService
 {
     /// <summary>مسیرهای مجاز تغییر وضعیت سفارش.</summary>
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
@@ -32,6 +51,8 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         if (error is not null)
             return OperationResult<OrderDto>.Error(error);
 
+        var settings = await settingService.GetAsync();
+
         if (command.UserId.HasValue)
         {
             var userExists = await context.Users.AnyAsync(x => x.Id == command.UserId.Value);
@@ -39,13 +60,18 @@ public class OrderService(FratakShopDbContext context) : IOrderService
                 return OperationResult<OrderDto>.NotFound("کاربر مورد نظر یافت نشد.");
         }
 
-        var productIds = command.Items
-            .Select(item => item.ProductId)
-            .Distinct()
+        var paymentError = ValidatePaymentMethod(command, settings);
+        if (paymentError is not null)
+            return OperationResult<OrderDto>.Error(paymentError);
+
+        // Merge duplicate lines of the same product.
+        var requested = command.Items
+            .GroupBy(item => item.ProductId)
+            .Select(group => new OrderItemRequest { ProductId = group.Key, Quantity = group.Sum(item => item.Quantity) })
             .ToList();
 
+        var productIds = requested.Select(item => item.ProductId).ToList();
         var products = await context.Products
-            .AsTracking()
             .Where(x => productIds.Contains(x.Id) && x.IsActive)
             .ToListAsync();
 
@@ -74,10 +100,12 @@ public class OrderService(FratakShopDbContext context) : IOrderService
             ShippingUnit = command.ShippingUnit?.Trim(),
             ShippingPostalCode = command.ShippingPostalCode.Trim(),
             ShippingPhone = command.ShippingPhone.Trim(),
-            CustomerNote = command.CustomerNote?.Trim(),
+            ShippingLatitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLatitude : null,
+            ShippingLongitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLongitude : null,
+            CustomerNote = command.CustomerNote.ToPlainText() is { Length: > 0 } note ? note : null,
         };
 
-        foreach (var request in command.Items)
+        foreach (var request in requested)
         {
             var product = products.First(x => x.Id == request.ProductId);
 
@@ -95,48 +123,208 @@ public class OrderService(FratakShopDbContext context) : IOrderService
                 DiscountAmount = (product.Price - finalUnitPrice) * request.Quantity,
                 Quantity = request.Quantity,
                 TotalAmount = finalUnitPrice * request.Quantity,
+                UnitCostPrice = product.PurchasePrice,
+            });
+        }
+
+        var itemsTotal = order.Items.Sum(item => item.TotalAmount);
+
+        if (settings.MinimumOrderAmount > 0 && itemsTotal < settings.MinimumOrderAmount)
+            return OperationResult<OrderDto>.Error($"حداقل مبلغ سفارش {settings.MinimumOrderAmount:N0} تومان است.");
+
+        if (command.ShippingMethodId.HasValue)
+        {
+            var shipping = await shippingService.ValidateSelectionAsync(command.ShippingMethodId.Value,
+                new ShippingDestination(command.ShippingProvinceId, command.ShippingCityId), itemsTotal,
+                command.DeliveryDate, command.DeliveryTimeSlotId, now);
+
+            if (!shipping.IsSuccess() || shipping.Data is null)
+                return OperationResult<OrderDto>.Error(shipping.Message);
+
+            var selection = shipping.Data;
+            if (command.PaymentMethod == PaymentMethod.CashOnDelivery && !selection.SupportsCashOnDelivery)
+                return OperationResult<OrderDto>.Error($"پرداخت در محل برای «{selection.ShippingMethodTitle}» امکان‌پذیر نیست.");
+
+            order.ShippingMethodId = selection.ShippingMethodId;
+            order.ShippingMethod = selection.ShippingMethodTitle;
+            order.ShippingAmount = selection.Cost;
+            order.DeliveryTimeSlotId = selection.DeliveryTimeSlotId;
+            order.DeliveryTimeSlotTitle = selection.DeliveryTimeSlotTitle;
+            order.RequestedDeliveryDate = selection.RequestedDeliveryDate;
+        }
+
+        CouponEvaluation? coupon = null;
+        if (!string.IsNullOrWhiteSpace(command.CouponCode))
+        {
+            if (!settings.IsCouponEnabled)
+                return OperationResult<OrderDto>.Error("استفاده از کد تخفیف در حال حاضر غیرفعال است.");
+
+            var evaluation = await couponService.EvaluateAsync(new CouponEvaluationRequest
+            {
+                Code = command.CouponCode,
+                UserId = command.UserId,
+                Lines = requested.Select(item => new CouponLine(item.ProductId, item.Quantity)).ToList(),
+                ShippingCost = order.ShippingAmount,
+                RequireUser = true,
             });
 
-            // رزرو موجودی در زمان ثبت سفارش؛ در صورت لغو یا مرجوعی برگشت داده می‌شود.
-            product.StockQuantity -= request.Quantity;
+            if (!evaluation.IsSuccess())
+                return OperationResult<OrderDto>.Error(evaluation.Message).WithCode("coupon");
+
+            coupon = evaluation.Data!;
+            order.CouponId = coupon.CouponId;
+            order.CouponCode = coupon.Code;
+            order.CouponDiscountAmount = coupon.TotalDiscount;
+            order.DiscountAmount += coupon.TotalDiscount;
         }
 
         var payable = CalculatePayable(order);
         if (payable < 0)
             return OperationResult<OrderDto>.Error("مبلغ قابل پرداخت سفارش نمی‌تواند منفی باشد.");
 
+        // قوانین پرداخت در محل (سقف مبلغ، استان مجاز، سابقهٔ تحویل و مرجوعی) – بررسی نهایی سمت سرور.
+        if (command.PaymentMethod == PaymentMethod.CashOnDelivery
+            && await codPolicy.CheckAsync(settings, command.UserId, order.ShippingProvince, payable) is { } codError)
+            return OperationResult<OrderDto>.Error(codError);
+
         order.SubtotalAmount = order.Items.Sum(item => item.UnitPrice * item.Quantity);
         order.PayableAmount = payable;
 
+        if (command.PaymentMethod == PaymentMethod.OnlineGateway)
+            order.PaymentDeadline = now.AddMinutes(settings.UnpaidOrderTimeoutMinutes);
+
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // شناسهٔ سفارش از الان معلوم باشد تا ردیف‌های دفتر موجودی به آن وصل شوند.
+        if (order.Id == Guid.Empty)
+            order.Id = Guid.NewGuid();
+
+        // Reserve stock with conditional updates: two customers can never buy the last item twice.
+        foreach (var item in order.Items)
+        {
+            var quantity = item.Quantity;
+            var reserved = await context.Products
+                .Where(p => p.Id == item.ProductId && p.StockQuantity >= quantity)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.StockQuantity, p => p.StockQuantity - quantity)
+                    .SetProperty(p => p.SalesCount, p => p.SalesCount + quantity));
+
+            if (reserved == 0)
+            {
+                await transaction.RollbackAsync();
+                return OperationResult<OrderDto>.Error($"موجودی محصول «{item.ProductName}» کافی نیست.");
+            }
+
+            // دفتر موجودی: «فروش» با شمارهٔ سفارش (اگر تراکنش برگردد این ردیف هم برمی‌گردد).
+            if (item.ProductId is { } soldProductId)
+                await StockLedger.RecordAsync(context, soldProductId, -quantity, StockMovementReason.Sale, order.Id, order.OrderNumber);
+        }
+
         context.Orders.Add(order);
         await context.SaveChangesAsync();
+
+        if (coupon is not null)
+        {
+            var usage = await couponService.RecordUsageAsync(coupon.CouponId, order.UserId, order.Id, coupon.TotalDiscount);
+            if (!usage.IsSuccess())
+            {
+                await transaction.RollbackAsync();
+                context.ChangeTracker.Clear();
+                return OperationResult<OrderDto>.Error(usage.Message).WithCode("coupon");
+            }
+        }
+
+        if (command.PaymentMethod == PaymentMethod.Wallet)
+        {
+            var debit = await walletService.DebitAsync(new WalletEntry
+            {
+                UserId = command.UserId!.Value,
+                Amount = order.PayableAmount,
+                Type = WalletTransactionType.OrderPayment,
+                Description = $"پرداخت سفارش {order.OrderNumber}",
+                OrderId = order.Id,
+                DebitSource = WalletDebitSource.PromotionalFirst,
+            });
+
+            if (!debit.IsSuccess())
+            {
+                await transaction.RollbackAsync();
+                context.ChangeTracker.Clear();
+                return OperationResult<OrderDto>.Error(debit.Message);
+            }
+
+            // Remember how much promotional credit was used: a refund returns it as promotional credit again.
+            order.WalletBonusAmount = Math.Min(order.PayableAmount, Math.Max(0, -debit.Data.BonusChange));
+            order.PaymentStatus = PaymentStatus.Paid;
+            order.Status = OrderStatus.Confirmed;
+            order.PaidAt = now;
+            order.TransactionId = $"WALLET-{order.OrderNumber}";
+            await context.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+
+        // Stock was reserved with bulk updates: availability on cached pages must refresh.
+        Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(Fratak_Shop.Data.Entities.Products.Product));
+
+        if (!command.SkipPlacedEvent)
+            await events.OrderPlacedAsync(order.Id);
+        if (order.PaymentStatus == PaymentStatus.Paid)
+            await events.OrderPaidAsync(order.Id);
 
         return OperationResult<OrderDto>.Success(order.Map(), $"سفارش با شماره {order.OrderNumber} با موفقیت ثبت شد.");
     }
 
     public async Task<OperationResult> EditOrderAsync(EditOrderCommand command)
     {
-        var order = await context.Orders
-            .AsTracking()
-            .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == command.Id);
-
-        if (order is null)
+        var current = await context.Orders.FirstOrDefaultAsync(x => x.Id == command.Id);
+        if (current is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
         var error = Validate(command);
         if (error is not null)
             return OperationResult.Error(error);
 
-        var statusError = await ApplyStatusChangeAsync(order, command.Status);
-        if (statusError is not null)
-            return OperationResult.Error(statusError);
+        // Cancelling / returning goes through the cancellation workflow (stock + refund).
+        var cancelled = false;
+        if (command.Status != current.Status && command.Status is OrderStatus.Cancelled or OrderStatus.Returned)
+        {
+            var cancel = await CancelCoreAsync(command.Id, command.Status, OrderCancelledBy.Admin, null, null);
+            if (!cancel.IsSuccess())
+                return cancel;
+
+            cancelled = true;
+        }
+
+        var order = await context.Orders
+            .AsTracking()
+            .Include(x => x.Items)
+            .FirstAsync(x => x.Id == command.Id);
+
+        var previousStatus = order.Status;
+        var previousPayment = order.PaymentStatus;
+
+        if (!cancelled)
+        {
+            var statusError = ValidateTransition(order.Status, command.Status);
+            if (statusError is not null)
+                return OperationResult.Error(statusError);
+
+            order.Status = command.Status;
+            if (order.Status != previousStatus)
+                StampTimeline(order, DateTimeOffset.UtcNow);
+
+            // A refunded payment can't be turned back into "paid" from the edit form.
+            if (order.PaymentStatus != PaymentStatus.Refunded)
+            {
+                order.PaymentStatus = command.PaymentStatus;
+                order.PaidAt = command.PaymentStatus == PaymentStatus.Paid
+                    ? command.PaidAt ?? order.PaidAt ?? DateTimeOffset.UtcNow
+                    : command.PaidAt;
+            }
+        }
 
         order.PaymentMethod = command.PaymentMethod;
-        order.PaymentStatus = command.PaymentStatus;
-        order.PaidAt = command.PaymentStatus == PaymentStatus.Paid
-            ? command.PaidAt ?? order.PaidAt ?? DateTimeOffset.UtcNow
-            : command.PaidAt;
         order.TransactionId = command.TransactionId?.Trim();
         order.TrackingCode = command.TrackingCode?.Trim();
         order.ShippingMethod = command.ShippingMethod?.Trim();
@@ -150,15 +338,28 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         order.ShippingUnit = command.ShippingUnit?.Trim();
         order.ShippingPostalCode = command.ShippingPostalCode.Trim();
         order.ShippingPhone = command.ShippingPhone.Trim();
-        order.CustomerNote = command.CustomerNote?.Trim();
+        order.ShippingLatitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLatitude : null;
+        order.ShippingLongitude = command.ShippingLatitude.HasValue && command.ShippingLongitude.HasValue ? command.ShippingLongitude : null;
+        order.CustomerNote = command.CustomerNote.ToPlainText() is { Length: > 0 } note ? note : null;
 
         await context.SaveChangesAsync();
+
+        if (!cancelled)
+        {
+            if (order.PaymentStatus == PaymentStatus.Paid && previousPayment != PaymentStatus.Paid)
+                await events.OrderPaidAsync(order.Id);
+
+            if (order.Status != previousStatus)
+                await events.OrderStatusChangedAsync(order.Id, order.Status);
+        }
 
         return OperationResult.Success("سفارش با موفقیت ویرایش شد.");
     }
 
     public async Task<OperationResult> DeleteOrderAsync(Guid id)
     {
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
         var order = await context.Orders
             .AsTracking()
             .Include(x => x.Items)
@@ -167,32 +368,229 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
+        if (order.PaymentStatus == PaymentStatus.Paid && order.Status is not (OrderStatus.Cancelled or OrderStatus.Returned))
+            return OperationResult.Error("سفارش پرداخت‌شده را ابتدا لغو کنید تا مبلغ آن به کیف پول مشتری برگردد.");
+
         if (order.Status is not (OrderStatus.Cancelled or OrderStatus.Returned))
-            await RestoreStockAsync(order.Items);
+            await RestoreStockAsync(order.Items, order.Id, order.OrderNumber, "حذف سفارش");
 
         context.Orders.Remove(order);
         await context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return OperationResult.Success("سفارش با موفقیت حذف شد.");
     }
 
     public async Task<OperationResult> ChangeOrderStatusAsync(Guid id, OrderStatus status)
     {
+        if (status is OrderStatus.Cancelled or OrderStatus.Returned)
+            return await CancelOrderByAdminAsync(id, status, null);
+
+        var order = await context.Orders.AsTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (order is null)
+            return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
+
+        var error = ValidateTransition(order.Status, status) ?? await PurchaseInvoiceErrorAsync(order, status);
+        if (error is not null)
+            return OperationResult.Error(error);
+
+        order.Status = status;
+        StampTimeline(order, DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+
+        await events.OrderStatusChangedAsync(order.Id, status);
+
+        return OperationResult.Success("وضعیت سفارش با موفقیت تغییر کرد.");
+    }
+
+    public async Task<OperationResult> CancelOrderByCustomerAsync(Guid orderId, Guid userId, string? reason)
+    {
+        var settings = await settingService.GetAsync();
+        if (!settings.AllowCustomerCancellation)
+            return OperationResult.Error("لغو سفارش از طریق سایت غیرفعال است؛ لطفاً با پشتیبانی تماس بگیرید.");
+
+        return await CancelCoreAsync(orderId, OrderStatus.Cancelled, OrderCancelledBy.Customer, reason, order =>
+        {
+            if (order.UserId != userId)
+                return "سفارش مورد نظر یافت نشد.";
+
+            return OrderRules.IsCancellableByCustomer(order.Status)
+                ? null
+                : "این سفارش وارد مرحله آماده‌سازی شده و دیگر قابل لغو نیست؛ برای پیگیری با پشتیبانی تماس بگیرید.";
+        });
+    }
+
+    public Task<OperationResult> CancelOrderByAdminAsync(Guid orderId, OrderStatus status, string? reason)
+    {
+        if (status is not (OrderStatus.Cancelled or OrderStatus.Returned))
+            return Task.FromResult(OperationResult.Error("وضعیت انتخاب‌شده معتبر نیست."));
+
+        return CancelCoreAsync(orderId, status, OrderCancelledBy.Admin, reason, null);
+    }
+
+    public async Task<int> ExpireUnpaidOrdersAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        var expiredIds = await context.Orders
+            .Where(o => o.Status == OrderStatus.Pending
+                        && o.PaymentMethod == PaymentMethod.OnlineGateway
+                        && o.PaymentStatus != PaymentStatus.Paid
+                        && o.PaymentDeadline != null
+                        && o.PaymentDeadline < now)
+            .OrderBy(o => o.PaymentDeadline)
+            .Select(o => o.Id)
+            .Take(200)
+            .ToListAsync(cancellationToken);
+
+        var count = 0;
+        foreach (var id in expiredIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var result = await CancelCoreAsync(id, OrderStatus.Cancelled, OrderCancelledBy.System,
+                "عدم پرداخت در مهلت مقرر", order => order.PaymentStatus == PaymentStatus.Paid ? "paid" : null);
+
+            if (result.IsSuccess())
+                count++;
+        }
+
+        return count;
+    }
+
+    public async Task<OrderPaymentOutcome> ApplyOnlinePaymentAsync(Guid orderId, decimal amount, string referenceId)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        // Atomic: only a still-pending, unpaid order with the exact amount is marked as paid.
+        var affected = await context.Orders
+            .Where(o => o.Id == orderId
+                        && o.Status == OrderStatus.Pending
+                        && o.PaymentStatus != PaymentStatus.Paid
+                        && o.PaymentStatus != PaymentStatus.Refunded
+                        && o.PayableAmount == amount)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.PaymentStatus, PaymentStatus.Paid)
+                .SetProperty(o => o.Status, OrderStatus.Confirmed)
+                .SetProperty(o => o.PaymentMethod, PaymentMethod.OnlineGateway)
+                .SetProperty(o => o.PaidAt, now)
+                .SetProperty(o => o.TransactionId, referenceId)
+                .SetProperty(o => o.UpdatedAt, now));
+
+        if (affected == 1)
+            return OrderPaymentOutcome.Paid;
+
+        var state = await context.Orders
+            .Where(o => o.Id == orderId)
+            .Select(o => new { o.PaymentStatus, o.TransactionId })
+            .FirstOrDefaultAsync();
+
+        if (state is not null && state.PaymentStatus == PaymentStatus.Paid && state.TransactionId == referenceId)
+            return OrderPaymentOutcome.AlreadyPaid;
+
+        // Cancelled/expired meanwhile, paid twice, or amount mismatch: the money goes to the wallet.
+        return OrderPaymentOutcome.NotPayable;
+    }
+
+    /// <summary>
+    /// Cancels or returns an order: atomic status change (guards against concurrent
+    /// payment / admin actions), stock release and refund of the paid amount to the wallet.
+    /// </summary>
+    private async Task<OperationResult> CancelCoreAsync(Guid orderId, OrderStatus targetStatus,
+        OrderCancelledBy cancelledBy, string? reason, Func<Order, string?>? guard)
+    {
+        var ownsTransaction = context.Database.CurrentTransaction is null;
+        await using var transaction = ownsTransaction ? await context.Database.BeginTransactionAsync() : null;
+
         var order = await context.Orders
-            .AsTracking()
             .Include(x => x.Items)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == orderId);
 
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
-        var error = await ApplyStatusChangeAsync(order, status);
-        if (error is not null)
-            return OperationResult.Error(error);
+        var guardError = guard?.Invoke(order);
+        if (guardError is not null)
+            return OperationResult.Error(guardError);
 
-        await context.SaveChangesAsync();
+        var transitionError = ValidateTransition(order.Status, targetStatus);
+        if (transitionError is not null)
+            return OperationResult.Error(transitionError);
 
-        return OperationResult.Success("وضعیت سفارش با موفقیت تغییر کرد.");
+        var now = DateTimeOffset.UtcNow;
+        var note = reason.ToPlainText(500) is { Length: > 0 } text ? text : null;
+        var loadedStatus = order.Status;
+        var loadedPayment = order.PaymentStatus;
+
+        var affected = await context.Orders
+            .Where(o => o.Id == orderId && o.Status == loadedStatus && o.PaymentStatus == loadedPayment)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.Status, targetStatus)
+                .SetProperty(o => o.CancelledAt, now)
+                .SetProperty(o => o.CancelledBy, (OrderCancelledBy?)cancelledBy)
+                .SetProperty(o => o.CancellationReason, note)
+                .SetProperty(o => o.UpdatedAt, now));
+
+        if (affected == 0)
+        {
+            if (transaction is not null)
+                await transaction.RollbackAsync();
+
+            return OperationResult.Error("وضعیت سفارش هم‌زمان تغییر کرده است؛ صفحه را تازه کنید و دوباره تلاش کنید.");
+        }
+
+        await RestoreStockAsync(order.Items, order.Id, order.OrderNumber, "لغو سفارش");
+        await couponService.ReleaseUsageAsync(order.Id);
+
+        var refundable = order.PayableAmount - order.RefundedAmount;
+        var refunded = false;
+
+        // Promotional credit spent on the order comes back as promotional credit (never withdrawable).
+        var refundableBonus = Math.Clamp(order.WalletBonusAmount - order.RefundedBonusAmount, 0, Math.Max(0, refundable));
+
+        if (loadedPayment == PaymentStatus.Paid && refundable > 0 && order.UserId.HasValue)
+        {
+            var credit = await walletService.CreditAsync(new WalletEntry
+            {
+                UserId = order.UserId.Value,
+                Amount = refundable,
+                NonWithdrawableAmount = refundableBonus,
+                Type = WalletTransactionType.OrderRefund,
+                Description = targetStatus == OrderStatus.Returned
+                    ? $"بازگشت وجه سفارش مرجوعی {order.OrderNumber}"
+                    : $"بازگشت وجه سفارش لغوشده {order.OrderNumber}",
+                OrderId = order.Id,
+            });
+
+            if (!credit.IsSuccess())
+            {
+                if (transaction is not null)
+                    await transaction.RollbackAsync();
+
+                return OperationResult.Error(credit.Message);
+            }
+
+            await context.Orders
+                .Where(o => o.Id == orderId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(o => o.PaymentStatus, PaymentStatus.Refunded)
+                    .SetProperty(o => o.RefundedAmount, o => o.RefundedAmount + refundable)
+                    .SetProperty(o => o.RefundedBonusAmount, o => o.RefundedBonusAmount + refundableBonus)
+                    .SetProperty(o => o.RefundedAt, now));
+
+            refunded = true;
+        }
+
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync();
+            await events.OrderStatusChangedAsync(order.Id, targetStatus);
+        }
+
+        var action = targetStatus == OrderStatus.Returned ? "مرجوع" : "لغو";
+        return OperationResult.Success(refunded
+            ? refundableBonus > 0
+                ? $"سفارش {action} شد و مبلغ {refundable:N0} تومان به کیف پول برگشت داده شد ({refundableBonus:N0} تومان آن اعتبار هدیه و فقط برای خرید قابل استفاده است)."
+                : $"سفارش {action} شد و مبلغ {refundable:N0} تومان به کیف پول برگشت داده شد."
+            : $"سفارش {order.OrderNumber} {action} شد.");
     }
 
     public async Task<OperationResult> ChangePaymentStatusAsync(Guid id, PaymentStatus paymentStatus,
@@ -205,6 +603,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
+        var wasPaid = order.PaymentStatus == PaymentStatus.Paid;
         order.PaymentStatus = paymentStatus;
 
         if (paymentStatus == PaymentStatus.Paid)
@@ -214,6 +613,9 @@ public class OrderService(FratakShopDbContext context) : IOrderService
             order.TransactionId = transactionId.Trim();
 
         await context.SaveChangesAsync();
+
+        if (paymentStatus == PaymentStatus.Paid && !wasPaid)
+            await events.OrderPaidAsync(order.Id);
 
         return OperationResult.Success("وضعیت پرداخت سفارش با موفقیت به‌روزرسانی شد.");
     }
@@ -227,13 +629,22 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         if (order is null)
             return OperationResult.NotFound("سفارش مورد نظر یافت نشد.");
 
-        order.TrackingCode = trackingCode.Trim();
-
         // ثبت کد رهگیری یعنی سفارش تحویل پست/پیک شده است.
-        if (order.Status is OrderStatus.Confirmed or OrderStatus.Processing)
+        var shipped = order.Status is OrderStatus.Confirmed or OrderStatus.Processing;
+        if (shipped && await PurchaseInvoiceErrorAsync(order, OrderStatus.Shipped) is { } invoiceError)
+            return OperationResult.Error(invoiceError);
+
+        order.TrackingCode = trackingCode.Trim();
+        if (shipped)
+        {
             order.Status = OrderStatus.Shipped;
+            StampTimeline(order, DateTimeOffset.UtcNow);
+        }
 
         await context.SaveChangesAsync();
+
+        if (shipped)
+            await events.OrderStatusChangedAsync(order.Id, OrderStatus.Shipped);
 
         return OperationResult.Success("کد رهگیری مرسوله با موفقیت ثبت شد.");
     }
@@ -318,6 +729,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         var order = await context.Orders
             .Include(x => x.Items)
             .ThenInclude(x => x.Product)
+            .ThenInclude(x => x!.Images)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         return order?.Map();
@@ -331,7 +743,26 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         var order = await context.Orders
             .Include(x => x.Items)
             .ThenInclude(x => x.Product)
+            .ThenInclude(x => x!.Images)
             .FirstOrDefaultAsync(x => x.OrderNumber == orderNumber.Trim());
+
+        return order?.Map();
+    }
+
+    public async Task<OrderDto?> TrackOrderAsync(string orderNumber, string phoneNumber)
+    {
+        var number = orderNumber?.Trim().ToUpperInvariant();
+        var phone = phoneNumber?.Trim();
+        if (string.IsNullOrWhiteSpace(number) || number.Length > 30 || string.IsNullOrWhiteSpace(phone) || !phone.IsValidMobile())
+            return null;
+
+        var order = await context.Orders
+            .Include(x => x.Items)
+            .ThenInclude(x => x.Product)
+            .ThenInclude(x => x!.Images)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(x => x.OrderNumber == number
+                                      && (x.CustomerPhone == phone || x.ShippingPhone == phone || (x.User != null && x.User.PhoneNumber == phone)));
 
         return order?.Map();
     }
@@ -357,56 +788,100 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         return orders.MapFilterData();
     }
 
+    /// <summary>اعتبارسنجی مسیر تغییر وضعیت سفارش.</summary>
     /// <summary>
-    /// اعتبارسنجی مسیر تغییر وضعیت سفارش؛ در صورت لغو یا مرجوعی، موجودی اقلام
-    /// به انبار برگردانده می‌شود.
+    /// The shop buys every order from a supplier: before an order is prepared (or shipped straight from
+    /// "confirmed") the purchase invoice must be uploaded in the admin panel (store setting, on by default).
     /// </summary>
-    private async Task<string?> ApplyStatusChangeAsync(Order order, OrderStatus newStatus)
+    private async Task<string?> PurchaseInvoiceErrorAsync(Order order, OrderStatus newStatus)
+    {
+        var entersPreparation = newStatus == OrderStatus.Processing
+                                || (newStatus == OrderStatus.Shipped && order.Status is OrderStatus.Pending or OrderStatus.Confirmed);
+        if (!entersPreparation || order.Status == newStatus)
+            return null;
+
+        var settings = await settingService.GetAsync();
+        if (!settings.RequirePurchaseInvoiceForProcessing)
+            return null;
+
+        return await context.PurchaseInvoices.AnyAsync(i => i.OrderId == order.Id)
+            ? null
+            : "پیش از «در حال آماده‌سازی»، فاکتور خرید این سفارش از تأمین‌کننده را بارگذاری کنید.";
+    }
+
+    /// <summary>
+    /// ثبت زمان ورود سفارش به هر مرحله، فقط بار اول (<c>??=</c>) تا زمان واقعی شروع مرحله عوض نشود.
+    /// <para>
+    /// کاربرد: محاسبهٔ زمان‌بندی (<see cref="OrderSla"/>) و بازهٔ تحویل تخمینی مشتری.
+    /// مثال: سفارشی که امروز ساعت ۱۰ «در حال آماده‌سازی» شد، <c>ProcessingAt</c> = ۱۰ صبح امروز می‌گیرد؛
+    /// اگر از «ارسال‌شده» مستقیم «تحویل‌شده» شود، زمان ارسال قبلی دست نمی‌خورد.
+    /// </para>
+    /// </summary>
+    internal static void StampTimeline(Order order, DateTimeOffset now)
+    {
+        switch (order.Status)
+        {
+            case OrderStatus.Processing:
+                order.ProcessingAt ??= now;
+                break;
+            case OrderStatus.Shipped:
+                order.ShippedAt ??= now;
+                break;
+            case OrderStatus.Delivered:
+                order.ShippedAt ??= now;
+                order.DeliveredAt ??= now; // starts the return / feedback windows
+                break;
+        }
+    }
+
+    private static string? ValidateTransition(OrderStatus current, OrderStatus newStatus)
     {
         if (newStatus == OrderStatus.None)
             return "وضعیت سفارش را انتخاب کنید.";
 
-        if (order.Status == newStatus)
+        if (current == newStatus)
             return null;
 
-        if (!AllowedTransitions.TryGetValue(order.Status, out var allowed) || !allowed.Contains(newStatus))
+        if (!AllowedTransitions.TryGetValue(current, out var allowed) || !allowed.Contains(newStatus))
             return "تغییر وضعیت سفارش از این مرحله امکان‌پذیر نیست.";
-
-        if (newStatus is OrderStatus.Cancelled or OrderStatus.Returned)
-            await RestoreStockAsync(order.Items);
-
-        order.Status = newStatus;
 
         return null;
     }
 
-    private async Task RestoreStockAsync(IEnumerable<OrderItem> items)
+    /// <summary>Returns the reserved stock of the items (atomic SQL updates).</summary>
+    private async Task RestoreStockAsync(IEnumerable<OrderItem> items, Guid orderId, string? orderNumber, string note)
     {
-        var productIds = items
+        var quantities = items
             .Where(item => item.ProductId.HasValue)
-            .Select(item => item.ProductId!.Value)
-            .Distinct()
-            .ToList();
+            .GroupBy(item => item.ProductId!.Value)
+            .Select(group => (ProductId: group.Key, Quantity: group.Sum(item => item.Quantity)));
 
-        if (productIds.Count == 0)
-            return;
-
-        var products = await context.Products
-            .AsTracking()
-            .Where(x => productIds.Contains(x.Id))
-            .ToListAsync();
-
-        foreach (var item in items)
+        foreach (var (productId, quantity) in quantities)
         {
-            if (!item.ProductId.HasValue)
-                continue;
-
-            var product = products.FirstOrDefault(x => x.Id == item.ProductId.Value);
-            if (product is null)
-                continue;
-
-            product.StockQuantity += item.Quantity;
+            await context.Products
+                .IgnoreQueryFilters()
+                .Where(p => p.Id == productId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity)
+                    .SetProperty(p => p.SalesCount, p => p.SalesCount >= quantity ? p.SalesCount - quantity : 0));
+            await StockLedger.RecordAsync(context, productId, quantity, StockMovementReason.OrderCancelled, orderId, orderNumber, note);
         }
+
+        // Bulk updates bypass SaveChanges: tell the caches (availability shown on pages) explicitly.
+        Fratak_Shop.Data.Utilities.DataChangeNotifier.Publish(typeof(Fratak_Shop.Data.Entities.Products.Product));
+    }
+
+    private static string? ValidatePaymentMethod(CreateOrderCommand command, StoreSettingDto settings)
+    {
+        return command.PaymentMethod switch
+        {
+            PaymentMethod.OnlineGateway when !settings.HasZarinPal => "پرداخت اینترنتی در حال حاضر فعال نیست.",
+            PaymentMethod.CashOnDelivery when !settings.IsCashOnDeliveryEnabled => "پرداخت در محل در حال حاضر فعال نیست.",
+            PaymentMethod.Wallet when !settings.CanPayWithWallet => "پرداخت با کیف پول در حال حاضر فعال نیست.",
+            PaymentMethod.Wallet when !command.UserId.HasValue => "برای پرداخت با کیف پول وارد حساب کاربری شوید.",
+            PaymentMethod.BankTransfer => "روش پرداخت انتخاب‌شده پشتیبانی نمی‌شود.",
+            _ => null,
+        };
     }
 
     private static decimal CalculatePayable(Order order)
@@ -445,7 +920,13 @@ public class OrderService(FratakShopDbContext context) : IOrderService
         if (command.Items.Any(item => item.Quantity <= 0))
             return "تعداد هر محصول باید بزرگ‌تر از صفر باشد.";
 
-        if (command.PaymentMethod == PaymentMethod.None)
+        // جمع تعدادها در int جا شود (وگرنه Sum در ادغام ردیف‌های تکراری خطای سرریز و پاسخ 500 می‌داد).
+        if (command.Items.Sum(item => (long)item.Quantity) > int.MaxValue)
+            return "تعداد کالاهای سفارش معتبر نیست.";
+
+        // عدد دلخواه در فرم (مثلاً PaymentMethod=99) نباید سفارشی با روش پرداخت ناشناخته بسازد که از قوانین
+        // پرداخت در محل/کیف پول/درگاه رد شود (آزمون حمله: CheckoutAttackTests).
+        if (command.PaymentMethod == PaymentMethod.None || !Enum.IsDefined(command.PaymentMethod))
             return "روش پرداخت را انتخاب کنید.";
 
         if (command.DiscountAmount < 0)
@@ -463,7 +944,7 @@ public class OrderService(FratakShopDbContext context) : IOrderService
 
     private static string? Validate(EditOrderCommand command)
     {
-        if (command.PaymentMethod == PaymentMethod.None)
+        if (command.PaymentMethod == PaymentMethod.None || !Enum.IsDefined(command.PaymentMethod))
             return "روش پرداخت را انتخاب کنید.";
 
         return ValidateDelivery(command.CustomerName, command.CustomerPhone, command.ShippingProvince,

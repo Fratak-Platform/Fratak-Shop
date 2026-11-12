@@ -1,0 +1,74 @@
+@page "/admin/smart/assistant/ops"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.OpsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@* دور ۲۸: «دستیار مدیریت» – پرسش و فرمان کارکنان به زبان ساده؛ کار تغییردهنده فقط با دکمهٔ «تأیید». *@
+@{
+    ViewData["Title"] = "دستیار مدیریت";
+    var answer = Model.Answer;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>دستیار مدیریت</h2>
+    <p class="a-muted text-sm mt-1">به زبان ساده بپرسید یا فرمان بدهید؛ جواب‌ها از داده‌های واقعی همین لحظه است. کارهای تغییردهنده فقط بعد از زدن «تأیید» انجام می‌شوند.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant">گزارش دستیار</a>
+  </div>
+</div>
+
+<div class="a-card">
+  <form method="post" asp-page-handler="Ask" class="a-card-body flex flex-wrap gap-2">
+    <input class="a-input flex-1" name="q" value="@Model.Question" maxlength="200" required autocomplete="off" placeholder="مثلاً «فروش امروز» یا «موجودی پاوربانک»" aria-label="پرسش یا فرمان" />
+    <button class="a-btn a-btn-primary" type="submit">بپرس</button>
+  </form>
+  <div class="a-card-body flex flex-wrap gap-1 pt-0">
+    @foreach (var example in (answer?.Next.Count > 0 ? answer.Next : OpsModel.Examples))
+    {
+      <form method="post" asp-page-handler="Ask"><input type="hidden" name="q" value="@example" /><button class="a-btn a-btn-light a-btn-sm" type="submit">@example</button></form>
+    }
+  </div>
+</div>
+
+@if (answer is not null)
+{
+  <div class="a-card mt-4" data-ops-answer>
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Robot", null, 18) @answer.Text</h3></div>
+    @if (answer.Rows.Count > 0)
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <tbody>
+            @foreach (var row in answer.Rows)
+            {
+              <tr>
+                <td data-label="مورد">
+                  @if (row.Url is not null)
+                  {
+                    <a href="@row.Url"><b>@row.Title</b></a>
+                  }
+                  else
+                  {
+                    <b>@row.Title</b>
+                  }
+                  @if (row.Detail is not null)
+                  {
+                    <div class="a-muted text-xs">@row.Detail</div>
+                  }
+                </td>
+                <td data-label="">
+                  @if (row.ConfirmId is { } id)
+                  {
+                    <form method="post" asp-page-handler="Confirm" asp-route-id="@id" asp-route-activate="@Model.ConfirmActivates" data-confirm="@(Model.ConfirmActivates ? "این کالا منتشر شود؟" : "این کالا غیرفعال شود؟")">
+                      <button class="a-btn a-btn-primary a-btn-sm" type="submit">تأیید @(Model.ConfirmActivates ? "انتشار" : "غیرفعال‌سازی")</button>
+                    </form>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}

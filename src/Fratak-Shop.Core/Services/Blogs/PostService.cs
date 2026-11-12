@@ -142,9 +142,16 @@ public class PostService(FratakShopDbContext context) : IPostService
         }
 
         if (filterParams.OnlyPublished == true)
-            query = query.Where(x => x.IsPublished);
-
-        query = query.OrderByDescending(x => x.CreatedAt);
+        {
+            var now = DateTimeOffset.UtcNow;
+            query = query
+                .Where(x => x.IsPublished && (x.PublishedAt == null || x.PublishedAt <= now))
+                .OrderByDescending(x => x.PublishedAt ?? x.CreatedAt);
+        }
+        else
+        {
+            query = query.OrderByDescending(x => x.CreatedAt);
+        }
 
         var skip = (filterParams.PageId - 1) * filterParams.Take;
 
@@ -162,6 +169,61 @@ public class PostService(FratakShopDbContext context) : IPostService
         result.GeneratePaging(query, filterParams.Take, filterParams.PageId);
 
         return result;
+    }
+
+    public async Task<List<BlogPostFilterData>> GetLatestPostsAsync(int take = 4, Guid? excludePostId = null)
+    {
+        if (take <= 0)
+            take = 4;
+
+        var now = DateTimeOffset.UtcNow;
+
+        var posts = await context.BlogPosts
+            .Include(x => x.Author)
+            .Include(x => x.BlogCategory)
+            .Where(x => x.IsPublished
+                        && (x.PublishedAt == null || x.PublishedAt <= now)
+                        && (excludePostId == null || x.Id != excludePostId))
+            .OrderByDescending(x => x.PublishedAt ?? x.CreatedAt)
+            .Take(take)
+            .ToListAsync();
+
+        return posts.MapFilterData();
+    }
+
+    /// <summary>
+    /// دور ۲۳ (مورد ۳۷): مطالب مرتبط. فقط ۳۰۰ مقالهٔ منتشرشدهٔ اخیر (شناسه/عنوان/دسته) خوانده و در حافظه رتبه‌بندی می‌شود
+    /// (<see cref="RelatedPosts.Rank"/>)، سپس فقط برنده‌ها کامل بارگذاری می‌شوند. ترتیب رتبه حفظ می‌شود.
+    /// </summary>
+    public async Task<List<BlogPostFilterData>> GetRelatedPostsAsync(Guid postId, int take = 4)
+    {
+        if (take <= 0)
+            return [];
+        var current = await context.BlogPosts.AsNoTracking()
+            .Where(x => x.Id == postId)
+            .Select(x => new { x.Title, x.BlogCategoryId })
+            .FirstOrDefaultAsync();
+        if (current is null)
+            return [];
+
+        var now = DateTimeOffset.UtcNow;
+        var candidates = await context.BlogPosts.AsNoTracking()
+            .Where(x => x.IsPublished && (x.PublishedAt == null || x.PublishedAt <= now) && x.Id != postId)
+            .OrderByDescending(x => x.PublishedAt ?? x.CreatedAt)
+            .Take(300)
+            .Select(x => new RelatedCandidate(x.Id, x.Title, x.BlogCategoryId, x.PublishedAt ?? x.CreatedAt))
+            .ToListAsync();
+
+        var ids = RelatedPosts.Rank(postId, current.Title, current.BlogCategoryId, candidates, take);
+        if (ids.Count == 0)
+            return [];
+
+        var posts = await context.BlogPosts
+            .Include(x => x.Author)
+            .Include(x => x.BlogCategory)
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync();
+        return posts.OrderBy(x => ids.IndexOf(x.Id)).ToList().MapFilterData();
     }
 
     public async Task<PostDto?> GetPostByAsync(string slug)

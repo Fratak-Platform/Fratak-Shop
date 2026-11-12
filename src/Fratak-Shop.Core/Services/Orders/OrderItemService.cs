@@ -5,6 +5,8 @@ using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Orders;
 using Microsoft.EntityFrameworkCore;
+using StockContext = Fratak_Shop.Data.Utilities.StockContext;
+using StockMovementReason = Fratak_Shop.Data.Entities.Products.StockMovementReason;
 
 namespace Fratak_Shop.Core.Services.Orders;
 
@@ -61,7 +63,9 @@ public class OrderItemService(FratakShopDbContext context, IOrderService orderSe
 
         product.StockQuantity -= command.Quantity;
 
-        await context.SaveChangesAsync();
+        // دفتر موجودی: دلیل «ویرایش اقلام سفارش» با شمارهٔ سفارش.
+        using (StockContext.Begin(StockMovementReason.OrderEdit, "افزودن قلم به سفارش", order.Id, order.OrderNumber))
+            await context.SaveChangesAsync();
 
         var recalculated = await orderService.RecalculateTotalsAsync(order.Id);
         if (!recalculated.IsSuccess())
@@ -117,7 +121,8 @@ public class OrderItemService(FratakShopDbContext context, IOrderService orderSe
         item.DiscountAmount = newDiscount;
         item.TotalAmount = (item.UnitPrice * command.Quantity) - newDiscount;
 
-        await context.SaveChangesAsync();
+        using (StockContext.Begin(StockMovementReason.OrderEdit, "تغییر تعداد قلم سفارش", item.OrderId, item.Order.OrderNumber))
+            await context.SaveChangesAsync();
 
         var recalculated = await orderService.RecalculateTotalsAsync(item.OrderId);
         if (!recalculated.IsSuccess())
@@ -155,7 +160,8 @@ public class OrderItemService(FratakShopDbContext context, IOrderService orderSe
         var orderId = item.OrderId;
 
         context.OrderItems.Remove(item);
-        await context.SaveChangesAsync();
+        using (StockContext.Begin(StockMovementReason.OrderEdit, "حذف قلم از سفارش", orderId, item.Order.OrderNumber))
+            await context.SaveChangesAsync();
 
         var recalculated = await orderService.RecalculateTotalsAsync(orderId);
         if (!recalculated.IsSuccess())

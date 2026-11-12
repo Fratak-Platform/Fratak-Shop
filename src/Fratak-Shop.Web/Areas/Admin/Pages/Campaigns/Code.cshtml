@@ -1,0 +1,100 @@
+@page "/admin/campaigns/code/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Campaigns.CodeModel
+@*
+  دور ۲۹ (#۱۱): حالت کد صفحهٔ کمپین. سه ویرایشگر (HTML، CSS، JS) + پیش‌نمایش زنده در قاب ایزوله.
+  رفتار ویرایشگر: wwwroot/assets/js/code-editor.js (بدون کتابخانهٔ بیرونی).
+*@
+@{
+    var p = Model.Landing;
+    ViewData["Title"] = "حالت کد: " + p.Title;
+    var empty = string.IsNullOrWhiteSpace(p.CodeHtml) && string.IsNullOrWhiteSpace(p.CodeCss) && string.IsNullOrWhiteSpace(p.CodeJs);
+    var frameUrl = Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.PathFor(p.Slug);
+}
+@section Head {
+  <link rel="stylesheet" href="~/assets/css/code-editor.css" asp-append-version="true">
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>&lt;/&gt; حالت کد: @p.Title</h2>
+    <p class="a-muted text-sm mt-1">صفحه را با HTML، CSS و جاوااسکریپت خام بنویسید. کد داخل قاب ایزوله اجرا می‌شود و به حساب، کوکی و سبد خرید بازدیدکننده دسترسی ندارد.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/campaigns/edit/@p.Id">@Icons.Svg("PencilSimple", null, 18) صفحه‌ساز و تنظیمات صفحه</a>
+    <a class="a-btn a-btn-light" href="/campaign/@p.Slug" target="_blank" rel="noopener">@Icons.Svg("Eye", null, 18) مشاهدهٔ صفحه</a>
+  </div>
+</div>
+
+<form method="post" class="a-stack" data-code-form>
+  <div class="a-card">
+    <div class="a-card-body fs-ce-bar">
+      <label class="fs-ce-switch">
+        <input type="checkbox" name="codeMode" value="true" @(p.CodeMode ? "checked" : "")>
+        <span><b>حالت کد روشن باشد</b><small>صفحهٔ عمومی به جای خروجی صفحه‌ساز همین کد را نشان می‌دهد (خروجی صفحه‌ساز پاک نمی‌شود).</small></span>
+      </label>
+      <div class="fs-ce-actions">
+        @if (empty)
+        {
+          <button type="button" class="a-btn a-btn-light" data-code-sample>نمونهٔ آماده</button>
+        }
+        <button class="a-btn" type="submit">@Icons.Svg("FloppyDisk", null, 18) ذخیره و پیش‌نمایش <kbd>Ctrl+S</kbd></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fs-ce-grid">
+    <div class="a-card fs-ce-card">
+      <div class="fs-ce-tabs" role="tablist">
+        <button type="button" class="is-active" data-code-tab="html" role="tab">HTML</button>
+        <button type="button" data-code-tab="css" role="tab">CSS</button>
+        <button type="button" data-code-tab="js" role="tab">JS</button>
+      </div>
+      <div class="fs-ce-pane" data-code-pane="html">
+        <textarea name="html" class="fs-ce-input" data-code-editor spellcheck="false" dir="ltr" aria-label="HTML" placeholder="<section>…</section>">@p.CodeHtml</textarea>
+      </div>
+      <div class="fs-ce-pane" data-code-pane="css" hidden>
+        <textarea name="css" class="fs-ce-input" data-code-editor spellcheck="false" dir="ltr" aria-label="CSS" placeholder=".hero { … }">@p.CodeCss</textarea>
+      </div>
+      <div class="fs-ce-pane" data-code-pane="js" hidden>
+        <textarea name="js" class="fs-ce-input" data-code-editor spellcheck="false" dir="ltr" aria-label="JavaScript" placeholder="// …">@p.CodeJs</textarea>
+      </div>
+    </div>
+
+    <div class="a-card fs-ce-card">
+      <div class="fs-ce-tabs">
+        <span class="fs-ce-title">پیش‌نمایش (آخرین ذخیره)</span>
+        <button type="button" data-code-device="100%" class="is-active">دسکتاپ</button>
+        <button type="button" data-code-device="390px">موبایل</button>
+      </div>
+      <div class="fs-ce-preview">
+        @if (p.CodeMode || !empty)
+        {
+          <iframe src="@frameUrl" sandbox="@Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.SandboxFlags" title="پیش‌نمایش کد" data-code-preview></iframe>
+        }
+        else
+        {
+          <p class="a-empty">بعد از اولین ذخیره، پیش‌نمایش این‌جا دیده می‌شود.</p>
+        }
+      </div>
+    </div>
+  </div>
+</form>
+
+<template data-code-sample-html>@Fratak_Shop.Web.Areas.Admin.Pages.Campaigns.CodeModel.SampleHtml</template>
+<template data-code-sample-css>@Fratak_Shop.Web.Areas.Admin.Pages.Campaigns.CodeModel.SampleCss</template>
+<template data-code-sample-js>@Fratak_Shop.Web.Areas.Admin.Pages.Campaigns.CodeModel.SampleJs</template>
+
+<div class="a-card mt-4">
+  <div class="a-card-body a-help">
+    <ul class="list-disc pr-5 a-stack">
+      <li>کدهای کوتاه کالا کار می‌کنند: <code>[[deals:8]]</code> پرتخفیف‌ها، <code>[[newest:8]]</code> تازه‌ها، <code>[[bestsellers:8]]</code> پرفروش‌ها، <code>[[category:slug:8]]</code> و <code>[[product:slug]]</code>.</li>
+      <li>فونت وزیرمتن، کلاس‌های Tailwind سایت و کارت کالا از قبل در دسترس‌اند. لینک‌ها کل صفحه را عوض می‌کنند.</li>
+      <li>پیش‌نمایش حتی وقتی صفحه منتشر نشده برای شما کار می‌کند؛ بازدیدکننده فقط بعد از «منتشر شود» در صفحه‌ساز آن را می‌بیند.</li>
+      <li>فرم (ارسال اطلاعات) و دسترسی به حساب کاربر عمداً بسته است؛ برای خرید، به صفحهٔ کالا لینک بدهید.</li>
+    </ul>
+  </div>
+</div>
+
+@section Scripts {
+  <script src="~/assets/js/code-editor.js" asp-append-version="true" defer></script>
+}

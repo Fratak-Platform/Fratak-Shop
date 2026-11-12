@@ -1,238 +1,241 @@
-//////////////////////////////// Quiantity Input
-function quantityDecrement(e) {
-  const btn = e.target.parentNode.parentElement.querySelector(
-    'button[data-action="increment"]'
-  );
-  const target = btn.nextElementSibling;
-  let value = Number(target.value);
-  if (value == 1) return;
-  value--;
-  target.value = value;
-}
-
-function quantityIncrement(e) {
-  const btn = e.target.parentNode.parentElement.querySelector(
-    'button[data-action="increment"]'
-  );
-  const target = btn.nextElementSibling;
-  let value = Number(target.value);
-  value++;
-  target.value = value;
-}
-
-const quantityDecrementButtons = document.querySelectorAll(
-  `button[data-action="decrement"]`
-);
-
-const quantityIncrementButtons = document.querySelectorAll(
-  `button[data-action="increment"]`
-);
-
-quantityDecrementButtons.forEach((btn) => {
-  btn.addEventListener("click", quantityDecrement);
-});
-
-quantityIncrementButtons.forEach((btn) => {
-  btn.addEventListener("click", quantityIncrement);
-});
-
-/////////////////////////////////////////////// profile edit address modal
-function showCard() {
-  let showCard = document.getElementById("cardHeader");
-  if (!showCard) return;
-  showCard.classList.remove("hidden");
-}
-function closeCard() {
-  let showCard = document.getElementById("cardHeader");
-  if (!showCard) return;
-  showCard.classList.add("hidden");
-}
-
-////////////////////////////////////////////// open hover menu header
-function showNavbarMobile() {
-  let showNavbarMobile = document.getElementById("navbarMobile");
-  if (!showNavbarMobile) return;
-  showNavbarMobile.classList.remove("-right-full");
-  showNavbarMobile.classList.add("right-0");
-  showNavbarMobile.classList.remove("hidden");
-}
-function hideNavbarMobile() {
-  let hideNavbarMobile = document.getElementById("navbarMobile");
-  if (!hideNavbarMobile) return;
-  hideNavbarMobile.classList.add("-right-full");
-  hideNavbarMobile.classList.add("hidden");
-}
-//////////////////////////////////////// off slider
+/*
+ * Template UI behaviour (menus, drawers, modals, galleries).
+ * No inline event handlers are used anywhere (the Content-Security-Policy forbids
+ * them): elements declare data-ui="name" [data-arg="..."] and are handled here by
+ * one delegated click listener.
+ */
 (function () {
-  const second = 1000,
-    minute = second * 60,
-    hour = minute * 60,
-    day = hour * 24;
+  "use strict";
 
-  //I'm adding this section so I don't have to keep updating this pen every year :-)
-  //remove this if you don't need it
-  let today = new Date(),
-    yyyy = today.getFullYear(),
-    dayMonth = "12/29/",
-    birthday = dayMonth + yyyy;
+  const byId = (id) => document.getElementById(id);
+  const root = document.documentElement;
 
-  const countDown = new Date(birthday).getTime(),
-    x = setInterval(function () {
-      const now = new Date().getTime(),
-        distance = countDown - now;
-      // (document.getElementById("days").innerText = Math.floor(distance / day)),
-      for (let i = 0; i < document.querySelectorAll("#days").length; i++) {
-        document.querySelectorAll("#days")[i].innerText = Math.floor(
-          distance / day
-        );
-        document.querySelectorAll("#hours")[i].innerText = Math.floor(
-          (distance % day) / hour
-        );
-        document.querySelectorAll("#minutes")[i].innerText = Math.floor(
-          (distance % hour) / minute
-        );
-        document.querySelectorAll("#seconds")[i].innerText = Math.floor(
-          (distance % minute) / second
-        );
-      }
-    }, 1000);
-})();
-
-////////////////////////////////// btn go to up
-let mybutton = document.getElementById("btn-back-to-top");
-function backToTop() {
-  document.body.scrollTop = 0;
-  document.documentElement.scrollTop = 0;
-}
-/////////////////////////////////////////////// profile edit address modal
-function showEditAddress() {
-  let showEditAddress = document.getElementById("showEditAddress");
-  if (!showEditAddress) return;
-  showEditAddress.classList.remove("hidden");
-}
-function closeEditAddress() {
-  let showEditAddress = document.getElementById("showEditAddress");
-  if (!showEditAddress) return;
-  showEditAddress.classList.add("hidden");
-}
-//////////////////////////////////// Verify 4 Code
-
-const button = document.querySelector("button");
-let arrayInputs = [] ;
-arrayInputs = document.querySelectorAll(".inputVerify");
-arrayInputs.forEach((input, index1) => {
-input.addEventListener("keyup", (e) => {
-  const currentInput = input,
-    nextInput = input.nextElementSibling,
-    prevInput = input.previousElementSibling;
-  if (currentInput.value.length > 1) {
-    currentInput.value = "";
-    return;
-  }
-  if (
-    nextInput &&
-    nextInput.hasAttribute("disabled") &&
-    currentInput.value !== ""
-  ) {
-    nextInput.removeAttribute("disabled");
-    nextInput.focus();
-  }
-  if (e.key === "Backspace") {
-    arrayInputs.forEach((input, index2) => {
-      if (index1 <= index2 && prevInput) {
-        input.setAttribute("disabled", true);
-        input.value = "";
-        prevInput.focus();
-      }
-    });
-  }
-  if (arrayInputs.length > 3 && !arrayInputs[3].disabled && arrayInputs[3].value !== "") {
-    if (button) button.classList.add("active");
-    return;
-  }
-  if (button) button.classList.remove("active");
-});
-});
-window.addEventListener("load", () => {
-  if (arrayInputs.length > 0) arrayInputs[0].focus();
-});
-///////////////////////////////////////////////// verify resend code
-var minutes = 0;
-var seconds = 60;
-
-var x = setInterval(function () {
-  if (seconds != 0) {
-    seconds--;
-  } else if (seconds == 0) {
-    minutes--;
-    seconds = 59;
-  }
-  if (document.getElementById("verify-code")) {
-    document.getElementById("verify-code").innerHTML = "ارسال مجدد کد بعد از " + "ثانیه " + seconds;
-  }
-  if (seconds == 0 && minutes == 0) {
-    clearInterval(x);
-    const block = document.getElementById("block-verify-code");
-    if (block) {
-      block.innerHTML = "<a href='#'>ارسال مجدد</a>";
+  // ── scroll lock (drawers / modals) ───────────────────────────────────
+  let lockCount = 0;
+  function lockScroll() {
+    if (lockCount++ === 0) {
+      const scrollbar = window.innerWidth - root.clientWidth;
+      root.style.overflow = "hidden";
+      if (scrollbar > 0) root.style.paddingLeft = scrollbar + "px";
     }
   }
-}, 1000);
-
-
-/////////////////////////////////////////// product comparision show select product
-function showSelectProduct() {
-  let showSelectP = document.getElementById("showSelectP");
-  if (!showSelectP) return;
-  showSelectP.classList.remove("hidden");
-}
-function closeSelectP() {
-  let showSelectP = document.getElementById("showSelectP");
-  if (!showSelectP) return;
-  showSelectP.classList.add("hidden");
-}
-/////////////////////////////////////////// product images modal
-function showImagesProduct() {
-  let showImagesP = document.getElementById("showImagesModal");
-  if (!showImagesP) return;
-  showImagesP.classList.remove("hidden");
-}
-function closeImagesProduct() {
-  let showImagesP = document.getElementById("showImagesModal");
-  if (!showImagesP) return;
-  showImagesP.classList.add("hidden");
-}
-/////////////////////////////////////////// slide show single product
-let slideIndex = 1;
-showSlides(slideIndex);
-
-function plusSlides(n) {
-  showSlides((slideIndex += n));
-}
-
-function currentSlide(n) {
-  showSlides((slideIndex = n));
-}
-
-function showSlides(n) {
-  let i;
-  let slides = document.getElementsByClassName("mySlides");
-  let dots = document.getElementsByClassName("demo");
-  if (!slides || slides.length === 0) return;
-  if (n > slides.length) {
-    slideIndex = 1;
+  function unlockScroll() {
+    if (lockCount === 0) return;
+    if (--lockCount === 0) {
+      root.style.overflow = "";
+      root.style.paddingLeft = "";
+    }
   }
-  if (n < 1) {
-    slideIndex = slides.length;
+
+  function show(id) {
+    const el = byId(id);
+    if (!el || !el.classList.contains("hidden")) return;
+    el.classList.remove("hidden");
+    lockScroll();
   }
-  for (i = 0; i < slides.length; i++) {
-    slides[i].style.display = "none";
+  function hide(id) {
+    const el = byId(id);
+    if (!el || el.classList.contains("hidden")) return;
+    el.classList.add("hidden");
+    unlockScroll();
   }
-  for (i = 0; i < dots.length; i++) {
-    dots[i].className = dots[i].className.replace(" active", "");
+
+  // ── mobile navigation ───────────────────────────────────────────────
+  function openNav() {
+    const nav = byId("navbarMobile");
+    if (!nav) return;
+    nav.classList.remove("-right-full");
+    nav.classList.add("right-0");
+    lockScroll();
   }
-  slides[slideIndex - 1].style.display = "block";
-  if (dots.length && dots[slideIndex - 1]) {
-    dots[slideIndex - 1].className += " active";
+  function closeNav() {
+    const nav = byId("navbarMobile");
+    if (!nav || nav.classList.contains("-right-full")) return;
+    nav.classList.add("-right-full");
+    nav.classList.remove("right-0");
+    unlockScroll();
   }
-}
+
+  // ── product gallery slides ──────────────────────────────────────────
+  let slideIndex = 1;
+  function showSlides(n) {
+    const slides = document.getElementsByClassName("mySlides");
+    const dots = document.getElementsByClassName("demo");
+    if (!slides.length) return;
+    if (n > slides.length) slideIndex = 1;
+    if (n < 1) slideIndex = slides.length;
+    for (let i = 0; i < slides.length; i++) slides[i].style.display = "none";
+    for (let i = 0; i < dots.length; i++) dots[i].classList.remove("active");
+    slides[slideIndex - 1].style.display = "block";
+    if (dots[slideIndex - 1]) dots[slideIndex - 1].classList.add("active");
+  }
+  showSlides(slideIndex);
+
+  const actions = {
+    "nav-open": openNav,
+    "nav-close": closeNav,
+    "cart-open": () => show("cardHeader"),
+    "cart-close": () => hide("cardHeader"),
+    "modal-open": (arg) => show(arg),
+    "modal-close": (arg) => hide(arg),
+    "slide-next": () => showSlides((slideIndex += 1)),
+    "slide-prev": () => showSlides((slideIndex -= 1)),
+    "slide-go": (arg) => {
+      showSlides((slideIndex = Number(arg) || 1));
+      show("showImagesModal");
+    },
+    "back-to-top": () => window.scrollTo({ top: 0, behavior: "smooth" }),
+    print: () => window.print(),
+  };
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-ui]");
+    if (!trigger) return;
+    const action = actions[trigger.getAttribute("data-ui")];
+    if (!action) return;
+    if (trigger.tagName === "A") event.preventDefault();
+    action(trigger.getAttribute("data-arg"));
+  });
+
+  // Keyboard: Enter/Space on non-button triggers with role="button" (e.g. the main product image → image modal).
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const trigger = event.target.closest && event.target.closest("[data-ui][role='button']");
+    if (!trigger || trigger.tagName === "BUTTON" || trigger.tagName === "A") return;
+    const action = actions[trigger.getAttribute("data-ui")];
+    if (!action) return;
+    event.preventDefault();
+    action(trigger.getAttribute("data-arg"));
+  });
+
+  // Escape closes whatever is open.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    closeNav();
+    hide("cardHeader");
+    document.querySelectorAll("[data-modal]:not(.hidden)").forEach((modal) => hide(modal.id));
+  });
+
+  // Modals that must be open on load (e.g. the address form after a validation error).
+  document.querySelectorAll("[data-modal][data-open='true']").forEach((modal) => {
+    modal.classList.add("hidden");
+    show(modal.id);
+  });
+
+  // ── quantity inputs ([data-action=increment|decrement]) ─────────────
+  document.querySelectorAll('button[data-action="decrement"], button[data-action="increment"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const wrapper = btn.parentElement;
+      const input = wrapper && wrapper.querySelector("input");
+      if (!input) return;
+      const step = btn.getAttribute("data-action") === "increment" ? 1 : -1;
+      const max = Number(input.getAttribute("max")) || Infinity;
+      const value = Math.min(max, Math.max(1, (Number(input.value) || 1) + step));
+      input.value = value;
+    });
+  });
+
+  // ── Persian / Arabic digits typed in numeric fields become latin digits ──
+  const toLatinDigits = (text) =>
+    String(text).replace(/[\u06F0-\u06F9\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) & 0xf));
+  document.addEventListener("input", (event) => {
+    const el = event.target;
+    if (!(el instanceof HTMLInputElement) || el.classList.contains("inputVerify")) return;
+    if (el.type !== "tel" && el.inputMode !== "numeric") return;
+    const latin = toLatinDigits(el.value);
+    if (latin !== el.value) el.value = latin;
+  });
+
+  // ── one-time code inputs (one box per digit) ────────────────────────
+  const inputs = Array.from(document.querySelectorAll(".inputVerify"));
+  inputs.forEach((input, index) => {
+    input.addEventListener("input", () => {
+      input.value = toLatinDigits(input.value).replace(/\D/g, "").slice(-1);
+      const next = inputs[index + 1];
+      if (input.value && next) {
+        next.removeAttribute("disabled");
+        next.focus();
+      }
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Backspace" || input.value) return;
+      const prev = inputs[index - 1];
+      if (!prev) return;
+      for (let i = index; i < inputs.length; i++) {
+        inputs[i].value = "";
+        inputs[i].setAttribute("disabled", "disabled");
+      }
+      prev.focus();
+    });
+    input.addEventListener("paste", (event) => {
+      const text = toLatinDigits((event.clipboardData || window.clipboardData).getData("text")).replace(/\D/g, "");
+      if (!text) return;
+      event.preventDefault();
+      inputs.forEach((target, i) => {
+        if (!text[i]) return;
+        target.removeAttribute("disabled");
+        target.value = text[i];
+      });
+      (inputs[Math.min(text.length, inputs.length) - 1] || input).focus();
+    });
+  });
+  if (inputs.length) inputs[0].focus();
+})();
+
+// ── PWA: the layout only links the manifest while the PWA is enabled in the settings ──
+(() => {
+  if (!("serviceWorker" in navigator)) return;
+  const enabled = !!document.querySelector('link[rel="manifest"]');
+  window.addEventListener("load", () => {
+    if (enabled) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+      return;
+    }
+    // Turned off in the settings: remove a worker installed earlier, with its caches.
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
+      if (registrations.length && window.caches) {
+        caches.keys().then((keys) => keys.filter((key) => key.startsWith("fratak-")).forEach((key) => caches.delete(key)));
+      }
+    });
+  });
+})();
+
+// ═══ دور ۲۱: نوار اطلاعیهٔ بالای سایت ═══════════════════════════════════════
+// • چرخش پیام‌ها: هر ۵ ثانیه پیام بعدی (فقط وقتی بیش از یک پیام هست و زبانه دیده می‌شود).
+// • بستن: اگر مدیر «بستنی» را روشن کرده، مشتری می‌بندد و تا وقتی متن عوض نشده (همان data-ann) دوباره نمی‌بیند.
+//   فاصلهٔ زیر هدر ثابت (data-ann-spacer) هم همراهش برداشته می‌شود تا جای خالی نماند.
+// • «کاهش حرکت» دستگاه: چرخش خودکار خاموش می‌شود (فقط پیام اول).
+(function () {
+  "use strict";
+  const bar = document.querySelector("[data-ann]");
+  if (!bar) return;
+  const key = "fs-ann-closed";
+  const hide = () => {
+    bar.remove();
+    document.querySelectorAll("[data-ann-spacer]").forEach((el) => el.remove());
+  };
+  try {
+    if (bar.hasAttribute("data-ann-closeable") && localStorage.getItem(key) === bar.getAttribute("data-ann")) {
+      hide();
+      return;
+    }
+  } catch (_) { /* حالت خصوصی مرورگر: فقط نمایش */ }
+  const close = bar.querySelector("[data-ann-close]");
+  if (close) {
+    close.addEventListener("click", () => {
+      try { localStorage.setItem(key, bar.getAttribute("data-ann") || "1"); } catch (_) { /* نادیده */ }
+      hide();
+    });
+  }
+  const messages = Array.from(bar.querySelectorAll("[data-ann-msg]"));
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (messages.length < 2 || reduce) return;
+  let index = 0;
+  window.setInterval(() => {
+    if (document.hidden) return;
+    messages[index].hidden = true;
+    index = (index + 1) % messages.length;
+    messages[index].hidden = false;
+  }, 5000);
+})();

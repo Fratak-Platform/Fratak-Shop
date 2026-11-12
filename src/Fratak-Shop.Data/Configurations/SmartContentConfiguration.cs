@@ -1,0 +1,75 @@
+using Fratak_Shop.Data.Entities.Smart;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Fratak_Shop.Data.Configurations;
+
+// دور نوزدهم: ایندکس‌های جدول‌های «محتوای هوشمند» (Entities/Smart/SmartEntities.cs).
+// ایندکس یکتا خودکار فیلتر «[IsDeleted] = 0» می‌گیرد (FratakShopDbContext.ApplySoftDeleteRules).
+
+/// <summary>صف: کارگر کارهای «در صف و سررسیده» را به ترتیب برمی‌دارد؛ صفحهٔ محصول کارهای همان هدف را می‌خواند.</summary>
+public class SmartTaskConfiguration : IEntityTypeConfiguration<SmartTask>
+{
+    public void Configure(EntityTypeBuilder<SmartTask> builder)
+    {
+        builder.HasIndex(t => new { t.Status, t.RunAfter });
+        builder.HasIndex(t => new { t.TargetKind, t.TargetId });
+    }
+}
+
+/// <summary>هر کلید تحقیق فقط یک ردیف؛ پاک‌سازی شبانه با ExpiresAt.</summary>
+public class SmartResearchCacheConfiguration : IEntityTypeConfiguration<SmartResearchCache>
+{
+    public void Configure(EntityTypeBuilder<SmartResearchCache> builder)
+    {
+        builder.HasIndex(c => c.Key).IsUnique();
+        builder.HasIndex(c => c.ExpiresAt);
+    }
+}
+
+/// <summary>دور بیستم: بازخورد عکس‌ها همیشه با شناسهٔ محصول خوانده می‌شود (فهرست سیاه).</summary>
+public class SmartImageFeedbackConfiguration : IEntityTypeConfiguration<SmartImageFeedback>
+{
+    public void Configure(EntityTypeBuilder<SmartImageFeedback> builder) =>
+        builder.HasIndex(f => f.ProductId);
+}
+
+/// <summary>دور ۳۰ (#۵): تصمیم‌های تصویر دسته با (دسته، نام فایل) پیدا و برای آموزش با «تصمیم» خوانده می‌شوند.</summary>
+public class CategoryImageFeedbackConfiguration : IEntityTypeConfiguration<CategoryImageFeedback>
+{
+    public void Configure(EntityTypeBuilder<CategoryImageFeedback> builder)
+    {
+        builder.HasIndex(f => new { f.CategoryId, f.ImageName });
+        builder.HasIndex(f => f.Decision);
+    }
+}
+
+/// <summary>هر محصول حداکثر یک جمع‌بندی.</summary>
+public class ProductInsightConfiguration : IEntityTypeConfiguration<ProductInsight>
+{
+    public void Configure(EntityTypeBuilder<ProductInsight> builder) =>
+        builder.HasIndex(i => i.ProductId).IsUnique();
+}
+
+/// <summary>دور ۲۹ (#۱۸): هر لینک ویدیو برای هر کالا فقط یک بار پیشنهاد می‌شود.</summary>
+public class ProductVideoSuggestionConfiguration : IEntityTypeConfiguration<ProductVideoSuggestion>
+{
+    public void Configure(EntityTypeBuilder<ProductVideoSuggestion> builder) =>
+        builder.HasIndex(v => new { v.ProductId, v.PageUrl }).IsUnique();
+}
+
+public class BlogPlanItemConfiguration : IEntityTypeConfiguration<BlogPlanItem>
+{
+    public void Configure(EntityTypeBuilder<BlogPlanItem> builder) =>
+        builder.HasIndex(i => new { i.Status, i.PlannedFor });
+}
+
+/// <summary>یکتا بودن (نوع، سفارش، محصول) جلوی پیام تکراری را حتی با دو اجرای هم‌زمان می‌گیرد.</summary>
+public class CustomerReminderConfiguration : IEntityTypeConfiguration<CustomerReminder>
+{
+    public void Configure(EntityTypeBuilder<CustomerReminder> builder)
+    {
+        builder.HasIndex(r => new { r.Kind, r.OrderId, r.ProductId }).IsUnique();
+        builder.HasIndex(r => new { r.Status, r.DueAt });
+    }
+}

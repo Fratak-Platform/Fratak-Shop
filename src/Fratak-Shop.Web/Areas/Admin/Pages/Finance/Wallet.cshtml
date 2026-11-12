@@ -1,0 +1,58 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Finance.WalletModel
+@using Fratak_Shop.Data.Entities.Wallets
+@{
+    ViewData["Title"] = "تراکنش‌های کیف پول";
+    var request = HttpContext.Request;
+}
+<div class="a-page-head">
+  <div>
+    <h2>تراکنش‌های کیف پول <span class="a-muted text-sm font-normal">(@Format.Number(Model.Items.Total))</span></h2>
+    <p class="a-muted text-sm mt-1">ورودی: <b class="a-up">@Format.Toman(Model.SumIn)</b> · خروجی: <b class="a-down">@Format.Toman(-Model.SumOut)</b> (در فیلتر فعلی)</p>
+  </div>
+  @if (Model.Can(AdminPermissions.FinanceExport))
+  {
+    <div class="a-btn-group">
+      <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+      <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+    </div>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field" style="flex-basis:220px"><label class="a-label" for="w-q">جست‌وجو</label><input id="w-q" name="q" value="@Model.Search" class="a-input" placeholder="موبایل یا شرح"></div>
+    <div class="a-field"><label class="a-label" for="w-type">نوع</label>
+      <select id="w-type" name="type" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var t in Enum.GetValues<WalletTransactionType>().Where(t => t != WalletTransactionType.None)) { <option value="@t" selected="@(Model.Type == t)">@Display.WalletTransactionType(t)</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="w-from">از</label><input id="w-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/01/01"></div>
+    <div class="a-field"><label class="a-label" for="w-to">تا</label><input id="w-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/12/29"></div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/finance/wallet">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>تاریخ</th><th>مشتری</th><th>نوع</th><th>نقدی</th><th>هدیه</th><th>مانده</th><th>شرح</th></tr></thead>
+      <tbody>
+        @foreach (var t in Model.Items.Items)
+        {
+          <tr>
+            <td data-label="تاریخ" class="nowrap text-xs">@Format.DateTime(t.CreatedAt)</td>
+            <td data-label="مشتری">@if (Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@t.UserId">@Pii.NameOrPhone(t.UserName, t.Phone)</a> } else { <span class="a-ltr">@Pii.Phone(t.Phone)</span> }</td>
+            <td data-label="نوع">@Display.WalletTransactionType(t.Type)</td>
+            <td data-label="نقدی" class="num @(t.Amount < 0 ? "a-down" : t.Amount > 0 ? "a-up" : "")">@Format.Price(t.Amount)</td>
+            <td data-label="هدیه" class="num @(t.BonusAmount < 0 ? "a-down" : t.BonusAmount > 0 ? "a-up" : "")">@Format.Price(t.BonusAmount)</td>
+            <td data-label="مانده" class="num">@Format.Price(t.BalanceAfter)</td>
+            <td data-label="شرح" class="text-xs">@t.Description @if (t.OrderId is not null) { <a class="a-link a-ltr" href="/admin/orders/@t.OrderId">@t.OrderNumber</a> }</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Items.Items.Count == 0) { <div class="a-empty">تراکنشی یافت نشد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Items.Page, Model.Items.PageCount, Model.Items.Total)" />
+</div>

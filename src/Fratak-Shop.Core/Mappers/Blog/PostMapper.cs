@@ -20,6 +20,8 @@ public static class PostMapper
             AuthorId = post.AuthorId,
             AuthorName = post.Author.DisplayName() ?? string.Empty,
             BlogCategoryId = post.BlogCategoryId,
+            BlogCategoryName = post.BlogCategory?.Name,
+            BlogCategorySlug = post.BlogCategory?.Slug,
             Title = post.Title,
             Slug = post.Slug,
             Excerpt = post.Excerpt,
@@ -139,6 +141,7 @@ public static class PostMapper
 
             SchemaType = metaData.SchemaType,
             StructuredDataJsonLd = metaData.StructuredDataJsonLd,
+            FaqJson = metaData.FaqJson,
 
             IncludeInSitemap = metaData.IncludeInSitemap,
             SitemapLastModified = metaData.SitemapLastModified,

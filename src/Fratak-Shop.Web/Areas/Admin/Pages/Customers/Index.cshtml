@@ -1,0 +1,93 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Customers.IndexModel
+@{
+    ViewData["Title"] = "مشتریان";
+    var request = HttpContext.Request;
+}
+<div class="a-page-head">
+  <h2>مشتریان <span class="a-muted text-sm font-normal">(@Format.Number(Model.Customers.Total))</span></h2>
+  @if (Model.CanAny(AdminPermissions.CustomersManage, AdminPermissions.FinanceExport))
+  {
+    <div class="a-btn-group">
+      <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+      <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+    </div>
+  }
+</div>
+
+<div class="a-pills mb-4">
+  @foreach (var (value, label) in new (string?, string)[] { (null, "همه"), ("buyers", "خریداران"), ("no-orders", "بدون سفارش"), ("wallet", "دارای موجودی کیف پول"), ("inactive", "غیرفعال ۹۰ روزه"), ("blocked", "مسدود"), ("staff", "کارکنان") })
+  {
+    <a class="a-pill @(Model.State == value ? "is-active" : "")" href="@AdminUi.With(request, ("state", value))">@label</a>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    @if (Model.State is not null) { <input type="hidden" name="state" value="@Model.State"> }
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="f-q">جست‌وجو</label><input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام، موبایل یا ایمیل"></div>
+    <div class="a-field"><label class="a-label" for="f-from">عضویت از</label><input id="f-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/01/01"></div>
+    <div class="a-field"><label class="a-label" for="f-to">تا</label><input id="f-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/12/29"></div>
+    @if (Model.PopularTags.Count > 0 || !string.IsNullOrWhiteSpace(Model.Tag))
+    {
+      <div class="a-field">
+        <label class="a-label" for="f-tag">برچسب</label>
+        <select id="f-tag" name="tag" class="a-select">
+          <option value="">همه</option>
+          @if (!string.IsNullOrWhiteSpace(Model.Tag) && !Model.PopularTags.Any(t => t.Tag == Model.Tag))
+          {
+            <option value="@Model.Tag" selected>@Model.Tag</option>
+          }
+          @foreach (var t in Model.PopularTags)
+          {
+            <option value="@t.Tag" selected="@(t.Tag == Model.Tag)">@t.Tag (@Format.Number(t.Count))</option>
+          }
+        </select>
+      </div>
+    }
+    <div class="a-field">
+      <label class="a-label" for="f-sort">مرتب‌سازی</label>
+      <select id="f-sort" name="sort" class="a-select">
+        <option value="newest" selected="@(Model.Sort == "newest")">جدیدترین عضو</option>
+        <option value="spent" selected="@(Model.Sort == "spent")">بیشترین خرید</option>
+        <option value="orders" selected="@(Model.Sort == "orders")">بیشترین سفارش</option>
+        <option value="wallet" selected="@(Model.Sort == "wallet")">بیشترین کیف پول</option>
+        <option value="points" selected="@(Model.Sort == "points")">بیشترین امتیاز</option>
+        <option value="login" selected="@(Model.Sort == "login")">آخرین ورود</option>
+        <option value="oldest" selected="@(Model.Sort == "oldest")">قدیمی‌ترین</option>
+      </select>
+    </div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/customers">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>مشتری</th><th>عضویت</th><th>آخرین ورود</th><th>سفارش</th><th>مجموع خرید</th><th>کیف پول</th><th>امتیاز</th><th>وضعیت</th></tr></thead>
+      <tbody>
+        @foreach (var c in Model.Customers.Items)
+        {
+          <tr>
+            <td data-label="مشتری">
+              <a class="a-link font-semibold" href="/admin/customers/@c.Id">@c.FullName</a>
+              <div class="a-muted text-xs a-ltr text-right">@Pii.Phone(c.PhoneNumber)</div>
+            </td>
+            <td data-label="عضویت" class="nowrap">@Format.Date(c.CreatedAt)</td>
+            <td data-label="آخرین ورود" class="nowrap">@(c.LastLoginAt is { } login ? AdminUi.Ago(login) : "—")</td>
+            <td data-label="سفارش" class="num">@Format.Number(c.OrderCount)</td>
+            <td data-label="مجموع خرید" class="num">@Format.Price(c.TotalSpent)</td>
+            <td data-label="کیف پول" class="num">@Format.Price(c.Wallet)@if (c.WalletBonus > 0) { <div class="a-muted text-xs">+ @Format.Price(c.WalletBonus) هدیه</div> }</td>
+            <td data-label="امتیاز" class="num">@Format.Number(c.Points)</td>
+            <td data-label="وضعیت">
+              @if (c.IsBlocked) { <span class="a-badge a-badge-red">مسدود</span> } else { <span class="a-badge a-badge-green">فعال</span> }
+              @if (c.IsStaff) { <span class="a-badge a-badge-purple">مالک</span> }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Customers.Items.Count == 0) { <div class="a-empty">مشتری‌ای یافت نشد.</div> }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(Model.Customers.Page, Model.Customers.PageCount, Model.Customers.Total)" />
+</div>

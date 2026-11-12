@@ -1,0 +1,117 @@
+@page "/admin/smart/assistant/knowledge"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.KnowledgeModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@using Fratak_Shop.Core.Services.Seo.Engine
+@using Fratak_Shop.Data.Entities.Assistant
+@* دور ۲۸: «دانش دستیار» – جدول دانستنی‌ها با یادگیری از 👍/👎 مشتری‌ها. *@
+@{
+    ViewData["Title"] = "دانش دستیار";
+    var editing = Model.Editing;
+    var pages = (int)Math.Ceiling(Model.Total / (double)KnowledgeModel.PageSize);
+    var kinds = Enum.GetValues<AssistantFactKind>();
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>دانش دستیار</h2>
+    <p class="a-muted text-sm mt-1">واژه‌نامه، راهنمای خرید، گپ کوتاه و هم‌معنی‌هایی که دستیار با آن‌ها جواب می‌دهد. هر شب از 👍/👎 مشتری‌ها یاد می‌گیرد و دانستنی بی‌فایده را خودش خاموش می‌کند.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/teach">آموزش دستیار</a>
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant">گزارش دستیار</a>
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="a-card xl:col-span-2">
+    <form method="get" class="a-card-head flex flex-wrap gap-2">
+      <input class="a-input" name="q" value="@Model.Search" placeholder="جست‌وجو در واژه یا جواب" maxlength="60" />
+      <select class="a-input" name="kind">
+        <option value="">همهٔ نوع‌ها</option>
+        @foreach (var k in kinds)
+        {
+          <option value="@k" selected="@(Model.Kind == k)">@KnowledgeModel.KindTitle(k)</option>
+        }
+      </select>
+      <button class="a-btn a-btn-light a-btn-sm" type="submit">نمایش</button>
+      <span class="a-muted text-sm">@PersianText.Digits(Model.Total) مورد</span>
+    </form>
+    @if (Model.Items.Count == 0)
+    {
+      <div class="a-empty">موردی پیدا نشد. بذر دانش چند ثانیه بعد از راه‌اندازی ریخته می‌شود.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>نوع</th><th>واژه</th><th>جواب</th><th>نمایش</th><th>👍/👎</th><th>اطمینان</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var f in Model.Items)
+            {
+              <tr class="@(f.IsActive ? "" : "opacity-60")">
+                <td data-label="نوع"><span class="a-badge a-badge-gray">@KnowledgeModel.KindTitle(f.Kind)</span></td>
+                <td data-label="واژه"><b>@f.Term</b>@if (f.Aliases is not null) {<div class="a-muted text-xs">@f.Aliases.Replace("|", "، ")</div>}</td>
+                <td data-label="جواب" class="text-sm">@(f.Answer.Length > 140 ? f.Answer[..140] + "…" : f.Answer)</td>
+                <td data-label="نمایش">@PersianText.Digits(f.Shown)</td>
+                <td data-label="👍/👎">@PersianText.Digits(f.Helpful) / @PersianText.Digits(f.Unhelpful)</td>
+                <td data-label="اطمینان">@PersianText.Digits((int)Math.Round(f.Confidence * 100))٪</td>
+                <td data-label="">
+                  <div class="a-btn-group">
+                    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/knowledge?id=@f.Id#form">ویرایش</a>
+                    <form method="post" asp-page-handler="Toggle" asp-route-id="@f.Id"><button class="a-btn a-btn-light a-btn-sm" type="submit">@(f.IsActive ? "خاموش" : "روشن")</button></form>
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@f.Id" data-confirm="این دانستنی حذف شود؟"><button class="a-btn a-btn-light a-btn-sm" type="submit">حذف</button></form>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (pages > 1)
+      {
+        <div class="a-card-body flex flex-wrap gap-1">
+          @for (var i = 1; i <= Math.Min(pages, 30); i++)
+          {
+            <a class="a-btn a-btn-sm @(i == Model.PageNumber ? "a-btn-primary" : "a-btn-light")" href="/admin/smart/assistant/knowledge?p=@i&kind=@Model.Kind&q=@Uri.EscapeDataString(Model.Search ?? "")">@PersianText.Digits(i)</a>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <form method="post" asp-page-handler="Save" asp-route-id="@editing?.Id" class="a-card" id="form">
+    <div class="a-card-head">
+      <h3 class="a-card-title">@Icons.Svg("Brain", null, 18) @(editing is null ? "دانستنی تازه" : "ویرایش دانستنی")</h3>
+      @if (editing is not null)
+      {
+        <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/knowledge">انصراف</a>
+      }
+    </div>
+    <div class="a-card-body a-stack">
+      <label class="a-label">نوع
+        <select class="a-input" name="kind">
+          @foreach (var k in kinds)
+          {
+            <option value="@k" selected="@((editing?.Kind ?? AssistantFactKind.Learned) == k)">@KnowledgeModel.KindTitle(k)</option>
+          }
+        </select>
+      </label>
+      <label class="a-label">واژه یا عبارت
+        <input class="a-input" name="term" value="@editing?.Term" maxlength="120" required placeholder="مثلاً «ارسال به کیش»" />
+      </label>
+      <label class="a-label">شکل‌های دیگر (با «،» یا «|» جدا کنید)
+        <input class="a-input" name="aliases" value="@editing?.Aliases" maxlength="600" placeholder="مثلاً «کیش، جزیره کیش»" />
+      </label>
+      <label class="a-label">جواب
+        <textarea class="a-input" name="answer" rows="5" maxlength="1500" required placeholder="راهنمای خرید: نکته‌ها را با «؛» جدا کنید. گپ کوتاه: چند جواب را با «||» جدا کنید.">@editing?.Answer</textarea>
+      </label>
+      <label class="a-label">لینک داخلی (اختیاری)
+        <input class="a-input" name="url" value="@editing?.Url" maxlength="300" dir="ltr" placeholder="/faq" />
+      </label>
+      <label class="a-label">موضوع (اختیاری)
+        <input class="a-input" name="topic" value="@editing?.Topic" maxlength="60" />
+      </label>
+      <button class="a-btn a-btn-primary" type="submit">ذخیره</button>
+    </div>
+  </form>
+</div>

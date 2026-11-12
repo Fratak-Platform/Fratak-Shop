@@ -1,0 +1,82 @@
+@page "/admin/campaigns/edit/{id:guid}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Campaigns.EditModel
+@using Fratak_Shop.Core.Services.Design
+@* صفحه‌ساز کمپین: نوار بالا (دستگاه‌ها، برگرداندن، قالب‌ها، ذخیره)، بلوک‌ها (راست)، بوم (وسط)، ظاهر/لایه‌ها/ویژگی‌ها (چپ)، تنظیمات صفحه (پایین). رفتار: page-builder.js *@
+@{
+    var p = Model.Landing;
+    ViewData["Title"] = "صفحه‌ساز: " + p.Title;
+}
+@section Head {
+  <link rel="stylesheet" href="~/assets/js/dependencies/grapesjs/grapes.min.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/design-studio.css" asp-append-version="true">
+}
+
+<div class="pb" data-page-builder
+     data-base="/admin/campaigns/edit/@p.Id"
+     data-canvas-css="@Url.Content("~/assets/css/font.css"),@Url.Content("~/assets/css/landing.css")">
+  <div class="pb-top">
+    <a class="a-btn a-btn-light a-btn-xs" href="/admin/campaigns">@Icons.Svg("ArrowLeft", "rotate-180", 16) صفحه‌ها</a>
+    <b class="text-sm">@p.Title</b>
+    <div class="pb-devices" role="group" aria-label="پیش‌نمایش دستگاه">
+      <button type="button" class="ds-tool is-active" data-pb-device="desktop">@Icons.Svg("Monitor", null, 16) دسکتاپ</button>
+      <button type="button" class="ds-tool" data-pb-device="tablet">تبلت</button>
+      <button type="button" class="ds-tool" data-pb-device="mobile">@Icons.Svg("DeviceMobile", null, 16) موبایل</button>
+    </div>
+    <div class="ds-top-actions">
+      <button type="button" class="a-btn a-btn-light a-btn-xs" data-pb-undo title="برگرداندن">@Icons.Svg("ArrowCounterClockwise", null, 16)</button>
+      <button type="button" class="a-btn a-btn-light a-btn-xs" data-pb-redo title="انجام دوباره">@Icons.Svg("ArrowCounterClockwise", "ds-flip", 16)</button>
+      <button type="button" class="a-btn a-btn-light a-btn-xs" data-pb-outline title="نمایش مرز بخش‌ها">مرزها</button>
+      <select class="a-input a-btn-xs" data-pb-template aria-label="قالب‌ها">
+        <option value="">قالب‌ها…</option>
+        @foreach (var t in LandingTemplates.List) { <option value="@t.Key">@t.Title</option> }
+      </select>
+      @* دور ۲۹ (#۱۱): رفتن به حالت کد خام. *@
+      <a class="a-btn a-btn-light a-btn-xs" href="/admin/campaigns/code/@p.Id" title="نوشتن صفحه با کد خام HTML/CSS/JS">&lt;/&gt; حالت کد@(p.CodeMode ? " (روشن)" : "")</a>
+      <a class="a-btn a-btn-light a-btn-xs" href="/campaign/@p.Slug" target="_blank" rel="noopener" data-pb-view>@Icons.Svg("Eye", null, 16) مشاهده</a>
+      <button type="button" class="a-btn a-btn-primary a-btn-xs" data-pb-save>@Icons.Svg("FloppyDisk", null, 16) ذخیره</button>
+    </div>
+  </div>
+
+  <div class="pb-body">
+    <aside class="pb-side">
+      <div class="pb-side-tabs"><button type="button" class="is-active">بلوک‌ها (بکشید)</button></div>
+      <div data-pb-blocks></div>
+    </aside>
+    <div class="pb-canvas" dir="ltr"><div data-pb-editor></div></div>
+    <aside class="pb-side">
+      <div class="pb-side-tabs">
+        <button type="button" class="is-active" data-pb-tab="styles">ظاهر</button>
+        <button type="button" data-pb-tab="traits">ویژگی‌ها</button>
+        <button type="button" data-pb-tab="layers">لایه‌ها</button>
+      </div>
+      <div data-pb-pane="styles"><div data-pb-selectors></div><div data-pb-styles></div></div>
+      <div data-pb-pane="traits" hidden><div data-pb-traits></div><p class="a-help p-3">لینک دکمه‌ها و متن جایگزین عکس‌ها این‌جا تنظیم می‌شود.</p></div>
+      <div data-pb-pane="layers" hidden><div data-pb-layers></div></div>
+    </aside>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) تنظیمات صفحه</h3></div>
+    <div class="a-card-body pb-settings" data-pb-settings>
+      <div><label class="a-label" for="pb-title">عنوان صفحه</label><input id="pb-title" class="a-input" name="title" maxlength="300" value="@p.Title"></div>
+      <div><label class="a-label" for="pb-slug">نامک انگلیسی (آدرس)</label><input id="pb-slug" class="a-input a-ltr" name="slug" maxlength="200" value="@p.Slug"></div>
+      <div><label class="a-label" for="pb-mt">عنوان سئو (اختیاری)</label><input id="pb-mt" class="a-input" name="metaTitle" maxlength="300" value="@p.MetaTitle"></div>
+      <div><label class="a-label" for="pb-md">توضیح کوتاه (گوگل و اشتراک‌گذاری)</label><input id="pb-md" class="a-input" name="metaDescription" maxlength="400" value="@p.MetaDescription"></div>
+      <div><label class="a-label" for="pb-img">تصویر اشتراک‌گذاری (آدرس /uploads/…)</label><input id="pb-img" class="a-input a-ltr" name="imageUrl" maxlength="500" value="@p.ImageUrl"></div>
+      <div><label class="a-label" for="pb-start">شروع (خالی = همین حالا)</label><input id="pb-start" class="a-input a-ltr" name="startAt" data-jalali="datetime" placeholder="1404/09/01 00:00" value="@PersianDateInput.FormatDateTime(p.StartAt)"></div>
+      <div><label class="a-label" for="pb-end">پایان کمپین (شمارش معکوس تا همین لحظه)</label><input id="pb-end" class="a-input a-ltr" name="endAt" data-jalali="datetime" placeholder="خالی = بدون پایان" value="@PersianDateInput.FormatDateTime(p.EndAt)"></div>
+      <div class="a-stack">
+        <label class="flex items-center gap-2"><input type="checkbox" name="showHeader" checked="@p.ShowHeader"> نمایش هدر سایت</label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="showFooter" checked="@p.ShowFooter"> نمایش فوتر سایت</label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="isActive" checked="@p.IsActive"> منتشر شود (روی سایت دیده شود)</label>
+      </div>
+    </div>
+    <p class="a-help px-4 pb-4">فهرست کالاها با کد کوتاه پر می‌شود: <code>[[deals:8]]</code> پرتخفیف‌ها، <code>[[newest:8]]</code> تازه‌ها، <code>[[bestsellers:8]]</code> پرفروش‌ها، <code>[[category:slug:8]]</code> کالاهای یک دسته، <code>[[product:slug]]</code> یک کالا. بعد از پایان کمپین، صفحه پیام «به پایان رسید» نشان می‌دهد. اسکریپت و فرم ذخیره نمی‌شود.</p>
+  </div>
+</div>
+
+@section Scripts {
+  <script src="~/assets/js/dependencies/grapesjs/grapes.min.js" asp-append-version="true"></script>
+  <script src="~/assets/js/dependencies/grapesjs/locale-fa.js" asp-append-version="true"></script>
+  <script src="~/assets/js/page-builder.js" asp-append-version="true"></script>
+}

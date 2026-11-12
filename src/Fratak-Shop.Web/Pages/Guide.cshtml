@@ -1,0 +1,155 @@
+@page "/guide/{category}"
+@model GuideModel
+@{
+    Layout = "_Layout";
+    var guide = Model.View;
+}
+@* دور ۲۴ (پیشنهاد ۴۳): راهنمای جامع خرید یک دسته (صفحهٔ ستون) – همه از دادهٔ واقعی *@
+  <main class="pt-24 md:pt-36 max-w-[1300px] mx-auto px-3 md:px-6">
+    <article class="bg-white border rounded-xl shadow-lg p-4 md:p-8">
+      <h1 class="text-2xl md:text-3xl font-bold text-zinc-800">@Model.Heading</h1>
+      @if (guide.Intro is not null)
+      {
+        <p class="mt-4 text-zinc-600 leading-8">@guide.Intro</p>
+      }
+      <ul class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <li class="rounded-xl bg-gray-50 p-3"><span class="block text-zinc-500">تعداد مدل‌ها</span><b>@Fratak_Shop.Web.Helpers.Format.Number(guide.Facts.Count)</b></li>
+        <li class="rounded-xl bg-gray-50 p-3"><span class="block text-zinc-500">موجود</span><b>@Fratak_Shop.Web.Helpers.Format.Number(guide.Facts.InStock)</b></li>
+        @if (guide.Facts.MinPrice is { } minPrice)
+        {
+          <li class="rounded-xl bg-gray-50 p-3"><span class="block text-zinc-500">ارزان‌ترین</span><b>@Fratak_Shop.Web.Helpers.Format.Toman(minPrice)</b></li>
+        }
+        @if (guide.Facts.MaxPrice is { } maxPrice)
+        {
+          <li class="rounded-xl bg-gray-50 p-3"><span class="block text-zinc-500">گران‌ترین</span><b>@Fratak_Shop.Web.Helpers.Format.Toman(maxPrice)</b></li>
+        }
+      </ul>
+
+      <nav class="mt-6 text-sm" aria-label="فهرست راهنما">
+        <p class="font-bold mb-2">در این راهنما</p>
+        <ol class="list-decimal pr-5 space-y-1 text-sky-700">
+          @if (guide.PriceBands.Count > 0) { <li><a href="#budget">انتخاب بر اساس بودجه</a></li> }
+          @if (guide.Brands.Count > 0) { <li><a href="#brands">برندها</a></li> }
+          @if (guide.Specs.Count > 0) { <li><a href="#specs">مشخصات مهم و بازهٔ آن‌ها</a></li> }
+          @if (Model.TopProducts.Count > 0) { <li><a href="#popular">پرفروش‌ها</a></li> }
+          @if (guide.Questions.Count > 0) { <li><a href="#faq">پرسش‌های متداول</a></li> }
+        </ol>
+      </nav>
+
+      @if (guide.PriceBands.Count > 0)
+      {
+        <section id="budget" class="mt-8 scroll-mt-32">
+          <h2 class="text-xl font-bold text-zinc-800">انتخاب @guide.Name بر اساس بودجه</h2>
+          <div class="mt-3 flex flex-wrap gap-2 text-sm">
+            @foreach (var band in guide.PriceBands)
+            {
+              <a href="@band.Url" class="border rounded-full px-3 py-1 hover:border-sky-400">@band.Label <span class="text-gray-500">(@Fratak_Shop.Web.Helpers.Format.Number(band.Count))</span></a>
+            }
+          </div>
+        </section>
+      }
+
+      @if (guide.Brands.Count > 0)
+      {
+        <section id="brands" class="mt-8 scroll-mt-32">
+          <h2 class="text-xl font-bold text-zinc-800">برندهای @guide.Name</h2>
+          <div class="mt-3 flex flex-wrap gap-2 text-sm">
+            @foreach (var brandItem in guide.Brands)
+            {
+              var brandUrl = brandItem.Count >= Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.MinBrandProducts
+                  ? Fratak_Shop.Core.Services.Seo.Autopilot.ListingLandings.BrandPath(guide.Slug, brandItem.Slug)
+                  : $"/category/{guide.Slug}?brand={Uri.EscapeDataString(brandItem.Slug)}";
+              <a href="@brandUrl" class="border rounded-full px-3 py-1 hover:border-sky-400">@brandItem.Name <span class="text-gray-500">(@Fratak_Shop.Web.Helpers.Format.Number(brandItem.Count))</span></a>
+            }
+          </div>
+        </section>
+      }
+
+      @if (guide.Specs.Count > 0)
+      {
+        <section id="specs" class="mt-8 scroll-mt-32">
+          <h2 class="text-xl font-bold text-zinc-800">مشخصات مهم @guide.Name و بازهٔ آن‌ها</h2>
+          <div class="mt-3 overflow-x-auto">
+            <table class="w-full text-sm border rounded-xl">
+              <thead class="bg-gray-50 text-zinc-600"><tr><th class="p-2 text-right">مشخصه</th><th class="p-2 text-right">کمترین</th><th class="p-2 text-right">بیشترین</th><th class="p-2 text-right">تعداد کالا</th></tr></thead>
+              <tbody>
+                @foreach (var spec in guide.Specs)
+                {
+                  <tr class="border-t">
+                    <td class="p-2">
+                      @if (spec.TermSlug is not null)
+                      {
+                        <a href="/glossary#@spec.TermSlug" class="text-sky-700 hover:underline">@spec.Name</a>
+                      }
+                      else
+                      {
+                        @spec.Name
+                      }
+                    </td>
+                    <td class="p-2">@spec.Lowest</td>
+                    <td class="p-2">@spec.Highest</td>
+                    <td class="p-2">@Fratak_Shop.Web.Helpers.Format.Number(spec.Products)</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
+      @if (guide.SubCategories.Count > 0)
+      {
+        <section class="mt-8">
+          <h2 class="text-xl font-bold text-zinc-800">زیردسته‌ها</h2>
+          <div class="mt-3 flex flex-wrap gap-2 text-sm">
+            @foreach (var sub in guide.SubCategories)
+            {
+              <a href="/category/@sub.Slug" class="border rounded-full px-3 py-1 hover:border-sky-400">@sub.Name</a>
+            }
+          </div>
+        </section>
+      }
+
+      @if (Model.TopProducts.Count > 0)
+      {
+        <section id="popular" class="mt-8 scroll-mt-32">
+          <h2 class="text-xl font-bold text-zinc-800">پرفروش‌های @guide.Name</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
+            @foreach (var card in Model.TopProducts)
+            {
+              <partial name="_ProductGridCard" model="card" />
+            }
+          </div>
+        </section>
+      }
+
+      @if (guide.Articles.Count > 0)
+      {
+        <section class="mt-8">
+          <h2 class="text-xl font-bold text-zinc-800">مقاله‌های مرتبط</h2>
+          <ul class="mt-3 list-disc pr-5 space-y-1 text-sm">
+            @foreach (var article in guide.Articles)
+            {
+              <li><a href="/blog/@article.Slug" class="text-sky-700 hover:underline">@article.Title</a></li>
+            }
+          </ul>
+        </section>
+      }
+
+      @if (guide.Questions.Count > 0)
+      {
+        <section id="faq" class="mt-8 scroll-mt-32">
+          <h2 class="text-xl font-bold text-zinc-800">پرسش‌های متداول دربارهٔ @guide.Name</h2>
+          @foreach (var item in guide.Questions)
+          {
+            <details class="border-b last:border-b-0 py-3 text-sm">
+              <summary class="cursor-pointer font-semibold text-zinc-700">@item.Question</summary>
+              <p class="mt-2 text-zinc-600 leading-7">@item.Answer</p>
+            </details>
+          }
+        </section>
+      }
+
+      <p class="mt-8"><a href="/category/@guide.Slug" class="inline-block rounded-xl bg-sky-500 px-5 py-2 text-white hover:bg-sky-600">مشاهدهٔ همهٔ @guide.Name</a></p>
+    </article>
+  </main>

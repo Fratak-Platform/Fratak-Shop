@@ -1,0 +1,156 @@
+@page "/admin/blog/edit/{id:guid?}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Blog.EditModel
+@{
+    var i = Model.Input;
+    var post = Model.Post;
+    ViewData["Title"] = Model.IsNew ? "مقاله جدید" : $"ویرایش {post!.Title}";
+    var previewUrl = $"{HttpContext.Request.Host}/blog/{(post?.Slug ?? i.Slug ?? "...")}";
+    var now = DateTimeOffset.UtcNow;
+    var statusText = post is null ? "جدید" : post.IsPublished && post.PublishedAt > now ? "زمان‌بندی‌شده" : post.IsPublished ? "منتشرشده" : post.SubmittedForReviewAt is not null ? "در انتظار بررسی" : "پیش‌نویس";
+    var seoModel = new SeoFieldsModel("Input.Seo", i.Seo, previewUrl, "#bp-title", "#bp-excerpt");
+    var seoOnlyModel = new SeoFieldsModel("Input.Seo", i.Seo, previewUrl, null, null);
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/blog" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>@(Model.IsNew ? "مقاله جدید" : post!.Title)</h2>
+      @if (post is not null)
+      {
+        <p class="a-muted text-sm mt-1"><span class="a-badge a-badge-gray">@statusText</span> · نویسنده: @(string.IsNullOrEmpty(Model.AuthorName) ? "—" : Model.AuthorName) · @Format.Number(post.ViewCount) بازدید</p>
+      }
+    </div>
+  </div>
+  @if (post is not null && post.IsPublished)
+  {
+    <a href="/blog/@post.Slug" target="_blank" rel="noopener" class="a-btn a-btn-light">@Icons.Svg("Eye", null, 18) مشاهده در سایت</a>
+  }
+</div>
+
+@if (post is not null && !post.IsPublished && !string.IsNullOrEmpty(post.ReviewNote))
+{
+  <div class="a-alert a-alert-warn mb-4"><b>یادداشت سردبیر:</b> @post.ReviewNote</div>
+}
+@if (post is not null && post.IsPublished && !Model.CanEditContent && Model.Can(AdminPermissions.BlogWrite) && post.AuthorId == Model.Access.UserId)
+{
+  <div class="a-alert a-alert-info mb-4">این مقاله منتشر شده است؛ برای تغییر متن با سردبیر هماهنگ کنید.</div>
+}
+
+@if (Model.CanEditContent)
+{
+  <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
+        data-edit-key="@(post is null ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
+        data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(post is null ? "مقالهٔ جدید" : "مقاله: " + post.Title)"
+        data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("BlogPost", post?.Id, new { name = "#bp-title", slug = "#bp-slug", summary = "#bp-excerpt", body = "#bp-content" }))">
+    <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
+    <div class="a-grid xl:grid-cols-3">
+      <div class="xl:col-span-2 a-stack">
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">متن مقاله</span></div>
+          <div class="a-card-body a-form-grid">
+            <div class="a-field"><label class="a-label req" for="bp-title">عنوان</label><input id="bp-title" name="Input.Title" value="@i.Title" class="a-input" maxlength="250" required data-slug-source="#bp-slug"></div>
+            <div class="a-field"><label class="a-label" for="bp-slug">نامک (آدرس)</label><input id="bp-slug" name="Input.Slug" value="@i.Slug" class="a-input a-ltr" maxlength="250" placeholder="خودکار از عنوان"><p class="a-help">تغییر نامک مقاله منتشرشده، لینک‌های قبلی را خراب می‌کند؛ در صورت نیاز ریدایرکت تعریف کنید.</p></div>
+            <div class="a-field"><label class="a-label" for="bp-excerpt">خلاصه</label><textarea id="bp-excerpt" name="Input.Excerpt" class="a-textarea" rows="3" maxlength="1000" data-counter="300">@i.Excerpt</textarea></div>
+            <div class="a-field"><label class="a-label req" for="bp-content">متن</label><textarea id="bp-content" name="Input.Content" class="a-textarea" rows="18" data-html-editor>@i.Content</textarea>
+              <p class="a-help">از تیتر (H2/H3)، پاراگراف کوتاه، فهرست و لینک داخلی به محصولات استفاده کنید. کدهای ناامن خودکار حذف می‌شوند.</p></div>
+          </div>
+        </div>
+        <div class="a-card" id="seo">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو</span></div>
+          <div class="a-card-body">@await Html.PartialAsync("_SeoFields", seoModel)</div>
+        </div>
+      </div>
+
+      <div class="a-stack">
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">انتشار</span></div>
+          <div class="a-card-body a-form-grid">
+            <div class="a-field"><label class="a-label req" for="bp-cat">دسته</label>
+              <select id="bp-cat" name="Input.CategoryId" class="a-select" required>
+                <option value="">انتخاب کنید</option>
+                @foreach (var c in Model.Categories) { <option value="@c.Id" selected="@(i.CategoryId == c.Id)">@c.Name</option> }
+              </select></div>
+            @if (Model.IsEditor)
+            {
+              <div class="a-field"><label class="a-label" for="bp-date">تاریخ انتشار</label><input id="bp-date" name="Input.PublishDate" value="@i.PublishDate" class="a-input a-ltr" placeholder="خالی = همین حالا"><p class="a-help">تاریخ آینده = انتشار زمان‌بندی‌شده.</p></div>
+            }
+            <div class="a-btn-group">
+              <button class="a-btn a-btn-light" type="submit" name="intent" value="save">ذخیره</button>
+              @if (!Model.IsEditor && (post is null || post.SubmittedForReviewAt is null))
+              {
+                <button class="a-btn" type="submit" name="intent" value="review">@Icons.Svg("PaperPlaneTilt", null, 18) ارسال برای بررسی</button>
+              }
+              @if (Model.IsEditor)
+              {
+                <button class="a-btn a-btn-success" type="submit" name="intent" value="publish">@Icons.Svg("Check", null, 18) @(post?.IsPublished == true ? "ذخیره و انتشار" : "انتشار")</button>
+                @if (post?.IsPublished == true) { <button class="a-btn a-btn-danger-soft" type="submit" name="intent" value="unpublish" data-confirm="مقاله از دسترس عموم خارج شود؟">لغو انتشار</button> }
+              }
+            </div>
+          </div>
+        </div>
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">تصویر شاخص</span></div>
+          <div class="a-card-body a-form-grid">
+            @if (!string.IsNullOrEmpty(post?.ImageName))
+            {
+              <img src="@ImageHelper.Blog(post.ImageName)" alt="" class="w-full rounded-lg border aspect-video object-cover">
+              <label class="a-check text-sm"><input type="checkbox" name="Input.RemoveImage" value="true"> حذف تصویر</label>
+            }
+            <input type="file" name="image" accept="image/jpeg,image/png,image/webp" class="a-input" data-file-preview="#bp-preview">
+            <div id="bp-preview" class="flex gap-2"></div>
+            <div class="a-field"><label class="a-label" for="bp-alt">متن جایگزین (Alt)</label><input id="bp-alt" name="Input.ImageAlt" value="@i.ImageAlt" class="a-input" maxlength="250"></div>
+            <p class="a-help">JPG/PNG/WebP تا ۴ مگابایت؛ نسبت ۱۶:۹ پیشنهاد می‌شود.</p>
+            @if (post is not null)
+            {
+              @* دور ۲۱: ساخت کاور با استودیوی طراحی (۱۲۰۰×۶۳۰، عنوان مقاله روی طرح، جست‌وجوی عکس). اول تغییرات مقاله را ذخیره کنید. *@
+              <a class="a-btn a-btn-soft a-btn-xs" href="/admin/design?preset=blog-cover&amp;post=@post.Id">@Icons.Svg("Palette", null, 16) طراحی کاور در استودیو</a>
+              <p class="a-help">کاور ساخته‌شده با یک دکمه روی همین مقاله می‌نشیند. قبل از رفتن، تغییرات مقاله را ذخیره کنید.</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  @if (post is not null)
+  {
+    <div class="a-grid md:grid-cols-2 mt-4">
+      @if (Model.IsEditor && !post.IsPublished && post.SubmittedForReviewAt is not null)
+      {
+        <form method="post" asp-page-handler="Return" asp-route-id="@post.Id" class="a-card">
+          <div class="a-card-head"><span class="a-card-title">برگشت برای اصلاح</span></div>
+          <div class="a-card-body a-form-grid">
+            <textarea name="note" class="a-textarea" rows="3" maxlength="1000" required placeholder="چه چیزی باید اصلاح شود؟"></textarea>
+            <div><button class="a-btn a-btn-light" type="submit">برگرداندن به نویسنده</button></div>
+          </div>
+        </form>
+      }
+      <form method="post" asp-page-handler="Delete" asp-route-id="@post.Id" class="a-card" data-confirm="این مقاله به سطل بازیافت منتقل شود؟" data-confirm-danger>
+        <div class="a-card-body flex items-center justify-between gap-3">
+          <span class="text-sm a-muted">حذف مقاله (از «سطل بازیافت» قابل برگرداندن است).</span>
+          <button class="a-btn a-btn-danger-soft" type="submit">@Icons.Svg("Trash", null, 18) حذف</button>
+        </div>
+      </form>
+    </div>
+  }
+  @if (Model.History is not null)
+  {
+    <div class="mt-4"><partial name="_EditHistory" model="Model.History" /></div>
+  }
+}
+else if (post is not null && Model.CanSeo)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-body">
+      <p class="a-muted text-sm mb-2">@post.Excerpt</p>
+      <a class="a-link text-sm" href="/blog/@post.Slug" target="_blank" rel="noopener">مشاهده متن کامل</a>
+    </div>
+  </div>
+  <form method="post" asp-page-handler="Seo" asp-route-id="@post.Id" class="a-card" id="seo" data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("BlogPost", post.Id))">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو مقاله</span></div>
+    <div class="a-card-body">
+      @await Html.PartialAsync("_SeoFields", seoOnlyModel)
+      <div class="flex justify-end mt-4"><button type="submit" class="a-btn">ذخیره سئو</button></div>
+    </div>
+  </form>
+}

@@ -1,0 +1,232 @@
+@page "/admin/smart/settings"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.SettingsModel
+@*
+  تنظیمات محتوای هوشمند: هر بخش یک کارت؛ همه‌چیز با موتور داخلی خود سایت (بدون مدل زبانی یا برنامهٔ بیرونی).
+*@
+@{
+    ViewData["Title"] = "تنظیمات محتوای هوشمند";
+    var rules = Model.Options.ReplenishRules.ToDictionary(r => r.CategoryId, r => r.Days);
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>تنظیمات محتوای هوشمند</h2>
+    <p class="a-muted text-sm mt-1">پیش‌فرض‌ها محتاطانه انتخاب شده‌اند؛ فقط اگر لازم است تغییر دهید. همهٔ کارها رایگان و بدون سرویس پولی انجام می‌شوند.</p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/smart">@Icons.Svg("ArrowLeft", "rotate-180", 18) صف کارها</a></div>
+</div>
+
+<form method="post" asp-page-handler="Save" class="a-stack">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) کلی</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.Enabled"> محتوای هوشمند روشن باشد (خاموش: هیچ کاری از صف اجرا نمی‌شود)</label>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="a-label" asp-for="Options.MinImageSide">حداقل ضلع عکس (پیکسل)</label><input class="a-input" asp-for="Options.MinImageSide" min="300" max="2000"></div>
+        <div><label class="a-label" asp-for="Options.MaxImageCandidates">حداکثر نامزد عکس که بررسی می‌شود (پیش از انتخاب بهترین‌ها)</label><input class="a-input" asp-for="Options.MaxImageCandidates" min="6" max="60"></div>
+        <div><label class="a-label" asp-for="Options.AutoImagesWhenFewerThan">افزودن خودکار عکس وقتی کالا کمتر از … عکس دارد</label><input class="a-input" asp-for="Options.AutoImagesWhenFewerThan" min="0" max="12"></div>
+        <div><label class="a-label" asp-for="Options.AutoImagesMax">حداکثر عکس خودکار در هر بار</label><input class="a-input" asp-for="Options.AutoImagesMax" min="0" max="8"></div>
+        <div><label class="a-label" asp-for="Options.AutoSpecMinSources">مشخصهٔ تازه با توافق چند منبع خودکار اضافه شود</label><input class="a-input" asp-for="Options.AutoSpecMinSources" min="2" max="5"></div>
+        <div><label class="a-label" asp-for="Options.AutoApproveInsightMinReviews">تأیید خودکار خلاصهٔ خرید از … نظر به بالا</label><input class="a-input" asp-for="Options.AutoApproveInsightMinReviews" min="3" max="500"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BlockBelowCost"> جلوگیری از ذخیرهٔ قیمت فروش کمتر از قیمت خرید (محافظ سود)</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.DeadStockWarnDays">هشدار کالای راکد بعد از … روز بدون فروش</label><input class="a-input" asp-for="Options.DeadStockWarnDays" min="14" max="365"></div>
+        <div><label class="a-label" asp-for="Options.DeadStockCriticalDays">راکد جدی بعد از … روز</label><input class="a-input" asp-for="Options.DeadStockCriticalDays" min="14" max="730"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagicWand", null, 18) تکمیل خودکار کالا، عکس‌ها و توضیحات محصول</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImagesNeedApproval"> عکس‌ها فقط بعد از انتخاب کارشناس روی کالا بنشینند (پیشنهادی؛ مشتری هرگز عکس کالای دیگری نمی‌بیند)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AutoReview"> «توضیحات محصول» حرفه‌ای (HTML سئو) در تکمیل هوشمند نوشته شود؛ برای توضیحات کم خودکار، برای متن بلند شما فقط پیشنهاد</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.NotifyResults"> نتیجهٔ هر کار هوشمند با اعلان (زنگوله و پوش) و لینک مستقیم به همان بخش خبر داده شود</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.ImageCandidates">تعداد عکس پیشنهادی برای انتخاب (۶ تا ۱۵)</label><input class="a-input" asp-for="Options.ImageCandidates" min="6" max="15"></div>
+        <div><label class="a-label" asp-for="Options.NightlyCompletePerDay">تکمیل پیوسته: حداکثر کالا در ۲۴ ساعت (۰ = خاموش)</label><input class="a-input" asp-for="Options.NightlyCompletePerDay" min="0" max="500"><input type="hidden" asp-for="Options.OptionsVersion"></div>
+      </div>
+      <p class="a-muted text-xs">تکمیل شبانه با پایین‌ترین اولویت و فقط وقتی سرور آزاد است اجرا می‌شود؛ هر کالا حداکثر یک بار در ۳۰ روز. عکس ردشده دیگر هرگز برای همان کالا نمی‌آید و منابعی که عکس‌هایشان بیشتر رد می‌شود خودکار عقب می‌روند.</p>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Article", null, 18) بلاگ خودکار</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BlogPlanner"> تقویم محتوا خودکار پر شود (موضوع از دسته‌ها، کالاهای پرفروش و جست‌وجوهای مشتریان)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BlogAutoPublish"> مقالهٔ قبول‌شده در کنترل کیفیت خودکار منتشر شود (وگرنه پیش‌نویس می‌ماند)</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.BlogPostsPerWeek">مقاله در هفته (۰ = خاموش)</label><input class="a-input" asp-for="Options.BlogPostsPerWeek" min="0" max="7"></div>
+        <div><label class="a-label" asp-for="Options.BlogQualityMin">حداقل نمرهٔ کیفیت برای انتشار</label><input class="a-input" asp-for="Options.BlogQualityMin" min="50" max="100"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("ArrowsClockwise", null, 18) رشد خودکار و ایدهٔ بنر</h3></div>
+    <div class="a-card-body a-stack">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.GrowthAutopilot"> رشد خودکار روشن باشد: روزی یک بار بازدید سنجیده می‌شود و سایت خودش کار می‌کند (بهبود سئوی صفحه‌های ضعیف، تکمیل کالاهای پربازدید، جلو انداختن مقاله)؛ وقتی بازدید افت کند کار بیشتری انجام می‌دهد</label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.BannerIdeasPerDay">ایدهٔ بنر در روز (۰ = خاموش، حداکثر ۶)</label><input class="a-input" asp-for="Options.BannerIdeasPerDay" min="0" max="6"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.BannerAbTest"> آزمون A/B بنرها: نسخه‌های یک «گروه نسخه» به نوبت نمایش داده می‌شوند و نسخهٔ پرکلیک‌تر بیشتر دیده می‌شود</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PauseBannersOnMourning"> توقف بنرهای تبلیغاتی در روزهای سوگواری رسمی (تاسوعا، عاشورا، اربعین، ۲۸ صفر، ۲۱ رمضان، ۱۴ خرداد…)؛ فقط بنرهای گروه «mourning» نمایش داده می‌شوند</label>
+      <p class="a-muted text-xs">ایده‌ها از دادهٔ واقعی فروشگاه (تخفیف‌ها، پرفروش‌ها، کالاهای تازه و مناسبت‌ها) ساخته می‌شوند و فقط بعد از تأیید شما روی سایت می‌روند. ایدهٔ ردشده دوباره پیشنهاد نمی‌شود. گزارش: <a class="text-sky-700" href="/admin/smart/growth">رشد خودکار</a> · <a class="text-sky-700" href="/admin/design?status=Suggested">ایده‌های بنر</a></p>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Chat", null, 18) دستیار هوشمند فروشگاه</h3></div>
+    <div class="a-card-body a-stack">
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.AssistantName">نام دستیار (حداکثر ۲۰ نویسه)</label><input class="a-input" asp-for="Options.AssistantName" maxlength="20"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantGreeting"> حباب خوش‌آمد کوتاه کنار دکمهٔ دستیار (یک بار در هر بازدید)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantHandoff"> «گفت‌وگو با کارشناس» از داخل چت (اعلان به کارشناسان پشتیبانی)</label>
+      @* دور ۲۹: جای دکمه، هویت و صدا *@
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div>
+          <label class="a-label" asp-for="Options.AssistantPosition">جای پیش‌فرض دکمهٔ دستیار</label>
+          <select class="a-input" asp-for="Options.AssistantPosition">
+            <option value="br">پایین سمت راست (پیشنهادی)</option>
+            <option value="bl">پایین سمت چپ</option>
+            <option value="mr">وسط سمت راست</option>
+            <option value="ml">وسط سمت چپ</option>
+          </select>
+        </div>
+        <div><label class="a-label" asp-for="Options.AssistantSubtitle">زیرعنوان پنجره (حداکثر ۴۰ نویسه)</label><input class="a-input" asp-for="Options.AssistantSubtitle" maxlength="40"></div>
+        <div><label class="a-label" asp-for="Options.AssistantLogo">لوگو/تصویر دستیار (آدرس داخلی؛ خالی = آیکون ربات)</label><input class="a-input a-ltr" asp-for="Options.AssistantLogo" maxlength="300" placeholder="/uploads/media/ava.webp"></div>
+        <div><label class="a-label" asp-for="Options.AssistantColor">رنگ دکمه و سربرگ</label><input class="a-input h-10" type="color" asp-for="Options.AssistantColor"></div>
+      </div>
+      <p class="a-muted text-xs">لوگو را از <a class="text-sky-700" href="/admin/media">کتابخانهٔ رسانه</a> بارگذاری کنید و آدرسش (با «/» شروع می‌شود) را اینجا بگذارید. آدرس سایت‌های دیگر پذیرفته نمی‌شود.</p>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantDraggable"> مشتری بتواند دکمهٔ دستیار را با کشیدن جابه‌جا کند (جای انتخابی در مرورگر خودش می‌ماند)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantVoiceInput"> پیام صوتی: دکمهٔ میکروفون در پنجرهٔ گفت‌وگو (تشخیص گفتار رایگان خود مرورگر)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantVoiceReply"> پاسخ صوتی: پاسخ‌ها با صدای فارسی مرورگر هم خوانده شوند (مشتری با دکمهٔ بلندگو روشن/خاموش می‌کند)</label>
+      <p class="a-muted text-xs">پیام‌های کارشناس: <a class="text-sky-700" href="/admin/smart/assistant/handoffs">گفت‌وگوهای کارشناس</a> · گزارش: <a class="text-sky-700" href="/admin/smart/assistant">دستیار فروشگاه</a></p>
+    </div>
+  </div>
+
+  @* دور ۲۹: عکس کالاها، دسته‌بندی، جایگاه بنرها و پاک‌سازی اعلان‌ها *@
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Image", null, 18) عکس کالاها و دسته‌بندی</h3></div>
+    <div class="a-card-body a-stack">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="a-label" asp-for="Options.MinProductImages">کمترین تعداد عکس هر کالا (کمتر ← جست‌وجوی روزانه)</label><input class="a-input" asp-for="Options.MinProductImages" min="1" max="12"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PrimaryCutout"> عکس اصلی هر کالا یکدست شود: عکس با زمینهٔ سفید انتخاب می‌شود و اگر نبود، زمینه خودکار حذف و نسخهٔ شفاف ساخته می‌شود</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.CleanWatermarks"> حذف خودکار لوگو/واترمارک سایت‌های دیگر از عکس‌ها (برش حاشیه؛ پاک‌نشدنی ← عکس کنار گذاشته می‌شود)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.Recategorize"> بازبینی روزانهٔ دستهٔ کالاها: کالای آشکارا اشتباه‌دسته‌شده خودکار به دستهٔ درست برود (حداکثر ۲۵ در روز، با اعلان)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.VideoSuggestions"> ویدیوی پیشنهادی: برای کالاهای بی‌ویدیو، ویدیوی معرفی همان کالا (صفحهٔ تأمین‌کننده، آپارات، یوتیوب) پیدا و به شما پیشنهاد شود (فقط پیشنهاد)</label>
+      <fieldset class="a-stack border rounded-xl p-3">
+        <legend class="px-1 text-sm font-semibold">لوگوی کم‌رنگ فروشگاه روی عکس کالاها</legend>
+        <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImageLogoOverlay"> روشن (فقط روی نسخه‌های نمایشی؛ فایل اصلی عکس دست نمی‌خورد)</label>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label class="a-label" asp-for="Options.ImageLogoPosition">جای لوگو</label>
+            <select class="a-input" asp-for="Options.ImageLogoPosition">
+              <option value="br">پایین راست</option>
+              <option value="bl">پایین چپ</option>
+              <option value="tr">بالا راست</option>
+              <option value="tl">بالا چپ</option>
+              <option value="c">وسط</option>
+            </select>
+          </div>
+          <div><label class="a-label" asp-for="Options.ImageLogoOpacity">میزان پیدایی (۳ تا ۳۰ درصد)</label><input class="a-input" asp-for="Options.ImageLogoOpacity" min="3" max="30"></div>
+          <div>
+            <label class="a-label" asp-for="Options.ImageLogoKind">کدام لوگو</label>
+            <select class="a-input" asp-for="Options.ImageLogoKind">
+              <option value="mark">نشان برند (مربعی)</option>
+              <option value="full">لوگوی کامل (افقی)</option>
+            </select>
+          </div>
+        </div>
+        <p class="a-muted text-xs">لوگوها از <a class="text-sky-700" href="/admin/settings/brand">تنظیمات برند</a> خوانده می‌شوند.</p>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Image", null, 18) جایگاه بنرهای صفحهٔ اصلی</h3></div>
+    <div class="a-card-body a-stack">
+      <p class="a-muted text-sm">اگر بنرهای فعال یک جایگاه از سقف بیشتر باشند، بقیه به نوبت نمایش داده می‌شوند. بنر «سنجاق‌شده» همیشه می‌ماند.</p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="a-label" asp-for="Options.BannerSlotsHero">سقف اسلایدر بالای صفحه</label><input class="a-input" asp-for="Options.BannerSlotsHero" min="1" max="10"></div>
+        <div><label class="a-label" asp-for="Options.BannerSlotsWide">سقف بنر پهن</label><input class="a-input" asp-for="Options.BannerSlotsWide" min="1" max="6"></div>
+        <div><label class="a-label" asp-for="Options.BannerSlotsPromo">سقف بنر دوتایی</label><input class="a-input" asp-for="Options.BannerSlotsPromo" min="1" max="4"></div>
+        <div><label class="a-label" asp-for="Options.BannerRotateHours">چرخش بنرها هر … ساعت</label><input class="a-input" asp-for="Options.BannerRotateHours" min="1" max="72"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Bell", null, 18) پاک‌سازی خودکار اعلان‌ها</h3></div>
+    <div class="a-card-body a-stack">
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.NotificationPurgeDays">پاک کردن اعلان‌های مشتری قدیمی‌تر از … روز (۰ = خاموش؛ ۳۰ تا ۷۳۰)</label><input class="a-input" asp-for="Options.NotificationPurgeDays" min="0" max="730"></div>
+        <div><label class="a-label" asp-for="Options.StaffNotificationReadDays">پاک کردن اعلان‌های پنل … روز بعد از خوانده شدن (۰ = هرگز)</label><input class="a-input" asp-for="Options.StaffNotificationReadDays" min="0" max="90"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Cart", null, 18) تجربهٔ خرید</h3></div>
+    <div class="a-card-body a-stack text-sm">
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PriceMatchEnabled"> «قیمت کمتر دیدید؟» در صفحهٔ کالا (بررسی در <a class="text-sky-700" href="/admin/marketing/price-match">تضمین قیمت</a>)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.SocialProof"> آمار واقعی خرید اخیر در صفحهٔ کالا (فقط عدد واقعی و معنادار)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImageSearch"> جست‌وجو با عکس (دکمهٔ دوربین کنار جست‌وجو)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.WinBackEnabled"> پیام برگشت خودکار برای مشتری در حال ریزش (کد تخفیف شخصی سقف‌دار + پیشنهاد هدیه؛ فقط اعلان سایت، بدون پیامک)</label>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <label class="a-field"><span class="a-label">درصد تخفیف (۵–۲۰)</span><input class="a-input" type="number" min="5" max="20" asp-for="Options.WinBackPercent"></label>
+        <label class="a-field"><span class="a-label">سقف تخفیف (تومان)</span><input class="a-input" type="number" min="50000" max="1000000" step="1000" asp-for="Options.WinBackMaxAmount"></label>
+        <label class="a-field"><span class="a-label">اعتبار (روز)</span><input class="a-input" type="number" min="3" max="30" asp-for="Options.WinBackDays"></label>
+        <label class="a-field"><span class="a-label">حداکثر در روز</span><input class="a-input" type="number" min="1" max="200" asp-for="Options.WinBackPerDay"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Clock", null, 18) یادآوری‌های مشتری</h3></div>
+    <div class="a-card-body a-stack">
+      <p class="a-muted text-sm">@Format.Number(Model.Reminders.Pending) در انتظار · @Format.Number(Model.Reminders.SentLast30Days) ارسال و @Format.Number(Model.Reminders.SkippedLast30Days) لغو خودکار در ۳۰ روز اخیر. هر مشتری حداکثر یک پیام در هفته؛ در ساعت سکوت هیچ پیامی فرستاده نمی‌شود.</p>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ReviewRequests"> درخواست نظر بعد از تحویل سفارش</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ReviewRequestSms"> درخواست نظر با پیامک هم فرستاده شود (فقط اگر مشتری پیامک تبلیغاتی را خاموش نکرده باشد)</label>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div><label class="a-label" asp-for="Options.ReviewRequestAfterDays">چند روز بعد از تحویل</label><input class="a-input" asp-for="Options.ReviewRequestAfterDays" min="1" max="60"></div>
+        <div><label class="a-label" asp-for="Options.QuietFromHour">سکوت از ساعت</label><input class="a-input" asp-for="Options.QuietFromHour" min="0" max="23"></div>
+        <div><label class="a-label" asp-for="Options.QuietToHour">تا ساعت</label><input class="a-input" asp-for="Options.QuietToHour" min="0" max="23"></div>
+      </div>
+      <div><label class="a-label" asp-for="Options.ReviewRequestTitle">عنوان اعلان درخواست نظر</label><input class="a-input" asp-for="Options.ReviewRequestTitle"></div>
+      <div><label class="a-label" asp-for="Options.ReviewRequestBody">متن اعلان درخواست نظر</label><textarea class="a-input" asp-for="Options.ReviewRequestBody" rows="2"></textarea></div>
+      <div><label class="a-label" asp-for="Options.ReviewRequestSmsText">متن پیامک درخواست نظر</label><textarea class="a-input" asp-for="Options.ReviewRequestSmsText" rows="2"></textarea></div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ReplenishReminders"> یادآوری تهیهٔ دوبارهٔ کالاهای مصرفی (فقط برای دسته‌هایی که پایین روز داده‌اید)</label>
+      <div><label class="a-label" asp-for="Options.ReplenishTitle">عنوان یادآوری تمدید</label><input class="a-input" asp-for="Options.ReplenishTitle"></div>
+      <div><label class="a-label" asp-for="Options.ReplenishBody">متن یادآوری تمدید</label><textarea class="a-input" asp-for="Options.ReplenishBody" rows="2"></textarea></div>
+      <div><label class="a-label" asp-for="Options.ReplenishSmsText">متن پیامک تمدید</label><textarea class="a-input" asp-for="Options.ReplenishSmsText" rows="2"></textarea></div>
+      <p class="a-muted text-xs">جای‌گذاری‌ها: <code>{ProductName}</code>، <code>{SiteName}</code>، <code>{Link}</code>، <code>{Days}</code></p>
+      @* دور ۲۵ (الف): اعلان ارزان شدن کالاهای «علاقه‌مندی‌ها». *@
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.FavoritePriceAlert"> وقتی کالای «علاقه‌مندی‌ها»ی مشتری ارزان شد خبرش کن (اعلان سایت و پوش؛ هر کالا حداکثر هفته‌ای یک‌بار، هر مشتری حداکثر ۲ اعلان در روز)</label>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <div><label class="a-label" asp-for="Options.FavoritePriceDropPercent">کمترین درصد کاهش قیمت</label><input class="a-input" asp-for="Options.FavoritePriceDropPercent" min="3" max="50"></div>
+      </div>
+      @if (Model.Categories.Count > 0)
+      {
+        <details>
+          <summary class="cursor-pointer font-bold text-sm">دورهٔ مصرف هر دسته (روز؛ خالی یا ۰ = بدون یادآوری)</summary>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
+            @foreach (var c in Model.Categories)
+            {
+              <label class="flex items-center gap-2 text-sm">
+                <input type="hidden" name="ruleCategory" value="@c.Id">
+                <input type="number" name="ruleDays" value="@(rules.TryGetValue(c.Id, out var days) ? days : 0)" min="0" max="730" class="a-input w-24" aria-label="روز برای @c.Name">
+                <span>@c.Name</span>
+              </label>
+            }
+          </div>
+        </details>
+      }
+    </div>
+  </div>
+
+  <div><button type="submit" class="a-btn">@Icons.Svg("Check", null, 16) ذخیرهٔ تنظیمات</button></div>
+</form>

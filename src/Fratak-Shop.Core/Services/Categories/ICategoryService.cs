@@ -12,4 +12,10 @@ public interface ICategoryService
     List<CategoryDto> GetAllCategoriesAsync();
     Task<CategoryDto?> GetCategoryByIdAsync(Guid id);
     Task<CategoryDto?> GetCategoryBySlugAsync(string slug);
+
+    /// <summary>دسته‌بندی‌های ریشه فعال همراه زیردسته‌های فعال؛ برای منو و صفحه نخست.</summary>
+    Task<List<CategoryDto>> GetMenuCategoriesAsync();
+
+    /// <summary>دور ۲۳: آمار واقعی یک دسته (با زیردسته‌های مستقیم) برای پرسش‌های متداول پایین صفحهٔ دسته.</summary>
+    Task<CategoryFacts> GetCategoryFactsAsync(Guid categoryId);
 }

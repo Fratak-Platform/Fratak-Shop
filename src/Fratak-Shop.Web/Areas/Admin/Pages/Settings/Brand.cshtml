@@ -1,0 +1,239 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.BrandModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Settings
+@*
+  استودیوی لوگو (مرحلهٔ دوازدهم). همهٔ رفتار پیش‌نمایش در assets/js/admin-brand.js است (CSP اسکریپت درون‌خطی را نمی‌پذیرد).
+  نام فیلدها: g.* = ستون‌های پایهٔ تنظیمات، s.* = تنظیمات مشترک استودیو، p.{محل}.* = تنظیم هر محل. خالی = پیش‌فرض/خودکار.
+*@
+@{
+    ViewData["Title"] = "استودیوی لوگو";
+    var cfg = Model.Config;
+    var current = Site.Settings;
+    var active = Enum.TryParse<BrandPlace>(Model.ActivePlace, true, out var ap) && Enum.IsDefined(ap) ? ap : BrandPlace.Header;
+    var pwa = Site.Pwa;
+}
+<div class="a-page-head">
+  <div>
+    <h2>استودیوی لوگو</h2>
+    <p class="a-muted text-sm mt-1">لوگوی هر جای سایت را جدا تنظیم کنید: اندازهٔ آیکون، اندازهٔ متن، فاصلهٔ آیکون تا متن، فاصلهٔ دو بخش متن، شعار، چینش و رنگ. پیش‌نمایش با هر تغییر به‌روز می‌شود؛ فیلد خالی یعنی «خودکار/پیش‌فرض».</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/settings">@Icons.Svg("Gear", null, 18) تنظیمات فروشگاه</a>
+  </div>
+</div>
+
+<form method="post" data-dirty-guard data-brand-studio
+      data-mark="@BrandIdentity.Mark" data-mark-dark="@BrandIdentity.MarkOnDark" data-mark-png="@BrandIdentity.MarkPng"
+      data-navy="@BrandIdentity.Navy" data-blue="@BrandIdentity.Blue" data-text1="@BrandIdentity.DefaultTextPrimary" data-text2="@BrandIdentity.DefaultTextAccent"
+      data-site-tagline="@Model.SiteTagline">
+  <input type="hidden" name="place" value="@active" data-active-place>
+
+  @* ── ۱) هویت پایه: برای همهٔ محل‌هایی که مقدار اختصاصی ندارند ───────────────────────── *@
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Palette", null, 18) هویت پایه</span><span class="a-muted text-xs">برای همهٔ محل‌ها، مگر محلی که مقدار اختصاصی دارد</span></div>
+    <div class="a-card-body a-form-grid cols-2">
+      @await Html.PartialAsync("_BrandImageField", new BrandImageField("g.LogoUrl", "آیکون لوگو (زمینهٔ روشن)", Model.Values.GetValueOrDefault("LogoUrl"), "تصویر نشان بدون نوشته (PNG/SVG شفاف). خالی = نشان فراتک.", "g-logo"))
+      @await Html.PartialAsync("_BrandImageField", new BrandImageField("g.LogoDarkUrl", "آیکون لوگو (زمینهٔ تیره)", Model.Values.GetValueOrDefault("LogoDarkUrl"), "برای حالت شب سایت، فوتر و پنل. خالی = نسخهٔ سفید نشان (یا همان آیکون روشن).", "g-logo-dark"))
+      <div class="a-field">
+        <label class="a-label" for="g-text1">متن برند – بخش اول</label>
+        <input id="g-text1" name="g.BrandTextPrimary" value="@Model.Values.GetValueOrDefault("BrandTextPrimary")" class="a-input" maxlength="40" placeholder="@BrandIdentity.DefaultTextPrimary" data-g="text1">
+      </div>
+      <div class="a-field">
+        <label class="a-label" for="g-text2">متن برند – بخش رنگی</label>
+        <input id="g-text2" name="g.BrandTextAccent" value="@Model.Values.GetValueOrDefault("BrandTextAccent")" class="a-input" maxlength="40" placeholder="@BrandIdentity.DefaultTextAccent" data-g="text2">
+        <p class="a-help">برای نداشتن بخش دوم یک «-» بنویسید.</p>
+      </div>
+      @await Html.PartialAsync("_BrandColorField", new BrandColorField("g.BrandTextColor", "رنگ بخش اول", Model.Values.GetValueOrDefault("BrandTextColor"), BrandIdentity.Navy, "روی زمینهٔ تیره همیشه سفید است (مگر رنگ اختصاصی محل).", "g-color1", "color1"))
+      @await Html.PartialAsync("_BrandColorField", new BrandColorField("g.BrandAccentColor", "رنگ بخش رنگی", Model.Values.GetValueOrDefault("BrandAccentColor"), BrandIdentity.Blue, null, "g-color2", "color2"))
+      <div class="a-field">
+        <label class="a-label" for="s-tagline">شعار (بخش سوم)</label>
+        <input id="s-tagline" name="s.Tagline" value="@cfg.Tagline" class="a-input" maxlength="80" placeholder="@(Model.SiteTagline ?? "مثلاً: خرید آنلاین لوازم جانبی")" data-g="tagline">
+        <p class="a-help">زیر نام نوشته می‌شود؛ در هر محل جدا روشن/خاموش می‌شود. خالی = شعار تنظیمات عمومی.</p>
+      </div>
+      @await Html.PartialAsync("_BrandColorField", new BrandColorField("s.TaglineColor", "رنگ شعار", cfg.TaglineColor, "#64748B", "روی زمینهٔ تیره خاکستری روشن.", "s-tagline-color", "taglineColor"))
+    </div>
+  </div>
+
+  @* ── ۲) محل‌ها: هر محل یک تب با فرم و پیش‌نمایش زنده ───────────────────────────────── *@
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("SquaresFour", null, 18) محل‌های نمایش لوگو</span></div>
+    <div class="a-card-body">
+      <div class="a-tabs" role="tablist">
+        @foreach (var info in BrandStyleRules.Places)
+        {
+          <button type="button" class="a-tab @(info.Place == active ? "is-active" : "")" role="tab" data-bl-tab="@info.Place" aria-selected="@(info.Place == active ? "true" : "false")">@info.Title</button>
+        }
+      </div>
+
+      @foreach (var info in BrandStyleRules.Places)
+      {
+        var s = cfg.For(info.Place);
+        var view = Site.BrandFor(info.Place);
+        var k = "p." + info.Place + ".";
+        var id = "p-" + info.Place.ToString().ToLowerInvariant() + "-";
+        var showText = BrandModel.EffectiveShowText(info, s, current);
+        <section class="a-bl-panel" data-bl-panel="@info.Place" data-bl-info="@BrandModel.PlaceData(info)" hidden="@(info.Place != active)">
+          <div class="a-bl-layout">
+            <div class="a-bl-form">
+              <p class="a-muted text-sm mb-3">@info.Hint</p>
+
+              <div class="a-bl-group">
+                <div class="a-bl-group-title">نمایش</div>
+                <div class="flex flex-wrap gap-4">
+                  @if (info.CanHide)
+                  {
+                    <label class="a-check text-sm"><input type="checkbox" name="@(k)Visible" value="true" checked="@(s.Visible ?? true)" data-f="visible"><input type="hidden" name="@(k)Visible" value="false"> نمایش لوگو در این محل</label>
+                  }
+                  <label class="a-check text-sm"><input type="checkbox" name="@(k)ShowIcon" value="true" checked="@(s.ShowIcon ?? true)" data-f="showIcon"><input type="hidden" name="@(k)ShowIcon" value="false"> آیکون</label>
+                  <label class="a-check text-sm"><input type="checkbox" name="@(k)ShowText" value="true" checked="@showText" data-f="showText"><input type="hidden" name="@(k)ShowText" value="false"> متن برند</label>
+                  <label class="a-check text-sm"><input type="checkbox" name="@(k)ShowTagline" value="true" checked="@(s.ShowTagline ?? info.ShowTaglineDefault)" data-f="showTagline"><input type="hidden" name="@(k)ShowTagline" value="false"> شعار</label>
+                </div>
+              </div>
+
+              <div class="a-bl-group">
+                <div class="a-bl-group-title">اندازه‌ها <span class="a-muted text-xs">(پیکسل؛ خالی = خودکار متناسب با آیکون)</span></div>
+                <div class="a-form-grid cols-2">
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "IconHeight", id + "ih", "ارتفاع آیکون" + (info.Responsive ? " – دسکتاپ" : ""), s.IconHeight, BrandStyleRules.MinIcon, BrandStyleRules.MaxIcon, "ih", info.IconHeight.ToString()))
+                  @if (info.Responsive)
+                  {
+                    @await Html.PartialAsync("_BrandRange", new BrandRange(k + "IconHeightMobile", id + "ihm", "ارتفاع آیکون – موبایل", s.IconHeightMobile, BrandStyleRules.MinIcon, BrandStyleRules.MaxIcon, "ihm", null))
+                  }
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "FontSize", id + "fs", "اندازهٔ قلم نام" + (info.Responsive ? " – دسکتاپ" : ""), s.FontSize, BrandStyleRules.MinFont, BrandStyleRules.MaxFont, "fs", null))
+                  @if (info.Responsive)
+                  {
+                    @await Html.PartialAsync("_BrandRange", new BrandRange(k + "FontSizeMobile", id + "fsm", "اندازهٔ قلم نام – موبایل", s.FontSizeMobile, BrandStyleRules.MinFont, BrandStyleRules.MaxFont, "fsm", null))
+                  }
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "IconGap", id + "gap", "فاصلهٔ آیکون تا متن", s.IconGap, 0, BrandStyleRules.MaxGap, "gap", null))
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "PartGap", id + "pg", "فاصلهٔ «بخش اول» تا «بخش رنگی»", s.PartGap, 0, BrandStyleRules.MaxGap, "pg", null))
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "TaglineSize", id + "ts", "اندازهٔ قلم شعار", s.TaglineSize, BrandStyleRules.MinTagline, BrandStyleRules.MaxTagline, "ts", null))
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "TaglineGap", id + "tg", "فاصلهٔ نام تا شعار", s.TaglineGap, 0, BrandStyleRules.MaxGap, "tg", null))
+                  @await Html.PartialAsync("_BrandRange", new BrandRange(k + "TextOffsetY", id + "dy", "جابه‌جایی عمودی متن (منفی = بالا)", s.TextOffsetY, -BrandStyleRules.MaxOffset, BrandStyleRules.MaxOffset, "dy", "0"))
+                  <div class="a-field">
+                    <label class="a-label" for="@(id)ls">فاصلهٔ حروف</label>
+                    <input id="@(id)ls" name="@(k)LetterSpacing" value="@BrandModel.Num(s.LetterSpacing)" class="a-input a-ltr" dir="ltr" inputmode="decimal" placeholder="0" data-f="ls">
+                  </div>
+                  <div class="a-field">
+                    <label class="a-label" for="@(id)fw">وزن قلم نام</label>
+                    <select id="@(id)fw" name="@(k)FontWeight" class="a-select" data-f="fw">
+                      @foreach (var (w, label) in new[] { (300, "نازک (۳۰۰)"), (400, "معمولی (۴۰۰)"), (500, "متوسط (۵۰۰)"), (600, "نیمه‌ضخیم (۶۰۰)"), (700, "ضخیم (۷۰۰)"), (800, "خیلی ضخیم (۸۰۰) – پیش‌فرض"), (900, "سیاه (۹۰۰)") })
+                      {
+                        <option value="@w" selected="@((s.FontWeight ?? 800) == w)">@label</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="a-bl-group">
+                <div class="a-bl-group-title">چینش</div>
+                <div class="a-form-grid cols-2">
+                  <div class="a-field">
+                    <label class="a-label" for="@(id)layout">جای آیکون</label>
+                    <select id="@(id)layout" name="@(k)Layout" class="a-select" data-f="layout">
+                      <option value="IconStart" selected="@((s.Layout ?? info.LayoutDefault) == BrandLayout.IconStart)">آیکون راست، متن کنارش</option>
+                      <option value="IconEnd" selected="@((s.Layout ?? info.LayoutDefault) == BrandLayout.IconEnd)">آیکون چپ، متن قبلش</option>
+                      <option value="IconTop" selected="@((s.Layout ?? info.LayoutDefault) == BrandLayout.IconTop)">آیکون بالا، متن زیرش</option>
+                    </select>
+                  </div>
+                  <div class="a-field">
+                    <label class="a-label" for="@(id)align">تراز</label>
+                    <select id="@(id)align" name="@(k)Align" class="a-select" data-f="align">
+                      <option value="Center" selected="@((s.Align ?? BrandAlign.Center) == BrandAlign.Center)">وسط</option>
+                      <option value="Start" selected="@(s.Align == BrandAlign.Start)">بالا / راست</option>
+                      <option value="End" selected="@(s.Align == BrandAlign.End)">پایین / چپ</option>
+                    </select>
+                    <p class="a-help">چینش افقی: تراز عمودی آیکون و متن. «آیکون بالا»: تراز افقی.</p>
+                  </div>
+                </div>
+              </div>
+
+              <details class="a-bl-group" open="@(s.IconUrl is not null || s.IconDarkUrl is not null || s.Text1 is not null || s.Text2 is not null || s.Tagline is not null || s.Color1 is not null || s.Color2 is not null || s.TaglineColor is not null)">
+                <summary class="a-bl-group-title cursor-pointer">آیکون، متن و رنگ اختصاصی این محل <span class="a-muted text-xs">(خالی = هویت پایه)</span></summary>
+                <div class="a-form-grid cols-2 mt-3">
+                  @(await Html.PartialAsync("_BrandImageField", new BrandImageField(k + "IconUrl", info.Raster ? "آیکون اختصاصی (PNG یا JPG)" : "آیکون اختصاصی", s.IconUrl, info.Raster ? "ایمیل و PDF فاکتور SVG را درست نشان نمی‌دهند؛ PNG بگذارید." : "مثلاً نسخهٔ افقی کامل لوگو برای این محل.", id + "icon") { Field = "iconUrl" }))
+                  @if (!info.Raster && !info.OnDark)
+                  {
+                    @(await Html.PartialAsync("_BrandImageField", new BrandImageField(k + "IconDarkUrl", "آیکون اختصاصی – حالت شب سایت", s.IconDarkUrl, null, id + "icon-dark") { Field = "iconDarkUrl" }))
+                  }
+                  <div class="a-field">
+                    <label class="a-label" for="@(id)t1">بخش اول</label>
+                    <input id="@(id)t1" name="@(k)Text1" value="@s.Text1" class="a-input" maxlength="40" data-f="text1">
+                  </div>
+                  <div class="a-field">
+                    <label class="a-label" for="@(id)t2">بخش رنگی <span class="a-muted text-xs">(«-» = بدون بخش دوم)</span></label>
+                    <input id="@(id)t2" name="@(k)Text2" value="@s.Text2" class="a-input" maxlength="40" data-f="text2">
+                  </div>
+                  <div class="a-field span-all">
+                    <label class="a-label" for="@(id)tag">شعار این محل</label>
+                    <input id="@(id)tag" name="@(k)Tagline" value="@s.Tagline" class="a-input" maxlength="80" data-f="tagline">
+                  </div>
+                  @(await Html.PartialAsync("_BrandColorField", new BrandColorField(k + "Color1", "رنگ بخش اول", s.Color1, info.OnDark ? "#FFFFFF" : BrandIdentity.Navy, null, id + "c1", "color1") { Place = true }))
+                  @(await Html.PartialAsync("_BrandColorField", new BrandColorField(k + "Color2", "رنگ بخش رنگی", s.Color2, BrandIdentity.Blue, null, id + "c2", "color2") { Place = true }))
+                  @(await Html.PartialAsync("_BrandColorField", new BrandColorField(k + "TaglineColor", "رنگ شعار", s.TaglineColor, info.OnDark ? "#94A3B8" : "#64748B", null, id + "c3", "taglineColor") { Place = true }))
+                </div>
+              </details>
+
+              <div class="flex flex-wrap gap-2 mt-3">
+                <button type="button" class="a-btn a-btn-light a-btn-sm" data-bl-reset>@Icons.Svg("ArrowCounterClockwise", null, 16) بازگشت به پیش‌فرض این محل</button>
+              </div>
+            </div>
+
+            <div class="a-bl-previews">
+              <div class="a-bl-preview-title">پیش‌نمایش @(info.Responsive ? "– دسکتاپ" : "")</div>
+              <div class="a-bl-stage @(info.OnDark ? "is-dark" : "") @(info.Place == BrandPlace.Footer ? "is-footer" : "")" data-bl-stage="desktop">
+                @await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(info.Place) { View = view, Preview = true })
+              </div>
+              @if (info.Responsive)
+              {
+                <div class="a-bl-preview-title mt-3">پیش‌نمایش – موبایل</div>
+                <div class="a-bl-stage is-mobile @(info.OnDark ? "is-dark" : "") @(info.Place == BrandPlace.Footer ? "is-footer" : "")" data-bl-stage="mobile">
+                  @await Html.PartialAsync("~/Pages/Shared/_BrandLockup.cshtml", new BrandLockupModel(info.Place) { View = view, Preview = true })
+                </div>
+              }
+              <div class="a-help mt-2" data-bl-hidden-note hidden>لوگو در این محل خاموش است (پیش‌نمایش کم‌رنگ).</div>
+              @if (info.Raster)
+              {
+                <div class="a-help mt-2">در این محل نسخهٔ PNG آیکون استفاده می‌شود @(info.Place == BrandPlace.Email ? "– لوگو با «نشانی سایت» صفحهٔ سرویس ایمیل کامل می‌شود" : "").</div>
+              }
+            </div>
+          </div>
+        </section>
+      }
+    </div>
+  </div>
+
+  @* ── ۳) آیکون‌های اپ، آیفون و مرورگر ─────────────────────────────────────────────── *@
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("DeviceMobile", null, 18) آیکون اپ (PWA)، آیفون و تب مرورگر</span></div>
+    <div class="a-card-body">
+      <div class="a-form-grid cols-2">
+        @(await Html.PartialAsync("_BrandImageField", new BrandImageField("g.PwaIconUrl", "آیکون اصلی اپ (۵۱۲×۵۱۲)", Model.Values.GetValueOrDefault("PwaIconUrl"), "مربع با زمینهٔ پر؛ صفحهٔ گوشی و پیشنهاد نصب. خالی = زمینهٔ مشکی با نشان فراتک.", "g-pwa") { Field = "pwa512" }))
+        @(await Html.PartialAsync("_BrandImageField", new BrandImageField("s.PwaIcon192Url", "آیکون کوچک اپ (۱۹۲×۱۹۲)", cfg.PwaIcon192Url, "برای اعلان‌ها و پیش‌نمایش نصب. خالی = همان آیکون اصلی.", "s-pwa192") { Field = "pwa192" }))
+        @(await Html.PartialAsync("_BrandImageField", new BrandImageField("s.PwaMaskableIconUrl", "آیکون maskable اندروید (۵۱۲×۵۱۲)", cfg.PwaMaskableIconUrl, "زمینه تا لبه پر و نشان داخل ۸۰٪ وسط؛ اندروید آن را دایره یا مربع گرد برش می‌زند.", "s-mask") { Field = "maskable" }))
+        @(await Html.PartialAsync("_BrandImageField", new BrandImageField("s.AppleTouchIconUrl", "آیکون آیفون (۱۸۰×۱۸۰)", cfg.AppleTouchIconUrl, "بدون شفافیت. خالی = آیکون اصلی اپ.", "s-apple") { Field = "apple" }))
+        @await Html.PartialAsync("_BrandImageField", new BrandImageField("g.FaviconUrl", "فاوآیکن (آیکون تب مرورگر)", Model.Values.GetValueOrDefault("FaviconUrl"), "خالی = فاوآیکن‌های برند (SVG، ICO و آیکون iOS).", "g-favicon"))
+        @await Html.PartialAsync("_BrandColorField", new BrandColorField("s.PwaBackgroundColor", "رنگ صفحهٔ شروع اپ", cfg.PwaBackgroundColor, "#FFFFFF", "زمینهٔ صفحه‌ای که هنگام باز شدن اپ نصب‌شده لحظه‌ای دیده می‌شود.", "s-pwa-bg", "pwaBg"))
+      </div>
+      <div class="a-bl-group-title mt-4">آیکون‌های فعلی (پس از ذخیره)</div>
+      <div class="a-bl-app-icons">
+        <figure><img src="@pwa.Icon512" alt="" width="72" height="72" class="is-rounded"><figcaption>اپ</figcaption></figure>
+        <figure><img src="@pwa.Icon192" alt="" width="48" height="48" class="is-rounded"><figcaption>کوچک / اعلان</figcaption></figure>
+        @if (pwa.Maskable512 is { } mask)
+        {
+          <figure><img src="@mask" alt="" width="72" height="72" class="is-circle"><figcaption>اندروید (دایره)</figcaption></figure>
+        }
+        <figure><img src="@pwa.AppleTouch" alt="" width="72" height="72" class="is-ios"><figcaption>آیفون</figcaption></figure>
+      </div>
+      <p class="a-help mt-2">اپ‌های نصب‌شده آیکون تازه را با به‌روزرسانی خودکار مانیفست می‌گیرند (معمولاً تا یک روز؛ در آیفون باید اپ را دوباره به صفحهٔ اصلی افزود).</p>
+    </div>
+  </div>
+
+  <div class="a-actionbar">
+    <button class="a-btn" type="submit">@Icons.Svg("Check", null, 18) ذخیرهٔ تنظیمات لوگو</button>
+    <span class="a-muted text-xs">ذخیره برای همهٔ محل‌ها با هم انجام می‌شود.</span>
+  </div>
+</form>
+
+@section Scripts {
+  <script src="~/assets/js/admin-brand.js" asp-append-version="true"></script>
+}

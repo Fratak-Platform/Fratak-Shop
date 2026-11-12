@@ -1,0 +1,139 @@
+@page "/profile/notifications"
+@model Fratak_Shop.Web.Pages.Profile.NotificationsModel
+@using Fratak_Shop.Data.Entities.Notifications
+@{
+    Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.Notifications;
+    var data = Model.Notifications;
+    static string CategoryIcon(NotificationCategory category) => category switch
+    {
+        NotificationCategory.Order => "Orders",
+        NotificationCategory.Wallet => "Wallet",
+        NotificationCategory.Loyalty => "Crown",
+        NotificationCategory.Promotion => "Megaphone",
+        NotificationCategory.Security => "ShieldCheck",
+        _ => "Bell",
+    };
+    static string CategoryColor(NotificationCategory category) => category switch
+    {
+        NotificationCategory.Order => "bg-sky-50 fill-sky-500",
+        NotificationCategory.Wallet => "bg-emerald-50 fill-emerald-500",
+        NotificationCategory.Loyalty => "bg-amber-50 fill-amber-500",
+        NotificationCategory.Promotion => "bg-rose-50 fill-rose-500",
+        NotificationCategory.Security => "bg-violet-50 fill-violet-500",
+        _ => "bg-zinc-100 fill-zinc-500",
+    };
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Notifications" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <h1 class="text-zinc-800 text-lg font-semibold">اعلان ها</h1>
+          @if (data.UnreadCount > 0)
+          {
+            <span class="rounded-full bg-red-500 px-2.5 py-0.5 text-xs text-white">@Format.Number(data.UnreadCount) خوانده نشده</span>
+          }
+          <div class="mr-auto flex items-center gap-2 text-sm">
+            <a href="/profile/notifications" class="rounded-lg px-3 py-1.5 @(Model.Unread ? "text-zinc-500 hover:bg-zinc-50" : "bg-sky-50 text-sky-600")">همه</a>
+            <a href="/profile/notifications?unread=true" class="rounded-lg px-3 py-1.5 @(Model.Unread ? "bg-sky-50 text-sky-600" : "text-zinc-500 hover:bg-zinc-50")">خوانده نشده</a>
+            @if (data.UnreadCount > 0)
+            {
+              <form method="post" asp-page-handler="ReadAll">
+                <button type="submit" class="flex items-center gap-x-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-zinc-600 hover:bg-zinc-50">
+                  @Icons.Svg("Check", "fill-zinc-600", 16) خواندن همه
+                </button>
+              </form>
+            }
+          </div>
+        </div>
+        @* تنظیمات دریافت اعلان روی همین دستگاه – منطق در live.js ([data-push-enable] و [data-sound-toggle]). *@
+        <div class="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 p-3 text-sm">
+          <span class="text-zinc-600">روی این دستگاه:</span>
+          <button type="button" data-push-enable class="flex items-center gap-x-1 rounded-lg bg-sky-500 px-3 py-1.5 text-white hover:bg-sky-600 disabled:opacity-60">
+            @Icons.Svg("Bell", "fill-white", 16) <span data-push-label>فعال‌سازی اعلان مرورگر</span>
+          </button>
+          <button type="button" data-sound-toggle class="flex items-center gap-x-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-zinc-600 hover:bg-zinc-50">
+            @Icons.Svg("SpeakerHigh", "fill-zinc-600", 16) <span data-sound-label>صدای اعلان</span>
+          </button>
+          <span class="text-xs text-zinc-400 basis-full md:basis-auto">اعلان مرورگر حتی وقتی سایت بسته است، وضعیت سفارش و پاسخ تیکت را نشان می‌دهد.</span>
+        </div>
+
+        @if (Site.Settings.CanUseWebPush)
+        {
+          <div class="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-3" data-push>
+            @Icons.Svg("Bell", "fill-sky-500 shrink-0", 24)
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold text-zinc-700">اعلان مرورگر</div>
+              <p class="text-xs leading-6 text-zinc-500" data-push-status aria-live="polite">وضعیت اعلان مرورگر روی این دستگاه…</p>
+            </div>
+            <button type="button" data-push-toggle aria-pressed="false"
+                    class="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 disabled:opacity-50 aria-pressed:bg-white aria-pressed:text-red-500 aria-pressed:ring-1 aria-pressed:ring-red-200">فعال کردن</button>
+          </div>
+        }
+
+        @if (data.Items.Count == 0)
+        {
+          <div class="py-12 text-center text-zinc-500">
+            @Icons.Svg("Bell", "fill-zinc-300 mx-auto mb-3", 48)
+            @(Model.Unread ? "اعلان خوانده نشده‌ای ندارید." : "هنوز اعلانی برای شما ثبت نشده است.")
+          </div>
+        }
+
+        <ul class="space-y-3">
+          @foreach (var item in data.Items)
+          {
+            <li class="flex gap-x-3 rounded-xl border p-4 @(item.IsRead ? "border-zinc-100" : "border-sky-100 bg-sky-50/40")">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full @CategoryColor(item.Category)">
+                @Icons.Svg(CategoryIcon(item.Category), null, 20)
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  @if (!item.IsRead)
+                  {
+                    <span class="h-2 w-2 rounded-full bg-sky-500" aria-label="خوانده نشده"></span>
+                  }
+                  @if (item.IsPinned)
+                  {
+                    <span class="rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">ویژه</span>
+                  }
+                  <h2 class="text-sm font-semibold text-zinc-800">@item.Title</h2>
+                  <span class="mr-auto text-xs text-zinc-400">@Format.DateTime(item.CreatedAt)</span>
+                </div>
+                <p class="mt-2 text-sm leading-7 text-zinc-600 whitespace-pre-line break-words">@item.Body</p>
+                <div class="mt-2 flex flex-wrap items-center gap-3">
+                  @if (!string.IsNullOrWhiteSpace(item.LinkUrl))
+                  {
+                    <form method="post" asp-page-handler="Open">
+                      <input type="hidden" name="id" value="@item.Id" />
+                      <input type="hidden" name="url" value="@item.LinkUrl" />
+                      <button type="submit" class="text-sm text-sky-600 hover:text-sky-700">@(item.LinkText ?? "مشاهده") ←</button>
+                    </form>
+                  }
+                  @if (!item.IsRead)
+                  {
+                    <form method="post" asp-page-handler="Read">
+                      <input type="hidden" name="id" value="@item.Id" />
+                      <button type="submit" class="text-xs text-zinc-500 hover:text-zinc-700">علامت به عنوان خوانده شده</button>
+                    </form>
+                  }
+                  @* دور ۲۹ (#۲۴): دکمهٔ حذف فقط برای اعلان‌هایی که فرستنده «قابل حذف» علامت زده است. *@
+                  @if (item.UserDeletable)
+                  {
+                    <form method="post" asp-page-handler="Delete" class="mr-auto" data-confirm="این اعلان از فهرست شما حذف شود؟">
+                      <input type="hidden" name="id" value="@item.Id" />
+                      <button type="submit" class="flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600" aria-label="حذف اعلان «@item.Title»">
+                        @Icons.Svg("Trash", "fill-rose-500", 16) حذف
+                      </button>
+                    </form>
+                  }
+                </div>
+              </div>
+            </li>
+          }
+        </ul>
+        <partial name="_Pagination" model="Model.Pager" />
+      </div>
+    </div>
+  </main>

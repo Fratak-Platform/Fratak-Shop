@@ -1,0 +1,490 @@
+/*
+ * دور ۲۴ (بستهٔ B) – ظاهر «تجربهٔ خرید»: پنجرهٔ نمایش سریع، نتیجهٔ جست‌وجو با عکس، فرم تضمین قیمت و سینی مقایسه.
+ * رفتار: assets/js/commerce.js. بدون استایل درون‌خطی (CSP). در حالت تاریک رنگ‌ها از dark.css می‌آیند.
+ */
+
+/* ── پنجرهٔ عمومی ─────────────────────────────────────────── */
+.fc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(11, 25, 39, .55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: fc-fade .15s ease-out;
+}
+@media (min-width: 768px) {
+  .fc-backdrop { align-items: center; padding: 1.5rem; }
+}
+.fc-dialog {
+  background: #fff;
+  color: #1f2937;
+  width: 100%;
+  max-width: 760px;
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+  position: relative;
+  animation: fc-up .18s ease-out;
+}
+@media (min-width: 768px) {
+  .fc-dialog { border-radius: 1rem; }
+}
+.fc-dialog.fc-narrow { max-width: 440px; }
+.fc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
+}
+.fc-title { font-weight: 700; font-size: 1rem; }
+.fc-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: #4b5563;
+}
+.fc-close:hover, .fc-close:focus-visible { background: #f1f5f9; outline: none; }
+.fc-body { padding: 1rem; }
+.fc-muted { color: #6b7280; font-size: .8rem; }
+.fc-error { color: #dc2626; font-size: .85rem; margin-top: .5rem; }
+.fc-ok { color: #047857; font-size: .85rem; margin-top: .5rem; }
+.fc-loading { padding: 2.5rem 1rem; text-align: center; color: #6b7280; }
+
+/* ── نمایش سریع ───────────────────────────────────────────── */
+.fc-quick { display: grid; gap: 1rem; }
+@media (min-width: 768px) {
+  .fc-quick { grid-template-columns: 1fr 1fr; }
+}
+.fc-quick-main { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; border-radius: .75rem; background: #f8fafc; }
+.fc-thumbs { display: flex; gap: .5rem; margin-top: .5rem; }
+.fc-thumb { width: 3.5rem; height: 3.5rem; border-radius: .5rem; border: 2px solid transparent; overflow: hidden; background: #f8fafc; flex-shrink: 0; }
+.fc-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.fc-thumb[aria-current="true"] { border-color: #0ea5e9; }
+.fc-brand { color: #9ca3af; font-size: .8rem; }
+.fc-name { font-weight: 700; font-size: 1.05rem; line-height: 1.8; }
+.fc-price { color: #1e40af; font-size: 1.15rem; font-weight: 700; margin-top: .5rem; }
+.fc-old { color: #9ca3af; text-decoration: line-through; font-size: .85rem; margin-inline-start: .5rem; }
+.fc-off { background: #ef4444; color: #fff; border-radius: 999px; font-size: .75rem; padding: .1rem .5rem; margin-inline-start: .5rem; }
+.fc-specs { margin-top: .75rem; font-size: .8rem; border-top: 1px solid #f1f5f9; }
+.fc-specs div { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; border-bottom: 1px solid #f1f5f9; }
+.fc-specs dt { color: #6b7280; }
+.fc-specs dd { font-weight: 600; text-align: left; }
+.fc-summary { font-size: .85rem; line-height: 1.9; color: #4b5563; margin-top: .75rem; }
+.fc-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.fc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  padding: .65rem 1rem;
+  border-radius: .6rem;
+  font-size: .85rem;
+  border: 1px solid #0284c7;
+  color: #0369a1;
+  background: #fff;
+  cursor: pointer;
+}
+.fc-btn:hover, .fc-btn:focus-visible { background: #f0f9ff; outline: none; }
+.fc-btn-primary { background: linear-gradient(to bottom left, #38bdf8, #0284c7); color: #fff; border-color: transparent; flex: 1 1 auto; }
+.fc-btn-primary:hover, .fc-btn-primary:focus-visible { opacity: .85; background: linear-gradient(to bottom left, #38bdf8, #0284c7); }
+.fc-btn[disabled] { opacity: .6; cursor: wait; }
+
+/* ── نتیجهٔ جست‌وجو با عکس ─────────────────────────────────── */
+.fc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+@media (min-width: 768px) {
+  .fc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.fc-card { display: block; border: 1px solid #e5e7eb; border-radius: .75rem; padding: .5rem; font-size: .8rem; }
+.fc-card:hover { border-color: #38bdf8; }
+.fc-card img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; }
+.fc-card-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: .35rem; min-height: 2.6em; }
+.fc-card-price { color: #1e40af; margin-top: .25rem; }
+.fc-image-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.fc-lock { overflow: hidden; }
+.fc-preview { width: 6rem; height: 6rem; object-fit: cover; border-radius: .75rem; }
+
+/* ── فرم تضمین قیمت ───────────────────────────────────────── */
+.fc-field { display: block; margin-top: .75rem; font-size: .85rem; }
+.fc-field input {
+  display: block;
+  width: 100%;
+  margin-top: .35rem;
+  border: 1px solid #d1d5db;
+  border-radius: .6rem;
+  padding: .55rem .75rem;
+  font-size: .9rem;
+  background: #fff;
+  color: inherit;
+}
+.fc-field input:focus { border-color: #38bdf8; outline: none; }
+
+/* ── سینی مقایسه ─────────────────────────────────────────── */
+.fc-tray {
+  position: fixed;
+  z-index: 45;
+  bottom: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .15);
+  padding: .4rem .5rem .4rem .75rem;
+  max-width: calc(100vw - 1.5rem);
+  animation: fc-up .2s ease-out;
+}
+@media (min-width: 768px) {
+  .fc-tray { bottom: 1.25rem; }
+}
+.fc-tray-items { display: flex; gap: .25rem; }
+.fc-tray-item { position: relative; width: 2.5rem; height: 2.5rem; border-radius: 999px; overflow: hidden; border: 1px solid #e5e7eb; background: #f8fafc; }
+.fc-tray-item img { width: 100%; height: 100%; object-fit: contain; }
+.fc-tray-label { font-size: .8rem; color: #374151; white-space: nowrap; }
+.fc-tray-go { background: #0ea5e9; color: #fff; border-radius: 999px; padding: .45rem .9rem; font-size: .8rem; white-space: nowrap; }
+.fc-tray-go:hover { background: #0284c7; }
+.fc-tray-clear { width: 1.9rem; height: 1.9rem; border-radius: 999px; color: #6b7280; font-size: 1.1rem; line-height: 1; }
+.fc-tray-clear:hover { background: #f1f5f9; }
+
+/* ── میکروفون در حال شنیدن ─────────────────────────────────── */
+[data-voice-search].fc-listening { background: #fee2e2; animation: fc-pulse 1s ease-in-out infinite; }
+
+@keyframes fc-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fc-up { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.fc-tray { animation-name: fc-tray-in; }
+@keyframes fc-tray-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes fc-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, .45); } 50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-backdrop, .fc-dialog, .fc-tray, [data-voice-search].fc-listening { animation: none; }
+}
+
+/* حالت تاریک (کلاس dark روی html) */
+.dark .fc-dialog, .dark .fc-tray { background: #0f172a; color: #e5e7eb; border-color: #1f2937; }
+.dark .fc-head { border-color: #1f2937; }
+.dark .fc-field input { background: #111827; border-color: #374151; }
+.dark .fc-card, .dark .fc-tray-item { border-color: #374151; }
+.dark .fc-btn { background: transparent; }
+.dark .fc-tray-label, .dark .fc-summary { color: #cbd5e1; }
+
+/* ───────────── دور ۲۶ – بنر زنده (DesignLive + _BannerArt) ─────────────
+   قاب با aspect-ratio و container query: موقعیت‌ها درصدی، قلم با cqw ← همان طرح در هر عرضی.
+   پیش از is-live (و بدون جاوااسکریپت) همه چیز در حالت نهایی دیده می‌شود؛ is-live ← حرکت ورود.
+   fsb-soft = یک‌بار ورود؛ fsb-loop = ورود، مکث، خروج، تکرار (۹ ثانیه). عنصرهای «پس‌زمینه» (float/pulse/shine/drift/zoom) همیشه آرام حرکت می‌کنند. */
+.fsb-wrap { position: relative; display: block; overflow: hidden; border-radius: inherit; }
+.fsb { position: relative; width: 100%; overflow: hidden; container-type: inline-size; direction: ltr; border-radius: inherit; font-family: "Vazirmatn", var(--fr-font, sans-serif); user-select: none; }
+.fsb-o { position: absolute; box-sizing: border-box; }
+.fsb-i { width: 100%; height: 100%; box-sizing: border-box; }
+.fsb-t .fsb-i { height: auto; direction: rtl; white-space: pre-wrap; overflow-wrap: break-word; }
+.fsb-img img { display: block; width: 100%; height: 100%; max-width: none; }
+.fsb-fallback { display: none; }
+@supports not (container-type: inline-size) {
+  .fsb { display: none; }
+  .fsb-fallback { display: block; }
+}
+
+/* ورود (یک‌بار در soft) */
+@keyframes fsb-rise { from { opacity: 0; transform: translateY(35%); } to { opacity: 1; transform: none; } }
+@keyframes fsb-slide-r { from { opacity: 0; transform: translateX(14%); } to { opacity: 1; transform: none; } }
+@keyframes fsb-slide-l { from { opacity: 0; transform: translateX(-14%); } to { opacity: 1; transform: none; } }
+@keyframes fsb-pop { 0% { opacity: 0; transform: scale(.55); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
+/* چرخه (loop): ورود ۰ تا ۸٪، مکث، خروج ۸۶ تا ۹۴٪ */
+@keyframes fsb-rise-loop { 0% { opacity: 0; transform: translateY(35%); } 8%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateY(-25%); } }
+@keyframes fsb-slide-r-loop { 0% { opacity: 0; transform: translateX(14%); } 8%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateX(-10%); } }
+@keyframes fsb-slide-l-loop { 0% { opacity: 0; transform: translateX(-14%); } 8%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateX(10%); } }
+@keyframes fsb-pop-loop { 0% { opacity: 0; transform: scale(.55); } 6% { opacity: 1; transform: scale(1.06); } 9%, 86% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: scale(.7); } }
+/* پس‌زمینه (همیشه، آرام) */
+@keyframes fsb-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8%); } }
+@keyframes fsb-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+@keyframes fsb-drift { 0% { transform: translate(0, 0) rotate(0); } 100% { transform: translate(4%, -6%) rotate(6deg); } }
+@keyframes fsb-zoom { 0% { transform: scale(1); } 100% { transform: scale(1.08); } }
+@keyframes fsb-shine { 0%, 55% { transform: translateX(-120%) skewX(-20deg); } 85%, 100% { transform: translateX(220%) skewX(-20deg); } }
+
+.is-live .fsb-soft .fsb-a-rise { animation: fsb-rise .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-soft .fsb-a-slide-r { animation: fsb-slide-r .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-soft .fsb-a-slide-l { animation: fsb-slide-l .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-soft .fsb-a-pop { animation: fsb-pop .8s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both; }
+.is-live .fsb-loop .fsb-a-rise { animation: fsb-rise-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb-loop .fsb-a-slide-r { animation: fsb-slide-r-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb-loop .fsb-a-slide-l { animation: fsb-slide-l-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb-loop .fsb-a-pop { animation: fsb-pop-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both; }
+.is-live .fsb .fsb-a-float { animation: fsb-float 4.5s ease-in-out var(--d, 0s) infinite; }
+.is-live .fsb .fsb-a-pulse { animation: fsb-pulse 2.6s ease-in-out var(--d, 0s) infinite; }
+.is-live .fsb .fsb-a-drift { animation: fsb-drift 12s ease-in-out var(--d, 0s) infinite alternate; }
+.is-live .fsb .fsb-a-zoom { animation: fsb-zoom 16s ease-in-out infinite alternate; }
+.fsb .fsb-a-shine { position: relative; overflow: hidden; }
+.is-live .fsb .fsb-a-shine::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: fsb-shine 4s ease-in-out 1.5s infinite; }
+
+/* ── دور ۲۷: حرکت‌های «خفن» بنر زنده ─────────────────────────────────────
+   hero    = کالا با فنر وارد می‌شود و بعد آرام معلق می‌ماند (بالا و پایین)؛ shadow = سایهٔ تماس زیرش هم‌گام کوچک/بزرگ می‌شود.
+   reveal  = تیتر از راست به چپ پرده‌برداری می‌شود (جهت خواندن فارسی).
+   kenburns= عکس فضاسازی خیلی آرام بزرگ و جابه‌جا می‌شود (حس فیلم).
+   twinkle = چشمک ستاره‌ها؛ breathe = تنفس آرام هاله و سکو؛ spin = چرخش خیلی آرام تزئین؛ sweep = نوار نور گذرا روی کل بنر؛ fade = محو شدن ساده.
+   پارالاکس: fsb-z1..3 با متغیرهای --px/--py (از banners.js با موس یا اسکرول) لایه‌ها را با سرعت متفاوت جابه‌جا می‌کند. */
+@keyframes fsb-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fsb-fade-loop { 0% { opacity: 0; } 8%, 86% { opacity: 1; } 94%, 100% { opacity: 0; } }
+@keyframes fsb-hover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5%); } }
+@keyframes fsb-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.8); opacity: .65; } }
+@keyframes fsb-reveal { from { clip-path: inset(-30% -6% -30% 100%); transform: translateX(3%); } to { clip-path: inset(-30% -6% -30% -6%); transform: none; } }
+@keyframes fsb-reveal-loop { 0% { clip-path: inset(-30% -6% -30% 100%); transform: translateX(3%); opacity: 1; } 9%, 86% { clip-path: inset(-30% -6% -30% -6%); transform: none; opacity: 1; } 94%, 100% { clip-path: inset(-30% -6% -30% -6%); opacity: 0; transform: translateY(-15%); } }
+@keyframes fsb-kenburns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.1) translate(-2.5%, -1.5%); } }
+@keyframes fsb-twinkle { 0%, 100% { opacity: .25; transform: scale(.55); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes fsb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes fsb-spin { to { transform: rotate(360deg); } }
+@keyframes fsb-sweep { 0%, 70% { transform: translateX(-60%) skewX(-18deg); opacity: 0; } 72% { opacity: 1; } 92% { opacity: 1; } 100% { transform: translateX(260%) skewX(-18deg); opacity: 0; } }
+
+.is-live .fsb-soft .fsb-a-hero { animation: fsb-pop .9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) both, fsb-hover 4.5s ease-in-out calc(var(--d, 0s) + .9s) infinite; }
+.is-live .fsb-loop .fsb-a-hero { animation: fsb-pop-loop 9s cubic-bezier(.2,.8,.2,1) var(--d, 0s) infinite both, fsb-hover 4.5s ease-in-out calc(var(--d, 0s) + .9s) infinite; }
+.is-live .fsb-soft .fsb-a-shadow { animation: fsb-fade .9s ease-out var(--d, 0s) both, fsb-shadow 4.5s ease-in-out calc(var(--d, 0s) + .9s) infinite; }
+.is-live .fsb-loop .fsb-a-shadow { animation: fsb-fade-loop 9s ease-out var(--d, 0s) infinite both, fsb-shadow 4.5s ease-in-out calc(var(--d, 0s) + .9s) infinite; }
+.is-live .fsb-soft .fsb-a-reveal { animation: fsb-reveal 1.1s cubic-bezier(.65,0,.35,1) var(--d, 0s) both; }
+.is-live .fsb-loop .fsb-a-reveal { animation: fsb-reveal-loop 9s cubic-bezier(.65,0,.35,1) var(--d, 0s) infinite both; }
+.is-live .fsb-soft .fsb-a-fade { animation: fsb-fade .9s ease-out var(--d, 0s) both; }
+.is-live .fsb-loop .fsb-a-fade { animation: fsb-fade-loop 9s ease-out var(--d, 0s) infinite both; }
+.is-live .fsb .fsb-a-kenburns { animation: fsb-kenburns 18s ease-in-out infinite alternate; }
+.is-live .fsb .fsb-a-twinkle { animation: fsb-twinkle 2.4s ease-in-out var(--d, 0s) infinite both; }
+.is-live .fsb .fsb-a-breathe { animation: fsb-breathe 6s ease-in-out var(--d, 0s) infinite; }
+.is-live .fsb .fsb-a-spin { animation: fsb-spin 40s linear var(--d, 0s) infinite; }
+.fsb .fsb-a-sweep { position: relative; overflow: hidden; }
+.is-live .fsb .fsb-a-sweep::after { content: ""; position: absolute; top: -10%; bottom: -10%; left: 0; width: 22%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent); animation: fsb-sweep 8s ease-in-out var(--d, 1.6s) infinite; pointer-events: none; }
+
+/* پیش از دیده شدن (فقط وقتی JS فعال است: fsb-armed) عنصرهای ورودی پنهان می‌مانند تا «چشمک» قبل از حرکت ورود دیده نشود. */
+@media (prefers-reduced-motion: no-preference) {
+  .fsb-armed:not(.is-live) .fsb :is(.fsb-a-rise, .fsb-a-slide-r, .fsb-a-slide-l, .fsb-a-pop, .fsb-a-hero, .fsb-a-shadow, .fsb-a-reveal, .fsb-a-fade) { opacity: 0; }
+  .fsb .fsb-z1, .fsb .fsb-z2, .fsb .fsb-z3 { transition: translate .6s cubic-bezier(.2,.8,.2,1); }
+  .fsb .fsb-z1 { translate: calc(var(--px, 0) * -.35cqw) calc(var(--py, 0) * -.25cqw); }
+  .fsb .fsb-z2 { translate: calc(var(--px, 0) * .6cqw) calc(var(--py, 0) * .45cqw); }
+  .fsb .fsb-z3 { translate: calc(var(--px, 0) * 1.2cqw) calc(var(--py, 0) * .9cqw); }
+}
+
+.is-paused .fsb .fsb-i, .is-paused .fsb .fsb-i::after { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .fsb .fsb-i, .fsb .fsb-i::after { animation: none !important; }
+  .fsb .fsb-o { translate: none !important; }
+}
+
+/* ── دور ۲۶: کاشی دسته با «عکس فضاسازی» (از اینترنت) ─────────────────────
+   عکس افقی واقعی در قاب ۴:۳ با object-fit: cover (برش وسط)؛ بدون حاشیهٔ داخلی تا کاشی پر و زنده دیده شود. */
+.cat-tile-photo { display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: .75rem .75rem 0 0; margin-bottom: .5rem; }
+.cat-tile-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+@media (hover: hover) { .group:hover .cat-tile-photo img { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .cat-tile-photo img { transition: none; } .group:hover .cat-tile-photo img { transform: none; } }
+
+/* ───── دور ۲۷: کارت تبلیغاتی صفحهٔ نخست (عکس کالای بدون زمینه + متن) ─────
+   گرادیان عمیق با نور، الگوی نقطه‌ای کم‌رنگ، کالا معلق با سایه، تیتر و دکمه در سمت راست. کل کارت لینک است. */
+.fr-promo { position: relative; isolation: isolate; display: flex; align-items: center; min-height: 15rem; padding: 1.5rem 1.75rem; overflow: hidden; border-radius: 1.5rem; color: #fff; text-decoration: none; box-shadow: 0 22px 44px -22px rgba(2, 6, 23, .55); transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s; }
+.fr-promo--a { background: radial-gradient(120% 140% at 88% 8%, #60a5fa 0%, #2563eb 42%, #1e3a8a 100%); }
+.fr-promo--b { background: radial-gradient(120% 140% at 88% 8%, #fdba74 0%, #f97316 42%, #9a3412 100%); }
+.fr-promo::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255, 255, 255, .55) 1px, transparent 1.4px); background-size: 18px 18px; opacity: .18; -webkit-mask-image: linear-gradient(90deg, #000, transparent 55%); mask-image: linear-gradient(90deg, #000, transparent 55%); }
+.fr-promo::after { content: ""; position: absolute; top: -20%; bottom: -20%; left: -30%; width: 22%; z-index: 1; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .22), transparent); transform: skewX(-18deg); pointer-events: none; animation: fr-promo-sweep 7s ease-in-out 2s infinite; }
+.fr-promo__glow { position: absolute; left: 4%; top: 50%; width: 44%; aspect-ratio: 1; translate: 0 -50%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 255, 255, .5), rgba(255, 255, 255, .12) 55%, rgba(255, 255, 255, 0)); animation: fr-promo-breathe 6s ease-in-out infinite; }
+.fr-promo__img { position: absolute; left: 4%; top: 8%; width: 42%; height: 84%; object-fit: contain; filter: drop-shadow(0 18px 16px rgba(2, 6, 23, .38)); animation: fr-promo-float 5s ease-in-out infinite; transition: scale .4s cubic-bezier(.2, .8, .2, 1); }
+.fr-promo__body { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; width: 54%; text-align: right; }
+.fr-promo__title { font-size: clamp(1.35rem, 2.4vw, 2.25rem); font-weight: 800; line-height: 1.3; text-wrap: balance; text-shadow: 0 2px 12px rgba(2, 6, 23, .25); }
+.fr-promo__sub { font-size: clamp(.85rem, 1.1vw, 1.05rem); line-height: 1.7; opacity: .92; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fr-promo__cta { display: inline-flex; align-items: center; gap: .4rem; margin-top: .7rem; padding: .55rem 1.15rem; border-radius: 999px; background: #fff; font-weight: 700; font-size: .95rem; box-shadow: 0 8px 18px -8px rgba(2, 6, 23, .45); transition: gap .3s, background-color .3s; }
+.fr-promo--a .fr-promo__cta { color: #1e3a8a; }
+.fr-promo--b .fr-promo__cta { color: #9a3412; }
+a.fr-promo:hover { transform: translateY(-4px); box-shadow: 0 28px 50px -22px rgba(2, 6, 23, .6); }
+a.fr-promo:hover .fr-promo__img { scale: 1.05; }
+a.fr-promo:hover .fr-promo__cta { gap: .7rem; background: #f8fafc; }
+a.fr-promo:focus-visible { outline: 3px solid #facc15; outline-offset: 3px; }
+@keyframes fr-promo-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+@keyframes fr-promo-breathe { 0%, 100% { opacity: .85; scale: 1; } 50% { opacity: 1; scale: 1.06; } }
+@keyframes fr-promo-sweep { 0%, 70% { left: -30%; } 100% { left: 130%; } }
+@media (max-width: 640px) {
+  .fr-promo { min-height: 12rem; padding: 1.1rem 1.2rem; border-radius: 1rem; }
+  .fr-promo__body { width: 58%; }
+  .fr-promo__img { width: 40%; left: 2%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fr-promo, .fr-promo__img, .fr-promo__glow, .fr-promo::after { animation: none !important; transition: none !important; }
+}
+
+/* ── دور ۲۸ (#۷۷): اسکلت بارگذاری ─────────────────────────────── */
+@keyframes fc-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.fc-skel { background: linear-gradient(90deg, #eef0f3 25%, #f8f9fb 50%, #eef0f3 75%); background-size: 200% 100%; animation: fc-shimmer 1.3s linear infinite; border-radius: .5rem; }
+.fc-skel-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: .5rem; }
+@media (min-width: 768px) { .fc-skel-wrap { grid-template-columns: 1fr 1fr; } }
+.fc-skel-img { aspect-ratio: 1 / 1; width: 100%; }
+.fc-skel-lines { display: flex; flex-direction: column; gap: .75rem; padding-top: .5rem; }
+.fc-skel-line { height: .9rem; }
+.fc-skel-line.w-80 { width: 80%; } .fc-skel-line.w-70 { width: 70%; } .fc-skel-line.w-60 { width: 60%; } .fc-skel-line.w-40 { width: 40%; }
+.fc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+img.fc-img-skel:not(.is-loaded) { background: linear-gradient(90deg, #f1f3f5 25%, #fafbfc 50%, #f1f3f5 75%); background-size: 200% 100%; animation: fc-shimmer 1.3s linear infinite; min-height: 8rem; border-radius: .5rem; }
+@media (prefers-reduced-motion: reduce) { .fc-skel, img.fc-img-skel:not(.is-loaded) { animation: none; } }
+
+/* ── دور ۲۸ (#۱۳۱): نوار پایین موبایل ─────────────────────────── */
+.fs-bnav { position: fixed; inset-inline: 0; bottom: 0; z-index: 38; display: flex; justify-content: space-around; align-items: stretch;
+  background: rgba(255,255,255,.97); border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 18px rgba(15,23,42,.06);
+  padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); backdrop-filter: saturate(1.4) blur(6px); }
+.fs-bnav > a, .fs-bnav > button { position: relative; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 52px; color: #52525b; font-size: 11px; border-radius: 12px; background: none; border: 0; }
+.fs-bnav > a[aria-current="page"] { color: #0284c7; font-weight: 700; }
+.fs-bnav > a:focus-visible, .fs-bnav > button:focus-visible { outline: 2px solid #0284c7; outline-offset: -2px; }
+.fs-bnav svg { width: 22px; height: 22px; fill: currentColor; }
+.fs-bnav-badge { position: absolute; top: 4px; inset-inline-start: calc(50% + 4px); min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  background: #ef4444; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+@media (max-width: 767.98px) {
+  body:has(.fs-bnav) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  body:has(.fs-bnav) .fs-as-launch { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  /* نوار «افزودن به سبد» صفحهٔ کالا وقتی دیده می‌شود جای نوار پایین را می‌گیرد. */
+  body:has(.fs-sticky-buy:not([hidden])) .fs-bnav { display: none; }
+}
+@media print { .fs-bnav { display: none !important; } }
+
+/* ── دور ۲۸ (#۱۳۰): دسترس‌پذیری ─────────────────────────────── */
+.fs-skip { position: fixed; top: 8px; inset-inline-start: 8px; z-index: 100; padding: .6rem 1rem; border-radius: .6rem; background: #0f172a; color: #fff;
+  font-weight: 700; transform: translateY(-200%); transition: transform .15s ease; }
+.fs-skip:focus { transform: none; outline: 3px solid #38bdf8; outline-offset: 2px; }
+.fs-main-anchor { display: block; height: 0; scroll-margin-top: 9rem; }
+.fs-main-anchor:focus { outline: none; }
+/* حلقهٔ فوکوس واضح برای همهٔ پیوندها و دکمه‌های فروشگاه (کاربر صفحه‌کلید). */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #0284c7; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto !important; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* دور ۲۸ (#۱۳۱): output.css پیش‌ساخته است؛ پنهان شدن نوار پایین در دسکتاپ را مستقل از ترتیب بارگذاری تضمین می‌کنیم. */
+@media (min-width: 768px) { .fs-bnav { display: none !important; } }
+
+/* ── دور ۲۹ (#۲۰/#۲۵/#۲۶): ستون حساب کاربری ─────────────────────
+   دسکتاپ: کارت سفید با گروه‌های عنوان‌دار. موبایل: همان ردیف‌ها به شکل «تراشه»های افقی قابل اسکرول
+   تا محتوای صفحه زیر یک فهرست بلند گم نشود. */
+.fs-pside { background: #fff; border-radius: 1rem; box-shadow: 0 10px 30px -12px rgba(15,23,42,.18); padding: 1rem; }
+.fs-pside-head { display: flex; align-items: center; gap: .75rem; padding: .25rem .25rem 1rem; border-bottom: 1px solid #f1f5f9; margin-bottom: .5rem; }
+.fs-pside-avatar { flex: none; width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 1.25rem;
+  color: #fff; background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+.fs-pside-greet { font-weight: 700; color: #27272a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-pside-phone { font-size: .75rem; color: #a1a1aa; text-align: end; }
+.fs-pside-group { padding: .35rem 0; }
+.fs-pside-group + .fs-pside-group { border-top: 1px dashed #f1f5f9; }
+.fs-pside-title { font-size: .7rem; font-weight: 700; color: #a1a1aa; padding: .25rem .6rem; letter-spacing: 0; }
+.fs-pside ul { list-style: none; margin: 0; padding: 0; }
+.fs-pside-link { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .55rem .6rem; border-radius: .7rem; color: #3f3f46; font-size: .9rem;
+  background: none; border: 0; text-align: start; transition: background-color .15s ease, color .15s ease; }
+.fs-pside-link svg { flex: none; fill: #71717a; transition: fill .15s ease; }
+.fs-pside-link:hover { background: #f0f9ff; color: #0284c7; }
+.fs-pside-link:hover svg, .fs-pside-link.is-active svg { fill: #0284c7; }
+.fs-pside-link.is-active { background: #e0f2fe; color: #0369a1; font-weight: 700; box-shadow: inset -3px 0 0 #0ea5e9; }
+.fs-pside-link.is-staff { color: #0369a1; font-weight: 700; background: linear-gradient(90deg, #f0f9ff, #fff); }
+.fs-pside-link.is-staff svg { fill: #0369a1; }
+.fs-pside-link.is-logout { color: #ef4444; }
+.fs-pside-link.is-logout svg { fill: #ef4444; }
+.fs-pside-link.is-logout:hover { background: #fef2f2; color: #dc2626; }
+@media (max-width: 767.98px) {
+  .fs-pside { padding: .75rem; }
+  .fs-pside-head { padding-bottom: .6rem; }
+  .fs-pside nav { display: flex; gap: .4rem; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: .25rem; scrollbar-width: none; }
+  .fs-pside nav::-webkit-scrollbar { display: none; }
+  .fs-pside-group, .fs-pside-group + .fs-pside-group { display: contents; border: 0; }
+  .fs-pside-title { display: none; }
+  .fs-pside ul { display: contents; }
+  .fs-pside-link { flex: none; width: auto; white-space: nowrap; border: 1px solid #e4e4e7; border-radius: 999px; padding: .4rem .8rem; font-size: .8rem; scroll-snap-align: start; }
+  .fs-pside-link.is-active { box-shadow: none; border-color: #7dd3fc; }
+}
+
+/* ── دور ۲۹ (#۱۵): دسته‌های صفحهٔ نخست وسط‌چین ─────────────────────
+   همان تعداد ستون قبلی (۲/۴/۵/۷/۱۰) ولی با flex-wrap و justify-content:center ← ردیف ناقص (یا چند دستهٔ کم) وسط می‌نشیند. */
+.fs-cat-grid { --cols: 2; --gap: .75rem; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); }
+.fs-cat-grid > a { flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); max-width: calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); }
+@media (min-width: 640px) { .fs-cat-grid { --cols: 4; } }
+@media (min-width: 768px) { .fs-cat-grid { --cols: 5; --gap: 1.25rem; } }
+@media (min-width: 1024px) { .fs-cat-grid { --cols: 7; } }
+@media (min-width: 1280px) { .fs-cat-grid { --cols: 10; } }
+
+/* ── دور ۲۹ (#۱۲): بنرها در موبایل (همان تصویر، بدون نسخهٔ جدا) ─────────
+   • اسلایدر بالای صفحه لبه‌به‌لبه می‌شود (عرض بیشتر = متن بنر درشت‌تر)، گوشه‌ها کمی گرد؛
+   • دکمه‌های قبلی/بعدی که روی متن بنر می‌افتادند در موبایل پنهان‌اند (کشیدن با انگشت کافی است)؛ نقطه‌ها زیر بنر می‌روند؛
+   • بنر عریض و دوتایی فاصلهٔ کمتر و گوشهٔ ملایم‌تر دارند تا صفحه شلوغ نشود. */
+@media (max-width: 767.98px) {
+  .heroSlider { margin-inline: -.5rem; border-radius: .9rem; padding-bottom: 22px; }
+  .heroSlider .swiper-slide { border-radius: .9rem; overflow: hidden; }
+  .heroSlider .swiper-slide img { width: 100%; height: auto; display: block; }
+  .heroSlider .swiper-button-next, .heroSlider .swiper-button-prev { display: none !important; }
+  .heroSlider .swiper-pagination { bottom: 0 !important; }
+  .heroSlider .swiper-pagination-bullet { width: 7px; height: 7px; background: #94a3b8; opacity: .6; transition: width .25s ease; }
+  .heroSlider .swiper-pagination-bullet-active { width: 18px; border-radius: 999px; background: #0284c7; opacity: 1; }
+  .fs-promo-row { gap: .75rem; margin-top: 1.5rem; }
+  main [data-banner].my-14 { margin-block: 1.75rem; border-radius: .9rem; }
+}
+
+/* ── دور ۲۹ (#۳): جست‌وجوی موبایل بالای صفحه ─────────────────────
+   یک کادر بزرگ و همیشه دیدنی زیر لوگو: آیکن ذره‌بین، متن، میکروفون (اگر مرورگر پشتیبانی کند) و دوربین (اگر جست‌وجوی عکس روشن است).
+   هدر ثابت است ← fs-msearch-spacer هم‌اندازهٔ همین ردیف، محتوای صفحه را پایین می‌برد. */
+.fs-msearch { padding: 0 .75rem .6rem; margin-top: -.6rem; }
+.fs-msearch-form { position: relative; display: flex; align-items: center; gap: .25rem; height: 46px; padding: 0 .4rem 0 .5rem; border-radius: 14px;
+  background: #f1f5f9; border: 1px solid #e2e8f0; transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.fs-msearch-form:focus-within { background: #fff; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,.18); }
+.fs-msearch-icon { display: flex; padding-inline: .35rem; }
+.fs-msearch-icon svg { fill: #64748b; }
+.fs-msearch-form input { flex: 1 1 auto; min-width: 0; height: 100%; background: transparent; border: 0; outline: none; font-size: 16px; color: #334155; }
+.fs-msearch-form input::placeholder { color: #94a3b8; }
+.fs-msearch-form input:focus-visible { outline: none; }
+.fs-msearch-btn { flex: none; width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; }
+.fs-msearch-btn.hidden { display: none; }
+.fs-msearch-btn svg { fill: #475569; }
+.fs-msearch-btn:hover, .fs-msearch-btn:focus-visible { background: #e0f2fe; }
+.fs-msearch-btn:hover svg { fill: #0284c7; }
+.fs-msearch-spacer { display: none; }
+@media (max-width: 767.98px) { .fs-msearch-spacer { display: block; height: 46px; } }
+body.fs-no-header .fs-msearch-spacer { display: none !important; }
+.dark .fs-msearch-form { background: #111827; border-color: #1f2937; }
+.dark .fs-msearch-form input { color: #e5e7eb; }
+@media print { .fs-msearch, .fs-msearch-spacer { display: none !important; } }
+
+/* ── دور ۲۹ (#۲۳): کارت‌های آمار «دعوت از دوستان» ───────────────────────── */
+.fs-inv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 640px) { .fs-inv-stats { grid-template-columns: 1fr; } }
+.fs-inv-stat { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-radius: 16px;
+  border: 1px solid var(--fs-inv-border, #e0f2fe); background: linear-gradient(135deg, var(--fs-inv-soft, #f0f9ff), #fff 70%);
+  transition: transform .2s ease, box-shadow .2s ease; }
+.fs-inv-stat:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(15, 23, 42, .35); }
+.fs-inv-stat::after { content: ""; position: absolute; inset-inline-end: -28px; bottom: -28px; width: 96px; height: 96px; border-radius: 50%;
+  background: var(--fs-inv-main, #0ea5e9); opacity: .07; }
+.fs-inv-icon { flex-shrink: 0; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--fs-inv-main, #0ea5e9);
+  box-shadow: 0 8px 18px -10px var(--fs-inv-main, #0ea5e9); }
+.fs-inv-icon svg { fill: #fff; }
+.fs-inv-label { font-size: 12px; color: #64748b; }
+.fs-inv-value { margin-top: 2px; font-size: 26px; line-height: 1.2; font-weight: 800; color: var(--fs-inv-text, #0369a1); font-variant-numeric: tabular-nums; }
+.fs-inv-hint { margin-top: 4px; font-size: 11px; color: #94a3b8; }
+.fs-inv-bar { margin-top: 8px; height: 6px; width: 100%; min-width: 96px; border-radius: 99px; background: rgba(15, 23, 42, .08); overflow: hidden; }
+.fs-inv-bar span { display: block; height: 100%; border-radius: inherit; background: var(--fs-inv-main, #10b981); transition: width .6s ease; }
+.fs-inv-sky { --fs-inv-main: #0ea5e9; --fs-inv-soft: #f0f9ff; --fs-inv-border: #e0f2fe; --fs-inv-text: #0369a1; }
+.fs-inv-green { --fs-inv-main: #10b981; --fs-inv-soft: #ecfdf5; --fs-inv-border: #d1fae5; --fs-inv-text: #047857; }
+.fs-inv-amber { --fs-inv-main: #f59e0b; --fs-inv-soft: #fffbeb; --fs-inv-border: #fef3c7; --fs-inv-text: #b45309; }
+.dark .fs-inv-stat { background: linear-gradient(135deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02)); border-color: rgba(255, 255, 255, .1); }
+.dark .fs-inv-value { color: #e2e8f0; }
+@media (prefers-reduced-motion: reduce) { .fs-inv-stat, .fs-inv-bar span { transition: none; } }
+
+/* ───────────── دور ۳۱ (#۲): عکس کالا همیشه وسط قاب ─────────────
+   عکس‌ها اندازه و نسبت‌های مختلف دارند (۳۰۰×۵۰۰، ۱۲۰۰×۸۰۰ …). قبلاً عکسِ کوچک‌تر از کارت به لبهٔ راست می‌چسبید و عکس کشیده قاب را
+   بلند/کوتاه می‌کرد. حالا قاب همیشه مربع است و عکس با object-fit: contain (بدون بریدن یا کشیدگی) دقیقاً وسط آن می‌نشیند. */
+.fs-pimg {
+  display: block;
+  margin-inline: auto;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  -o-object-fit: contain;
+     object-fit: contain;
+  -o-object-position: center;
+     object-position: center;
+}
+/* عکس بزرگ گالری (مودال): ارتفاع محدود، ولی همچنان وسط. */
+.fs-pimg--free { aspect-ratio: auto; max-height: 60vh; width: auto; }

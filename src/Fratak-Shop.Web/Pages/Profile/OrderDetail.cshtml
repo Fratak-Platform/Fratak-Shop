@@ -1,0 +1,304 @@
+@page "/profile/orders/{orderNumber}"
+@model Fratak_Shop.Web.Pages.Profile.OrderDetailModel
+@using Fratak_Shop.Data.Entities.Orders
+@{
+    Layout = "_Layout";
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.OrderDetails;
+    var order = Model.Order;
+    var stepIndex = Array.FindIndex(Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps, s => s.Status == order.Status);
+    var cancelled = order.Status is OrderStatus.Cancelled or OrderStatus.Returned;
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Orders" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h1 class="text-zinc-800 text-lg font-semibold">
+              جزئیات سفارش <span dir="ltr">#@order.OrderNumber</span>
+            </h1>
+            <div class="flex flex-wrap items-center gap-2">
+              @if (Model.Shipment is not null && order.Status == OrderStatus.Shipped)
+              {
+                <a href="#shipment" class="rounded-full bg-sky-500 px-3 py-1 text-sm text-white hover:bg-sky-600">پیگیری مرسوله</a>
+              }
+              <span class="rounded-full px-3 py-1 text-sm @Display.OrderStatusBadge(order.Status)">@Display.OrderStatus(order.Status)</span>
+            </div>
+          </div>
+          @if (!cancelled)
+          {
+            <ol class="grid grid-cols-5 gap-2 text-center text-xs mb-8" aria-label="مراحل سفارش">
+              @for (var i = 0; i < Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps.Length; i++)
+              {
+                var done = i <= stepIndex;
+                <li>
+                  <div class="h-2 rounded-full @(done ? "bg-sky-500" : "bg-gray-200")"></div>
+                  <div class="mt-2 @(done ? "text-sky-700" : "text-zinc-400")">@Fratak_Shop.Web.Pages.Profile.OrderDetailModel.Steps[i].Title</div>
+                </li>
+              }
+            </ol>
+          }
+          @if (Model.Estimate is { } estimate && !cancelled)
+          {
+            <div class="mb-4 flex items-center gap-x-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              @Icons.Svg("Truck", "fill-emerald-600 shrink-0", 20)
+              <span>زمان تقریبی تحویل: <b>@Format.Day(Fratak_Shop.Core.Utilities.IranClock.Today(estimate.From))</b> تا <b>@Format.Day(Fratak_Shop.Core.Utilities.IranClock.Today(estimate.To))</b></span>
+            </div>
+          }
+          @if (Model.Shipment is not null)
+          {
+            <partial name="_ShipmentTracking" model="Model.Shipment" />
+          }
+          else if (!string.IsNullOrWhiteSpace(order.TrackingCode))
+          {
+            <div class="mb-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              کد رهگیری مرسوله: <span class="font-semibold" dir="ltr">@order.TrackingCode</span>
+            </div>
+          }
+          @for (var i = 0; i < order.Items.Count; i++)
+          {
+            var item = order.Items[i];
+          <div class="mt-7 flex flex-col md:flex-row @(i < order.Items.Count - 1 ? "border-b pb-4" : "")">
+            <div class="w-10/12 mx-auto md:max-w-32">
+              <img class="w-full fs-pimg" src="@ImageHelper.Product(item.ProductImageName)" alt="@item.ProductName" loading="lazy">
+            </div>
+            <div class="mr-2 md:mr-5 w-full">
+              @* title *@
+              @if (!string.IsNullOrWhiteSpace(item.ProductSlug))
+              {
+                <a href="/product/@item.ProductSlug" class="text-xs sm:text-sm text-zinc-700 hover:text-sky-600">@item.ProductName</a>
+              }
+              else
+              {
+                <div class="text-xs sm:text-sm text-zinc-700">@item.ProductName</div>
+              }
+              <div class="w-full space-y-2 mt-5">
+                <div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Icons.Svg("Package", "fill-zinc-500", 18)
+                    <span>تعداد: @item.Quantity عدد</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-x-2 text-xs text-zinc-500">
+                  <div class="flex items-center gap-x-2">
+                    @Icons.Svg("Info", "fill-zinc-500", 18)
+                    <span>کد کالا: <span dir="ltr">@item.SKU</span></span>
+                  </div>
+                </div>
+                @if (item.DiscountAmount > 0)
+                {
+                  <div class="flex items-center gap-x-2 text-xs text-red-500">
+                    <span>تخفیف: @Format.Toman(item.DiscountAmount)</span>
+                  </div>
+                }
+                @* price *@
+                <div class="text-gray-700 pt-4">
+                  <span class="text-xl font-bold">@Format.Price(item.TotalAmount)</span>
+                  <span class="text-sm">تومان</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          }
+          @* details *@
+          <div class="px-2 sm:px-6 py-3 rounded-xl border mx-auto my-5 max-w-md print:max-w-full">
+            <partial name="_OrderReceipt" model="order" />
+            <div class="flex gap-x-3 justify-between items-start text-zinc-800 mt-3 bg-gray-100 rounded-lg px-2 py-3 text-sm">
+              <div class="whitespace-nowrap">
+                آدرس
+              </div>
+              <div class="text-left leading-6">
+                @order.ShippingProvince - @order.ShippingCity - @order.ShippingAddress @order.ShippingBuildingNumber @order.ShippingUnit
+                <div class="text-xs text-zinc-500">گیرنده: @order.CustomerName - <span dir="ltr">@order.ShippingPhone</span> - کد پستی @order.ShippingPostalCode</div>
+              </div>
+            </div>
+            @if (Model.CanPay)
+            {
+              <div class="print:hidden">
+                <partial name="_PayOrderButton" model="order" />
+                @if (order.PaymentDeadline.HasValue)
+                {
+                  <p class="mt-2 text-center text-xs text-amber-600">مهلت پرداخت تا @Format.DateTime(order.PaymentDeadline)؛ پس از آن سفارش خودکار لغو می شود.</p>
+                }
+              </div>
+            }
+            <div class="mt-5 grid grid-cols-2 gap-2 print:hidden">
+              <a href="/profile/orders/@order.OrderNumber.ToLowerInvariant()/invoice" data-assistant="order-invoice" class="flex items-center justify-center gap-x-1 px-2 py-3 text-sm bg-gradient-to-bl from-sky-600 to-sky-700 hover:opacity-80 transition text-gray-100 rounded-lg">
+                @Icons.Svg("Receipt", "fill-white", 18) @(string.IsNullOrEmpty(order.InvoiceNumber) ? "پیش‌فاکتور و PDF" : "فاکتور و PDF")
+              </a>
+              <button type="button" data-invoice-quick-print="/profile/orders/@order.OrderNumber.ToLowerInvariant()/invoice?print=1"
+                      class="flex items-center justify-center gap-x-1 px-2 py-3 text-sm border border-sky-600 text-sky-700 hover:bg-sky-50 transition rounded-lg disabled:opacity-60 disabled:cursor-wait">
+                @Icons.Svg("Printer", "fill-sky-700", 18) <span data-label>چاپ فاکتور</span>
+              </button>
+            </div>
+            @if (Model.CanReorder)
+            {
+              @* دور ۲۴ (پیشنهاد ۷): همهٔ کالاهای موجود این سفارش با قیمت امروز به سبد خرید برمی‌گردند. *@
+              <form method="post" asp-page-handler="Reorder" asp-route-orderNumber="@order.OrderNumber" class="mt-2 print:hidden">
+                <button type="submit" class="flex w-full items-center justify-center gap-x-1 px-2 py-3 text-sm border border-emerald-600 text-emerald-700 hover:bg-emerald-50 transition rounded-lg">
+                  @Icons.Svg("Cart", "fill-emerald-700", 18) سفارش دوباره (با قیمت امروز)
+                </button>
+              </form>
+            }
+            @if (Model.CanCancel)
+            {
+              <details class="group mt-3 rounded-lg border border-red-200 print:hidden" data-assistant="order-cancel">
+                <summary class="flex cursor-pointer items-center justify-center gap-x-2 px-2 py-3 text-sm text-red-500 hover:bg-red-50 rounded-lg">
+                  لغو سفارش
+                </summary>
+                <form method="post" asp-page-handler="Cancel" asp-route-orderNumber="@order.OrderNumber" data-confirm="آیا از لغو این سفارش اطمینان دارید؟" class="space-y-3 p-3">
+                  @if (Model.WillRefundToWallet)
+                  {
+                    <p class="text-xs leading-6 text-emerald-700">مبلغ پرداختی (@Format.Toman(order.PayableAmount)) پس از لغو به کیف پول شما برگردانده می شود.</p>
+                  }
+                  <label for="CancelReason" class="block text-xs text-zinc-600">دلیل لغو (اختیاری)</label>
+                  <textarea id="CancelReason" name="CancelReason" rows="2" maxlength="500" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-300"></textarea>
+                  <button type="submit" class="w-full rounded-lg bg-red-500 px-2 py-2.5 text-sm text-white hover:bg-red-400 transition">تایید لغو سفارش</button>
+                </form>
+              </details>
+            }
+            else if (!cancelled && order.Status == OrderStatus.Processing)
+            {
+              <p class="mt-3 text-center text-xs text-zinc-500 print:hidden">سفارش در حال آماده سازی است و از این مرحله فقط توسط پشتیبانی قابل لغو است.</p>
+            }
+            @if (cancelled && !string.IsNullOrWhiteSpace(order.CancellationReason))
+            {
+              <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">دلیل لغو: @order.CancellationReason</p>
+            }
+            @if (Model.Returns.Count > 0)
+            {
+              <div class="mt-4 rounded-lg border p-3 text-xs print:hidden">
+                <div class="mb-2 font-semibold text-zinc-600">درخواست‌های مرجوعی این سفارش</div>
+                @foreach (var ret in Model.Returns)
+                {
+                  var retStatus = Fratak_Shop.Web.Pages.Profile.ReturnsModel.StatusOf(ret.Status);
+                  <a href="/profile/returns/@ret.RequestNumber.ToLowerInvariant()" class="flex items-center justify-between gap-2 py-1 text-zinc-600 hover:text-sky-600">
+                    <span dir="ltr">@ret.RequestNumber</span>
+                    <span class="rounded-full px-2 py-0.5 text-[11px] @retStatus.Css">@retStatus.Text</span>
+                  </a>
+                }
+              </div>
+            }
+            @if (Model.ReturnEligibility is { } eligibility)
+            {
+              if (eligibility.IsEligible)
+              {
+                <a href="/profile/returns/new/@order.OrderNumber.ToLowerInvariant()" data-assistant="order-return" class="mt-3 flex items-center justify-center gap-x-2 rounded-lg border border-zinc-300 px-2 py-3 text-sm text-zinc-600 transition hover:bg-zinc-50 print:hidden">
+                  @Icons.Svg("ArrowUUpLeft", "fill-zinc-600", 18) درخواست مرجوعی
+                </a>
+                @if (eligibility.Deadline is { } returnDeadline)
+                {
+                  <p class="mt-1 text-center text-[11px] text-zinc-400 print:hidden">تا @Format.Date(returnDeadline)</p>
+                }
+              }
+            }
+            @if (Site.Settings.IsTicketEnabled)
+            {
+              <a href="/profile/tickets/new?order=@order.OrderNumber" class="mt-3 flex items-center justify-center gap-x-2 rounded-lg px-2 py-2 text-xs text-sky-600 hover:bg-sky-50 print:hidden">
+                @Icons.Svg("Headset", "fill-sky-600", 16) مشکلی در این سفارش دارید؟ تیکت پشتیبانی
+              </a>
+            }
+          </div>
+        </div>
+        @if (Model.Messages.Count > 0)
+        {
+          <section id="messages" class="mt-6 border-t pt-5 print:hidden">
+            <h2 class="mb-3 flex items-center gap-x-2 font-semibold text-zinc-700">@Icons.Svg("ChatDots", "fill-sky-500", 22) پیام‌های فروشگاه دربارهٔ این سفارش</h2>
+            <div class="space-y-3">
+              @foreach (var m in Model.Messages)
+              {
+                <div class="max-w-[90%] rounded-xl px-4 py-3 text-sm leading-7 @(m.FromStaff ? "bg-sky-50 text-zinc-700" : "mr-auto bg-gray-100 text-zinc-700")">
+                  <div class="whitespace-pre-line break-words">@m.Body</div>
+                  <div class="mt-1 text-[11px] text-zinc-400">@(m.FromStaff ? "فروشگاه" : "شما") · @Format.DateTime(m.CreatedAt)</div>
+                  @if (m.IsOpenQuestion && !cancelled)
+                  {
+                    <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                      <form method="post" asp-page-handler="Decide" asp-route-orderNumber="@order.OrderNumber"
+                            data-confirm="«@m.ItemName» از سفارش حذف شود؟ @(order.PaymentStatus == PaymentStatus.Paid ? "مبلغ این کالا به کیف پول شما برمی‌گردد." : "")">
+                        <input type="hidden" name="messageId" value="@m.Id">
+                        <input type="hidden" name="decision" value="@OrderMessageDecision.RemoveItem">
+                        <button type="submit" class="w-full rounded-lg bg-sky-500 px-3 py-2.5 text-sm text-white transition hover:bg-sky-400">حذف این کالا و ادامهٔ سفارش</button>
+                      </form>
+                      <form method="post" asp-page-handler="Decide" asp-route-orderNumber="@order.OrderNumber"
+                            data-confirm="کل سفارش لغو شود؟ @(order.PaymentStatus == PaymentStatus.Paid ? "کل مبلغ پرداختی به کیف پول شما برمی‌گردد." : "")">
+                        <input type="hidden" name="messageId" value="@m.Id">
+                        <input type="hidden" name="decision" value="@OrderMessageDecision.CancelOrder">
+                        <button type="submit" class="w-full rounded-lg border border-red-300 px-3 py-2.5 text-sm text-red-500 transition hover:bg-red-50">لغو کل سفارش</button>
+                      </form>
+                    </div>
+                  }
+                  else if (m.Kind == OrderMessageKind.ItemUnavailable && m.Decision != OrderMessageDecision.Pending)
+                  {
+                    var decisionText = m.Decision switch
+                    {
+                        OrderMessageDecision.RemoveItem => "انتخاب شما: حذف کالا و ادامهٔ سفارش",
+                        OrderMessageDecision.CancelOrder => "انتخاب شما: لغو سفارش",
+                        OrderMessageDecision.Withdrawn => "این سؤال دیگر نیاز به پاسخ ندارد.",
+                        _ => "",
+                    };
+                    <div class="mt-2 text-xs font-semibold @(m.Decision == OrderMessageDecision.CancelOrder ? "text-red-500" : "text-emerald-600")">@decisionText</div>
+                  }
+                </div>
+              }
+            </div>
+            @if (Model.CanReply)
+            {
+              <form method="post" asp-page-handler="Reply" asp-route-orderNumber="@order.OrderNumber" class="mt-4 flex flex-col gap-2 sm:flex-row">
+                <label for="reply-body" class="sr-only">پاسخ شما</label>
+                <textarea id="reply-body" name="body" rows="2" maxlength="2000" required placeholder="پاسخ یا سؤال خود را بنویسید…"
+                          class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-sky-400"></textarea>
+                <button type="submit" class="shrink-0 rounded-lg bg-sky-500 px-5 py-2 text-sm text-white transition hover:bg-sky-400">ارسال</button>
+              </form>
+            }
+          </section>
+        }
+        @if (Model.Feedback is { } feedback && (feedback.CanSubmit || feedback.AlreadySubmitted))
+        {
+          <section id="feedback" class="mt-6 border-t pt-5 print:hidden">
+            <h2 class="mb-1 flex items-center gap-x-2 font-semibold text-zinc-700">@Icons.Svg("Star", "fill-amber-400", 22) تجربه خرید شما</h2>
+            @if (feedback.AlreadySubmitted && feedback.Feedback is { } given)
+            {
+              <p class="mb-3 text-xs text-zinc-500">از ثبت نظرتان در @Format.Date(given.CreatedAt) سپاسگزاریم.</p>
+              <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                @foreach (var (title, value) in new[] { ("کلی", given.Overall), ("ارسال", given.Delivery), ("بسته‌بندی", given.Packaging), ("مطابقت کالا", given.ProductMatch) })
+                {
+                  <div class="rounded-lg bg-zinc-50 p-2 text-center">
+                    <dt class="text-xs text-zinc-500">@title</dt>
+                    <dd class="mt-1 text-amber-500" aria-label="@value از ۵">@(new string('★', value))<span class="text-zinc-300">@(new string('★', 5 - value))</span></dd>
+                  </div>
+                }
+              </dl>
+              @if (!string.IsNullOrWhiteSpace(given.Comment))
+              {
+                <p class="mt-3 rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600">@given.Comment</p>
+              }
+            }
+            else
+            {
+              <p class="mb-4 text-xs leading-6 text-zinc-500">
+                به تجربه خرید این سفارش امتیاز دهید@(feedback.RewardPoints > 0 ? $" و {feedback.RewardPoints} امتیاز باشگاه هدیه بگیرید" : null). نظر شما فقط برای بهبود خدمات استفاده می‌شود.
+              </p>
+              <form method="post" asp-page-handler="Feedback" asp-route-orderNumber="@order.OrderNumber" class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-3 rounded-xl border p-3">
+                  <partial name="_StarInput" model='new StarInputModel("FeedbackForm.Overall", "رضایت کلی")' />
+                  <partial name="_StarInput" model='new StarInputModel("FeedbackForm.Delivery", "سرعت و کیفیت ارسال")' />
+                  <partial name="_StarInput" model='new StarInputModel("FeedbackForm.Packaging", "بسته‌بندی")' />
+                  <partial name="_StarInput" model='new StarInputModel("FeedbackForm.ProductMatch", "مطابقت کالا با توضیحات")' />
+                </div>
+                <div class="space-y-3">
+                  <fieldset class="flex flex-wrap items-center gap-3 text-sm text-zinc-600">
+                    <legend class="mb-1 text-xs">خرید از ما را به دوستانتان پیشنهاد می‌کنید؟</legend>
+                    <label class="flex items-center gap-x-1"><input type="radio" name="FeedbackForm.WouldRecommend" value="true" class="accent-emerald-500"> بله</label>
+                    <label class="flex items-center gap-x-1"><input type="radio" name="FeedbackForm.WouldRecommend" value="false" class="accent-red-500"> خیر</label>
+                  </fieldset>
+                  <textarea name="FeedbackForm.Comment" rows="3" maxlength="1000" placeholder="توضیحات (اختیاری)" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-sky-400"></textarea>
+                  <button type="submit" class="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-400">ثبت امتیاز</button>
+                </div>
+              </form>
+            }
+          </section>
+        }
+      </div>
+    </div>
+  </main>

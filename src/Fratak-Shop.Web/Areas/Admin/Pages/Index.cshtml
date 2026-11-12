@@ -1,0 +1,331 @@
+@page
+@model IndexModel
+@using Fratak_Shop.Core.Services.Insights
+@* داشبورد پنل؛ از فاز ۷ب ویجت‌ها با ترتیب و نمایش دلخواه هر کارمند چیده می‌شوند (Infrastructure/Admin/DashboardLayout). *@
+@{
+    ViewData["Title"] = "داشبورد";
+    var d = Model.Data;
+    var hour = Fratak_Shop.Core.Utilities.IranClock.ToLocal(DateTimeOffset.UtcNow).Hour;
+    var greeting = hour < 12 ? "صبح بخیر" : hour < 17 ? "روز بخیر" : "عصر بخیر";
+    var change30 = AdminUi.Change(d.Last30Sales, d.Previous30Sales);
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var todayDate = Fratak_Shop.Core.Utilities.IranClock.Today(DateTimeOffset.UtcNow);
+}
+<div class="a-page-head">
+  <div>
+    <h2>@greeting، @Model.Access.DisplayName</h2>
+    <p class="a-muted text-sm mt-1">@Format.DayName(DateTimeOffset.UtcNow) @Format.LongDate(DateTimeOffset.UtcNow) · <span class="a-live-dot"></span> @Format.Number(Model.OnlineNow) نفر آنلاین</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.ProductsManage))
+    {
+      <a href="/admin/products/edit" class="a-btn">@Icons.Svg("Plus", null, 18) محصول جدید</a>
+    }
+    @if (Model.Can(AdminPermissions.FinanceView))
+    {
+      <a href="/admin/finance" class="a-btn a-btn-light">@Icons.Svg("ChartLine", null, 18) گزارش‌های مالی</a>
+    }
+    <a href="#dash-customize" class="a-btn a-btn-light" data-open-details="dash-customize">@Icons.Svg("Sliders", null, 18) شخصی‌سازی</a>
+  </div>
+</div>
+
+<div class="a-dash">
+@foreach (var item in Model.Layout.Where(x => x.Visible))
+{
+  var key = item.Widget.Key;
+  <div class="a-widget @DashboardLayout.SpanClass(item.Widget.Span)" data-widget="@key">
+  @if (key == "today")
+  {
+    @* دور ۲۸ (#۹۴): «کارهای امروز» – فهرست مرتب، فوری‌ها اول. *@
+    <section class="a-today">
+      <h3 class="a-section-title">کارهای امروز</h3>
+      @if (Model.Today.Count == 0)
+      {
+        <p class="a-muted text-sm">کار فوری‌ای برای امروز نمانده است. 🎉</p>
+      }
+      else
+      {
+        <ol class="a-today-list">
+          @foreach (var task in Model.Today)
+          {
+            <li class="a-today-item is-p@(task.Priority)" data-today="@task.Key">
+              <a href="@task.Url">
+                <b>@task.Title</b>
+                <span class="a-muted text-xs">@task.Hint</span>
+              </a>
+              <span class="a-badge @(task.Priority == 1 ? "a-badge-red" : task.Priority == 2 ? "a-badge-yellow" : "a-badge-gray")">@(task.Priority == 1 ? "فوری" : task.Priority == 2 ? "امروز" : "فرصت")</span>
+            </li>
+          }
+        </ol>
+      }
+    </section>
+  }
+  else if (key == "tasks")
+  {
+    <section>
+      <h3 class="a-section-title">کارهای در انتظار</h3>
+      <div class="a-tasks">
+        @if (Model.Can(AdminPermissions.OrdersView))
+        {
+          <a class="a-task @(d.OrdersToConfirm > 0 ? "is-hot" : "")" href="/admin/orders?status=Pending"><b>@Format.Number(d.OrdersToConfirm)</b><span>سفارش منتظر تأیید</span></a>
+          <a class="a-task" href="/admin/orders?status=Confirmed"><b>@Format.Number(d.OrdersToPrepare)</b><span>سفارش برای آماده‌سازی</span></a>
+          <a class="a-task @(d.OrdersAwaitingInvoice > 0 ? "is-hot" : "")" href="/admin/orders?invoice=missing"><b>@Format.Number(d.OrdersAwaitingInvoice)</b><span>بدون فاکتور خرید</span></a>
+          <a class="a-task" href="/admin/orders?status=Processing"><b>@Format.Number(d.OrdersToShip)</b><span>آماده ارسال</span></a>
+        }
+        @if (Model.Can(AdminPermissions.ReturnsManage))
+        {
+          <a class="a-task @(d.PendingReturns > 0 ? "is-hot" : "")" href="/admin/returns"><b>@Format.Number(d.PendingReturns)</b><span>درخواست مرجوعی</span></a>
+        }
+        @if (Model.Can(AdminPermissions.TicketsManage))
+        {
+          <a class="a-task @(d.OpenTickets > 0 ? "is-hot" : "")" href="/admin/tickets"><b>@Format.Number(d.OpenTickets)</b><span>تیکت باز</span></a>
+        }
+        @if (Model.Can(AdminPermissions.CommentsModerate))
+        {
+          <a class="a-task" href="/admin/comments"><b>@Format.Number(d.PendingComments)</b><span>نظر در انتظار</span></a>
+        }
+        @if (Model.Can(AdminPermissions.MessagesManage))
+        {
+          <a class="a-task" href="/admin/messages"><b>@Format.Number(d.NewMessages)</b><span>پیام جدید</span></a>
+        }
+        @if (Model.CanAny(AdminPermissions.WithdrawalsManage, AdminPermissions.FinanceView))
+        {
+          <a class="a-task @(d.PendingWithdrawals > 0 ? "is-hot" : "")" href="/admin/finance/withdrawals"><b>@Format.Number(d.PendingWithdrawals)</b><span>درخواست برداشت</span></a>
+        }
+        @if (Model.Can(AdminPermissions.BlogPublish))
+        {
+          <a class="a-task" href="/admin/blog?status=review"><b>@Format.Number(d.DraftsForReview)</b><span>مقاله منتظر بررسی</span></a>
+        }
+        @if (Model.Can(AdminPermissions.SeoManage))
+        {
+          <a class="a-task" href="/admin/seo?tab=404"><b>@Format.Number(d.Unresolved404)</b><span>خطای ۴۰۴ رسیدگی‌نشده</span></a>
+        }
+        @if (Model.Can(AdminPermissions.MonitoringView))
+        {
+          <a class="a-task @(d.UnresolvedErrors > 0 ? "is-hot" : "")" href="/admin/system/errors"><b>@Format.Number(d.UnresolvedErrors)</b><span>خطای سامانه (۷ روز)</span></a>
+        }
+        @if (Model.Can(AdminPermissions.ProductsView))
+        {
+          <a class="a-task @(d.OutOfStock > 0 ? "is-hot" : "")" href="/admin/products?stock=out"><b>@Format.Number(d.OutOfStock)</b><span>محصول ناموجود</span></a>
+          <a class="a-task" href="/admin/products?stock=low"><b>@Format.Number(d.LowStock)</b><span>موجودی رو به اتمام</span></a>
+        }
+      </div>
+    </section>
+  }
+  else if (key == "sales-stats")
+  {
+    <section class="a-stats">
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("Coins", null, 16) فروش امروز</div>
+        <div class="a-stat-value">@Format.Price(d.TodaySales) <small>تومان</small></div>
+        <div class="a-stat-sub">@Format.Number(d.TodayOrders) سفارش · دیروز @Format.Price(d.YesterdaySales)</div>
+      </div>
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("Calendar", null, 16) فروش ۷ روز</div>
+        <div class="a-stat-value">@Format.Price(d.Last7Sales) <small>تومان</small></div>
+      </div>
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("ChartLine", null, 16) فروش ۳۰ روز</div>
+        <div class="a-stat-value">@Format.Price(d.Last30Sales) <small>تومان</small></div>
+        <div class="a-stat-sub">
+          @Format.Number(d.Last30Orders) سفارش
+          @if (change30 is { } c)
+          {
+            <span class="@(c.Up ? "a-up" : "a-down")"> · @c.Text نسبت به ۳۰ روز قبل</span>
+          }
+        </div>
+      </div>
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("Users", null, 16) مشتریان</div>
+        <div class="a-stat-value">@Format.Number(d.TotalCustomers)</div>
+        <div class="a-stat-sub">امروز +@Format.Number(d.NewCustomersToday) · ۳۰ روز +@Format.Number(d.NewCustomers30)</div>
+      </div>
+    </section>
+  }
+  else if (key == "sales-chart")
+  {
+    <div class="a-card h-full">
+      <div class="a-card-head"><span class="a-card-title">فروش ۳۰ روز اخیر</span><span class="a-muted text-xs">مبلغ خالص سفارش‌های قطعی</span></div>
+      <div class="a-card-body">@await Html.PartialAsync("_BarChart", new BarChartModel("فروش روزانه", d.Last30Days, true, "سفارش"))</div>
+    </div>
+  }
+  else if (key == "top-products")
+  {
+    <div class="a-card h-full">
+      <div class="a-card-head"><span class="a-card-title">پرفروش‌ترین‌ها (۳۰ روز)</span></div>
+      <div class="a-card-body">@await Html.PartialAsync("_HBars", new HBarsModel(d.TopProducts))</div>
+    </div>
+  }
+  else if (key == "goal" && Model.Goal is { } g)
+  {
+    var gw = Math.Min(100m, g.Forecast.Percent).ToString("0.#", inv);
+    <div class="a-card h-full">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Trophy", null, 18) هدف @g.Title</span><a class="a-link text-xs" href="/admin/reports/goals">جزئیات</a></div>
+      <div class="a-card-body">
+        @if (g.HasTarget)
+        {
+          <div class="flex items-center justify-between mb-2 text-sm"><span>@AdminUi.Money(g.Achieved)</span><b>@g.Forecast.Percent.ToString("0.#", inv)٪</b></div>
+          <div class="a-goal-bar"><div class="a-goal-fill is-@g.Forecast.Status" style="width:@gw%"></div></div>
+          <dl class="a-kv text-sm mt-3">
+            <dt>هدف</dt><dd>@AdminUi.Money(g.TargetAmount!.Value)</dd>
+            <dt>پیش‌بینی پایان ماه</dt><dd>@AdminUi.Money(g.Forecast.Projected)</dd>
+            @if (g.Forecast.RequiredPerDay > 0)
+            {
+              <dt>لازم در هر روز</dt><dd>@AdminUi.Money(g.Forecast.RequiredPerDay)</dd>
+            }
+            <dt>وضعیت</dt><dd><span class="a-badge @Fratak_Shop.Web.Areas.Admin.Pages.Reports.GoalsModel.StatusBadge(g.Forecast.Status)">@SalesGoalRules.StatusTitle(g.Forecast.Status)</span></dd>
+          </dl>
+        }
+        else
+        {
+          <p class="text-sm">فروش این ماه تاکنون: <b>@AdminUi.Money(g.Achieved)</b></p>
+          <p class="a-muted text-xs mt-2">هدفی ثبت نشده است. <a class="a-link" href="/admin/reports/goals">تعیین هدف</a></p>
+        }
+      </div>
+    </div>
+  }
+  else if (key == "visitors-today" && Model.VisitorsToday is { } v)
+  {
+    <div class="a-card h-full">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Funnel", null, 18) بازدید امروز</span><a class="a-link text-xs" href="/admin/reports?period=today">جزئیات</a></div>
+      <div class="a-card-body">
+        <dl class="a-kv text-sm">
+          <dt>بازدیدکنندهٔ یکتا</dt><dd><b>@Format.Number(v.Visitors)</b></dd>
+          <dt>بازدید صفحه</dt><dd>@Format.Number(v.PageViews)</dd>
+          @if (v.Steps.Count > 0 && v.Visitors > 0)
+          {
+            <dt>نرخ تبدیل</dt><dd>@v.Steps[^1].RateFromStart.ToString("0.##", inv)٪</dd>
+          }
+          @if (v.Sources.OrderByDescending(x => x.Visitors).FirstOrDefault() is { } topSource)
+          {
+            <dt>منبع برتر</dt><dd>@topSource.SourceTitle <span class="a-muted text-xs">(@Format.Number(topSource.Visitors))</span></dd>
+          }
+        </dl>
+        @if (!v.HasData)
+        {
+          <p class="a-muted text-xs mt-2">امروز هنوز بازدیدی ثبت نشده است.</p>
+        }
+      </div>
+    </div>
+  }
+  else if (key == "expenses-due")
+  {
+    <div class="a-card h-full">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Coins", null, 18) سررسید هزینه‌ها</span><a class="a-link text-xs" href="/admin/finance/expenses?tab=recurring">همه</a></div>
+      <ul class="divide-y divide-gray-100">
+        @foreach (var e in Model.UpcomingExpenses)
+        {
+          var days = e.NextDueOn!.Value.DayNumber - todayDate.DayNumber;
+          <li class="flex items-center justify-between gap-2 px-4 py-2.5 text-sm">
+            <span class="truncate">@e.Title <span class="a-muted text-xs">· @Format.Toman(e.Amount)</span></span>
+            <span class="a-badge @(days < 0 ? "a-badge-red" : days <= 3 ? "a-badge-yellow" : "a-badge-gray")">@(days < 0 ? "گذشته" : days == 0 ? "امروز" : Format.Number(days) + " روز")</span>
+          </li>
+        }
+        @if (Model.UpcomingExpenses.Count == 0)
+        {
+          <li class="a-empty">هزینهٔ تکراری فعالی ثبت نشده است.</li>
+        }
+      </ul>
+    </div>
+  }
+  else if (key == "latest-orders")
+  {
+    <div class="a-card h-full">
+      <div class="a-card-head"><span class="a-card-title">آخرین سفارش‌ها</span><a href="/admin/orders" class="a-link text-sm">همه سفارش‌ها</a></div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>شماره</th><th>مشتری</th><th>وضعیت</th><th>مبلغ</th><th>زمان</th></tr></thead>
+          <tbody>
+            @foreach (var order in d.LatestOrders)
+            {
+              <tr>
+                <td data-label="شماره"><a class="a-link a-ltr" href="/admin/orders/@order.Id">@order.OrderNumber</a></td>
+                <td data-label="مشتری">@order.CustomerName</td>
+                <td data-label="وضعیت">
+                  <span class="a-badge @AdminUi.OrderStatusBadge(order.Status)">@AdminUi.OrderStatus(order.Status)</span>
+                  @if (order.PurchaseInvoiceCount == 0 && order.Status is OrderStatus.Confirmed or OrderStatus.Processing)
+                  {
+                    <span class="a-badge a-badge-red" title="فاکتور خرید ثبت نشده">بدون فاکتور</span>
+                  }
+                </td>
+                <td data-label="مبلغ" class="num">@Format.Price(order.PayableAmount)</td>
+                <td data-label="زمان" class="nowrap a-muted">@AdminUi.Ago(order.CreatedAt)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (d.LatestOrders.Count == 0)
+        {
+          <div class="a-empty">هنوز سفارشی ثبت نشده است.</div>
+        }
+      </div>
+    </div>
+  }
+  else if (key == "low-stock")
+  {
+    <div class="a-stack">
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Warning", "text-amber-500", 18) موجودی کم</span><a href="/admin/products?stock=low" class="a-link text-sm">همه</a></div>
+        <ul class="divide-y divide-gray-100">
+          @foreach (var p in d.LowStockProducts)
+          {
+            <li class="flex items-center justify-between gap-2 px-4 py-2.5">
+              <a href="/admin/products/edit/@p.Id" class="truncate a-link">@p.Name</a>
+              <span class="a-badge @(p.Stock <= 0 ? "a-badge-red" : "a-badge-yellow")">@(p.Stock <= 0 ? "ناموجود" : $"{p.Stock} عدد")</span>
+            </li>
+          }
+          @if (d.LowStockProducts.Count == 0)
+          {
+            <li class="a-empty">موجودی همه محصولات کافی است.</li>
+          }
+        </ul>
+      </div>
+      @if (d.MostWantedOutOfStock.Count > 0)
+      {
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Bell", null, 18) پرتقاضا برای «موجود شد خبرم کن»</span></div>
+          <ul class="divide-y divide-gray-100">
+            @foreach (var w in d.MostWantedOutOfStock)
+            {
+              <li class="flex items-center justify-between gap-2 px-4 py-2.5">
+                <a href="/admin/products/edit/@w.Id" class="truncate a-link">@w.Name</a>
+                <span class="a-badge a-badge-blue">@Format.Number(w.Count) نفر</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+  </div>
+}
+@if (!Model.Layout.Any(w => w.Visible))
+{
+  <div class="a-card a-w-3"><div class="a-empty">همهٔ ویجت‌ها پنهان شده‌اند. از «شخصی‌سازی داشبورد» دست‌کم یکی را فعال کنید.</div></div>
+}
+</div>
+
+@* ── شخصی‌سازی داشبورد ─────────────────────────────────────── *@
+<details class="a-card a-details mt-6" id="dash-customize">
+  <summary class="a-card-head"><span class="a-card-title">@Icons.Svg("Sliders", null, 18) شخصی‌سازی داشبورد</span><span class="a-muted text-xs">ترتیب و نمایش ویجت‌ها فقط برای شما</span></summary>
+  <form method="post" asp-page-handler="Layout" class="a-card-body">
+    <p class="a-muted text-sm mb-3">ردیف‌ها را بکشید و رها کنید (یا با دکمه‌های بالا/پایین جابه‌جا کنید) و تیک ویجت‌هایی را که نمی‌خواهید بردارید.</p>
+    <ul class="a-sortable" data-sortable>
+      @foreach (var item in Model.Layout)
+      {
+        <li class="a-sortable-item" data-sort-item draggable="true">
+          <span class="a-sortable-handle" aria-hidden="true">@Icons.Svg("DotsSixVertical", null, 18)</span>
+          <input type="hidden" name="order" value="@item.Widget.Key">
+          <label class="a-check flex-1"><input type="checkbox" name="visible" value="@item.Widget.Key" checked="@item.Visible"> @item.Widget.Title</label>
+          <span class="a-muted text-xs">@(item.Widget.Span == 3 ? "تمام‌عرض" : item.Widget.Span == 2 ? "دوسوم" : "یک‌سوم")</span>
+          <button type="button" class="a-btn a-btn-light a-btn-xs" data-sort-move="up" aria-label="بالا">@Icons.Svg("CaretUp", null, 14)</button>
+          <button type="button" class="a-btn a-btn-light a-btn-xs" data-sort-move="down" aria-label="پایین">@Icons.Svg("CaretDown", null, 14)</button>
+        </li>
+      }
+    </ul>
+    <div class="mt-3 flex flex-wrap justify-end gap-2">
+      <button type="submit" class="a-btn">@Icons.Svg("FloppyDisk", null, 18) ذخیرهٔ چیدمان</button>
+      <button type="submit" class="a-btn a-btn-light" formaction="/admin?handler=ResetLayout" data-confirm="چیدمان پیش‌فرض داشبورد برگردد؟">بازنشانی</button>
+    </div>
+  </form>
+</details>

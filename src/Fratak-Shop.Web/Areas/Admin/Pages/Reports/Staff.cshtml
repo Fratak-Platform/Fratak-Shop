@@ -1,0 +1,105 @@
+@page "/admin/reports/staff"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Reports.StaffModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Reports
+@* عملکرد کارکنان (مرحلهٔ هفتم – فاز ۷ب). منطق: Core/Services/Insights/StaffPerformanceService. *@
+@{
+    ViewData["Title"] = "عملکرد کارکنان";
+    var request = HttpContext.Request;
+    var maxTotal = Model.Rows.Count == 0 ? 0 : Model.Rows.Max(r => r.Total);
+}
+<div class="a-page-head">
+  <div>
+    <h2>عملکرد کارکنان</h2>
+    <p class="a-muted text-sm mt-1">حجم کار هر کارمند در پنل · بازه: <b>@Model.Period.Label</b>. هدف، دید منصفانه از بار کاری است نه رتبه‌بندی خشک؛ کیفیت کار را هم در نظر بگیرید.</p>
+  </div>
+  @if (Model.CanAny(AdminPermissions.FinanceExport, AdminPermissions.StaffManage))
+  {
+    <a class="a-btn a-btn-light" href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"), ("user", null))">@Icons.Svg("Download", null, 18) اکسل</a>
+  }
+</div>
+
+<partial name="_ReportPeriod" model="Model" />
+
+@if (Model.Detail is { } d)
+{
+  var r = d.Row;
+  var dailyChart = new BarChartModel("فعالیت روزانه", d.Daily, false);
+  var hoursChart = new BarChartModel("ساعت فعالیت", d.Hours, false);
+  <div class="mb-3"><a class="a-link text-sm" href="@AdminUi.With(request, ("user", null))">@Icons.Svg("ArrowLeft", null, 14) بازگشت به همهٔ کارکنان</a></div>
+  <div class="a-card mb-4">
+    <div class="a-card-head">
+      <span class="a-card-title">@Icons.Svg("UserGear", null, 18) @r.Name</span>
+      <span class="flex flex-wrap gap-1">@foreach (var role in r.Roles) { <span class="a-badge a-badge-purple">@role</span> }</span>
+    </div>
+    <div class="a-card-body">
+      <div class="a-stats">
+        <div class="a-stat"><div class="a-stat-label">تغییرات ثبت‌شده</div><div class="a-stat-value">@Format.Number(r.Actions)</div><div class="a-stat-sub">ایجاد/ویرایش/حذف در پنل</div></div>
+        <div class="a-stat"><div class="a-stat-label">سفارش</div><div class="a-stat-value">@Format.Number(r.StatusChanges)</div><div class="a-stat-sub">تغییر وضعیت · @Format.Number(r.OrderNotes) یادداشت · @Format.Number(r.OrdersCreated) ثبت</div></div>
+        <div class="a-stat"><div class="a-stat-label">پشتیبانی</div><div class="a-stat-value">@Format.Number(r.TicketReplies)</div><div class="a-stat-sub">پاسخ تیکت · اولین پاسخ: @StaffModel.Minutes(r.AvgFirstResponseMinutes)</div></div>
+        <div class="a-stat"><div class="a-stat-label">آخرین فعالیت</div><div class="a-stat-value text-base">@(r.LastActivityAt is { } la ? AdminUi.Ago(la) : "—")</div><div class="a-stat-sub">آخرین ورود: @(r.LastLoginAt is { } ll ? Format.DateTime(ll) : "—")</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="a-grid xl:grid-cols-3 mb-4">
+    <div class="a-card xl:col-span-2">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartBar", null, 18) فعالیت روزانه</span></div>
+      <div class="a-card-body">
+        @if (d.Daily.Count > 0)
+        {
+          <partial name="_BarChart" model="dailyChart" />
+        }
+        else
+        {
+          <div class="a-empty">بازه بیش از ۱۲۰ روز است؛ بازهٔ کوتاه‌تری انتخاب کنید.</div>
+        }
+      </div>
+    </div>
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ListChecks", null, 18) پرتکرارترین کارها</span></div>
+      <div class="a-card-body"><partial name="_HBars" model="new HBarsModel(d.TopActions, true, false)" /></div>
+    </div>
+  </div>
+  <div class="a-card mb-4">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Clock", null, 18) ساعت‌های فعالیت (به وقت ایران)</span></div>
+    <div class="a-card-body"><partial name="_BarChart" model="hoursChart" /></div>
+  </div>
+  <p class="a-muted text-xs"><a class="a-link" href="/admin/system/audit?user=@r.UserId">مشاهدهٔ ریز تغییرات در گزارش فعالیت</a></p>
+}
+else
+{
+  <div class="a-card">
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>کارمند</th><th>تغییرات</th><th>وضعیت سفارش</th><th>یادداشت</th><th>سفارش ثبت‌شده</th><th>پاسخ تیکت</th><th>میانگین اولین پاسخ</th><th>فاکتور خرید</th><th>پیام به مشتری</th><th>مقاله</th><th>آخرین فعالیت</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Rows)
+          {
+            var share = maxTotal == 0 ? 0 : Math.Round(r.Total * 100d / maxTotal, 1);
+            <tr>
+              <td data-label="کارمند">
+                <a class="a-link font-semibold" href="@AdminUi.With(request, ("user", r.UserId.ToString()))">@r.Name</a>
+                <div class="a-muted text-xs">@string.Join("، ", r.Roles)</div>
+                <div class="a-progress mt-1" style="max-width:8rem" title="حجم کل فعالیت نسبت به پرکارترین نفر"><div style="width:@share.ToString(global::System.Globalization.CultureInfo.InvariantCulture)%"></div></div>
+              </td>
+              <td data-label="تغییرات">@Format.Number(r.Actions)</td>
+              <td data-label="وضعیت سفارش">@Format.Number(r.StatusChanges)</td>
+              <td data-label="یادداشت">@Format.Number(r.OrderNotes)</td>
+              <td data-label="سفارش ثبت‌شده">@Format.Number(r.OrdersCreated)@if (r.OrdersCreated > 0) { <div class="a-muted text-xs">@Format.Toman(r.OrdersCreatedAmount)</div> }</td>
+              <td data-label="پاسخ تیکت">@Format.Number(r.TicketReplies)</td>
+              <td data-label="میانگین اولین پاسخ">@StaffModel.Minutes(r.AvgFirstResponseMinutes)@if (r.FirstResponses > 0) { <div class="a-muted text-xs">@Format.Number(r.FirstResponses) تیکت</div> }</td>
+              <td data-label="فاکتور خرید">@Format.Number(r.Invoices)</td>
+              <td data-label="پیام به مشتری">@Format.Number(r.CustomerMessages)</td>
+              <td data-label="مقاله">@Format.Number(r.Posts)</td>
+              <td data-label="آخرین فعالیت">@(r.LastActivityAt is { } la ? AdminUi.Ago(la) : "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Rows.Count == 0)
+      {
+        <div class="a-empty">هیچ کارمندی (کاربر دارای نقش پنل) پیدا نشد.</div>
+      }
+    </div>
+  </div>
+  <p class="a-muted text-xs mt-2">«تغییرات» از گزارش فعالیت (لاگ ممیزی) شمرده می‌شود؛ «میانگین اولین پاسخ» فقط برای تیکت‌های ساخته‌شده در همین بازه که این کارمند اولین پاسخ را داده است.</p>
+}

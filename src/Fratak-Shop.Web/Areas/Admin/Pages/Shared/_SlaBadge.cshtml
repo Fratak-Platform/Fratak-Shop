@@ -1,0 +1,18 @@
+@model Fratak_Shop.Core.Services.Orders.OrderSlaResult?
+@*
+  نشان زمان‌بندی سفارش (SLA) – در فهرست سفارش‌ها، کانبان و جزئیات سفارش استفاده می‌شود.
+  سبز: در مهلت | زرد: نزدیک به پایان مهلت | قرمز: دیرکرد. متن راهنما (title) مرحله و پایان مهلت را می‌گوید.
+  مثال: «ثبت کد رهگیری · ۳ ساعت دیرکرد».
+*@
+@using Fratak_Shop.Core.Services.Orders
+@if (Model is { } sla)
+{
+    var css = sla.Level switch
+    {
+        OrderSlaLevel.Overdue => "a-badge-red",
+        OrderSlaLevel.Soon => "a-badge-yellow",
+        _ => "a-badge-gray",
+    };
+    var icon = sla.Level == OrderSlaLevel.Overdue ? "Siren" : "Timer";
+    <span class="a-badge a-sla @css" title="مرحله: @sla.StageTitle — پایان مهلت: @Format.DateTime(sla.Deadline)">@Icons.Svg(icon, null, 12) @sla.RemainingText</span>
+}

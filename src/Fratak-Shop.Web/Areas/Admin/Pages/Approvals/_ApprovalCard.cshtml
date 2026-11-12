@@ -1,0 +1,62 @@
+@model Fratak_Shop.Data.Entities.Team.ApprovalRequest
+@using Fratak_Shop.Data.Entities.Team
+@using Fratak_Shop.Web.Areas.Admin.Pages.TeamPages
+@{
+    // کارت یک درخواست تأیید دونفره: خلاصه، درخواست‌دهنده، مهلت، وضعیت و دکمه‌های تصمیم.
+    var pageModel = ViewData["ApprovalsPage"] as ApprovalsModel;
+    var r = Model;
+    var (statusText, statusCss) = ApprovalsModel.StatusLabel(r);
+    var canDecide = pageModel?.CanDecide(r) == true;
+    var isMine = pageModel is not null && r.RequestedById == pageModel.Access.UserId;
+    var pending = r.Status == ApprovalStatus.Pending && r.ExpiresAt > DateTimeOffset.UtcNow;
+}
+<div class="a-card a-approval @(pending ? "is-pending" : "")" id="ap-@r.Id">
+  <div class="a-card-body a-stack">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="a-badge a-badge-purple">@ApprovalsModel.KindLabel(r.Kind)</span>
+        <span class="a-badge @statusCss">@statusText</span>
+        @if (r.Amount is { } amount) { <b class="num">@Format.Toman(Math.Abs(amount))</b> }
+      </div>
+      <span class="a-muted text-xs" title="@Format.DateTime(r.CreatedAt)">@AdminUi.Ago(r.CreatedAt)</span>
+    </div>
+    <p class="font-medium">@r.Summary</p>
+    @if (r.Amount is { } a2 && Math.Abs(a2) >= 1000) { <p class="a-muted text-xs">به حروف: @Fratak_Shop.Core.Utilities.PersianNumberWords.ToWords(Math.Abs(a2)) تومان</p> }
+    <div class="a-muted text-xs flex flex-wrap gap-x-4 gap-y-1">
+      <span>درخواست‌دهنده: <b>@r.RequestedByName</b>@(isMine ? " (شما)" : "")</span>
+      @if (pending) { <span>مهلت تصمیم: @AdminUi.Ago(r.ExpiresAt) (@Format.DateTime(r.ExpiresAt))</span> }
+      @if (!string.IsNullOrEmpty(r.TargetUrl)) { <a class="a-link" href="@r.TargetUrl">مشاهدهٔ مورد</a> }
+    </div>
+    @if (r.DecidedByName is not null || r.DecisionNote is not null || r.ResultMessage is not null)
+    {
+      <div class="a-approval-result text-sm">
+        @if (r.DecidedByName is not null) { <div>تصمیم: <b>@r.DecidedByName</b>@if (r.DecidedAt is { } at) { <span class="a-muted"> · @AdminUi.Ago(at)</span> }</div> }
+        @if (r.DecisionNote is not null) { <div>یادداشت: @r.DecisionNote</div> }
+        @if (r.ResultMessage is not null) { <div class="@(r.Status == ApprovalStatus.Failed ? "text-red-600" : "a-muted")">نتیجه: @r.ResultMessage</div> }
+      </div>
+    }
+    @if (canDecide)
+    {
+      <form method="post" action="/admin/approvals?handler=Decide" class="a-approval-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@r.Id">
+        <input name="note" class="a-input a-input-sm" maxlength="500" placeholder="یادداشت (برای رد کردن لازم است)" aria-label="یادداشت تصمیم">
+        <div class="flex gap-2">
+          <button class="a-btn a-btn-sm a-btn-success" type="submit" name="approve" value="true" data-confirm="این کار همین حالا انجام می‌شود. تأیید می‌کنید؟">تأیید و انجام</button>
+          <button class="a-btn a-btn-sm a-btn-danger-soft" type="submit" name="approve" value="false">رد</button>
+        </div>
+      </form>
+    }
+    else if (pending && isMine)
+    {
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="a-muted text-xs">منتظر تصمیم یک همکار دیگر است؛ وقتی تصمیم گرفته شود اعلان می‌گیرید.</span>
+        <form method="post" action="/admin/approvals?handler=Cancel" data-confirm="درخواست پس گرفته شود؟">
+          @Html.AntiForgeryToken()
+          <input type="hidden" name="id" value="@r.Id">
+          <button class="a-btn a-btn-xs a-btn-light" type="submit">پس گرفتن</button>
+        </form>
+      </div>
+    }
+  </div>
+</div>

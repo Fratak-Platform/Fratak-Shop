@@ -7,15 +7,124 @@
     <RootNamespace>Fratak_Shop.Web</RootNamespace>
   </PropertyGroup>
 
+  <!--
+    دور نوزدهم (A4): تنظیم جمع‌آورندهٔ حافظه (GC) برای هاست اشتراکی.
+    پیش‌فرض ASP.NET Core «Server GC» است: برای هر هستهٔ CPU یک هیپ جدا ← روی هاست چندهسته‌ای حتی بدون بازدید صدها مگابایت حافظه
+    و نزدیک شدن به سقف استخر برنامه. «Workstation GC» غیرهم‌زمان + ConserveMemory کمترین حافظه را می‌گیرد (برای فروشگاه کافی است).
+    روی سرور اختصاصی قوی می‌توان با متغیر محیطی DOTNET_gcServer=1 دوباره Server GC را روشن کرد (docs/PERFORMANCE.md).
+  -->
+  <PropertyGroup>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- PGO پویا هر متد پرکاربرد را سه بار کامپایل می‌کند (عادی، نمونه‌بردار، بهینه) ← حافظهٔ کد و CPU بیشتر؛ روی هاست ضعیف خاموش. -->
+    <TieredPGO>false</TieredPGO>
+    <!--
+      کامپایل چندمرحله‌ای (Tiered) خاموش: هر متد فقط یک بار و مستقیم بهینه کامپایل می‌شود (نه اول سریع و بعد دوباره بهینه).
+      آزمون بار ۵۱۲ مگ / نیم هسته / ۱۰۰۰ کاربر: با این تنظیم حافظهٔ کد کمتر و قله‌ها کوتاه‌تر شد و پروسه دیگر کشته نشد (docs/PERFORMANCE.md).
+      هزینه: شروع برنامه چند ثانیه کندتر (فقط بار اول هر متد). روی IIS ویندوز هم همین اثر را دارد.
+    -->
+    <TieredCompilation>false</TieredCompilation>
+  </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.12">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="MailKit" Version="4.18.1" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+    <!-- مرحلهٔ هفتم: اجرای آفلاین مدل کوچک خواندن کد امنیتی رهگیری پست (Resources/Captcha/digits.onnx)؛ رایگان و بدون سرویس بیرونی. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
+    <!-- دور ۲۱: شکل‌دهی متن فارسی (اتصال حروف) روی بنرهای ساخت سرور. نسخهٔ HarfBuzzSharp مطابق VERSIONS.txt خود SkiaSharp 3.116.1 است. -->
+    <PackageReference Include="SkiaSharp.HarfBuzz" Version="3.116.1" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.0.1" />
+  </ItemGroup>
+
+  <!-- Front-end build files (Tailwind) are development-only and are not published. -->
+  <ItemGroup>
+    <Content Remove="package.json;package-lock.json;tailwind.config.js" />
+  </ItemGroup>
+
+  <!-- مدل ONNX کپچا کنار برنامه کپی می‌شود (build و publish)؛ مسیر خواندن: AppContext.BaseDirectory/Resources/Captcha/digits.onnx -->
+  <ItemGroup>
+    <None Update="Resources\Captcha\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- دور ۳۰: مدل دوربری U²-Net کوچک (Apache-2.0)؛ مسیر خواندن: AppContext.BaseDirectory/Resources/Cutout/u2netp.onnx -->
+    <None Update="Resources\Cutout\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    مرحلهٔ هفدهم – حجم خروجی انتشار (publish):
+    1) فایل‌های محلی هرگز منتشر نمی‌شوند: App_Data (لاگ‌ها، کلیدها و تاریخچهٔ اجرای همین دستگاه)، wwwroot/uploads (عکس‌های
+       آزمایشی دستگاه توسعه؛ روی سرور جای عکس‌های واقعی را می‌گرفت) و appsettings.Development.json (تنظیمات توسعه).
+    2) فایل‌های بومی فقط برای سیستم‌عامل مقصد (FratakPublishTarget):
+         windows (پیش‌فرض وقتی روی ویندوز publish می‌شود): win، win-x64 و win-x86 (استخر ۳۲ بیتی IIS هم کار می‌کند)
+         linux   (پیش‌فرض روی لینوکس/مک): unix، linux، linux-x64 و linux-musl-x64
+         all     : همه (خروجی قابل‌حمل قدیمی ~۲۰۰ مگابایت)
+       مثال: dotnet publish -c Release -p:FratakPublishTarget=linux
+       OnnxRuntime و SkiaSharp برای هر سیستم‌عامل/پردازنده ده‌ها مگابایت فایل بومی دارند (arm64، مک، لینوکس‌های مختلف)؛
+       حذف آن‌ها خروجی را از ~۲۰۰ به حدود یک‌سوم می‌رساند. وقتی ‎-r (RuntimeIdentifier) داده شود، خود SDK فقط همان را می‌گذارد.
+       بررسی بعد از استقرار: «سلامت سامانه ← پردازش تصویر (SkiaSharp)» (اگر خروجی برای سیستم‌عامل دیگری باشد، بحرانی می‌شود).
+    اسکریپت آماده: tools/deploy/publish.ps1 و publish.sh؛ پروفایل Visual Studio: Properties/PublishProfiles/IIS-Windows.pubxml.
+  -->
+  <ItemGroup>
+    <Content Remove="App_Data\**" />
+    <None Remove="App_Data\**" />
+    <Content Update="wwwroot\uploads\**" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <!-- دور ۲۱: قلم Vazirmatn (ارقام فارسی، مجوز OFL) برای رندر بنر در سرور؛ کنار برنامه کپی می‌شود (عمومی نیست). -->
+    <None Update="Assets\Fonts\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    دور ۳۰ – حجم انتشار (مدل دوربری ۴٫۴ مگ و صدای فارسی ۱ مگ اضافه شد؛ سقف لینوکس ۱۶۰ و ویندوز ۱۲۰ مگابایت):
+    1) نسخه‌های ‎.gz/.br ساخت‌زمانِ wwwroot ساخته نمی‌شوند: برنامه از UseStaticFiles + PrecompressedStaticFilesMiddleware استفاده می‌کند
+       که خودش یک بار در حافظه فشرده می‌کند؛ آن فایل‌ها هرگز خوانده نمی‌شدند و فقط جا می‌گرفتند.
+    2) فایل‌های اشکال‌زدایی (pdb) در خروجی انتشار کپی نمی‌شوند (در build و آزمون‌ها هستند)؛ گزارش خطا همچنان نام کلاس و متد را دارد.
+  -->
+  <PropertyGroup>
+    <CompressionEnabled>false</CompressionEnabled>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(FratakPublishTarget)' == ''">
+    <FratakPublishTarget Condition="$([MSBuild]::IsOSPlatform('Windows'))">windows</FratakPublishTarget>
+    <FratakPublishTarget Condition="!$([MSBuild]::IsOSPlatform('Windows'))">linux</FratakPublishTarget>
+  </PropertyGroup>
+
+  <Target Name="FratakTrimPublishRuntimes" AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(RuntimeIdentifier)' == '' and '$(FratakPublishTarget)' != 'all'">
+    <PropertyGroup>
+      <_FratakOtherRuntimes Condition="'$(FratakPublishTarget)' == 'windows'">^runtimes[\\/](?!(win|win-x64|win-x86)[\\/])</_FratakOtherRuntimes>
+      <_FratakOtherRuntimes Condition="'$(FratakPublishTarget)' == 'linux'">^runtimes[\\/](?!(unix|linux|linux-x64|linux-musl-x64)[\\/])</_FratakOtherRuntimes>
+    </PropertyGroup>
+    <Error Condition="'$(_FratakOtherRuntimes)' == ''" Text="FratakPublishTarget must be windows, linux or all (got '$(FratakPublishTarget)')." />
+    <ItemGroup>
+      <_FratakDroppedRuntimeFile Include="@(ResolvedFileToPublish)"
+                                 Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.RelativePath)', '$(_FratakOtherRuntimes)'))" />
+      <ResolvedFileToPublish Remove="@(_FratakDroppedRuntimeFile)" />
+    </ItemGroup>
+    <Message Importance="high" Text="Fratak publish target: $(FratakPublishTarget) (@(_FratakDroppedRuntimeFile->Count()) native files for other operating systems skipped)" />
+  </Target>
+
+  <!-- اطمینان دوم: هر فایلی از wwwroot/uploads یا App_Data که از مسیر دیگری (مثلاً دارایی‌های ثابت فشرده) به فهرست انتشار رسیده باشد. -->
+  <Target Name="FratakSkipLocalDataOnPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_FratakLocalDataFile Include="@(ResolvedFileToPublish)"
+                            Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.RelativePath)', '(?i)^(wwwroot[\\/]uploads|App_Data)[\\/]'))" />
+      <ResolvedFileToPublish Remove="@(_FratakLocalDataFile)" />
+    </ItemGroup>
+    <!-- دور ۳۰: pdb پروژه‌های Core/Data هم (از مسیر ارجاع پروژه) منتشر نمی‌شود. -->
+    <ItemGroup>
+      <_FratakSymbolFile Include="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'" />
+      <ResolvedFileToPublish Remove="@(_FratakSymbolFile)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
     <ProjectReference Include="..\Fratak-Shop.Core\Fratak-Shop.Core.csproj" />
+    <ProjectReference Include="..\Fratak-Shop.Data\Fratak-Shop.Data.csproj" />
   </ItemGroup>
 
 </Project>

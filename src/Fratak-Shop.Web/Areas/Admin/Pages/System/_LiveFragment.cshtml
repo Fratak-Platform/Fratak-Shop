@@ -1,0 +1,58 @@
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.LiveModel
+@{
+    var reqs = Model.Minutes.Sum(m => m.Requests);
+}
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">آنلاین</div><div class="a-stat-value">@Format.Number(Model.Visitors.Count)</div></div>
+  <div class="a-stat"><div class="a-stat-label">اعضای واردشده</div><div class="a-stat-value">@Format.Number(Model.Members)</div></div>
+  <div class="a-stat"><div class="a-stat-label">مهمان</div><div class="a-stat-value">@Format.Number(Model.Visitors.Count - Model.Members)</div></div>
+  <div class="a-stat"><div class="a-stat-label">درخواست در ۱۵ دقیقه</div><div class="a-stat-value">@Format.Number(reqs)</div><div class="a-stat-sub">کارکنان در پنل: @Model.Staff</div></div>
+</div>
+<div class="a-grid lg:grid-cols-3 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">صفحات پربازدید الان</span></div>
+    <ul class="divide-y divide-gray-100 text-sm">
+      @foreach (var (path, count) in Model.TopPages) { <li class="px-4 py-2 flex justify-between gap-2"><a class="a-link a-ltr truncate" href="@path" target="_blank" rel="noopener">@path</a><b>@count</b></li> }
+      @if (Model.TopPages.Count == 0) { <li class="a-empty">بازدیدکننده‌ای نیست.</li> }
+    </ul>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">دستگاه‌ها</span></div>
+    <ul class="divide-y divide-gray-100 text-sm">
+      @foreach (var (device, count) in Model.Devices) { <li class="px-4 py-2 flex justify-between gap-2"><span>@device</span><b>@count</b></li> }
+    </ul>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">منبع ورود</span></div>
+    <ul class="divide-y divide-gray-100 text-sm">
+      @foreach (var (source, count) in Model.Sources) { <li class="px-4 py-2 flex justify-between gap-2"><span class="a-ltr">@source</span><b>@count</b></li> }
+    </ul>
+  </div>
+</div>
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>بازدیدکننده</th><th>صفحه فعلی</th><th>دستگاه</th><th>IP</th><th>بازدید</th><th>ورود</th><th>آخرین فعالیت</th></tr></thead>
+      <tbody>
+        @foreach (var v in Model.Visitors)
+        {
+          <tr>
+            <td data-label="بازدیدکننده">
+              @if (v.UserId is not null && Model.Can(AdminPermissions.CustomersView)) { <a class="a-link" href="/admin/customers/@v.UserId">@(v.UserName ?? "عضو")</a> }
+              else if (v.UserId is not null) { <span>@(v.UserName ?? "عضو")</span> }
+              else { <span class="a-muted">مهمان</span> }
+              @if (v.IsStaffArea) { <span class="a-badge a-badge-purple">پنل</span> }
+            </td>
+            <td data-label="صفحه" class="a-ltr text-xs">@v.Path</td>
+            <td data-label="دستگاه" class="text-xs">@v.Device</td>
+            <td data-label="IP" class="a-ltr text-xs">@v.IpMasked</td>
+            <td data-label="بازدید" class="num">@v.PageViews</td>
+            <td data-label="ورود" class="nowrap text-xs">@AdminUi.Ago(v.FirstSeen)</td>
+            <td data-label="آخرین فعالیت" class="nowrap text-xs">@AdminUi.Ago(v.LastSeen)</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Visitors.Count == 0) { <div class="a-empty">در حال حاضر کسی آنلاین نیست.</div> }
+  </div>
+</div>

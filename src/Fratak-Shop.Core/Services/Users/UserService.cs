@@ -1,10 +1,12 @@
-using Fratak_Shop.Core.DTOs.Users.Command;
+﻿using Fratak_Shop.Core.DTOs.Users.Command;
 using Fratak_Shop.Core.DTOs.Users.Query;
 using Fratak_Shop.Core.Mappers.Users;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Notifications;
 using Fratak_Shop.Data.Entities.Users;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Fratak_Shop.Core.Services.Users;
 
@@ -12,9 +14,20 @@ namespace Fratak_Shop.Core.Services.Users;
 /// مدیریت کاربران: ثبت‌نام و ورود (Argon2id)، ویرایش اطلاعات، تغییر رمز عبور و
 /// لیست کاربران. رمز عبور هیچ‌گاه به‌صورت متن ساده ذخیره یا برگردانده نمی‌شود.
 /// </summary>
-public class UserService(FratakShopDbContext context) : IUserService
+public class UserService(FratakShopDbContext context, Events.IShopEvents events, IMemoryCache cache) : IUserService
 {
+    /// <summary>
+    /// مهر امنیتی کاربر عوض شد: نسخهٔ کش‌شدهٔ آن (که اعتبارسنجی JWT می‌خواند) فوراً پاک می‌شود تا توکن‌های قدیمی
+    /// همان لحظه رد شوند، نه تا ۲ دقیقهٔ بعد. هر جای این سرویس که SecurityStamp را عوض می‌کند باید این را صدا بزند.
+    /// </summary>
+    private void ForgetStamp(Guid userId) => cache.Remove(CacheKeys.SecurityStamp(userId));
+
     private const int MinimumPasswordLength = 6;
+    private const int MaxFailedLogins = 5;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
+    /// <summary>هش یک رمز تصادفی (یک بار در طول عمر برنامه ساخته می‌شود) فقط برای یکسان کردن زمان پاسخ ورود ناموفق.</summary>
+    private static readonly Lazy<string> TimingEqualizerHash = new(() => PasswordHasher.Hash(Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))));
 
     public async Task<OperationResult> CreateUserAsync(CreateUserCommand command)
     {
@@ -43,6 +56,7 @@ public class UserService(FratakShopDbContext context) : IUserService
             Role = command.Role,
             IsPhoneVerified = command.IsPhoneVerified,
             IsEmailVerified = command.IsEmailVerified,
+            SecurityStamp = PasswordHasher.NewSecurityStamp(),
         };
 
         context.Users.Add(user);
@@ -69,6 +83,10 @@ public class UserService(FratakShopDbContext context) : IUserService
         if (phoneExists)
             return OperationResult.Error("این شماره موبایل قبلاً توسط کاربر دیگری ثبت شده است.");
 
+        // Changing the login identity or the permissions signs the user out everywhere.
+        if (user.PhoneNumber != phoneNumber || user.Role != command.Role)
+            user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+
         user.PhoneNumber = phoneNumber;
         user.Email = command.Email?.Trim();
         user.FirstName = command.FirstName?.Trim();
@@ -78,8 +96,61 @@ public class UserService(FratakShopDbContext context) : IUserService
         user.IsEmailVerified = command.IsEmailVerified;
 
         await context.SaveChangesAsync();
+        ForgetStamp(user.Id);
 
         return OperationResult.Success("کاربر با موفقیت ویرایش شد.");
+    }
+
+    public async Task<OperationResult> UpdateProfileAsync(UpdateProfileCommand command)
+    {
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == command.UserId);
+        if (user is null)
+            return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
+
+        var email = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email.Trim();
+
+        if (email is not null && !email.IsValidEmail())
+            return OperationResult.Error("ایمیل وارد‌شده معتبر نیست.");
+
+        if (command.FirstName?.Trim().Length > 100 || command.LastName?.Trim().Length > 100)
+            return OperationResult.Error("نام و نام خانوادگی حداکثر ۱۰۰ کاراکتر هستند.");
+
+        // تغییر ایمیل، وضعیت تایید آن را باطل می‌کند.
+        if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+            user.IsEmailVerified = false;
+
+        user.FirstName = string.IsNullOrWhiteSpace(command.FirstName) ? null : command.FirstName.Trim();
+        user.LastName = string.IsNullOrWhiteSpace(command.LastName) ? null : command.LastName.Trim();
+        user.Email = email;
+
+        if (command.BirthDate.HasValue)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (command.BirthDate > today.AddYears(-5) || command.BirthDate < today.AddYears(-110))
+                return OperationResult.Error("تاریخ تولد معتبر نیست.");
+        }
+
+        user.BirthDate = command.BirthDate;
+
+        await context.SaveChangesAsync();
+        await events.ProfileUpdatedAsync(user.Id);
+
+        return OperationResult.Success("اطلاعات حساب کاربری با موفقیت ذخیره شد.");
+    }
+
+    public async Task<OperationResult> ConfirmPhoneAsync(Guid userId)
+    {
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        if (user is null)
+            return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
+
+        if (user.IsPhoneVerified)
+            return OperationResult.Success("شماره موبایل شما قبلاً تایید شده است.");
+
+        user.IsPhoneVerified = true;
+        await context.SaveChangesAsync();
+
+        return OperationResult.Success("شماره موبایل شما با موفقیت تایید شد.");
     }
 
     public async Task<OperationResult> DeleteUserAsync(Guid id)
@@ -91,6 +162,10 @@ public class UserService(FratakShopDbContext context) : IUserService
         // جلوگیری از قفل‌شدن پنل مدیریت با حذف آخرین سوپر ادمین.
         if (user.Role == UserRole.SuperAdmin)
             return OperationResult.Error("حساب سوپر ادمین قابل حذف نیست.");
+
+        // مرحلهٔ پانزدهم: مدیر اصلی تنظیمات سرور (حتی با دسترسی محدود) حذف نمی‌شود.
+        if (user.SystemAdminKey is not null)
+            return OperationResult.Error("حساب مدیر اصلی تعریف‌شده در تنظیمات سرور قابل حذف نیست.");
 
         context.Users.Remove(user);
         await context.SaveChangesAsync();
@@ -119,35 +194,263 @@ public class UserService(FratakShopDbContext context) : IUserService
             return OperationResult.Error("رمز عبور فعلی صحیح نیست.");
 
         user.PasswordHash = PasswordHasher.Hash(command.NewPassword);
+        user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+        user.FailedLoginCount = 0;
+        user.LockoutEndAt = null;
 
         await context.SaveChangesAsync();
+        ForgetStamp(user.Id);
+        await events.SecurityEventAsync(user.Id, NotificationEvent.PasswordChanged);
 
         return OperationResult.Success("رمز عبور با موفقیت تغییر کرد.");
     }
 
-    public async Task<UserDto?> LoginAsync(LoginCommand command)
+    // رمزهای بسیار رایجی که در «بازیابی رمز» پذیرفته نمی‌شوند (اولین حدس‌های هر حمله).
+    private static readonly HashSet<string> CommonPasswords = new(StringComparer.OrdinalIgnoreCase)
     {
-        if (string.IsNullOrWhiteSpace(command.PhoneNumber) || string.IsNullOrWhiteSpace(command.Password))
-            return null;
+        "123456", "1234567", "12345678", "123456789", "1234567890", "111111", "000000", "654321", "123123", "121212",
+        "password", "password1", "qwerty", "qwerty123", "abc123", "iloveyou", "a123456", "admin123",
+    };
+
+    /// <summary>
+    /// دور ۳۰: ایراد رمز تازه در «بازیابی رمز» (null = قبول). قانون‌ها: حداقل ۶ نویسه، رمزهای بسیار رایج نه، خود شماره موبایل نه،
+    /// یک نویسهٔ تکراری (مثل «aaaaaa») نه. مثال: PasswordProblem("09121234567", "123456") ← «این رمز بسیار رایج است …».
+    /// </summary>
+    public static string? PasswordProblem(string? phoneNumber, string? password)
+    {
+        var value = password?.Trim() ?? string.Empty;
+        if (value.Length < MinimumPasswordLength)
+            return $"رمز عبور جدید باید حداقل {MinimumPasswordLength} کاراکتر باشد.";
+        if (value.Length > 128)
+            return "رمز عبور خیلی طولانی است (حداکثر ۱۲۸ کاراکتر).";
+        if (CommonPasswords.Contains(value))
+            return "این رمز بسیار رایج است و به‌راحتی حدس زده می‌شود؛ رمز دیگری انتخاب کنید.";
+        if (!string.IsNullOrWhiteSpace(phoneNumber) && value.Contains(phoneNumber.Trim()[1..], StringComparison.Ordinal))
+            return "رمز عبور نباید شماره موبایل شما باشد.";
+        if (value.Distinct().Count() == 1)
+            return "رمز عبور نباید فقط از یک نویسهٔ تکراری ساخته شود.";
+        return null;
+    }
+
+    public async Task<bool> CanResetPasswordAsync(string phoneNumber)
+    {
+        var phone = phoneNumber?.Trim() ?? string.Empty;
+        if (!phone.IsValidMobile())
+            return false;
+        return await context.Users.AsNoTracking().AnyAsync(x => x.PhoneNumber == phone && !x.IsBlocked);
+    }
+
+    public async Task<OperationResult<Guid>> ResetPasswordAsync(string phoneNumber, string newPassword)
+    {
+        var phone = phoneNumber?.Trim() ?? string.Empty;
+        if (!phone.IsValidMobile())
+            return OperationResult<Guid>.Error("شماره موبایل معتبر نیست.");
+        if (PasswordProblem(phone, newPassword) is { } problem)
+            return OperationResult<Guid>.Error(problem);
+
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+        // پیام یکسان برای «حساب نیست» و «مسدود است»: صفحهٔ بازیابی نباید وجود حساب را لو بدهد.
+        if (user is null || user.IsBlocked)
+            return OperationResult<Guid>.Error("کد وارد شده صحیح نیست یا منقضی شده است.");
+
+        user.PasswordHash = PasswordHasher.Hash(newPassword);
+        user.SecurityStamp = PasswordHasher.NewSecurityStamp();
+        user.FailedLoginCount = 0;
+        user.LockoutEndAt = null;
+        // کد پیامکی ثابت کرد شماره مال همین شخص است.
+        user.IsPhoneVerified = true;
+
+        await context.SaveChangesAsync();
+        ForgetStamp(user.Id);
+        await events.SecurityEventAsync(user.Id, NotificationEvent.PasswordChanged);
+        return OperationResult<Guid>.Success(user.Id, "رمز عبور تازه ثبت شد؛ حالا با رمز جدید وارد شوید.");
+    }
+
+    public async Task<OperationResult> SetTwoFactorAsync(Guid userId, bool enabled)
+    {
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.Id == userId);
+        if (user is null)
+            return OperationResult.NotFound("کاربر مورد نظر یافت نشد.");
+
+        if (enabled && string.IsNullOrWhiteSpace(user.PasswordHash))
+            return OperationResult.Error("برای فعال‌سازی ورود دو مرحله‌ای ابتدا یک رمز عبور برای حساب خود تعیین کنید.");
+
+        if (enabled && !user.IsPhoneVerified)
+            return OperationResult.Error("برای فعال‌سازی ورود دو مرحله‌ای ابتدا شماره موبایل خود را تایید کنید.");
+
+        if (user.TwoFactorEnabled == enabled)
+            return OperationResult.Success(enabled ? "ورود دو مرحله‌ای از قبل فعال است." : "ورود دو مرحله‌ای از قبل غیرفعال است.");
+
+        user.TwoFactorEnabled = enabled;
+        await context.SaveChangesAsync();
+        await events.SecurityEventAsync(user.Id, enabled ? NotificationEvent.TwoFactorEnabled : NotificationEvent.TwoFactorDisabled);
+
+        return OperationResult.Success(enabled
+            ? "ورود دو مرحله‌ای فعال شد؛ از این پس پس از رمز عبور، کد پیامکی هم لازم است."
+            : "ورود دو مرحله‌ای غیرفعال شد.");
+    }
+
+    public const string BlockedMessage = "حساب کاربری شما مسدود شده است؛ برای پیگیری با پشتیبانی تماس بگیرید.";
+
+    public async Task<OperationResult<PhoneSignInResult>> SignInWithPhoneAsync(string phoneNumber, bool allowRegistration = true)
+    {
+        var phone = phoneNumber?.Trim() ?? string.Empty;
+        var error = Validate(phone, null, UserRole.Customer);
+        if (error is not null)
+            return OperationResult<PhoneSignInResult>.Error(error);
+
+        var now = DateTimeOffset.UtcNow;
+        var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+        var created = false;
+
+        if (user is null && !allowRegistration)
+            return OperationResult<PhoneSignInResult>.Error("حسابی با این شماره موبایل ثبت نشده است؛ ابتدا از فرم ثبت نام استفاده کنید.");
+
+        if (user is null)
+        {
+            // The one-time code proved the ownership of the number: passwordless account.
+            user = new User
+            {
+                PhoneNumber = phone,
+                Role = UserRole.Customer,
+                IsPhoneVerified = true,
+                SecurityStamp = PasswordHasher.NewSecurityStamp(),
+                LastLoginAt = now,
+            };
+            context.Users.Add(user);
+            created = true;
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Registered at the same moment by another request (unique phone number).
+                context.ChangeTracker.Clear();
+                user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+                if (user is null)
+                    return OperationResult<PhoneSignInResult>.Error("ورود انجام نشد؛ لطفاً دوباره تلاش کنید.");
+                created = false;
+            }
+        }
+
+        if (!created && user.IsBlocked)
+            return OperationResult<PhoneSignInResult>.Error(BlockedMessage);
+
+        if (!created)
+        {
+            user.IsPhoneVerified = true;
+            user.LastLoginAt = now;
+            user.FailedLoginCount = 0;
+            user.LockoutEndAt = null;
+            user.SecurityStamp ??= PasswordHasher.NewSecurityStamp();
+            await context.SaveChangesAsync();
+        }
+
+        return OperationResult<PhoneSignInResult>.Success(new PhoneSignInResult(user.Map(), created));
+    }
+
+    public async Task<OperationResult<UserDto>> LoginAsync(LoginCommand command)
+    {
+        const string invalidMessage = "شماره موبایل یا رمز عبور اشتباه است.";
+
+        if (string.IsNullOrWhiteSpace(command.PhoneNumber) || string.IsNullOrWhiteSpace(command.Password)
+            || command.Password.Length > 128)
+            return OperationResult<UserDto>.Error(invalidMessage);
 
         var phoneNumber = command.PhoneNumber.Trim();
+        var now = DateTimeOffset.UtcNow;
 
         var user = await context.Users.AsTracking().FirstOrDefaultAsync(x => x.PhoneNumber == phoneNumber);
+
+        // Accounts without a password (OTP sign-up) can't log in with a password.
+        if (user is null || string.IsNullOrWhiteSpace(user.PasswordHash))
+        {
+            // بررسی امنیتی دور ۸ (جلوگیری از شناسایی شماره‌های عضو با زمان پاسخ): هش Argon2 حدود چند صد میلی‌ثانیه
+            // طول می‌کشد؛ اگر برای شمارهٔ ناموجود فوراً جواب بدهیم، مهاجم از روی زمان پاسخ می‌فهمد کدام شماره‌ها
+            // عضو فروشگاه‌اند. پس همان کار را روی یک هش ساختگی انجام می‌دهیم تا زمان پاسخ یکسان شود.
+            PasswordHasher.Verify(command.Password, TimingEqualizerHash.Value);
+            return OperationResult<UserDto>.Error(invalidMessage);
+        }
+
+        if (user.LockoutEndAt > now)
+        {
+            var minutes = (int)Math.Ceiling((user.LockoutEndAt.Value - now).TotalMinutes);
+            return OperationResult<UserDto>.Error($"به دلیل تلاش‌های ناموفق متعدد، ورود به این حساب تا {minutes} دقیقه دیگر امکان‌پذیر نیست.");
+        }
+
+        if (!PasswordHasher.Verify(command.Password, user.PasswordHash))
+        {
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= MaxFailedLogins)
+            {
+                user.LockoutEndAt = now.Add(LockoutDuration);
+                user.FailedLoginCount = 0;
+            }
+
+            await context.SaveChangesAsync();
+            return OperationResult<UserDto>.Error(invalidMessage);
+        }
+
+        // Checked after the password, so a wrong guess never reveals that an account is blocked.
+        if (user.IsBlocked)
+            return OperationResult<UserDto>.Error(BlockedMessage);
+
+        user.FailedLoginCount = 0;
+        user.LockoutEndAt = null;
+        user.LastLoginAt = now;
+        user.SecurityStamp ??= PasswordHasher.NewSecurityStamp();
+        await context.SaveChangesAsync();
+
+        return OperationResult<UserDto>.Success(user.Map());
+    }
+
+    public async Task RecordLoginAsync(Guid userId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await context.Users
+            .Where(x => x.Id == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.LastLoginAt, now)
+                .SetProperty(x => x.FailedLoginCount, 0)
+                .SetProperty(x => x.LockoutEndAt, (DateTimeOffset?)null));
+    }
+
+    public async Task<string?> GetSecurityStampAsync(Guid userId)
+    {
+        var user = await context.Users
+            .Where(x => x.Id == userId)
+            .Select(x => new { x.SecurityStamp })
+            .FirstOrDefaultAsync();
+
         if (user is null)
             return null;
 
-        // کاربری که رمز عبور ثبت نکرده است (ورود با کد یک‌بارمصرف) با رمز وارد نمی‌شود؛
-        // PasswordHasher.Verify برای هش خالی مقدار true برمی‌گرداند و اینجا قابل استفاده نیست.
-        if (string.IsNullOrWhiteSpace(user.PasswordHash))
-            return null;
+        if (!string.IsNullOrEmpty(user.SecurityStamp))
+            return user.SecurityStamp;
 
-        if (!PasswordHasher.Verify(command.Password, user.PasswordHash))
-            return null;
+        // Users created before security stamps existed get one on first use.
+        var stamp = PasswordHasher.NewSecurityStamp();
+        await context.Users
+            .Where(x => x.Id == userId && x.SecurityStamp == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.SecurityStamp, stamp));
 
-        user.LastLoginAt = DateTimeOffset.UtcNow;
-        await context.SaveChangesAsync();
+        return await context.Users.Where(x => x.Id == userId).Select(x => x.SecurityStamp).FirstOrDefaultAsync();
+    }
 
-        return user.Map();
+    public async Task<string?> RotateSecurityStampAsync(Guid userId)
+    {
+        var stamp = PasswordHasher.NewSecurityStamp();
+        var now = DateTimeOffset.UtcNow;
+        var affected = await context.Users
+            .Where(x => x.Id == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.SecurityStamp, stamp)
+                .SetProperty(x => x.UpdatedAt, now));
+
+        ForgetStamp(userId);
+        return affected == 1 ? stamp : null;
     }
 
     public async Task<UserFilterResult> GetUsersByFilterAsync(UserFilterParams filterParams)

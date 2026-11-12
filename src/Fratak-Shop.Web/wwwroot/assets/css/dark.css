@@ -1,0 +1,279 @@
+/*
+ * Dark theme of the storefront (html.dark, toggled by /assets/js/theme.js).
+ * Colours follow the brand identity: surfaces are shades of the brand navy (#0B1927), accents the brand blue.
+ * The template uses literal light utility classes everywhere, so instead of adding dark:
+ * variants to every view this sheet remaps the colour utilities the storefront uses.
+ * :where() keeps the specificity equal to the utilities themselves (this file loads after
+ * output.css, so it wins over the plain classes while hover/focus variants still apply).
+ * Generated list – keep it in sync when new neutral/tint colour classes are introduced.
+ */
+html.dark { color-scheme: dark; }
+html.dark body { background-color: #0B1927; color: #C9D4E1; }
+:where(html.dark) *, :where(html.dark) ::before, :where(html.dark) ::after { border-color: #1D3349; }
+:where(html.dark) input, :where(html.dark) select, :where(html.dark) textarea { background-color: #102132; color: #E1E8F1; }
+:where(html.dark) input::placeholder, :where(html.dark) textarea::placeholder { color: #62738A; }
+:where(html.dark) hr { border-color: #1D3349; }
+/* Product photos are shot on white: soften them a little instead of glaring white boxes. */
+html.dark main img:not([src*=".svg"]) { filter: brightness(.92); }
+/* لوگوی برند: نسخهٔ سفید (logo-on-dark.svg) به‌جای نسخهٔ روشن. */
+html.dark .brand-logo-light { display: none; }
+html.dark .brand-logo-dark { display: block; }
+/* متن برند (بخش اول) روی زمینهٔ تیره همیشه سفید است تا خوانا بماند؛ بخش رنگی رنگ خودش را نگه می‌دارد. */
+html.dark .brand-text-main { color: #FFFFFF !important; }
+html.dark .prose-content { color: #C9D4E1; }
+html.dark .prose-content h2, html.dark .prose-content h3, html.dark .prose-content strong, html.dark .prose-content b { color: #F2F6FB; }
+html.dark .prose-content a { color: #66BEFF; }
+html.dark .prose-content blockquote { color: #93A3B8; border-color: #0047C7; }
+html.dark .shadow-lg, html.dark .shadow-md, html.dark .shadow-xl { --tw-shadow-color: rgb(0 0 0 / .45); }
+/* Leaflet tiles stay readable (they are light by nature). */
+html.dark .leaflet-container { filter: none; }
+html.dark .leaflet-container img { filter: brightness(.85) contrast(1.05); }
+
+:where(html.dark) .bg-white { background-color:#102132 }
+:where(html.dark) .bg-zinc-50,
+:where(html.dark) .bg-gray-50,
+:where(html.dark) .bg-\[\#fcfcfc\] { background-color:#13273A }
+:where(html.dark) .bg-zinc-100,
+:where(html.dark) .bg-gray-100 { background-color:#182E44 }
+:where(html.dark) .bg-zinc-200,
+:where(html.dark) .bg-gray-200 { background-color:#1E3750 }
+:where(html.dark) .bg-zinc-300,
+:where(html.dark) .bg-gray-300 { background-color:#26415D }
+:where(html.dark) .hover\:bg-zinc-50:hover,
+:where(html.dark) .hover\:bg-gray-50:hover,
+:where(html.dark) .hover\:bg-zinc-100:hover,
+:where(html.dark) .hover\:bg-gray-100:hover,
+:where(html.dark) .group:hover .group-hover\:bg-gray-100 { background-color:#182E44 }
+:where(html.dark) .hover\:bg-zinc-200:hover,
+:where(html.dark) .hover\:bg-gray-200:hover,
+:where(html.dark) .hover\:bg-gray-300:hover { background-color:#1E3750 }
+:where(html.dark) .hover\:bg-black\/5:hover { background-color:rgb(255 255 255 / .06) }
+:where(html.dark) .text-black,
+:where(html.dark) .text-zinc-900,
+:where(html.dark) .text-gray-900,
+:where(html.dark) .text-zinc-800,
+:where(html.dark) .text-gray-800,
+:where(html.dark) .hover\:text-zinc-900:hover,
+:where(html.dark) .hover\:text-gray-900:hover,
+:where(html.dark) .hover\:text-zinc-800:hover { color:#F2F6FB }
+:where(html.dark) .text-zinc-700,
+:where(html.dark) .text-gray-700,
+:where(html.dark) .hover\:text-zinc-700:hover { color:#E1E8F1 }
+:where(html.dark) .text-zinc-600,
+:where(html.dark) .text-gray-600,
+:where(html.dark) .hover\:text-zinc-600:hover,
+:where(html.dark) .hover\:text-gray-600:hover { color:#C9D4E1 }
+:where(html.dark) .text-zinc-500,
+:where(html.dark) .text-gray-500 { color:#93A3B8 }
+:where(html.dark) .text-zinc-400,
+:where(html.dark) .text-gray-400 { color:#7B8CA3 }
+:where(html.dark) .fill-black,
+:where(html.dark) .fill-zinc-800,
+:where(html.dark) .fill-zinc-700 { fill:#E1E8F1 }
+:where(html.dark) .fill-zinc-600,
+:where(html.dark) .fill-gray-600,
+:where(html.dark) .fill-zinc-500,
+:where(html.dark) .fill-gray-500 { fill:#93A3B8 }
+:where(html.dark) .fill-zinc-400,
+:where(html.dark) .fill-gray-400 { fill:#7B8CA3 }
+:where(html.dark) .border-gray-300,
+:where(html.dark) .border-zinc-300,
+:where(html.dark) .border-zinc-400,
+:where(html.dark) .border-gray-200,
+:where(html.dark) .border-zinc-200,
+:where(html.dark) .border-gray-100,
+:where(html.dark) .border-zinc-100,
+:where(html.dark) .divide-zinc-100,
+:where(html.dark) .divide-gray-100,
+:where(html.dark) .ring-zinc-200 { border-color:#22394F }
+:where(html.dark) .from-gray-200 { --tw-gradient-from:#182E44 var(--tw-gradient-from-position); --tw-gradient-to:rgb(24 46 68 / 0) var(--tw-gradient-to-position); --tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to) }
+:where(html.dark) .to-gray-300 { --tw-gradient-to:#26415D var(--tw-gradient-to-position) }
+:where(html.dark) .bg-sky-50,
+:where(html.dark) .bg-sky-50\/40,
+:where(html.dark) .bg-sky-50\/50,
+:where(html.dark) .bg-sky-50\/60,
+:where(html.dark) .hover\:bg-sky-50:hover,
+:where(html.dark) .hover\:bg-sky-50\/40:hover { background-color:rgb(1 155 255 / .10) }
+:where(html.dark) .bg-sky-100,
+:where(html.dark) .bg-sky-200,
+:where(html.dark) .hover\:bg-sky-100:hover { background-color:rgb(1 155 255 / .18) }
+:where(html.dark) .border-sky-50,
+:where(html.dark) .border-sky-100,
+:where(html.dark) .border-sky-200,
+:where(html.dark) .hover\:border-sky-200:hover { border-color:rgb(1 155 255 / .30) }
+:where(html.dark) .text-sky-700,
+:where(html.dark) .text-sky-800,
+:where(html.dark) .text-sky-900,
+:where(html.dark) .hover\:text-sky-700:hover { color:#85C4FF }
+/* آبی اصلی برند روی سرمه‌ای کم‌کنتراست است؛ متن‌ها و آیکون‌های آبی در حالت تیره کمی روشن‌تر می‌شوند (دکمه‌ها همان آبی برند). */
+:where(html.dark) .text-sky-500,
+:where(html.dark) .text-sky-600,
+:where(html.dark) .text-blue-500,
+:where(html.dark) .text-blue-600,
+:where(html.dark) .hover\:text-sky-500:hover,
+:where(html.dark) .hover\:text-sky-600:hover { color:#4DA3FF }
+:where(html.dark) .fill-sky-500,
+:where(html.dark) .fill-sky-600 { fill:#4DA3FF }
+:where(html.dark) .bg-red-50,
+:where(html.dark) .bg-red-50\/40,
+:where(html.dark) .bg-red-50\/50,
+:where(html.dark) .bg-red-50\/60,
+:where(html.dark) .hover\:bg-red-50:hover,
+:where(html.dark) .hover\:bg-red-50\/40:hover { background-color:rgb(239 68 68 / .10) }
+:where(html.dark) .bg-red-100,
+:where(html.dark) .bg-red-200,
+:where(html.dark) .hover\:bg-red-100:hover { background-color:rgb(239 68 68 / .18) }
+:where(html.dark) .border-red-50,
+:where(html.dark) .border-red-100,
+:where(html.dark) .border-red-200,
+:where(html.dark) .hover\:border-red-200:hover { border-color:rgb(239 68 68 / .30) }
+:where(html.dark) .text-red-700,
+:where(html.dark) .text-red-800,
+:where(html.dark) .text-red-900,
+:where(html.dark) .hover\:text-red-700:hover { color:#fca5a5 }
+:where(html.dark) .bg-green-50,
+:where(html.dark) .bg-green-50\/40,
+:where(html.dark) .bg-green-50\/50,
+:where(html.dark) .bg-green-50\/60,
+:where(html.dark) .hover\:bg-green-50:hover,
+:where(html.dark) .hover\:bg-green-50\/40:hover { background-color:rgb(34 197 94 / .10) }
+:where(html.dark) .bg-green-100,
+:where(html.dark) .bg-green-200,
+:where(html.dark) .hover\:bg-green-100:hover { background-color:rgb(34 197 94 / .18) }
+:where(html.dark) .border-green-50,
+:where(html.dark) .border-green-100,
+:where(html.dark) .border-green-200,
+:where(html.dark) .hover\:border-green-200:hover { border-color:rgb(34 197 94 / .30) }
+:where(html.dark) .text-green-700,
+:where(html.dark) .text-green-800,
+:where(html.dark) .text-green-900,
+:where(html.dark) .hover\:text-green-700:hover { color:#86efac }
+:where(html.dark) .bg-emerald-50,
+:where(html.dark) .bg-emerald-50\/40,
+:where(html.dark) .bg-emerald-50\/50,
+:where(html.dark) .bg-emerald-50\/60,
+:where(html.dark) .hover\:bg-emerald-50:hover,
+:where(html.dark) .hover\:bg-emerald-50\/40:hover { background-color:rgb(16 185 129 / .10) }
+:where(html.dark) .bg-emerald-100,
+:where(html.dark) .bg-emerald-200,
+:where(html.dark) .hover\:bg-emerald-100:hover { background-color:rgb(16 185 129 / .18) }
+:where(html.dark) .border-emerald-50,
+:where(html.dark) .border-emerald-100,
+:where(html.dark) .border-emerald-200,
+:where(html.dark) .hover\:border-emerald-200:hover { border-color:rgb(16 185 129 / .30) }
+:where(html.dark) .text-emerald-700,
+:where(html.dark) .text-emerald-800,
+:where(html.dark) .text-emerald-900,
+:where(html.dark) .hover\:text-emerald-700:hover { color:#6ee7b7 }
+:where(html.dark) .bg-amber-50,
+:where(html.dark) .bg-amber-50\/40,
+:where(html.dark) .bg-amber-50\/50,
+:where(html.dark) .bg-amber-50\/60,
+:where(html.dark) .hover\:bg-amber-50:hover,
+:where(html.dark) .hover\:bg-amber-50\/40:hover { background-color:rgb(245 158 11 / .10) }
+:where(html.dark) .bg-amber-100,
+:where(html.dark) .bg-amber-200,
+:where(html.dark) .hover\:bg-amber-100:hover { background-color:rgb(245 158 11 / .18) }
+:where(html.dark) .border-amber-50,
+:where(html.dark) .border-amber-100,
+:where(html.dark) .border-amber-200,
+:where(html.dark) .hover\:border-amber-200:hover { border-color:rgb(245 158 11 / .30) }
+:where(html.dark) .text-amber-700,
+:where(html.dark) .text-amber-800,
+:where(html.dark) .text-amber-900,
+:where(html.dark) .hover\:text-amber-700:hover { color:#fcd34d }
+:where(html.dark) .bg-yellow-50,
+:where(html.dark) .bg-yellow-50\/40,
+:where(html.dark) .bg-yellow-50\/50,
+:where(html.dark) .bg-yellow-50\/60,
+:where(html.dark) .hover\:bg-yellow-50:hover,
+:where(html.dark) .hover\:bg-yellow-50\/40:hover { background-color:rgb(234 179 8 / .10) }
+:where(html.dark) .bg-yellow-100,
+:where(html.dark) .bg-yellow-200,
+:where(html.dark) .hover\:bg-yellow-100:hover { background-color:rgb(234 179 8 / .18) }
+:where(html.dark) .border-yellow-50,
+:where(html.dark) .border-yellow-100,
+:where(html.dark) .border-yellow-200,
+:where(html.dark) .hover\:border-yellow-200:hover { border-color:rgb(234 179 8 / .30) }
+:where(html.dark) .text-yellow-700,
+:where(html.dark) .text-yellow-800,
+:where(html.dark) .text-yellow-900,
+:where(html.dark) .hover\:text-yellow-700:hover { color:#fde047 }
+:where(html.dark) .bg-rose-50,
+:where(html.dark) .bg-rose-50\/40,
+:where(html.dark) .bg-rose-50\/50,
+:where(html.dark) .bg-rose-50\/60,
+:where(html.dark) .hover\:bg-rose-50:hover,
+:where(html.dark) .hover\:bg-rose-50\/40:hover { background-color:rgb(244 63 94 / .10) }
+:where(html.dark) .bg-rose-100,
+:where(html.dark) .bg-rose-200,
+:where(html.dark) .hover\:bg-rose-100:hover { background-color:rgb(244 63 94 / .18) }
+:where(html.dark) .border-rose-50,
+:where(html.dark) .border-rose-100,
+:where(html.dark) .border-rose-200,
+:where(html.dark) .hover\:border-rose-200:hover { border-color:rgb(244 63 94 / .30) }
+:where(html.dark) .text-rose-700,
+:where(html.dark) .text-rose-800,
+:where(html.dark) .text-rose-900,
+:where(html.dark) .hover\:text-rose-700:hover { color:#fda4af }
+:where(html.dark) .bg-violet-50,
+:where(html.dark) .bg-violet-50\/40,
+:where(html.dark) .bg-violet-50\/50,
+:where(html.dark) .bg-violet-50\/60,
+:where(html.dark) .hover\:bg-violet-50:hover,
+:where(html.dark) .hover\:bg-violet-50\/40:hover { background-color:rgb(139 92 246 / .10) }
+:where(html.dark) .bg-violet-100,
+:where(html.dark) .bg-violet-200,
+:where(html.dark) .hover\:bg-violet-100:hover { background-color:rgb(139 92 246 / .18) }
+:where(html.dark) .border-violet-50,
+:where(html.dark) .border-violet-100,
+:where(html.dark) .border-violet-200,
+:where(html.dark) .hover\:border-violet-200:hover { border-color:rgb(139 92 246 / .30) }
+:where(html.dark) .text-violet-700,
+:where(html.dark) .text-violet-800,
+:where(html.dark) .text-violet-900,
+:where(html.dark) .hover\:text-violet-700:hover { color:#c4b5fd }
+:where(html.dark) .bg-blue-50,
+:where(html.dark) .bg-blue-50\/40,
+:where(html.dark) .bg-blue-50\/50,
+:where(html.dark) .bg-blue-50\/60,
+:where(html.dark) .hover\:bg-blue-50:hover,
+:where(html.dark) .hover\:bg-blue-50\/40:hover { background-color:rgb(0 105 253 / .10) }
+:where(html.dark) .bg-blue-100,
+:where(html.dark) .bg-blue-200,
+:where(html.dark) .hover\:bg-blue-100:hover { background-color:rgb(0 105 253 / .18) }
+:where(html.dark) .border-blue-50,
+:where(html.dark) .border-blue-100,
+:where(html.dark) .border-blue-200,
+:where(html.dark) .hover\:border-blue-200:hover { border-color:rgb(0 105 253 / .30) }
+:where(html.dark) .text-blue-700,
+:where(html.dark) .text-blue-800,
+:where(html.dark) .text-blue-900,
+:where(html.dark) .hover\:text-blue-700:hover { color:#A6D9FF }
+:where(html.dark) .bg-orange-50,
+:where(html.dark) .bg-orange-50\/40,
+:where(html.dark) .bg-orange-50\/50,
+:where(html.dark) .bg-orange-50\/60,
+:where(html.dark) .hover\:bg-orange-50:hover,
+:where(html.dark) .hover\:bg-orange-50\/40:hover { background-color:rgb(249 115 22 / .10) }
+:where(html.dark) .bg-orange-100,
+:where(html.dark) .bg-orange-200,
+:where(html.dark) .hover\:bg-orange-100:hover { background-color:rgb(249 115 22 / .18) }
+:where(html.dark) .border-orange-50,
+:where(html.dark) .border-orange-100,
+:where(html.dark) .border-orange-200,
+:where(html.dark) .hover\:border-orange-200:hover { border-color:rgb(249 115 22 / .30) }
+:where(html.dark) .text-orange-700,
+:where(html.dark) .text-orange-800,
+:where(html.dark) .text-orange-900,
+:where(html.dark) .hover\:text-orange-700:hover { color:#fdba74 }
+html.dark .swiper-button-next, html.dark .swiper-button-prev { background-color: #182E44; border-color: #26415D; }
+html.dark .swiper-button-next:after, html.dark .swiper-button-prev:after { color: #C9D4E1; }
+@media print { html.dark body { background: #fff; color: #000; } }
+/* Theme toggle: show the icon of the current mode. */
+[data-theme-toggle] .ti { display: none; }
+html:not([data-theme-mode]) [data-theme-toggle] .ti-light,
+html[data-theme-mode="light"] [data-theme-toggle] .ti-light,
+html[data-theme-mode="dark"] [data-theme-toggle] .ti-dark,
+html[data-theme-mode="system"] [data-theme-toggle] .ti-system { display: inline-flex; }
+html.dark [data-theme-toggle] { color: #E1E8F1; fill: #E1E8F1; }

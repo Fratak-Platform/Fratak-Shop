@@ -1,0 +1,37 @@
+@model ProductFilterData
+@{
+    var url = $"/product/{Model.Slug}";
+}
+<div class="card swiper-slide relative my-2 p-2 md:p-3 bg-white rounded-xl group shadow-lg border border-zinc-200">
+  @if (Model.AverageRating > 0)
+  {
+    <div class="absolute left-3 text-gray-600 opacity-0 group-hover:opacity-100 transition-all text-xs md:text-sm flex flex-col items-center">
+      @Icons.Svg("StarOutline", "fill-yellow-500 size-4 md:size-6", 24)
+      @Model.AverageRating.ToString("0.0")
+    </div>
+  }
+  @if (Model.DiscountPercent > 0)
+  {
+    <span class="absolute right-3 top-3 bg-red-500 text-white rounded-full text-xs px-2 py-1 z-10">@Model.DiscountPercent%</span>
+  }
+  <a href="@url" class="block">
+    <img class="w-full fs-pimg" src="@ImageHelper.Product(Model.PrimaryImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(Model.PrimaryImageName), Site.Settings.IsImageOptimizationEnabled, 640)" sizes="(min-width: 768px) 240px, 45vw" alt="@(Model.PrimaryImageAlt ?? Model.Name)" loading="lazy" decoding="async">
+  </a>
+  <div class="my-5">
+    <div class="flex flex-col gap-y-1">
+      <a href="@url" class="text-zinc-700 text-sm md:text-base line-clamp-2 h-12">
+        @Model.Name
+      </a>
+      @if (Model.HasActiveDiscount)
+      {
+        <div class="text-xs text-gray-400 line-through">@Format.Price(Model.Price)</div>
+      }
+      <div class="text-blue-800 text-base md:text-lg">
+        @Format.Toman(Model.FinalPrice)
+      </div>
+    </div>
+  </div>
+  <a href="@url" class="w-full block text-center p-2 rounded-lg shadow-lg bg-blue-500 hover:bg-blue-400 text-white transition">
+    @(Model.IsInStock ? "مشاهده و خرید" : "ناموجود - مشاهده")
+  </a>
+</div>

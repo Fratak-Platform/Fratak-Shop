@@ -1,0 +1,157 @@
+@page "/admin/smart/assistant"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.AssistantModel
+@using Fratak_Shop.Core.Services.Seo.Engine
+@* دور ۲۳: گزارش دستیار فروشگاه – پرسش‌های پرتکرار، کالاهای درخواستی، مشکل کالاها و پیام‌های بی‌جواب. *@
+@{
+    ViewData["Title"] = "دستیار فروشگاه";
+    var r = Model.Report;
+    var percent = r.Total == 0 ? 0 : r.Answered * 100 / r.Total;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>دستیار فروشگاه</h2>
+    <p class="a-muted text-sm mt-1">چت‌بات پایین همهٔ صفحه‌های فروشگاه، بدون هوش مصنوعی پولی: از روی کالاها، دسته‌ها، مقاله‌ها، پرسش‌های متداول و سفارش‌های خود مشتری جواب می‌دهد،
+      کالا به سبد اضافه می‌کند و تا صفحهٔ پرداخت راهنمایی می‌کند (پرداخت را خود مشتری می‌زند). این صفحه نشان می‌دهد مشتری‌ها چه می‌پرسند و چه چیزی کم است.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/handoffs">گفت‌وگوهای کارشناس</a>
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant/teach">آموزش دستیار</a>
+    @foreach (var d in new[] { 7, 30, 90 })
+    {
+      <a class="a-btn @(Model.Days == d ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/smart/assistant?days=@d">@PersianText.Digits(d) روز</a>
+    }
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">پیام‌ها</div><div class="a-stat-value">@PersianText.Digits(r.Total)</div></div>
+  <div class="a-stat"><div class="a-stat-label">گفت‌وگوها</div><div class="a-stat-value">@PersianText.Digits(r.Sessions)</div></div>
+  <div class="a-stat"><div class="a-stat-label">پاسخ از دادهٔ فروشگاه</div><div class="a-stat-value">@PersianText.Digits(percent)٪</div></div>
+  <div class="a-stat"><div class="a-stat-label">کالاهای درخواستی</div><div class="a-stat-value">@PersianText.Digits(r.Demands.Sum(d => d.Count))</div></div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">کالاهای درخواستی که نداریم</h3></div>
+    @if (r.Demands.Count == 0)
+    {
+      <div class="a-empty">هنوز درخواستی ثبت نشده.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>عبارت</th><th>تعداد</th><th>آخرین بار</th></tr></thead>
+          <tbody>
+            @foreach (var d in r.Demands)
+            {
+              <tr>
+                <td data-label="عبارت">@d.Query</td>
+                <td data-label="تعداد">@PersianText.Digits(d.Count)</td>
+                <td data-label="آخرین بار">@AdminUi.Ago(d.Last)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head">
+      <h3 class="a-card-title">مشکل کالاها (پرسش بی‌جواب)</h3>
+      @if (Model.CanFeed && r.Gaps.Count > 0)
+      {
+        <form method="post" asp-page-handler="Feed" class="inline"><button class="a-btn a-btn-sm a-btn-primary" type="submit">تکمیل خودکار مشخصات</button></form>
+      }
+    </div>
+    @if (r.Gaps.Count == 0)
+    {
+      <div class="a-empty">همهٔ پرسش‌های کالاها از اطلاعات فروشگاه جواب گرفته‌اند.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>کالا</th><th>موضوع</th><th>تعداد</th></tr></thead>
+          <tbody>
+            @foreach (var g in r.Gaps)
+            {
+              <tr>
+                <td data-label="کالا"><a class="text-sky-700" href="/admin/smart/product/@g.ProductId">@g.ProductName</a></td>
+                <td data-label="موضوع">@(g.Topic ?? "—")</td>
+                <td data-label="تعداد">@PersianText.Digits(g.Count)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="a-muted text-xs p-3">کالایی که ۲ پرسش بی‌جواب داشته باشد خودکار به صف «دریافت مشخصات» می‌رود؛ مشخصات تأییدشده در جواب‌های بعدی دستیار و پرسش‌های متداول کالا استفاده می‌شود.</p>
+    }
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">پرسش‌های پرتکرار</h3><a class="a-btn a-btn-sm a-btn-light" href="/admin/manage/faq-items">پرسش‌های متداول سایت</a></div>
+    @if (r.Questions.Count == 0 && r.Topics.Count == 0)
+    {
+      <div class="a-empty">هنوز پرسش تکراری‌ای نیست.</div>
+    }
+    else
+    {
+      <div class="a-card-body">
+        @if (r.Topics.Count > 0)
+        {
+          <div class="flex flex-wrap gap-2 mb-3">
+            @foreach (var t in r.Topics)
+            {
+              <span class="a-badge a-badge-sky">@t.Key: @PersianText.Digits(t.Count)</span>
+            }
+          </div>
+        }
+        <ul class="text-sm leading-7">
+          @foreach (var q in r.Questions)
+          {
+            <li>«@q.Key» <span class="a-muted">(@PersianText.Digits(q.Count) بار)</span></li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">پیام‌های بی‌جواب اخیر</h3></div>
+    @if (r.Unknown.Count == 0)
+    {
+      <div class="a-empty">پیام بی‌جوابی نیست.</div>
+    }
+    else
+    {
+      <ul class="a-card-body text-sm leading-7">
+        @foreach (var u in r.Unknown)
+        {
+          <li>«@u.Text» <span class="a-muted">– @AssistantModel_Intent(u.Intent) · @AdminUi.Ago(u.At)</span></li>
+        }
+      </ul>
+    }
+  </div>
+</div>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><h3 class="a-card-title">نوع پیام‌ها</h3></div>
+  <div class="a-card-body flex flex-wrap gap-2">
+    @if (r.Intents.Count == 0)
+    {
+      <span class="a-muted text-sm">هنوز پیامی نیامده.</span>
+    }
+    @foreach (var i in r.Intents)
+    {
+      <span class="a-badge a-badge-gray">@Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.AssistantModel.IntentTitle(i.Key): @PersianText.Digits(i.Count)</span>
+    }
+  </div>
+</div>
+
+@functions {
+    private static string AssistantModel_Intent(Fratak_Shop.Data.Entities.Assistant.AssistantIntent intent) =>
+        Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.AssistantModel.IntentTitle(intent);
+}

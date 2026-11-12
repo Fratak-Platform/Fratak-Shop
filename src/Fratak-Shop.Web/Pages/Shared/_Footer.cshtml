@@ -1,61 +1,178 @@
+@{
+    var settings = Site.Settings;
+    const string linkClass = "text-gray-500 hover:text-blue-600 transition flex items-center gap-x-1 group w-fit text-[13px] md:text-base leading-6";
+    const string headingClass = "text-sky-500 mb-3 md:mb-4 text-[15px] md:text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2";
+    var socials = new (string? Url, string Icon, string Title)[]
+    {
+        (settings.InstagramUrl, "Instagram", "اینستاگرام"),
+        (settings.TelegramUrl, "Telegram", "تلگرام"),
+        (settings.WhatsAppUrl, "WhatsApp", "واتساپ"),
+        (settings.LinkedinUrl, "Linkedin", "لینکدین"),
+        (settings.TwitterUrl, "XLogo", "ایکس"),
+        (settings.YoutubeUrl, "Youtube", "یوتیوب"),
+        (settings.AparatUrl, "PlayCircle", "آپارات"),
+    };
+    var activeSocials = socials.Where(s => UrlSafety.IsHttpUrl(s.Url)).ToList();
+    var footerMenus = Site.Menus.Where(m => m.Location == Fratak_Shop.Data.Entities.Contents.MenuLocation.Footer && m.Items.Count > 0).ToList();
+    var columns = footerMenus.Count + 1 + (Site.TrustBadges.Count > 0 ? 1 : 0);
+    var footerBrand = Site.BrandFor(BrandPlace.Footer);
+}
 <footer class="mt-44 relative flex justify-center">
     <div class="flex flex-col md:flex-row gap-y-7 justify-between md:items-center px-10 py-14 absolute mx-auto -top-32 bg-blue-600 w-11/12 rounded-2xl">
       <div class="flex flex-col gap-y-5">
         <p class="text-2xl text-center md:text-right md:text-4xl font-semibold text-gray-50">
-          بهترین خرید رو تجربه کن!
+          @(settings.FooterTitle ?? settings.Tagline ?? settings.SiteName)
         </p>
-        <p class="text-lg text-center md:text-xl text-gray-100">
-          به مشتریان خود خدمات شگفت انگیزی ارائه می دهیم.
-        </p>
+        @if (!string.IsNullOrWhiteSpace(settings.FooterSubtitle))
+        {
+          <p class="text-lg text-center md:text-xl text-gray-100">@settings.FooterSubtitle</p>
+        }
       </div>
       <div class="md:w-6/12">
-        <p class="text-sm leading-7 md:text-lg text-gray-50">
-          برای داشتن مشتریان همیشه راضی، کنترل کیفی دقیق لازم داریم. ارتباط عالی با مشتریان یکی از ویژگی های ماست. ما دائما درحال بررسی کیفیت محصولات هستیم تا مشتریانمان بهترین خدمات را دریافت کنند.
-        </p>
-        <button class="text-gray-800 bg-white px-3 py-2 mt-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
-          مشاهده محصولات
-        </button>
+        @if (!string.IsNullOrWhiteSpace(settings.FooterText))
+        {
+          <p class="text-sm leading-7 md:text-lg text-gray-50">@settings.FooterText</p>
+        }
+        <a href="@UrlSafety.Link(settings.FooterButtonUrl, "/products")" class="inline-block text-gray-800 bg-white px-3 py-2 mt-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
+          @(string.IsNullOrWhiteSpace(settings.FooterButtonText) ? "مشاهده محصولات" : settings.FooterButtonText)
+        </a>
       </div>
     </div>
     <div class="bg-zinc-950 pt-80 lg:pt-40 w-full pb-20 md:pb-0">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-y-7 lg:grid-cols-3 px-10">
-        <div class="flex flex-col md:items-center">
-          <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
-            دسترسی سریع
-          </div>
-          <div class="">
-            <ul class="flex flex-col gap-y-4">
-              @foreach (var item in SampleData.FooterLinks) {<li>
-                @Html.Raw(item.LinkHtml)
-                </a>
-              </li>
+      @* مرحلهٔ دوازدهم: لوگوی فوتر (محل «فوتر سایت» در استودیوی لوگو؛ قابل خاموش کردن) + معرفی کوتاه فروشگاه. *@
+      @if (footerBrand.Visible)
+      {
+        <div class="flex flex-col md:flex-row items-center gap-4 md:gap-8 px-5 md:px-10 pb-8 md:pb-10 mb-8 md:mb-10 border-b border-zinc-800">
+          <a asp-page="/Index" class="shrink-0" aria-label="@settings.SiteName">@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Footer))</a>
+          @if (!string.IsNullOrWhiteSpace(settings.SiteDescription))
+          {
+            <p class="text-zinc-500 text-sm leading-7 text-center md:text-right">@settings.SiteDescription</p>
+          }
+        </div>
+      }
+      @if (Site.Features.Count > 0)
+      {
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 px-5 md:px-10 pb-8 md:pb-10 mb-8 md:mb-10 border-b border-zinc-800">
+          @foreach (var feature in Site.Features)
+          {
+            <div class="flex flex-col sm:flex-row items-center sm:items-center text-center sm:text-right gap-2 sm:gap-x-3">
+              <span class="shrink-0 rounded-full bg-zinc-900 p-2.5 md:p-3 text-sky-500">
+                @Icons.Svg(Icons.Has(feature.IconKey) ? feature.IconKey! : "CheckCircle", "fill-sky-500", 24)
+              </span>
+              <div>
+                <p class="text-zinc-200 text-sm font-semibold">@feature.Title</p>
+                @if (!string.IsNullOrWhiteSpace(feature.Description))
+                {
+                  <p class="text-zinc-500 text-xs mt-1 leading-5">@feature.Description</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+      @* Mobile: two link sections per row; contact details and badges take a full row. *@
+      <div class="grid grid-cols-2 gap-y-8 gap-x-4 md:gap-x-5 px-5 md:px-10 @(columns >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "lg:grid-cols-4")">
+        @foreach (var menu in footerMenus)
+        {
+          <nav class="flex flex-col min-w-0" aria-label="@menu.Title">
+            <div class="@headingClass">
+              @menu.Title
+            </div>
+            <ul class="flex flex-col gap-y-2.5 md:gap-y-4">
+              @foreach (var item in menu.Items)
+              {
+                var href = UrlSafety.Link(item.Url);
+                <li>
+                  <a class="@linkClass" href="@href" target="@(item.OpenInNewTab ? "_blank" : null)" rel="@(item.OpenInNewTab || UrlSafety.IsExternal(href) ? "noopener" : null)">
+                    @Icons.Svg("ChevronLeft", "group-hover:fill-blue-600 fill-gray-500", 14)
+                    @item.Title
+                    @if (!string.IsNullOrWhiteSpace(item.BadgeText))
+                    {
+                      <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] leading-none text-white">@item.BadgeText</span>
+                    }
+                  </a>
+                </li>
               }
             </ul>
-          </div>
-        </div>
-        <div class="flex flex-col">
-          <div class="text-sky-500 mb-4 text-lg font-bold border-t-2 border-t-sky-700 w-fit pt-2">
+          </nav>
+        }
+        <div class="col-span-2 md:col-span-1 flex flex-col rounded-2xl bg-zinc-900/60 p-4 md:bg-transparent md:p-0">
+          <div class="@headingClass">
             راه های ارتباطی
           </div>
-          <div>
-            <ul class="flex flex-col gap-y-4">
-              @foreach (var item in SampleData.FooterContacts) {<li>
-                <a class="text-gray-500 hover:text-blue-600 transition flex items-center gap-x-1 group w-fit" href="">
-                  <svg class="group-hover:fill-blue-600 fill-gray-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="" viewBox="0 0 256 256">@Html.Raw(item.IconHtml)</path></svg>
-                @item.Text
+          <ul class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-y-3 gap-x-4 md:gap-y-4">
+            @if (!string.IsNullOrWhiteSpace(settings.SupportPhone))
+            {
+              <li>
+                <a class="@linkClass" href="tel:@settings.SupportPhone" dir="ltr">
+                  @Icons.Svg("Phone", "group-hover:fill-blue-600 fill-gray-500")
+                  @settings.SupportPhone
                 </a>
               </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings.SupportEmail))
+            {
+              <li>
+                <a class="@linkClass" href="mailto:@settings.SupportEmail">
+                  @Icons.Svg("Envelope", "group-hover:fill-blue-600 fill-gray-500")
+                  @settings.SupportEmail
+                </a>
+              </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings.Address))
+            {
+              <li>
+                <span class="@linkClass">
+                  @Icons.Svg("MapPin", "group-hover:fill-blue-600 fill-gray-500 shrink-0")
+                  @settings.Address
+                </span>
+              </li>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings.WorkingHours))
+            {
+              <li>
+                <span class="@linkClass">
+                  @Icons.Svg("Clock", "group-hover:fill-blue-600 fill-gray-500")
+                  @settings.WorkingHours
+                </span>
+              </li>
+            }
+          </ul>
+          @if (activeSocials.Count > 0)
+          {
+            <div class="flex flex-wrap gap-2 mt-5">
+              @foreach (var social in activeSocials)
+              {
+                <a href="@social.Url" target="_blank" rel="noopener noreferrer me" title="@social.Title" aria-label="@social.Title"
+                   class="rounded-full bg-zinc-900 p-2 text-zinc-400 hover:text-sky-500 transition">
+                  @Icons.Svg(social.Icon, "fill-current", 22)
+                </a>
               }
-            </ul>
+            </div>
+          }
+        </div>
+        @if (Site.TrustBadges.Count > 0)
+        {
+          <div class="col-span-2 md:col-span-1 flex flex-wrap justify-center lg:justify-end gap-4 md:gap-5">
+            @foreach (var badge in Site.TrustBadges)
+            {
+              if (UrlSafety.IsHttpUrl(badge.LinkUrl))
+              {
+                @* دور ۲۴: اینماد/ساماندهی دامنه را از «ارجاع‌دهنده» تأیید می‌کنند؛ پس noreferrer نه، و referrerpolicy=origin. *@
+                <a href="@badge.LinkUrl" target="_blank" rel="noopener" referrerpolicy="origin" title="@badge.Title">
+                  <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128" referrerpolicy="origin">
+                </a>
+              }
+              else
+              {
+                <img class="max-w-32 h-fit bg-white rounded-xl" src="@Url.Content(badge.ImageUrl)" alt="@badge.Title" loading="lazy" width="128" height="128" referrerpolicy="origin">
+              }
+            }
           </div>
-        </div>
-        <div class="flex justify-center gap-x-5">
-          <img class="max-w-32 h-fit bg-white rounded-xl" src="~/assets/image/service/symbol-01.png" alt="">
-          <img class="max-w-32 h-fit bg-white rounded-xl" src="~/assets/image/service/symbol-02.png" alt="">
-        </div>
+        }
       </div>
-      <div class="mt-5 border-t w-full text-xs text-zinc-500 pr-5 py-5">
-        تمامی حقوق توسط امیررضا کریمی محفوظ است.
+      <div class="mt-8 md:mt-5 border-t border-zinc-800 w-full text-center md:text-right text-xs text-zinc-500 px-5 py-5">
+        @(settings.CopyrightText ?? $"تمامی حقوق برای {settings.SiteName} محفوظ است.") © @Format.Year(DateTimeOffset.UtcNow)
       </div>
     </div>
   </footer>

@@ -1,0 +1,318 @@
+@page "/admin/seo/review"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.ReviewModel
+@using Fratak_Shop.Core.Services.Seo.Engine
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  بررسی پیشنهادهای موتور سئو (مرحلهٔ هفتم – فاز ۸).
+  هر کارت = یک پیشنهاد برای یک صفحه. برای هر بخش: «فعلی» (قرمز) و «پیشنهادی» (سبز) کنار هم.
+  • تیک هر بخش = آن بخش با «تأیید» اعمال می‌شود (فرم approve-{id}؛ چک‌باکس‌ها با ویژگی form به آن وصل‌اند).
+  • «رد و ساخت نسخهٔ تازه»: بخش‌های بد و دلیل؛ نسخهٔ بعدی متن ردشده را تکرار نمی‌کند.
+  • تأیید گروهی: چک‌باکس کنار عنوان هر کارت + دکمهٔ بالای صفحه (فرم bulk-form).
+  بدون جاوااسکریپت کار می‌کند (CSP)؛ دلیل‌های آماده با datalist پیشنهاد می‌شوند.
+*@
+@{
+    ViewData["Title"] = "بررسی پیشنهادهای سئو";
+    var pending = Model.Status == "pending";
+    var tabs = new (string Key, string Title)[] { ("pending", "منتظر بررسی"), ("applied", "اعمال‌شده"), ("rejected", "ردشده"), ("other", "کهنه/جایگزین‌شده") };
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>بررسی پیشنهادهای سئو</h2>
+    <p class="a-muted text-sm mt-1">
+      پیشنهادها به ترتیب بیشترین اثر روی نمره مرتب شده‌اند. بخش‌هایی را که درست می‌دانید تیک بزنید و «تأیید» کنید؛
+      برای بقیه «رد» بزنید و دلیل بنویسید تا نسخهٔ تازه ساخته شود.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/seo/engine">@Icons.Svg("MagicWand", null, 18) داشبورد موتور</a>
+    @* دور ۳۱ (#۱۳): حذف همهٔ پیشنهادهای «منتظر تأیید» (با فیلتر نوع، فقط همان نوع)؛ اعمال‌شده/ردشده و خود صفحه‌ها دست نمی‌خورند. *@
+    @if (Model.Counts.GetValueOrDefault("pending") > 0)
+    {
+      var scope = Model.Kind is { } selectedKind ? "«" + SeoEngineUi.KindTitle(selectedKind) + "»" : "همهٔ صفحه‌ها";
+      <form method="post" asp-page-handler="DeletePending" data-confirm="همهٔ پیشنهادهای منتظر تأیید @scope حذف شوند؟ پیشنهادهای اعمال‌شده و ردشده و محتوای صفحه‌ها دست نمی‌خورند و موتور در اجرای بعدی پیشنهاد تازه می‌سازد.">
+        @if (Model.Kind is { } k) { <input type="hidden" name="kind" value="@k"> }
+        <button type="submit" class="a-btn a-btn-danger-soft">@Icons.Svg("Trash", null, 18) حذف همهٔ پیشنهادهای منتظر</button>
+      </form>
+    }
+  </div>
+</div>
+
+<nav class="a-tabs mb-4" aria-label="وضعیت">
+  @foreach (var tab in tabs)
+  {
+    <a class="a-tab @(Model.Status == tab.Key ? "is-active" : "")" href="/admin/seo/review?status=@tab.Key">
+      @tab.Title <span class="a-badge @(tab.Key == "pending" ? "a-badge-sky" : "a-badge-gray")">@Format.Number(Model.Counts.GetValueOrDefault(tab.Key))</span>
+    </a>
+  }
+</nav>
+
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <form method="get" class="a-filters">
+      <input type="hidden" name="status" value="@Model.Status">
+      <div>
+        <label class="a-label" for="f-q">جست‌وجو</label>
+        <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام صفحه یا آدرس">
+      </div>
+      <div>
+        <label class="a-label" for="f-kind">نوع</label>
+        <select id="f-kind" name="kind" class="a-input">
+          <option value="">همه</option>
+          @foreach (var kind in Enum.GetValues<SeoEntityKind>())
+          {
+            <option value="@kind" selected="@(Model.Kind == kind ? "selected" : null)">@SeoEngineUi.KindTitle(kind)</option>
+          }
+        </select>
+      </div>
+      <div class="a-filters-actions">
+        <button class="a-btn" type="submit">اعمال</button>
+        @if (pending && Model.Items.Count > 0)
+        {
+          <button class="a-btn a-btn-success" type="submit" form="bulk-form" title="همهٔ بخش‌های پیشنهادهای تیک‌خورده اعمال می‌شود">@Icons.Svg("Check", null, 16) تأیید گروهی انتخاب‌شده‌ها</button>
+        }
+      </div>
+    </form>
+  </div>
+</div>
+
+<form method="post" asp-page-handler="BulkApprove" id="bulk-form"></form>
+<datalist id="seo-reject-reasons">
+  @foreach (var reason in Fratak_Shop.Web.Areas.Admin.Pages.Seo.ReviewModel.QuickReasons)
+  {
+    <option value="@reason"></option>
+  }
+</datalist>
+
+@if (Model.Items.Count == 0)
+{
+  <div class="a-card"><div class="a-empty">
+    @if (pending)
+    {
+      <span>پیشنهادی منتظر بررسی نیست. 🎉 موتور در اجرای بعدی دوباره صفحه‌ها را بررسی می‌کند.</span>
+    }
+    else
+    {
+      <span>موردی نیست.</span>
+    }
+  </div></div>
+}
+
+@foreach (var item in Model.Items)
+{
+  var e = item.Entity;
+  var p = item.Proposal;
+  var c = item.Current;
+  var gain = e.ScoreAfter - e.ScoreBefore;
+  var isPending = e.Status == SeoSuggestionStatus.Pending;
+  var approveForm = "approve-" + e.Id.ToString("N");
+  var previewTitle = p.Title ?? c.Title ?? e.EntityTitle;
+  var previewDesc = p.MetaDescription ?? c.MetaDescription ?? "";
+  var previewPath = p.Slug is null ? e.Path : e.Path[..(e.Path.LastIndexOf('/') + 1)] + p.Slug;
+
+  <article class="a-sg @(Model.Focus == e.Id ? "is-focus" : "")" id="sg-@e.Id">
+    <div class="a-sg-head">
+      <div class="flex flex-wrap items-center gap-2 min-w-0">
+        @if (isPending)
+        {
+          <input type="checkbox" name="ids" value="@e.Id" form="bulk-form" class="a-sg-pick" aria-label="انتخاب برای تأیید گروهی">
+        }
+        <span class="a-badge a-badge-gray">@SeoEngineUi.KindTitle(e.Kind)</span>
+        <a class="a-link font-bold" href="@SeoEngineUi.AnalyzeUrl(e.Kind, e.EntityId)">@e.EntityTitle</a>
+        <a class="a-muted text-xs a-ltr break-all" href="@SeoEngineUi.PublicUrl(e.Path)" target="_blank" rel="noopener">@e.Path</a>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="a-badge @SeoEngineUi.ScoreBadge(e.ScoreBefore)" title="نمرهٔ فعلی">@Format.Number(e.ScoreBefore)</span>
+        <span aria-hidden="true">←</span>
+        <span class="a-badge @SeoEngineUi.ScoreBadge(e.ScoreAfter)" title="نمره بعد از تأیید همهٔ بخش‌ها">@Format.Number(e.ScoreAfter)</span>
+        @if (gain > 0) { <b class="a-up text-sm">+@Format.Number(gain)</b> }
+        @if (e.Variant > 0) { <span class="a-badge a-badge-purple">نسخهٔ @Format.Number(e.Variant + 1)</span> }
+        @if (!isPending) { <span class="a-badge @SeoEngineUi.StatusBadge(e.Status)">@SeoEngineUi.StatusTitle(e.Status)</span> }
+        <span class="a-muted text-xs">@AdminUi.Ago(e.CreatedAt)</span>
+      </div>
+    </div>
+
+    @if (!isPending && (e.ReviewedByName is not null || e.RejectReason is not null))
+    {
+      <div class="a-sg-note">
+        @if (e.ReviewedByName is not null) { <span>بررسی: @e.ReviewedByName @(e.ReviewedAt.HasValue ? "· " + AdminUi.Ago(e.ReviewedAt.Value) : "")</span> }
+        @if (e.RejectReason is not null) { <span> · دلیل رد: «@e.RejectReason»</span> }
+      </div>
+    }
+
+    @if (isPending)
+    {
+      <form method="post" asp-page-handler="Approve" id="@approveForm"><input type="hidden" name="id" value="@e.Id"></form>
+    }
+
+    @foreach (var field in SeoEngineUi.FieldOrder.Where(f => e.Fields.HasFlag(f)))
+    {
+      var applied = e.Status == SeoSuggestionStatus.Applied && e.AppliedFields.HasFlag(field);
+      var rejected = e.Status == SeoSuggestionStatus.Rejected && e.RejectedFields.HasFlag(field);
+      <div class="a-sg-field">
+        <div class="a-sg-label">
+          @if (isPending)
+          {
+            <label class="a-check"><input type="checkbox" name="fields" value="@((int)field)" form="@approveForm" checked> <b>@SeoEngineUi.FieldTitle(field)</b></label>
+          }
+          else
+          {
+            <b>@SeoEngineUi.FieldTitle(field)</b>
+            @if (applied) { <span class="a-badge a-badge-green">اعمال شد</span> }
+            @if (rejected) { <span class="a-badge a-badge-red">رد شد</span> }
+          }
+          @switch (field)
+          {
+            case SeoFields.Title:
+              <small>بهترین طول: ۳۰ تا ۶۰ نویسه با نام سایت</small>
+              break;
+            case SeoFields.MetaDescription:
+              <small>بهترین طول: ۱۲۰ تا ۱۶۰ نویسه</small>
+              break;
+            case SeoFields.Slug:
+              <small>با ریدایرکت ۳۰۱ از آدرس قدیم</small>
+              break;
+            case SeoFields.Description:
+              <small>متن فعلی در ابتدا دست‌نخورده می‌ماند</small>
+              break;
+            case SeoFields.ImageAlt:
+              <small>فقط تصویرهای بدون alt پر می‌شوند</small>
+              break;
+          }
+        </div>
+
+        @switch (field)
+        {
+          case SeoFields.Title:
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی · @Format.Number((c.Title ?? "").Length) نویسه</span>@(string.IsNullOrWhiteSpace(c.Title) ? "—" : c.Title)</div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی · @Format.Number((p.Title ?? "").Length) نویسه</span>@p.Title</div>
+            break;
+          case SeoFields.MetaDescription:
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی · @Format.Number((c.MetaDescription ?? "").Length) نویسه</span>@(string.IsNullOrWhiteSpace(c.MetaDescription) ? "—" : c.MetaDescription)</div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی · @Format.Number((p.MetaDescription ?? "").Length) نویسه</span>@p.MetaDescription</div>
+            break;
+          case SeoFields.FocusKeyword:
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی</span>@(string.IsNullOrWhiteSpace(c.FocusKeyword) ? "تعیین نشده" : c.FocusKeyword)</div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی</span><b>@p.FocusKeyword</b></div>
+            break;
+          case SeoFields.Slug:
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی</span><span class="a-ltr break-all">@c.Slug</span></div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی</span><span class="a-ltr break-all">@p.Slug</span></div>
+            break;
+          case SeoFields.Description:
+            var oldWords = PersianText.WordCount(PersianText.HtmlToText(c.DescriptionHtml));
+            var newWords = PersianText.WordCount(PersianText.HtmlToText(p.DescriptionHtml));
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی · @Format.Number(oldWords) واژه</span>
+              @if (oldWords > 0)
+              {
+                <details class="a-details"><summary class="a-link text-xs">نمایش متن فعلی</summary>
+                  <div class="a-prose a-sg-body">@Html.Raw(Fratak_Shop.Core.Utilities.XssSecurity.SanitizeText(c.DescriptionHtml ?? ""))</div>
+                </details>
+              }
+              else
+              {
+                <span>متنی ندارد</span>
+              }
+            </div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی · @Format.Number(newWords) واژه (+@Format.Number(Math.Max(0, newWords - oldWords)))</span>
+              <details class="a-details" open="@(oldWords == 0 ? "open" : null)"><summary class="a-link text-xs">نمایش متن کامل پیشنهادی</summary>
+                <div class="a-prose a-sg-body">@Html.Raw(Fratak_Shop.Core.Utilities.XssSecurity.SanitizeText(p.DescriptionHtml ?? ""))</div>
+              </details>
+            </div>
+            break;
+          case SeoFields.Faq:
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی</span>
+              @if (c.Faq.Count == 0) { <span>پرسش‌وپاسخ ندارد</span> }
+              @foreach (var qa in c.Faq) { <div class="mb-2"><b>@qa.Question</b><div>@qa.Answer</div></div> }
+            </div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی · @Format.Number(p.Faq.Count) پرسش</span>
+              @foreach (var qa in p.Faq) { <div class="mb-2"><b>@qa.Question</b><div>@qa.Answer</div></div> }
+            </div>
+            break;
+          case SeoFields.ImageAlt:
+            <div class="a-sg-old"><span class="a-sg-tag">فعلی</span>
+              @foreach (var alt in c.ImageAlts) { <div>تصویر @Format.Number(alt.Index + 1): @(string.IsNullOrWhiteSpace(alt.Alt) ? "بدون alt" : alt.Alt)</div> }
+            </div>
+            <div class="a-sg-new"><span class="a-sg-tag">پیشنهادی</span>
+              @foreach (var alt in p.ImageAlts) { <div>تصویر @Format.Number(alt.Index + 1): @alt.Alt</div> }
+            </div>
+            break;
+        }
+      </div>
+    }
+
+    <div class="a-sg-foot">
+      <div>
+        <div class="a-muted text-xs mb-1">پیش‌نمایش در نتایج گوگل (بعد از تأیید)</div>
+        <div class="a-seo-preview">
+          <div class="a-seo-url a-ltr">@(Request.Host.Host + previewPath)</div>
+          <div class="a-seo-title">@SeoEngineUi.FullTitle(previewTitle, Model.SiteName)</div>
+          <div class="a-seo-desc">@previewDesc</div>
+        </div>
+      </div>
+      <div>
+        @if (item.Reasons.Count > 0)
+        {
+          <div class="a-muted text-xs mb-1">چرا این پیشنهاد؟</div>
+          <ul class="a-reasons">
+            @foreach (var reason in item.Reasons)
+            {
+              <li class="@SeoEngineUi.ReasonClass(reason)">@reason</li>
+            }
+          </ul>
+        }
+        @if (item.Research is { } r && (r.Pages > 0 || r.Titles.Count > 0 || r.Suggestions.Count > 0 || r.Keywords.Count > 0))
+        {
+          <details class="a-details mt-2"><summary class="a-link text-sm">از جست‌وجو و رقبا چه یاد گرفتیم؟</summary>
+            <dl class="a-kv text-sm mt-2">
+              @if (r.Query is not null) { <dt>عبارت تحقیق</dt><dd>@r.Query</dd> }
+              @if (r.Pages > 0)
+              {
+                <dt>صفحه‌های تحلیل‌شده</dt><dd>@Format.Number(r.Pages) (@(string.Join("، ", r.Hosts)))</dd>
+                <dt>میانهٔ طول متن رقبا</dt><dd>@Format.Number(r.MedianWords) واژه</dd>
+                <dt>میانگین طول عنوان</dt><dd>@Format.Number(r.AverageTitle) نویسه</dd>
+                <dt>آدرس انگلیسی رقبا</dt><dd>@Format.Number((int)Math.Round(r.LatinSlugRatio * 100))٪</dd>
+              }
+              @if (r.Terms.Count > 0) { <dt>واژه‌های مشترک صفحه‌های برتر</dt><dd>@(string.Join("، ", r.Terms))</dd> }
+              @if (r.Suggestions.Count > 0) { <dt>جست‌وجوهای پیشنهادی گوگل/بینگ</dt><dd>@(string.Join("، ", r.Suggestions))</dd> }
+              @if (r.Keywords.Count > 0) { <dt>کلمه‌های نامزد (امتیاز)</dt><dd>@(string.Join("، ", r.Keywords.Select(k => $"{k.Phrase} ({k.Score:0.#})")))</dd> }
+              @if (r.Titles.Count > 0)
+              {
+                <dt>عنوان صفحه‌های برتر</dt>
+                <dd><ul class="list-disc ps-4">@foreach (var t in r.Titles.Take(6)) { <li>@t</li> }</ul></dd>
+              }
+              @if (r.Errors.Count > 0) { <dt>منبع در دسترس نبود</dt><dd class="a-down">@(string.Join("، ", r.Errors))</dd> }
+            </dl>
+          </details>
+        }
+      </div>
+    </div>
+
+    @if (isPending)
+    {
+      <div class="a-sg-actions">
+        <button type="submit" form="@approveForm" class="a-btn a-btn-success">@Icons.Svg("Check", null, 16) تأیید بخش‌های تیک‌خورده</button>
+        <a class="a-btn a-btn-light" href="@SeoEngineService.EditUrl(e.Kind, e.EntityId)">@Icons.Svg("PencilSimple", null, 16) ویرایش دستی</a>
+        <details class="a-details a-sg-reject">
+          <summary class="a-btn a-btn-danger-soft">رد و ساخت نسخهٔ تازه</summary>
+          <form method="post" asp-page-handler="Reject" class="a-sg-reject-form">
+            <input type="hidden" name="id" value="@e.Id">
+            <div class="a-muted text-xs mb-1">کدام بخش‌ها مناسب نیستند؟ (بقیه در نسخهٔ تازه همین می‌مانند)</div>
+            <div class="flex flex-wrap gap-3 mb-2">
+              @foreach (var field in SeoEngineUi.FieldOrder.Where(f => e.Fields.HasFlag(f)))
+              {
+                <label class="a-check text-sm"><input type="checkbox" name="rejected" value="@((int)field)" checked> @SeoEngineUi.FieldTitle(field)</label>
+              }
+            </div>
+            <label class="a-label" for="reason-@e.Id">دلیل (به موتور کمک می‌کند نسخهٔ بهتری بنویسد)</label>
+            <input id="reason-@e.Id" name="reason" class="a-input mb-2" list="seo-reject-reasons" maxlength="500" placeholder="مثلاً: خیلی طولانی است">
+            <button type="submit" class="a-btn a-btn-danger-soft">رد کن و نسخهٔ تازه بساز</button>
+          </form>
+        </details>
+      </div>
+    }
+  </article>
+}
+
+<partial name="_AdminPager" model="Model.Pager" />

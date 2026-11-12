@@ -1,0 +1,111 @@
+@page "/admin/system/security-report"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.SecurityReportModel
+@using Fratak_Shop.Core.Services.Ops
+@{
+    ViewData["Title"] = "گزارش امنیتی";
+    var report = Model.Report;
+    var scoreTone = report.Score >= 90 ? "text-emerald-600" : report.Score >= 75 ? "text-sky-600" : report.Score >= 50 ? "text-amber-600" : "text-red-600";
+}
+<div class="a-page-head">
+  <div>
+    <h2>گزارش امنیتی</h2>
+    <p class="a-muted text-sm mt-1">بررسی خودکار تنظیمات و رویدادهای امنیتی ۷ روز اخیر. هر هفته خلاصهٔ آن به مالک و مسئولان فنی اعلان می‌شود. این گزارش چیزی را خودش تغییر نمی‌دهد.</p>
+  </div>
+  <form method="post" asp-page-handler="Refresh">
+    <button class="a-btn a-btn-light" type="submit">@Icons.Svg("ArrowsClockwise", null, 18) بررسی دوباره</button>
+  </form>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">امتیاز امنیت</div><div class="a-stat-value @scoreTone">@Format.Number(report.Score) <span class="text-sm a-muted">از ۱۰۰ · @report.Grade</span></div></div>
+  <a class="a-stat" href="/admin/system/security?type=LoginFailed&amp;days=7"><div class="a-stat-label">ورود ناموفق (۷ روز)</div><div class="a-stat-value">@Format.Number(report.Activity.FailedLogins)</div></a>
+  <a class="a-stat" href="/admin/system/security?type=LockedOut&amp;days=7"><div class="a-stat-label">قفل شدن حساب</div><div class="a-stat-value">@Format.Number(report.Activity.LockedOut)</div></a>
+  <a class="a-stat" href="/admin/system/firewall"><div class="a-stat-label">آی‌پی مسدود فعال</div><div class="a-stat-value">@Format.Number(report.Activity.BlockedIps)</div></a>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) موارد بررسی‌شده</span><span class="a-muted text-xs">@Format.DateTime(report.GeneratedAt)</span></div>
+  <div class="a-card-body a-stack">
+    @foreach (var check in report.Checks)
+    {
+      var tone = check.Level switch
+      {
+          SecurityCheckLevel.Critical => "a-alert-danger",
+          SecurityCheckLevel.Warning => "a-alert-warn",
+          SecurityCheckLevel.Info => "a-alert-info",
+          _ => "a-alert-success",
+      };
+      var icon = check.Level >= SecurityCheckLevel.Warning ? "ShieldWarning" : check.Level == SecurityCheckLevel.Info ? "Info" : "CheckCircle";
+      <div class="a-alert @tone" data-security-check="@check.Key">
+        @Icons.Svg(icon, "shrink-0", 20)
+        <div class="min-w-0 flex-1">
+          <b>@check.Title</b>
+          <div class="text-sm mt-1">@check.Detail</div>
+        </div>
+        @if (check.Level != SecurityCheckLevel.Ok && check.FixUrl is not null)
+        {
+          <a class="a-btn a-btn-light a-btn-xs shrink-0" href="@check.FixUrl">رفع</a>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) فعالیت ۷ روز اخیر</span></div>
+  <div class="a-card-body">
+    <dl class="a-kv text-sm">
+      <dt>تلاش برای ورود غیرمجاز به پنل</dt><dd>@Format.Number(report.Activity.AdminDenied)</dd>
+      <dt>ورود کارکنان از دستگاه جدید</dt><dd>@Format.Number(report.Activity.NewDevices)</dd>
+      <dt>تغییر نقش/دسترسی کاربران</dt><dd>@Format.Number(report.Activity.RoleChanges)</dd>
+    </dl>
+    @if (report.Activity.TopIps.Count > 0)
+    {
+      <div class="mt-3 text-sm">
+        <b>آی‌پی‌های پرتکرار ورود ناموفق:</b>
+        @foreach (var (ip, count) in report.Activity.TopIps)
+        {
+          <a class="a-badge a-badge-red a-ltr" href="/admin/system/security?q=@Uri.EscapeDataString(ip)">@ip × @count</a>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+@* دور ۲۸ (#۱۱۹): مواردی که مرورگر کاربران به‌خاطر سیاست امنیت محتوا مسدود کرده (اسکریپت تزریق‌شده، افزونهٔ مخرب، منبع ناشناخته). *@
+<div class="a-card mt-4">
+  <div class="a-card-head">
+    <span class="a-card-title">@Icons.Svg("ShieldCheck", null, 18) گزارش نقض سیاست امنیت محتوا (CSP)</span>
+    @if (Model.CspViolations.Count > 0)
+    {
+      <form method="post" asp-page-handler="ClearCsp"><button type="submit" class="a-btn a-btn-light a-btn-xs">پاک کردن</button></form>
+    }
+  </div>
+  <div class="a-card-body">
+    @if (Model.CspViolations.Count == 0)
+    {
+      <p class="text-sm">از آخرین راه‌اندازی، هیچ مرورگری موردی گزارش نکرده است.</p>
+    }
+    else
+    {
+      <p class="text-sm mb-2">هر ردیف یعنی مرورگر یک کاربر چیزی را مسدود کرده است. منبع ناشناخته روی صفحه‌های زیاد ممکن است افزونهٔ مرورگر یا تلاش برای تزریق کد باشد.</p>
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead><tr><th>بند</th><th>منبع مسدودشده</th><th>صفحه</th><th>تعداد</th><th>آخرین بار</th></tr></thead>
+          <tbody>
+            @foreach (var item in Model.CspViolations)
+            {
+              <tr>
+                <td class="a-ltr">@item.Directive</td>
+                <td class="a-ltr">@item.Blocked</td>
+                <td class="a-ltr">@item.Page</td>
+                <td>@Format.Number(item.Count)</td>
+                <td>@Format.DateTime(item.LastSeen)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

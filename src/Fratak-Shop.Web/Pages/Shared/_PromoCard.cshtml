@@ -1,0 +1,42 @@
+@model PromoCardModel
+@*
+  دور ۲۷ – کارت تبلیغاتی صفحهٔ نخست (بنرهای دوتایی که زیرعنوان یا دکمه دارند):
+  • گرادیان عمیق با نور نرم و الگوی نقطه‌ای، کالا (عکس بدون زمینه) معلق با سایه و حرکت آرام، تیتر/متن/دکمه سمت راست.
+  • کل کارت لینک است (اگر لینک امن دارد)؛ دکمهٔ داخل کارت فقط نشانه است (لینک تودرتو ساخته نمی‌شود).
+  • بدون لینک ← کارت ساده بدون دکمه (دکمه‌ای که جایی نمی‌رود گمراه‌کننده است).
+  • حرکت‌ها با «کاهش حرکت» سیستم خاموش می‌شوند (commerce.css).
+*@
+@{
+  var promo = Model.Banner;
+  var alt = promo.ImageAlt ?? promo.Title ?? "";
+  void Body()
+  {
+    <span class="fr-promo__glow" aria-hidden="true"></span>
+    @if (!string.IsNullOrWhiteSpace(promo.ImageName))
+    {
+      <img class="fr-promo__img" src="@ImageHelper.Banner(promo.ImageName)" alt="@alt" loading="lazy" decoding="async">
+    }
+    <span class="fr-promo__body">
+      @if (!string.IsNullOrWhiteSpace(promo.Title))
+      {
+        <span class="fr-promo__title">@promo.Title</span>
+      }
+      @if (!string.IsNullOrWhiteSpace(promo.Subtitle))
+      {
+        <span class="fr-promo__sub">@promo.Subtitle</span>
+      }
+      @if (Model.Link is not null)
+      {
+        <span class="fr-promo__cta">@(string.IsNullOrWhiteSpace(promo.ButtonText) ? "مشاهده" : promo.ButtonText) <span aria-hidden="true">←</span></span>
+      }
+    </span>
+  }
+}
+@if (Model.Link is not null)
+{
+  <a href="@Model.Link" class="@Model.CssClass" data-banner="@promo.Id">@{ Body(); }</a>
+}
+else
+{
+  <div class="@Model.CssClass" data-banner="@promo.Id">@{ Body(); }</div>
+}

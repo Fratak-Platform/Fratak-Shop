@@ -17,6 +17,7 @@ public static class CartMapper
             DeletedAt = cart.DeletedAt,
             UserId = cart.UserId,
             SessionKey = cart.SessionKey,
+            CouponCode = cart.CouponCode,
             Items = cart.Items
                 .OrderBy(item => item.CreatedAt)
                 .Select(item => item.Map())
@@ -56,6 +57,7 @@ public static class CartMapper
             TotalAmount = finalPrice * item.Quantity,
             Quantity = item.Quantity,
             StockQuantity = product?.StockQuantity ?? 0,
+            SeenPrice = item.SeenPrice,
         };
     }
 

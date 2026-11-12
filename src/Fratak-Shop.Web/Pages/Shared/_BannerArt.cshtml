@@ -1,0 +1,48 @@
+@model BannerArt
+@*
+  دور ۲۶ – نمایش یک بنر (صفحهٔ نخست و سربرگ صفحهٔ دسته):
+  • لینک امن دارد ← <a>؛ بدون لینک ← <div> (بنر اطلاع‌رسانی؛ data-banner برای آمار نمایش می‌ماند).
+  • نسخهٔ زنده (Banner.LiveHtml، ساخت DesignLive با متن رمزگذاری‌شده و رنگ/عکس اعتبارسنجی‌شده) ← HTML متحرک؛
+    همان تصویر ثابت هم برای مرورگرهای قدیمی (بدون container query) هست و با CSS پنهان/نمایان می‌شود.
+  • حرکت با کلاس is-live شروع می‌شود: بنر بالای صفحه از همان اول، بقیه وقتی دیده شوند (banners.js).
+*@
+@{
+  var banner = Model.Banner;
+  var linked = UrlSafety.IsSafeLink(banner.LinkUrl);
+  var alt = banner.ImageAlt ?? banner.Title ?? "";
+  var live = !string.IsNullOrWhiteSpace(banner.LiveHtml);
+  var src = ImageHelper.Banner(banner.ImageName);
+  var srcset = Model.Sizes ? ImageHelper.Srcset(src, Site.Settings.IsImageOptimizationEnabled) : null;
+
+  void StaticImage(string css, bool lazy)
+  {
+    <picture>
+      @* دور ۲۹: نسخهٔ موبایل جدا حذف شد؛ همین تصویر با srcset و چیدمان موبایل (commerce.css) نمایش داده می‌شود. *@
+      <img class="@css" src="@src" srcset="@srcset" sizes="@(srcset is null ? null : "100vw")" alt="@alt" width="@Model.Width" height="@Model.Height"
+           loading="@(lazy ? "lazy" : "eager")" fetchpriority="@(lazy ? "auto" : "high")" decoding="async">
+    </picture>
+  }
+
+  void Art()
+  {
+    if (live)
+    {
+      <div class="fsb-wrap@(Model.Eager ? " is-live" : "")" role="img" aria-label="@alt">
+        @Html.Raw(banner.LiveHtml)
+        <div class="fsb-fallback">@{ StaticImage(Model.ImageClass, lazy: true); }</div>
+      </div>
+    }
+    else
+    {
+      StaticImage(Model.ImageClass, lazy: !Model.Eager);
+    }
+  }
+}
+@if (linked)
+{
+  <a href="@banner.LinkUrl!.Trim()" class="@Model.WrapperClass" data-banner="@banner.Id">@{ Art(); }</a>
+}
+else
+{
+  <div class="@Model.WrapperClass" data-banner="@banner.Id">@{ Art(); }</div>
+}

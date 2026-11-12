@@ -24,6 +24,10 @@ public static class CommentMapper
             Rating = comment.Rating,
             IsRecommended = comment.IsRecommended,
             Status = comment.Status,
+            IsVerifiedPurchase = comment.IsVerifiedPurchase,
+            HelpfulCount = comment.HelpfulCount,
+            NotHelpfulCount = comment.NotHelpfulCount,
+            Images = comment.Images.OrderBy(i => i.DisplayOrder).Select(i => i.FileName).ToList(),
             Replies = comment.Replies
                 .Select(r => new CommentReplyDto
                 {
@@ -43,7 +47,10 @@ public static class CommentMapper
                     Content = r.Content,
                     Rating = r.Rating,
                     IsRecommended = r.IsRecommended,
-                    Status = r.Status
+                    Status = r.Status,
+                    IsVerifiedPurchase = r.IsVerifiedPurchase,
+                    HelpfulCount = r.HelpfulCount,
+                    NotHelpfulCount = r.NotHelpfulCount,
                 })
                 .ToList()
         };

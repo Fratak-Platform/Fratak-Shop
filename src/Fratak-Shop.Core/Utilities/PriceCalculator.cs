@@ -13,7 +13,8 @@ public static class PriceCalculator
     {
         ArgumentNullException.ThrowIfNull(product);
 
-        if (!product.DiscountPrice.HasValue || product.DiscountPrice.Value >= product.Price)
+        // قیمت تخفیفی منفی (خطای ورود داده یا درون‌ریزی) هرگز اعمال نمی‌شود تا مبلغ سفارش منفی نشود.
+        if (!product.DiscountPrice.HasValue || product.DiscountPrice.Value < 0 || product.DiscountPrice.Value >= product.Price)
             return false;
 
         var moment = now ?? DateTimeOffset.UtcNow;

@@ -1,0 +1,16 @@
+@model (MenuItemDto Item, string Css)
+@{
+    var href = UrlSafety.Link(Model.Item.Url);
+    var external = UrlSafety.IsExternal(href);
+}
+<a class="@Model.Css" href="@href" target="@(Model.Item.OpenInNewTab ? "_blank" : null)" rel="@(external || Model.Item.OpenInNewTab ? "noopener" : null)">
+  @if (!string.IsNullOrWhiteSpace(Model.Item.Icon))
+  {
+    @Icons.Svg(Model.Item.Icon, "fill-current shrink-0", 18)
+  }
+  <span>@Model.Item.Title</span>
+  @if (!string.IsNullOrWhiteSpace(Model.Item.BadgeText))
+  {
+    <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">@Model.Item.BadgeText</span>
+  }
+</a>

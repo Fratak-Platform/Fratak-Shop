@@ -1,8 +1,9 @@
-using Fratak_Shop.Core.DTOs.Products.Command;
+﻿using Fratak_Shop.Core.DTOs.Products.Command;
 using Fratak_Shop.Core.DTOs.Products.Query;
 using Fratak_Shop.Core.Mappers.Products;
 using Fratak_Shop.Core.Utilities;
 using Fratak_Shop.Data.Contexts;
+using Fratak_Shop.Data.Entities.Comments;
 using Fratak_Shop.Data.Entities.Products;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,9 +19,25 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (error is not null)
             return OperationResult.Error(error);
 
-        var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
-        if (!categoryExists)
+        if (command.PurchasePrice is < 0)
+            return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
+
+        // دور ۱۹ (C27): محافظ سود – قیمت فروش/تخفیف کمتر از قیمت خرید ذخیره نمی‌شود (قابل خاموش کردن در تنظیمات هوشمند).
+        // دور ۲۹ (#۱۳): تخفیف زیان‌ده/سر‌به‌سر همیشه رد می‌شود؛ خاموش کردن محافظ فقط قیمت پایهٔ زیر خرید را آزاد می‌کند.
+        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss
+            && (Smart.ProfitGuard.IsDiscountLoss(command.Price, command.DiscountPrice, command.PurchasePrice) || await Smart.ProfitGuard.IsEnabledAsync(context)))
+            return OperationResult.Error(loss);
+
+        var category = await context.Categories.Where(x => x.Id == command.CategoryId).Select(x => new { x.IsSystem }).FirstOrDefaultAsync();
+        if (category is null)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
+
+        // دور ۲۲: هیچ کالای منتشرشده‌ای بدون دسته نیست («دسته‌بندی نشده» فقط جای انتظار کالای پیش‌نویس است).
+        if (command.IsActive && category.IsSystem)
+            return OperationResult.Error(PublishWithoutCategory);
+
+        if (command.BrandId.HasValue && !await context.Brands.AnyAsync(x => x.Id == command.BrandId.Value))
+            return OperationResult.NotFound("برند مورد نظر یافت نشد.");
 
         var slug = command.Slug.Trim();
         var sku = command.SKU.Trim();
@@ -37,16 +54,23 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (childError is not null)
             return OperationResult.Error(childError);
 
+        var supplierError = await ValidateSupplierAsync(command.SupplierId, command.SupplierUrl, command.SupplierSku, command.SupplierNote, command.Gtin, command.Mpn);
+        if (supplierError is not null)
+            return OperationResult.Error(supplierError);
+
         var product = new Product
         {
             CategoryId = command.CategoryId,
+            BrandId = command.BrandId,
             Name = command.Name.Trim(),
+            EnglishName = command.EnglishName?.Trim(),
             Slug = slug,
             SKU = sku,
             ShortDescription = command.ShortDescription,
             Description = command.Description,
             Price = command.Price,
             DiscountPrice = command.DiscountPrice,
+            PurchasePrice = command.PurchasePrice,
             DiscountStartAt = command.DiscountStartAt,
             DiscountEndAt = command.DiscountEndAt,
             StockQuantity = command.StockQuantity,
@@ -55,6 +79,14 @@ public class ProductService(FratakShopDbContext context) : IProductService
             IsActive = command.IsActive,
             PublishedAt = command.PublishedAt ?? (command.IsActive ? DateTimeOffset.UtcNow : null),
             Seo = command.Seo,
+            Gtin = Clean(command.Gtin),
+            Mpn = Clean(command.Mpn),
+            SupplierId = command.SupplierId,
+            SupplierUrl = Clean(command.SupplierUrl),
+            SupplierSku = Clean(command.SupplierSku),
+            SupplierNote = Clean(command.SupplierNote),
+            ExcludeFromSupplierSync = command.ExcludeFromSupplierSync,
+            SourceCategory = Smart.CategoryNames.Truncate(command.SourceCategory, 300),
             Images = BuildImages(command.Images),
             Features = BuildFeatures(command.Features),
         };
@@ -82,9 +114,25 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (error is not null)
             return OperationResult.Error(error);
 
-        var categoryExists = await context.Categories.AnyAsync(x => x.Id == command.CategoryId);
-        if (!categoryExists)
+        if (command.PurchasePrice is < 0)
+            return OperationResult.Error("قیمت خرید نمی‌تواند منفی باشد.");
+
+        // دور ۱۹ (C27): محافظ سود – قیمت فروش/تخفیف کمتر از قیمت خرید ذخیره نمی‌شود (قابل خاموش کردن در تنظیمات هوشمند).
+        // دور ۲۹ (#۱۳): تخفیف زیان‌ده/سر‌به‌سر همیشه رد می‌شود؛ خاموش کردن محافظ فقط قیمت پایهٔ زیر خرید را آزاد می‌کند.
+        if (Smart.ProfitGuard.Check(command.Price, command.DiscountPrice, command.PurchasePrice) is { } loss
+            && (Smart.ProfitGuard.IsDiscountLoss(command.Price, command.DiscountPrice, command.PurchasePrice) || await Smart.ProfitGuard.IsEnabledAsync(context)))
+            return OperationResult.Error(loss);
+
+        var category = await context.Categories.Where(x => x.Id == command.CategoryId).Select(x => new { x.IsSystem }).FirstOrDefaultAsync();
+        if (category is null)
             return OperationResult.NotFound("دسته‌بندی مورد نظر یافت نشد.");
+
+        // دور ۲۲: کالای «دسته‌بندی نشده» منتشر نمی‌شود (اول دسته را انتخاب کنید یا بگذارید دسته‌بندی هوشمند پیدایش کند).
+        if (command.IsActive && category.IsSystem)
+            return OperationResult.Error(PublishWithoutCategory);
+
+        if (command.BrandId.HasValue && !await context.Brands.AnyAsync(x => x.Id == command.BrandId.Value))
+            return OperationResult.NotFound("برند مورد نظر یافت نشد.");
 
         var slug = command.Slug.Trim();
         var sku = command.SKU.Trim();
@@ -103,14 +151,25 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (childError is not null)
             return OperationResult.Error(childError);
 
+        var supplierError = await ValidateSupplierAsync(command.SupplierId, command.SupplierUrl, command.SupplierSku, command.SupplierNote, command.Gtin, command.Mpn);
+        if (supplierError is not null)
+            return OperationResult.Error(supplierError);
+
+        // دور ۲۲: ادمین دسته را عوض کرد ← تصمیم او قطعی است و دسته‌بندی هوشمند دیگر این کالا را جابه‌جا نمی‌کند
+        // (مگر دوباره به «دسته‌بندی نشده» برگردد).
+        if (product.CategoryId != command.CategoryId)
+            product.CategorySource = ProductCategorySource.Manual;
         product.CategoryId = command.CategoryId;
+        product.BrandId = command.BrandId;
         product.Name = command.Name.Trim();
+        product.EnglishName = command.EnglishName?.Trim();
         product.Slug = slug;
         product.SKU = sku;
         product.ShortDescription = command.ShortDescription;
         product.Description = command.Description;
         product.Price = command.Price;
         product.DiscountPrice = command.DiscountPrice;
+        product.PurchasePrice = command.PurchasePrice;
         product.DiscountStartAt = command.DiscountStartAt;
         product.DiscountEndAt = command.DiscountEndAt;
         product.StockQuantity = command.StockQuantity;
@@ -121,6 +180,13 @@ public class ProductService(FratakShopDbContext context) : IProductService
                              ?? product.PublishedAt
                              ?? (command.IsActive ? DateTimeOffset.UtcNow : null);
         product.Seo = command.Seo;
+        product.Gtin = Clean(command.Gtin);
+        product.Mpn = Clean(command.Mpn);
+        product.SupplierId = command.SupplierId;
+        product.SupplierUrl = Clean(command.SupplierUrl);
+        product.SupplierSku = Clean(command.SupplierSku);
+        product.SupplierNote = Clean(command.SupplierNote);
+        product.ExcludeFromSupplierSync = command.ExcludeFromSupplierSync;
 
         ReplaceImages(product, command.Images);
         SyncFeatures(product, command.Features);
@@ -148,6 +214,10 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (product is null)
             return OperationResult.NotFound("محصول مورد نظر یافت نشد.");
 
+        // دور ۲۲: انتشار کالای بدون دسته ممنوع است (غیرفعال کردن همیشه آزاد است).
+        if (isActive && !product.IsActive && await context.Categories.AnyAsync(c => c.Id == product.CategoryId && c.IsSystem))
+            return OperationResult.Error(PublishWithoutCategory);
+
         product.IsActive = isActive;
 
         if (isActive && product.PublishedAt is null)
@@ -158,6 +228,89 @@ public class ProductService(FratakShopDbContext context) : IProductService
         return OperationResult.Success(isActive
             ? "محصول فعال شد."
             : "محصول غیرفعال شد.");
+    }
+
+    /// <summary>
+    /// پیام خطای «انتشار بدون دسته» (دور ۲۲). در ساخت، ویرایش، فعال‌سازی تکی و گروهی یکسان است.
+    /// </summary>
+    public const string PublishWithoutCategory = "کالای «دسته‌بندی نشده» منتشر نمی‌شود؛ اول دستهٔ آن را انتخاب کنید (یا چند دقیقه صبر کنید تا دسته‌بندی هوشمند آن را در دستهٔ درست بگذارد).";
+
+    /// <summary>بیشترین تعداد کالا در یک «تغییر گروهی تأمین‌کننده» (همهٔ نتایج فیلتر).</summary>
+    public const int MaxSupplierBatch = 5000;
+
+    /// <summary>
+    /// دور ۲۲: تغییر گروهی تأمین‌کنندهٔ چند کالا یا همهٔ نتایج یک فیلتر. <paramref name="supplierId"/> = null یعنی «بدون تأمین‌کننده».
+    /// به‌صورت تکه‌های ۵۰۰تایی با ExecuteUpdate (بدون بارگذاری کالاها در حافظه) انجام می‌شود تا روی هاست ضعیف هم سریع باشد.
+    /// مثال: ۱۲۰۰ کالای فیلتر «برند شیائومی» ← ۳ دستور UPDATE. خروجی: تعداد کالای تغییرکرده.
+    /// <para>محل استفاده: صفحهٔ «محصولات» پنل (Products/Index، عملیات گروهی).</para>
+    /// </summary>
+    public async Task<OperationResult<int>> ChangeSupplierAsync(IReadOnlyCollection<Guid> productIds, Guid? supplierId)
+    {
+        var ids = productIds.Distinct().Take(MaxSupplierBatch).ToList();
+        if (ids.Count == 0)
+            return OperationResult<int>.Error("هیچ محصولی انتخاب نشده است.");
+        if (supplierId is { } sid && !await context.Suppliers.AnyAsync(s => s.Id == sid))
+            return OperationResult<int>.NotFound("تأمین‌کنندهٔ انتخاب‌شده یافت نشد.");
+
+        var changed = 0;
+        var now = DateTimeOffset.UtcNow;
+        foreach (var chunk in ids.Chunk(500))
+        {
+            changed += await context.Products
+                .Where(p => chunk.Contains(p.Id) && p.SupplierId != supplierId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.SupplierId, supplierId).SetProperty(p => p.UpdatedAt, now));
+        }
+
+        return OperationResult<int>.Success(changed, supplierId is null
+            ? $"تأمین‌کنندهٔ {changed} محصول برداشته شد."
+            : $"تأمین‌کنندهٔ {changed} محصول تغییر کرد.");
+    }
+
+    public async Task<OperationResult<IReadOnlyList<(Guid ProductId, Guid OldCategoryId)>>> ChangeCategoryAsync(IReadOnlyCollection<Guid> productIds, Guid categoryId)
+    {
+        var ids = productIds.Distinct().Take(200).ToList();
+        if (ids.Count == 0)
+            return OperationResult<IReadOnlyList<(Guid, Guid)>>.Error("هیچ محصولی انتخاب نشده است.");
+        var target = await context.Categories.Where(c => c.Id == categoryId).Select(c => new { c.Id, c.IsSystem, c.Name }).FirstOrDefaultAsync();
+        if (target is null)
+            return OperationResult<IReadOnlyList<(Guid, Guid)>>.NotFound("دستهٔ مقصد یافت نشد.");
+        // خواستهٔ کاربر: هیچ کالایی به «دسته‌بندی نشده» نمی‌رود (کالای بی‌دسته منتشر نمی‌شود).
+        if (target.IsSystem)
+            return OperationResult<IReadOnlyList<(Guid, Guid)>>.Error("یک دستهٔ واقعی انتخاب کنید.");
+
+        // با ردیابی (نه ExecuteUpdate) تا گزارش فعالیت/تاریخچهٔ ویرایش هر کالا ثبت شود.
+        var products = await context.Products.AsTracking().Where(p => ids.Contains(p.Id) && p.CategoryId != categoryId).ToListAsync();
+        var undo = products.Select(p => (p.Id, p.CategoryId)).ToList();
+        foreach (var product in products)
+            product.CategoryId = categoryId;
+        if (products.Count > 0)
+            await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return OperationResult<IReadOnlyList<(Guid, Guid)>>.Success(undo, $"{products.Count} محصول به دستهٔ «{target.Name}» رفت.");
+    }
+
+    public async Task<OperationResult<int>> RestoreCategoriesAsync(IReadOnlyList<(Guid ProductId, Guid OldCategoryId)> items, Guid expectedCategoryId)
+    {
+        if (items.Count == 0)
+            return OperationResult<int>.Error("چیزی برای بازگردانی نیست.");
+        var map = items.Take(200).GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.First().OldCategoryId);
+        var ids = map.Keys.ToList();
+        var oldIds = map.Values.Distinct().ToList();
+        var existing = (await context.Categories.Where(c => oldIds.Contains(c.Id)).Select(c => c.Id).ToListAsync()).ToHashSet();
+        var products = await context.Products.AsTracking().Where(p => ids.Contains(p.Id) && p.CategoryId == expectedCategoryId).ToListAsync();
+        var restored = 0;
+        foreach (var product in products)
+        {
+            var old = map[product.Id];
+            if (!existing.Contains(old))
+                continue;
+            product.CategoryId = old;
+            restored++;
+        }
+        if (restored > 0)
+            await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        return OperationResult<int>.Success(restored, $"دستهٔ {restored} محصول به حالت قبل برگشت.");
     }
 
     public async Task<OperationResult> UpdateStockAsync(Guid id, int stockQuantity)
@@ -175,78 +328,266 @@ public class ProductService(FratakShopDbContext context) : IProductService
         return OperationResult.Success("موجودی محصول با موفقیت به‌روزرسانی شد.");
     }
 
-    public async Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams)
+    /// <summary>
+    /// Filtered products with their final price (same rule as PriceCalculator, in SQL).
+    /// <paramref name="skipSpecificationKey"/> leaves one specification out (facet counts).
+    /// </summary>
+    private IQueryable<PricedProduct> BuildFilterQuery(ProductFilterParams filterParams, string? skipSpecificationKey, bool skipBrands = false)
     {
-        var query = context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .AsQueryable();
+        var now = DateTimeOffset.UtcNow;
 
-        if (!string.IsNullOrWhiteSpace(filterParams.Search))
-        {
-            var search = filterParams.Search.Trim();
-            query = query.Where(x => x.Name.Contains(search)
-                                     || x.Slug.Contains(search)
-                                     || x.SKU.Contains(search));
-        }
+        var query = context.Products.AsQueryable();
+
+        // Every word (or one of its synonyms) has to match somewhere (name, English name, slug, SKU, brand, category).
+        query = ProductSearch.Apply(query, filterParams.SearchTermGroups ?? ProductSearch.PlainGroups(filterParams.Search));
 
         if (filterParams.CategoryId.HasValue)
-            query = query.Where(x => x.CategoryId == filterParams.CategoryId.Value);
+            query = query.Where(x => x.CategoryId == filterParams.CategoryId.Value
+                                     || x.Category.ParentId == filterParams.CategoryId.Value);
 
         if (!string.IsNullOrWhiteSpace(filterParams.CategorySlug))
         {
             var categorySlug = filterParams.CategorySlug.Trim();
-            query = query.Where(x => x.Category.Slug == categorySlug);
+            query = query.Where(x => x.Category.Slug == categorySlug
+                                     || (x.Category.ParentCategory != null && x.Category.ParentCategory.Slug == categorySlug));
         }
 
+        if (filterParams.BrandId.HasValue)
+            query = query.Where(x => x.BrandId == filterParams.BrandId.Value);
+
+        var brandSlugs = filterParams.BrandSlugs
+            .Where(slug => !string.IsNullOrWhiteSpace(slug))
+            .Select(slug => slug.Trim())
+            .Distinct()
+            .ToList();
+
+        if (brandSlugs.Count > 0 && !skipBrands)
+            query = query.Where(x => x.Brand != null && brandSlugs.Contains(x.Brand.Slug));
+
+        if (filterParams.ExcludeProductId.HasValue)
+            query = query.Where(x => x.Id != filterParams.ExcludeProductId.Value);
+
+        // Specification filters: OR inside one specification, AND between specifications.
+        foreach (var (key, values) in NormalizeSpecifications(filterParams.Specifications))
+        {
+            if (key == skipSpecificationKey)
+                continue;
+
+            query = query.Where(x => x.Features.Any(f => f.Key == key && values.Contains(f.Value)));
+        }
+
+        // قیمت نهایی؛ همان قاعده PriceCalculator به زبان SQL.
+        var withFinalPrice = query.Select(x => new
+        {
+            Product = x,
+            HasDiscount = x.DiscountPrice != null
+                          && x.DiscountPrice < x.Price
+                          && (x.DiscountStartAt == null || x.DiscountStartAt <= now)
+                          && (x.DiscountEndAt == null || x.DiscountEndAt >= now),
+        }).Select(x => new PricedProduct
+        {
+            Product = x.Product,
+            HasDiscount = x.HasDiscount,
+            FinalPrice = x.HasDiscount ? x.Product.DiscountPrice!.Value : x.Product.Price,
+        });
+
         if (filterParams.MinPrice.HasValue)
-            query = query.Where(x => x.Price >= filterParams.MinPrice.Value);
+            withFinalPrice = withFinalPrice.Where(x => x.FinalPrice >= filterParams.MinPrice.Value);
 
         if (filterParams.MaxPrice.HasValue)
-            query = query.Where(x => x.Price <= filterParams.MaxPrice.Value);
+            withFinalPrice = withFinalPrice.Where(x => x.FinalPrice <= filterParams.MaxPrice.Value);
+
+        if (filterParams.OnlyDiscounted == true)
+            withFinalPrice = withFinalPrice.Where(x => x.HasDiscount);
 
         if (filterParams.OnlyAvailable == true)
-            query = query.Where(x => x.StockQuantity > 0);
+            withFinalPrice = withFinalPrice.Where(x => x.Product.StockQuantity > 0);
 
         if (filterParams.OnlyActive == true)
-            query = query.Where(x => x.IsActive);
+            withFinalPrice = withFinalPrice.Where(x => x.Product.IsActive);
 
-        query = filterParams.SortBy switch
+        return withFinalPrice;
+    }
+
+    public async Task<List<SpecificationFacetDto>> GetSpecificationFacetsAsync(ProductFilterParams filterParams,
+        IReadOnlyList<SpecificationFacetRequest> attributes)
+    {
+        var selected = NormalizeSpecifications(filterParams.Specifications);
+        var facets = new List<SpecificationFacetDto>();
+
+        foreach (var attribute in attributes)
         {
-            ProductSortBy.Oldest => query.OrderBy(x => x.CreatedAt),
-            ProductSortBy.Cheapest => query.OrderBy(x => x.Price),
-            ProductSortBy.MostExpensive => query.OrderByDescending(x => x.Price),
-            ProductSortBy.MostStock => query.OrderByDescending(x => x.StockQuantity),
-            _ => query.OrderByDescending(x => x.CreatedAt),
+            var productIds = BuildFilterQuery(filterParams, attribute.FeatureKey).Select(x => x.Product.Id);
+            var featureKey = attribute.FeatureKey;
+
+            var values = await context.ProductFeatures
+                .Where(f => f.Key == featureKey && f.ValueType != FeatureValueType.Object && productIds.Contains(f.ProductId))
+                .GroupBy(f => f.Value)
+                .Select(g => new { Value = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
+                .Take(Math.Clamp(attribute.MaxValues, 1, 100))
+                .ToListAsync();
+
+            selected.TryGetValue(featureKey, out var chosen);
+            if (values.Count == 0 && chosen is null)
+                continue;
+
+            facets.Add(new SpecificationFacetDto
+            {
+                Slug = attribute.Slug,
+                Title = attribute.Title,
+                FeatureKey = featureKey,
+                Values = values
+                    .Select(v => new SpecificationFacetValue { Value = v.Value, Count = v.Count, IsSelected = chosen?.Contains(v.Value) == true })
+                    .Concat((chosen ?? []).Where(c => values.All(v => v.Value != c))
+                        .Select(c => new SpecificationFacetValue { Value = c, Count = 0, IsSelected = true }))
+                    .OrderByDescending(v => v.IsSelected).ThenBy(v => v.Value, StringComparer.CurrentCulture)
+                    .ToList(),
+            });
+        }
+
+        return facets;
+    }
+
+    public async Task<List<BrandFacetDto>> GetBrandFacetsAsync(ProductFilterParams filterParams, int take = 50)
+    {
+        var selected = filterParams.BrandSlugs.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToHashSet();
+
+        // Brands of the current result set (brand selection itself left out, so others stay selectable).
+        var brands = await BuildFilterQuery(filterParams, null, skipBrands: true)
+            .Where(x => x.Product.Brand != null && x.Product.Brand.IsActive)
+            .GroupBy(x => new { x.Product.Brand!.Slug, x.Product.Brand.Name, x.Product.Brand.EnglishName })
+            .Select(g => new { g.Key.Slug, g.Key.Name, g.Key.EnglishName, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(Math.Clamp(take, 1, 200))
+            .ToListAsync();
+
+        var result = brands
+            .Select(b => new BrandFacetDto(b.Slug, b.Name, b.EnglishName, b.Count, selected.Contains(b.Slug)))
+            .ToList();
+
+        // Selected brands without products in this listing stay visible so they can be unchecked.
+        var missing = selected.Where(slug => result.All(b => b.Slug != slug)).ToList();
+        if (missing.Count > 0)
+        {
+            var extra = await context.Brands
+                .Where(b => missing.Contains(b.Slug))
+                .Select(b => new BrandFacetDto(b.Slug, b.Name, b.EnglishName, 0, true))
+                .ToListAsync();
+            result.AddRange(extra);
+        }
+
+        return result
+            .OrderByDescending(b => b.IsSelected)
+            .ThenByDescending(b => b.Count)
+            .ThenBy(b => b.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    private static Dictionary<string, List<string>> NormalizeSpecifications(Dictionary<string, List<string>>? specifications)
+    {
+        var result = new Dictionary<string, List<string>>();
+        if (specifications is null)
+            return result;
+
+        foreach (var (key, values) in specifications.Take(8))
+        {
+            var cleaned = values
+                .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length <= 200)
+                .Select(v => v.Trim())
+                .Distinct()
+                .Take(10)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(key) && cleaned.Count > 0)
+                result[key.Trim()] = cleaned;
+        }
+
+        return result;
+    }
+
+    private sealed class PricedProduct
+    {
+        public Product Product { get; set; } = null!;
+        public bool HasDiscount { get; set; }
+        public decimal FinalPrice { get; set; }
+    }
+
+    /// <summary>
+    /// دور ۲۴ (رتبه‌بندی یادگیرنده): اول کالاهایی که بعد از همین عبارت بیشتر کلیک خورده‌اند، بعد موجودها، بعد پرفروش‌ها و جدیدها.
+    /// مثال: عبارت «هدفون» ← کالای X با ۱۲ کلیک بالای کالای Y با ۲ کلیک. کلیک‌ها را SearchLearningService ثبت می‌کند.
+    /// زیرپرس‌وجو روی ایندکس یکتای (NormalizedQuery, ProductId) اجرا می‌شود و برای ۱۰هزار بازدید روزانه سبک است.
+    /// </summary>
+    private IOrderedQueryable<PricedProduct> OrderByLearned(IQueryable<PricedProduct> query, string learnedQuery)
+    {
+        var key = learnedQuery.Trim();
+        return query
+            .OrderByDescending(x => context.SearchClickStats
+                .Where(s => s.NormalizedQuery == key && s.ProductId == x.Product.Id)
+                .Select(s => (int?)s.Clicks)
+                .FirstOrDefault() ?? 0)
+            .ThenByDescending(x => x.Product.StockQuantity > 0)
+            .ThenByDescending(x => x.Product.SalesCount)
+            .ThenByDescending(x => x.Product.CreatedAt);
+    }
+
+    public async Task<ProductFilterResult> GetProductByFilterAsync(ProductFilterParams filterParams)
+    {
+        var withFinalPrice = BuildFilterQuery(filterParams, skipSpecificationKey: null);
+
+        withFinalPrice = filterParams.SortBy switch
+        {
+            ProductSortBy.Oldest => withFinalPrice.OrderBy(x => x.Product.CreatedAt),
+            ProductSortBy.Cheapest => withFinalPrice.OrderBy(x => x.FinalPrice),
+            ProductSortBy.MostExpensive => withFinalPrice.OrderByDescending(x => x.FinalPrice),
+            ProductSortBy.MostStock => withFinalPrice.OrderByDescending(x => x.Product.StockQuantity),
+            ProductSortBy.MostViewed => withFinalPrice.OrderByDescending(x => x.Product.ViewCount)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            ProductSortBy.BestSelling => withFinalPrice.OrderByDescending(x => x.Product.SalesCount)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            ProductSortBy.MostDiscounted => withFinalPrice.OrderByDescending(x => x.Product.Price - x.FinalPrice)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            ProductSortBy.Relevance when !string.IsNullOrWhiteSpace(filterParams.LearnedQuery)
+                => OrderByLearned(withFinalPrice, filterParams.LearnedQuery!),
+            ProductSortBy.Relevance => withFinalPrice.OrderByDescending(x => x.Product.StockQuantity > 0)
+                .ThenByDescending(x => x.Product.SalesCount)
+                .ThenByDescending(x => x.Product.CreatedAt),
+            _ => withFinalPrice.OrderByDescending(x => x.Product.CreatedAt),
         };
+
+        // Include ها پس از پروجکشن دوباره اعمال می‌شوند تا قطعاً در نتیجه نهایی بارگذاری شوند.
+        var productsQuery = withFinalPrice
+            .Select(x => x.Product)
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
+            .Include(x => x.Images)
+            .AsSplitQuery();
 
         var skip = (filterParams.PageId - 1) * filterParams.Take;
 
-        var products = await query
+        var products = await productsQuery
             .Skip(skip)
             .Take(filterParams.Take)
             .ToListAsync();
 
+        var data = products.MapFilterData();
+        await FillRatingsAsync(data);
+
         var result = new ProductFilterResult
         {
-            Data = products.MapFilterData(),
+            Data = data,
             FilterParams = filterParams,
         };
 
-        result.GeneratePaging(query, filterParams.Take, filterParams.PageId);
+        result.GeneratePaging(await withFinalPrice.CountAsync(), filterParams.Take, filterParams.PageId);
 
         return result;
     }
 
     public async Task<ProductDto?> GetProductByIdAsync(Guid id)
     {
-        var product = await context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .Include(x => x.Features)
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        return product?.Map();
+        var product = await ProductDetailsQuery().FirstOrDefaultAsync(x => x.Id == id);
+        return await MapWithRatingAsync(product);
     }
 
     public async Task<ProductDto?> GetProductBySlugAsync(string slug)
@@ -254,25 +595,69 @@ public class ProductService(FratakShopDbContext context) : IProductService
         if (string.IsNullOrWhiteSpace(slug))
             return null;
 
-        var product = await context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .Include(x => x.Features)
-            .FirstOrDefaultAsync(x => x.Slug == slug.Trim());
+        var normalizedSlug = slug.Trim();
 
-        return product?.Map();
+        var product = await ProductDetailsQuery().FirstOrDefaultAsync(x => x.Slug == normalizedSlug);
+        return await MapWithRatingAsync(product);
     }
 
     public async Task<List<ProductDto>> GetProductsAsync()
     {
-        var products = await context.Products
-            .Include(x => x.Category)
-            .Include(x => x.Images)
-            .Include(x => x.Features)
+        var products = await ProductDetailsQuery()
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
         return products.Map();
+    }
+
+    public async Task<List<ProductDto>> GetProductsByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0)
+            return [];
+
+        var products = await ProductDetailsQuery()
+            .Where(x => idList.Contains(x.Id) && x.IsActive)
+            .ToListAsync();
+
+        var ratings = await GetRatingsAsync(idList);
+
+        // ترتیب درخواستی حفظ می‌شود (مثلاً ترتیب افزودن به لیست مقایسه).
+        return idList
+            .Select(id => products.FirstOrDefault(p => p.Id == id))
+            .Where(p => p is not null)
+            .Select(p =>
+            {
+                var dto = p!.Map();
+                ApplyRating(dto, ratings);
+                return dto;
+            })
+            .ToList();
+    }
+
+    public async Task<List<ProductFilterData>> GetCardsByIdsAsync(IEnumerable<Guid> ids, bool onlyInStock = false)
+    {
+        var idList = ids.Distinct().Take(48).ToList();
+        if (idList.Count == 0)
+            return [];
+
+        var products = await context.Products
+            .Where(x => idList.Contains(x.Id) && x.IsActive && (!onlyInStock || x.StockQuantity > 0))
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
+            .Include(x => x.Images)
+            .AsSplitQuery()
+            .ToListAsync();
+
+        var data = idList
+            .Select(id => products.FirstOrDefault(p => p.Id == id))
+            .Where(p => p is not null)
+            .Select(p => p!)
+            .ToList()
+            .MapFilterData();
+
+        await FillRatingsAsync(data);
+        return data;
     }
 
     public async Task<List<ProductFilterData>> GetRelatedProductsAsync(Guid productId, int take = 8)
@@ -293,12 +678,95 @@ public class ProductService(FratakShopDbContext context) : IProductService
                         && x.IsActive
                         && x.StockQuantity > 0)
             .Include(x => x.Category)
+            .Include(x => x.Brand)
             .Include(x => x.Images)
-            .OrderByDescending(x => x.CreatedAt)
+            .OrderByDescending(x => x.SalesCount)
+            .ThenByDescending(x => x.CreatedAt)
             .Take(take)
             .ToListAsync();
 
-        return products.MapFilterData();
+        var data = products.MapFilterData();
+        await FillRatingsAsync(data);
+
+        return data;
+    }
+
+    public async Task AddProductVisitAsync(Guid id)
+    {
+        // به‌روزرسانی مستقیم در دیتابیس تا بازدیدهای هم‌زمان از دست نروند.
+        await context.Products
+            .Where(x => x.Id == id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.ViewCount, x => x.ViewCount + 1));
+    }
+
+    private IQueryable<Product> ProductDetailsQuery()
+    {
+        return context.Products
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
+            .Include(x => x.Images)
+            .Include(x => x.Features)
+            .AsSplitQuery();
+    }
+
+    private async Task<ProductDto?> MapWithRatingAsync(Product? product)
+    {
+        if (product is null)
+            return null;
+
+        var dto = product.Map();
+        var ratings = await GetRatingsAsync([product.Id]);
+        ApplyRating(dto, ratings);
+
+        return dto;
+    }
+
+    /// <summary>
+    /// میانگین امتیاز و تعداد دیدگاه‌های تاییدشده هر محصول با یک کوئری گروه‌بندی‌شده.
+    /// </summary>
+    private async Task<Dictionary<Guid, (double Average, int Count)>> GetRatingsAsync(List<Guid> productIds)
+    {
+        if (productIds.Count == 0)
+            return [];
+
+        var rows = await context.Comments
+            .Where(c => c.ProductId != null
+                        && productIds.Contains(c.ProductId.Value)
+                        && c.ParentId == null
+                        && c.Status == CommentStatus.Approved)
+            .GroupBy(c => c.ProductId!.Value)
+            .Select(g => new
+            {
+                ProductId = g.Key,
+                Count = g.Count(),
+                Average = g.Where(c => c.Rating != null).Average(c => (double?)c.Rating) ?? 0,
+            })
+            .ToListAsync();
+
+        return rows.ToDictionary(r => r.ProductId, r => (r.Average, r.Count));
+    }
+
+    private async Task FillRatingsAsync(List<ProductFilterData> products)
+    {
+        var ratings = await GetRatingsAsync(products.Select(p => p.Id).ToList());
+
+        foreach (var product in products)
+        {
+            if (!ratings.TryGetValue(product.Id, out var rating))
+                continue;
+
+            product.AverageRating = Math.Round(rating.Average, 1);
+            product.ReviewCount = rating.Count;
+        }
+    }
+
+    private static void ApplyRating(ProductDto product, Dictionary<Guid, (double Average, int Count)> ratings)
+    {
+        if (!ratings.TryGetValue(product.Id, out var rating))
+            return;
+
+        product.AverageRating = Math.Round(rating.Average, 1);
+        product.ReviewCount = rating.Count;
     }
 
     private static List<ProductImage> BuildImages(List<ProductImageCommand> images)
@@ -381,6 +849,37 @@ public class ProductService(FratakShopDbContext context) : IProductService
             feature.DisplayOrder = command.DisplayOrder;
         }
     }
+
+    /// <summary>
+    /// The shop buys every product from a supplier: the exact source page is required (internal data,
+    /// never shown on the storefront) so whoever handles an order knows where to buy each item.
+    /// </summary>
+    private async Task<string?> ValidateSupplierAsync(Guid? supplierId, string? supplierUrl, string? supplierSku, string? supplierNote, string? gtin, string? mpn)
+    {
+        if (string.IsNullOrWhiteSpace(supplierUrl))
+            return "لینک منبع خرید (صفحه محصول در سایت تأمین‌کننده) الزامی است.";
+
+        if (supplierUrl.Trim().Length > 1000
+            || !Uri.TryCreate(supplierUrl.Trim(), UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            return "لینک منبع خرید باید یک آدرس کامل http یا https باشد.";
+
+        if (supplierSku?.Trim().Length > 100 || supplierNote?.Trim().Length > 500)
+            return "کد کالا یا یادداشت تأمین‌کننده بیش از حد طولانی است.";
+
+        if (gtin?.Trim().Length > 14 || (gtin is { Length: > 0 } && !gtin.Trim().All(char.IsAsciiDigit)))
+            return "شناسه GTIN/بارکد باید فقط عدد و حداکثر ۱۴ رقم باشد.";
+
+        if (mpn?.Trim().Length > 50)
+            return "شناسه MPN حداکثر ۵۰ نویسه است.";
+
+        if (supplierId is { } id && !await context.Suppliers.AnyAsync(x => x.Id == id))
+            return "تأمین‌کننده انتخاب‌شده یافت نشد.";
+
+        return null;
+    }
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string? Validate(string? name, string? slug, string? sku, decimal price, decimal? discountPrice,
         DateTimeOffset? discountStartAt, DateTimeOffset? discountEndAt, int stockQuantity, int? warrantyMonths)

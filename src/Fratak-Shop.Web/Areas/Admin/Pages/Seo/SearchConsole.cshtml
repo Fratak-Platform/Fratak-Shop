@@ -1,0 +1,251 @@
+@page "/admin/seo/search-console"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.SearchConsoleModel
+@using Fratak_Shop.Core.DTOs.Admin
+@using Fratak_Shop.Core.Services.Seo.Tools
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  Google Search Console (مرحلهٔ هفتم – فاز ۸ب).
+  • گزارش: آمار ۲۸ روز با مقایسه، نمودار روزانه، فرصت‌ها (با لینک به تحلیل صفحه)، عبارت‌ها و صفحه‌های برتر.
+  • اتصال: راهنمای رایگان حساب سرویس، بارگذاری کلید JSON، آدرس ویژگی، پروکسی، آزمایش و ثبت نقشهٔ سایت.
+*@
+@{
+    ViewData["Title"] = "Search Console";
+    var s = Model.Status;
+    var r = Model.Report;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>گوگل Search Console</h2>
+    <p class="a-muted text-sm mt-1">
+      آمار واقعی گوگل (چند بار نمایش، چند کلیک، در چه جایگاهی و برای چه عبارت‌هایی) روزی یک بار دریافت می‌شود و موتور سئو
+      در انتخاب کلمهٔ کلیدی هر صفحه از همین عبارت‌های واقعی استفاده می‌کند. اتصال کاملاً رایگان است.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    @if (s.HasKey)
+    {
+      <form method="post" asp-page-handler="Sync">
+        <button type="submit" class="a-btn" disabled="@(Model.IsRunning || Model.SyncQueued)">
+          <span class="inline-flex">@Icons.Svg("ArrowsClockwise", Model.IsRunning ? "animate-spin" : null, 18)</span>
+          @(Model.IsRunning ? "در حال دریافت…" : Model.SyncQueued ? "در صف شروع…" : "دریافت آمار تازه")
+        </button>
+      </form>
+    }
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(s.Message))
+{
+  <div class="a-alert @(s.Ok ? "a-alert-success" : "a-alert-warn") mb-4">@Icons.Svg(s.Ok ? "CheckCircle" : "Warning", null, 16) <span>@s.Message</span></div>
+}
+
+<nav class="a-tabs mb-4" aria-label="بخش‌ها">
+  <a class="a-tab @(Model.Tab == "report" ? "is-active" : "")" href="/admin/seo/search-console">گزارش</a>
+  <a class="a-tab @(Model.Tab == "setup" ? "is-active" : "")" href="/admin/seo/search-console?tab=setup">اتصال و تنظیمات</a>
+</nav>
+
+@if (Model.Tab == "report")
+{
+  if (!r.HasData)
+  {
+    <div class="a-empty">
+      هنوز آماری دریافت نشده است.
+      @(s.HasKey ? "«دریافت آمار تازه» را بزنید." : "اول از زبانهٔ «اتصال و تنظیمات» حساب گوگل را وصل کنید.")
+    </div>
+  }
+  else
+  {
+    var clicksChange = SearchConsoleModel.Change(r.Current.Clicks, r.Previous.Clicks);
+    var impressionsChange = SearchConsoleModel.Change(r.Current.Impressions, r.Previous.Impressions);
+    var ctrChange = SearchConsoleModel.Change(r.Current.Ctr, r.Previous.Ctr);
+    var positionChange = SearchConsoleModel.Change(r.Current.Position, r.Previous.Position, lowerIsBetter: true);
+    var chart = new BarChartModel("کلیک روزانه", r.Daily.Select(d => new ChartPoint(Format.Day(d.Date), d.Clicks, d.Impressions)).ToList(), Money: false, SecondaryLabel: "نمایش");
+    <p class="a-muted text-xs mb-2">
+      ۲۸ روز اخیر در مقایسه با ۲۸ روز قبل · آخرین دریافت: @(r.SyncedAt is { } synced ? Format.Relative(synced) : "—")
+      @if (r.PeriodStart is { } ps && r.PeriodEnd is { } pe) { <span> · عبارت‌ها و صفحه‌ها: @Format.Day(ps) تا @Format.Day(pe)</span> }
+    </p>
+    <div class="a-stats mb-4">
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("TrendUp", null, 16) کلیک از گوگل</div>
+        <div class="a-stat-value">@Format.Number(r.Current.Clicks)</div>
+        @if (clicksChange is { } c1) { <div class="a-stat-sub"><span class="@(c1.Good ? "a-up" : "a-down")">@c1.Text</span> نسبت به دورهٔ قبل</div> }
+      </div>
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("Eye", null, 16) نمایش در نتایج</div>
+        <div class="a-stat-value">@Format.Number(r.Current.Impressions)</div>
+        @if (impressionsChange is { } c2) { <div class="a-stat-sub"><span class="@(c2.Good ? "a-up" : "a-down")">@c2.Text</span> نسبت به دورهٔ قبل</div> }
+      </div>
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("Gauge", null, 16) نرخ کلیک</div>
+        <div class="a-stat-value">@SearchConsoleModel.Percent(r.Current.Ctr)</div>
+        @if (ctrChange is { } c3) { <div class="a-stat-sub"><span class="@(c3.Good ? "a-up" : "a-down")">@c3.Text</span></div> }
+      </div>
+      <div class="a-stat">
+        <div class="a-stat-label">@Icons.Svg("ChartBar", null, 16) جایگاه میانگین</div>
+        <div class="a-stat-value">@SearchConsoleModel.Position(r.Current.Position)</div>
+        @if (positionChange is { } c4) { <div class="a-stat-sub"><span class="@(c4.Good ? "a-up" : "a-down")">@c4.Text</span> (کمتر = بهتر)</div> }
+      </div>
+    </div>
+
+    <div class="a-card mb-4">
+      <div class="a-card-head"><h3 class="a-card-title">کلیک روزانه از گوگل</h3></div>
+      <div class="a-card-body">
+        <partial name="_BarChart" model="chart" />
+      </div>
+    </div>
+
+    <div class="a-card mb-4">
+      <div class="a-card-head">
+        <h3 class="a-card-title">@Icons.Svg("Sparkle", null, 18) فرصت‌ها</h3>
+        <span class="a-muted text-xs">مرتب بر اساس کلیک ماهانه‌ای که با اصلاح به دست می‌آید</span>
+      </div>
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards">
+          <thead><tr><th>صفحه</th><th>عبارت</th><th>نوع</th><th>نمایش / کلیک</th><th>جایگاه</th><th>کلیک بیشتر</th><th>چه کنیم</th></tr></thead>
+          <tbody>
+            @foreach (var o in r.Opportunities)
+            {
+              <tr>
+                <td data-label="صفحه">
+                  @if (o.EntityKind is { } ek && o.EntityId is { } eid)
+                  {
+                    <a class="a-link" href="@SeoEngineUi.AnalyzeUrl(ek, eid)">@(o.EntityTitle ?? o.Path)</a>
+                  }
+                  else
+                  {
+                    <span class="a-ltr text-xs break-all">@o.Path</span>
+                  }
+                </td>
+                <td data-label="عبارت" class="text-sm">@o.Query</td>
+                <td data-label="نوع"><span class="a-badge @SearchConsoleModel.OpportunityBadge(o.Kind)">@SearchConsoleModel.OpportunityTitle(o.Kind)</span></td>
+                <td data-label="نمایش / کلیک" class="num">@Format.Number(o.Impressions) / @Format.Number(o.Clicks)</td>
+                <td data-label="جایگاه" class="num">@SearchConsoleModel.Position(o.Position)</td>
+                <td data-label="کلیک بیشتر" class="num a-up">+@Format.Number(o.Potential)</td>
+                <td data-label="چه کنیم" class="text-xs" style="min-width:260px">@o.Advice</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (r.Opportunities.Count == 0) { <div class="a-empty">فرصت مشخصی پیدا نشد (یا هنوز نمایش کافی نیست).</div> }
+      </div>
+    </div>
+
+    <div class="a-grid lg:grid-cols-2 gap-4">
+      <div class="a-card">
+        <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) عبارت‌های برتر</h3></div>
+        <div class="a-table-wrap">
+          <table class="a-table a-table-compact">
+            <thead><tr><th>عبارت</th><th>کلیک</th><th>نمایش</th><th>نرخ کلیک</th><th>جایگاه</th></tr></thead>
+            <tbody>
+              @foreach (var q in r.TopQueries)
+              {
+                <tr>
+                  <td class="text-sm">@q.Query @if (q.Pages > 1) { <span class="a-badge a-badge-gray" title="چند صفحهٔ سایت برای این عبارت نمایش داده شده‌اند">@Format.Number(q.Pages) صفحه</span> }</td>
+                  <td class="num">@Format.Number(q.Clicks)</td>
+                  <td class="num">@Format.Number(q.Impressions)</td>
+                  <td class="num">@SearchConsoleModel.Percent(q.Ctr)</td>
+                  <td class="num">@SearchConsoleModel.Position(q.Position)</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="a-card">
+        <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Article", null, 18) صفحه‌های برتر</h3></div>
+        <div class="a-table-wrap">
+          <table class="a-table a-table-compact">
+            <thead><tr><th>صفحه</th><th>کلیک</th><th>نمایش</th><th>جایگاه</th></tr></thead>
+            <tbody>
+              @foreach (var p in r.TopPages)
+              {
+                <tr>
+                  <td class="text-sm">
+                    @if (p.Kind is { } pk && p.EntityId is { } pid) { <a class="a-link" href="@SeoEngineUi.AnalyzeUrl(pk, pid)">@(p.Title ?? p.Path)</a> }
+                    else { <span class="a-ltr text-xs break-all">@p.Path</span> }
+                    @if (!string.IsNullOrEmpty(p.TopQuery)) { <div class="a-muted text-xs">بیشتر برای «@p.TopQuery»</div> }
+                  </td>
+                  <td class="num">@Format.Number(p.Clicks)</td>
+                  <td class="num">@Format.Number(p.Impressions)</td>
+                  <td class="num">@SearchConsoleModel.Position(p.Position)</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+}
+else
+{
+  <div class="a-grid lg:grid-cols-2 gap-4">
+    <div class="a-card">
+      <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) اتصال</h3></div>
+      <div class="a-card-body">
+        <form method="post" asp-page-handler="Save" enctype="multipart/form-data" class="a-stack">
+          <div class="a-field">
+            <label class="a-label" for="g-site">آدرس ویژگی (Property) در Search Console</label>
+            <input id="g-site" name="site" class="a-input a-ltr" value="@(s.Site ?? Model.SuggestedSite)" placeholder="sc-domain:fratak.ir یا https://fratak.ir/" maxlength="300">
+            <span class="a-muted text-xs">ویژگی دامنه: <span class="a-ltr">sc-domain:fratak.ir</span> · ویژگی آدرس: <span class="a-ltr">https://fratak.ir/</span> (دقیقاً مثل Search Console)</span>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="g-file">فایل کلید JSON حساب سرویس</label>
+            @if (s.HasKey)
+            {
+              <div class="text-sm mb-1">@Icons.Svg("CheckCircle", "inline", 16) کلید ذخیره شده است: <span class="a-ltr">@s.ServiceEmail</span></div>
+            }
+            <input id="g-file" type="file" name="keyFile" accept=".json,application/json" class="a-input">
+            <details class="a-details mt-1">
+              <summary class="a-muted text-xs">یا متن فایل را اینجا بچسبانید</summary>
+              <textarea name="keyJson" rows="4" class="a-textarea a-ltr text-xs mt-1" placeholder="{ &quot;type&quot;: &quot;service_account&quot;, ... }"></textarea>
+            </details>
+            <span class="a-muted text-xs">کلید رمزنگاری‌شده ذخیره می‌شود و هرگز دوباره نمایش داده نمی‌شود.</span>
+            @if (s.HasKey)
+            {
+              <label class="a-check text-sm mt-1"><input type="checkbox" name="clearKey" value="true"> حذف کلید ذخیره‌شده</label>
+            }
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="g-proxy">پروکسی (اختیاری)</label>
+            <input id="g-proxy" name="proxy" class="a-input a-ltr" value="@s.Proxy" placeholder="http://127.0.0.1:10809 یا socks5://127.0.0.1:1080" maxlength="300">
+            <span class="a-muted text-xs">سرورهای داخل ایران معمولاً به APIهای گوگل دسترسی ندارند؛ اگر «آزمایش اتصال» خطای اتصال داد، یک پروکسی روی سرور راه‌اندازی و آدرسش را اینجا وارد کنید.</span>
+          </div>
+          <label class="a-check"><input type="checkbox" name="enabled" value="true" checked="@s.Enabled"> دریافت خودکار روزانهٔ آمار</label>
+          <input type="hidden" name="enabled" value="false">
+          <div><button type="submit" class="a-btn">ذخیره</button></div>
+        </form>
+
+        <div class="a-divider"></div>
+        <div class="flex flex-wrap gap-2">
+          <form method="post" asp-page-handler="Test">
+            <button type="submit" class="a-btn a-btn-light" disabled="@(!s.HasKey)">@Icons.Svg("CheckCircle", null, 16) آزمایش اتصال</button>
+          </form>
+          <form method="post" asp-page-handler="Sitemap" data-confirm="نقشهٔ سایت در Search Console ثبت شود؟">
+            <button type="submit" class="a-btn a-btn-light" disabled="@(!s.HasKey)">@Icons.Svg("Globe", null, 16) ثبت نقشهٔ سایت در گوگل</button>
+          </form>
+        </div>
+        @if (s.SyncedAt is { } at)
+        {
+          <p class="a-muted text-xs mt-3">آخرین دریافت موفق: @Format.DateTime(at) · @Format.Number(s.Days) روز آمار روزانه و @Format.Number(s.QueryRows) ردیف «صفحه × عبارت».</p>
+        }
+      </div>
+    </div>
+
+    <div class="a-card">
+      <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Question", null, 18) راهنمای اتصال رایگان (یک بار، حدود ۱۰ دقیقه)</h3></div>
+      <div class="a-card-body a-prose text-sm">
+        <ol>
+          <li>به <span class="a-ltr">console.cloud.google.com</span> بروید و یک پروژهٔ تازه بسازید (رایگان؛ کارت بانکی لازم نیست).</li>
+          <li>از منوی <b>APIs &amp; Services ← Library</b>، «Google Search Console API» را جست‌وجو و <b>Enable</b> کنید.</li>
+          <li>از <b>IAM &amp; Admin ← Service Accounts</b> یک حساب سرویس بسازید (نقش لازم نیست).</li>
+          <li>روی حساب ساخته‌شده ← زبانهٔ <b>Keys</b> ← <b>Add key ← Create new key ← JSON</b>. فایلی دانلود می‌شود؛ همان را در فرم روبه‌رو بارگذاری کنید.</li>
+          <li>در <span class="a-ltr">search.google.com/search-console</span> ← <b>تنظیمات ← کاربران و مجوزها ← افزودن کاربر</b>، ایمیل حساب سرویس (مثل <span class="a-ltr">…@@….iam.gserviceaccount.com</span>) را با دسترسی <b>کامل</b> اضافه کنید (برای ثبت نقشهٔ سایت: <b>مالک</b>).</li>
+          <li>آدرس ویژگی را وارد، ذخیره و «آزمایش اتصال» را بزنید. بعد «دریافت آمار تازه».</li>
+        </ol>
+        <p class="a-muted text-xs">گوگل آمار را با ۲ تا ۳ روز تأخیر می‌دهد. سایت تازه چند هفته طول می‌کشد تا نمایش کافی برای «فرصت‌ها» جمع شود.</p>
+      </div>
+    </div>
+  </div>
+}

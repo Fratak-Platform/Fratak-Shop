@@ -1,0 +1,71 @@
+@model Fratak_Shop.Core.Services.Orders.ShipmentTimelineDto
+@using Fratak_Shop.Core.Services.Orders
+@using Fratak_Shop.Data.Entities.Orders
+@*
+  کارت «پیگیری مرسوله» برای مشتری (مرحلهٔ هفتم – فاز ۶).
+  استفاده: Pages/Profile/OrderDetail.cshtml و Pages/TrackOrder.cshtml با <partial name="_ShipmentTracking" model="..." />.
+  داده‌ها را سرویس پس‌زمینهٔ رهگیری چند بار در روز از سامانهٔ پست به‌روز می‌کند؛ مشتری درخواستی به پست نمی‌فرستد.
+  خطاهای فنی و مشخصات مرسوله (نام/آدرس) اینجا نمایش داده نمی‌شوند.
+*@
+@{
+    var stateCss = Model.State switch
+    {
+        ShipmentTrackingState.Delivered => "bg-emerald-100 text-emerald-700",
+        ShipmentTrackingState.OutForDelivery => "bg-violet-100 text-violet-700",
+        ShipmentTrackingState.Returned => "bg-rose-100 text-rose-700",
+        ShipmentTrackingState.InTransit => "bg-sky-100 text-sky-700",
+        _ => "bg-zinc-100 text-zinc-600",
+    };
+    // متن وضعیت برای مشتری: «متوقف» برای او معنایی ندارد.
+    var stateText = Model.State == ShipmentTrackingState.Stopped || !Model.AutoTracking ? "ارسال شده" : Model.StateTitle;
+}
+<section id="shipment" class="mb-6 rounded-2xl border border-sky-100 bg-sky-50 p-4 scroll-mt-28" aria-label="پیگیری مرسوله">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-x-2 text-sm font-semibold text-zinc-800">
+      @Icons.Svg("Truck", "fill-sky-600 shrink-0", 20)
+      <span>پیگیری مرسوله · @Model.CarrierTitle</span>
+    </div>
+    <span class="rounded-full px-3 py-1 text-xs @stateCss">@stateText</span>
+  </div>
+  <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-700">
+    <span>کد رهگیری: <bdi class="font-semibold" dir="ltr">@Model.Code</bdi></span>
+    @if (Model.PublicUrl is { } publicUrl)
+    {
+      <a href="@publicUrl" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-sky-500 px-3 py-1.5 text-xs text-white hover:bg-sky-600">پیگیری در سایت پست</a>
+    }
+  </div>
+  @if (Model.AutoTracking)
+  {
+    <p class="mt-2 text-xs text-zinc-500">
+      وضعیت به‌صورت خودکار چند بار در روز از سامانهٔ پست به‌روز می‌شود.
+      @if (Model.LastSuccessAt is { } updatedAt) { <span>آخرین به‌روزرسانی: @Format.DateTime(updatedAt)</span> }
+    </p>
+  }
+  @if (Model.Events.Count > 0)
+  {
+    <ol class="mt-4 space-y-4 border-r-2 border-sky-200 pr-4" aria-label="رویدادهای مرسوله">
+      @for (var i = 0; i < Model.Events.Count; i++)
+      {
+        var ev = Model.Events[i];
+        var dot = ev.Kind switch
+        {
+          PostEventKind.Delivered => "bg-emerald-500",
+          PostEventKind.Returned or PostEventKind.DeliveryFailed => "bg-rose-500",
+          PostEventKind.OutForDelivery => "bg-violet-500",
+          _ => i == 0 ? "bg-sky-500" : "bg-zinc-300",
+        };
+        <li class="relative">
+          <span class="absolute -right-[23px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white @dot" aria-hidden="true"></span>
+          <div class="text-sm @(i == 0 ? "font-semibold text-zinc-800" : "text-zinc-600")">@ev.Status</div>
+          <div class="mt-0.5 text-xs text-zinc-500">
+            @(ev.Location ?? "")@(ev.Location is not null ? " · " : "")@(ev.OccurredAt is { } evAt ? Format.DateTime(evAt) : ev.RawTime)
+          </div>
+        </li>
+      }
+    </ol>
+  }
+  else if (Model.AutoTracking && Model.State != ShipmentTrackingState.Stopped)
+  {
+    <p class="mt-3 text-sm text-zinc-600">هنوز اطلاعاتی از سامانهٔ پست دریافت نشده است؛ معمولاً چند ساعت بعد از تحویل مرسوله به پست ثبت می‌شود.</p>
+  }
+</section>

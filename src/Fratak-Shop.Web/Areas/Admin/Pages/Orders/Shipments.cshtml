@@ -1,0 +1,118 @@
+@page "/admin/orders/shipments"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.ShipmentsModel
+@using Fratak_Shop.Core.Services.Orders
+@using Fratak_Shop.Web.Areas.Admin.Pages.Orders
+@*
+  رهگیری مرسوله‌ها (مرحلهٔ هفتم – فاز ۶): آمار، زبانه‌ها، جدول مرسوله‌ها با آخرین رویداد پست و بررسی فوری.
+*@
+@{
+    ViewData["Title"] = "رهگیری مرسوله‌ها";
+    var st = Model.Stats;
+    var request = HttpContext.Request;
+    var canManage = Model.Can(AdminPermissions.OrdersManage);
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/orders" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>رهگیری مرسوله‌ها</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">
+      وضعیت مرسوله‌های پستی چند بار در روز از سامانهٔ رهگیری پست خوانده می‌شود؛ با «تحویل به گیرنده» سفارش خودکار «تحویل‌شده» می‌شود.
+      @if (st.Enabled) { <span>بررسی بعدی: @Format.DateTime(st.NextSlot)</span> } else { <span class="text-amber-600">رهگیری خودکار در تنظیمات خاموش است.</span> }
+    </p>
+  </div>
+  @if (canManage)
+  {
+    <form method="post" asp-page-handler="Run">
+      <input type="hidden" name="tab" value="@Model.Tab">
+      <button type="submit" class="a-btn" disabled="@Model.RunPending">@Icons.Svg("ArrowsClockwise", null, 18) بررسی همین حالا</button>
+    </form>
+  }
+</div>
+
+<div class="a-stats mb-4">
+  <a class="a-stat" href="/admin/orders/shipments?tab=active"><span>در حال رهگیری</span><b>@Format.Number(st.Active)</b></a>
+  <div class="a-stat"><span>در حال توزیع</span><b class="text-violet-600">@Format.Number(st.OutForDelivery)</b></div>
+  <a class="a-stat" href="/admin/orders/shipments?tab=problems"><span>نیازمند توجه</span><b class="@(st.Problems > 0 ? "text-rose-600" : "")">@Format.Number(st.Problems)</b></a>
+  <a class="a-stat" href="/admin/orders/shipments?tab=delivered"><span>تحویل در ۷ روز اخیر</span><b class="text-emerald-600">@Format.Number(st.DeliveredLast7Days)</b>
+    @if (st.AutoDeliveredLast7Days > 0) { <small class="a-muted">@Format.Number(st.AutoDeliveredLast7Days) مورد خودکار</small> }
+  </a>
+  <div class="a-stat"><span>آخرین بررسی</span><b class="text-base">@(st.LastCheckAt is { } lastCheck ? Format.Relative(lastCheck) : "—")</b></div>
+</div>
+
+<div class="a-tabs mb-4">
+  @foreach (var t in ShipmentsModel.Tabs)
+  {
+    <a class="a-tab @(Model.Tab == t.Key ? "is-active" : "")" href="/admin/orders/shipments?tab=@t.Key">@t.Title</a>
+  }
+</div>
+
+<form method="get" class="a-filters mb-4">
+  <input type="hidden" name="tab" value="@Model.Tab">
+  <div class="a-field"><label class="a-label" for="sh-q">جست‌وجو</label><input id="sh-q" name="q" value="@Model.Search" class="a-input" placeholder="کد رهگیری، شمارهٔ سفارش یا نام مشتری"></div>
+  <div class="a-field">
+    <label class="a-label" for="sh-carrier">شرکت حمل</label>
+    <select id="sh-carrier" name="carrier" class="a-select">
+      <option value="">همه</option>
+      @foreach (var c in ShippingCarriers.All)
+      {
+        <option value="@c" selected="@(Model.Carrier == c)">@ShippingCarriers.Title(c)</option>
+      }
+    </select>
+  </div>
+  <div class="a-field flex items-end"><button type="submit" class="a-btn">@Icons.Svg("Funnel", null, 18) اعمال</button></div>
+</form>
+
+<div class="a-card">
+  @if (Model.Rows.Items.Count == 0)
+  {
+    <div class="a-empty">مرسوله‌ای با این فیلتر نیست. کد رهگیری از صفحهٔ جزئیات هر سفارش ثبت می‌شود.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>سفارش</th><th>حمل و کد</th><th>وضعیت</th><th>آخرین رویداد</th><th>آخرین بررسی</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Rows.Items)
+          {
+            <tr>
+              <td data-label="سفارش">
+                <a class="a-link font-semibold a-ltr" href="/admin/orders/@r.OrderId#shipment">@r.OrderNumber</a>
+                <span class="block text-xs a-muted">@r.CustomerName</span>
+                <span class="a-badge @AdminUi.OrderStatusBadge(r.OrderStatus)">@AdminUi.OrderStatus(r.OrderStatus)</span>
+              </td>
+              <td data-label="حمل و کد">
+                <span>@ShippingCarriers.Title(r.Carrier)</span>
+                <span class="block text-xs a-ltr">@r.Code</span>
+                <span class="block text-xs a-muted">از @Format.Date(r.StartedAt)</span>
+              </td>
+              <td data-label="وضعیت">
+                <span class="a-badge @AdminUi.ShipmentStateBadge(r.State)">@ShippingCarriers.StateTitle(r.State)</span>
+                @if (r.AutoDelivered) { <span class="block text-xs a-muted">تحویل خودکار ثبت شد</span> }
+              </td>
+              <td data-label="آخرین رویداد">
+                @if (r.LastStatus is not null)
+                {
+                  <span>@r.LastStatus</span>
+                  <span class="block text-xs a-muted">@(r.LastLocation ?? "")@(r.LastEventAt is { } evAt ? " · " + Format.DateTime(evAt) : "")</span>
+                }
+                else
+                {
+                  <span class="a-muted">—</span>
+                }
+              </td>
+              <td data-label="آخرین بررسی">
+                <span>@(r.LastCheckedAt is { } chk ? Format.Relative(chk) : "—")</span>
+                @if (r.LastError is not null) { <span class="block text-xs text-rose-600" title="@r.LastError">@(r.FailureCount > 1 ? $"{r.FailureCount} خطای پیاپی" : "خطا در آخرین بررسی")</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Rows.Page, Model.Rows.PageCount, Model.Rows.Total)" />
+  }
+</div>

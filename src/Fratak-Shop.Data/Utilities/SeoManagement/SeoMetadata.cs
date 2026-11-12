@@ -258,6 +258,13 @@ namespace Fratak_Shop.Data.Utilities.SeoManagement
         /// </summary>
         public string? StructuredDataJsonLd { get; set; }
 
+        /// <summary>
+        /// پرسش‌وپاسخ صفحه (مرحلهٔ هفتم – فاز ۸) به‌صورت JSON: <c>[{"q":"...","a":"..."}]</c>.
+        /// در پایین صفحه نمایش داده می‌شود و اسکیمای FAQPage هم خودکار ساخته می‌شود (جدا از StructuredDataJsonLd،
+        /// تا اسکیمای خودکار محصول/مقاله حذف نشود). معمولاً موتور سئو آن را پیشنهاد می‌دهد و کارشناس تأیید می‌کند.
+        /// </summary>
+        public string? FaqJson { get; set; }
+
 
         // =========================================================
         // Sitemap

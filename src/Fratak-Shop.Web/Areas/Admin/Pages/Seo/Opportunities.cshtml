@@ -1,0 +1,140 @@
+@page "/admin/seo/opportunities"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.OpportunitiesModel
+@*
+  دور ۲۴ (پیشنهادهای ۴۸ تا ۵۰): فرصت‌های سئو – کم‌بازدیدها، جست‌وجوهای بی‌نتیجه (با افزودن مترادف) و هم‌نوع‌خواری کلمه.
+*@
+@{
+    ViewData["Title"] = "فرصت‌های سئو";
+    var canManage = Model.Can(Fratak_Shop.Core.Services.Admin.AdminPermissions.SeoManage);
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>فرصت‌های سئو</h2>
+    <p class="a-muted text-sm mt-1">
+      سیستم از دادهٔ خود سایت (بازدیدها، جست‌وجوهای مشتری‌ها و کلمه‌های کلیدی صفحه‌ها) جاهایی را پیدا می‌کند که با یک اصلاح کوچک
+      بازدید و فروش بیشتری می‌آورند. اگر سرچ کنسول وصل باشد، هم‌نوع‌خواری واقعی گوگل هم نمایش داده می‌شود.
+    </p>
+  </div>
+</div>
+
+<nav class="a-tabs mb-4" aria-label="بخش‌ها">
+  @foreach (var (key, title) in OpportunitiesModel.Tabs)
+  {
+    <a class="a-tab @(Model.Tab == key ? "is-active" : "")" href="?tab=@key">@title</a>
+  }
+</nav>
+
+@if (Model.Tab == "low")
+{
+  <div class="a-card">
+    <div class="a-card-body a-muted text-sm">کالا و مقاله‌هایی که بیش از @Format.Number(Fratak_Shop.Core.Services.Seo.Autopilot.SeoOpportunityService.MinAgeDays) روز منتشر شده‌اند ولی کمتر از @Format.Number(Fratak_Shop.Core.Services.Seo.Autopilot.SeoOpportunityService.LowViews) بازدید دارند؛ کم‌بازدیدترین اول.</div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>صفحه</th><th>بازدید</th><th>عمر</th><th>چرا و چه کنیم</th></tr></thead>
+        <tbody>
+          @foreach (var row in Model.LowTraffic)
+          {
+            <tr>
+              <td data-label="صفحه">
+                <a class="a-link" href="@row.AdminUrl">@row.Title</a>
+                <div class="a-muted text-xs"><span class="a-badge a-badge-gray">@row.Kind</span> <a class="a-link" href="@row.Url" target="_blank" rel="noopener">مشاهده</a></div>
+              </td>
+              <td data-label="بازدید">@Format.Number(row.Views)</td>
+              <td data-label="عمر" class="nowrap">@Format.Number(row.AgeDays) روز</td>
+              <td data-label="چرا و چه کنیم">
+                <ul class="list-disc pr-4 text-sm space-y-1">
+                  @foreach (var reason in row.Reasons)
+                  {
+                    <li>@reason</li>
+                  }
+                </ul>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.LowTraffic.Count == 0)
+      {
+        <div class="a-empty">صفحهٔ کم‌بازدیدی پیدا نشد.</div>
+      }
+    </div>
+  </div>
+}
+else if (Model.Tab == "searches")
+{
+  <div class="a-card">
+    <div class="a-card-body a-muted text-sm">جست‌وجوهای ۹۰ روز اخیر که دست‌کم دو بار تکرار شده‌اند و نتیجه‌ای (یا فقط یک نتیجه) نداشته‌اند. اگر کالا/دستهٔ نزدیکی پیدا شود، با «افزودن مترادف» جست‌وجو از همین حالا درست کار می‌کند.</div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>عبارت</th><th>تعداد</th><th>نزدیک‌ترین</th><th>پیشنهاد</th></tr></thead>
+        <tbody>
+          @foreach (var gap in Model.SearchGaps)
+          {
+            <tr>
+              <td data-label="عبارت"><b>@gap.Query</b><div class="a-muted text-xs">آخرین بار @AdminUi.Ago(gap.LastSearchedAt) · @Format.Number(gap.LastResults) نتیجه</div></td>
+              <td data-label="تعداد">@Format.Number(gap.Searches)</td>
+              <td data-label="نزدیک‌ترین">
+                @if (gap.TargetUrl is not null)
+                {
+                  <a class="a-link" href="@gap.TargetUrl" target="_blank" rel="noopener">@gap.TargetName</a>
+                }
+                else
+                {
+                  <span class="a-muted">—</span>
+                }
+              </td>
+              <td data-label="پیشنهاد" style="min-width:260px">
+                <div class="text-sm">@gap.Advice</div>
+                @if (canManage && gap.SynonymTerms is not null)
+                {
+                  <form method="post" asp-page-handler="Synonym" class="mt-2 flex flex-wrap gap-2 items-center">
+                    <input name="terms" class="a-input a-input-sm" value="@gap.SynonymTerms" maxlength="300" aria-label="مترادف">
+                    <button type="submit" class="a-btn a-btn-xs">افزودن مترادف</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.SearchGaps.Count == 0)
+      {
+        <div class="a-empty">جست‌وجوی بی‌نتیجهٔ تکراری پیدا نشد.</div>
+      }
+    </div>
+  </div>
+}
+else
+{
+  <div class="a-card">
+    <div class="a-card-body a-muted text-sm">صفحه‌هایی که برای یک کلمه با هم رقابت می‌کنند (کلمهٔ کلیدی یا عنوان سئوی یکسان، یا عبارت سرچ کنسول با نمایش روی چند صفحه). گوگل معمولاً فقط یکی را بالا می‌آورد؛ صفحهٔ اصلی را مشخص کنید.</div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>کلمه</th><th>منبع</th><th>صفحه‌ها</th><th>توصیه</th></tr></thead>
+        <tbody>
+          @foreach (var cannibalGroup in Model.Cannibal)
+          {
+            <tr>
+              <td data-label="کلمه"><b>@cannibalGroup.Keyword</b></td>
+              <td data-label="منبع"><span class="a-badge a-badge-gray">@cannibalGroup.Source</span></td>
+              <td data-label="صفحه‌ها">
+                <ul class="text-sm space-y-1">
+                  @foreach (var member in cannibalGroup.Pages)
+                  {
+                    <li><span class="a-muted text-xs">@member.Kind:</span> <a class="a-link" href="@(member.AdminUrl ?? member.Url)">@member.Title</a></li>
+                  }
+                </ul>
+              </td>
+              <td data-label="توصیه" class="text-sm" style="min-width:240px">@cannibalGroup.Advice</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Cannibal.Count == 0)
+      {
+        <div class="a-empty">هم‌نوع‌خواری کلمه‌ای پیدا نشد.</div>
+      }
+    </div>
+  </div>
+}

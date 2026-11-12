@@ -1,0 +1,192 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.IndexModel
+@{
+    ViewData["Title"] = "سفارش‌ها";
+    var list = Model.List;
+    var request = HttpContext.Request;
+    var all = list.StatusCounts.Values.Sum();
+    var canManage = Model.Can(AdminPermissions.OrdersManage);
+}
+<div class="a-page-head">
+  <h2>سفارش‌ها <span class="a-muted text-sm font-normal">(@Format.Number(list.Orders.Total) مورد · @Format.Toman(list.FilteredTotal))</span></h2>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.OrdersCreate))
+    {
+      <a href="/admin/orders/new" class="a-btn">@Icons.Svg("Plus", null, 18) ثبت سفارش برای مشتری</a>
+    }
+    <a href="/admin/orders/board" class="a-btn a-btn-light">@Icons.Svg("Kanban", null, 18) نمای کانبان</a>
+    @if (Model.SlaSummary.Overdue > 0)
+    {
+      <a href="@AdminUi.With(request, ("sla", "overdue"), ("page", null))" class="a-btn a-btn-danger-soft" title="سفارش‌هایی که از مهلت مرحلهٔ فعلی گذشته‌اند">@Icons.Svg("Siren", null, 18) @Format.Number(Model.SlaSummary.Overdue) دیرکرد</a>
+    }
+    @if (Model.SlaSummary.Soon > 0)
+    {
+      <a href="@AdminUi.With(request, ("sla", "soon"), ("page", null))" class="a-btn a-btn-soft" title="سفارش‌هایی که بیشتر مهلتشان گذشته است">@Icons.Svg("Timer", null, 18) @Format.Number(Model.SlaSummary.Soon) نزدیک به پایان مهلت</a>
+    }
+    @if (list.AwaitingInvoiceCount > 0)
+    {
+      <a href="?invoice=missing" class="a-btn a-btn-danger-soft">@Icons.Svg("Receipt", null, 18) @Format.Number(list.AwaitingInvoiceCount) سفارش بدون فاکتور خرید</a>
+    }
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "xlsx"))" class="a-btn a-btn-light">@Icons.Svg("Download", null, 18) اکسل</a>
+    <a href="@AdminUi.With(request, ("handler", "export"), ("format", "csv"))" class="a-btn a-btn-light">CSV</a>
+  </div>
+</div>
+
+<div class="a-pills mb-4">
+  <a class="a-pill @(Model.Status is null ? "is-active" : "")" href="@AdminUi.With(request, ("status", null))">همه<b>@Format.Number(all)</b></a>
+  @foreach (var status in new[] { OrderStatus.Pending, OrderStatus.Confirmed, OrderStatus.Processing, OrderStatus.Shipped, OrderStatus.Delivered, OrderStatus.Cancelled, OrderStatus.Returned })
+  {
+    <a class="a-pill @(Model.Status == status ? "is-active" : "")" href="@AdminUi.With(request, ("status", status.ToString()))">@AdminUi.OrderStatus(status)<b>@Format.Number(list.StatusCounts.GetValueOrDefault(status))</b></a>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field" style="flex-basis:220px">
+      <label class="a-label" for="f-q">جست‌وجو</label>
+      <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="شماره، نام، موبایل، کد رهگیری، محصول" maxlength="100">
+    </div>
+    @if (Model.Status is not null) { <input type="hidden" name="status" value="@Model.Status"> }
+    <div class="a-field">
+      <label class="a-label" for="f-pay">پرداخت</label>
+      <select id="f-pay" name="payment" class="a-select">
+        <option value="">همه</option>
+        @foreach (var p in new[] { PaymentStatus.Pending, PaymentStatus.Paid, PaymentStatus.Failed, PaymentStatus.Refunded })
+        {
+          <option value="@p" selected="@(Model.Payment == p)">@Display.PaymentStatus(p)</option>
+        }
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-method">روش پرداخت</label>
+      <select id="f-method" name="method" class="a-select">
+        <option value="">همه</option>
+        @foreach (var m in new[] { PaymentMethod.OnlineGateway, PaymentMethod.CashOnDelivery, PaymentMethod.BankTransfer, PaymentMethod.Wallet })
+        {
+          <option value="@m" selected="@(Model.Method == m)">@Display.PaymentMethod(m)</option>
+        }
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-inv">فاکتور خرید</label>
+      <select id="f-inv" name="invoice" class="a-select">
+        <option value="">همه</option>
+        <option value="missing" selected="@(Model.Invoice == "missing")">ثبت نشده</option>
+        <option value="has" selected="@(Model.Invoice == "has")">ثبت شده</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-sla">زمان‌بندی</label>
+      <select id="f-sla" name="sla" class="a-select">
+        <option value="">همه</option>
+        <option value="overdue" selected="@(Model.Sla == "overdue")">دیرکرد</option>
+        <option value="soon" selected="@(Model.Sla == "soon")">نزدیک به پایان مهلت</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="f-src">منبع سفارش</label>
+      <select id="f-src" name="source" class="a-select">
+        <option value="">همه</option>
+        <option value="site" selected="@(Model.Source == "site")">سایت</option>
+        <option value="staff" selected="@(Model.Source == "staff")">ثبت در پنل</option>
+      </select>
+    </div>
+    <div class="a-field"><label class="a-label" for="f-from">از تاریخ</label><input id="f-from" name="from" value="@Model.From" class="a-input a-ltr" placeholder="1404/08/01"></div>
+    <div class="a-field"><label class="a-label" for="f-to">تا تاریخ</label><input id="f-to" name="to" value="@Model.To" class="a-input a-ltr" placeholder="1404/08/30"></div>
+    <div class="a-field">
+      <label class="a-label" for="f-sort">مرتب‌سازی</label>
+      <select id="f-sort" name="sort" class="a-select">
+        <option value="newest" selected="@(Model.Sort == "newest")">جدیدترین</option>
+        <option value="oldest" selected="@(Model.Sort == "oldest")">قدیمی‌ترین</option>
+        <option value="amount" selected="@(Model.Sort == "amount")">بیشترین مبلغ</option>
+        <option value="amount-asc" selected="@(Model.Sort == "amount-asc")">کمترین مبلغ</option>
+      </select>
+    </div>
+    <div class="a-filters-actions">
+      <button class="a-btn" type="submit">@Icons.Svg("Funnel", null, 16) اعمال</button>
+      <a class="a-btn a-btn-light" href="/admin/orders">پاک کردن</a>
+    </div>
+  </form>
+</div>
+
+<div class="a-card" data-bulk>
+  @if (canManage)
+  {
+    <form method="post" asp-page-handler="Bulk" id="bulk-form" class="a-bulkbar" data-bulk-bar data-confirm="وضعیت سفارش‌های انتخاب‌شده تغییر کند؟">
+      <span><b data-bulk-count>0</b> سفارش انتخاب شده</span>
+      <select name="status" class="a-select a-input-sm" style="width:auto">
+        <option value="@OrderStatus.Confirmed">تأیید</option>
+        <option value="@OrderStatus.Processing">در حال آماده‌سازی</option>
+        <option value="@OrderStatus.Shipped">ارسال‌شده</option>
+        <option value="@OrderStatus.Delivered">تحویل‌شده</option>
+      </select>
+      <button type="submit" class="a-btn a-btn-sm">اعمال</button>
+      <span class="a-help">سفارش‌های بدون فاکتور خرید به «آماده‌سازی» نمی‌روند.</span>
+    </form>
+  }
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead>
+        <tr>
+          @if (canManage) { <th class="sel"><input type="checkbox" data-check-all aria-label="انتخاب همه"></th> }
+          <th>شماره</th><th>تاریخ</th><th>مشتری</th><th>مقصد</th><th>اقلام</th><th>مبلغ</th><th>پرداخت</th><th>وضعیت</th><th>فاکتور خرید</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var o in list.Orders.Items)
+        {
+          <tr>
+            @if (canManage) { <td class="sel" data-label=""><input type="checkbox" name="ids" value="@o.Id" form="bulk-form" data-row-check aria-label="انتخاب @o.OrderNumber"></td> }
+            <td data-label="شماره"><a class="a-link a-ltr font-bold" href="/admin/orders/@o.Id">@o.OrderNumber</a></td>
+            <td data-label="تاریخ" class="nowrap">@Format.DateTime(o.CreatedAt)</td>
+            <td data-label="مشتری">
+              <div>@o.CustomerName</div>
+              <div class="a-muted text-xs a-ltr">@Pii.Phone(o.CustomerPhone)</div>
+            </td>
+            <td data-label="مقصد">@o.ShippingProvince، @o.ShippingCity</td>
+            <td data-label="اقلام" class="num">@o.ItemCount</td>
+            <td data-label="مبلغ" class="num">@Format.Price(o.PayableAmount)</td>
+            <td data-label="پرداخت">
+              <span class="a-badge @AdminUi.PaymentStatusBadge(o.PaymentStatus)">@Display.PaymentStatus(o.PaymentStatus)</span>
+              <div class="a-muted text-xs mt-1">@Display.PaymentMethod(o.PaymentMethod)</div>
+            </td>
+            <td data-label="وضعیت">
+              <span class="a-badge @AdminUi.OrderStatusBadge(o.Status)">@AdminUi.OrderStatus(o.Status)</span>
+              @if (Model.SlaMap.TryGetValue(o.Id, out var slaResult))
+              {
+                <div class="mt-1"><partial name="_SlaBadge" model="slaResult" /></div>
+              }
+              @if (Model.RiskMap.TryGetValue(o.Id, out var riskRow) && riskRow.Level != Fratak_Shop.Core.Services.Orders.OrderRiskLevel.Low)
+              {
+                <div class="mt-1"><span class="a-badge @(riskRow.Level == Fratak_Shop.Core.Services.Orders.OrderRiskLevel.High ? "a-badge-red" : "a-badge-yellow")" title="@string.Join("، ", riskRow.Reasons)">ریسک @(riskRow.Level == Fratak_Shop.Core.Services.Orders.OrderRiskLevel.High ? "زیاد" : "متوسط")</span></div>
+              }
+              @if (o.CreatedByStaffName is not null)
+              {
+                <div class="a-muted text-xs mt-1" title="ثبت‌شده توسط @o.CreatedByStaffName">ثبت در پنل</div>
+              }
+            </td>
+            <td data-label="فاکتور خرید">
+              @if (o.PurchaseInvoiceCount > 0)
+              {
+                <span class="a-badge a-badge-green">@Icons.Svg("Check", null, 12) @o.PurchaseInvoiceCount</span>
+              }
+              else if (o.Status is OrderStatus.Confirmed or OrderStatus.Processing)
+              {
+                <span class="a-badge a-badge-red">لازم است</span>
+              }
+              else
+              {
+                <span class="a-muted">—</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (list.Orders.Items.Count == 0)
+    {
+      <div class="a-empty">سفارشی با این شرایط یافت نشد.</div>
+    }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(list.Orders.Page, list.Orders.PageCount, list.Orders.Total)" />
+</div>

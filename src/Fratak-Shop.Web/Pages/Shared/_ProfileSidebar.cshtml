@@ -1,0 +1,47 @@
+@model ProfileSection
+@*
+  دور ۲۹ – ستون کناری حساب کاربری (بازطراحی):
+  • فهرست و ترتیب از ProfileMenu (همان منبع منوی کشویی هدر) ← ترتیب همیشه یکی است؛ «پنل مدیریت» برای کارکنان اول است.
+  • دور ۳۱: گروه‌بندی و عنوان گروه‌ها حذف شد (خواستهٔ کاربر)؛ یک فهرست پیوسته با همان ترتیب.
+  • بالای ستون: حرف اول نام در دایره، خطاب مناسب نسل («محمد عزیز» / «ناظری گرامی») و شمارهٔ موبایل.
+  • موبایل: ستون به‌صورت کارت‌های افقی قابل اسکرول (fs-pside در commerce.css) تا صفحه زیر منو گم نشود.
+*@
+@inject Fratak_Shop.Core.Services.Admin.IAdminAccessService AdminAccess
+@{
+    // کارمند بودن از همان سرویس دسترسی هدر (کش‌شده) خوانده می‌شود.
+    var userId = User.GetUserId();
+    var isStaff = userId.HasValue && (await AdminAccess.GetAccessAsync(userId.Value)).IsStaff;
+    var items = ProfileMenu.Build(Site.Settings, isStaff);
+    var displayName = User.GetDisplayName();
+    var initial = string.IsNullOrWhiteSpace(displayName) ? "؟" : displayName.Trim()[..1];
+}
+<aside class="fs-pside md:w-3/12 h-fit" aria-label="منوی حساب کاربری">
+  <div class="fs-pside-head">
+    <span class="fs-pside-avatar" aria-hidden="true">@initial</span>
+    <div class="min-w-0">
+      <div class="fs-pside-greet" title="@displayName">@User.GetGreeting()</div>
+      <div class="fs-pside-phone" dir="ltr">@User.GetPhoneNumber()</div>
+    </div>
+  </div>
+  <nav>
+    @* دور ۳۱ (#۵): بدون زیرگروه و عنوان گروه؛ یک فهرست پیوسته (پنل مدیریت ← حساب و امنیت ← خریدها ← …) تا همه‌چیز یکجا و به‌هم‌پیوسته باشد. *@
+    <ul class="fs-pside-group">
+      @foreach (var item in items)
+      {
+        var active = item.Section is { } itemSection && itemSection == Model;
+        <li>
+          <a href="@item.Url" class="fs-pside-link@(active ? " is-active" : "")@(item.Staff ? " is-staff" : "")" aria-current="@(active ? "page" : null)">
+            @Icons.Svg(item.Icon, null, 20)
+            <span>@item.Title</span>
+          </a>
+        </li>
+      }
+    </ul>
+    <form method="post" asp-page="/Logout" class="fs-pside-group">
+      <button type="submit" class="fs-pside-link is-logout">
+        @Icons.Svg("SignOut", null, 20)
+        <span>خروج از حساب کاربری</span>
+      </button>
+    </form>
+  </nav>
+</aside>

@@ -1,0 +1,65 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Help.IndexModel
+@{
+    ViewData["Title"] = "مدیریت راهنماها";
+    var editing = Model.Editing is not null || Model.IsNew;
+}
+<div class="a-page-head">
+  <div>
+    <h2>راهنمای صفحه‌ها</h2>
+    <p class="a-muted text-sm mt-1">متنی که با دکمهٔ «راهنما» در بالای هر صفحهٔ پنل نمایش داده می‌شود. آدرس با <span class="a-ltr">*</span> یعنی «هر شناسه»؛ مثلاً <span class="a-ltr">/admin/orders/*</span> برای صفحهٔ جزئیات همهٔ سفارش‌ها.</p>
+  </div>
+  <a class="a-btn" href="/admin/help?new=true">@Icons.Svg("Plus", null, 18) راهنمای جدید</a>
+</div>
+
+<div class="grid gap-4 @(editing ? "lg:grid-cols-5" : "")">
+  <div class="a-card @(editing ? "lg:col-span-2" : "")">
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>صفحه</th><th>آدرس</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var h in Model.Items)
+          {
+            <tr class="@(Model.Editing?.Id == h.Id ? "bg-sky-50/60" : "")">
+              <td><a class="a-link" href="/admin/help?id=@h.Id">@h.Title</a></td>
+              <td class="a-ltr text-xs a-muted">@h.Path</td>
+              <td>@if (h.IsCustomized) { <span class="a-badge a-badge-purple">ویرایش‌شده</span> }</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  @if (editing)
+  {
+    <div class="a-card lg:col-span-3">
+      <div class="a-card-head"><h3 class="a-card-title">@(Model.IsNew ? "راهنمای جدید" : "ویرایش راهنما")</h3></div>
+      <form method="post" asp-page-handler="Save" asp-route-id="@Model.Editing?.Id" class="a-card-body a-stack">
+        <div class="a-field"><label class="a-label req" for="h-path">آدرس صفحه</label>
+          <input id="h-path" name="Input.Path" value="@Model.Input.Path" class="a-input a-ltr" maxlength="150" required placeholder="/admin/orders"></div>
+        <div class="a-field"><label class="a-label req" for="h-title">عنوان</label>
+          <input id="h-title" name="Input.Title" value="@Model.Input.Title" class="a-input" maxlength="150" required></div>
+        <div class="a-field"><label class="a-label req" for="h-body">متن راهنما</label>
+          <textarea id="h-body" name="Input.Body" class="a-textarea" rows="14" data-html-editor>@Model.Input.Body</textarea></div>
+        <div class="a-btn-group">
+          <button class="a-btn" type="submit">@Icons.Svg("FloppyDisk", null, 18) ذخیره</button>
+          @if (Model.Editing is { } e)
+          {
+            <a class="a-btn a-btn-light" href="@e.Path.Replace("*", "")" target="_blank" rel="noopener">مشاهدهٔ صفحه</a>
+            @if (e.HasDefault && e.IsCustomized)
+            {
+              <button class="a-btn a-btn-light" type="submit" form="h-reset" data-confirm="متن پیش‌فرض جایگزین متن فعلی شود؟">بازگردانی متن پیش‌فرض</button>
+            }
+            <button class="a-btn a-btn-danger-soft" type="submit" form="h-delete" data-confirm="این راهنما حذف شود؟">حذف</button>
+          }
+        </div>
+      </form>
+      @if (Model.Editing is { } ed)
+      {
+        <form id="h-reset" method="post" asp-page-handler="Reset" asp-route-id="@ed.Id" class="hidden"></form>
+        <form id="h-delete" method="post" asp-page-handler="Delete" asp-route-id="@ed.Id" class="hidden"></form>
+      }
+    </div>
+  }
+</div>

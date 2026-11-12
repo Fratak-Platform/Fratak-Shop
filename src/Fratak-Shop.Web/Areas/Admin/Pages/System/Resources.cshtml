@@ -1,0 +1,241 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.ResourcesModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SystemPages
+@using Fratak_Shop.Web.Infrastructure.Ops
+@{
+    ViewData["Title"] = "منابع سرور";
+    var g = Model.Governor;
+    var s = Model.Sample;
+    var budget = g.Budget;
+    var hasSample = s.At != default;
+    var memoryPercent = s.LimitMb > 0 ? Math.Round(s.MemoryRatio * 100) : 0;
+    var startup = AppLifecycle.Current?.StartupMs;
+}
+<div class="a-page-head">
+  <div>
+    <h2>منابع سرور</h2>
+    <p class="a-muted text-sm mt-1">حافظه، پردازنده، صف درخواست‌ها و کارهای پس‌زمینه. برنامه خودش زیر فشار کارهای سنگین را عقب می‌اندازد، کش را سبک می‌کند و در صورت شلوغی نسخهٔ ذخیره‌شدهٔ صفحه‌ها را نشان می‌دهد تا سایت هرگز از دسترس خارج نشود.</p>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">سطح فشار</div>
+    <div class="a-stat-value"><span class="a-badge @ResourcesModel.LevelCss(g.Pressure)">@ResourceMonitorService.Title(g.Pressure)</span></div>
+    <div class="a-stat-sub">پروفایل: @ResourcesModel.ProfileTitle(budget.Profile)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">حافظه</div>
+    <div class="a-stat-value a-ltr">@(hasSample ? $"{s.MemoryMb:0} / {s.LimitMb:0} MB" : "-")</div>
+    @if (hasSample) { <progress class="w-full" max="100" value="@memoryPercent">@memoryPercent%</progress> }
+    <div class="a-stat-sub">بیشینه از روشن شدن: @Model.PeakMemoryMb.ToString("0") MB · هیپ: @s.GcHeapMb.ToString("0") MB</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">پردازنده</div>
+    <div class="a-stat-value a-ltr">@(hasSample ? (s.CpuRatio * 100).ToString("0") + "%" : "-")</div>
+    <div class="a-stat-sub">نخ‌ها: @Format.Number(s.Threads) · کار منتظر: @Format.Number(s.PendingWorkItems)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">درخواست هم‌زمان</div>
+    <div class="a-stat-value">@Format.Number(g.ActiveRequests) <span class="a-muted text-sm">/ @Format.Number(budget.MaxConcurrentRequests)</span></div>
+    <div class="a-stat-sub">در صف: @Format.Number(g.QueuedRequests) · بیشینه: @Format.Number(Model.PeakRequests)</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">نسخهٔ ذخیره‌شدهٔ صفحه‌ها</div>
+    <div class="a-stat-value">@Format.Number(Model.SnapshotCount)</div>
+    <div class="a-stat-sub">به‌جای خطا/شلوغی نشان داده شد: @Format.Number(Model.SnapshotServed) بار</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">آماده شدن بعد از روشن شدن</div>
+    <div class="a-stat-value a-ltr">@(startup is { } ms ? (ms / 1000).ToString("0.0") + " s" : "-")</div>
+    <div class="a-stat-sub">گرم شدن: @(WarmupService.LastWarmupMs is { } w ? w.ToString("0") + " ms" : "-") · پرس‌وجوها: @Format.Number(Fratak_Shop.Data.Diagnostics.QueryCounter.Total)</div>
+  </div>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">کارهای پس‌زمینه</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>کار سنگین در حال اجرا</dt><dd>@(g.HeavyRunning ?? "هیچ")</dd>
+        <dt>دورهٔ آرام شروع</dt><dd>@(g.InStartupQuiet(DateTimeOffset.UtcNow) ? "فعال – کار سنگین تا " + AdminUi.Duration(budget.StartupQuiet - (DateTimeOffset.UtcNow - g.StartedAt)) + " دیگر اجرا نمی‌شود" : "تمام شده")</dd>
+        <dt>دفعات عقب افتادن کارها</dt><dd>@Format.Number(g.Deferrals)</dd>
+        <dt>کار سنگین هم‌زمان مجاز</dt><dd>@Format.Number(budget.HeavySlots)</dd>
+      </dl>
+      @if (Model.Waiting.Count > 0)
+      {
+        <table class="a-table a-table-compact mt-3">
+          <thead><tr><th>کار منتظر</th><th>وزن</th><th>دلیل</th><th>از</th></tr></thead>
+          <tbody>
+            @foreach (var j in Model.Waiting)
+            {
+              <tr><td>@j.Name</td><td>@ResourcesModel.WeightTitle(j.Weight)</td><td class="text-xs">@j.WaitReason</td><td class="text-xs nowrap">@(j.WaitingSince is { } since ? AdminUi.Ago(since) : "-")</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+      else
+      {
+        <p class="a-muted text-sm mt-3">هیچ کاری منتظر نوبت نیست.</p>
+      }
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">رویدادهای اخیر</span></div>
+    <div class="a-card-body">
+      @if (Model.Events.Count == 0)
+      {
+        <p class="a-muted text-sm">رویداد مهمی ثبت نشده است (فشار منابع بالا نرفته).</p>
+      }
+      else
+      {
+        <ul class="text-sm space-y-1">
+          @foreach (var e in Model.Events)
+          {
+            <li><span class="a-muted text-xs nowrap">@AdminUi.Ago(e.At)</span> – @e.Text</li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><span class="a-card-title">یک ساعت اخیر (دقیقه‌ای)</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>زمان</th><th>حافظه (میانگین / بیشینه)</th><th>CPU</th><th>درخواست هم‌زمان</th><th>بدترین سطح</th></tr></thead>
+      <tbody>
+        @if (Model.Points.Count == 0)
+        {
+          <tr><td colspan="5" class="a-muted">هنوز نمونه‌ای ثبت نشده (نمونه‌برداری هر ۵ ثانیه است).</td></tr>
+        }
+        @foreach (var p in Model.Points)
+        {
+          <tr>
+            <td data-label="زمان" class="text-xs nowrap">@AdminUi.Ago(p.At)</td>
+            <td data-label="حافظه" class="a-ltr text-xs">@p.MemoryMb.ToString("0") / @p.PeakMemoryMb.ToString("0") MB</td>
+            <td data-label="CPU" class="a-ltr text-xs">@((p.Cpu * 100).ToString("0"))% / @((p.PeakCpu * 100).ToString("0"))%</td>
+            <td data-label="درخواست" class="a-ltr text-xs">@p.Requests.ToString("0.0") / @Format.Number(p.PeakRequests)</td>
+            <td data-label="سطح"><span class="a-badge @ResourcesModel.LevelCss(p.Worst)">@ResourceMonitorService.Title(p.Worst)</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@* دور ۲۳ (مورد ۷۷): پرس‌وجوهای کند – فقط متن SQL، بدون مقدار پارامترها. *@
+<div class="a-card mt-4" id="slow-queries">
+  <div class="a-card-head"><span class="a-card-title">پرس‌وجوهای کند (بیش از @Fratak_Shop.Data.Diagnostics.SlowQueryLog.ThresholdMilliseconds میلی‌ثانیه)</span></div>
+  @if (Model.SlowQueries.Count == 0)
+  {
+    <div class="a-empty">پرس‌وجوی کندی ثبت نشده است.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>آخرین بار</th><th>آخرین مدت</th><th>بیشینه</th><th>تکرار</th><th>متن</th></tr></thead>
+        <tbody>
+          @foreach (var q in Model.SlowQueries)
+          {
+            <tr>
+              <td class="text-xs">@AdminUi.Ago(q.LastAt)</td>
+              <td class="a-ltr text-xs">@q.LastMilliseconds ms</td>
+              <td class="a-ltr text-xs @(q.MaxMilliseconds > 3000 ? "text-red-600" : "")">@q.MaxMilliseconds ms</td>
+              <td class="num">@Format.Number(q.Count)</td>
+              <td class="a-ltr text-xs break-all">@q.Sql</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<div class="grid gap-4 lg:grid-cols-2 mt-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">سنگین‌ترین صفحه‌ها (پرس‌وجوی پایگاه داده)</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>مسیر</th><th>درخواست</th><th>میانگین پرس‌وجو</th><th>بیشینه</th><th>زمان DB</th></tr></thead>
+        <tbody>
+          @if (Model.HeavyPages.Count == 0) { <tr><td colspan="5" class="a-muted">هنوز آماری نیست.</td></tr> }
+          @foreach (var row in Model.HeavyPages)
+          {
+            <tr>
+              <td class="a-ltr text-xs">@row.Path</td>
+              <td class="num">@Format.Number(row.Requests)</td>
+              <td class="num @(row.AverageQueries > 15 ? "text-red-600" : "")">@row.AverageQueries.ToString("0.0")</td>
+              <td class="num">@Format.Number(row.MaxQueries)</td>
+              <td class="a-ltr text-xs">@row.AverageDbMs.ToString("0") ms</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">سرویس‌های بیرونی (قطع‌کن مدار)</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-compact">
+        <thead><tr><th>سرویس</th><th>وضعیت</th><th>شکست پیاپی</th><th>ردشده</th></tr></thead>
+        <tbody>
+          @if (Model.Circuits.Count == 0) { <tr><td colspan="4" class="a-muted">هنوز به سرویس بیرونی‌ای وصل نشده‌ایم.</td></tr> }
+          @foreach (var c in Model.Circuits)
+          {
+            var open = c.OpenUntil is { } until && until > DateTimeOffset.UtcNow;
+            <tr>
+              <td class="a-ltr text-xs">@c.Key</td>
+              <td>
+                <span class="a-badge @(open ? "a-badge-red" : c.ConsecutiveFailures > 0 ? "a-badge-yellow" : "a-badge-green")">@(open ? "قطع موقت" : c.ConsecutiveFailures > 0 ? "خطادار" : "سالم")</span>
+                @if (c.LastError is not null && c.ConsecutiveFailures > 0) { <div class="text-xs a-muted a-ltr break-all">@c.LastError</div> }
+              </td>
+              <td class="num">@Format.Number(c.ConsecutiveFailures)</td>
+              <td class="num">@Format.Number(c.Rejected)</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><span class="a-card-title">روشن/خاموش شدن‌های اخیر</span></div>
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-table-compact">
+      <thead><tr><th>روشن شد</th><th>مدت آماده شدن</th><th>خاموش شد</th><th>دلیل</th></tr></thead>
+      <tbody>
+        @foreach (var run in Model.Runs)
+        {
+          var unclean = AppLifecycle.IsUnclean(run);
+          <tr>
+            <td data-label="روشن شد" class="text-xs nowrap">@AdminUi.Ago(run.StartedAt)</td>
+            <td data-label="آماده شدن" class="a-ltr text-xs">@(run.StartupMs is { } runMs ? (runMs / 1000).ToString("0.0") + " s" : "-")</td>
+            <td data-label="خاموش شد" class="text-xs nowrap">@(run.StoppedAt is { } stopped ? AdminUi.Ago(stopped) : unclean ? "ناگهانی" : "در حال اجرا")</td>
+            <td data-label="دلیل" class="text-xs">@(run.Crash ?? run.Reason ?? (unclean ? "توقف ناگهانی (کمبود حافظه یا توقف استخر IIS)" : run.StoppedAt is null ? "-" : "خاموشی عادی (بازیافت/انتشار/بیکاری)"))</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><span class="a-card-title">تنظیم پروفایل منابع</span></div>
+  <div class="a-card-body text-sm leading-7">
+    <p>پروفایل با متغیر محیطی <code class="a-ltr">Shop__Resources__Profile</code> (مقدارها: <code>Low</code>، <code>Normal</code>، <code>High</code>) یا بخش <code class="a-ltr">Shop:Resources</code> در appsettings تعیین می‌شود. پیش‌فرض <b>Low</b> برای هاست اشتراکی است.</p>
+    <p>اگر سقف حافظهٔ استخر برنامه (Private Memory Limit در Plesk/IIS) را می‌دانید، <code class="a-ltr">Shop__Resources__MemoryLimitMb</code> را برابر آن بگذارید تا محاسبهٔ فشار دقیق باشد. راهنمای کامل: <span class="a-ltr">docs/PERFORMANCE.md</span>.</p>
+    <dl class="a-kv text-sm mt-2">
+      <dt>کش صفحه در حافظه</dt><dd class="a-ltr">@budget.OutputCacheMb MB</dd>
+      <dt>سقف درخواست هم‌زمان / صف</dt><dd class="a-ltr">@budget.MaxConcurrentRequests / @budget.QueueLength</dd>
+      <dt>دورهٔ آرام شروع</dt><dd>@AdminUi.Duration(budget.StartupQuiet)</dd>
+      <dt>اتصال زندهٔ مشتریان</dt><dd>@(budget.CustomerRealtime ? "روشن" : "خاموش (فقط کارکنان)")</dd>
+      <dt>ری‌استارت کنترل‌شده در خط قرمز حافظه</dt><dd>@(g.Options.SelfRestart ? $"روشن (ساعت خلوت {g.Options.QuietHourStart} تا {g.Options.QuietHourEnd})" : "خاموش")</dd>
+    </dl>
+  </div>
+</div>

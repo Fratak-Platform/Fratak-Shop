@@ -1,0 +1,14 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.LiveModel
+@{
+    ViewData["Title"] = "کاربران آنلاین";
+}
+<div class="a-page-head">
+  <div>
+    <h2><span class="a-live-dot"></span> کاربران آنلاین</h2>
+    <p class="a-muted text-sm mt-1">بازدیدکنندگانی که در ۵ دقیقه اخیر فعالیت داشته‌اند. به‌روزرسانی خودکار هر ۱۰ ثانیه · آخرین: <span data-live-stamp>اکنون</span></p>
+  </div>
+</div>
+<div data-live="/admin/system/live?handler=fragment" data-live-interval="10">
+  <partial name="_LiveFragment" model="Model" />
+</div>

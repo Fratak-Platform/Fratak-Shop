@@ -1,0 +1,58 @@
+@using Fratak_Shop.Data.Entities.Pages
+@using Fratak_Shop.Web.ViewComponents
+@model PageAlertsViewModel
+@{
+    static string Style(AlertType type) => type switch
+    {
+        AlertType.Success => "border-emerald-200 bg-emerald-50 text-emerald-800",
+        AlertType.Warning => "border-amber-200 bg-amber-50 text-amber-800",
+        AlertType.Error => "border-red-200 bg-red-50 text-red-700",
+        _ => "border-sky-200 bg-sky-50 text-sky-800",
+    };
+
+    static (string Icon, string Fill) IconOf(AlertType type) => type switch
+    {
+        AlertType.Success => ("SealCheck", "fill-emerald-500"),
+        AlertType.Warning => ("Warning", "fill-amber-500"),
+        AlertType.Error => ("Warning", "fill-red-500"),
+        _ => ("Info", "fill-sky-500"),
+    };
+
+    var wrapper = Model.Zone switch
+    {
+        // The page <main> starts below the fixed header (pt-24 / md:pt-36): sit in that space.
+        AlertZone.Top => "pt-24 md:pt-36 -mb-20 md:-mb-32 max-w-[1600px] mx-auto px-3 md:px-6 space-y-2 relative z-[1]",
+        AlertZone.Bottom => "max-w-[1600px] mx-auto px-3 md:px-6 mt-6 space-y-2",
+        _ => "mt-4 space-y-2",
+    };
+}
+<div class="@wrapper" data-page-alerts>
+  @foreach (var alert in Model.Alerts)
+  {
+    var (icon, fill) = IconOf(alert.Type);
+    var external = alert.LinkUrl is not null && !alert.LinkUrl.StartsWith('/');
+    <div class="flex items-start gap-x-3 rounded-xl border px-4 py-3 text-sm leading-7 @Style(alert.Type)"
+         role="@(alert.Type is AlertType.Warning or AlertType.Error ? "alert" : "status")"
+         data-alert-id="@alert.Id.ToString("N")" data-dismissible="@(alert.IsDismissible ? "1" : null)">
+      <span class="mt-1 shrink-0">@Icons.Svg(icon, fill, 18)</span>
+      <div class="flex-1">
+        @if (!string.IsNullOrWhiteSpace(alert.Title))
+        {
+          <span class="font-semibold">@alert.Title</span><text> — </text>
+        }
+        <span>@alert.Content</span>
+        @if (!string.IsNullOrWhiteSpace(alert.LinkUrl) && !string.IsNullOrWhiteSpace(alert.LinkText))
+        {
+          <a href="@alert.LinkUrl" class="mr-1 inline-flex items-center gap-x-1 font-semibold underline-offset-4 hover:underline"
+             target="@(external ? "_blank" : null)" rel="@(external ? "noopener nofollow" : null)">@alert.LinkText &larr;</a>
+        }
+      </div>
+      @if (alert.IsDismissible)
+      {
+        <button type="button" class="-my-1 -ml-2 shrink-0 rounded-lg p-1.5 opacity-60 transition hover:bg-black/5 hover:opacity-100" data-alert-close aria-label="بستن پیام">
+          @Icons.Svg("Close", "fill-current", 16)
+        </button>
+      }
+    </div>
+  }
+</div>

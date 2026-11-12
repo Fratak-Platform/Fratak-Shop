@@ -1,38 +1,38 @@
-@page
+@page "/verify"
 @model VerifyModel
 @{
-    ViewData["Title"] = "تایید حساب";
     Layout = "_LayoutMinimal";
 }
 
-
-
   <main class="max-w-[1600px] mx-auto">
-    <div class="flex justify-center items-center h-screen">
+    <div class="flex justify-center items-center min-h-screen py-10">
       <a class="absolute top-2 left-2 text-sm bg-sky-500 text-white rounded-md py-2 px-6" asp-page="/Index">
         صفحه اصلی
       </a>
       <div class="bg-white rounded-3xl shadow-xl border border-zinc-100 w-11/12 sm:w-7/12 md:w-6/12 lg:w-4/12 h-auto py-5 px-4">
-        <div class="mt-5 text-lg font-semibold text-zinc-800">
-          تایید حساب
-        </div>
-        <div class="my-4 text-xs text-zinc-500">
-          لطفا کد 4 رقمی ارسال شده را وارد کنید.
-        </div>
-        <div class="mb-2">
-          <div class="input-field mb-5 flex flex-row-reverse gap-x-4 justify-center">
-            <input type="number" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg"/>
-            <input type="number" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" disabled />
-            <input type="number" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" disabled />
-            <input type="number" class="inputVerify w-10 h-11 rounded-md outline-none text-center drop-shadow-lg" disabled />
+        <a asp-page="/Index" class="flex justify-center" aria-label="@Site.Settings.SiteName">@await Html.PartialAsync("_BrandLockup", new BrandLockupModel(BrandPlace.Auth))</a>
+        <form method="post">
+          <input type="hidden" asp-for="ReturnUrl" />
+          <h1 class="mt-5 text-lg font-semibold text-zinc-800">
+            تایید حساب
+          </h1>
+          <div class="my-4 text-xs text-zinc-500">
+            لطفا کد @Model.CodeLength رقمی ارسال شده به شماره <span dir="ltr">@Model.PhoneNumber</span> را وارد کنید.
           </div>
+          <partial name="_OtpDigits" model="Model.CodeLength" />
+          <div class="text-xs text-red-500" id="verify-code">
+          </div>
+          <button type="submit" class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
+            تایید و ورود به پنل کاربری
+          </button>
+        </form>
+        <div class="flex items-center justify-between mt-4 text-sm">
+          <form method="post" asp-page-handler="Resend">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <button type="submit" class="text-sky-500 hover:text-sky-600">ارسال مجدد کد</button>
+          </form>
+          <a asp-page="/Welcome" asp-route-returnUrl="@Model.ReturnUrl" class="text-zinc-500 hover:text-zinc-600">بعداً تایید می کنم</a>
         </div>
-        <div class="text-xs text-red-500" id="verify-code">
-        </div>
-        
-        <button class="mx-auto w-full px-2 py-3 font-bold mt-8 bg-sky-500 hover:bg-sky-400 transition text-gray-100 rounded-lg">
-          ورود به پنل کاربری
-        </button>
       </div>
     </div>
   </main>

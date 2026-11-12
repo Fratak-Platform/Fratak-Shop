@@ -1,0 +1,214 @@
+@page "/admin/manage/{key}"
+@using Fratak_Shop.Web.Infrastructure.Admin.Manage
+@model Fratak_Shop.Web.Areas.Admin.Pages.Manage.ListModel
+@*
+  فهرست یک جدول «مدیریت داده» – بازطراحی مرحلهٔ هفتم (فاز ۳).
+  رفتار تعاملی (ویرایش درجا، انتخاب گروهی، کشیدن و رها کردن) در wwwroot/assets/js/admin-tables.js است.
+*@
+@{
+    var def = Model.Def;
+    ViewData["Title"] = def.Title;
+    var columns = Model.Columns;
+    var hasActive = def.Field("IsActive") is not null;
+    var newUrl = $"/admin/manage/{def.Key}/edit" + (Model.Parent is { } pid ? $"?parent={pid}" : "");
+    var canBulk = def.CanDelete || hasActive;
+    var baseUrl = $"/admin/manage/{def.Key}";
+    var filtered = !string.IsNullOrEmpty(Model.Search);
+}
+<div class="a-page-head">
+  <div>
+    <h2>@def.Title <span class="a-muted text-sm font-normal">(@Format.Number(Model.List.Total))</span></h2>
+    @if (Model.ParentLabel is not null)
+    {
+      <p class="a-muted text-sm mt-1">فیلتر: <b>@Model.ParentLabel</b> · <a class="a-link" href="@baseUrl">نمایش همه</a></p>
+    }
+    else if (def.Description is not null)
+    {
+      <p class="a-muted text-sm mt-1">@def.Description</p>
+    }
+  </div>
+  <div class="a-btn-group">
+    <a href="/admin/manage" class="a-btn a-btn-light">@Icons.Svg("SquaresFour", null, 18) همه جدول‌ها</a>
+    @if (def.CanDelete && Model.DeletedCount > 0)
+    {
+      <a href="/admin/trash?type=@def.Key" class="a-btn a-btn-light">@Icons.Svg("Trash", null, 18) سطل بازیافت <span class="a-badge a-badge-red">@Format.Number(Model.DeletedCount)</span></a>
+    }
+    @if (def.CanCreate)
+    {
+      <a href="@newUrl" class="a-btn">@Icons.Svg("Plus", null, 18) @def.Singular جدید</a>
+    }
+  </div>
+</div>
+
+<div class="a-card a-list-toolbar mb-3">
+  @if (def.Search.Length > 0)
+  {
+    <form method="get" class="a-list-search a-filters" role="search">
+      @if (Model.Parent is not null) { <input type="hidden" name="parent" value="@Model.Parent"> }
+      @if (Model.SortField is not null) { <input type="hidden" name="sort" value="@Model.SortField"><input type="hidden" name="dir" value="@(Model.Descending ? "desc" : "asc")"> }
+      @if (Model.Take != ManageEngine.PageSize) { <input type="hidden" name="take" value="@Model.Take"> }
+      <label class="sr-only" for="f-q">جست‌وجو در @def.Title</label>
+      <span class="a-list-search-box">
+        @Icons.Svg("MagnifyingGlass", null, 18)
+        <input id="f-q" name="q" value="@Model.Search" class="a-input" maxlength="100" placeholder="جست‌وجو در @def.Title…" type="search">
+      </span>
+      <button class="a-btn a-btn-sm" type="submit">جست‌وجو</button>
+      @if (filtered) { <a class="a-btn a-btn-sm a-btn-light" href="@Model.ListUrl(("q", null))">پاک کردن</a> }
+    </form>
+  }
+  else
+  {
+    <span class="flex-1"></span>
+  }
+
+  <details class="a-colmenu">
+    <summary class="a-btn a-btn-sm a-btn-light">@Icons.Svg("Columns", null, 16) ستون‌ها و نمایش</summary>
+    <form method="post" asp-page-handler="Columns" asp-route-key="@def.Key" class="a-dropdown a-dropdown-panel a-stack">
+      <p class="a-muted text-xs">ستون‌هایی که می‌خواهید در جدول ببینید (برای خودتان ذخیره می‌شود):</p>
+      <div class="a-col-picker">
+        @foreach (var f in def.Fields)
+        {
+          <label class="a-check"><input type="checkbox" name="cols" value="@f.Name" checked="@columns.Contains(f)"> @f.Label</label>
+        }
+      </div>
+      <label class="a-check border-t pt-2"><input type="checkbox" name="compact" value="true" checked="@Model.Compact"> نمایش فشرده (ردیف‌های کوتاه‌تر)</label>
+      <input type="hidden" name="compact" value="false">
+      <div class="flex gap-2">
+        <button type="submit" class="a-btn a-btn-sm">ذخیره</button>
+        <button type="submit" name="reset" value="true" class="a-btn a-btn-sm a-btn-light">ستون‌های پیش‌فرض</button>
+      </div>
+    </form>
+  </details>
+</div>
+
+<div class="a-card" data-bulk>
+@if (canBulk)
+{
+  <form method="post" asp-page-handler="Bulk" asp-route-key="@def.Key" id="bulk-form" class="a-bulkbar" data-bulk-bar>
+    <span><b data-bulk-count>0</b> ردیف انتخاب شد</span>
+    @if (hasActive)
+    {
+      <button type="submit" name="action" value="activate" class="a-btn a-btn-xs a-btn-light">@Icons.Svg("CheckCircle", null, 14) فعال کردن</button>
+      <button type="submit" name="action" value="deactivate" class="a-btn a-btn-xs a-btn-light">@Icons.Svg("Prohibit", null, 14) غیرفعال کردن</button>
+    }
+    @if (def.CanDelete)
+    {
+      <button type="submit" name="action" value="delete" class="a-btn a-btn-xs a-btn-danger-soft" data-confirm="ردیف‌های انتخاب‌شده به سطل بازیافت منتقل شوند؟" data-confirm-danger>@Icons.Svg("Trash", null, 14) حذف</button>
+    }
+  </form>
+}
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards a-manage-table @(Model.Compact ? "a-table-compact" : "")"
+           data-inline-url="@baseUrl?handler=Inline" data-key="@def.Key">
+      <thead>
+        <tr>
+          @if (canBulk) { <th class="a-col-check"><input type="checkbox" data-check-all aria-label="انتخاب همه ردیف‌های این صفحه"></th> }
+          @if (Model.Reorderable) { <th class="a-col-handle"><span class="sr-only">جابه‌جایی</span></th> }
+          @foreach (var c in columns)
+          {
+            var sortable = ManageEngine.SortableField(def, c.Name) is not null;
+            var current = Model.SortField == c.Name;
+            var nextDir = current && !Model.Descending ? "desc" : "asc";
+            var options = c.Kind == MKind.Enum
+                ? global::System.Text.Json.JsonSerializer.Serialize(ManageEngine.EnumOptions(def, c).Select(o => new { v = o.Value, l = o.Label }))
+                : null;
+            <th data-field="@c.Name" data-options="@options" aria-sort="@(current ? (Model.Descending ? "descending" : "ascending") : null)">
+              @if (sortable)
+              {
+                <a class="a-sort @(current ? "is-active" : "")" href="@Model.ListUrl(("sort", c.Name), ("dir", nextDir))" title="مرتب‌سازی بر اساس @c.Label">
+                  @c.Label
+                  @if (current) { @Icons.Svg(Model.Descending ? "CaretDown" : "CaretUp", null, 12) } else { @Icons.Svg("ArrowsDownUp", "a-sort-hint", 12) }
+                </a>
+              }
+              else
+              {
+                @c.Label
+              }
+            </th>
+          }
+          <th><span class="sr-only">عملیات</span></th>
+        </tr>
+      </thead>
+      <tbody data-reorder-url="@(Model.Reorderable ? baseUrl + "?handler=Reorder" : null)">
+        @foreach (var row in Model.List.Rows)
+        {
+          var id = ManageEngine.IdOf(row);
+          <tr data-id="@id">
+            @if (canBulk) { <td class="a-col-check" data-label=""><input type="checkbox" name="ids" value="@id" form="bulk-form" data-row-check aria-label="انتخاب ردیف"></td> }
+            @if (Model.Reorderable) { <td class="a-col-handle" data-label=""><button type="button" class="a-drag-handle" data-drag-handle aria-label="برای جابه‌جایی بکشید" title="برای تغییر ترتیب بکشید">@Icons.Svg("DotsSixVertical", null, 18)</button></td> }
+            @foreach (var c in columns)
+            {
+              if (c.Name == "IsActive" && hasActive)
+              {
+                <td data-label="@c.Label">
+                  <form method="post" asp-page-handler="Toggle" asp-route-key="@def.Key" class="inline">
+                    <input type="hidden" name="id" value="@id">
+                    <button type="submit" class="a-switch-badge @(ManageEngine.Get(row, c) is true ? "is-on" : "")" title="برای تغییر وضعیت کلیک کنید">@(ManageEngine.Get(row, c) is true ? "فعال" : "غیرفعال")</button>
+                  </form>
+                </td>
+              }
+              else if (c.CanInline)
+              {
+                <td data-label="@c.Label" data-inline="@c.Name" data-kind="@c.Kind" data-value="@ManageEngine.InputValue(row, c)"
+                    data-required="@(c.Required ? "true" : null)" data-money="@(c.IsMoney ? "true" : null)" data-ltr="@(c.Ltr ? "true" : null)" tabindex="0"
+                    title="برای ویرایش کلیک کنید">@ManageEngine.Cell(def, c, row, Model.List.RefLabels)</td>
+              }
+              else
+              {
+                <td data-label="@c.Label">@ManageEngine.Cell(def, c, row, Model.List.RefLabels)</td>
+              }
+            }
+            <td class="actions" data-label="">
+              @foreach (var child in def.Children)
+              {
+                <a class="a-btn a-btn-light a-btn-xs" href="/admin/manage/@child.Key?parent=@id">@child.Title</a>
+              }
+              @if (def.PublicUrl is not null && def.Field("Slug") is { } slugField)
+              {
+                <a class="a-icon-btn" target="_blank" rel="noopener" href="@def.PublicUrl.Replace("{Slug}", ManageEngine.InputValue(row, slugField))" aria-label="مشاهده در سایت" title="مشاهده در سایت">@Icons.Svg("Eye", null, 18)</a>
+              }
+              <a class="a-icon-btn" href="/admin/manage/@def.Key/edit/@id@(Model.Parent is { } p ? $"?parent={p}" : "")" aria-label="ویرایش" title="ویرایش کامل">@Icons.Svg("PencilSimple", null, 18)</a>
+              @if (def.CanDelete)
+              {
+                <form method="post" asp-page-handler="Delete" asp-route-key="@def.Key" class="inline" data-confirm="«@def.Singular» به سطل بازیافت منتقل شود؟" data-confirm-danger>
+                  <input type="hidden" name="id" value="@id">
+                  <button type="submit" class="a-icon-btn text-red-600" aria-label="حذف" title="حذف (قابل بازگشت)">@Icons.Svg("Trash", null, 18)</button>
+                </form>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.List.Rows.Count == 0)
+    {
+      <div class="a-empty">
+        @Icons.Svg(def.Icon, null, 32)
+        @if (filtered)
+        {
+          <p class="mt-2">نتیجه‌ای برای «@Model.Search» پیدا نشد.</p>
+          <a class="a-btn a-btn-sm a-btn-light mt-2" href="@Model.ListUrl(("q", null))">پاک کردن جست‌وجو</a>
+        }
+        else
+        {
+          <p class="mt-2">هنوز @def.Singular ثبت نشده است.</p>
+          @if (def.CanCreate) { <a class="a-btn a-btn-sm mt-2" href="@newUrl">@Icons.Svg("Plus", null, 16) افزودن اولین @def.Singular</a> }
+        }
+      </div>
+    }
+  </div>
+  <div class="a-list-foot">
+    <partial name="_AdminPager" model="new PagerModel(Model.List.Page, Model.List.PageCount, Model.List.Total)" />
+    <div class="a-page-size">
+      <span class="a-muted text-xs">در هر صفحه:</span>
+      @foreach (var size in ManageQuery.AllowedPageSizes)
+      {
+        <a href="@Model.ListUrl(("take", size == ManageEngine.PageSize ? null : size.ToString()))" class="@(Model.Take == size ? "is-active" : "")">@Format.Number(size)</a>
+      }
+    </div>
+  </div>
+  @if (Model.Reorderable && Model.List.Rows.Count > 1)
+  {
+    <p class="a-muted text-xs px-4 pb-3">برای تغییر ترتیب نمایش، ردیف را از دستگیرهٔ @Icons.Svg("DotsSixVertical", null, 12) بکشید و رها کنید.</p>
+  }
+</div>

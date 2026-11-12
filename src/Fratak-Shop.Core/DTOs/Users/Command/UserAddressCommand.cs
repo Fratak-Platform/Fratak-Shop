@@ -18,6 +18,10 @@ public class CreateUserAddressCommand
     public string PostalCode { get; set; } = null!;
     public string PhoneNumber { get; set; } = null!;
 
+    /// <summary>Location picked on the map (both or none).</summary>
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+
     public bool IsDefault { get; set; }
 }
 
@@ -39,6 +43,10 @@ public class EditUserAddressCommand
     public string? Unit { get; set; }
     public string PostalCode { get; set; } = null!;
     public string PhoneNumber { get; set; } = null!;
+
+    /// <summary>Location picked on the map (both or none).</summary>
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
 
     public bool IsDefault { get; set; }
 }

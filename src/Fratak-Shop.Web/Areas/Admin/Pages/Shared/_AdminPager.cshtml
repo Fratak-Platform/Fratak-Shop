@@ -1,0 +1,44 @@
+@model PagerModel
+@if (Model.Total > 0)
+{
+  <div class="a-pager">
+    <span class="a-muted text-xs">@Format.Number(Model.Total) مورد · صفحه @Model.Page از @Model.PageCount</span>
+    @if (Model.PageCount > 1)
+    {
+      var request = ViewContext.HttpContext.Request;
+      var start = Math.Max(1, Model.Page - 2);
+      var end = Math.Min(Model.PageCount, Model.Page + 2);
+      <nav class="a-pager-links" aria-label="صفحه‌بندی">
+        @if (Model.Page > 1)
+        {
+          <a href="@AdminUi.With(request, ("page", (Model.Page - 1).ToString()))" aria-label="صفحه قبل">‹</a>
+        }
+        @if (start > 1)
+        {
+          <a href="@AdminUi.With(request, ("page", "1"))">1</a>
+          if (start > 2) { <span class="px-1">…</span> }
+        }
+        @for (var i = start; i <= end; i++)
+        {
+          if (i == Model.Page)
+          {
+            <span class="cur" aria-current="page">@i</span>
+          }
+          else
+          {
+            <a href="@AdminUi.With(request, ("page", i.ToString()))">@i</a>
+          }
+        }
+        @if (end < Model.PageCount)
+        {
+          if (end < Model.PageCount - 1) { <span class="px-1">…</span> }
+          <a href="@AdminUi.With(request, ("page", Model.PageCount.ToString()))">@Model.PageCount</a>
+        }
+        @if (Model.Page < Model.PageCount)
+        {
+          <a href="@AdminUi.With(request, ("page", (Model.Page + 1).ToString()))" aria-label="صفحه بعد">›</a>
+        }
+      </nav>
+    }
+  </div>
+}

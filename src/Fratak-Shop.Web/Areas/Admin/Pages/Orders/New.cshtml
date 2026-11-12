@@ -1,0 +1,200 @@
+@page "/admin/orders/new"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.NewModel
+@*
+  ثبت سفارش برای مشتری و ارسال لینک پرداخت.
+  رفتار زندهٔ فرم (جست‌وجوی محصول، جدول اقلام، جمع تخمینی، استان ← شهر) در wwwroot/assets/js/admin-orders.js است.
+*@
+@{
+    ViewData["Title"] = "ثبت سفارش برای مشتری";
+    var c = Model.Customer;
+    var posted = Model.Posted;
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/orders" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>ثبت سفارش برای مشتری</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">سفارش با قیمت و موجودی همین لحظه ثبت می‌شود و لینک پرداخت (معتبر @Model.LinkHours ساعت) برای مشتری پیامک می‌شود. پرداخت فقط از درگاه انجام و خودکار ثبت می‌شود.</p>
+  </div>
+</div>
+
+@if (!Model.OnlinePaymentReady)
+{
+  <div class="a-alert a-alert-danger mb-4">پرداخت آنلاین (زرین‌پال) در تنظیمات فعال نیست؛ تا فعال نشود امکان ارسال لینک پرداخت وجود ندارد. <a class="a-link" href="/admin/settings?group=payment">تنظیمات پرداخت</a></div>
+}
+
+@* ── گام ۱: مشتری ─────────────────────────────────────────── *@
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">@Icons.Svg("User", null, 18) ۱. مشتری</span></div>
+  <div class="a-card-body">
+    @if (c is null)
+    {
+      <form method="get" class="a-filters" data-staff-lookup>
+        <div class="a-field" style="flex-basis:260px">
+          <label class="a-label" for="n-phone">موبایل مشتری</label>
+          <input id="n-phone" name="phone" value="@Model.Phone" class="a-input a-ltr" inputmode="tel" maxlength="20" placeholder="09121234567" required autofocus>
+        </div>
+        <div class="a-filters-actions"><button class="a-btn" type="submit">@Icons.Svg("MagnifyingGlass", null, 16) جست‌وجو</button></div>
+      </form>
+      if (Model.NewCustomerPhone is { } newPhone)
+      {
+        <div class="a-alert a-alert-info mt-4">حسابی با شمارهٔ <span class="a-ltr">@newPhone</span> وجود ندارد. با نام مشتری یک حساب بسازید؛ مشتری بعداً با کد پیامکی وارد حسابش می‌شود.</div>
+        <form method="post" asp-page-handler="Customer" class="a-form-grid cols-3 mt-3">
+          <input type="hidden" name="phone" value="@newPhone">
+          <div class="a-field"><label class="a-label" for="n-first">نام</label><input id="n-first" name="firstName" class="a-input" maxlength="50" required></div>
+          <div class="a-field"><label class="a-label" for="n-last">نام خانوادگی</label><input id="n-last" name="lastName" class="a-input" maxlength="50" required></div>
+          <div class="a-field flex items-end"><button class="a-btn a-btn-success" type="submit">@Icons.Svg("Plus", null, 16) ساخت حساب مشتری</button></div>
+        </form>
+      }
+    }
+    else
+    {
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="font-bold">@c.Name <span class="a-muted a-ltr text-sm">@c.Phone</span></div>
+          <div class="a-muted text-xs mt-1">@Format.Number(c.OrdersCount) سفارش قبلی</div>
+        </div>
+        <div class="a-btn-group">
+          @if (Model.Can(AdminPermissions.CustomersView))
+          {
+            <a class="a-btn a-btn-light a-btn-sm" href="/admin/customers/@c.Id" target="_blank" rel="noopener">پرونده مشتری</a>
+          }
+          <a class="a-btn a-btn-light a-btn-sm" href="/admin/orders/new">تغییر مشتری</a>
+        </div>
+      </div>
+      if (c.IsBlocked)
+      {
+        <div class="a-alert a-alert-danger mt-3">حساب این مشتری مسدود است و امکان ثبت سفارش برایش وجود ندارد.</div>
+      }
+    }
+  </div>
+</div>
+
+@if (c is not null && !c.IsBlocked)
+{
+  @* ── گام ۲: آدرس ─────────────────────────────────────────── *@
+  <div class="a-card mb-4" id="address">
+    <div class="a-card-head">
+      <span class="a-card-title">@Icons.Svg("MapPin", null, 18) ۲. آدرس ارسال</span>
+      <button type="button" class="a-btn a-btn-light a-btn-sm" data-toggle-target="#new-address">@Icons.Svg("Plus", null, 14) آدرس تازه</button>
+    </div>
+    <div class="a-card-body">
+      @if (c.Addresses.Count == 0)
+      {
+        <div class="a-empty">این مشتری آدرسی ندارد؛ یک آدرس تازه اضافه کنید.</div>
+      }
+      <div class="a-stack">
+        @foreach (var a in c.Addresses)
+        {
+          <label class="a-check items-start border rounded-lg p-3 w-full">
+            <input type="radio" name="input.AddressId" value="@a.Id" form="order-form" required checked="@(Model.SelectedAddressId == a.Id)">
+            <span>
+              <span class="font-semibold">@a.Title</span> @if (a.IsDefault) { <span class="a-badge a-badge-sky">پیش‌فرض</span> }
+              <span class="block text-sm a-muted mt-1">@a.Summary</span>
+              @if (!string.IsNullOrEmpty(a.Recipient)) { <span class="block text-xs a-muted">گیرنده: @a.Recipient</span> }
+            </span>
+          </label>
+        }
+      </div>
+
+      <form method="post" asp-page-handler="Address" id="new-address" class="mt-4 border-t pt-4" hidden="@(c.Addresses.Count > 0)">
+        <input type="hidden" name="customer" value="@c.Id">
+        <div class="a-form-grid cols-3">
+          <div class="a-field"><label class="a-label" for="ad-title">عنوان</label><input id="ad-title" name="address.Title" class="a-input" maxlength="50" placeholder="خانه"></div>
+          <div class="a-field"><label class="a-label" for="ad-first">نام گیرنده</label><input id="ad-first" name="address.FirstName" class="a-input" maxlength="50"></div>
+          <div class="a-field"><label class="a-label" for="ad-last">نام خانوادگی گیرنده</label><input id="ad-last" name="address.LastName" class="a-input" maxlength="50"></div>
+          <div class="a-field">
+            <label class="a-label" for="ad-province">استان</label>
+            <select id="ad-province" name="address.ProvinceId" class="a-select" required data-province-select="#ad-city">
+              <option value="">انتخاب کنید</option>
+              @foreach (var p in Model.Provinces)
+              {
+                <option value="@p.Id">@p.Name</option>
+              }
+            </select>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="ad-city">شهر</label>
+            <select id="ad-city" name="address.CityId" class="a-select" required disabled><option value="">ابتدا استان</option></select>
+          </div>
+          <div class="a-field"><label class="a-label" for="ad-postal">کد پستی</label><input id="ad-postal" name="address.PostalCode" class="a-input a-ltr" inputmode="numeric" maxlength="12" required></div>
+          <div class="a-field span-2"><label class="a-label" for="ad-line">نشانی</label><input id="ad-line" name="address.AddressLine" class="a-input" maxlength="500" required></div>
+          <div class="a-field"><label class="a-label" for="ad-phone">تلفن گیرنده</label><input id="ad-phone" name="address.PhoneNumber" class="a-input a-ltr" inputmode="tel" maxlength="20" value="@c.Phone" required></div>
+          <div class="a-field"><label class="a-label" for="ad-bld">پلاک</label><input id="ad-bld" name="address.BuildingNumber" class="a-input" maxlength="20"></div>
+          <div class="a-field"><label class="a-label" for="ad-unit">واحد</label><input id="ad-unit" name="address.Unit" class="a-input" maxlength="20"></div>
+          <div class="a-field flex items-end"><button class="a-btn" type="submit">ذخیرهٔ آدرس</button></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  @* ── گام ۳: اقلام، ارسال و پیام ─────────────────────────────── *@
+  <form method="post" asp-page-handler="Create" id="order-form" data-staff-order data-initial-items="@Model.PostedItemsJson"
+        data-confirm="سفارش ثبت و لینک پرداخت برای مشتری پیامک شود؟">
+    <input type="hidden" name="input.UserId" value="@c.Id">
+    <div class="a-card mb-4">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Package", null, 18) ۳. کالاها</span></div>
+      <div class="a-card-body">
+        <div class="relative">
+          <label class="a-label" for="so-search">جست‌وجوی محصول (نام یا SKU)</label>
+          <input id="so-search" class="a-input" autocomplete="off" placeholder="حداقل ۲ حرف…" data-product-search="?handler=Products">
+          <div class="a-picker-results" data-product-results hidden></div>
+        </div>
+        <div class="a-table-wrap mt-3">
+          <table class="a-table a-table-cards">
+            <thead><tr><th>محصول</th><th>قیمت واحد</th><th style="width:120px">تعداد</th><th>جمع</th><th></th></tr></thead>
+            <tbody data-order-items></tbody>
+          </table>
+          <div class="a-empty" data-items-empty>هنوز کالایی اضافه نشده است.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="a-grid xl:grid-cols-3">
+      <div class="xl:col-span-2 a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Truck", null, 18) ارسال و توضیحات</span></div>
+        <div class="a-card-body a-form-grid cols-2">
+          <div class="a-field">
+            <label class="a-label" for="so-ship">روش ارسال</label>
+            <select id="so-ship" name="input.ShippingMethodId" class="a-select" required data-shipping-select>
+              @foreach (var m in Model.ShippingMethods)
+              {
+                <option value="@m.Id" data-cost="@m.Cost.ToString(global::System.Globalization.CultureInfo.InvariantCulture)"
+                        data-free="@(m.FreeThreshold?.ToString(global::System.Globalization.CultureInfo.InvariantCulture))"
+                        selected="@(posted?.ShippingMethodId == m.Id)">@m.Title (@m.MinDays تا @m.MaxDays روز)</option>
+              }
+            </select>
+            @if (Model.ShippingMethods.Count == 0)
+            {
+              <p class="a-error mt-1">روش ارسال فعالِ بدون بازهٔ زمانی وجود ندارد.</p>
+            }
+          </div>
+          @if (Model.CouponsEnabled)
+          {
+            <div class="a-field"><label class="a-label" for="so-coupon">کد تخفیف (اختیاری)</label><input id="so-coupon" name="input.CouponCode" value="@posted?.CouponCode" class="a-input a-ltr" maxlength="50"></div>
+          }
+          <div class="a-field span-2"><label class="a-label" for="so-note">توضیح سفارش (روی سفارش و فاکتور)</label><input id="so-note" name="input.CustomerNote" value="@posted?.CustomerNote" class="a-input" maxlength="500"></div>
+          <div class="a-field span-2">
+            <label class="a-label" for="so-msg">پیام به مشتری (اختیاری؛ در صفحهٔ سفارش او نمایش داده و اعلان می‌شود)</label>
+            <textarea id="so-msg" name="input.Message" class="a-textarea" rows="3" maxlength="2000" placeholder="مثلاً: سلام، سفارش تلفنی شما ثبت شد…">@posted?.Message</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Receipt", null, 18) جمع تخمینی</span></div>
+        <div class="a-card-body">
+          <div class="a-sum-row"><span>جمع کالاها</span><b data-sum-items>0</b></div>
+          <div class="a-sum-row"><span>هزینهٔ ارسال (تخمینی)</span><b data-sum-shipping>0</b></div>
+          <div class="a-sum-row a-sum-total"><span>قابل پرداخت</span><b data-sum-total>0</b></div>
+          <div class="a-muted text-xs mt-1" data-sum-words></div>
+          <p class="a-muted text-xs mt-3">مبلغ نهایی (تخفیف کد، نرخ ارسال شهر مقصد) هنگام ثبت توسط سیستم محاسبه و در لینک پرداخت نمایش داده می‌شود.</p>
+          <button type="submit" class="a-btn a-btn-success w-full mt-4" disabled="@(!Model.OnlinePaymentReady || Model.ShippingMethods.Count == 0)" data-submit-order>
+            @Icons.Svg("PaperPlaneTilt", null, 18) ثبت سفارش و ارسال لینک پرداخت
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+}

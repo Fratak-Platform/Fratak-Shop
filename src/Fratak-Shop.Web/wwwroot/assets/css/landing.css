@@ -1,0 +1,94 @@
+/*
+  صفحه‌های کمپین (دور ۲۱) – کلاس‌های ثابت fs-lp-* که قالب‌ها و بلوک‌های صفحه‌ساز از آن‌ها استفاده می‌کنند.
+  این فایل فقط در صفحهٔ /campaign/{slug} و داخل بوم صفحه‌ساز بار می‌شود (روی سرعت بقیهٔ سایت اثری ندارد).
+  واکنش‌گرا: موبایل اول؛ از ۶۴۰ پیکسل (تبلت) و ۱۰۲۴ پیکسل (دسکتاپ) چیدمان پهن‌تر می‌شود.
+  کلاس‌های body: fs-no-header / fs-no-footer = پنهان کردن هدر/فوتر سایت (گزینهٔ «نمایش هدر/فوتر» صفحه‌ساز).
+*/
+body.fs-no-header > header,
+body.fs-no-header [data-ann-spacer] { display: none !important; }
+body.fs-no-footer > footer { display: none !important; }
+body.fs-no-footer .fs-lp { margin-bottom: 0; }
+
+.fs-lp { --lp-accent: #0ea5e9; --lp-ink: #0f172a; --lp-soft: #f1f5f9; font-family: "Vazirmatn", system-ui, sans-serif; color: var(--lp-ink); overflow-x: hidden; }
+.fs-lp.fs-lp--with-header { padding-top: 6rem; }
+@media (min-width: 768px) { .fs-lp.fs-lp--with-header { padding-top: 9rem; } }
+.fs-lp img { max-width: 100%; height: auto; }
+.fs-lp a { color: inherit; }
+
+.fs-lp-wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+.fs-lp-section { padding: 40px 0; }
+.fs-lp-section--soft { background: var(--lp-soft); }
+@media (min-width: 1024px) { .fs-lp-section { padding: 64px 0; } }
+
+.fs-lp-hero { position: relative; padding: 56px 0; color: #fff; text-align: center; background: linear-gradient(135deg, #0369a1, #0ea5e9); overflow: hidden; }
+.fs-lp-hero::after { content: ""; position: absolute; inset: auto -10% -60% auto; width: 60%; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, .08); pointer-events: none; }
+.fs-lp-hero--sale { background: linear-gradient(135deg, #be123c, #f97316); }
+.fs-lp-hero--launch { background: linear-gradient(135deg, #1e1b4b, #4f46e5); }
+.fs-lp-hero--gift { background: linear-gradient(135deg, #065f46, #10b981); }
+.fs-lp-hero .fs-lp-wrap { position: relative; z-index: 1; }
+@media (min-width: 1024px) { .fs-lp-hero { padding: 96px 0; } }
+
+.fs-lp-kicker { display: inline-block; padding: 4px 14px; border-radius: 999px; background: rgba(255, 255, 255, .18); font-size: 14px; font-weight: 700; }
+.fs-lp-title { margin: 16px 0 12px; font-size: 30px; line-height: 1.35; font-weight: 900; }
+.fs-lp-title--dark { color: var(--lp-ink); }
+@media (min-width: 640px) { .fs-lp-title { font-size: 40px; } }
+@media (min-width: 1024px) { .fs-lp-title { font-size: 52px; } }
+.fs-lp-lead { max-width: 640px; margin: 0 auto 24px; font-size: 16px; line-height: 2; opacity: .95; }
+.fs-lp-lead--dark { color: #475569; opacity: 1; }
+@media (min-width: 1024px) { .fs-lp-lead { font-size: 18px; } }
+.fs-lp-h2 { margin: 0 0 20px; font-size: 22px; font-weight: 800; text-align: center; }
+@media (min-width: 1024px) { .fs-lp-h2 { font-size: 28px; margin-bottom: 28px; } }
+.fs-lp-text { font-size: 16px; line-height: 2; color: #334155; }
+
+.fs-lp-btn { display: inline-block; padding: 12px 28px; border-radius: 999px; background: #fff; color: #0f172a !important; font-weight: 800; text-decoration: none; box-shadow: 0 10px 25px rgba(0, 0, 0, .15); transition: transform .15s ease; }
+.fs-lp-btn:hover { transform: translateY(-2px); }
+.fs-lp-btn--accent { background: var(--lp-accent); color: #fff !important; }
+
+.fs-lp-countdown { display: flex; justify-content: center; gap: 8px; margin: 0 auto 24px; direction: rtl; }
+.fs-lp-countdown__cell { min-width: 64px; padding: 8px 6px; border-radius: 14px; background: rgba(255, 255, 255, .16); }
+.fs-lp-countdown__cell b { display: block; font-size: 26px; font-weight: 900; line-height: 1.2; }
+.fs-lp-countdown__cell span { font-size: 12px; opacity: .9; }
+.fs-lp-countdown--ended { font-weight: 700; }
+@media (min-width: 640px) { .fs-lp-countdown__cell { min-width: 80px; } .fs-lp-countdown__cell b { font-size: 32px; } }
+
+.fs-lp-features { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 640px) { .fs-lp-features { grid-template-columns: repeat(3, 1fr); } }
+.fs-lp-feature { padding: 20px; border-radius: 16px; background: #fff; border: 1px solid #e2e8f0; text-align: center; }
+.fs-lp-feature b { display: block; margin-bottom: 6px; font-size: 17px; }
+.fs-lp-feature p { margin: 0; color: #475569; line-height: 1.9; font-size: 14px; }
+
+.fs-lp-cols { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: center; }
+@media (min-width: 768px) { .fs-lp-cols { grid-template-columns: 1fr 1fr; } }
+.fs-lp-image { width: 100%; border-radius: 18px; display: block; }
+
+.fs-lp-banner { display: block; border-radius: 18px; overflow: hidden; }
+.fs-lp-banner img { display: block; width: 100%; }
+
+.fs-lp-faq { margin: 0 auto 10px; max-width: 820px; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+.fs-lp-faq summary { cursor: pointer; font-weight: 700; }
+.fs-lp-faq p { margin: 10px 0 0; color: #475569; line-height: 1.9; }
+
+.fs-lp-quote { max-width: 760px; margin: 0 auto; padding: 24px; border-radius: 18px; background: #fff; border: 1px solid #e2e8f0; text-align: center; line-height: 2; }
+.fs-lp-quote cite { display: block; margin-top: 8px; font-style: normal; color: #64748b; font-size: 14px; }
+
+.fs-lp-divider { height: 1px; margin: 24px 0; background: #e2e8f0; border: 0; }
+.fs-lp-spacer { height: 40px; }
+
+.fs-lp-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0f172a; }
+.fs-lp-video video { width: 100%; height: 100%; object-fit: cover; }
+
+/* کارت کالاها (کدهای کوتاه): در صفحهٔ کمپین عمودی و شبکه‌ای – ۲ ستون موبایل، ۳ تبلت، ۴ دسکتاپ. */
+.fs-lp-products { min-height: 40px; }
+.fs-lp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 640px) { .fs-lp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 1024px) { .fs-lp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.fs-lp-grid .fs-product-card { flex-direction: column; align-items: stretch; text-align: center; margin: 0; height: 100%; }
+.fs-lp-grid .fs-product-card__img { align-self: center; }
+.fs-lp-grid .fs-product-card__img img { width: 140px; height: 140px; }
+.fs-lp-grid .fs-product-card__btn { align-self: center; }
+
+.fs-lp-ended { margin: 0 auto; max-width: 760px; padding: 16px; border-radius: 14px; background: #fef3c7; color: #92400e; text-align: center; font-weight: 700; }
+
+/* دور ۲۹ (#۱۱): قاب «حالت کد» – تمام‌عرض، بدون حاشیه؛ تا رسیدن ارتفاع واقعی، یک صفحه ارتفاع دارد. */
+.fs-lp-code { display: block; width: 100%; min-height: 70vh; border: 0; background: transparent; }
+.fs-lp-code.is-sized { min-height: 0; }

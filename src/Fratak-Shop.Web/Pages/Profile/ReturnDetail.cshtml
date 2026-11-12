@@ -1,0 +1,132 @@
+@page "/profile/returns/{requestNumber}"
+@model Fratak_Shop.Web.Pages.Profile.ReturnDetailModel
+@using Fratak_Shop.Data.Entities.Orders
+@{
+    Layout = "_Layout";
+    var r = Model.ReturnRequest;
+    var status = Fratak_Shop.Web.Pages.Profile.ReturnsModel.StatusOf(r.Status);
+    var closed = r.Status is ReturnStatus.Rejected or ReturnStatus.Cancelled;
+    var steps = new List<(string Title, DateTimeOffset? At, bool Done)>
+    {
+        ("ثبت درخواست", r.CreatedAt, true),
+        ("تایید فروشگاه", r.ApprovedAt, r.ApprovedAt is not null),
+        ("دریافت کالا", r.ReceivedAt, r.ReceivedAt is not null),
+        ("برگشت وجه به کیف پول", r.RefundedAt, r.RefundedAt is not null),
+    };
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Returns" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0 space-y-6">
+        <nav class="text-xs text-zinc-400" aria-label="مسیر">
+          <a href="/profile/returns" class="hover:text-sky-600">مرجوعی‌ها</a><span class="mx-1">/</span><span dir="ltr">@r.RequestNumber</span>
+        </nav>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-zinc-800 text-lg font-semibold">مرجوعی <span dir="ltr">@r.RequestNumber</span></h1>
+          <span class="rounded-full px-2.5 py-0.5 text-xs @status.Css">@status.Text</span>
+          <a href="/profile/orders/@r.OrderNumber.ToLowerInvariant()" class="mr-auto text-xs text-sky-600 hover:underline">سفارش <span dir="ltr">@r.OrderNumber</span></a>
+        </div>
+
+        @if (!closed)
+        {
+          <ol class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            @foreach (var step in steps)
+            {
+              <li class="rounded-xl border p-3 text-center text-xs @(step.Done ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "text-zinc-400")">
+                @Icons.Svg(step.Done ? "CheckCircle" : "Clock", step.Done ? "fill-emerald-500 mx-auto mb-1" : "fill-zinc-300 mx-auto mb-1", 22)
+                <div class="font-semibold">@step.Title</div>
+                @if (step.At is { } at)
+                {
+                  <div class="mt-1 text-[11px]">@Format.Date(at)</div>
+                }
+              </li>
+            }
+          </ol>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(r.AdminNote))
+        {
+          <div class="rounded-xl border @(r.Status == ReturnStatus.Rejected ? "border-red-200 bg-red-50 text-red-600" : "border-sky-100 bg-sky-50 text-sky-700") p-3 text-sm">
+            <b>پیام فروشگاه:</b> @r.AdminNote
+          </div>
+        }
+
+        @if (r.CanSetTrackingCode)
+        {
+          <section class="rounded-xl border border-sky-200 p-4">
+            <h2 class="mb-2 text-sm font-semibold text-zinc-700">ارسال کالا به فروشگاه</h2>
+            <p class="mb-3 text-xs leading-6 text-zinc-500">درخواست شما تایید شد. کالا را با بسته‌بندی و لوازم کامل ارسال کنید و کد رهگیری مرسوله را اینجا ثبت کنید.</p>
+            <form method="post" asp-page-handler="Tracking" asp-route-requestNumber="@r.RequestNumber" class="flex flex-wrap gap-2">
+              <input name="TrackingCode" value="@Model.TrackingCode" maxlength="50" dir="ltr" required placeholder="کد رهگیری پست / پیک"
+                     class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-sky-400">
+              <button type="submit" class="rounded-lg bg-sky-500 px-4 py-2 text-sm text-white hover:bg-sky-400">ثبت کد رهگیری</button>
+            </form>
+          </section>
+        }
+        else if (!string.IsNullOrWhiteSpace(r.ReturnTrackingCode))
+        {
+          <p class="text-sm text-zinc-600">کد رهگیری مرسوله: <b dir="ltr">@r.ReturnTrackingCode</b></p>
+        }
+
+        <section>
+          <h2 class="mb-3 text-sm font-semibold text-zinc-700">اقلام</h2>
+          <ul class="divide-y rounded-xl border">
+            @foreach (var item in r.Items)
+            {
+              <li class="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                @if (item.ProductSlug is not null)
+                {
+                  <a href="/product/@item.ProductSlug" class="text-zinc-700 hover:text-sky-600">@item.ProductName</a>
+                }
+                else
+                {
+                  <span class="text-zinc-700">@item.ProductName</span>
+                }
+                <span class="text-xs text-zinc-500">@Format.Number(item.Quantity) × @Format.Toman(item.UnitRefundAmount)</span>
+              </li>
+            }
+          </ul>
+          <dl class="mt-3 grid grid-cols-2 gap-2 text-sm sm:max-w-sm">
+            <dt class="text-zinc-500">مبلغ درخواستی</dt><dd class="text-left">@Format.Toman(r.RequestedAmount)</dd>
+            @if (r.ApprovedAmount is { } approved)
+            {
+              <dt class="text-zinc-500">مبلغ تاییدشده</dt><dd class="text-left">@Format.Toman(approved)</dd>
+            }
+            @if (r.RefundedAmount > 0)
+            {
+              <dt class="text-zinc-500">واریز به کیف پول</dt><dd class="text-left text-emerald-600">@Format.Toman(r.RefundedAmount)</dd>
+            }
+          </dl>
+        </section>
+
+        <section class="text-sm text-zinc-600">
+          <h2 class="mb-2 text-sm font-semibold text-zinc-700">علت</h2>
+          <p>@r.ReasonTitle</p>
+          @if (!string.IsNullOrWhiteSpace(r.Description))
+          {
+            <p class="mt-1 whitespace-pre-line text-zinc-500">@r.Description</p>
+          }
+          @if (r.Images.Count > 0)
+          {
+            <div class="mt-3 flex flex-wrap gap-2">
+              @foreach (var image in r.Images)
+              {
+                var src = "/uploads/returns/" + Uri.EscapeDataString(image);
+                <a href="@src" data-lightbox="return-@r.Id" class="block h-20 w-20 overflow-hidden rounded-lg border">
+                  <img src="@ImageHelper.Sized(src, 160, Site.Settings.IsImageOptimizationEnabled)" alt="تصویر ارسالی" loading="lazy" class="h-full w-full object-cover" width="80" height="80">
+                </a>
+              }
+            </div>
+          }
+        </section>
+
+        @if (r.CanCancel)
+        {
+          <form method="post" asp-page-handler="Cancel" asp-route-requestNumber="@r.RequestNumber" data-confirm="درخواست مرجوعی لغو شود؟" data-confirm-ok="لغو درخواست" data-confirm-danger>
+            <button type="submit" class="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-500 hover:bg-red-50">لغو درخواست</button>
+          </form>
+        }
+      </div>
+    </div>
+  </main>

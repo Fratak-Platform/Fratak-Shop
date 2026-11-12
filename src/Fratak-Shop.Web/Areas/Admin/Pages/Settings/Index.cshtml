@@ -1,0 +1,105 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Settings.IndexModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Settings
+@{
+    ViewData["Title"] = "تنظیمات فروشگاه";
+    var g = Model.Group;
+}
+<div class="a-page-head">
+  <div>
+    <h2>تنظیمات فروشگاه</h2>
+    <p class="a-muted text-sm mt-1">همه تنظیمات در پایگاه داده ذخیره می‌شوند و بلافاصله اعمال می‌شوند. @if (Model.UpdatedAt is { } u) { <span>آخرین تغییر: @Format.DateTime(u)</span> }</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/manage">@Icons.Svg("Sliders", null, 18) جدول‌های پایه</a>
+  </div>
+</div>
+
+<div class="a-settings-layout">
+  <nav class="a-card a-card-body" aria-label="بخش‌های تنظیمات">
+    <div class="a-settings-nav">
+      @foreach (var group in SettingsRegistry.Groups)
+      {
+        <a href="/admin/settings?tab=@group.Key" class="a-dropdown-item nowrap @(group.Key == g.Key ? "is-active font-semibold" : "")">@Icons.Svg(group.Icon, null, 18) @group.Title</a>
+        if (group.Key == "general")
+        {
+          @* مرحلهٔ دوازدهم: لوگو، آیکون اپ و فاوآیکن با تنظیم جدای هر محل و پیش‌نمایش زنده. *@
+          <a href="/admin/settings/brand" class="a-dropdown-item nowrap">@Icons.Svg("Image", null, 18) استودیوی لوگو</a>
+        }
+      }
+    </div>
+  </nav>
+
+  <form method="post" class="a-card" data-dirty-guard id="@g.Key">
+    <input type="hidden" name="tab" value="@g.Key">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg(g.Icon, null, 18) @g.Title</span>@if (g.Description is not null) { <span class="a-muted text-xs">@g.Description</span> }</div>
+    <div class="a-card-body a-form-grid cols-2">
+      @foreach (var f in g.Fields)
+      {
+        var id = "s-" + f.Name;
+        var name = "f." + f.Name;
+        var value = Model.Values.GetValueOrDefault(f.Name);
+        var showWhen = f.ShowWhen is null ? null : "#s-" + f.ShowWhen + "=true";
+        <div class="a-field @(f.Wide || f.Kind == SKind.Area ? "span-all" : "")" data-show-when="@showWhen">
+          @switch (f.Kind)
+          {
+            case SKind.Bool:
+              <label class="a-check"><input id="@id" type="checkbox" name="@name" value="true" checked="@(value == "true")"><input type="hidden" name="@name" value="false"> <span class="font-semibold">@f.Label</span></label>
+              break;
+            case SKind.Area:
+              <label class="a-label" for="@id">@f.Label</label>
+              <textarea id="@id" name="@name" class="a-textarea" rows="3">@value</textarea>
+              break;
+            case SKind.Select:
+              <label class="a-label" for="@id">@f.Label</label>
+              <select id="@id" name="@name" class="a-select">
+                @foreach (var (v, t) in f.Options) { <option value="@v" selected="@(value == v)">@t</option> }
+              </select>
+              break;
+            case SKind.Color:
+              <label class="a-label" for="@id">@f.Label</label>
+              <div class="flex gap-2 items-center"><input id="@id" name="@name" value="@value" class="a-input a-ltr" placeholder="#0069FD" maxlength="9" style="max-width:140px">@if (!string.IsNullOrEmpty(value)) { <span class="inline-block h-8 w-8 rounded-lg border" style="background:@value"></span> }</div>
+              break;
+            case SKind.Money:
+              <label class="a-label" for="@id">@f.Label</label>
+              <input id="@id" name="@name" value="@value" class="a-input a-ltr" inputmode="numeric" dir="ltr" data-money>
+              break;
+            case SKind.Int:
+            case SKind.Decimal:
+              <label class="a-label" for="@id">@f.Label</label>
+              <input id="@id" name="@name" value="@value" class="a-input a-ltr" inputmode="decimal" dir="ltr">
+              break;
+            case SKind.Image:
+              @* مرحلهٔ دهم: آدرس تصویر + انتخاب/آپلود از کتابخانهٔ رسانه (editor.js → data-media-pick) + پیش‌نمایش. *@
+              <label class="a-label" for="@id">@f.Label</label>
+              <div class="flex gap-2 items-center">
+                @if (!string.IsNullOrEmpty(value)) { <img src="@value" alt="" class="h-10 w-10 rounded-lg border object-contain bg-white" data-lightbox="settings-images" loading="lazy"> }
+                <input id="@id" name="@name" value="@value" class="a-input a-ltr" dir="ltr" placeholder="خالی = پیش‌فرض برند">
+                <button type="button" class="a-btn a-btn-light a-btn-sm nowrap" data-media-pick="#@id">@Icons.Svg("Image", null, 16) انتخاب / آپلود</button>
+              </div>
+              break;
+            case SKind.Url:
+            case SKind.Ltr:
+              <label class="a-label" for="@id">@f.Label</label>
+              <input id="@id" name="@name" value="@value" class="a-input a-ltr" dir="ltr">
+              break;
+            default:
+              <label class="a-label" for="@id">@f.Label</label>
+              <input id="@id" name="@name" value="@value" class="a-input">
+              break;
+          }
+          @if (f.Help is not null) { <p class="a-help">@f.Help</p> }
+        </div>
+      }
+      @if (g.Key == "pwa" && !string.IsNullOrEmpty(Model.VapidPublicKey))
+      {
+        <div class="a-field span-all"><span class="a-label">کلید عمومی VAPID</span><div class="a-pre a-ltr break-all text-xs">@Model.VapidPublicKey</div></div>
+      }
+      @if (g.Key == "payment")
+      {
+        <div class="a-alert a-alert-warn span-all text-sm">پیش از راه‌اندازی واقعی: مرچنت کد را وارد و حالت آزمایشی را خاموش کنید؛ سپس یک پرداخت واقعی کوچک تست کنید.</div>
+      }
+    </div>
+    <div class="a-card-body flex justify-end border-t"><button class="a-btn" type="submit">@Icons.Svg("Check", null, 18) ذخیره «@g.Title»</button></div>
+  </form>
+</div>

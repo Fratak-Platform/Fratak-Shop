@@ -22,6 +22,12 @@ public static class UserMapper
             IsPhoneVerified = user.IsPhoneVerified,
             IsEmailVerified = user.IsEmailVerified,
             LastLoginAt = user.LastLoginAt,
+            WalletBalance = user.WalletBalance,
+            HasPassword = !string.IsNullOrWhiteSpace(user.PasswordHash),
+            TwoFactorEnabled = user.TwoFactorEnabled,
+            BirthDate = user.BirthDate,
+            LoyaltyPoints = user.LoyaltyPoints,
+            ReferralCode = user.ReferralCode,
             Addresses = user.Addresses.Select(address => address.Map()).ToList(),
         };
     }

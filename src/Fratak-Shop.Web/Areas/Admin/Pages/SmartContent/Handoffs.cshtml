@@ -1,0 +1,117 @@
+@page "/admin/smart/assistant/handoffs"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.HandoffsModel
+@using Fratak_Shop.Data.Entities.Assistant
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@* دور ۲۴: گفت‌وگوهای «کارشناس» از داخل چت دستیار – فهرست و یک گفت‌وگو (‎?id=‎) با جواب و بستن. *@
+@{
+    ViewData["Title"] = "گفت‌وگو با کارشناس";
+    var current = Model.Current;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>گفت‌وگو با کارشناس</h2>
+    <p class="a-muted text-sm mt-1">مشتری‌هایی که در چت دستیار خواسته‌اند با کارشناس حرف بزنند. جواب شما همان لحظه در پنجرهٔ چت مشتری نشان داده می‌شود؛ گفت‌وگوی بی‌پیام بعد از ۲۴ ساعت خودکار بسته می‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light a-btn-sm" href="/admin/smart/assistant">گزارش دستیار</a>
+    <a class="a-btn @(Model.ShowClosed ? "a-btn-primary" : "a-btn-light") a-btn-sm" href="/admin/smart/assistant/handoffs?all=@(!Model.ShowClosed)">@(Model.ShowClosed ? "فقط باز" : "با بسته‌ها")</a>
+  </div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Chat", null, 18) گفت‌وگوها</span></div>
+    <div class="a-card-body">
+      @if (Model.Items.Count == 0)
+      {
+        <p class="a-muted text-sm">گفت‌وگویی نیست.</p>
+      }
+      else
+      {
+        <ul class="a-stack">
+          @foreach (var h in Model.Items)
+          {
+            <li>
+              <a class="block rounded-lg border p-3 hover:bg-slate-50 @(current?.Id == h.Id ? "border-sky-500" : "border-slate-200")" href="/admin/smart/assistant/handoffs?id=@h.Id@(Model.ShowClosed ? "&all=True" : "")">
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <b>@(string.IsNullOrEmpty(h.DisplayName) ? "مهمان" : h.DisplayName)</b>
+                  <span class="a-badge @HandoffsModel.StatusBadge(h.Status)">@HandoffsModel.StatusTitle(h.Status)</span>
+                </div>
+                @if (!string.IsNullOrEmpty(h.LastText))
+                {
+                  <p class="a-muted text-xs mt-1 truncate">@h.LastText</p>
+                }
+                <div class="flex items-center justify-between text-xs a-muted mt-1">
+                  <span>@Format.DateTime(h.LastMessageAt)</span>
+                  @if (h.Unread > 0)
+                  {
+                    <span class="a-badge a-badge-red">@Format.Number(h.Unread) پیام تازه</span>
+                  }
+                </div>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+
+  <div class="xl:col-span-2 a-stack">
+    @if (current is null)
+    {
+      <div class="a-card"><div class="a-card-body a-muted text-sm">یک گفت‌وگو را از فهرست انتخاب کنید.</div></div>
+    }
+    else
+    {
+      <div class="a-card">
+        <div class="a-card-head">
+          <span class="a-card-title">@(string.IsNullOrEmpty(current.DisplayName) ? "مهمان" : current.DisplayName) · <span class="a-badge @HandoffsModel.StatusBadge(current.Status)">@HandoffsModel.StatusTitle(current.Status)</span></span>
+          @if (current.Status != AssistantHandoffStatus.Closed)
+          {
+            <form method="post" asp-page-handler="Close" asp-route-id="@current.Id" data-confirm="گفت‌وگو بسته شود؟"><button class="a-btn a-btn-light a-btn-sm" type="submit">بستن گفت‌وگو</button></form>
+          }
+        </div>
+        <div class="a-card-body">
+          <dl class="a-kv text-sm mb-3">
+            @if (current.UserId is { } uid && Model.Can(AdminPermissions.CustomersView))
+            {
+              <dt>مشتری</dt><dd><a class="a-link" href="/admin/customers/@uid">پروفایل مشتری</a></dd>
+            }
+            @if (!string.IsNullOrEmpty(current.PageUrl))
+            {
+              <dt>صفحه</dt><dd><a class="a-link a-ltr" href="@current.PageUrl" target="_blank" rel="noopener">@current.PageUrl</a></dd>
+            }
+            <dt>شروع</dt><dd>@Format.DateTime(current.CreatedAt)</dd>
+            @if (!string.IsNullOrEmpty(current.StaffName))
+            {
+              <dt>کارشناس</dt><dd>@current.StaffName</dd>
+            }
+          </dl>
+          <div class="a-stack">
+            @foreach (var m in Model.Messages)
+            {
+              <div class="rounded-lg p-3 text-sm leading-7 @(m.FromStaff ? "bg-sky-50" : "bg-slate-50")">
+                <div class="flex items-center justify-between gap-2 text-xs a-muted mb-1">
+                  <b>@(m.FromStaff ? (m.Author ?? "کارشناس") : (m.Author ?? "مشتری"))</b>
+                  <span>@Format.DateTime(m.CreatedAt)</span>
+                </div>
+                <div class="whitespace-pre-line">@m.Text</div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      @if (current.Status != AssistantHandoffStatus.Closed)
+      {
+        <form method="post" asp-page-handler="Reply" asp-route-id="@current.Id" class="a-card" id="reply">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("PaperPlaneTilt", null, 18) جواب به مشتری</span></div>
+          <div class="a-card-body a-form-grid">
+            <textarea name="text" class="a-textarea" rows="4" maxlength="1000" required placeholder="جواب شما همان لحظه در چت مشتری نشان داده می‌شود."></textarea>
+            <div class="flex justify-end"><button class="a-btn" type="submit">ارسال جواب</button></div>
+          </div>
+        </form>
+      }
+    }
+  </div>
+</div>

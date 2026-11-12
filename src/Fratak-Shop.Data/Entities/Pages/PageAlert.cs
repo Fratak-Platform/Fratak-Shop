@@ -22,6 +22,24 @@ public class PageAlert : BaseEntity
     [Required]
     public string Content { get; set; } = null!;
 
+    /// <summary>Optional call-to-action link (site-relative or https).</summary>
+    [MaxLength(500)]
+    public string? LinkUrl { get; set; }
+
+    [MaxLength(100)]
+    public string? LinkText { get; set; }
+
+    /// <summary>The visitor can close the alert (remembered in the browser).</summary>
+    public bool IsDismissible { get; set; }
+
+    public AlertAudience Audience { get; set; } = AlertAudience.Everyone;
+
+    /// <summary>Product page only: show just for this product.</summary>
+    public Guid? ProductId { get; set; }
+
+    /// <summary>Product / category pages: show just for this category (and its products).</summary>
+    public Guid? CategoryId { get; set; }
+
     public int DisplayOrder { get; set; }
 
     public DateTimeOffset? StartAt { get; set; }
@@ -45,6 +63,14 @@ public enum AlertPosition
     AboveContent = 6,     // بالای محتوا
     BelowContent = 7,     // زیر محتوا
     BelowMainImage = 8,   // زیر تصویر اصلی (مثلاً زیر عکس محصول)
+}
+
+/// <summary>Who sees the alert.</summary>
+public enum AlertAudience
+{
+    Everyone = 0,
+    Guests = 1,     // فقط کاربران وارد نشده
+    SignedIn = 2,   // فقط کاربران وارد شده
 }
 
 /// <summary>

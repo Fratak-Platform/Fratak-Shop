@@ -1,0 +1,61 @@
+@page "/admin/notifications/templates/{event}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Notifications.TemplateEditModel
+@{
+    ViewData["Title"] = "قالب پیام: " + Model.EventTitle;
+    var previewUrl = ViewContext.HttpContext.Request.Path + "?handler=Preview";
+}
+<div class="a-page-head">
+  <div>
+    <h2>قالب پیام: @Model.EventTitle</h2>
+    <p class="a-muted text-sm mt-1">روی هر برچسب کلیک کنید تا در محل نشانگر (یا انتهای متن) درج شود. پیش‌نمایش سمت چپ با اطلاعات واقعی حساب شما ساخته می‌شود.</p>
+  </div>
+  <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/notifications/templates">@Icons.Svg("ArrowRight", null, 18) بازگشت</a></div>
+</div>
+
+@if (Model.IsNew)
+{
+  <div class="a-alert a-alert-info mb-4">برای این رویداد هنوز قالبی ذخیره نشده و پیامی ارسال نمی‌شود. متن را بنویسید و ذخیره کنید.</div>
+}
+
+<div class="a-grid lg:grid-cols-3" data-placeholder-editor data-preview-url="@previewUrl">
+  <form method="post" class="a-card lg:col-span-2" data-dirty-guard>
+    <div class="a-card-body a-form-grid">
+      @if (!ViewData.ModelState.IsValid)
+      {
+        <div class="a-alert a-alert-danger">@foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors)) { <div>@err.ErrorMessage</div> }</div>
+      }
+      <div class="a-field"><label class="a-label" for="t-title">عنوان پیام</label>
+        <input id="t-title" asp-for="Input.Title" class="a-input" maxlength="200" data-chip-field required></div>
+      <div class="a-field"><label class="a-label" for="t-body">متن اعلان (سایت و اعلان مرورگر)</label>
+        <textarea id="t-body" asp-for="Input.Body" class="a-textarea" rows="5" maxlength="2000" data-chip-field required></textarea></div>
+      <div class="a-field"><label class="a-label" for="t-link">متن دکمهٔ لینک (اختیاری)</label>
+        <input id="t-link" asp-for="Input.LinkText" class="a-input" maxlength="100" placeholder="مثلاً: مشاهده سفارش"></div>
+      <div class="a-field"><label class="a-label" for="t-sms">متن پیامک (اختیاری)</label>
+        <textarea id="t-sms" asp-for="Input.SmsText" class="a-textarea" rows="3" maxlength="500" data-chip-field data-sms-counter></textarea>
+        <div class="a-help" data-sms-count></div></div>
+      <div class="flex flex-wrap gap-4">
+        <label class="a-check text-sm"><input type="checkbox" name="Input.IsActive" value="true" checked="@Model.Input.IsActive"><input type="hidden" name="Input.IsActive" value="false"> اعلان داخل سایت</label>
+        <label class="a-check text-sm"><input type="checkbox" name="Input.SendPush" value="true" checked="@Model.Input.SendPush"><input type="hidden" name="Input.SendPush" value="false"> اعلان مرورگر (Push)</label>
+        <label class="a-check text-sm"><input type="checkbox" name="Input.SendSms" value="true" checked="@Model.Input.SendSms"><input type="hidden" name="Input.SendSms" value="false"> پیامک</label>
+        <label class="a-check text-sm"><input type="checkbox" name="Input.SendEmail" value="true" checked="@Model.Input.SendEmail"><input type="hidden" name="Input.SendEmail" value="false"> ایمیل <span class="a-muted text-xs">(به ایمیل تأییدشده؛ <a class="a-link" href="/admin/system/email">سرویس ایمیل</a>)</span></label>
+      </div>
+      <div><button type="submit" class="a-btn a-btn-primary">@Icons.Svg("FloppyDisk", null, 18) ذخیره قالب</button></div>
+    </div>
+  </form>
+
+  <div class="space-y-4">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">برچسب‌ها</span></div>
+      <div class="a-card-body"><partial name="_PlaceholderChips" model="Model.Groups" /></div>
+    </div>
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">پیش‌نمایش زنده</span></div>
+      <div class="a-card-body space-y-3">
+        <div class="a-alert a-alert-warn" data-preview="unknown" hidden></div>
+        <div class="a-preview"><div class="font-semibold mb-1" data-preview="title"></div><div data-preview="body"></div></div>
+        <div data-preview-sms-wrap hidden><div class="a-muted text-xs mb-1">پیامک</div><div class="a-preview-phone" data-preview="sms"></div></div>
+        <div class="a-help" data-preview="source"></div>
+      </div>
+    </div>
+  </div>
+</div>

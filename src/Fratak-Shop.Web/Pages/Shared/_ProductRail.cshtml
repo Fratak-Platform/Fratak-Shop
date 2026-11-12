@@ -1,0 +1,28 @@
+@model ProductRailModel
+@if (Model.Products.Count > 0)
+{
+  <section class="mt-16" aria-label="@Model.Title">
+    <div class="text-center text-2xl md:text-3xl font-semibold text-gray-800 mb-2">@Model.Title</div>
+    @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+    {
+      <p class="text-center text-sm text-zinc-500 mb-6">@Model.Subtitle</p>
+    }
+    else
+    {
+      <div class="mb-6"></div>
+    }
+    <div class="w-full relative">
+      <div class="bg-blue-400 w-full h-44 rounded-3xl bottom-0 absolute z-0"></div>
+      <div class="swiper productSlider1" data-slider="products">
+        <div class="swiper-wrapper items-start pb-5">
+          @foreach (var product in Model.Products)
+          {
+            <partial name="_ProductSlideCard" model="product" />
+          }
+        </div>
+        <div class="swiper-button-next next-btn-2"></div>
+        <div class="swiper-button-prev prev-btn-2"></div>
+      </div>
+    </div>
+  </section>
+}

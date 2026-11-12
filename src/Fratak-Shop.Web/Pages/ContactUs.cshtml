@@ -1,10 +1,9 @@
-@page
+@page "/contact-us"
 @model ContactUsModel
 @{
-    ViewData["Title"] = "ارتباط با ما";
     Layout = "_Layout";
+    var shop = Site.Settings;
 }
-
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
     <div class="bg-white border rounded-xl shadow-lg p-4">
@@ -19,29 +18,55 @@
           </div>
         </span>
         <div class="border border-dashed border-zinc-400 p-5 rounded-lg mt-10 grid md:grid-cols-2 gap-5">
-          <div>
+          <form method="post">
             <div class="text-2xl font-semibold text-zinc-600">
               با ما در ارتباط باشید
             </div>
-            <div class="grid grid-cols-2 gap-5 mt-4 mb-3">
-              <input class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="text" placeholder="نام و نام خانوادگی">
-              <input class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="text" placeholder="شماره همراه">
+            <div class="mt-4"><partial name="_ValidationSummary" /></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-4 mb-3">
+              <input asp-for="Input.FullName" class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="text" placeholder="نام و نام خانوادگی" required>
+              <input asp-for="Input.PhoneNumber" class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="tel" placeholder="شماره همراه" dir="ltr" maxlength="11" required>
             </div>
-            <div class="grid grid-cols-2 gap-5 mt-4 mb-3">
-              <input class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="email" placeholder="ایمیل">
-              <input class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="text" placeholder="موضوع">
-            </div>
-            <div>
-              <textarea class="border p-2 rounded-lg border-zinc-400 focus:outline-none w-full" placeholder="توضیحات" name="" id="" cols="30" rows="5"></textarea>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-4 mb-3">
+              <input asp-for="Input.Email" class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="email" placeholder="ایمیل" dir="ltr">
+              <input asp-for="Input.Subject" class="border p-2 rounded-lg border-zinc-400 focus:outline-none" type="text" placeholder="موضوع">
             </div>
             <div>
-              <button class="bg-sky-600 hover:bg-sky-700 transition px-8 py-2 mt-2 rounded-lg text-white">
+              <textarea asp-for="Input.Content" class="border p-2 rounded-lg border-zinc-400 focus:outline-none w-full" placeholder="توضیحات" cols="30" rows="5" required></textarea>
+            </div>
+            <div>
+              @if (Model.Captcha is not null)
+              {
+                <partial name="_Captcha" model="Model.Captcha" />
+              }
+              <button type="submit" class="bg-sky-600 hover:bg-sky-700 transition px-8 py-2 mt-2 rounded-lg text-white">
                 ارسال اطلاعات
               </button>
             </div>
-          </div>
+          </form>
           <div>
-            <iframe class="rounded-3xl w-full mt-5" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d5487.320972393403!2d59.6102611712093!3d36.28800020180445!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3f6c91ef5993b861%3A0xbc78a4fdeb4d00b5!2z2K3YsdmFINin2YXYp9mFINix2LbYpyDYudmE24zZhyDYp9mE2LPZhNin2YU!5e0!3m2!1sen!2sus!4v1690833786920!5m2!1sen!2sus" width="" height="250" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <ul class="space-y-4 text-zinc-600 text-sm">
+              @if (!string.IsNullOrWhiteSpace(shop.SupportPhone))
+              {
+                <li class="flex items-center gap-x-2">@Icons.Svg("Phone", "fill-sky-600") <a href="tel:@shop.SupportPhone" dir="ltr">@shop.SupportPhone</a></li>
+              }
+              @if (!string.IsNullOrWhiteSpace(shop.SupportEmail))
+              {
+                <li class="flex items-center gap-x-2">@Icons.Svg("Envelope", "fill-sky-600") <a href="mailto:@shop.SupportEmail">@shop.SupportEmail</a></li>
+              }
+              @if (!string.IsNullOrWhiteSpace(shop.Address))
+              {
+                <li class="flex items-center gap-x-2">@Icons.Svg("MapPin", "fill-sky-600") @shop.Address</li>
+              }
+              @if (!string.IsNullOrWhiteSpace(shop.WorkingHours))
+              {
+                <li class="flex items-center gap-x-2">@Icons.Svg("Clock", "fill-sky-600") @shop.WorkingHours</li>
+              }
+            </ul>
+            @if (UrlSafety.IsHttpUrl(shop.MapEmbedUrl) && shop.MapEmbedUrl!.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+              <iframe title="موقعیت فروشگاه روی نقشه" loading="lazy" class="rounded-3xl w-full mt-5 border-0" src="@shop.MapEmbedUrl" height="250" allowfullscreen referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+            }
           </div>
         </div>
       </div>

@@ -21,10 +21,18 @@ public static class BannerMapper
             ImageAlt = banner.ImageAlt,
             ButtonText = banner.ButtonText,
             LinkUrl = banner.LinkUrl,
+            Position = banner.Position,
             DisplayOrder = banner.DisplayOrder,
             StartAt = banner.StartAt,
             EndAt = banner.EndAt,
             IsActive = banner.IsActive,
+            IsPinned = banner.IsPinned,
+            ProductId = banner.ProductId,
+            CategoryId = banner.CategoryId,
+            VariantGroup = banner.VariantGroup,
+            Views = banner.Views,
+            Clicks = banner.Clicks,
+            LiveHtml = banner.LiveHtml,
         };
     }
 

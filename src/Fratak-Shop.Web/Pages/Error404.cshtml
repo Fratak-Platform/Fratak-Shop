@@ -1,22 +1,30 @@
 @page
 @model Error404Model
 @{
-    ViewData["Title"] = "خطا";
     Layout = "_Layout";
 }
 
 
   <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
     <div class="bg-white border rounded-xl shadow-lg p-4">
-      <img class="mx-auto mt-10 mb-5" src="~/assets/image/404.png" alt="">
+      <img class="mx-auto mt-10 mb-5" src="~/assets/image/404.webp" alt="صفحه پیدا نشد">
       <p class="text-4xl md:text-6xl font-bold text-blue-600 text-center">
         خطا !!!
       </p>
       <p class="text-xl md:text-2xl font-semibold text-blue-600 text-center mt-2 mb-4">
-        صفحه مورد نظر پیدا نشد !
+        @Model.Heading
       </p>
-      <a href="" class="text-gray-800 mx-auto w-fit mb-2 block px-3 py-2 mt-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
-        محصولات پرطرفدار
-      </a>
+      <form method="get" action="/search" class="max-w-md mx-auto mt-6 flex gap-x-2">
+        <input type="search" name="q" placeholder="جستجوی محصول" aria-label="جستجوی محصول" class="flex-1 rounded-xl bg-gray-100 px-4 py-2 outline-none focus:ring-1 focus:ring-sky-400">
+        <button type="submit" class="rounded-xl bg-sky-500 px-4 text-white">جستجو</button>
+      </form>
+      <div class="flex justify-center gap-x-3 mt-5 mb-4">
+        <a href="/" class="text-gray-800 w-fit block px-3 py-2 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
+          صفحه اصلی
+        </a>
+        <a href="/search?sort=BestSelling" class="text-gray-800 w-fit block px-3 py-2 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300">
+          محصولات پرطرفدار
+        </a>
+      </div>
     </div>
   </main>

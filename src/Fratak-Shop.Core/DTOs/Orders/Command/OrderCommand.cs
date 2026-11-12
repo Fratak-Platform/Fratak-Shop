@@ -20,11 +20,40 @@ public class CreateOrderCommand
     public Guid? UserId { get; set; }
 
     public PaymentMethod PaymentMethod { get; set; }
+
+    /// <summary>
+    /// Shipping method chosen at checkout. When set, the service validates it for the
+    /// destination province and calculates the shipping cost itself (the values of
+    /// <see cref="ShippingMethod"/> / <see cref="ShippingAmount"/> are then ignored).
+    /// </summary>
+    public Guid? ShippingMethodId { get; set; }
+
+    /// <summary>Destination province (used to validate province-limited shipping methods).</summary>
+    public Guid? ShippingProvinceId { get; set; }
+
+    /// <summary>City of the address (province / city shipping rules).</summary>
+    public Guid? ShippingCityId { get; set; }
+
+    /// <summary>Delivery day for methods with time slots.</summary>
+    public DateOnly? DeliveryDate { get; set; }
+
+    public Guid? DeliveryTimeSlotId { get; set; }
+
+    /// <summary>Free text shipping method (manual orders without <see cref="ShippingMethodId"/>).</summary>
     public string? ShippingMethod { get; set; }
     public DateTimeOffset? RequestedDeliveryDate { get; set; }
 
     /// <summary>تخفیف دستی سفارش (جدا از تخفیف قیمت هر محصول).</summary>
     public decimal DiscountAmount { get; set; }
+
+    /// <summary>Discount code typed by the customer (validated again when the order is placed).</summary>
+    public string? CouponCode { get; set; }
+
+    /// <summary>
+    /// سفارش را کارمند در پنل ثبت می‌کند (<c>StaffOrderService</c>): اعلان معمولی «سفارش ثبت شد» فرستاده نمی‌شود،
+    /// چون به‌جایش اعلان «لینک پرداخت» با لینک و مهلت می‌رود (جلوگیری از دو پیامک پشت‌سرهم).
+    /// </summary>
+    public bool SkipPlacedEvent { get; set; }
 
     public decimal ShippingAmount { get; set; }
 
@@ -38,6 +67,8 @@ public class CreateOrderCommand
     public string? ShippingUnit { get; set; }
     public string ShippingPostalCode { get; set; } = null!;
     public string ShippingPhone { get; set; } = null!;
+    public decimal? ShippingLatitude { get; set; }
+    public decimal? ShippingLongitude { get; set; }
 
     public string? CustomerNote { get; set; }
 
@@ -73,6 +104,8 @@ public class EditOrderCommand
     public string? ShippingUnit { get; set; }
     public string ShippingPostalCode { get; set; } = null!;
     public string ShippingPhone { get; set; } = null!;
+    public decimal? ShippingLatitude { get; set; }
+    public decimal? ShippingLongitude { get; set; }
 
     public string? CustomerNote { get; set; }
 }

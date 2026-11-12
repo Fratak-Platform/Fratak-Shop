@@ -1,0 +1,115 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.SystemPages.ErrorsModel
+@{
+    ViewData["Title"] = "خطاها";
+    var request = HttpContext.Request;
+    var hourly = Model.Stats.Hourly.Select(h => new Fratak_Shop.Core.DTOs.Admin.ChartPoint(Fratak_Shop.Core.Utilities.IranClock.ToLocal(new DateTimeOffset(h.Hour)).ToString("HH:00"), h.Count)).ToList();
+    var hourlyChart = new BarChartModel("خطا در ساعت", hourly, false);
+    string LevelBadge(string level) => level switch { "Critical" => "a-badge-red", "Error" => "a-badge-red", "Warning" => "a-badge-yellow", _ => "a-badge-gray" };
+}
+<div class="a-page-head">
+  <div>
+    <h2>خطاهای سامانه</h2>
+    <p class="a-muted text-sm mt-1">خطاهای مشابه گروه‌بندی می‌شوند. روی هر گروه بزنید تا جزئیات (مسیر، کاربر، Stack trace) را ببینید.</p>
+  </div>
+  @if (Model.Can(AdminPermissions.SystemManage) && Model.Stats.Unresolved > 0)
+  {
+    <form method="post" asp-page-handler="ResolveAll" data-confirm="همه خطاها رفع‌شده علامت بخورند؟"><button class="a-btn a-btn-light" type="submit">@Icons.Svg("Check", null, 18) همه رفع شد</button></form>
+  }
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">یک ساعت اخیر</div><div class="a-stat-value">@Format.Number(Model.Stats.LastHour)</div></div>
+  <div class="a-stat"><div class="a-stat-label">۲۴ ساعت اخیر</div><div class="a-stat-value">@Format.Number(Model.Stats.Last24Hours)</div><div class="a-stat-sub">@Model.Stats.DistinctLast24Hours نوع متفاوت</div></div>
+  <div class="a-stat"><div class="a-stat-label">۷ روز اخیر</div><div class="a-stat-value">@Format.Number(Model.Stats.Last7Days)</div></div>
+  <div class="a-stat"><div class="a-stat-label">حل‌نشده</div><div class="a-stat-value @(Model.Stats.Unresolved > 0 ? "text-red-600" : "")">@Format.Number(Model.Stats.Unresolved)</div></div>
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-head"><span class="a-card-title">خطا در ۲۴ ساعت اخیر</span></div>
+  <div class="a-card-body"><partial name="_BarChart" model="hourlyChart" /></div>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    @if (Model.Fingerprint is not null) { <input type="hidden" name="fp" value="@Model.Fingerprint"> }
+    <div class="a-field" style="flex-basis:240px"><label class="a-label" for="e-q">جست‌وجو</label><input id="e-q" name="q" value="@Model.Search" class="a-input" placeholder="پیام، مسیر، نوع خطا یا TraceId"></div>
+    <div class="a-field"><label class="a-label" for="e-level">سطح</label>
+      <select id="e-level" name="level" class="a-select" data-autosubmit>
+        <option value="">همه</option>
+        @foreach (var l in new[] { "Critical", "Error", "Warning" }) { <option value="@l" selected="@(Model.Level == l)">@l</option> }
+      </select></div>
+    <div class="a-field"><label class="a-label" for="e-days">بازه</label>
+      <select id="e-days" name="days" class="a-select" data-autosubmit>
+        @foreach (var (d, label) in new[] { (1, "۲۴ ساعت"), (7, "۷ روز"), (30, "۳۰ روز"), (90, "۹۰ روز") }) { <option value="@d" selected="@(Model.Days == d)">@label</option> }
+      </select></div>
+    <label class="a-check self-end mb-2"><input type="checkbox" name="resolved" value="true" checked="@Model.IncludeResolved" data-autosubmit> نمایش رفع‌شده‌ها</label>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button><a class="a-btn a-btn-light" href="/admin/system/errors">پاک کردن</a></div>
+  </form>
+</div>
+
+@if (Model.Fingerprint is null)
+{
+  <div class="a-card">
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>خطا</th><th>تعداد</th><th>اولین</th><th>آخرین</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var g in Model.Groups.Items)
+          {
+            <tr>
+              <td data-label="خطا" style="max-width:560px">
+                <span class="a-badge @LevelBadge(g.Level)">@g.Level</span>
+                @if (g.ExceptionType is not null) { <span class="a-mono text-xs a-ltr">@g.ExceptionType</span> }
+                <a class="a-link block mt-1 a-ltr text-left text-sm break-words" dir="auto" href="/admin/system/errors/@g.LastId">@(g.Message.Length > 220 ? g.Message[..220] + "…" : g.Message)</a>
+                <div class="a-muted text-xs mt-1 a-ltr text-left">@g.LastPath · @g.Category</div>
+              </td>
+              <td data-label="تعداد" class="num"><a class="a-link" href="@AdminUi.With(request, ("fp", g.Fingerprint), ("page", null))">@Format.Number(g.Count)</a>@if (g.UnresolvedCount > 0 && g.UnresolvedCount != g.Count) { <div class="a-muted text-xs">@g.UnresolvedCount حل‌نشده</div> }</td>
+              <td data-label="اولین" class="nowrap text-xs">@AdminUi.Ago(g.FirstAt)</td>
+              <td data-label="آخرین" class="nowrap text-xs">@AdminUi.Ago(g.LastAt)</td>
+              <td class="actions" data-label="">
+                @if (g.UnresolvedCount > 0)
+                {
+                  <form method="post" asp-page-handler="Resolve"><input type="hidden" name="fingerprint" value="@g.Fingerprint"><button class="a-btn a-btn-light a-btn-xs" type="submit">رفع شد</button></form>
+                }
+                else { <span class="a-badge a-badge-green">رفع‌شده</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (Model.Groups.Items.Count == 0) { <div class="a-empty">خطایی در این بازه ثبت نشده است. 👌</div> }
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Groups.Page, Model.Groups.PageCount, Model.Groups.Total)" />
+  </div>
+}
+else
+{
+  <div class="a-card">
+    <div class="a-card-head">
+      <span class="a-card-title">رخدادهای این خطا (@Format.Number(Model.Occurrences.Total))</span>
+      <div class="a-btn-group">
+        <form method="post" asp-page-handler="Resolve"><input type="hidden" name="fingerprint" value="@Model.Fingerprint"><button class="a-btn a-btn-light a-btn-sm" type="submit">رفع شد</button></form>
+        <a class="a-btn a-btn-light a-btn-sm" href="/admin/system/errors">همه گروه‌ها</a>
+      </div>
+    </div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards a-table-compact">
+        <thead><tr><th>زمان</th><th>مسیر</th><th>کاربر</th><th>IP</th><th>وضعیت</th></tr></thead>
+        <tbody>
+          @foreach (var e in Model.Occurrences.Items)
+          {
+            <tr>
+              <td data-label="زمان" class="nowrap"><a class="a-link" href="/admin/system/errors/@e.Id">@Format.DateTime(e.CreatedAt)</a></td>
+              <td data-label="مسیر" class="a-ltr text-xs">@e.Method @e.Path</td>
+              <td data-label="کاربر">@if (e.UserId is not null) { <a class="a-link text-xs" href="/admin/customers/@e.UserId">مشاهده</a> } else { <span class="a-muted">—</span> }</td>
+              <td data-label="IP" class="a-ltr text-xs">@e.IpAddress</td>
+              <td data-label="وضعیت">@if (e.IsResolved) { <span class="a-badge a-badge-green">رفع‌شده</span> } else { <span class="a-badge a-badge-red">باز</span> }</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <partial name="_AdminPager" model="new PagerModel(Model.Occurrences.Page, Model.Occurrences.PageCount, Model.Occurrences.Total)" />
+  </div>
+}

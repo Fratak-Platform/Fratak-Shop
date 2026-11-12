@@ -1,0 +1,820 @@
+@page "/product/{slug}"
+@model ProductModel
+@inject Fratak_Shop.Core.Services.Smart.ISmartConfigService SmartConfig
+@{
+    // دور ۲۴: آمار واقعی خرید (۱۵) و «قیمت کمتر دیدید؟» (۱۱) از تنظیمات هوشمند روشن/خاموش می‌شوند.
+    var smartOptions = await SmartConfig.GetAsync();
+    Layout = "_Layout";
+    var p = Model.Product;
+    ViewData[PageMetaKeys.SitePage] = Fratak_Shop.Data.Entities.Pages.SitePage.ProductDetails;
+    ViewData[PageMetaKeys.AlertProductId] = p.Id;
+    ViewData[PageMetaKeys.AlertCategoryId] = p.CategoryId;
+    List<ProductImageDto> images = p.Images.Count > 0
+        ? p.Images
+        : new List<ProductImageDto> { new() { ImageName = ImageHelper.ProductPlaceholder, AltText = p.Name } };
+    var mainImage = images[0];
+    var thumbs = images.Skip(1).Take(4).ToList();
+    var specBoxes = p.Features.Take(6).ToList();
+    // دور ۱۹: «نگاه خریدار» (هر بخش بی‌داده پنهان می‌ماند).
+    var guide = Model.Guide;
+    var insight = guide.Insight;
+    var returnUrl = $"/product/{p.Slug}";
+    var inputClass = "focus:shadow-primary-outline text-sm leading-5.6 block w-full appearance-none rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding px-3 py-2 font-normal text-gray-700 outline-none transition-all focus:border-sky-300 focus:outline-none";
+    var submitClass = "mx-auto w-full px-2 py-3 mt-5 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg";
+    var tooltipClass = "opacity-0 w-28 transition-all bg-zinc-800 text-white text-center text-xs rounded-lg py-2 absolute z-10 -left-11 group-hover:opacity-100 px-3 pointer-events-none";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6" data-product-view="@(p.IsActive ? p.Id.ToString() : null)">
+    <div class="bg-white border rounded-xl shadow-lg p-4">
+      <div class="flex flex-col lg:flex-row gap-8">
+        @* photo *@
+        <div class="lg:w-4/12">
+            <div class="flex gap-x-4 mb-3">
+              <form method="post" asp-page="/Profile/Favorites" asp-page-handler="Toggle" class="relative">
+                <input type="hidden" name="productId" value="@p.Id" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <button type="submit" class="group cursor-pointer relative inline-block text-center" aria-label="علاقه مندی">
+                  @Icons.Svg("Heart", Model.IsFavorite ? "fill-red-500" : "fill-zinc-700 hover:fill-red-500", 26)
+                  <div class="@tooltipClass">
+                    @(Model.IsFavorite ? "حذف از علاقه مندی" : "افزودن به علاقه مندی")
+                    <svg class="absolute text-black h-2 w-full left-0 bottom-full rotate-180" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"></polygon></svg>
+                  </div>
+                </button>
+              </form>
+              <form method="post" asp-page="/Compare" asp-page-handler="Add" class="relative">
+                <input type="hidden" name="productId" value="@p.Id" />
+                <button type="submit" class="group cursor-pointer relative inline-block text-center" aria-label="مقایسه">
+                  @Icons.Svg("Grid", Model.IsInCompare ? "fill-sky-500" : "fill-zinc-700 hover:fill-sky-500", 26)
+                  <div class="@tooltipClass">
+                    @(Model.IsInCompare ? "در لیست مقایسه" : "مقایسه محصول")
+                    <svg class="absolute text-black h-2 w-full left-0 bottom-full rotate-180" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"></polygon></svg>
+                  </div>
+                </button>
+              </form>
+              <button type="button" class="group cursor-pointer relative inline-block text-center" data-share="@returnUrl" data-share-title="@p.Name" aria-label="اشتراک گذاری">
+                @Icons.Svg("Reply", "fill-zinc-700 hover:fill-sky-500", 26)
+                <div class="@tooltipClass">
+                  اشتراک گذاری
+                  <svg class="absolute text-black h-2 w-full left-0 bottom-full rotate-180" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"></polygon></svg>
+                </div>
+              </button>
+            </div>
+            <img data-ui="slide-go" data-arg="1" role="button" tabindex="0" title="نمایش بزرگ تصویر" class="cursor-zoom-in w-10/12 lg:w-full fs-pimg bg-white border-2 rounded-xl @(p.IsInStock ? "" : "grayscale")" src="@ImageHelper.Product(mainImage.ImageName)"
+                 srcset="@ImageHelper.Srcset(ImageHelper.Product(mainImage.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="(min-width: 1024px) 30vw, 85vw"
+                 alt="@(mainImage.AltText ?? p.Name)" fetchpriority="high" decoding="async">
+            @if (images.Count > 1)
+            {
+              <div class="grid grid-cols-5 gap-x-2 mt-4">
+                @for (var i = 0; i < thumbs.Count; i++)
+                {
+                  var slideNumber = i + 2;
+                  <img data-ui="slide-go" data-arg="@slideNumber" class="cursor-pointer border rounded-lg w-full fs-pimg bg-white" src="@ImageHelper.Sized(ImageHelper.Product(thumbs[i].ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" alt="@(thumbs[i].AltText ?? p.Name)" loading="lazy">
+                }
+                <div data-ui="modal-open" data-arg="showImagesModal" role="button" tabindex="0" aria-label="نمایش همه تصاویر" class="cursor-pointer border rounded-lg flex justify-center items-center relative">
+                  <img class="blur-sm w-full fs-pimg" src="@ImageHelper.Sized(ImageHelper.Product(images[^1].ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" alt="" loading="lazy">
+                  @Icons.Svg("Images", "fill-zinc-800 absolute", 28)
+                </div>
+              </div>
+            }
+            @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.BelowMainImage })
+            @* product images modal *@
+            <div class="max-w-2xl mx-auto relative">
+              @* Main modal *@
+              <div id="showImagesModal" data-modal class="overflow-x-hidden overflow-y-auto z-50 fixed hidden h-modal h-full inset-0 justify-center items-center">
+                <div data-ui="modal-close" data-arg="showImagesModal" class="overflow-x-hidden overflow-y-auto fixed h-modal h-full inset-0 z-10 bg-gray-600 bg-opacity-50 w-full">
+                </div>
+                <div class="relative w-12/12 sm:w-10/12 lg:w-full lg:max-w-[1600px] px-2 mb-4 z-50 mt-2 lg:mt-2 mx-auto">
+                  @* Modal content *@
+                  <div class="bg-white rounded-lg shadow-lg relative">
+                      <div class="flex justify-between items-center p-4 border-b">
+                        <h3 class="text-gray-800 font-semibold">
+                          عکس های محصول
+                        </h3>
+                        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center" data-ui="modal-close" data-arg="showImagesModal" aria-label="بستن">
+                          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        </button>
+                      </div>
+                      <div class="container relative">
+                        @foreach (var image in images)
+                        {
+                          <div class="mySlides">
+                            <img class="fs-pimg fs-pimg--free" src="@ImageHelper.Product(image.ImageName)" srcset="@ImageHelper.Srcset(ImageHelper.Product(image.ImageName), Site.Settings.IsImageOptimizationEnabled)" sizes="(min-width: 1024px) 60vw, 100vw" alt="@(image.AltText ?? p.Name)" loading="lazy">
+                          </div>
+                        }
+                        <div class="absolute top-32 w-full">
+                          <a class="next hover:bg-gray-300 absolute left-0 select-none p-3 rounded-r-md cursor-pointer" data-ui="slide-next" role="button" aria-label="تصویر بعدی">
+                            @Icons.Svg("CaretLeft", "hover:bg-gray-300", 32)
+                          </a>
+                          <a class="prev hover:bg-gray-300 absolute right-0 select-none p-3 rounded-l-md cursor-pointer" data-ui="slide-prev" role="button" aria-label="تصویر قبلی">
+                            @Icons.Svg("CaretRight", "hover:bg-gray-300", 32)
+                          </a>
+                        </div>
+                        <div class="flex gap-x-3 overflow-x-scroll mt-32 md:mt-20 p-3">
+                          @for (var i = 0; i < images.Count; i++)
+                          {
+                            var slideNumber = i + 1;
+                            <img class="demo fs-pimg bg-white w-[20%] lg:w-[10%] shrink-0 opacity-60 hover:opacity-100 border border-gray-300 rounded-md cursor-pointer" src="@ImageHelper.Sized(ImageHelper.Product(images[i].ImageName), 160, Site.Settings.IsImageOptimizationEnabled)" data-ui="slide-go" data-arg="@slideNumber" alt="" loading="lazy">
+                          }
+                        </div>
+                      </div>
+                  </div>
+                </div>
+            </div>
+            </div>
+        </div>
+        @* info *@
+        <div class="lg:w-5/12">
+          <nav class="mb-7 text-sm flex items-center flex-wrap gap-x-2 opacity-90" aria-label="breadcrumb">
+            <a asp-page="/Index" class="text-zinc-800 hover:text-sky-500 transition">
+              خانه
+            </a>
+            <div>
+              @Icons.Svg("ChevronLeft", "fill-zinc-700", 16)
+            </div>
+            <a asp-page="/Search" class="text-zinc-800 hover:text-sky-500 transition">
+              محصولات
+            </a>
+            @if (!string.IsNullOrWhiteSpace(p.CategorySlug))
+            {
+              <div>
+                @Icons.Svg("ChevronLeft", "fill-zinc-700", 16)
+              </div>
+              <a class="text-sky-500" href="/category/@p.CategorySlug">
+                @p.CategoryName
+              </a>
+            }
+          </nav>
+          <h1 class="text-zinc-800 text-lg md:text-2xl font-semibold">
+            @p.Name
+          </h1>
+          @if (!string.IsNullOrWhiteSpace(p.EnglishName))
+          {
+            <div class="text-zinc-400 text-sm mt-4" dir="ltr">
+              @p.EnglishName
+            </div>
+          }
+          <div class="flex gap-x-4 mt-3">
+            @if (p.ReviewCount > 0 && p.AverageRating > 0)
+            {
+              <div class="flex items-start gap-x-1 text-sm text-zinc-500">
+                @Icons.Svg("Star", "fill-yellow-400", 16)
+                <span>
+                  <span>(@p.ReviewCount)</span>
+                  <span>@p.AverageRating.ToString("0.0")</span>
+                </span>
+              </div>
+            }
+            <a href="#comments" class="flex items-start gap-x-1 text-sm text-sky-400">
+              @Icons.Svg("Chat", "fill-sky-400", 16)
+              <span>
+                <span>@Model.Reviews.Count</span>
+                <span>دیدگاه</span>
+              </span>
+            </a>
+          </div>
+          @if (specBoxes.Count > 0)
+          {
+            <div class="mt-8 text-zinc-700">
+              ویژگی های محصول:
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 max-w-md py-3 mb-5 gap-3">
+              @foreach (var feature in specBoxes)
+              {
+                <div class="flex flex-col gap-x-2 justify-center bg-gray-100 rounded-md px-2 py-3">
+                  <div class="text-zinc-500 text-xs">
+                    @feature.Key
+                  </div>
+                  <div class="text-zinc-700 text-sm">
+                   @feature.Value
+                  </div>
+                </div>
+              }
+            </div>
+          }
+          @if (!string.IsNullOrWhiteSpace(p.ShortDescription))
+          {
+            <p class="text-zinc-600 text-sm leading-7 mb-4">@p.ShortDescription</p>
+          }
+          @* دور ۱۹ (C1/C4): اطلاعات کلیدی خرید بالای صفحه – ویژگی‌های برجسته و «مناسب چه کسی است» از خلاصهٔ تأییدشده. *@
+          @if (guide.Highlights.Count > 0)
+          {
+            <ul class="mb-4 space-y-1.5 text-sm text-zinc-700" aria-label="ویژگی‌های برجسته">
+              @foreach (var highlight in guide.Highlights.Take(5))
+              {
+                <li class="flex items-start gap-x-2">@Icons.Svg("CheckCircle", "fill-emerald-500 shrink-0 mt-0.5", 16)<span>@highlight</span></li>
+              }
+            </ul>
+          }
+          @if (insight is { HasContent: true } && (insight.ForWhom.Count > 0 || insight.Cons.Count > 0))
+          {
+            <div class="mb-4 rounded-xl bg-sky-50 border border-sky-100 p-3 text-sm leading-7 text-zinc-700">
+              @if (insight.ForWhom.Count > 0) { <div><strong>مناسب برای:</strong> @string.Join("، ", insight.ForWhom.Take(3))</div> }
+              @if (insight.Cons.Count > 0) { <div><strong>پیش از خرید بدانید:</strong> @insight.Cons[0].Text</div> }
+              <a href="#insight" class="text-sky-600 text-xs">خلاصهٔ کامل نظر خریداران</a>
+            </div>
+          }
+          <div class="flex gap-x-2 mt-2 pt-2 text-zinc-500 text-sm border-t leading-6">
+            @Icons.Svg("Info", "fill-zinc-500 shrink-0", 24)
+            درخواست مرجوع کردن کالا با دلیل "انصراف از خرید" تنها در صورتی قابل تایید است که کالا در شرایط اولیه باشد (در صورت پلمپ بودن، کالا نباید باز شده باشد).
+          </div>
+        </div>
+        @* buy *@
+        <div class="lg:w-3/12">
+          <div class="mt-8 mb-8 space-y-2 text-sm">
+            @if (!string.IsNullOrWhiteSpace(p.BrandName))
+            {
+              <div class="flex items-center justify-between text-zinc-600">
+                <span>برند:</span>
+                <a class="text-sky-500" href="/brand/@p.BrandSlug">@p.BrandName</a>
+              </div>
+            }
+            <div class="flex items-center justify-between text-zinc-600">
+              <span>کد کالا:</span>
+              <span dir="ltr">@p.SKU</span>
+            </div>
+          </div>
+          <div class="p-3 border rounded-xl mx-auto divide-y">
+            <div class="flex gap-x-1 items-center text-zinc-600 text-sm pb-5 pt-3">
+              @Icons.Svg("Shield", "fill-zinc-700")
+              <div>
+                @(string.IsNullOrWhiteSpace(p.WarrantyTitle) ? "ضمانت اصالت و سلامت فیزیکی کالا" : p.WarrantyTitle)
+              </div>
+            </div>
+            <div class="flex gap-x-1 items-center text-zinc-600 text-sm py-5">
+              @Icons.Svg("Truck", "fill-zinc-700")
+              <div>
+                @(Model.MinDeliveryDays switch
+                {
+                    null => "ارسال به سراسر کشور",
+                    0 => "امکان تحویل همان روز",
+                    var days => $"ارسال از {days} روز کاری",
+                })
+              </div>
+            </div>
+            @if (Model.RecommendPercent.HasValue)
+            {
+              <div class="flex gap-x-1 items-center text-green-500 text-sm py-5">
+                @Icons.Svg("Smile", "fill-green-500")
+                <div>
+                  رضایت از محصول:
+                </div>
+                <span>
+                  @Model.RecommendPercent%
+                </span>
+              </div>
+            }
+            @if (p.IsInStock)
+            {
+              <div class="flex flex-col justify-center py-5">
+                @if (p.HasActiveDiscount)
+                {
+                  <div class="flex items-center justify-end gap-x-2">
+                    <span class="text-xs text-zinc-400 line-through">@Format.Price(p.Price)</span>
+                    <span class="bg-red-500 text-white rounded-full text-xs px-2 py-0.5">@p.DiscountPercent%</span>
+                  </div>
+                }
+                <div class="text-zinc-600 text-left">
+                  <span class="font-semibold text-xl">@Format.Price(p.FinalPrice)</span>
+                  <span class="text-xs">تومان</span>
+                </div>
+                @if (p.HasActiveDiscount && p.DiscountEndAt.HasValue)
+                {
+                  <div class="text-xs text-cyan-600 text-left mt-1" data-countdown="@Format.UnixMilliseconds(p.DiscountEndAt.Value)" data-countdown-text>
+                    پایان تخفیف: <span data-cd="days">0</span> روز و <span data-cd="hours">00</span>:<span data-cd="minutes">00</span>:<span data-cd="seconds">00</span>
+                  </div>
+                }
+                @if (p.StockQuantity <= 5)
+                {
+                  <div class="text-xs text-red-400 mt-1">
+                    تنها @p.StockQuantity عدد در انبار باقی مانده
+                  </div>
+                }
+              </div>
+              <form method="post" asp-page="/Cart" asp-page-handler="Add" class="pt-4" id="buy-form">
+                <input type="hidden" name="productId" value="@p.Id" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <div class="flex items-center justify-between mb-3 text-sm text-zinc-600">
+                  <label for="quantity">تعداد:</label>
+                  <input id="quantity" name="quantity" type="number" min="1" max="@p.StockQuantity" value="1" class="w-20 rounded-lg border border-gray-300 px-2 py-1 text-center outline-none focus:border-sky-400">
+                </div>
+                <button type="submit" data-assistant="add-to-cart" class="mx-auto w-full px-2 py-3 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 hover:opacity-80 transition text-gray-100 rounded-lg">
+                  افزودن به سبد خرید
+                </button>
+              </form>
+              @if (smartOptions.SocialProof)
+              {
+                @* دور ۲۴ (پیشنهاد ۱۵): فقط عدد واقعی و معنادار؛ commerce.js از /api/products/{id}/proof می‌خواند و اگر چیزی نبود پنهان می‌ماند. *@
+                <p class="hidden mt-3 text-xs text-emerald-700 items-center gap-x-1.5" data-social-proof="@p.Id" aria-live="polite"></p>
+              }
+              @if (smartOptions.PriceMatchEnabled)
+              {
+                @* دور ۲۴ (پیشنهاد ۱۱): تضمین قیمت – فرم در پنجرهٔ سفارشی (commerce.js)؛ بررسی توسط مدیر و کد تخفیف شخصی فقط برای همین کالا. *@
+                <button type="button" class="mt-3 text-xs text-sky-700 hover:underline" data-price-match="@p.Id" data-price="@(p.FinalPrice.ToString("0", System.Globalization.CultureInfo.InvariantCulture))" data-name="@p.Name">قیمت کمتر دیدید؟ به ما بگویید</button>
+              }
+              @* دور ۲۳ (مورد ۶۰): نوار ثابت «افزودن به سبد» در موبایل؛ فقط وقتی فرم اصلی از دید خارج شده باشد (engagement.js). همان فرم بالا را می‌فرستد. *@
+              <div class="fs-sticky-buy" data-sticky-buy hidden>
+                <div class="fs-sticky-buy-price">
+                  @if (p.HasActiveDiscount)
+                  {
+                    <span class="fs-sticky-buy-old">@Format.Price(p.Price)</span>
+                  }
+                  <span><strong>@Format.Price(p.FinalPrice)</strong> تومان</span>
+                </div>
+                <button type="submit" form="buy-form" class="fs-sticky-buy-btn">افزودن به سبد</button>
+              </div>
+            }
+            else
+            {
+              <div class="flex flex-col justify-center py-5">
+                <div class="text-zinc-400 text-left line-through">
+                  <span class="font-semibold text-xl">@Format.Price(p.Price)</span>
+                  <span class="text-xs">تومان</span>
+                </div>
+                <div class="text-xs text-red-400">
+                  این کالا در حال حاضر موجود نیست.
+                </div>
+              </div>
+              <button disabled class="mx-auto w-full px-2 py-3 text-sm bg-gradient-to-bl from-sky-400 to-sky-600 transition text-gray-100 rounded-lg opacity-60 cursor-not-allowed">
+                محصول موجود نمیباشد!
+              </button>
+            }
+          </div>
+          @* دور ۱۹: واقعیت‌های قیمت و تحویل – همه از دادهٔ واقعی؛ بدون شمارش معکوس یا کمیابی ساختگی (C18). *@
+          <div class="mt-3 space-y-2 text-xs text-zinc-600">
+            @if (p.IsInStock && guide.IsLowestIn30Days)
+            {
+              <div class="flex items-center gap-x-1.5 text-emerald-700">@Icons.Svg("TrendDown", "fill-emerald-600 shrink-0", 16) کمترین قیمت این کالا در ۳۰ روز گذشته</div>
+            }
+            else if (p.IsInStock && guide.LowestIn30Days is { } lowest && lowest < p.FinalPrice)
+            {
+              <div class="flex items-center gap-x-1.5">@Icons.Svg("Info", "fill-zinc-500 shrink-0", 16) کمترین قیمت ۳۰ روز گذشته: @Format.Toman(lowest)</div>
+            }
+            @if (p.IsInStock && guide.Torob is { } torob)
+            {
+              <div class="flex items-center gap-x-1.5">@Icons.Svg("CheckCircle", "fill-sky-500 shrink-0", 16) ارزان‌تر یا هم‌قیمت با @Format.Number(torob.SellerCount) فروشندهٔ دیگر در ترب (بررسی @Format.Date(torob.CheckedAt))</div>
+            }
+            @if (guide.Delivery.Count > 0)
+            {
+              <details class="rounded-lg border px-3 py-2">
+                <summary class="cursor-pointer">زمان واقعی رسیدن سفارش به استان‌ها</summary>
+                <ul class="mt-2 space-y-1">
+                  @foreach (var d in guide.Delivery.Take(31))
+                  {
+                    <li class="flex justify-between"><span>@d.Province</span><span>حدود @Format.Number(d.MedianDays) روز</span></li>
+                  }
+                </ul>
+                <p class="mt-2 text-zinc-400">میانهٔ سفارش‌های تحویل‌شدهٔ ۶ ماه اخیر (از پرداخت تا تحویل).</p>
+              </details>
+            }
+            @if (guide.ReturnDays > 0)
+            {
+              <div class="flex items-center gap-x-1.5">@Icons.Svg("Shield", "fill-zinc-500 shrink-0", 16) @Format.Number(guide.ReturnDays) روز مهلت بازگشت کالا</div>
+            }
+            @if (!p.IsInStock)
+            {
+              var alternatives = Model.RelatedProducts.Where(r => r.IsInStock).Take(3).ToList();
+              if (alternatives.Count > 0)
+              {
+                <div class="rounded-lg border px-3 py-2">
+                  <div class="font-semibold mb-1">جایگزین‌های موجود:</div>
+                  @foreach (var alt in alternatives)
+                  {
+                    <a class="flex justify-between gap-2 py-1 text-sky-600" href="/product/@alt.Slug"><span class="line-clamp-1">@alt.Name</span><span class="whitespace-nowrap text-zinc-600">@Format.Toman(alt.FinalPrice)</span></a>
+                  }
+                </div>
+              }
+            }
+          </div>
+          <partial name="_ProductEngagement" model="Model" />
+          @if (Model.FreeShippingFrom is { } freeFrom)
+          {
+            <div class="flex items-center gap-x-2 mt-4 text-zinc-600 text-sm">
+              @Icons.Svg("Package", "fill-zinc-600 shrink-0")
+              هزینه ارسال برای سبد خرید بالای @Format.Toman(freeFrom) رایگان میباشد.
+            </div>
+          }
+        </div>
+      </div>
+      <div class="flex gap-x-8 mt-20 pb-2 border-b overflow-x-auto">
+        @if (!string.IsNullOrWhiteSpace(p.Description))
+        {
+          <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#description">
+            معرفی
+          </a>
+        }
+        @if (Model.Videos.Count > 0)
+        {
+          <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#videos">
+            ویدیو
+          </a>
+        }
+        @if (insight is { HasContent: true })
+        {
+          <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#insight">
+            خلاصهٔ نظرها
+          </a>
+        }
+        <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#proper">
+          مشخصات
+        </a>
+        <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#comments">
+          دیدگاه ها
+        </a>
+        <a class="text-zinc-600 hover:text-zinc-800 transition whitespace-nowrap" href="#quest">
+          پرسش ها
+        </a>
+      </div>
+      @if (insight is { HasContent: true })
+      {
+        <div class="p-4 border-b" id="insight">
+          <span class="border-b-sky-300 border-b text-zinc-800">خلاصهٔ نظر خریداران</span>
+          <p class="mt-2 text-xs text-zinc-400">بر پایهٔ @Format.Number(insight.ReviewCount) نظر واقعی@(insight.Rating is { } avg ? " · میانگین " + avg.ToString("0.0") + " از ۵" : "")</p>
+          @if (!string.IsNullOrWhiteSpace(insight.Summary)) { <p class="mt-3 text-sm leading-7 text-zinc-700">@insight.Summary</p> }
+          <div class="grid md:grid-cols-2 gap-4 mt-4 text-sm">
+            @if (insight.Pros.Count > 0)
+            {
+              <div class="rounded-xl bg-emerald-50 p-3"><div class="font-semibold text-emerald-700 mb-2">نقاط قوت</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var pro in insight.Pros.Take(6)) { <li>+ @pro.Text</li> }</ul></div>
+            }
+            @if (insight.Cons.Count > 0)
+            {
+              <div class="rounded-xl bg-rose-50 p-3"><div class="font-semibold text-rose-700 mb-2">نقاط ضعف</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var con in insight.Cons.Take(6)) { <li>− @con.Text</li> }</ul></div>
+            }
+          </div>
+          @if (insight.NotFor.Count > 0) { <p class="mt-3 text-sm text-zinc-600"><strong>مناسب نیست برای:</strong> @string.Join("، ", insight.NotFor.Take(3))</p> }
+          @if (!string.IsNullOrWhiteSpace(insight.Verdict)) { <p class="mt-3 text-sm text-zinc-700"><strong>جمع‌بندی:</strong> @insight.Verdict</p> }
+        </div>
+      }
+      @if (!string.IsNullOrWhiteSpace(p.Description))
+      {
+        <div class="p-4 border-b" id="description">
+          <span class="border-b-sky-300 border-b text-zinc-800">
+            معرفی محصول
+          </span>
+          <div class="prose-content mt-5 text-zinc-600 text-sm leading-8">
+            @Html.Raw(Model.DescriptionHtml)
+          </div>
+        </div>
+      }
+      <partial name="_ProductVideos" model="Model.Videos" />
+      <div class="p-4 border-b" id="proper">
+        <span class="border-b-sky-300 border-b text-zinc-800">
+          مشخصات محصول
+        </span>
+        @if (p.Features.Count == 0)
+        {
+          <p class="text-sm text-zinc-500 mt-5">مشخصاتی برای این محصول ثبت نشده است.</p>
+        }
+        <div class="text-gray-500 text-sm grid grid-cols-1 md:grid-cols-2 gap-x-5">
+          @foreach (var feature in p.Features)
+          {
+            <div class="flex items-center justify-between border p-3 w-full my-3 mx-auto rounded-xl">
+              <div class="text-sm text-zinc-700">
+                @feature.Key
+              </div>
+              <div class="text-sm text-zinc-700">
+                @feature.Value
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+      @if (guide.Compatibility.Count > 0)
+      {
+        <div class="p-4 border-b" id="compatibility">
+          <span class="border-b-sky-300 border-b text-zinc-800">سازگاری و اتصال</span>
+          <ul class="mt-4 grid sm:grid-cols-2 gap-2 text-sm text-zinc-700">
+            @foreach (var c in guide.Compatibility)
+            {
+              <li class="rounded-lg bg-gray-50 px-3 py-2"><strong>@c.Key:</strong> @c.Value @if (!string.IsNullOrWhiteSpace(c.Note)) { <span class="block text-xs text-zinc-500">@c.Note</span> }</li>
+            }
+          </ul>
+        </div>
+      }
+      @if (guide.Compare is { } compare && compare.Rows.Count > 0)
+      {
+        <div class="p-4 border-b" id="quick-compare">
+          <span class="border-b-sky-300 border-b text-zinc-800">مقایسهٔ سریع با «@compare.OtherName»</span>
+          <div class="overflow-x-auto mt-4">
+            <table class="w-full text-sm text-zinc-700">
+              <thead><tr class="bg-gray-50"><th class="p-2 text-right">ویژگی</th><th class="p-2 text-right">این کالا</th><th class="p-2 text-right"><a class="text-sky-600" href="/product/@compare.OtherSlug">@compare.OtherName</a></th></tr></thead>
+              <tbody>
+                <tr class="border-t"><td class="p-2">قیمت</td><td class="p-2">@Format.Toman(p.FinalPrice)</td><td class="p-2">@Format.Toman(compare.OtherPrice)</td></tr>
+                @foreach (var row in compare.Rows.Take(8))
+                {
+                  <tr class="border-t"><td class="p-2">@row.Key</td><td class="p-2 @(row.Winner == 1 ? "font-semibold text-emerald-700" : "")">@row.Mine</td><td class="p-2 @(row.Winner == 2 ? "font-semibold text-emerald-700" : "")">@row.Other</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+      <div class="p-4 border-b" id="comments">
+        <span class="border-b-sky-300 border-b text-zinc-800">
+          دیدگاه ها
+        </span>
+        @if (guide.Digest is { } digest)
+        {
+          <div class="mt-4 grid md:grid-cols-3 gap-4 text-sm">
+            <div class="rounded-xl bg-gray-50 p-3">
+              <div class="text-2xl font-bold text-zinc-800">@digest.Average.ToString("0.0") <span class="text-sm font-normal text-zinc-500">از ۵ · @Format.Number(digest.Count) نظر</span></div>
+              @for (var star = 5; star >= 1; star--)
+              {
+                var count = digest.Stars.Count >= star ? digest.Stars[star - 1] : 0;
+                var width = digest.Count > 0 ? (int)Math.Round(count * 100d / digest.Count) : 0;
+                <div class="flex items-center gap-2 text-xs text-zinc-500 mt-1"><span class="w-3">@star</span><progress class="h-1.5 flex-1" max="100" value="@width" aria-label="@star ستاره"></progress><span class="w-6 text-left">@Format.Number(count)</span></div>
+              }
+            </div>
+            @if (digest.Pros.Count > 0)
+            {
+              <div class="rounded-xl bg-emerald-50 p-3"><div class="font-semibold text-emerald-700 mb-1">بیشترین تعریف‌ها</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var pro in digest.Pros.Take(4)) { <li>@pro.Text <span class="text-xs text-zinc-400">(@Format.Number(pro.Mentions))</span></li> }</ul></div>
+            }
+            @if (digest.Cons.Count > 0)
+            {
+              <div class="rounded-xl bg-rose-50 p-3"><div class="font-semibold text-rose-700 mb-1">بیشترین گلایه‌ها</div>
+                <ul class="space-y-1 text-zinc-700">@foreach (var con in digest.Cons.Take(4)) { <li>@con.Text <span class="text-xs text-zinc-400">(@Format.Number(con.Mentions))</span></li> }</ul></div>
+            }
+          </div>
+        }
+        <div class="lg:flex gap-5">
+          <div class="lg:w-3/12 py-5">
+            @if (p.ReviewCount > 0 && p.AverageRating > 0)
+            {
+              <div class="flex items-start gap-x-1 text-sm text-zinc-600">
+                <span>
+                  <span>(از @p.ReviewCount امتیاز)</span>
+                  <span>@p.AverageRating.ToString("0.0")</span>
+                </span>
+                @Icons.Svg("Star", "fill-yellow-400", 14)
+              </div>
+            }
+            <div class="mt-6 mb-2 text-sm text-zinc-700">
+              شما هم دیدگاه خود را ثبت کنید
+            </div>
+            @if (User.IsSignedIn() && Model.HasReviewed)
+            {
+              <div class="flex items-start gap-x-2 rounded-xl bg-emerald-50 p-3 text-sm leading-7 text-emerald-700">
+                @Icons.Svg("CheckCircle", "fill-emerald-500 shrink-0 mt-1", 18)
+                <span>دیدگاه شما برای این محصول ثبت شده است. از همراهی شما سپاسگزاریم.</span>
+              </div>
+            }
+            else if (User.IsSignedIn() && Site.Settings.IsReviewOnlyForBuyers && !Model.HasPurchased)
+            {
+              <div class="flex items-start gap-x-2 rounded-xl bg-zinc-50 p-3 text-sm leading-7 text-zinc-600">
+                @Icons.Svg("Info", "fill-zinc-400 shrink-0 mt-1", 18)
+                <span>ثبت دیدگاه برای خریداران این محصول (پس از تحویل سفارش) فعال است.</span>
+              </div>
+            }
+            else if (User.IsSignedIn())
+            {
+              if (Model.HasPurchased)
+              {
+                <div class="mb-3 flex items-center gap-x-1 text-xs text-emerald-600">@Icons.Svg("SealCheck", "fill-emerald-500", 16) دیدگاه شما با نشان «خریدار این محصول» نمایش داده می‌شود.</div>
+              }
+              <form method="post" asp-page-handler="Review" asp-route-slug="@p.Slug" enctype="multipart/form-data">
+                <input type="text" asp-for="Review.Title" placeholder="عنوان دیدگاه" class="@inputClass" maxlength="250">
+                <div class="flex items-center justify-between my-3 text-sm text-zinc-600">
+                  <label for="Review_Rating">امتیاز شما:</label>
+                  <select asp-for="Review.Rating" class="rounded-lg border border-gray-300 px-2 py-1 outline-none">
+                    <option value="5">۵ - عالی</option>
+                    <option value="4">۴ - خوب</option>
+                    <option value="3">۳ - معمولی</option>
+                    <option value="2">۲ - ضعیف</option>
+                    <option value="1">۱ - خیلی ضعیف</option>
+                  </select>
+                </div>
+                <ul class="grid my-3 gap-5 grid-cols-2">
+                  <li>
+                    <input type="radio" id="yes" name="Review.IsRecommended" value="true" class="hidden peer">
+                    <label for="yes" class="inline-flex items-center justify-center w-full px-2 py-3 text-gray-600 bg-white border border-gray-200 rounded-lg cursor-pointer peer-checked:border-green-400 peer-checked:text-green-500 hover:text-gray-600 hover:bg-gray-100">
+                      <div class="flex items-center gap-x-1">
+                        @Icons.Svg("ThumbsUp", "fill-green-500", 22)
+                        <div class="text-sm">پیشنهاد میشود</div>
+                      </div>
+                    </label>
+                  </li>
+                  <li>
+                    <input type="radio" id="no" name="Review.IsRecommended" value="false" class="hidden peer">
+                    <label for="no" class="inline-flex items-center justify-center w-full px-2 py-3 text-gray-600 bg-white border border-gray-200 rounded-lg cursor-pointer peer-checked:border-red-400 peer-checked:text-red-400 hover:text-gray-600 hover:bg-gray-100">
+                      <div class="flex items-center gap-x-1">
+                        @Icons.Svg("ThumbsDown", "fill-red-500", 22)
+                        <div class="text-sm">پیشنهاد نمیشود</div>
+                      </div>
+                    </label>
+                  </li>
+                </ul>
+                <textarea asp-for="Review.Content" placeholder="متن دیدگاه" cols="30" rows="7" required minlength="5" maxlength="2000" class="@inputClass"></textarea>
+                @if (Site.Settings.IsReviewImageEnabled && Site.Settings.ReviewMaxImages > 0)
+                {
+                  var maxImages = Math.Min(Site.Settings.ReviewMaxImages, 10);
+                  <div class="mt-3" data-review-images data-max="@maxImages" data-max-kb="@Site.Settings.ReviewMaxImageSizeKb">
+                    <label class="flex cursor-pointer items-center justify-center gap-x-2 rounded-lg border border-dashed border-gray-300 px-3 py-3 text-sm text-zinc-600 transition hover:border-sky-400 hover:bg-sky-50">
+                      @Icons.Svg("Image", "fill-sky-500", 20)
+                      <span>افزودن تصویر (حداکثر @maxImages عدد، هر کدام تا @Format.Number(Site.Settings.ReviewMaxImageSizeKb) کیلوبایت)</span>
+                      <input type="file" name="reviewImages" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-review-images-input>
+                    </label>
+                    <div class="mt-2 grid grid-cols-3 gap-2 empty:hidden" data-review-images-preview></div>
+                  </div>
+                }
+                <button type="submit" class="@submitClass">
+                  ارسال
+                </button>
+              </form>
+            }
+            else
+            {
+              <a asp-page="/Login" asp-route-returnUrl="@($"{returnUrl}#comments")" class="@submitClass block text-center">
+                برای ثبت دیدگاه وارد شوید
+              </a>
+            }
+          </div>
+          <div class="lg:w-9/12 divide-y-2 divide-sky-600">
+            @if (Model.Reviews.Count == 0)
+            {
+              <p class="px-2 pt-5 text-sm text-zinc-500">هنوز دیدگاهی برای این محصول ثبت نشده است. اولین نفر باشید!</p>
+            }
+            @foreach (var review in Model.Reviews)
+            {
+              <div class="px-2 pt-5 pb-3">
+                <div class="text-lg text-zinc-700">
+                  @(string.IsNullOrWhiteSpace(review.Title) ? "دیدگاه کاربر" : review.Title)
+                </div>
+                <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2 items-center border-b pb-3">
+                  <div class="text-xs text-zinc-600">
+                    @Format.LongDate(review.CreatedAt)
+                  </div>
+                  <div class="text-xs text-zinc-600">
+                    @review.AuthorName
+                  </div>
+                  @if (review.IsVerifiedPurchase)
+                  {
+                    <span class="inline-flex items-center gap-x-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-600">
+                      @Icons.Svg("SealCheck", "fill-emerald-500", 14) خریدار این محصول
+                    </span>
+                  }
+                  @if (review.Rating.HasValue)
+                  {
+                    <div class="flex items-center gap-x-0.5" aria-label="امتیاز @review.Rating از ۵">
+                      @for (var star = 1; star <= 5; star++)
+                      {
+                        @Icons.Svg(star <= review.Rating ? "Star" : "StarOutline", star <= review.Rating ? "fill-yellow-400" : "fill-zinc-300", 14)
+                      }
+                    </div>
+                  }
+                </div>
+                @if (review.IsRecommended.HasValue)
+                {
+                  <div class="flex items-center gap-x-1 pt-3">
+                    @if (review.IsRecommended.Value)
+                    {
+                      @Icons.Svg("ThumbsUp", "fill-green-500", 22)
+                      <div class="text-sm text-green-500">پیشنهاد میشود</div>
+                    }
+                    else
+                    {
+                      @Icons.Svg("ThumbsDown", "fill-red-500", 22)
+                      <div class="text-sm text-red-500">پیشنهاد نمیشود</div>
+                    }
+                  </div>
+                }
+                <div class="mt-2 text-zinc-600 text-sm leading-7">
+                  @review.Content
+                </div>
+                @if (review.Images.Count > 0)
+                {
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (var image in review.Images)
+                    {
+                      var src = IReviewImageStore.WebPath + image;
+                      <a href="@src" data-lightbox="review-@review.Id" class="block h-20 w-20 overflow-hidden rounded-lg border bg-zinc-50">
+                        <img src="@src" alt="تصویر ارسالی @review.AuthorName" loading="lazy" class="h-full w-full object-cover" width="80" height="80">
+                      </a>
+                    }
+                  </div>
+                }
+                @if (Site.Settings.IsCommentVotingEnabled)
+                {
+                  <partial name="_VoteButtons" model='new VoteButtonsModel(review.Id, review.HelpfulCount, review.NotHelpfulCount, Model.MyVotes.TryGetValue(review.Id, out var reviewVote) ? reviewVote : null)' />
+                }
+                @foreach (var reply in review.Replies)
+                {
+                  <div class="mt-3 mr-6 rounded-lg bg-sky-50 p-3 text-sm text-zinc-600">
+                    <div class="text-xs text-sky-700 mb-1">پاسخ @(reply.IsStaff ? Site.Settings.SiteName : reply.AuthorName)</div>
+                    @reply.Content
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="p-4" id="quest">
+        <span class="border-b-sky-300 border-b text-zinc-800">
+          پرسش ها
+        </span>
+        <div class="lg:flex gap-5">
+          <div class="lg:w-3/12 py-5">
+            <div class="mt-6 mb-2 text-sm text-zinc-700">
+              اگر سوالی دارید بپرسید
+            </div>
+            @if (User.IsSignedIn())
+            {
+              <form method="post" asp-page-handler="Question" asp-route-slug="@p.Slug">
+                <textarea asp-for="Question.Content" placeholder="متن پرسش" cols="30" rows="7" required minlength="5" maxlength="1000" class="@inputClass"></textarea>
+                <button type="submit" class="@submitClass">
+                  ارسال
+                </button>
+              </form>
+            }
+            else
+            {
+              <a asp-page="/Login" asp-route-returnUrl="@($"{returnUrl}#quest")" class="@submitClass block text-center">
+                برای ثبت پرسش وارد شوید
+              </a>
+            }
+          </div>
+          <div class="lg:w-9/12 divide-y">
+            @if (Model.Questions.Count == 0)
+            {
+              <p class="px-3 pt-5 text-sm text-zinc-500">هنوز پرسشی ثبت نشده است.</p>
+            }
+            @foreach (var question in Model.Questions)
+            {
+              <div class="px-3 pt-5 pb-3">
+                <div class="mt-2 flex gap-x-4 items-center border-b pb-3">
+                  <div class="text-xs text-zinc-600">
+                    @Format.LongDate(question.CreatedAt)
+                  </div>
+                  <div class="text-xs text-zinc-600">
+                    @question.AuthorName
+                  </div>
+                </div>
+                <div class="mt-2 mb-4 text-zinc-600 text-sm">
+                  @question.Content
+                </div>
+                @foreach (var answer in question.Replies)
+                {
+                  <div class="mr-6 mb-2 rounded-lg p-3 text-sm text-zinc-600 @(answer.IsStaff ? "bg-sky-50 border border-sky-100" : "bg-zinc-50")">
+                    <div class="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-sky-700">
+                      @Icons.Svg("Reply", "fill-sky-700", 14)
+                      <span>پاسخ @(answer.IsStaff ? Site.Settings.SiteName : answer.AuthorName)</span>
+                      @if (answer.IsStaff)
+                      {
+                        <span class="inline-flex items-center gap-x-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-700">@Icons.Svg("Storefront", "fill-sky-600", 12) پاسخ فروشگاه</span>
+                      }
+                      else if (answer.IsVerifiedPurchase)
+                      {
+                        <span class="inline-flex items-center gap-x-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-600">@Icons.Svg("SealCheck", "fill-emerald-500", 12) خریدار این محصول</span>
+                      }
+                      <span class="text-zinc-400">@Format.LongDate(answer.CreatedAt)</span>
+                    </div>
+                    @answer.Content
+                    @if (Site.Settings.IsCommentVotingEnabled && !answer.IsStaff)
+                    {
+                      <partial name="_VoteButtons" model='new VoteButtonsModel(answer.Id, answer.HelpfulCount, answer.NotHelpfulCount, Model.MyVotes.TryGetValue(answer.Id, out var answerVote) ? answerVote : null)' />
+                    }
+                  </div>
+                }
+                @if (Site.Settings.IsCustomerAnswerEnabled)
+                {
+                  <details class="mr-6 mt-2 text-sm" data-answer-box>
+                    <summary class="cursor-pointer text-xs text-sky-600 hover:text-sky-700">این کالا را دارید؟ به این پرسش پاسخ دهید</summary>
+                    <form class="mt-2" data-answer-form="@question.Id">
+                      <textarea name="content" rows="3" required minlength="5" maxlength="1000" placeholder="پاسخ شما (پس از بررسی نمایش داده می‌شود)" class="@inputClass"></textarea>
+                      <div class="mt-2 flex items-center gap-x-3">
+                        <button type="submit" class="rounded-lg bg-sky-500 px-4 py-1.5 text-xs text-white hover:bg-sky-400">ثبت پاسخ</button>
+                        <span class="text-xs text-zinc-500" data-answer-status aria-live="polite"></span>
+                      </div>
+                    </form>
+                  </details>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+    @* C23: راهنماهای خرید وبلاگ که به این کالا یا دسته‌اش مربوط‌اند (فقط مقاله‌های منتشرشده؛ اگر نبود، چیزی نشان داده نمی‌شود). *@
+    @if (guide.Guides.Count > 0)
+    {
+      <section class="bg-white rounded-xl border mt-5 p-4" aria-labelledby="buyer-guides-title">
+        <h2 id="buyer-guides-title" class="text-sm font-bold text-zinc-800">قبل از خرید بخوانید</h2>
+        <ul class="mt-3 grid sm:grid-cols-2 gap-2 text-sm">
+          @foreach (var link in guide.Guides)
+          {
+            <li><a class="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-zinc-700 hover:text-sky-600" href="/blog/@link.Slug">@Icons.Svg("Article", "fill-sky-500 shrink-0", 16)<span>@link.Title</span></a></li>
+          }
+        </ul>
+      </section>
+    }
+    <partial name="_ProductRail" model='new ProductRailModel("محصولات مرتبط", Model.RelatedProducts)' />
+    <partial name="_ProductRail" model='new ProductRailModel("معمولاً با هم خریده می‌شوند", Model.BoughtTogether, "مشتریانی که این کالا را خریده‌اند، این محصولات را هم سفارش داده‌اند")' />
+    <partial name="_ProductRail" model='new ProductRailModel("پیشنهاد برای شما", Model.ForYou, "بر اساس خریدها، علاقه‌مندی‌ها و بازدیدهای شما")' />
+  </main>
+
+@section Scripts {
+    <script src="~/assets/js/dependencies/swiper.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/sliders.js" asp-append-version="true"></script>
+}

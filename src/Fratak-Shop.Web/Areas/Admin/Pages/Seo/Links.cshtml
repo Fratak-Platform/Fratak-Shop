@@ -1,0 +1,192 @@
+@page "/admin/seo/links"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Seo.LinksModel
+@using Fratak_Shop.Core.Services.Seo.Tools
+@using Fratak_Shop.Data.Entities.SeoEngine
+@using Fratak_Shop.Web.Infrastructure.SeoEngine
+@*
+  یابندهٔ لینک شکسته (مرحلهٔ هفتم – فاز ۸ب).
+  • بالا: آخرین بررسی، دکمهٔ «همین الان بررسی کن» و آمار (جدی/ریدایرکت/نادیده).
+  • زبانه‌ها: همه، داخلی، بیرونی، تصویرها، نادیده‌گرفته‌ها + فیلتر نوع مشکل و جست‌وجو.
+  • هر ردیف: صفحهٔ محل لینک، آدرس خراب، علت و «اصلاح» (جایگزینی آدرس / برداشتن لینک / نادیده گرفتن).
+  • تنظیمات: روشن/خاموش بررسی خودکار و بررسی لینک‌های بیرونی.
+*@
+@{
+    ViewData["Title"] = "لینک‌های شکسته";
+    var d = Model.Dashboard;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>لینک‌های شکسته</h2>
+    <p class="a-muted text-sm mt-1">
+      همهٔ لینک‌ها و تصویرهای داخل متن محصولات، دسته‌ها، برندها، مقاله‌ها و صفحه‌ها روزی یک بار بررسی می‌شوند.
+      لینک داخلی با فهرست صفحه‌های سایت (بدون درخواست اینترنتی) و لینک بیرونی با باز کردن واقعی آدرس.
+      لینک خراب تجربهٔ خریدار و اعتبار سایت در گوگل را پایین می‌آورد.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    <form method="post" asp-page-handler="Run">
+      <button type="submit" class="a-btn" disabled="@(Model.IsRunning || Model.RunQueued)">
+        <span class="inline-flex">@Icons.Svg("ArrowsClockwise", Model.IsRunning ? "animate-spin" : null, 18)</span>
+        @(Model.IsRunning ? "در حال بررسی…" : Model.RunQueued ? "در صف شروع…" : "همین الان بررسی کن")
+      </button>
+    </form>
+    @if (d.Redirected > 0)
+    {
+      <form method="post" asp-page-handler="FixRedirects" data-confirm="همهٔ لینک‌های داخلی ریدایرکت‌دار در متن صفحه‌ها به آدرس نهایی‌شان عوض شوند؟">
+        <button type="submit" class="a-btn a-btn-light">@Icons.Svg("MagicWand", null, 18) اصلاح همهٔ ریدایرکت‌ها</button>
+      </form>
+    }
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("LinkBreak", null, 16) مشکل‌های فعال</div>
+    <div class="a-stat-value">@Format.Number(d.Total)</div>
+    <div class="a-stat-sub">@(d.Total == 0 ? "همه‌چیز سالم است" : "مرتب‌شده: جدی‌ترها اول")</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("XCircle", null, 16) خراب (۴۰۴/۴۱۰)</div>
+    <div class="a-stat-value @(d.Serious > 0 ? "a-down" : "")">@Format.Number(d.Serious)</div>
+    <div class="a-stat-sub">مهم‌ترین‌ها برای اصلاح فوری</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("ArrowsClockwise", null, 16) ریدایرکت</div>
+    <div class="a-stat-value">@Format.Number(d.Redirected)</div>
+    <div class="a-stat-sub">کار می‌کنند ولی لینک مستقیم بهتر است</div>
+  </div>
+  <div class="a-stat">
+    <div class="a-stat-label">@Icons.Svg("Clock", null, 16) آخرین بررسی</div>
+    <div class="a-stat-value text-base">@(d.LastRunAt is { } at ? Format.Relative(at) : "هنوز انجام نشده")</div>
+    <div class="a-stat-sub">@(d.Enabled ? "بررسی خودکار روزانه روشن است" : "بررسی خودکار خاموش است")</div>
+  </div>
+</div>
+
+@if (!string.IsNullOrEmpty(d.LastSummary))
+{
+  <div class="a-alert a-alert-info mb-4">@Icons.Svg("Info", null, 16) <span>@d.LastSummary</span></div>
+}
+@if (d.LastRunAt is null)
+{
+  <div class="a-alert a-alert-info mb-4">هنوز بررسی‌ای انجام نشده است. «همین الان بررسی کن» را بزنید؛ بررسی لینک‌های داخلی چند ثانیه و لینک‌های بیرونی چند دقیقه طول می‌کشد.</div>
+}
+
+<nav class="a-tabs mb-4" aria-label="بخش‌ها">
+  @foreach (var (key, title) in LinksModel.Tabs)
+  {
+    <a class="a-tab @(Model.Tab == key ? "is-active" : "")" href="@Model.UrlWith(("tab", key == "all" ? null : key), ("problem", null))">
+      @title
+      @if (key == "ignored" && d.Ignored > 0) { <span class="a-badge a-badge-gray">@Format.Number(d.Ignored)</span> }
+    </a>
+  }
+</nav>
+
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <form method="get" class="a-filters">
+      @if (Model.Tab != "all") { <input type="hidden" name="tab" value="@Model.Tab"> }
+      <div>
+        <label class="a-label" for="f-q">جست‌وجو</label>
+        <input id="f-q" name="q" value="@Model.Search" class="a-input" placeholder="نام صفحه، آدرس یا متن لینک">
+      </div>
+      <div>
+        <label class="a-label" for="f-problem">نوع مشکل</label>
+        <select id="f-problem" name="problem" class="a-input">
+          <option value="">همه</option>
+          @foreach (var problem in Enum.GetValues<SeoLinkProblem>().Where(p => p != SeoLinkProblem.None))
+          {
+            <option value="@problem" selected="@(Model.Problem == problem ? "selected" : null)">
+              @SeoLinkRules.Title(problem)@(d.ByProblem.TryGetValue(problem, out var count) ? $" ({Format.Number(count)})" : "")
+            </option>
+          }
+        </select>
+      </div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">اعمال</button></div>
+    </form>
+  </div>
+
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>صفحه</th><th>لینک</th><th>مشکل</th><th>دیده شده</th><th>اصلاح</th></tr></thead>
+      <tbody>
+        @foreach (var issue in Model.Issues.Items)
+        {
+          <tr>
+            <td data-label="صفحه">
+              <a class="a-link" href="@Fratak_Shop.Core.Services.Seo.Engine.SeoEngineService.EditUrl(issue.Kind, issue.EntityId)">@issue.EntityTitle</a>
+              <div class="a-muted text-xs">
+                <span class="a-badge a-badge-gray">@LinksModel.SourceTitle(issue.Kind)</span>
+                <a class="a-link" href="@SeoEngineUi.PublicUrl(issue.Path)" target="_blank" rel="noopener">مشاهده</a>
+              </div>
+            </td>
+            <td data-label="لینک" style="max-width:360px">
+              <div class="a-ltr text-xs break-all">@issue.Url</div>
+              <div class="a-muted text-xs mt-1">
+                @if (issue.IsImage) { <span>تصویر</span> }
+                else if (!string.IsNullOrWhiteSpace(issue.AnchorText)) { <span>متن لینک: «@issue.AnchorText»</span> }
+                @if (issue.Occurrences > 1) { <span> · @Format.Number(issue.Occurrences) بار در متن</span> }
+                <span> · @(issue.IsInternal ? "داخلی" : "بیرونی")</span>
+              </div>
+            </td>
+            <td data-label="مشکل">
+              <span class="a-badge @LinksModel.ProblemBadge(issue.Problem)">@SeoLinkRules.Title(issue.Problem)</span>
+              @if (!string.IsNullOrEmpty(issue.Detail)) { <div class="a-muted text-xs mt-1">@issue.Detail</div> }
+            </td>
+            <td data-label="دیده شده" class="text-xs nowrap">
+              <div>اولین بار @AdminUi.Ago(issue.FirstSeenAt)</div>
+              <div class="a-muted">آخرین بار @AdminUi.Ago(issue.LastSeenAt)</div>
+            </td>
+            <td data-label="اصلاح" style="min-width:260px">
+              <details class="a-details">
+                <summary class="a-btn a-btn-xs">@Icons.Svg("PencilSimple", null, 14) اصلاح</summary>
+                <form method="post" asp-page-handler="Fix" class="mt-2 a-stack">
+                  <input type="hidden" name="id" value="@issue.Id">
+                  <label class="a-label" for="u-@issue.Id">آدرس درست</label>
+                  <input id="u-@issue.Id" name="newUrl" class="a-input a-input-sm a-ltr" value="@issue.SuggestedUrl" placeholder="/product/… یا https://…" maxlength="2048">
+                  @if (!string.IsNullOrEmpty(issue.SuggestedUrl)) { <span class="a-muted text-xs">پیشنهاد سیستم از قبل وارد شده است.</span> }
+                  <div class="flex flex-wrap gap-2">
+                    <button type="submit" class="a-btn a-btn-xs">جایگزینی در متن</button>
+                  </div>
+                </form>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <form method="post" asp-page-handler="Unlink" data-confirm="@(issue.IsImage ? "این تصویر از متن صفحه حذف شود؟" : "لینک برداشته شود؟ متن لینک در صفحه باقی می‌ماند.")">
+                    <input type="hidden" name="id" value="@issue.Id">
+                    <button type="submit" class="a-btn a-btn-xs a-btn-danger-soft">@(issue.IsImage ? "حذف تصویر" : "برداشتن لینک")</button>
+                  </form>
+                  <form method="post" asp-page-handler="Ignore">
+                    <input type="hidden" name="id" value="@issue.Id">
+                    <input type="hidden" name="ignore" value="@(issue.IsIgnored ? "false" : "true")">
+                    <button type="submit" class="a-btn a-btn-xs a-btn-light">@(issue.IsIgnored ? "برگرداندن به فهرست" : "نادیده بگیر")</button>
+                  </form>
+                </div>
+              </details>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (Model.Issues.Items.Count == 0)
+    {
+      <div class="a-empty">@(d.LastRunAt is null ? "هنوز بررسی‌ای انجام نشده است." : "مشکلی با این فیلترها پیدا نشد.")</div>
+    }
+  </div>
+  <partial name="_AdminPager" model="Model.Pager" />
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Gear", null, 18) تنظیمات بررسی</h3></div>
+  <div class="a-card-body">
+    <form method="post" asp-page-handler="Settings" class="a-stack">
+      <label class="a-check"><input type="checkbox" name="enabled" value="true" checked="@d.Enabled"> بررسی خودکار روزانه</label>
+      <input type="hidden" name="enabled" value="false">
+      <label class="a-check"><input type="checkbox" name="checkExternal" value="true" checked="@d.CheckExternal"> لینک‌های بیرونی هم بررسی شوند (هر لینک یک بار در هفته؛ سایت‌های فیلترشده «در دسترس نیست» نمایش داده می‌شوند)</label>
+      <input type="hidden" name="checkExternal" value="false">
+      <div><button type="submit" class="a-btn a-btn-sm">ذخیرهٔ تنظیمات</button></div>
+    </form>
+    <p class="a-muted text-xs mt-3">
+      «ربات مسدود شد» یعنی سایت مقصد به بررسی خودکار جواب نداد (مثل اینستاگرام یا لینکدین)؛ معمولاً لینک سالم است و می‌توانید نادیده بگیرید.
+      اصلاح‌ها مستقیم در متن همان صفحه ذخیره و مثل هر ویرایش دیگری در گزارش تغییرات ثبت می‌شوند.
+    </p>
+  </div>
+</div>

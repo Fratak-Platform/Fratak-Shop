@@ -1,0 +1,69 @@
+@model Fratak_Shop.Web.Infrastructure.Admin.SeoFieldsModel
+@{
+    var p = Model.Prefix;
+    var s = Model.Seo;
+    var id = p.Replace(".", "-").ToLowerInvariant();
+}
+@* سئوی هوشمند درجا (مرحلهٔ شانزدهم): smart.js با مقدارهای فعلی همین فرم (حتی صفحهٔ ذخیره‌نشده) پیشنهاد می‌سازد؛
+   «استفاده» فقط فیلدها را پر می‌کند و ذخیره با خود کاربر است. *@
+<div class="a-smart-seo-bar mb-3" data-smart-seo-bar hidden>
+  <button type="button" class="a-btn a-btn-soft a-btn-sm" data-smart-seo data-title="#@id-title" data-desc="#@id-desc" data-focus="#@id-focus">@Icons.Svg("MagicWand", null, 16) سئوی هوشمند</button>
+  <span class="a-muted text-xs">عنوان، توضیح متا، کلمهٔ کلیدی و متن تکمیلی را با تحقیق در نتایج جست‌وجو و جدول دانش سئو پیشنهاد می‌دهد.</span>
+</div>
+<div class="a-seo-preview mb-4" data-seo-preview data-title="#@id-title" data-desc="#@id-desc" data-title-fallback="@Model.TitleSourceSelector" data-desc-fallback="@Model.DescriptionSourceSelector">
+  <div class="a-seo-url a-ltr">@Model.PreviewUrl</div>
+  <div class="a-seo-title" data-seo-preview-title>@s.Title</div>
+  <div class="a-seo-desc" data-seo-preview-desc>@s.MetaDescription</div>
+</div>
+@* دور سئوی خودکار: بررسی زنده هنگام تایپ (seo-live.js) – نمره، چک‌لیست، تراکم کلمه، تیترها، پیشنهاد لینک داخلی،
+   متن ماشینی، خطر جریمه و یادآوری پیش از انتشار. فقط وقتی فرم data-smart-context دارد نمایش داده می‌شود. *@
+<div class="a-smart-section mb-4" data-seo-live data-title="#@id-title" data-desc="#@id-desc" data-focus="#@id-focus" hidden>
+  <div class="flex items-center gap-2 mb-2">
+    <b class="text-sm">بررسی زندهٔ سئو</b>
+    <span class="a-badge a-badge-gray" data-seo-live-score>…</span>
+    <span class="a-muted text-xs" data-seo-live-status>با تایپ شما به‌روز می‌شود.</span>
+  </div>
+  <div data-seo-live-body></div>
+</div>
+<div class="a-form-grid cols-2">
+  <div class="a-field span-all">
+    <label class="a-label" for="@id-title">عنوان سئو (Title)</label>
+    <input id="@id-title" name="@(p).Title" value="@s.Title" class="a-input" maxlength="200" data-counter="60" data-smart-purpose="SeoTitle">
+    <p class="a-help">بهتر است ۳۰ تا ۶۰ نویسه و شامل عبارت کلیدی باشد؛ خالی = نام صفحه.</p>
+  </div>
+  <div class="a-field span-all">
+    <label class="a-label" for="@id-desc">توضیحات متا (Meta description)</label>
+    <textarea id="@id-desc" name="@(p).MetaDescription" class="a-textarea" rows="3" maxlength="500" data-counter="160" data-smart-purpose="MetaDescription">@s.MetaDescription</textarea>
+    <p class="a-help">۱۲۰ تا ۱۶۰ نویسه؛ خالی = خلاصه خودکار از متن.</p>
+  </div>
+  <div class="a-field">
+    <label class="a-label" for="@id-focus">عبارت کلیدی اصلی</label>
+    <input id="@id-focus" name="@(p).FocusKeyword" value="@s.FocusKeyword" class="a-input" maxlength="200" data-focus-keyword data-smart="off">
+  </div>
+  <div class="a-field">
+    <label class="a-label" for="@id-kw">کلمات کلیدی (با ویرگول)</label>
+    <input id="@id-kw" name="@(p).MetaKeywords" value="@s.MetaKeywords" class="a-input" maxlength="500" data-smart="off">
+  </div>
+  <div class="a-field">
+    <label class="a-label" for="@id-bc">عنوان در مسیر (Breadcrumb)</label>
+    <input id="@id-bc" name="@(p).BreadcrumbTitle" value="@s.BreadcrumbTitle" class="a-input" maxlength="200" data-smart="off">
+  </div>
+  <div class="a-field">
+    <label class="a-label" for="@id-canonical">آدرس Canonical</label>
+    <input id="@id-canonical" name="@(p).CanonicalUrl" value="@s.CanonicalUrl" class="a-input a-ltr" maxlength="2048" placeholder="خالی = آدرس خود صفحه">
+  </div>
+  <div class="a-field">
+    <label class="a-label" for="@id-ogt">عنوان اشتراک‌گذاری (شبکه‌های اجتماعی)</label>
+    <input id="@id-ogt" name="@(p).OgTitle" value="@s.OgTitle" class="a-input" maxlength="200" data-smart-purpose="SeoTitle">
+  </div>
+  <div class="a-field">
+    <label class="a-label" for="@id-ogd">توضیح اشتراک‌گذاری</label>
+    <input id="@id-ogd" name="@(p).OgDescription" value="@s.OgDescription" class="a-input" maxlength="500" data-smart-purpose="MetaDescription">
+  </div>
+  <div class="a-field span-all flex flex-wrap gap-5">
+    <label class="a-check"><input type="checkbox" name="@(p).NoIndex" value="true" checked="@s.NoIndex"> عدم ایندکس (noindex)</label>
+    <label class="a-check"><input type="checkbox" name="@(p).NoFollow" value="true" checked="@s.NoFollow"> عدم دنبال کردن لینک‌ها (nofollow)</label>
+    <input type="hidden" name="@(p).NoIndex" value="false">
+    <input type="hidden" name="@(p).NoFollow" value="false">
+  </div>
+</div>

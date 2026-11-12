@@ -1,0 +1,77 @@
+@page "/admin/orders/prep"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Orders.PrepModel
+@*
+  دور ۲۴ (پیشنهاد ۶۸): داشبورد آماده‌سازی با فهرست برداشت تجمیعی. فقط خواندنی؛ چاپ با دکمهٔ [data-print] (admin.js).
+*@
+@{
+    ViewData["Title"] = "داشبورد آماده‌سازی";
+    var stages = new (string Key, string Title)[] { ("all", "همه"), ("confirmed", "خرید از تأمین‌کننده"), ("processing", "بسته‌بندی") };
+    string? lastSupplier = null;
+}
+
+<div class="a-page-head">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/admin/orders" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+      <h2>داشبورد آماده‌سازی</h2>
+    </div>
+    <p class="a-muted text-sm mt-1">فهرست برداشت تجمیعی همهٔ سفارش‌های در جریان: هر کالا یک ردیف با جمع تعداد و شمارهٔ سفارش‌ها.</p>
+  </div>
+  <div class="a-btn-group">
+    <a class="a-btn a-btn-light" href="/admin/orders/prep?handler=Export&stage=@Model.Stage&format=xlsx">@Icons.Svg("Download", null, 16) اکسل</a>
+    <a class="a-btn a-btn-light" href="/admin/orders/prep?handler=Export&stage=@Model.Stage&format=csv">CSV</a>
+    <button type="button" class="a-btn a-btn-light" data-print>@Icons.Svg("Printer", null, 16) چاپ</button>
+  </div>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+  <a class="a-card a-card-body" href="/admin/orders?status=Confirmed"><div class="a-muted text-xs">منتظر خرید از تأمین‌کننده</div><div class="text-2xl font-bold">@Format.Number(Model.Confirmed)</div></a>
+  <a class="a-card a-card-body" href="/admin/orders?status=Processing"><div class="a-muted text-xs">در حال آماده‌سازی</div><div class="text-2xl font-bold">@Format.Number(Model.Processing)</div></a>
+  <a class="a-card a-card-body" href="/admin/orders/board"><div class="a-muted text-xs">ارسال‌شده بدون کد رهگیری</div><div class="text-2xl font-bold @(Model.AwaitingTracking > 0 ? "text-red-600" : "")">@Format.Number(Model.AwaitingTracking)</div></a>
+  <div class="a-card a-card-body"><div class="a-muted text-xs">قدیمی‌ترین سفارش در جریان</div><div class="text-lg font-bold">@(Model.Oldest is { } oldest ? AdminUi.Ago(oldest) : "—")</div></div>
+</div>
+
+<div class="a-tabs mb-4">
+  @foreach (var (key, title) in stages)
+  {
+    <a class="a-tab @(Model.Stage == key ? "is-active" : "")" href="/admin/orders/prep?stage=@key">@title</a>
+  }
+</div>
+
+<div class="a-card">
+  @if (Model.Rows.Count == 0)
+  {
+    <div class="a-empty">سفارشی در این مرحله نیست.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>کالا</th>@if (Model.ShowSupplier) { <th>تأمین‌کننده</th> }<th>تعداد</th><th>موجودی</th><th>سفارش‌ها</th></tr></thead>
+        <tbody>
+          @foreach (var row in Model.Rows)
+          {
+            if (Model.ShowSupplier && row.Supplier != lastSupplier)
+            {
+              lastSupplier = row.Supplier;
+              <tr class="bg-gray-50"><td colspan="5" class="font-semibold text-sm">@Icons.Svg("Truck", null, 14) @(row.Supplier ?? "تأمین‌کنندهٔ نامشخص")</td></tr>
+            }
+            <tr>
+              <td data-label="کالا">@if (row.ProductId is { } pid) { <a class="a-link" href="/admin/products/edit/@pid">@row.Name</a> } else { @row.Name }<span class="block text-xs a-muted a-ltr">@row.Sku</span></td>
+              @if (Model.ShowSupplier) { <td data-label="تأمین‌کننده" class="text-xs">@(row.Supplier ?? "—")</td> }
+              <td data-label="تعداد" class="num"><b>@Format.Number(row.Quantity)</b> <span class="a-muted text-xs">(@Format.Number(row.Orders) سفارش)</span></td>
+              <td data-label="موجودی" class="num">@(row.Stock is { } stock ? Format.Number(stock) : "—")</td>
+              <td data-label="سفارش‌ها" class="text-xs">
+                @foreach (var (id, number) in row.OrderRefs.Take(12))
+                {
+                  <a class="a-link a-ltr ml-2" href="/admin/orders/@id">@number</a>
+                }
+                @if (row.OrderRefs.Count > 12) { <span class="a-muted">و @Format.Number(row.OrderRefs.Count - 12) سفارش دیگر</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

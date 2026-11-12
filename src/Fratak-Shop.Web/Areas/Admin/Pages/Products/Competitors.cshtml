@@ -1,0 +1,127 @@
+@page "/admin/products/competitors"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.CompetitorsModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@*
+  رصد قیمت رقبا (مرحلهٔ پانزدهم).
+  • بالا: شمارنده‌ها (بررسی‌شده، گران‌تر از رقیب، ارزان‌ترین، بررسی‌نشده).
+  • جدول: قیمت ما، ارزان‌ترین فروشندهٔ ترب (و تعداد فروشندگان)، ارزان‌ترین رقیب معتبر همهٔ منابع، فاصلهٔ ما با مرجع و وضعیت.
+    مرجع = ارزان‌ترین فروشندهٔ ترب؛ اگر ترب فروشنده‌ای نداشت، ارزان‌ترین رقیب معتبر.
+  • جزئیات هر قیمت و دلیل کنار رفتن‌ها در کارت «قیمت رقبا» صفحهٔ ویرایش همان محصول است.
+*@
+@{
+    ViewData["Title"] = "رصد قیمت رقبا";
+    var r = Model.Result;
+    var returnUrl = HttpContext.Request.Path + HttpContext.Request.QueryString;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>رصد قیمت رقبا</h2>
+    <p class="a-muted text-sm mt-1">
+      قیمت هر محصول کنار ارزان‌ترین فروشندهٔ ترب و ارزان‌ترین رقیب معتبر (دیجی‌کالا، باسلام و سایت‌های دیگر).
+      هدف: قیمت ما از همهٔ فروشندگان ترب کمتر باشد، با سودی که در تنظیمات تعیین شده است.
+    </p>
+  </div>
+  @if (Model.Can(AdminPermissions.SettingsManage))
+  {
+    <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/settings?tab=pricing">@Icons.Svg("Gear", null, 18) تنظیمات قیمت‌گذاری</a></div>
+  }
+</div>
+
+@if (!Model.LookupEnabled)
+{
+  <div class="a-alert a-alert-warn mb-4">جست‌وجوی قیمت رقبا در تنظیمات خاموش است؛ اطلاعات زیر از بررسی‌های قبلی است.</div>
+}
+
+<div class="a-stats mb-4">
+  <a class="a-stat" href="@Model.StateUrl("all")">
+    <div class="a-stat-label">@Icons.Svg("Package", null, 16) بررسی‌شده</div>
+    <div class="a-stat-value">@Format.Number(r.Checked)</div>
+    <div class="a-stat-sub">بررسی‌نشده: @Format.Number(r.Unchecked)</div>
+  </a>
+  <a class="a-stat" href="@Model.StateUrl("above")">
+    <div class="a-stat-label">@Icons.Svg("Warning", null, 16) گران‌تر یا هم‌قیمت رقیب</div>
+    <div class="a-stat-value a-down">@Format.Number(r.Above)</div>
+    <div class="a-stat-sub">قیمت این‌ها را بازبینی کنید</div>
+  </a>
+  <a class="a-stat" href="@Model.StateUrl("cheapest")">
+    <div class="a-stat-label">@Icons.Svg("CheckCircle", null, 16) ارزان‌ترین هستیم</div>
+    <div class="a-stat-value a-up">@Format.Number(r.Cheapest)</div>
+    <div class="a-stat-sub">نسبت به ترب (یا رقبا)</div>
+  </a>
+  <a class="a-stat" href="@Model.StateUrl("unchecked")">
+    <div class="a-stat-label">@Icons.Svg("Info", null, 16) بررسی‌نشده</div>
+    <div class="a-stat-value">@Format.Number(r.Unchecked)</div>
+    <div class="a-stat-sub">از فرم محصول یا «بررسی دوباره»</div>
+  </a>
+</div>
+
+<div class="a-card mb-4">
+  <form method="get" class="a-card-body a-filters">
+    <div class="a-field">
+      <label class="a-label" for="cp-q">جست‌وجوی نام محصول</label>
+      <input id="cp-q" name="q" value="@Model.Search" maxlength="100" class="a-input" type="search">
+    </div>
+    <div class="a-field">
+      <label class="a-label" for="cp-state">وضعیت</label>
+      <select id="cp-state" name="state" class="a-select">
+        @foreach (var s in CompetitorsModel.States)
+        {
+          <option value="@s.Key" selected="@(Model.State == s.Key)">@s.Title</option>
+        }
+      </select>
+    </div>
+    <div class="a-filters-actions"><button class="a-btn" type="submit">@Icons.Svg("Funnel", null, 16) اعمال</button><a class="a-btn a-btn-light" href="/admin/products/competitors">پاک کردن</a></div>
+  </form>
+</div>
+
+<div class="a-card">
+  <div class="a-table-wrap">
+    <table class="a-table a-table-cards">
+      <thead><tr><th>محصول</th><th>قیمت ما</th><th>ارزان‌ترین ترب</th><th>ارزان‌ترین همهٔ رقبا</th><th>فاصله</th><th>وضعیت</th><th>آخرین بررسی</th>@if (Model.CanRefresh) { <th><span class="sr-only">کار</span></th> }</tr></thead>
+      <tbody>
+        @foreach (var row in r.Rows)
+        {
+          <tr>
+            <td data-label="محصول">
+              <a class="a-link font-semibold line-clamp-2" href="/admin/products/edit/@row.ProductId#competitors">@row.Name</a>
+              <div class="a-muted text-xs">
+                @if (!row.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> }
+                @if (row.Stock <= 0) { <span class="a-badge a-badge-gray">ناموجود</span> }
+                @if (row.Offers > 0) { <span>@Format.Number(row.Accepted) قیمت معتبر از @Format.Number(row.Offers)</span> }
+              </div>
+            </td>
+            <td data-label="قیمت ما" class="num nowrap"><b>@Format.Price(row.OurPrice)</b></td>
+            <td data-label="ارزان‌ترین ترب" class="num nowrap">
+              @if (row.TorobLowest is { } tl) { <span>@Format.Price(tl)</span><div class="a-muted text-xs">@Format.Number(row.TorobSellers) فروشنده</div> }
+              else { <span class="a-muted">—</span> }
+            </td>
+            <td data-label="ارزان‌ترین همهٔ رقبا" class="num nowrap">@(row.Lowest is { } lo ? Format.Price(lo) : "—")</td>
+            <td data-label="فاصله" class="num nowrap a-ltr @(row.GapPercent is > 0 ? "a-down" : row.GapPercent is < 0 ? "a-up" : "")"
+                title="فاصلهٔ قیمت ما با ارزان‌ترین فروشندهٔ ترب (یا اگر نبود، ارزان‌ترین رقیب). مثبت یعنی گران‌تریم.">@CompetitorDisplay.Percent(row.GapPercent)</td>
+            <td data-label="وضعیت"><span class="a-badge @CompetitorDisplay.StateCss(row.State)">@CompetitorDisplay.StateTitle(row.State)</span></td>
+            <td data-label="آخرین بررسی" class="text-xs nowrap" title="@(row.CheckedAt is { } ca ? Format.DateTime(ca) : "")">@(row.CheckedAt is { } c2 ? Format.Relative(c2) : "-")</td>
+            @if (Model.CanRefresh)
+            {
+              <td data-label="">
+                <form method="post" asp-page-handler="Refresh" asp-route-id="@row.ProductId" class="contents">
+                  <input type="hidden" name="returnUrl" value="@returnUrl">
+                  <button type="submit" class="a-btn a-btn-sm a-btn-light" disabled="@(!Model.LookupEnabled)">@Icons.Svg("ArrowCounterClockwise", null, 14) بررسی دوباره</button>
+                </form>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (r.Rows.Count == 0)
+    {
+      <div class="a-empty">محصولی با این شرایط پیدا نشد.</div>
+    }
+  </div>
+  <partial name="_AdminPager" model="new PagerModel(r.Page, r.Pages, r.Total)" />
+</div>
+<p class="a-help mt-3">
+  قیمت‌های هر محصول با «پیشنهاد قیمت فروش» در فرم محصول، قیمت‌گذاری بازار در «درون‌ریزی از سایت» یا دکمهٔ «بررسی دوباره» به‌روز می‌شوند.
+  برای جلوگیری از محدود شدن توسط سایت‌ها، هر کالا حداکثر هر ۶ ساعت یک بار واقعاً جست‌وجو می‌شود.
+</p>

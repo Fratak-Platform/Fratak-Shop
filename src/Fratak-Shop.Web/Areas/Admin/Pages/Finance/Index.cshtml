@@ -1,0 +1,261 @@
+@page
+@model Fratak_Shop.Web.Areas.Admin.Pages.Finance.IndexModel
+@using Fratak_Shop.Data.Entities.Loyalty
+@using Microsoft.AspNetCore.Html
+@{
+    ViewData["Title"] = "گزارش‌های مالی";
+    var request = HttpContext.Request;
+    var s = Model.Sales;
+    var prev = Model.PreviousSales;
+    var canExport = Model.Can(AdminPermissions.FinanceExport);
+    var dailyChart = new BarChartModel("فروش خالص", s.Daily, true, "سفارش");
+    var hourChart = new BarChartModel("سفارش بر حسب ساعت", s.HourOfDay, false);
+    string LoyaltyTitle(LoyaltyAction a) => a switch
+    {
+        LoyaltyAction.Registration => "ثبت‌نام", LoyaltyAction.CompleteProfile => "تکمیل پروفایل", LoyaltyAction.FirstOrder => "اولین خرید",
+        LoyaltyAction.Purchase => "خرید", LoyaltyAction.ProductReview => "دیدگاه", LoyaltyAction.Referral => "معرفی دوستان",
+        LoyaltyAction.ReferralSignup => "ثبت‌نام با معرف", LoyaltyAction.Birthday => "تولد", LoyaltyAction.OrderFeedback => "نظرسنجی خرید", _ => a.ToString(),
+    };
+    string Export(string report, string format) => AdminUi.With(request, ("handler", "export"), ("report", report), ("format", format));
+}
+@functions {
+    IHtmlContent Delta(decimal current, decimal? previous)
+    {
+        if (previous is null) return HtmlString.Empty;
+        var change = AdminUi.Change(current, previous.Value);
+        if (change is null) return HtmlString.Empty;
+        return new HtmlString($"<span class=\"{(change.Value.Up ? "a-up" : "a-down")} text-xs font-semibold\">{change.Value.Text}</span> <span class=\"a-muted text-xs\">نسبت به دوره قبل</span>");
+    }
+}
+<div class="a-page-head">
+  <div>
+    <h2>گزارش‌های مالی</h2>
+    <p class="a-muted text-sm mt-1">بازه: <b>@Model.Period.Label</b>. فقط سفارش‌های قطعی (پرداخت‌شده یا تحویل‌شده، بدون لغو و مرجوعی) در فروش حساب می‌شوند.</p>
+  </div>
+  @if (canExport)
+  {
+    <div class="a-user" data-dropdown>
+      <button type="button" class="a-btn" data-dropdown-toggle aria-haspopup="true" aria-expanded="false">@Icons.Svg("Download", null, 18) خروجی اکسل</button>
+      <div class="a-dropdown" data-dropdown-menu hidden style="max-height:70vh;overflow:auto">
+        <a class="a-dropdown-item" href="@Export("summary", "xlsx")">خلاصه مالی</a>
+        <a class="a-dropdown-item" href="@Export("daily", "xlsx")">فروش روزانه / ماهانه</a>
+        <a class="a-dropdown-item" href="@Export("items", "xlsx")">اقلام فروخته‌شده (با سود هر قلم)</a>
+        <a class="a-dropdown-item" href="@Export("breakdown", "xlsx")">تفکیک فروش (دسته، برند، استان، …)</a>
+        <a class="a-dropdown-item" href="@Export("profit", "xlsx")">سود به تفکیک محصول</a>
+        <a class="a-dropdown-item" href="@Export("coupons", "xlsx")">کوپن‌ها</a>
+        <a class="a-dropdown-item" href="/admin/orders/purchase-invoices?handler=export&format=xlsx&from=@Model.Period.FromText&to=@Model.Period.ToText">فاکتورهای خرید</a>
+        <a class="a-dropdown-item" href="/admin/finance/payments?handler=export&format=xlsx&from=@Model.Period.FromText&to=@Model.Period.ToText">تراکنش‌های درگاه</a>
+        <a class="a-dropdown-item" href="/admin/finance/wallet?handler=export&format=xlsx&from=@Model.Period.FromText&to=@Model.Period.ToText">تراکنش‌های کیف پول</a>
+        <div class="a-divider"></div>
+        <a class="a-dropdown-item" href="@Export("summary", "csv")">خلاصه مالی (CSV)</a>
+        <a class="a-dropdown-item" href="@Export("items", "csv")">اقلام فروخته‌شده (CSV)</a>
+      </div>
+    </div>
+  }
+</div>
+
+<div class="a-card mb-4">
+  <div class="a-card-body">
+    <div class="a-pills mb-3">
+      @foreach (var (key, title) in AdminPeriods.Presets)
+      {
+        <a class="a-pill @(Model.Period.Preset == key ? "is-active" : "")" href="/admin/finance?period=@key">@title</a>
+      }
+    </div>
+    <form method="get" class="a-filters">
+      <div class="a-field"><label class="a-label" for="f-from">از تاریخ</label><input id="f-from" name="from" value="@(Model.Period.Preset == "custom" ? Model.Period.FromText : Model.From)" class="a-input a-ltr" placeholder="1404/01/01"></div>
+      <div class="a-field"><label class="a-label" for="f-to">تا تاریخ</label><input id="f-to" name="to" value="@(Model.Period.Preset == "custom" ? Model.Period.ToText : Model.To)" class="a-input a-ltr" placeholder="1404/12/29"></div>
+      <div class="a-filters-actions"><button class="a-btn" type="submit">نمایش بازه دلخواه</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">فروش خالص</div><div class="a-stat-value">@AdminUi.Money(s.NetSales)</div><div class="a-stat-sub">@Delta(s.NetSales, prev?.NetSales)</div></div>
+  <div class="a-stat"><div class="a-stat-label">سفارش قطعی</div><div class="a-stat-value">@Format.Number(s.OrderCount)</div><div class="a-stat-sub">@Delta(s.OrderCount, prev?.OrderCount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">میانگین سبد خرید</div><div class="a-stat-value">@AdminUi.Money(s.AverageOrderValue)</div><div class="a-stat-sub">@Delta(s.AverageOrderValue, prev?.AverageOrderValue)</div></div>
+  <div class="a-stat"><div class="a-stat-label">سود ناخالص واقعی</div><div class="a-stat-value @(Model.Purchases.ActualGrossProfit < 0 ? "text-red-600" : "")">@AdminUi.Money(Model.Purchases.ActualGrossProfit)</div><div class="a-stat-sub">حاشیه @Model.Purchases.ActualMarginPercent٪ · بر اساس فاکتورهای خرید</div></div>
+</div>
+
+@if (Model.Purchases.OrdersMissingInvoice > 0)
+{
+  <div class="a-alert a-alert-warn mb-4">@Icons.Svg("Warning", "shrink-0", 20)<div>@Format.Number(Model.Purchases.OrdersMissingInvoice) سفارش قطعی (به مبلغ @Format.Toman(Model.Purchases.SalesMissingInvoice)) هنوز فاکتور خرید ندارد؛ سود واقعی آن‌ها محاسبه نشده است. <a class="a-link" href="/admin/orders?invoice=missing">مشاهده سفارش‌ها</a></div></div>
+}
+
+<div class="a-grid xl:grid-cols-3 mb-4">
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ChartLine", null, 18) روند فروش</span></div>
+    <div class="a-card-body"><partial name="_BarChart" model="dailyChart" /></div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Receipt", null, 18) صورت سود و زیان خلاصه</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>فروش ناخالص کالا</dt><dd>@AdminUi.Money(s.GrossSales)</dd>
+        <dt>− تخفیف‌ها</dt><dd class="a-down">@AdminUi.Money(s.Discounts)</dd>
+        <dt>+ هزینه ارسال</dt><dd>@AdminUi.Money(s.Shipping)</dd>
+        <dt><b>فروش خالص</b></dt><dd><b>@AdminUi.Money(s.NetSales)</b></dd>
+        <dt>− بازپرداخت‌ها</dt><dd class="a-down">@AdminUi.Money(s.Refunds)</dd>
+        <dt>− اعتبار هدیه مصرف‌شده</dt><dd class="a-down">@AdminUi.Money(s.WalletBonusSpent)</dd>
+      </dl>
+      <div class="a-divider my-3"></div>
+      <dl class="a-kv text-sm">
+        <dt>جمع فاکتورهای خرید</dt><dd>@AdminUi.Money(Model.Purchases.InvoiceTotal) <span class="a-muted text-xs">(@Model.Purchases.InvoiceCount فاکتور)</span></dd>
+        <dt>فروش همان سفارش‌ها</dt><dd>@AdminUi.Money(Model.Purchases.SalesOfOrdersWithInvoice)</dd>
+        <dt><b>سود واقعی</b></dt><dd><b class="@(Model.Purchases.ActualGrossProfit >= 0 ? "a-up" : "a-down")">@AdminUi.Money(Model.Purchases.ActualGrossProfit)</b></dd>
+        <dt>− هزینه‌های جاری <a class="a-link text-xs" href="/admin/finance/expenses?period=@Model.Period.Preset&from=@Model.Period.FromText&to=@Model.Period.ToText">(جزئیات)</a></dt><dd class="a-down">@AdminUi.Money(Model.Expenses)</dd>
+        <dt><b>سود خالص</b></dt><dd><b class="@(Model.Purchases.ActualGrossProfit - Model.Expenses >= 0 ? "a-up" : "a-down")">@AdminUi.Money(Model.Purchases.ActualGrossProfit - Model.Expenses)</b></dd>
+        <dt>سود تخمینی (قیمت خرید محصول)</dt><dd>@AdminUi.Money(Model.Profit.GrossProfit) <span class="a-muted text-xs">(@Model.Profit.MarginPercent٪)</span></dd>
+        @if (Model.Profit.ItemsWithoutCost > 0) { <dt>اقلام بدون قیمت خرید</dt><dd>@Model.Profit.ItemsWithoutCost قلم · @Format.Toman(Model.Profit.RevenueWithoutCost)</dd> }
+      </dl>
+    </div>
+  </div>
+</div>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">مشتریان خریدار</div><div class="a-stat-value">@Format.Number(s.PayingCustomers)</div><div class="a-stat-sub">جدید @s.NewCustomers · تکراری @s.RepeatCustomers</div></div>
+  <div class="a-stat"><div class="a-stat-label">کالای فروخته‌شده</div><div class="a-stat-value">@Format.Number(s.ItemsSold)</div></div>
+  <div class="a-stat"><div class="a-stat-label">لغوشده</div><div class="a-stat-value">@Format.Number(s.CancelledCount)</div><div class="a-stat-sub">@Format.Toman(s.CancelledAmount)</div></div>
+  <div class="a-stat"><div class="a-stat-label">مرجوعی / پرداخت‌نشده</div><div class="a-stat-value">@Format.Number(s.ReturnedCount) / @Format.Number(s.UnpaidCount)</div></div>
+</div>
+
+<div class="a-grid lg:grid-cols-2 xl:grid-cols-3 mb-4">
+  <div class="a-card"><div class="a-card-head"><span class="a-card-title">پرفروش‌ترین محصولات</span></div><div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.TopProducts)" /></div></div>
+  <div class="a-card"><div class="a-card-head"><span class="a-card-title">فروش به تفکیک دسته</span></div><div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.ByCategory)" /></div></div>
+  <div class="a-card"><div class="a-card-head"><span class="a-card-title">برندها</span></div><div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.TopBrands)" /></div></div>
+  <div class="a-card"><div class="a-card-head"><span class="a-card-title">بهترین مشتریان</span></div><div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.TopCustomers)" /></div></div>
+  <div class="a-card"><div class="a-card-head"><span class="a-card-title">استان‌ها</span></div><div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.ByProvince)" /></div></div>
+  <div class="a-card"><div class="a-card-head"><span class="a-card-title">روش پرداخت و ارسال</span></div><div class="a-card-body"><partial name="_HBars" model="new HBarsModel(s.ByPaymentMethod)" /><div class="a-divider my-3"></div><partial name="_HBars" model="new HBarsModel(s.ByShippingMethod)" /></div></div>
+</div>
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Factory", null, 18) خرید از تأمین‌کنندگان</span><a class="a-link text-xs" href="/admin/orders/purchase-invoices">فاکتورها</a></div>
+    <div class="a-card-body"><partial name="_HBars" model="new HBarsModel(Model.Purchases.BySupplier)" /></div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Clock", null, 18) ساعات پرسفارش</span></div>
+    <div class="a-card-body"><partial name="_BarChart" model="hourChart" /></div>
+  </div>
+</div>
+
+<div class="a-grid lg:grid-cols-2 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Percent", null, 18) تخفیف‌ها و کوپن‌ها</span><span class="a-muted text-xs">نرخ تخفیف @Model.Discounts.DiscountRate٪</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm mb-3">
+        <dt>تخفیف محصولات</dt><dd>@AdminUi.Money(Model.Discounts.ProductDiscount)</dd>
+        <dt>تخفیف کوپن</dt><dd>@AdminUi.Money(Model.Discounts.CouponDiscount) <span class="a-muted text-xs">(@Model.Discounts.OrdersWithCoupon سفارش)</span></dd>
+        <dt>سایر تخفیف‌ها</dt><dd>@AdminUi.Money(Model.Discounts.OtherDiscount)</dd>
+      </dl>
+      @if (Model.Discounts.Coupons.Count > 0)
+      {
+        <table class="a-table a-table-compact text-sm">
+          <thead><tr><th>کد</th><th>سفارش</th><th>تخفیف</th><th>فروش</th></tr></thead>
+          <tbody>
+            @foreach (var c in Model.Discounts.Coupons.Take(10)) { <tr><td class="a-ltr">@c.Code</td><td class="num">@c.Orders</td><td class="num">@Format.Price(c.Discount)</td><td class="num">@Format.Price(c.Sales)</td></tr> }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("CreditCard", null, 18) درگاه پرداخت</span><a class="a-link text-xs" href="/admin/finance/payments">تراکنش‌ها</a></div>
+    <div class="a-card-body">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="text-3xl font-bold @(Model.Payments.SuccessRate < 60 && Model.Payments.Total > 10 ? "text-red-600" : "text-emerald-600")">@Model.Payments.SuccessRate٪</div>
+        <div class="text-sm a-muted">نرخ موفقیت · @Model.Payments.Succeeded موفق از @Model.Payments.Total · ناموفق @Model.Payments.Failed · انصراف @Model.Payments.Cancelled · معلق @Model.Payments.PendingOrStuck</div>
+      </div>
+      <div class="a-progress mb-3"><div style="width:@(Model.Payments.SuccessRate.ToString(global::System.Globalization.CultureInfo.InvariantCulture))%"></div></div>
+      <dl class="a-kv text-sm">
+        @foreach (var (purpose, count, amount) in Model.Payments.ByPurpose) { <dt>@AdminUi.PaymentPurpose(purpose)</dt><dd>@AdminUi.Money(amount) <span class="a-muted text-xs">(@count)</span></dd> }
+      </dl>
+      @if (Model.Payments.FailureReasons.Count > 0)
+      {
+        <div class="text-sm font-semibold mt-3 mb-1">دلایل ناموفق بودن</div>
+        <ul class="text-xs space-y-1">
+          @foreach (var (code, message, count) in Model.Payments.FailureReasons.Take(6)) { <li class="flex justify-between gap-2"><span>@(code is null ? "" : $"[{code}] ")@(message ?? "نامشخص")</span><b>@count</b></li> }
+        </ul>
+      }
+    </div>
+  </div>
+</div>
+
+<div class="a-grid lg:grid-cols-3 mb-4">
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Bank", null, 18) تعهدات فعلی فروشگاه</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>کیف پول مشتریان</dt><dd>@AdminUi.Money(Model.Liabilities.WalletTotal) <span class="a-muted text-xs">(@Model.Liabilities.WalletHolders نفر)</span></dd>
+        <dt>  قابل برداشت</dt><dd>@AdminUi.Money(Model.Liabilities.WalletWithdrawable)</dd>
+        <dt>  اعتبار هدیه</dt><dd>@AdminUi.Money(Model.Liabilities.WalletBonus)</dd>
+        <dt>کارت‌های هدیه فعال</dt><dd>@AdminUi.Money(Model.Liabilities.ActiveGiftCardsAmount) <span class="a-muted text-xs">(@Model.Liabilities.ActiveGiftCards)</span></dd>
+        <dt>ارزش امتیازها</dt><dd>@AdminUi.Money(Model.Liabilities.OutstandingPointsValue) <span class="a-muted text-xs">(@Format.Number(Model.Liabilities.OutstandingPoints) امتیاز)</span></dd>
+        <dt><b>جمع تعهدات</b></dt><dd><b>@AdminUi.Money(Model.Liabilities.Total)</b></dd>
+        <dt>برداشت در انتظار</dt><dd><a class="a-link" href="/admin/finance/withdrawals">@Model.Liabilities.PendingWithdrawals درخواست · @Format.Toman(Model.Liabilities.PendingWithdrawalsAmount)</a></dd>
+        <dt>برداشت تأییدشده (پرداخت‌نشده)</dt><dd>@Model.Liabilities.ApprovedWithdrawals · @Format.Toman(Model.Liabilities.ApprovedWithdrawalsAmount)</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Wallet", null, 18) گردش کیف پول در بازه</span><a class="a-link text-xs" href="/admin/finance/wallet">تراکنش‌ها</a></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>ورودی</dt><dd class="a-up">@AdminUi.Money(Model.Wallet.TotalIn)</dd>
+        <dt>خروجی</dt><dd class="a-down">@AdminUi.Money(Model.Wallet.TotalOut)</dd>
+        <dt>برداشت پرداخت‌شده</dt><dd>@AdminUi.Money(Model.Wallet.WithdrawalsPaid) <span class="a-muted text-xs">(@Model.Wallet.WithdrawalsPaidCount)</span></dd>
+        <dt>کارت هدیه فروخته‌شده</dt><dd>@AdminUi.Money(Model.Wallet.GiftCardsSold) <span class="a-muted text-xs">(@Model.Wallet.GiftCardsSoldCount)</span></dd>
+        <dt>کارت هدیه استفاده‌شده</dt><dd>@AdminUi.Money(Model.Wallet.GiftCardsRedeemed)</dd>
+      </dl>
+      @if (Model.Wallet.ByType.Count > 0)
+      {
+        <ul class="text-xs mt-3 space-y-1">
+          @foreach (var (type, count, amount, bonus) in Model.Wallet.ByType) { <li class="flex justify-between gap-2"><span>@Display.WalletTransactionType(type) (@count)</span><span class="num">@Format.Price(amount + bonus)</span></li> }
+        </ul>
+      }
+    </div>
+  </div>
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Crown", null, 18) باشگاه مشتریان</span></div>
+    <div class="a-card-body">
+      <dl class="a-kv text-sm">
+        <dt>امتیاز داده‌شده</dt><dd>@Format.Number(Model.Loyalty.PointsEarned)</dd>
+        <dt>امتیاز خرج‌شده</dt><dd>@Format.Number(Model.Loyalty.PointsRedeemed)</dd>
+        <dt>منقضی / برگشتی</dt><dd>@Format.Number(Model.Loyalty.PointsExpired) / @Format.Number(Model.Loyalty.PointsReverted)</dd>
+        <dt>اعتبار هدیه داده‌شده</dt><dd>@AdminUi.Money(Model.Loyalty.BonusCreditGranted)</dd>
+        <dt>اعضای فعال</dt><dd>@Format.Number(Model.Loyalty.ActiveMembers) <span class="a-muted text-xs">از @Format.Number(Model.Loyalty.MembersWithPoints) دارای امتیاز</span></dd>
+      </dl>
+      @if (Model.Loyalty.EarnedByAction.Count > 0)
+      {
+        <ul class="text-xs mt-3 space-y-1">
+          @foreach (var row in Model.Loyalty.EarnedByAction) { <li class="flex justify-between gap-2"><span>@LoyaltyTitle(row.Action) (@row.Count)</span><span class="num">@Format.Number(row.Points)</span></li> }
+        </ul>
+      }
+    </div>
+  </div>
+</div>
+
+@if (Model.Profit.TopProducts.Count > 0)
+{
+  <div class="a-card">
+    <div class="a-card-head"><span class="a-card-title">سودآورترین محصولات (تخمینی)</span></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards a-table-compact">
+        <thead><tr><th>محصول</th><th>تعداد</th><th>درآمد</th><th>بهای تمام‌شده</th><th>سود</th><th>حاشیه</th></tr></thead>
+        <tbody>
+          @foreach (var r in Model.Profit.TopProducts)
+          {
+            <tr>
+              <td data-label="محصول">@if (r.ProductId is not null && Model.Can(AdminPermissions.ProductsView)) { <a class="a-link" href="/admin/products/edit/@r.ProductId">@r.ProductName</a> } else { @r.ProductName }</td>
+              <td data-label="تعداد" class="num">@r.Quantity</td>
+              <td data-label="درآمد" class="num">@Format.Price(r.Revenue)</td>
+              <td data-label="بهای تمام‌شده" class="num">@Format.Price(r.Cost)</td>
+              <td data-label="سود" class="num @(r.Profit < 0 ? "a-down" : "a-up")">@Format.Price(r.Profit)</td>
+              <td data-label="حاشیه" class="num">@(r.Revenue == 0 ? "—" : Math.Round(r.Profit * 100 / r.Revenue, 1) + "٪")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

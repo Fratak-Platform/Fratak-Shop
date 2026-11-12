@@ -1,0 +1,508 @@
+@page "{id:guid?}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Products.EditModel
+@using Fratak_Shop.Core.Services.Products
+@using Fratak_Shop.Web.Areas.Admin.Pages.Products
+@{
+    var inv = global::System.Globalization.CultureInfo.InvariantCulture;
+    var i = Model.Input;
+    ViewData["Title"] = Model.IsNew ? "محصول جدید" : $"ویرایش {i.Name}";
+    var previewUrl = $"{HttpContext.Request.Host}/product/{(Model.CurrentSlug ?? i.Slug ?? "...")}";
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/products" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <div>
+      <h2>@(Model.IsNew ? "محصول جدید" : i.Name)</h2>
+      @if (!Model.IsNew)
+      {
+        <p class="a-muted text-sm mt-1">ثبت: @Format.Date(Model.CreatedAt) · @Format.Number(Model.SalesCount) فروش · @Format.Number(Model.ViewCount) بازدید</p>
+      }
+    </div>
+  </div>
+  @if (Model.IsNew && Model.CanSupplier)
+  {
+    @* دور ۱۰: ساخت گروهی محصولات از روی یک سایت دیگر (Products/SiteImport). *@
+    <div class="a-btn-group">
+      <a href="/admin/products/site-import" class="a-btn a-btn-light">@Icons.Svg("Storefront", null, 18) درون‌ریزی گروهی از یک سایت</a>
+    </div>
+  }
+  @if (!Model.IsNew)
+  {
+    <div class="a-btn-group">
+      @* دور ۲۸ (#۹۹): پیش‌نویس ← «پیش‌نمایش پیش از انتشار» (فقط کارکنان می‌بینند؛ نوار زرد پیش‌نمایش روی صفحه). *@
+      <a href="/product/@Model.CurrentSlug" target="_blank" rel="noopener" class="a-btn a-btn-light">@Icons.Svg("Eye", null, 18) @(Model.IsDraft ? "پیش‌نمایش پیش از انتشار" : "مشاهده در فروشگاه")</a>
+      @* دور ۱۹ (B20): تکمیل هوشمند – عکس، مشخصات، خلاصهٔ خرید و سئو با یک کلیک (نتیجه و تأییدها در صفحهٔ محتوای هوشمند کالا). *@
+      @if (Model.Can(AdminPermissions.ProductsManage))
+      {
+        <a href="/admin/smart/product/@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("MagicWand", null, 18) تکمیل هوشمند</a>
+      }
+      @if (Model.Can(AdminPermissions.CatalogManage))
+      {
+        <a href="/admin/manage/product-videos?parent=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("VideoCamera", null, 18) ویدئوها (@Model.VideoCount)</a>
+      }
+      @if (Model.Can(AdminPermissions.ProductsManage))
+      {
+        @* دور ۲۹ (#۱۸): ویدیوهای پیشنهادی همین کالا (پیدا‌شده در تأمین‌کننده/آپارات/یوتیوب) *@
+        <a href="/admin/smart/videos?product=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("PlayCircle", null, 18) ویدیوی پیشنهادی@(Model.VideoSuggestionCount > 0 ? " (" + Model.VideoSuggestionCount + ")" : "")</a>
+      }
+      @if (Model.Can(AdminPermissions.CommentsModerate))
+      {
+        <a href="/admin/comments?product=@Model.ProductId" class="a-btn a-btn-light">@Icons.Svg("Chat", null, 18) نظرات و پرسش‌ها</a>
+      }
+      @if (Model.CanEditProduct)
+      {
+        <form method="post" asp-page-handler="Clone" asp-route-id="@Model.ProductId" class="contents"
+              data-confirm="یک کپی غیرفعال از این محصول (با عکس‌ها، مشخصات و سئو) ساخته شود؟ تغییرهای ذخیره‌نشدهٔ این صفحه در کپی نمی‌آیند.">
+          <button type="submit" class="a-btn a-btn-light">@Icons.Svg("Copy", null, 18) کپی محصول</button>
+        </form>
+      }
+    </div>
+  }
+</div>
+
+@if (Model.IsDraft)
+{
+  @* دور ۲۸ (#۹۹ و #۶۰): وضعیت «آمادهٔ انتشار» پیش‌نویس؛ دستیار هوشمند کمبودها را خودش کامل می‌کند. *@
+  <div class="a-alert @(Model.ReadyGaps.Count == 0 ? "a-alert-success" : "a-alert-info") mb-4" data-ready-gaps>
+    @if (Model.ReadyGaps.Count == 0)
+    {
+      <span>این پیش‌نویس <b>آمادهٔ انتشار</b> است. پیش‌نمایش را ببینید و اگر درست بود، تیک «فعال» را بزنید و ذخیره کنید.</span>
+    }
+    else
+    {
+      <span>برای «آمادهٔ انتشار» هنوز کم است: <b>@string.Join("، ", Model.ReadyGaps)</b>. دستیار هوشمند این‌ها را خودش کامل می‌کند (یا همین‌جا وارد کنید).</span>
+    }
+  </div>
+}
+
+@if (Model.CanEditProduct)
+{
+  <form method="post" enctype="multipart/form-data" data-dirty-guard class="a-stack"
+        data-edit-key="@(Model.IsNew ? null : Model.EditKey)" data-edit-me="@Model.Access.UserId"
+        data-autosave="@Model.EditKey" data-autosave-stamp="@Model.Stamp" data-autosave-title="@(Model.IsNew ? "محصول جدید" : "محصول: " + i.Name)"
+        data-autosave-ignore="Input.Images,Input.PrimaryImage"
+        data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("Product", Model.ProductId, new { name = "#p-name", english = "#p-en", slug = "#p-slug", category = "#p-cat", brand = "#p-brand", summary = "#p-short", body = "#p-desc", warrantyTitle = "#p-wt", warrantyMonths = "#p-wm" }))">
+    <partial name="_EditStamp" model="new EditStampModel(Model.Stamp, Model.ConflictMessage)" />
+    <div class="a-grid xl:grid-cols-3">
+      <div class="xl:col-span-2 a-stack">
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">اطلاعات اصلی</span></div>
+          <div class="a-card-body a-form-grid cols-2">
+            <div class="a-field span-all">
+              <label class="a-label req" for="p-name">نام محصول</label>
+              <input id="p-name" name="Input.Name" value="@i.Name" class="a-input" maxlength="250" required>
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="p-en">نام انگلیسی</label>
+              <input id="p-en" name="Input.EnglishName" value="@i.EnglishName" class="a-input a-ltr" maxlength="250" data-slug-source="#p-slug">
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="p-slug">اسلاگ (آدرس)</label>
+              <input id="p-slug" name="Input.Slug" value="@i.Slug" class="a-input a-ltr" maxlength="250" placeholder="خالی = از نام انگلیسی">
+              @if (!Model.IsNew) { <p class="a-help">تغییر اسلاگ آدرس قبلی را از کار می‌اندازد؛ در صورت نیاز در «سئو › ریدایرکت‌ها» انتقال ۳۰۱ بسازید.</p> }
+            </div>
+            <div class="a-field">
+              <label class="a-label req" for="p-cat">دسته‌بندی</label>
+              <select id="p-cat" name="Input.CategoryId" class="a-select" required>
+                <option value="">— انتخاب —</option>
+                @foreach (var c in Model.Categories) { <option value="@c.Id" selected="@(i.CategoryId == c.Id)">@c.Name</option> }
+              </select>
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="p-brand">برند</label>
+              <select id="p-brand" name="Input.BrandId" class="a-select">
+                <option value="">— بدون برند —</option>
+                @foreach (var b in Model.Brands) { <option value="@b.Id" selected="@(i.BrandId == b.Id)">@b.Name</option> }
+              </select>
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="p-sku">کد کالا (SKU)</label>
+              <input id="p-sku" name="Input.SKU" value="@i.SKU" class="a-input a-ltr" maxlength="100" placeholder="خالی = خودکار">
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="p-gtin">بارکد / GTIN</label>
+              <input id="p-gtin" name="Input.Gtin" value="@i.Gtin" class="a-input a-ltr" maxlength="14" inputmode="numeric">
+            </div>
+            <div class="a-field span-all">
+              <label class="a-label" for="p-short">توضیح کوتاه</label>
+              <textarea id="p-short" name="Input.ShortDescription" class="a-textarea" rows="2" maxlength="1000">@i.ShortDescription</textarea>
+            </div>
+            <div class="a-field span-all">
+              <label class="a-label" for="p-desc">توضیحات کامل محصول</label>
+              <textarea id="p-desc" name="Input.Description" class="a-textarea" rows="12" data-html-editor>@i.Description</textarea>
+              <p class="a-help">HTML ساده مجاز است (تیتر، پاراگراف، فهرست، لینک، تصویر)؛ کدهای خطرناک خودکار حذف می‌شوند.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Image", null, 18) تصاویر</span><span class="a-muted text-xs">حداکثر ۱۲ تصویر، هر کدام ۵ مگابایت</span></div>
+          <div class="a-card-body">
+            @if (i.Images.Count > 0)
+            {
+              @* حذف «بر اساس نام فایل» (admin-gallery.js): دکمهٔ حذف هر کارت فقط همان تصویر را در Input.RemovedImages می‌گذارد؛
+                 کلیک روی تصویر ← لایت‌باکس با بزرگ‌نمایی و «حذف این تصویر». تا «ذخیره» زده نشود برگشت‌پذیر است. *@
+              <div class="a-img-grid mb-4" id="product-gallery" data-gallery="remove" data-remove-name="Input.RemovedImages" data-reindex="Input.Images">
+                @for (var n = 0; n < i.Images.Count; n++)
+                {
+                  var img = i.Images[n];
+                  <div class="a-img-card" data-gallery-item data-name="@img.ImageName" data-full="@ImageHelper.Product(img.ImageName)" data-caption="@img.AltText">
+                    <div class="a-img-frame">
+                      <img src="@ImageHelper.Sized(ImageHelper.Product(img.ImageName), 320)" alt="@img.AltText" loading="lazy" data-gallery-open tabindex="0">
+                      <button type="button" class="a-img-del" data-gallery-remove aria-pressed="false" aria-label="حذف این تصویر">حذف</button>
+                    </div>
+                    <input type="hidden" name="Input.Images[@n].ImageName" value="@img.ImageName">
+                    <input name="Input.Images[@n].AltText" value="@img.AltText" class="a-input a-input-sm" placeholder="متن جایگزین (alt)" maxlength="250">
+                    <div class="flex items-center justify-between gap-2 text-xs">
+                      <label class="a-check"><input type="radio" name="Input.PrimaryImage" value="@img.ImageName" checked="@(i.PrimaryImage == img.ImageName)" autocomplete="off"> اصلی</label>
+                      <input type="number" name="Input.Images[@n].DisplayOrder" value="@img.DisplayOrder" class="a-input a-input-sm a-ltr" style="width:4rem" aria-label="ترتیب">
+                    </div>
+                  </div>
+                }
+                @foreach (var removed in i.RemovedImages)
+                {
+                  <input type="hidden" name="Input.RemovedImages" value="@removed" data-removed-input>
+                }
+              </div>
+            }
+            <label class="a-label" for="p-images">افزودن تصویر</label>
+            <input id="p-images" type="file" name="newImages" accept="image/jpeg,image/png,image/webp" multiple class="a-input" data-file-preview="#p-images-preview">
+            <div id="p-images-preview" class="a-img-grid mt-3"></div>
+            <p class="a-help">تصاویر بدون اطلاعات متا ذخیره و برای نمایش در اندازه‌های مختلف بهینه می‌شوند. نسبت مربع (۱:۱) و پس‌زمینه سفید پیشنهاد می‌شود.</p>
+          </div>
+        </div>
+
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("ListChecks", null, 18) مشخصات فنی</span></div>
+          <div class="a-card-body" data-repeat>
+            <div data-repeat-list class="space-y-2">
+              @for (var n = 0; n < i.Features.Count; n++)
+              {
+                <div class="a-repeat-row" data-repeat-item>
+                  <input name="Input.Features[@n].Key" value="@i.Features[n].Key" class="a-input" placeholder="عنوان (مثلاً وزن)" maxlength="250">
+                  <input name="Input.Features[@n].Value" value="@i.Features[n].Value" class="a-input" placeholder="مقدار (مثلاً ۲۰۰ گرم)" maxlength="1000">
+                  <button type="button" class="a-icon-btn" data-repeat-remove aria-label="حذف">@Icons.Svg("Trash", null, 16)</button>
+                </div>
+              }
+            </div>
+            <template>
+              <div class="a-repeat-row" data-repeat-item>
+                <input name="Input.Features[0].Key" class="a-input" placeholder="عنوان" maxlength="250">
+                <input name="Input.Features[0].Value" class="a-input" placeholder="مقدار" maxlength="1000">
+                <button type="button" class="a-icon-btn" data-repeat-remove aria-label="حذف">@Icons.Svg("Trash", null, 16)</button>
+              </div>
+            </template>
+            <button type="button" class="a-btn a-btn-soft a-btn-sm mt-3" data-repeat-add>@Icons.Svg("Plus", null, 16) افزودن مشخصه</button>
+            <p class="a-help">مشخصات یکسان در محصولات یک دسته، در فیلترها و مقایسه هوشمند استفاده می‌شوند؛ عنوان‌ها را یکدست بنویسید.</p>
+          </div>
+        </div>
+
+        <div class="a-card" id="seo">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو</span></div>
+          <div class="a-card-body">
+            @await Html.PartialAsync("_SeoFields", new SeoFieldsModel("Input.Seo", i.Seo, previewUrl, "#p-name", "#p-short"))
+          </div>
+        </div>
+      </div>
+
+      <div class="a-stack">
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">انتشار</span></div>
+          <div class="a-card-body space-y-3">
+            <label class="a-check"><input type="checkbox" name="Input.IsActive" value="true" checked="@i.IsActive"> فعال (نمایش در فروشگاه)</label>
+            <input type="hidden" name="Input.IsActive" value="false">
+          </div>
+        </div>
+
+        <div class="a-card">
+          <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Tag", null, 18) قیمت و موجودی</span></div>
+          <div class="a-card-body a-form-grid">
+            <div class="a-field">
+              <div class="a-label-row">
+                <label class="a-label req" for="p-price">قیمت فروش (تومان)</label>
+                @if (Model.CanEditProduct)
+                {
+                  <button type="button" class="a-btn a-btn-sm a-btn-light" data-price-advisor-open>@Icons.Svg("Calculator", null, 14) پیشنهاد قیمت فروش</button>
+                }
+              </div>
+              <input id="p-price" type="number" name="Input.Price" value="@(i.Price?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" required data-money>
+            </div>
+            <div class="a-field">
+              <label class="a-label" for="p-dprice">قیمت با تخفیف</label>
+              <input id="p-dprice" type="number" name="Input.DiscountPrice" value="@(i.DiscountPrice?.ToString("0", inv))" min="0" step="1" class="a-input a-ltr" data-money>
+            </div>
+            <div class="a-form-grid cols-2">
+              <div class="a-field"><label class="a-label" for="p-ds">شروع تخفیف</label><input id="p-ds" name="Input.DiscountStart" value="@i.DiscountStart" class="a-input a-ltr" data-jalali="datetime" placeholder="1404/08/01 18:00"></div>
+              <div class="a-field"><label class="a-label" for="p-de">پایان تخفیف</label><input id="p-de" name="Input.DiscountEnd" value="@i.DiscountEnd" class="a-input a-ltr" data-jalali="datetime" data-jalali-time="23:59" placeholder="1404/08/10 23:59"></div>
+            </div>
+            <div class="a-field">
+              <label class="a-label req" for="p-stock">موجودی انبار</label>
+              <input id="p-stock" type="number" name="Input.StockQuantity" value="@i.StockQuantity" min="0" step="1" class="a-input a-ltr" required>
+              <p class="a-help">با موجود شدن کالا، به مشتریانی که «خبرم کن» زده‌اند اطلاع داده می‌شود.</p>
+            </div>
+            <div class="a-form-grid cols-2">
+              <div class="a-field"><label class="a-label" for="p-wt">گارانتی</label><input id="p-wt" name="Input.WarrantyTitle" value="@i.WarrantyTitle" class="a-input" maxlength="250"></div>
+              <div class="a-field"><label class="a-label" for="p-wm">مدت (ماه)</label><input id="p-wm" type="number" name="Input.WarrantyMonths" value="@i.WarrantyMonths" min="0" max="120" class="a-input a-ltr"></div>
+            </div>
+          </div>
+        </div>
+
+        @if (Model.CanSupplier)
+        {
+          <div class="a-card border-amber-300">
+            <div class="a-card-head"><span class="a-card-title">@Icons.Svg("Storefront", null, 18) منبع خرید</span><span class="a-badge a-badge-yellow">خصوصی – فقط مدیریت</span></div>
+            <div class="a-card-body a-form-grid">
+              <div class="a-field">
+                <label class="a-label req" for="p-sup">تأمین‌کننده</label>
+                <select id="p-sup" name="Input.SupplierId" class="a-select" required>
+                  <option value="">— انتخاب —</option>
+                  @foreach (var s in Model.Suppliers) { <option value="@s.Id" selected="@(i.SupplierId == s.Id)">@s.Name</option> }
+                </select>
+                @if (Model.Can(AdminPermissions.SuppliersManage)) { <a class="a-link text-xs mt-1 inline-block" href="/admin/manage/suppliers" target="_blank">مدیریت تأمین‌کننده‌ها</a> }
+              </div>
+              <div class="a-field">
+                <label class="a-label req" for="p-surl">لینک محصول در سایت تأمین‌کننده</label>
+                <input id="p-surl" type="url" name="Input.SupplierUrl" value="@i.SupplierUrl" class="a-input a-ltr" maxlength="1000" required placeholder="https://...">
+                <p class="a-help">در صفحه سفارش کنار هر کالا نمایش داده می‌شود تا بدانید از کجا بخرید. هرگز در سایت نمایش داده نمی‌شود.</p>
+              </div>
+              <div class="a-form-grid cols-2">
+                <div class="a-field"><label class="a-label" for="p-ssku">کد کالا نزد تأمین‌کننده</label><input id="p-ssku" name="Input.SupplierSku" value="@i.SupplierSku" class="a-input a-ltr" maxlength="100"></div>
+                <div class="a-field"><label class="a-label" for="p-cost">قیمت خرید (تومان)</label><input id="p-cost" type="number" name="Input.PurchasePrice" value="@(i.PurchasePrice?.ToString("0", inv))" min="0" class="a-input a-ltr" data-money></div>
+              </div>
+              <div class="a-field"><label class="a-label" for="p-snote">یادداشت خرید</label><input id="p-snote" name="Input.SupplierNote" value="@i.SupplierNote" class="a-input" maxlength="500" data-smart="off" placeholder="مثلاً رنگ مشکی را انتخاب کنید"></div>
+              <div class="a-field"><label class="a-label" for="p-mpn">MPN (کد سازنده)</label><input id="p-mpn" name="Input.Mpn" value="@i.Mpn" class="a-input a-ltr" maxlength="50"></div>
+              <div class="a-field">
+                <label class="a-check"><input type="checkbox" name="Input.ExcludeFromSupplierSync" value="true" checked="@i.ExcludeFromSupplierSync"> از بررسی خودکار تأمین‌کننده خارج شود (ناموجود دستی)</label>
+                <p class="a-help">برای کالایی که عمداً نمی‌فروشید؛ سیستم دیگر موجودی و قیمت آن را از منبع نمی‌خواند و پیشنهادی نمی‌سازد.</p>
+              </div>
+              @* آخرین نتیجهٔ بررسی خودکار تأمین‌کننده (مرحلهٔ هفتم – فاز ۵) *@
+              @if (Model.SupplierStatus is { } st)
+              {
+                <div class="a-alert @(st.ConsecutiveErrors > 0 || st.Status == Fratak_Shop.Data.Entities.Products.SupplierItemStatus.NotFound ? "a-alert-warn" : "a-alert-info")">
+                  <div class="min-w-0">
+                    <div class="font-semibold">
+                      آخرین بررسی منبع: @Fratak_Shop.Core.Services.Suppliers.SupplierSyncRules.StatusTitle(st.Status)
+                      @if (st.SourceStock is { } srcStock) { <span>(@Format.Number(srcStock) عدد)</span> }
+                      @if (st.SourcePrice is { } srcPrice) { <span>– قیمت منبع @Format.Toman(srcPrice)</span> }
+                    </div>
+                    <div class="text-xs mt-1">
+                      @Format.DateTime(st.CheckedAt)
+                      @if (!string.IsNullOrEmpty(st.SourceName)) { <span>· نام در منبع: «@st.SourceName»</span> }
+                      @if (st.AutoOutOfStock) { <span>· موجودی را سیستم صفر کرده است</span> }
+                    </div>
+                    @if (st.ConsecutiveErrors > 0) { <div class="text-xs mt-1">@Format.Number(st.ConsecutiveErrors) خطای پشت‌سرهم: @st.LastError</div> }
+                    else if (st.Status == Fratak_Shop.Data.Entities.Products.SupplierItemStatus.NotFound) { <div class="text-xs mt-1">@st.LastError</div> }
+                    @if (st.PendingChanges > 0)
+                    {
+                      <a class="a-link text-xs mt-1 inline-block" href="/admin/products/supplier-sync?q=@Uri.EscapeDataString(i.Name ?? "")">@Format.Number(st.PendingChanges) پیشنهاد منتظر تأیید</a>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        else
+        {
+          <div class="a-alert a-alert-info">@Icons.Svg("LockKey", "shrink-0", 18) اطلاعات منبع خرید فقط برای دارندگان دسترسی «اطلاعات تأمین‌کننده» نمایش داده می‌شود و بدون تغییر می‌ماند.</div>
+        }
+      </div>
+    </div>
+
+    <div class="a-actionbar">
+      @if (!Model.IsNew && Model.Can(AdminPermissions.ProductsDelete))
+      {
+        <button type="submit" form="delete-form" class="a-btn a-btn-danger-soft">@Icons.Svg("Trash", null, 18) حذف</button>
+      }
+      <span class="flex-1"></span>
+      <a href="/admin/products" class="a-btn a-btn-light">انصراف</a>
+      <button type="submit" class="a-btn">@Icons.Svg("Check", null, 18) ذخیره محصول</button>
+    </div>
+  </form>
+  @if (!Model.IsNew && Model.Can(AdminPermissions.ProductsDelete))
+  {
+    <form method="post" asp-page-handler="Delete" id="delete-form" data-confirm="این محصول به سطل بازیافت منتقل شود؟ سفارش‌های قبلی آن حفظ می‌شوند و از «سطل بازیافت» قابل برگرداندن است." data-confirm-danger></form>
+  }
+  @if (Model.History is not null)
+  {
+    <div class="mt-4"><partial name="_EditHistory" model="Model.History" /></div>
+  }
+}
+else
+{
+  @* SEO specialist: read-only product + SEO form *@
+  <div class="a-grid xl:grid-cols-3">
+    <div class="a-card">
+      <div class="a-card-head"><span class="a-card-title">محصول</span></div>
+      <div class="a-card-body">
+        @if (i.Images.Count > 0) { <img src="@ImageHelper.Sized(ImageHelper.Product(i.PrimaryImage), 480)" alt="" class="rounded-xl mb-3 w-full"> }
+        <dl class="a-kv">
+          <dt>نام</dt><dd>@i.Name</dd>
+          <dt>اسلاگ</dt><dd class="a-ltr">@i.Slug</dd>
+          <dt>قیمت</dt><dd class="num">@Format.Toman(i.Price ?? 0)</dd>
+          <dt>موجودی</dt><dd>@i.StockQuantity</dd>
+        </dl>
+        <p class="a-muted text-sm mt-3">@i.ShortDescription</p>
+      </div>
+    </div>
+    <form method="post" asp-page-handler="Seo" class="a-card xl:col-span-2" id="seo" data-smart-context="@(Fratak_Shop.Web.Infrastructure.SeoEngine.SmartUi.Context("Product", Model.ProductId))">
+      <div class="a-card-head"><span class="a-card-title">@Icons.Svg("MagnifyingGlass", null, 18) سئو محصول</span></div>
+      <div class="a-card-body">
+        @await Html.PartialAsync("_SeoFields", new SeoFieldsModel("Input.Seo", i.Seo, previewUrl, null, null))
+        <div class="flex justify-end mt-4"><button type="submit" class="a-btn">ذخیره سئو</button></div>
+      </div>
+    </form>
+  </div>
+}
+
+@* ── کامل بودن و انبار (مرحلهٔ هفتم – فاز ۵) ── *@
+@if (!Model.IsNew)
+{
+  <div class="a-grid xl:grid-cols-2 mt-4">
+    @if (Model.Completeness is { } c)
+    {
+      <div class="a-card" id="completeness">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("ListChecks", null, 18) کامل بودن صفحهٔ محصول</span>
+          <span class="a-badge @ProductCompleteness.LevelCss(c.Level)">@Format.Number(c.Score) از ۱۰۰ · @ProductCompleteness.LevelTitle(c.Level)</span>
+        </div>
+        <div class="a-card-body">
+          <div class="h-2 rounded-full bg-gray-200 overflow-hidden mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@c.Score">
+            <div class="h-full @(c.Level == "good" ? "bg-emerald-500" : c.Level == "fair" ? "bg-amber-500" : "bg-rose-500")" style="width:@(c.Score)%"></div>
+          </div>
+          <ul class="space-y-2 text-sm">
+            @foreach (var item in c.Items)
+            {
+              <li class="flex items-start gap-2">
+                <span class="shrink-0 @(item.Done ? "text-emerald-600" : "text-rose-500")">@Icons.Svg(item.Done ? "CheckCircle" : "XCircle", null, 18)</span>
+                <span class="flex-1">
+                  <span class="@(item.Done ? "a-muted" : "font-semibold")">@item.Title</span>
+                  <span class="a-muted text-xs">(@Format.Number(item.Weight) امتیاز)</span>
+                  @if (!item.Done) { <span class="block text-xs a-muted">@item.Hint</span> }
+                </span>
+              </li>
+            }
+          </ul>
+          <p class="a-help mt-3">امتیاز بر اساس آخرین نسخهٔ ذخیره‌شده است؛ بعد از ذخیره به‌روز می‌شود.</p>
+        </div>
+      </div>
+    }
+    @if (Model.Forecast is { } fc)
+    {
+      <div class="a-card" id="inventory">
+        <div class="a-card-head">
+          <span class="a-card-title">@Icons.Svg("ChartLine", null, 18) انبار و گردش موجودی</span>
+          <a class="a-link text-sm" href="/admin/products/inventory?tab=ledger&product=@Model.ProductId">همهٔ گردش‌ها</a>
+        </div>
+        <div class="a-card-body">
+          <div class="a-stats mb-3">
+            <div class="a-stat"><span>موجودی</span><b>@Format.Number(i.StockQuantity)</b></div>
+            <div class="a-stat"><span>فروش روزانه (۳۰ روز)</span><b class="a-ltr">@InventoryModel.RateText(fc.DailyRate)</b></div>
+            <div class="a-stat"><span>کافی برای</span><b>@(fc.DaysLeft is { } dl && dl > 0 ? InventoryModel.RateText(dl) + " روز" : "—")</b></div>
+            <div class="a-stat"><span>وضعیت</span><b><span class="a-badge @InventoryModel.LevelCss(fc.Level)">@InventoryModel.LevelTitle(fc.Level)</span></b>
+              @if (fc.SuggestedReorder > 0) { <small class="a-muted">پیشنهاد خرید: @Format.Number(fc.SuggestedReorder) عدد</small> }
+            </div>
+          </div>
+          @if (Model.Movements.Count == 0)
+          {
+            <div class="a-empty">هنوز گردشی برای این محصول ثبت نشده است.</div>
+          }
+          else
+          {
+            <ul class="a-timeline text-sm">
+              @foreach (var m in Model.Movements)
+              {
+                <li>
+                  <b class="a-ltr @InventoryModel.DeltaCss(m.Delta)">@InventoryModel.DeltaText(m.Delta)</b>
+                  <span>@StockForecastRules.ReasonTitle(m.Reason)</span>
+                  @if (m.BalanceAfter is { } balance) { <span class="a-muted">← مانده @Format.Number(balance)</span> }
+                  <span class="block text-xs a-muted">@Format.DateTime(m.CreatedAt) · @(m.UserName ?? "سیستم")@(m.Reference is null ? "" : " · " + m.Reference)</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
+    @if (Model.Can(AdminPermissions.ProductsView) && Model.ProductId is { } competitorProductId)
+    {
+      @* مرحلهٔ پانزدهم: آخرین قیمت رقبای همین محصول. *@
+      <div class="xl:col-span-2"><partial name="_CompetitorCard" model="new CompetitorCardModel(competitorProductId, Model.Competitors, Model.CanEditProduct)" /></div>
+    }
+  </div>
+}
+
+@if (Model.CanEditProduct)
+{
+  @* دیالوگ «پیشنهاد قیمت فروش» (دور ۱۰). ورودی‌ها name ندارند تا با فرم محصول ارسال نشوند؛ price-advisor.js آن را می‌گرداند. *@
+  <div class="a-palette a-price-advisor" id="price-advisor" hidden data-url="@(HttpContext.Request.Path)?handler=SuggestPrice">
+    <div class="a-palette-backdrop" data-advisor-close></div>
+    <div class="a-palette-box a-price-advisor-box" role="dialog" aria-modal="true" aria-labelledby="price-advisor-title">
+      <div class="a-palette-head">
+        <b id="price-advisor-title" class="flex-1">@Icons.Svg("Calculator", null, 18) پیشنهاد قیمت فروش</b>
+        <button type="button" class="a-btn a-btn-sm a-btn-light" data-advisor-close>بستن</button>
+      </div>
+      <div class="a-price-advisor-body">
+        <div class="a-form-grid cols-2">
+          <div class="a-field">
+            <label class="a-label req" for="pa-cost">قیمت خرید (تومان)</label>
+            <input id="pa-cost" type="number" min="0" step="1" class="a-input a-ltr" data-money>
+          </div>
+          <div class="a-field">
+            <label class="a-label" for="pa-extra">هزینهٔ اضافهٔ همین کالا (تومان)</label>
+            <input id="pa-extra" type="number" min="0" step="1" value="0" class="a-input a-ltr" data-money>
+            <p class="a-help">فقط برای این محاسبه؛ ذخیره نمی‌شود. هزینه‌های عمومی (بسته‌بندی، ارسال، کارمزد درگاه، مالیات …) از <a class="a-link" href="/admin/settings?tab=pricing" target="_blank">تنظیمات</a> خودکار حساب می‌شوند.</p>
+          </div>
+        </div>
+        <div class="a-field">
+          <label class="a-label" for="pa-query">نام کالا برای جست‌وجو در سایت‌های دیگر</label>
+          <input id="pa-query" type="search" maxlength="120" class="a-input" placeholder="مثلاً هندزفری بلوتوثی هایلو T15">
+          <p class="a-help">همهٔ فروشندگان ترب، دیجی‌کالا، غرفه‌های باسلام و فروشگاه‌های دیگری که در جست‌وجوی وب پیدا شوند بررسی می‌شوند. سیستم هر قیمت را داوری می‌کند (کالای دیگر، لوازم جانبی، مدل دیگر، قیمت پرت). نام دقیق با مدل، نتیجهٔ بهتری می‌دهد.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="a-btn a-btn-sm" data-advisor-run>جست‌وجو و محاسبه</button>
+          <button type="button" class="a-btn a-btn-sm a-btn-light" data-advisor-run="costs">فقط از روی هزینه‌ها</button>
+        </div>
+        <p class="a-muted text-sm" data-advisor-status aria-live="polite"></p>
+        <div data-advisor-result hidden>
+          <div class="a-price-advisor-summary">
+            <div><span>قیمت پیشنهادی</span><b data-advisor-field="suggested"></b></div>
+            <div><span>سود خالص هر عدد</span><b data-advisor-field="profit"></b></div>
+            <div><span>کل هزینه</span><b data-advisor-field="totalCost"></b></div>
+            <div><span>کمترین قیمت مجاز</span><b data-advisor-field="minPrice"></b></div>
+            <div><span>قیمت با سود هدف</span><b data-advisor-field="targetPrice"></b></div>
+            <div><span>جایگاه در ترب با این قیمت</span><b data-advisor-field="torob"></b></div>
+          </div>
+          <p class="a-alert a-alert-info text-sm" data-advisor-field="reason"></p>
+          @* نوار بازهٔ قیمت رقبا: کمترین تا بیشترین قیمت معتبر، با نشانهٔ قیمت پیشنهادی و میانه. *@
+          <div class="a-price-range" data-advisor-range hidden>
+            <div class="a-price-range-bar"><i data-range-median title="میانه"></i><i data-range-ours title="قیمت پیشنهادی"></i></div>
+            <div class="a-price-range-labels"><span data-range-min></span><span data-range-mid></span><span data-range-max></span></div>
+          </div>
+          <p class="a-muted text-xs" data-advisor-field="matched"></p>
+          <div class="a-price-advisor-tabs" role="tablist" aria-label="منبع قیمت‌ها">
+            <button type="button" role="tab" class="is-active" aria-selected="true" data-advisor-tab="all">همه <small data-tab-count="all"></small></button>
+            <button type="button" role="tab" aria-selected="false" data-advisor-tab="accepted">حساب‌شده <small data-tab-count="accepted"></small></button>
+            <button type="button" role="tab" aria-selected="false" data-advisor-tab="rejected">کنارگذاشته <small data-tab-count="rejected"></small></button>
+          </div>
+          <div class="a-price-advisor-sources" data-advisor-sources aria-label="فیلتر منبع"></div>
+          <div class="a-table-wrap">
+            <table class="a-table a-competitor-table">
+              <thead><tr><th>فروشگاه</th><th>منبع</th><th>قیمت (تومان)</th><th>داوری</th><th><span class="sr-only">کار</span></th></tr></thead>
+              <tbody data-advisor-offers></tbody>
+            </table>
+          </div>
+          <p class="a-help">«حذف» یعنی این قیمت (لینک اشتباه، کالای دیگر یا کالای غیرهم‌ارز) <b>فقط در همین محاسبه</b> حساب نشود؛ ذخیره نمی‌شود و دفعهٔ بعد دوباره داوری می‌شود. «حساب کن» قیمتی را که سیستم کنار گذاشته بود وارد محاسبه می‌کند.</p>
+          <ul class="a-muted text-xs" data-advisor-problems></ul>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button type="button" class="a-btn a-btn-success" data-advisor-apply>استفاده از این قیمت</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@section Scripts {
+  <script src="~/assets/js/price-advisor.js" asp-append-version="true"></script>
+}

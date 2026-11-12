@@ -1,0 +1,102 @@
+@page "/admin/ready-messages"
+@model Fratak_Shop.Web.Areas.Admin.Pages.ReadyMessages.IndexModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.ReadyMessages
+@{
+    ViewData["Title"] = "پیام‌های آماده";
+    var previewUrl = ViewContext.HttpContext.Request.Path + "?handler=Preview";
+}
+<div class="a-page-head">
+  <div>
+    <h2>پیام‌های آماده</h2>
+    <p class="a-muted text-sm mt-1">متن‌های پرکاربرد را یک بار بنویسید و در فرم‌های ارسال اعلان، پاسخ تیکت، دیدگاه، پیام تماس و پیام سفارش با یک انتخاب درج کنید. برچسب‌ها هنگام ارسال با اطلاعات همان مشتری پر می‌شوند.</p>
+  </div>
+  @if (Model.IsEditing)
+  {
+    <div class="a-btn-group"><a class="a-btn a-btn-light" href="/admin/ready-messages">@Icons.Svg("Plus", null, 18) پیام جدید</a></div>
+  }
+</div>
+
+<div class="a-grid lg:grid-cols-3">
+  <div class="a-card lg:col-span-1 lg:order-2">
+    <div class="a-card-head"><span class="a-card-title">فهرست پیام‌ها (@Format.Number(Model.Items.Count))</span></div>
+    @if (Model.Items.Count == 0)
+    {
+      <div class="a-card-body a-muted text-sm">هنوز پیامی ذخیره نشده است.</div>
+    }
+    else
+    {
+      <ul class="divide-y divide-gray-100">
+        @foreach (var item in Model.Items)
+        {
+          <li class="p-3 @(item.Id == Model.Input.Id ? "bg-sky-50/40" : "")">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-semibold text-sm">@item.Name @if (!item.IsActive) { <span class="a-badge a-badge-gray">غیرفعال</span> }</div>
+                <div class="a-muted text-xs mt-1">@IndexModel.ScopesText(item.Scopes) · @Format.Number(item.UsageCount) بار استفاده</div>
+                <div class="text-xs mt-1 line-clamp-2">@item.Body</div>
+              </div>
+              <div class="flex gap-1 shrink-0">
+                <a class="a-icon-btn" href="/admin/ready-messages?id=@item.Id" title="ویرایش">@Icons.Svg("PencilSimple", null, 16)</a>
+                <form method="post" asp-page-handler="Delete" asp-route-id="@item.Id" data-confirm="این پیام آماده حذف شود؟" class="m-0">
+                  <button type="submit" class="a-icon-btn text-red-600" title="حذف">@Icons.Svg("Trash", null, 16)</button>
+                </form>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="lg:col-span-2 lg:order-1 space-y-4" data-placeholder-editor data-preview-url="@previewUrl">
+    <form method="post" asp-page-handler="Save" class="a-card" data-dirty-guard>
+      <div class="a-card-head"><span class="a-card-title">@(Model.IsEditing ? "ویرایش پیام آماده" : "پیام آمادهٔ جدید")</span></div>
+      <div class="a-card-body a-form-grid">
+        @if (!ViewData.ModelState.IsValid)
+        {
+          <div class="a-alert a-alert-danger">@foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors)) { <div>@err.ErrorMessage</div> }</div>
+        }
+        <input type="hidden" asp-for="Input.Id">
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="a-field"><label class="a-label" for="r-name">نام (فقط برای کارکنان)</label>
+            <input id="r-name" asp-for="Input.Name" class="a-input" maxlength="100" required placeholder="مثلاً: اطلاع‌رسانی تخفیف آخر هفته"></div>
+          <div class="a-field"><label class="a-label" for="r-title">عنوان اعلان (اختیاری)</label>
+            <input id="r-title" asp-for="Input.Title" class="a-input" maxlength="200" data-chip-field></div>
+        </div>
+        <div class="a-field"><label class="a-label" for="r-body">متن پیام</label>
+          <textarea id="r-body" asp-for="Input.Body" class="a-textarea" rows="5" maxlength="2000" required data-chip-field></textarea></div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="a-field"><label class="a-label" for="r-link">لینک (اختیاری)</label>
+            <input id="r-link" asp-for="Input.LinkUrl" class="a-input" dir="ltr" maxlength="300" placeholder="/shop"></div>
+          <div class="a-field"><label class="a-label" for="r-sort">ترتیب</label>
+            <input id="r-sort" asp-for="Input.SortOrder" type="number" class="a-input" min="-1000" max="1000"></div>
+        </div>
+        <div class="a-field"><span class="a-label">محل نمایش</span>
+          <div class="flex flex-wrap gap-4">
+            @foreach (var (scope, title) in IndexModel.ScopeTitles)
+            {
+              <label class="a-check text-sm"><input type="checkbox" name="SelectedScopes" value="@scope" checked="@Model.SelectedScopes.Contains(scope)"> @title</label>
+            }
+          </div>
+        </div>
+        <label class="a-check text-sm"><input type="checkbox" name="Input.IsActive" value="true" checked="@Model.Input.IsActive"><input type="hidden" name="Input.IsActive" value="false"> فعال</label>
+        <div><button type="submit" class="a-btn a-btn-primary">@Icons.Svg("FloppyDisk", null, 18) ذخیره</button></div>
+      </div>
+    </form>
+
+    <div class="a-grid md:grid-cols-2">
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">برچسب‌ها</span></div>
+        <div class="a-card-body"><partial name="_PlaceholderChips" model="Model.Groups" /><p class="a-help mt-3">برچسب‌های سفارش فقط در پیام سفارش (یا وقتی شماره سفارش مشخص است) پر می‌شوند.</p></div>
+      </div>
+      <div class="a-card">
+        <div class="a-card-head"><span class="a-card-title">پیش‌نمایش زنده</span></div>
+        <div class="a-card-body space-y-3">
+          <div class="a-alert a-alert-warn" data-preview="unknown" hidden></div>
+          <div class="a-preview"><div class="font-semibold mb-1" data-preview="title"></div><div data-preview="body"></div></div>
+          <div class="a-help" data-preview="source"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

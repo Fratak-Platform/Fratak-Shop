@@ -1,0 +1,26 @@
+@page "/profile/orders"
+@model Fratak_Shop.Web.Pages.Profile.OrdersModel
+@{
+    Layout = "_Layout";
+}
+
+  <main class="pt-24 md:pt-36 max-w-[1600px] mx-auto px-3 md:px-6">
+    <div class="p-3 md:p-5 md:flex gap-5">
+      <partial name="_ProfileSidebar" model="ProfileSection.Orders" />
+      <div class="md:w-9/12 bg-white shadow-lg rounded-2xl p-5 mt-5 md:mt-0">
+        <div class="overflow-x-auto">
+          <h1 class="text-zinc-800 text-lg font-semibold mb-4">
+            سفارش های من:
+          </h1>
+          <div class="flex gap-2 flex-wrap mb-5">
+            @foreach (var tab in Fratak_Shop.Web.Pages.Profile.OrdersModel.Tabs)
+            {
+              var active = tab.Value == Model.Status;
+              <a asp-page="/Profile/Orders" asp-route-status="@tab.Value" class="rounded-full px-4 py-1.5 text-sm border @(active ? "bg-sky-500 border-sky-500 text-white" : "border-gray-300 text-zinc-600 hover:bg-gray-50")">@tab.Title</a>
+            }
+          </div>
+          <partial name="_OrdersTable" model="Model.Orders" />
+        </div>
+      </div>
+    </div>
+  </main>

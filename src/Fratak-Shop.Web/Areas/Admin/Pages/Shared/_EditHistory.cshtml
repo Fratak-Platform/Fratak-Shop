@@ -1,0 +1,55 @@
+@model EditHistoryModel
+@*
+  پنل «تاریخچهٔ تغییرات» صفحه‌های ویرایش، با دکمهٔ بازگردانی هر ویرایش.
+  داده از IAuditHistoryService (گزارش فعالیت) می‌آید؛ بازگردانی به هندلر Revert همان صفحه پست می‌شود.
+  فقط فیلدهایی برمی‌گردند که بعد از آن تغییر دوباره ویرایش نشده‌اند (توضیح در AuditHistoryService).
+*@
+<details class="a-card a-history" id="history">
+  <summary class="a-card-head cursor-pointer">
+    <span class="a-card-title">@Icons.Svg("ClockCounterClockwise", null, 18) تاریخچهٔ تغییرات</span>
+    <span class="a-muted text-xs">@(Model.Items.Count == 0 ? "بدون تغییر ثبت‌شده" : $"{Format.Number(Model.Items.Count)} مورد اخیر")</span>
+  </summary>
+  <div class="a-card-body">
+    @if (Model.Items.Count == 0)
+    {
+      <p class="a-muted text-sm">هنوز تغییری از پنل برای این مورد ثبت نشده است.</p>
+    }
+    <ol class="a-timeline">
+      @foreach (var item in Model.Items)
+      {
+        <li class="a-timeline-item">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="a-badge @(item.Action switch { "create" => "a-badge-green", "delete" => "a-badge-red", "restore" => "a-badge-purple", "update" => "a-badge-blue", _ => "a-badge-gray" })">
+              @(item.Action switch { "create" => "ایجاد", "update" => "ویرایش", "delete" => "حذف", "restore" => "بازیابی", _ => item.Action })
+            </span>
+            <b class="text-sm">@(item.UserName ?? "سیستم")</b>
+            <span class="a-muted text-xs" title="@Format.DateTime(item.At)">@Format.Relative(item.At)</span>
+            @if (Model.CanRevert && item.CanRevert)
+            {
+              <form method="post" action="@Model.RevertUrl" asp-antiforgery="true" class="m-0 ms-auto" data-confirm="مقدارهای قبل از این ویرایش برگردانده شود؟ فیلدهایی که بعداً دوباره تغییر کرده‌اند دست نمی‌خورند.">
+                <input type="hidden" name="auditId" value="@item.Id">
+                <button type="submit" class="a-btn a-btn-xs a-btn-light">@Icons.Svg("ArrowCounterClockwise", null, 14) بازگردانی</button>
+              </form>
+            }
+          </div>
+          @if (item.Changes.Count > 0 && item.Action != "create")
+          {
+            <table class="a-table a-table-compact a-diff mt-2">
+              <thead><tr><th>فیلد</th><th>قبل</th><th>بعد</th></tr></thead>
+              <tbody>
+                @foreach (var c in item.Changes)
+                {
+                  <tr>
+                    <td class="nowrap">@Model.LabelOf(c.Field)</td>
+                    <td class="a-diff-old" dir="auto">@EditHistoryModel.Short(c.Before)</td>
+                    <td class="a-diff-new" dir="auto">@EditHistoryModel.Short(c.After)</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </li>
+      }
+    </ol>
+  </div>
+</details>

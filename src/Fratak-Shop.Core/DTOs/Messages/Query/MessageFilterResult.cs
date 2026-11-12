@@ -18,6 +18,7 @@ public class MessageFilterData : BaseDto
     public string? PhoneNumber { get; set; }
     public string? Email { get; set; }
     public string? Subject { get; set; }
+    public string Content { get; set; } = string.Empty;
 
     public bool IsRead { get; set; }
     public DateTimeOffset? ReadAt { get; set; }

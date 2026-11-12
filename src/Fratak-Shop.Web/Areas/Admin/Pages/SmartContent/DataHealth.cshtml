@@ -1,0 +1,140 @@
+@page "/admin/smart/data-health"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.DataHealthModel
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@using Fratak_Shop.Core.Services.Smart
+@* دور ۲۸ (#۵۱–۵۹): «سلامت داده» – امتیاز اطمینان هر کالا، ایرادها با راه‌حل، عکس‌های مشکوک و درست کردن خودکار. *@
+@{
+    ViewData["Title"] = "سلامت داده";
+    var r = Model.Report;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>سلامت داده</h2>
+    <p class="a-muted text-sm mt-1">هر کالا امتیاز اطمینان ۰ تا ۱۰۰ دارد: نام، نام انگلیسی، دسته، قیمت و تخفیف، موجودی، توضیحات و عکس بررسی می‌شوند. ایرادهای بی‌خطر پیش‌نویس‌ها هر شب خودکار درست می‌شوند.</p>
+  </div>
+  @if (Model.CanFix)
+  {
+    <div class="a-btn-group">
+      <form method="post" asp-page-handler="Fix" data-confirm="ایرادهای بی‌خطر پیش‌نویس‌ها (نام انگلیسی نامعتبر و تخفیف نامعتبر) درست شود؟">
+        <button class="a-btn a-btn-sm" type="submit" data-fix-all>درست کردن خودکار</button>
+      </form>
+      <form method="post" asp-page-handler="Recheck" data-confirm="همهٔ عکس‌ها دوباره بررسی شوند؟ (کم‌کم، هر ساعت ۱۵۰ عکس)">
+        <button class="a-btn a-btn-light a-btn-sm" type="submit">بررسی دوبارهٔ همهٔ عکس‌ها</button>
+      </form>
+    </div>
+  }
+</div>
+
+<div class="a-stats mb-4" data-health-summary>
+  <div class="a-stat"><div class="a-stat-label">میانگین امتیاز</div><div class="a-stat-value" data-health-average>@Format.Number(r.Average)</div><div class="a-stat-sub">از @Format.Number(r.Products) کالای تازه</div></div>
+  <div class="a-stat"><div class="a-stat-label">سالم (۸۰+)</div><div class="a-stat-value a-up">@Format.Number(r.Healthy)</div></div>
+  <div class="a-stat"><div class="a-stat-label">ضعیف (۵۰ تا ۷۹)</div><div class="a-stat-value">@Format.Number(r.Weak)</div></div>
+  <div class="a-stat"><div class="a-stat-label">نامعتبر (زیر ۵۰)</div><div class="a-stat-value a-down">@Format.Number(r.Invalid)</div></div>
+  <div class="a-stat"><div class="a-stat-label">عکس بررسی‌نشده</div><div class="a-stat-value">@Format.Number(r.UncheckedImages)</div><div class="a-stat-sub">هر ساعت خودکار بررسی می‌شود</div></div>
+</div>
+
+<div class="a-grid xl:grid-cols-3">
+  <div class="a-card">
+    <div class="a-card-head"><h3>ایرادها</h3></div>
+    @if (r.Issues.Count == 0)
+    {
+      <div class="a-empty">ایرادی پیدا نشد. 👌</div>
+    }
+    else
+    {
+      <ul class="a-list" data-health-issues>
+        @if (Model.Issue is not null)
+        {
+          <li><a class="a-link" href="/admin/smart/data-health">نمایش همه</a></li>
+        }
+        @foreach (var c in r.Issues)
+        {
+          <li class="flex items-center justify-between gap-2">
+            <a class="a-link @(Model.Issue == c.Code ? "font-bold" : "")" href="/admin/smart/data-health?issue=@c.Code">@c.Title</a>
+            <span class="a-badge @DataHealthModel.SeverityClass(c.Severity)">@Format.Number(c.Count)</span>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="a-card xl:col-span-2">
+    <div class="a-card-head"><h3>کالاهایی که باید درست شوند</h3></div>
+    @if (r.Worst.Count == 0)
+    {
+      <div class="a-empty">کالای ایراددار نیست.</div>
+    }
+    else
+    {
+      <div class="a-table-wrap">
+        <table class="a-table a-table-cards" data-health-rows>
+          <thead><tr><th>کالا</th><th>امتیاز</th><th>ایرادها و راه‌حل</th><th></th></tr></thead>
+          <tbody>
+            @foreach (var row in r.Worst)
+            {
+              <tr>
+                <td data-label="کالا">
+                  <a class="a-link" href="/admin/products/edit/@row.Id">@row.Name</a>
+                  <div class="a-muted text-xs">@(row.IsActive ? "منتشرشده" : "پیش‌نویس")</div>
+                </td>
+                <td data-label="امتیاز"><b>@Format.Number(row.Result.Score)</b> <span class="a-muted text-xs">@row.Result.Level</span></td>
+                <td data-label="ایرادها">
+                  <ul class="text-sm">
+                    @foreach (var i in row.Result.Issues)
+                    {
+                      <li><span class="a-badge @DataHealthModel.SeverityClass(i.Severity)">@i.Title</span> <span class="a-muted text-xs">@i.Fix</span></li>
+                    }
+                  </ul>
+                </td>
+                <td data-label="">
+                  @if (Model.CanFix && !row.IsActive)
+                  {
+                    <form method="post" asp-page-handler="Reprepare" asp-route-id="@row.Id">
+                      <button class="a-btn a-btn-light a-btn-sm" type="submit">آماده‌سازی دوباره</button>
+                    </form>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<div class="a-card mt-4">
+  <div class="a-card-head"><h3>عکس‌های مشکوک</h3><span class="a-muted text-sm">آدم، واترمارک، صحنهٔ شلوغ یا امتیاز «بررسی سوژه» کمتر از ۴۵</span></div>
+  @if (r.BadImages.Count == 0)
+  {
+    <div class="a-empty">عکس مشکوکی پیدا نشد.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards" data-health-images>
+        <thead><tr><th>عکس</th><th>کالا</th><th>مشکل</th><th>امتیاز</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var img in r.BadImages)
+          {
+            <tr>
+              <td data-label="عکس"><img class="a-thumb" src="@ImageHelper.Sized(ImageHelper.Product(img.ImageName), 160)" alt="@img.ProductName" loading="lazy"></td>
+              <td data-label="کالا"><a class="a-link" href="/admin/products/edit/@img.ProductId">@img.ProductName</a></td>
+              <td data-label="مشکل"><span class="a-badge a-badge-red">@DataHealthModel.FlagText(img.Flags)</span></td>
+              <td data-label="امتیاز">@(img.Score is { } s ? Format.Number(s) : "—")</td>
+              <td data-label="">
+                @if (Model.CanFix)
+                {
+                  <form method="post" asp-page-handler="Recheck" asp-route-id="@img.ProductId">
+                    <button class="a-btn a-btn-light a-btn-sm" type="submit">بررسی دوباره</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

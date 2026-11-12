@@ -1,21 +1,97 @@
+﻿@{
+    var settings = Site.Settings;
+}
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" class="scroll-smooth">
+<html lang="fa" dir="rtl" class="scroll-smooth" data-theme-default="@(Site.Settings.IsDarkModeEnabled ? (Site.Settings.DefaultTheme == 1 ? "dark" : Site.Settings.DefaultTheme == 2 ? "system" : "light") : null)">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@ViewData["Title"]</title>
-
-  <link rel="stylesheet" href="~/assets/css/main.css">
-
+  <partial name="_MetaTags" />
+  <partial name="_BrandHead" />
+  @if (settings.IsPwaEnabled)
+  {
+    <link rel="manifest" href="@Site.ManifestUrl">
+    if (!Site.UsesBrandFavicon)
+    {
+      @* فاوآیکن اختصاصی مدیر: آیکون iOS برای نصب PWA از برند می‌آید (با فاوآیکن برند، _BrandHead آن را گذاشته). *@
+      <link rel="apple-touch-icon" href="@Site.Pwa.AppleTouch" asp-append-version="true">
+    }
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="@(settings.PwaShortName ?? settings.SiteName)">
+  }
+  @* Linked separately (not through main.css @import) so the browser downloads them in parallel. *@
+  <link rel="stylesheet" href="~/assets/css/output.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/font.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/dependencies/swiper.min.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/style.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/assets/css/fa-inputs.css" asp-append-version="true">
+  @* دور ۲۳: ویجت «دستیار فروشگاه» (چت‌بات بدون هوش مصنوعی بیرونی) *@
+  <link rel="stylesheet" href="~/assets/css/assistant.css" asp-append-version="true">
+  @* دور ۲۴: نمایش سریع، مقایسه، جست‌وجوی صوتی/تصویری، تضمین قیمت *@
+  <link rel="stylesheet" href="~/assets/css/commerce.css" asp-append-version="true">
+  @if (Site.Settings.IsDarkModeEnabled)
+  {
+    <link rel="stylesheet" href="~/assets/css/dark.css" asp-append-version="true">
+    <script src="~/assets/js/theme.js" asp-append-version="true"></script>
+  }
+  @await RenderSectionAsync("Head", required: false)
 </head>
-<body class="mx-auto bg-[#fcfcfc]">
-  <partial name="_Header" />
+@* دور نوزدهم (A21): روی پروفایل منابع «ضعیف» اتصال زندهٔ مشتریان خاموش است (هر اتصال روی هاست اشتراکی یک درخواست باز نگه می‌دارد)؛
+   شمارندهٔ اعلان‌ها با هر بار باز شدن صفحه به‌روز می‌شود. پنل کارکنان همیشه اتصال زنده دارد. *@
+@{ var liveEnabled = ViewContext.HttpContext.User.IsSignedIn() && Fratak_Shop.Web.Infrastructure.Ops.ResourceGovernor.Current.Budget.CustomerRealtime; }
+@* دور ۲۱: صفحه‌های کمپین می‌توانند هدر/فوتر را پنهان کنند (کلاس fs-no-header / fs-no-footer در landing.css). *@
+<body class="mx-auto bg-[#fcfcfc]@(ViewData["BodyClass"] is string bodyClass ? " " + bodyClass : "")" data-realtime="@(liveEnabled ? "1" : "0")">
+  @* دور ۲۸ (#۱۳۰ – دسترس‌پذیری): «پرش به محتوا» برای کاربران صفحه‌کلید و صفحه‌خوان؛ فقط با Tab دیده می‌شود. *@
+  <a href="#fs-main" class="fs-skip">پرش به محتوای اصلی</a>
+  @await Component.InvokeAsync("Header")
+  @if (ViewData[Fratak_Shop.Web.Infrastructure.StaffPreview.ViewDataKey] is string previewNote)
+  {
+    @* دور ۲۳: نوار پیش‌نمایش کارکنان (پیش‌نویس/غیرفعال)؛ مشتری هرگز این صفحه را نمی‌بیند. *@
+    <div role="status" data-staff-preview style="position:fixed;bottom:0;inset-inline:0;z-index:60;background:#f59e0b;color:#111827;text-align:center;font-weight:700;padding:.5rem 1rem;font-size:.875rem">@previewNote</div>
+  }
+  @if (Site.ShowAnnouncement)
+  {
+    @* The header (with the announcement bar) is fixed: keep the page content below it. *@
+    <div class="@Site.Announcement.HeightClass" data-ann-spacer aria-hidden="true"></div>
+  }
+  @* دور ۲۹ (#۳): جای ردیف جست‌وجوی موبایل بالای صفحه (هدر ثابت است؛ فقط زیر ۷۶۸ پیکسل ارتفاع دارد). *@
+  <div class="fs-msearch-spacer" aria-hidden="true"></div>
+  <partial name="_StatusMessage" />
+  @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Top })
+  <span id="fs-main" tabindex="-1" class="fs-main-anchor"></span>
   @RenderBody()
+  @if (ViewData[PageMetaKeys.Faq] is IReadOnlyList<Fratak_Shop.Core.Services.Seo.Engine.SeoFaqItem> seoFaq && seoFaq.Count > 0)
+  {
+    <partial name="_SeoFaq" model="seoFaq" />
+  }
+  @await Component.InvokeAsync("PageAlerts", new { zone = Fratak_Shop.Web.ViewComponents.AlertZone.Bottom })
   <partial name="_Footer" />
-</body>
-  <!-- main javaScript code -->
-  <script src="~/assets/js/main.js"></script>
-  @RenderSection("Scripts", required: false)
+  <partial name="_PwaInstallPrompt" />
 
+  @* main javaScript code *@
+  <script src="~/assets/js/modal.js" asp-append-version="true"></script>
+  <script src="~/assets/js/lightbox.js" asp-append-version="true"></script>
+  @if (Fratak_Shop.Web.Infrastructure.Ops.MaintenanceMiddleware.IsBypassed(Context))
+  {
+    @* فاز ۹: فقط کارکنان/IPهای مجاز در حالت تعمیرات این نوار را می‌بینند؛ بقیه صفحهٔ ۵۰۳ را می‌بینند. *@
+    <div role="status" style="position:fixed;bottom:16px;left:16px;z-index:60;background:#f59e0b;color:#1f2937;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.18)">🛠️ حالت تعمیرات روشن است – بازدیدکنندگان سایت را نمی‌بینند</div>
+  }
+  <script src="~/assets/js/main.js" asp-append-version="true"></script>
+  <script src="~/assets/js/shop.js" asp-append-version="true"></script>
+  <script src="~/assets/js/fa-inputs.js" asp-append-version="true"></script>
+  <script src="~/assets/js/engagement.js" asp-append-version="true"></script>
+  @* دور سئوی خودکار: سنجش سرعت واقعی کاربران (بدون کوکی) – خاموش‌شدنی از «پنل ← سئو ← سئوی خودکار». *@
+  <script src="~/assets/js/rum.js" asp-append-version="true" defer></script>
+  <script src="~/assets/js/assistant.js" asp-append-version="true" defer></script>
+  <script src="~/assets/js/commerce.js" asp-append-version="true" defer></script>
+  <script src="~/assets/js/table-align.js" asp-append-version="true" defer></script>
+  @if (liveEnabled)
+  {
+    @* اعلان زنده فقط برای کاربر واردشده (صفحه‌های کاربر واردشده هرگز کش نمی‌شوند). *@
+    <script src="~/assets/js/dependencies/signalr/signalr.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/live.js" asp-append-version="true"></script>
+  }
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
 </html>

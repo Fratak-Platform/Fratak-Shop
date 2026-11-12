@@ -1,0 +1,17 @@
+@model StarInputModel
+@{
+    var id = Model.Name.Replace(".", "_");
+}
+<fieldset class="flex items-center justify-between gap-3">
+  <legend class="sr-only">@Model.Title</legend>
+  <span class="text-xs text-zinc-600" aria-hidden="true">@Model.Title</span>
+  <div class="flex flex-row-reverse justify-end text-zinc-300 [&>input:checked~label]:text-amber-400 [&>label:hover]:text-amber-400 [&>label:hover~label]:text-amber-400 [&>input:focus-visible+label]:ring-2 [&>input:focus-visible+label]:ring-sky-300">
+    @for (var star = 5; star >= 1; star--)
+    {
+      <input type="radio" id="@(id)_@star" name="@Model.Name" value="@star" required checked="@(Model.Value == star)" class="peer sr-only">
+      <label for="@(id)_@star" class="cursor-pointer rounded px-0.5 transition" title="@star از ۵">
+        @Icons.Svg("Star", "fill-current", 24)<span class="sr-only">@star ستاره</span>
+      </label>
+    }
+  </div>
+</fieldset>

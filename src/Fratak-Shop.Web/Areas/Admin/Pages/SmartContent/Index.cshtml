@@ -1,0 +1,151 @@
+@page "/admin/smart"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.IndexModel
+@using Fratak_Shop.Data.Entities.Smart
+@using Fratak_Shop.Web.Areas.Admin.Pages.SmartContent
+@*
+  داشبورد محتوای هوشمند (دور ۱۹): کارت‌های صف، دکمه‌های گروهی، کالاهای ناقص و فهرست کارها.
+*@
+@{
+    ViewData["Title"] = "محتوای هوشمند";
+    var s = Model.Stats;
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>محتوای هوشمند</h2>
+    <p class="a-muted text-sm mt-1">
+      عکس، مشخصات، خلاصهٔ نظر خریداران، توضیح دسته و مقالهٔ بلاگ به‌صورت خودکار و رایگان از منابع معتبر جمع و نوشته می‌شود.
+      فقط چیزهای مطمئن خودکار اعمال می‌شوند؛ بقیه این‌جا «منتظر تأیید شما» می‌مانند.
+    </p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.Can(AdminPermissions.ProductsManage))
+    {
+      <form method="post" asp-page-handler="CompleteAll"><button type="submit" class="a-btn">@Icons.Svg("MagicWand", null, 18) تکمیل هوشمند کالاهای ناقص</button></form>
+    }
+    @if (Model.Can(AdminPermissions.CatalogManage))
+    {
+      <form method="post" asp-page-handler="Categories"><button type="submit" class="a-btn a-btn-light">@Icons.Svg("Stack", null, 18) تکمیل دسته‌ها</button></form>
+    }
+  </div>
+</div>
+
+<nav class="a-tabs mb-4" aria-label="بخش‌ها">
+  <a class="a-tab is-active" href="/admin/smart">صف کارها</a>
+  @if (Model.Can(AdminPermissions.CatalogManage)) { <a class="a-tab" href="/admin/smart/categories">دسته‌ها</a> }
+  @if (Model.Can(AdminPermissions.BlogPublish)) { <a class="a-tab" href="/admin/smart/blog">تقویم بلاگ</a> }
+  @if (Model.Can(AdminPermissions.ReportsView) || Model.Can(AdminPermissions.ProductsManage)) { <a class="a-tab" href="/admin/smart/brief">خلاصهٔ روزانه</a> }
+  @if (Model.Can(AdminPermissions.ReportsView) || Model.Can(AdminPermissions.MarketingManage) || Model.Can(AdminPermissions.SeoManage)) { <a class="a-tab" href="/admin/smart/growth">رشد خودکار</a> }
+  @if (Model.Can(AdminPermissions.SettingsManage)) { <a class="a-tab" href="/admin/smart/settings">تنظیمات</a> }
+</nav>
+
+<div class="a-stats mb-4">
+  <div class="a-stat"><div class="a-stat-label">@Icons.Svg("Clock", null, 16) در صف</div><div class="a-stat-value">@Format.Number(s.Queued)</div></div>
+  <div class="a-stat"><div class="a-stat-label">@Icons.Svg("Pulse", null, 16) در حال انجام</div><div class="a-stat-value">@Format.Number(s.Running)</div></div>
+  <div class="a-stat"><div class="a-stat-label">@Icons.Svg("Eye", null, 16) منتظر تأیید شما</div><div class="a-stat-value">@Format.Number(s.NeedsReview)</div></div>
+  <div class="a-stat"><div class="a-stat-label">@Icons.Svg("Warning", null, 16) ناموفق</div><div class="a-stat-value @(s.Failed > 0 ? "a-down" : "")">@Format.Number(s.Failed)</div></div>
+  <div class="a-stat"><div class="a-stat-label">@Icons.Svg("Check", null, 16) انجام‌شدهٔ امروز</div><div class="a-stat-value">@Format.Number(s.AppliedToday)</div></div>
+</div>
+
+@if (Model.PendingInsights.Count > 0)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Eye", null, 18) خلاصه‌های خرید منتظر تأیید (@Format.Number(Model.PendingInsights.Count))</h3></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>کالا</th><th>تعداد نظر</th><th>زمان ساخت</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var pending in Model.PendingInsights)
+          {
+            <tr>
+              <td data-label="کالا">@(pending.ProductName ?? "—")</td>
+              <td data-label="تعداد نظر">@Format.Number(pending.ReviewCount)</td>
+              <td data-label="زمان ساخت" class="text-xs nowrap">@AdminUi.Ago(pending.GeneratedAt)</td>
+              <td><a class="a-btn a-btn-xs a-btn-light" href="/admin/smart/product/@pending.ProductId#insight">بازبینی و تأیید</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@if (Model.Incomplete.Count > 0)
+{
+  <div class="a-card mb-4">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Sparkle", null, 18) کالاهای ناقص (@Format.Number(Model.Incomplete.Count))</h3></div>
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>کالا</th><th>عکس</th><th>مشخصات</th><th>توضیح کوتاه</th><th>خلاصهٔ خرید</th></tr></thead>
+        <tbody>
+          @foreach (var p in Model.Incomplete)
+          {
+            <tr>
+              <td data-label="کالا"><a class="a-link" href="/admin/smart/product/@p.Id">@p.Name</a></td>
+              <td data-label="عکس"><span class="a-badge @(p.Images >= 2 ? "a-badge-green" : "a-badge-yellow")">@Format.Number(p.Images)</span></td>
+              <td data-label="مشخصات"><span class="a-badge @(p.Features >= 5 ? "a-badge-green" : "a-badge-yellow")">@Format.Number(p.Features)</span></td>
+              <td data-label="توضیح کوتاه">@(p.HasShortDescription ? "✓" : "—")</td>
+              <td data-label="خلاصهٔ خرید">@(p.HasInsight ? "✓" : "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<div class="a-card">
+  <div class="a-card-head">
+    <h3 class="a-card-title">@Icons.Svg("ListChecks", null, 18) کارها</h3>
+    <form method="get" class="flex gap-2 items-center">
+      <select name="Status" class="a-input" aria-label="وضعیت">
+        <option value="">همه</option>
+        @foreach (var st in new[] { SmartTaskStatus.NeedsReview, SmartTaskStatus.Queued, SmartTaskStatus.Running, SmartTaskStatus.Applied, SmartTaskStatus.Failed, SmartTaskStatus.Skipped, SmartTaskStatus.Cancelled })
+        {
+          <option value="@st" selected="@(Model.Status == st ? "selected" : null)">@SmartUi.Status(st).Title</option>
+        }
+      </select>
+      <button class="a-btn a-btn-light" type="submit">اعمال</button>
+    </form>
+  </div>
+  @if (Model.Tasks.Count == 0)
+  {
+    <div class="a-empty">هنوز کاری در صف نیست. از دکمه‌های بالا یا صفحهٔ هر کالا شروع کنید.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>نوع</th><th>هدف</th><th>وضعیت</th><th>نتیجه</th><th>زمان</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var t in Model.Tasks)
+          {
+            var (statusTitle, badge) = SmartUi.Status(t.Status);
+            var url = SmartUi.TargetUrl(t.TargetKind, t.TargetId);
+            <tr>
+              <td data-label="نوع">@SmartUi.KindTitle(t.Kind)</td>
+              <td data-label="هدف">@if (url is null) { @t.TargetTitle } else { <a class="a-link" href="@url">@(t.TargetTitle ?? "مشاهده")</a> }</td>
+              <td data-label="وضعیت"><span class="a-badge @badge">@statusTitle</span>@if (t.Attempts > 1) { <span class="a-muted text-xs"> (تلاش @Format.Number(t.Attempts))</span> }</td>
+              <td data-label="نتیجه" class="text-xs">@t.Summary @if (!string.IsNullOrWhiteSpace(t.Error)) { <div class="a-down">@t.Error</div> }</td>
+              <td data-label="زمان" class="text-xs nowrap">@AdminUi.Ago(t.FinishedAt ?? t.StartedAt ?? t.CreatedAt)@if (!string.IsNullOrWhiteSpace(t.RequestedByName)) { <div class="a-muted">@t.RequestedByName</div> }</td>
+              <td data-label="">
+                @if (t.Status is SmartTaskStatus.Queued)
+                {
+                  <form method="post" asp-page-handler="Cancel" class="inline"><input type="hidden" name="id" value="@t.Id"><button type="submit" class="a-btn a-btn-xs a-btn-light">لغو</button></form>
+                }
+                @if (t.Status is SmartTaskStatus.Failed or SmartTaskStatus.Cancelled)
+                {
+                  <form method="post" asp-page-handler="Retry" class="inline"><input type="hidden" name="id" value="@t.Id"><button type="submit" class="a-btn a-btn-xs a-btn-soft">دوباره</button></form>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (Model.Can(AdminPermissions.ProductsManage))
+    {
+      <div class="a-card-body"><form method="post" asp-page-handler="Purge"><button type="submit" class="a-btn a-btn-xs a-btn-light">@Icons.Svg("Trash", null, 14) پاک کردن کارهای قدیمی‌تر از ۳۰ روز</button></form></div>
+    }
+  }
+</div>

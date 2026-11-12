@@ -1,0 +1,25 @@
+@model IReadOnlyList<Fratak_Shop.Core.Services.Seo.Engine.SeoFaqItem>
+@*
+  پرسش‌وپاسخ سئوی صفحه (محصول، دسته، برند، مقاله، صفحهٔ محتوا).
+  داده: Seo.FaqJson که موتور سئو پیشنهاد و کارشناس تأیید کرده (یا دستی ویرایش شده).
+  کجا: _Layout بعد از RenderBody، وقتی PageMetaService.Apply کلید PageMetaKeys.Faq را گذاشته باشد.
+  اسکیمای FAQPage همان‌جا (PageMetaService.ApplyFaq) ساخته می‌شود؛ متن‌ها اینجا encode می‌شوند (بدون HTML).
+  details/summary بدون جاوااسکریپت باز و بسته می‌شود؛ ظاهر همان صفحهٔ «سوالات متداول» است.
+*@
+<section class="max-w-[1600px] mx-auto px-3 md:px-6 mt-8" aria-labelledby="seo-faq-title">
+  <div class="bg-white border rounded-xl shadow-lg p-4 md:p-8">
+    <h2 id="seo-faq-title" class="text-zinc-800 font-semibold text-lg mb-4">پرسش‌های رایج</h2>
+    <div class="grid gap-3">
+      @foreach (var item in Model)
+      {
+        <details class="group rounded-lg bg-white p-4 border border-zinc-100 sm:px-6">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-x-3 text-zinc-700">
+            <span class="text-right font-medium">@item.Question</span>
+            <span class="shrink-0">@Icons.Svg("CaretDown", "transition-transform duration-300 group-open:rotate-180", 18)</span>
+          </summary>
+          <p class="pt-4 text-sm leading-7 text-zinc-600">@item.Answer</p>
+        </details>
+      }
+    </div>
+  </div>
+</section>

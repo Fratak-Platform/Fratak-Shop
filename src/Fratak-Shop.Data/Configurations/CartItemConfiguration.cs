@@ -23,5 +23,8 @@ public class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
             .IsUnique();
 
         builder.ToTable(t => t.HasCheckConstraint("CK_CartItems_Quantity", "[Quantity] > 0"));
+
+        // دور ۲۸ (#۸۴): قیمت دیده‌شده (تومان، بدون اعشار).
+        builder.Property(i => i.SeenPrice).HasPrecision(18, 0);
     }
 }

@@ -1,0 +1,66 @@
+@page "{id:guid?}"
+@model Fratak_Shop.Web.Areas.Admin.Pages.Staff.RoleModel
+@{
+    var r = Model.Role;
+    ViewData["Title"] = Model.IsNew ? "نقش جدید" : $"نقش {r.Name}";
+    var selected = r.Permissions.ToHashSet();
+}
+<div class="a-page-head">
+  <div class="flex items-center gap-2">
+    <a href="/admin/staff" class="a-icon-btn" aria-label="بازگشت">@Icons.Svg("ArrowLeft", "rotate-180", 20)</a>
+    <h2>@ViewData["Title"]</h2>
+    @if (!Model.IsNew) { <span class="a-muted text-sm">@r.UserCount کاربر</span> }
+  </div>
+</div>
+
+<form method="post" class="a-stack" data-dirty-guard>
+  <div class="a-card">
+    <div class="a-card-body a-form-grid cols-3">
+      <div class="a-field"><label class="a-label req" for="r-name">نام نقش</label><input id="r-name" name="name" value="@r.Name" class="a-input" maxlength="100" required></div>
+      <div class="a-field"><label class="a-label" for="r-color">رنگ</label>
+        <div class="flex gap-2"><input type="color" value="@(r.Color ?? "#0069FD")" class="h-10 w-12 rounded border" data-color-for="#r-color" aria-label="انتخاب رنگ"><input id="r-color" name="color" value="@r.Color" class="a-input a-ltr" maxlength="20"></div>
+      </div>
+      <div class="a-field"><label class="a-label" for="r-desc">توضیحات</label><input id="r-desc" name="description" value="@r.Description" class="a-input" maxlength="500"></div>
+    </div>
+  </div>
+
+  <div class="a-card" data-bulk>
+    <div class="a-card-head">
+      <span class="a-card-title">@Icons.Svg("Key", null, 18) دسترسی‌ها</span>
+      <label class="a-check text-sm"><input type="checkbox" data-check-all> انتخاب همه</label>
+    </div>
+    <div class="a-card-body grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      @foreach (var group in AdminPermissions.All.GroupBy(p => p.Group))
+      {
+        <fieldset class="border border-gray-100 rounded-xl p-3">
+          <legend class="px-1 font-semibold text-sm text-gray-700">@group.Key</legend>
+          @foreach (var p in group)
+          {
+            <label class="flex items-start gap-2 py-1.5 cursor-pointer">
+              <input type="checkbox" name="permissions" value="@p.Key" checked="@selected.Contains(p.Key)" class="mt-1" data-row-check disabled="@(!Model.Can(p.Key))">
+              <span>
+                <span class="text-sm">@p.Title</span>
+                @if (p.Description is not null) { <span class="block a-muted text-xs">@p.Description</span> }
+              </span>
+            </label>
+          }
+        </fieldset>
+      }
+    </div>
+    <div class="a-card-body pt-0"><p class="a-help">دسترسی‌هایی که خودتان ندارید قابل انتخاب نیستند. تغییرات بلافاصله برای همه کاربران این نقش اعمال می‌شود.</p></div>
+  </div>
+
+  <div class="a-actionbar">
+    @if (!Model.IsNew && !r.IsSystem)
+    {
+      <button type="submit" form="delete-role" class="a-btn a-btn-danger-soft">@Icons.Svg("Trash", null, 18) حذف نقش</button>
+    }
+    <span class="flex-1"></span>
+    <a href="/admin/staff" class="a-btn a-btn-light">انصراف</a>
+    <button type="submit" class="a-btn">@Icons.Svg("Check", null, 18) ذخیره نقش</button>
+  </div>
+</form>
+@if (!Model.IsNew && !r.IsSystem)
+{
+  <form method="post" asp-page-handler="Delete" asp-route-id="@r.Id" id="delete-role" data-confirm="این نقش حذف شود؟ کاربران آن، دسترسی‌های این نقش را از دست می‌دهند." data-confirm-danger></form>
+}

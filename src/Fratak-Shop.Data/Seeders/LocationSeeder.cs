@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Fratak_Shop.Data.Contexts;
 using Fratak_Shop.Data.Entities.Locations;
 using Fratak_Shop.Data.Utilities;
@@ -68,6 +68,9 @@ public static class LocationSeeder
     };
 
     private static Guid CreateId(string code) => DeterministicGuid.Create($"location:{code}");
+
+    /// <summary>Deterministic id of a province (or any location) by its dictionary code.</summary>
+    public static Guid ProvinceId(string code) => CreateId(code);
 
     private static async Task<LocationSeedModel> ReadSeedFileAsync(CancellationToken cancellationToken)
     {

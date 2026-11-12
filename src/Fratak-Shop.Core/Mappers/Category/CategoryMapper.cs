@@ -15,12 +15,17 @@ public static class CategoryMapper
             UpdatedAt = category.UpdatedAt,
             IsDeleted = category.IsDeleted,
             DeletedAt = category.DeletedAt,
+            ParentId = category.ParentId,
+            ParentName = category.ParentCategory?.Name,
+            ParentSlug = category.ParentCategory?.Slug,
             Name = category.Name,
             Slug = category.Slug,
             Description = category.Description,
             ImageName = category.ImageName,
             DisplayOrder = category.DisplayOrder,
             IsActive = category.IsActive,
+            IconKey = category.IconKey,
+            IsSystem = category.IsSystem,
             Seo = category.Seo.MapSeoMetaData(),
             SubCategories = category.SubCategories.Select(s => new SubCategoryDto
             {
@@ -36,6 +41,7 @@ public static class CategoryMapper
                 ImageName = s.ImageName,
                 DisplayOrder = s.DisplayOrder,
                 IsActive = s.IsActive,
+                IconKey = s.IconKey,
                 Seo = s.Seo.MapSeoMetaData(),
             }).ToList(),
         };

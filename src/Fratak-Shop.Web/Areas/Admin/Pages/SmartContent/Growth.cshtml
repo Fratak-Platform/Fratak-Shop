@@ -1,0 +1,83 @@
+@page "/admin/smart/growth"
+@model Fratak_Shop.Web.Areas.Admin.Pages.SmartContent.GrowthModel
+@using Fratak_Shop.Core.Services.Admin
+@using Fratak_Shop.Core.Services.Seo.Engine
+@* گزارش رشد خودکار: قضاوت بازدید، نمودار ۱۵ روز، کارهای ۳۰ روز اخیر. *@
+@{
+    ViewData["Title"] = "رشد خودکار";
+    var max = Math.Max(1, Model.Visitors.Count == 0 ? 1 : Model.Visitors.Max(v => v.Visitors));
+}
+
+<div class="a-page-head">
+  <div>
+    <h2>رشد خودکار</h2>
+    <p class="a-muted text-sm mt-1">سایت روزی یک بار خودش کار می‌کند: سئوی ضعیف‌ترین صفحه‌ها را بالا می‌برد، کالاهای پربازدیدِ ناقص را تکمیل می‌کند و ایدهٔ بنر می‌سازد.
+      وقتی بازدید کم شود، کار بیشتری انجام می‌دهد. بنر و مقاله بدون تأیید شما منتشر نمی‌شوند و هیچ پیام انبوهی برای مشتری فرستاده نمی‌شود.</p>
+  </div>
+  <div class="a-btn-group">
+    @if (Model.CanAny(AdminPermissions.MarketingManage, AdminPermissions.SeoManage))
+    {
+      <form method="post" asp-page-handler="Run" class="inline"><button class="a-btn a-btn-primary" type="submit" disabled="@(!Model.Enabled)">@Icons.Svg("TrendUp", null, 18) اجرای دوباره الان</button></form>
+    }
+    <a class="a-btn a-btn-light" href="/admin/design?status=Suggested">@Icons.Svg("Palette", null, 18) ایده‌های بنر</a>
+  </div>
+</div>
+
+@if (!Model.Enabled)
+{
+  <div class="a-card"><div class="a-card-body">رشد خودکار خاموش است. از <a class="text-sky-700" href="/admin/smart/settings">تنظیمات محتوای هوشمند</a> روشن کنید.</div></div>
+}
+
+<div class="a-card">
+  <div class="a-card-head">
+    <h3 class="a-card-title">بازدید یکتا (۱۵ روز)</h3>
+    <span class="a-badge a-badge-@(Model.Verdict.Low ? "red" : "green")">@(Model.Verdict.Low ? "کمتر از معمول" : "عادی")</span>
+  </div>
+  <div class="a-card-body">
+    <p class="a-muted text-sm mb-3">@Model.Verdict.Reason</p>
+    @if (Model.Visitors.Count == 0)
+    {
+      <div class="a-empty">هنوز آماری ثبت نشده.</div>
+    }
+    else
+    {
+      <div class="flex items-end gap-1 h-40" dir="ltr" role="img" aria-label="نمودار بازدید یکتای روزانه">
+        @foreach (var v in Model.Visitors.OrderBy(v => v.Day))
+        {
+          var height = Math.Max(2, v.Visitors * 100 / max);
+          <div class="flex-1 flex flex-col items-center justify-end h-full" title="@Format.Day(v.Day): @PersianText.Digits(v.Visitors)">
+            <span class="text-[10px] a-muted">@PersianText.Digits(v.Visitors)</span>
+            <div class="w-full rounded-t bg-sky-500" style="height:@(height)%"></div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<div class="a-card">
+  <div class="a-card-head"><h3 class="a-card-title">کارهای انجام‌شده (۳۰ روز)</h3></div>
+  @if (Model.Actions.Count == 0)
+  {
+    <div class="a-empty">هنوز اجرا نشده. اولین اجرا حداکثر ۶ ساعت بعد از روشن شدن سایت انجام می‌شود.</div>
+  }
+  else
+  {
+    <div class="a-table-wrap">
+      <table class="a-table a-table-cards">
+        <thead><tr><th>روز</th><th>کار</th><th>تعداد</th><th>شرح</th></tr></thead>
+        <tbody>
+          @foreach (var a in Model.Actions)
+          {
+            <tr>
+              <td data-label="روز">@Format.Day(a.Day)</td>
+              <td data-label="کار"><span class="a-badge a-badge-@GrowthModel.KindColor(a.Kind)">@GrowthModel.KindTitle(a.Kind)</span></td>
+              <td data-label="تعداد">@PersianText.Digits(a.Count)</td>
+              <td data-label="شرح" class="text-sm">@a.Summary</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

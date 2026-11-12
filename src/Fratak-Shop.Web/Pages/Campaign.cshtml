@@ -1,0 +1,41 @@
+@page "/campaign/{slug}"
+@model CampaignModel
+@* صفحهٔ کمپین ساخته‌شده با صفحه‌ساز پنل (دور ۲۱). CSS صفحه هنگام ذخیره محدود به «.fs-lp» و بدون «<» شده است. *@
+@{
+    Layout = "_Layout";
+    var landing = Model.Landing;
+}
+@section Head {
+  <link rel="stylesheet" href="~/assets/css/landing.css" asp-append-version="true">
+  @if (!string.IsNullOrWhiteSpace(landing.Css) && !landing.Ended && !landing.CodeMode)
+  {
+    <style>@Html.Raw(landing.Css)</style>
+  }
+}
+@* data-fs-end: پایان واقعی کمپین برای شمارش معکوس (بدون پایان ← شمارش معکوس حذف می‌شود؛ فوریت جعلی نداریم). *@
+<main class="fs-lp@(landing.ShowHeader ? " fs-lp--with-header" : "")" data-fs-end="@(landing.EndAt?.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture) ?? "none")">
+  @if (landing.Ended)
+  {
+    <section class="fs-lp-section">
+      <div class="fs-lp-wrap">
+        <h1 class="fs-lp-title fs-lp-title--dark">@landing.Title</h1>
+        <p class="fs-lp-ended">این کمپین به پایان رسیده است. پیشنهادهای امروز فروشگاه را از دست ندهید.</p>
+        <p class="text-center mt-6"><a class="fs-lp-btn fs-lp-btn--accent" href="/products?Discounted=true&amp;Sort=MostDiscounted">تخفیف‌های امروز</a></p>
+      </div>
+    </section>
+  }
+  else if (landing.CodeMode)
+  {
+    @* دور ۲۹ (#۱۱): حالت کد – HTML/CSS/JS خام مدیر در قاب ایزوله (بدون دسترسی به حساب و کوکی). ارتفاع را landing.js تنظیم می‌کند. *@
+    <iframe class="fs-lp-code" src="@Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.PathFor(landing.Slug)"
+            sandbox="@Fratak_Shop.Web.Infrastructure.Marketing.CampaignFrameEndpoint.SandboxFlags" title="@landing.Title"
+            referrerpolicy="strict-origin-when-cross-origin" data-fs-lp-frame></iframe>
+  }
+  else
+  {
+    @Html.Raw(Model.BodyHtml)
+  }
+</main>
+@section Scripts {
+  <script src="~/assets/js/landing.js" asp-append-version="true" defer></script>
+}

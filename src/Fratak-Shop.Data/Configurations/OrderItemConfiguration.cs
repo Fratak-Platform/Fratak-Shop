@@ -25,6 +25,8 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Property(i => i.DiscountAmount).HasPrecision(18, 0);
         builder.Property(i => i.TotalAmount).HasPrecision(18, 0);
 
+        builder.Property(i => i.UnitCostPrice).HasPrecision(18, 0);
+
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_OrderItems_Amounts",
             "[Quantity] > 0 AND [UnitPrice] >= 0 AND [DiscountAmount] >= 0 AND [TotalAmount] >= 0"));
