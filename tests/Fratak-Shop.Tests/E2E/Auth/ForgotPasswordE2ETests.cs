@@ -38,8 +38,9 @@ public class ForgotPasswordE2ETests(ShopApp app)
         using var reset = await client.PostFormAsync("/forgot-password/reset?phone=" + customer.Phone, ResetForm(code!, NewPassword, NewPassword));
         Assert.Equal(HttpStatusCode.Redirect, reset.StatusCode);
         Assert.StartsWith("/login", reset.Headers.Location?.OriginalString, StringComparison.OrdinalIgnoreCase);
-        // بازیابی کسی را خودکار وارد نمی‌کند.
-        Assert.DoesNotContain(ShopClient.SetCookies(reset), c => c.StartsWith("fratak_at=", StringComparison.Ordinal));
+        // بازیابی کسی را خودکار وارد نمی‌کند (کوکی نشست فقط «پاک» می‌شود: «fratak_at=;» بدون مقدار).
+        Assert.DoesNotContain(ShopClient.SetCookies(reset),
+            c => c.StartsWith("fratak_at=", StringComparison.Ordinal) && !c.StartsWith("fratak_at=;", StringComparison.Ordinal));
 
         // رمز تازه کار می‌کند و رمز قدیمی نه.
         using var fresh = app.CreateClient();

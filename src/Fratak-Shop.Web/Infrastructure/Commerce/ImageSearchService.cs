@@ -376,7 +376,8 @@ public sealed class ImageSearchService(
     /// <summary>دور ۳۰ (#۱): همهٔ نسخه‌های ذخیره‌ای یک فایل عکس کالا (<see cref="ImageSignature.ComputeStored"/>)؛ فایل نبود/خراب ← خالی.</summary>
     private async Task<List<ImageSignature.Signature>> SignAllAsync(string imageName, Guid productId, CancellationToken cancellationToken)
     {
-        var path = uploads.GetPath(UploadArea.Products, imageName);
+        // نام ذخیره‌شده ممکن است با مسیر پوشه باشد («products/x.webp»)؛ GetPath فقط نام سادهٔ فایل را می‌پذیرد.
+        var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(imageName));
         if (path is null || !File.Exists(path))
             return [];
         try
