@@ -837,6 +837,9 @@ public sealed class SmartOrchestrator(
 
     // ───────────────────────────── مقاله ─────────────────────────────
 
+    /// <summary>دور ۳۰ (#۱۲): بیشترین تعداد نسخه‌ای که برای قبولی در دروازهٔ کیفیت مقاله نوشته می‌شود.</summary>
+    public const int BlogVariants = 4;
+
     private async Task<SmartOutcome> BlogArticleAsync(Guid planId, CancellationToken cancellationToken)
     {
         var row = await plan.GetAsync(planId, cancellationToken);
@@ -863,10 +866,27 @@ public sealed class SmartOrchestrator(
             // «دیگران چه جست‌وجو می‌کنند» و آدرس صفحهٔ کمپین برای مقالهٔ کمپین.
             var related = await sources.RelatedSearchesAsync(row.Keyword ?? category?.Name ?? row.Topic, cancellationToken);
             var campaignUrl = row.Type == BlogArticleType.Campaign ? await catalog.CampaignUrlAsync(row.Topic, cancellationToken) : null;
-            var article = BlogWriter.Write(new BlogBrief(row.Type, row.Topic, row.Keyword, category?.Name, category?.Slug, products, DateTimeOffset.UtcNow,
-                CustomTitle: row.Origin == "manual" ? row.Topic : null, Related: related, LinkUrl: campaignUrl));
             var (titles, hashes) = await catalog.ExistingPostsAsync(cancellationToken);
-            var report = BlogWriter.Check(article, titles, products.Select(p => p.Name), hashes, Math.Clamp(options.BlogQualityMin, 50, 100));
+            var brief = new BlogBrief(row.Type, row.Topic, row.Keyword, category?.Name, category?.Slug, products, DateTimeOffset.UtcNow,
+                CustomTitle: row.Origin == "manual" ? row.Topic : null, Related: related, LinkUrl: campaignUrl);
+            // دور ۳۰ (#۱۲) – «هشدار را خود سیستم رفع می‌کند»: اگر دروازهٔ کیفیت ایراد گرفت، نسخه‌های دیگر (جمله‌بندی/ترتیب متفاوت)
+            // نوشته و سنجیده می‌شوند؛ اولین نسخهٔ قبول یا پرامتیازترین نسخه نگه داشته می‌شود.
+            BlogArticle? article = null;
+            QualityReport? report = null;
+            for (var variant = 0; variant < BlogVariants; variant++)
+            {
+                var candidate = BlogWriter.Write(brief with { Variant = variant });
+                var check = BlogWriter.Check(candidate, titles, products.Select(p => p.Name), hashes, Math.Clamp(options.BlogQualityMin, 50, 100));
+                if (report is null || (check.Passed && !report.Passed) || (check.Passed == report.Passed && check.Score > report.Score))
+                {
+                    article = candidate;
+                    report = check;
+                }
+                if (check.Passed)
+                    break;
+            }
+            article ??= BlogWriter.Write(brief);
+            report ??= BlogWriter.Check(article, titles, products.Select(p => p.Name), hashes, Math.Clamp(options.BlogQualityMin, 50, 100));
             var publish = report.Passed && options.BlogAutoPublish;
 
             // دور ۳۰ (#۶): کاور هوشمند – عکس اصلی تا ۳ کالای موجود مقاله، دوربری‌شده روی زمینهٔ هم‌رنگ؛ بدون عکس کالا ← عکس فضاسازی آزاد.

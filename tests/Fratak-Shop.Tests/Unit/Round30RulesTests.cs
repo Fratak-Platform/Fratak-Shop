@@ -2,6 +2,7 @@ using Fratak_Shop.Core.Services.Seo.Autopilot;
 using Fratak_Shop.Core.Services.Seo.Engine;
 using Fratak_Shop.Core.Services.Smart;
 using Fratak_Shop.Data.Entities.SeoEngine;
+using Fratak_Shop.Data.Entities.Smart;
 using Fratak_Shop.Web.Infrastructure.Smart;
 using SkiaSharp;
 
@@ -115,6 +116,49 @@ public class Round30RulesTests
         Assert.Contains(attempts, a => a.Style.HasFlag(WriterStyle.Shorter));
         Assert.Contains(attempts, a => a.Style.HasFlag(WriterStyle.Longer));
         Assert.InRange(attempts.Length, 3, 8); // سقف کار (هاست ضعیف)
+    }
+
+    // ───────────── #۱۲ نسخهٔ جایگزین مقالهٔ خودکار ─────────────
+
+    private static readonly DateTimeOffset BlogNow = new(2026, 11, 6, 8, 0, 0, TimeSpan.Zero);
+
+    private static BlogProduct Headphone(int i) => new(
+        Guid.NewGuid(), $"هدفون بی سیم مدل H{i}", $"h-{i}", i % 2 == 0 ? "سونی" : "انکر", 1_000_000 * i, true, 4.5, 20, 10,
+        [new SeoFeature("عمر باتری", $"{20 + i} ساعت"), new SeoFeature("نسخه بلوتوث", "5.3"), new SeoFeature("حذف نویز", "دارد")],
+        ["صدای شفاف", "باتری خوب"], ["جعبهٔ ساده"], ["ورزشکاران"]);
+
+    [Fact]
+    public void BlogVariantZero_IsExactlyTheNormalArticle()
+    {
+        var products = Enumerable.Range(1, 6).Select(Headphone).ToList();
+        var brief = new BlogBrief(BlogArticleType.BestPicks, "۵ پیشنهاد خرید هدفون", "خرید هدفون", "هدفون", "headphones", products, BlogNow);
+
+        var normal = BlogWriter.Write(brief);
+        var zero = BlogWriter.Write(brief with { Variant = 0 });
+
+        Assert.Equal(normal.Html, zero.Html);
+        Assert.Equal(normal.Title, zero.Title);
+    }
+
+    [Theory]
+    [InlineData(BlogArticleType.BestPicks)]
+    [InlineData(BlogArticleType.BuyingGuide)]
+    [InlineData(BlogArticleType.Comparison)]
+    [InlineData(BlogArticleType.CategoryGuide)]
+    public void BlogVariants_AreCompleteArticles_WithTheSameProducts(BlogArticleType type)
+    {
+        var products = Enumerable.Range(1, 5).Select(Headphone).ToList();
+        var brief = new BlogBrief(type, "راهنمای خرید هدفون", "خرید هدفون", "هدفون", "headphones", products, BlogNow);
+
+        for (var variant = 0; variant < Fratak_Shop.Web.Infrastructure.Smart.SmartOrchestrator.BlogVariants; variant++)
+        {
+            var article = BlogWriter.Write(brief with { Variant = variant });
+            Assert.False(string.IsNullOrWhiteSpace(article.Title));
+            Assert.Contains("<h2", article.Html, StringComparison.Ordinal);
+            Assert.Contains("[[product:", article.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("<script", article.Html, StringComparison.OrdinalIgnoreCase);
+            Assert.All(article.ProductSlugs, slug => Assert.StartsWith("h-", slug));
+        }
     }
 
     // ───────────── #۶ کاور هوشمند مقاله ─────────────

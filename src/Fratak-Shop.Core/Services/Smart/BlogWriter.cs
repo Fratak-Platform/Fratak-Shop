@@ -18,8 +18,10 @@ public sealed record BlogProduct(
 /// </summary>
 /// <para>دور ۲۶: <paramref name="Related"/> = جست‌وجوهای واقعی مرتبط مردم (پیشنهاد جست‌وجوی گوگل/بینگ، «تحقیق پیش از نوشتن»)؛
 /// <paramref name="LinkUrl"/> = آدرس صفحهٔ کمپین برای مقالهٔ کمپین (فقط مسیر داخلی).</para>
+/// <para>دور ۳۰ (#۱۲): <paramref name="Variant"/> = شمارهٔ نسخهٔ جایگزین (۰ = نسخهٔ عادی). وقتی دروازهٔ کیفیت ایراد بگیرد، خود سیستم
+/// نسخه‌های دیگر (جمله‌بندی و ترتیب متفاوت) می‌نویسد و بهترین را نگه می‌دارد؛ هشدار برای ادمین نمی‌ماند.</para>
 public sealed record BlogBrief(BlogArticleType Type, string Topic, string? Keyword, string? CategoryName, string? CategorySlug, IReadOnlyList<BlogProduct> Products, DateTimeOffset Now,
-    string? CustomTitle = null, IReadOnlyList<string>? Related = null, string? LinkUrl = null);
+    string? CustomTitle = null, IReadOnlyList<string>? Related = null, string? LinkUrl = null, int Variant = 0);
 
 /// <summary>مقالهٔ آماده: عنوان، خلاصه، HTML (با کدهای کوتاه محصول) و کلمهٔ کلیدی.</summary>
 public sealed record BlogArticle(string Title, string Excerpt, string Html, string Keyword, IReadOnlyList<string> ProductSlugs);
@@ -38,6 +40,9 @@ public static class BlogWriter
 {
     /// <summary>نشانهٔ کادر خلاصه در HTML (دروازهٔ کیفیت دنبالش می‌گردد).</summary>
     public const string TldrClass = "fs-tldr";
+
+    /// <summary>دور ۳۰: پسوند «بذر» تنوع برای نسخهٔ جایگزین (نسخهٔ ۰ ← خالی تا متن نسخهٔ عادی همان قبلی بماند).</summary>
+    private static string VariantTag(BlogBrief brief) => brief.Variant > 0 ? "#v" + brief.Variant.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
 
     public static BlogArticle Write(BlogBrief brief)
     {
@@ -64,7 +69,7 @@ public static class BlogWriter
         // دور ۲۱: فهرست متنوع (حداکثر ۲ کالا از هر برند + حتماً یک گزینهٔ اقتصادی) و عنوان «۵ پیشنهاد خرید …» به جای «بهترین …»
         // (ادعای «بهترین» بدون آزمون مستقل نه صادقانه است نه برای گوگل امن).
         var ranked = Diverse(products, 5);
-        var seed = brief.Topic + cat;
+        var seed = brief.Topic + cat + VariantTag(brief);
         var keyword = Keyword(brief, $"خرید {cat}");
         var title = Title(brief, $"{PersianText.Digits(ranked.Count)} پیشنهاد خرید {cat} {year}؛ مقایسه، قیمت روز و مناسب چه کسی است");
         var html = new StringBuilder();
@@ -112,7 +117,7 @@ public static class BlogWriter
     private static BlogArticle CategoryGuide(BlogBrief brief, List<BlogProduct> products)
     {
         var cat = Category(brief);
-        var seed = brief.Topic + cat + "cg";
+        var seed = brief.Topic + cat + "cg" + VariantTag(brief);
         var keyword = Keyword(brief, $"انواع {cat}");
         var title = Title(brief, $"{keyword} و کاربرد هر کدام؛ راهنمای کامل {PersianYear(brief.Now)}");
         var html = new StringBuilder();
@@ -200,7 +205,7 @@ public static class BlogWriter
     private static BlogArticle CareGuide(BlogBrief brief, List<BlogProduct> products)
     {
         var cat = Category(brief);
-        var seed = brief.Topic + cat + "care";
+        var seed = brief.Topic + cat + "care" + VariantTag(brief);
         var keyword = Keyword(brief, $"نگهداری {cat}");
         var title = Title(brief, $"نکات {keyword}؛ کارهایی که عمر آن را بیشتر می‌کند");
         var html = new StringBuilder();
@@ -254,7 +259,7 @@ public static class BlogWriter
     private static BlogArticle Campaign(BlogBrief brief, List<BlogProduct> products)
     {
         var cat = Category(brief);
-        var seed = brief.Topic + cat + "cmp";
+        var seed = brief.Topic + cat + "cmp" + VariantTag(brief);
         var keyword = Keyword(brief, brief.Topic);
         var title = Title(brief, PersianText.Clean(brief.Topic));
         var html = new StringBuilder();
@@ -302,7 +307,7 @@ public static class BlogWriter
     private static BlogArticle News(BlogBrief brief, List<BlogProduct> products)
     {
         var cat = Category(brief);
-        var seed = brief.Topic + cat + "news";
+        var seed = brief.Topic + cat + "news" + VariantTag(brief);
         var keyword = Keyword(brief, $"تازه‌های {cat}");
         var title = Title(brief, PersianText.Clean(brief.Topic));
         var html = new StringBuilder();
@@ -359,7 +364,7 @@ public static class BlogWriter
     {
         var cat = Category(brief);
         var year = PersianYear(brief.Now);
-        var seed = brief.Topic + cat + "g";
+        var seed = brief.Topic + cat + "g" + VariantTag(brief);
         var keyword = Keyword(brief, $"راهنمای خرید {cat}");
         var title = Title(brief, $"{keyword} {year}؛ قبل از خرید به این نکته‌ها دقت کنید");
         var ranked = products.OrderByDescending(Score).Take(4).ToList();
@@ -428,7 +433,7 @@ public static class BlogWriter
 
     private static BlogArticle Comparison(BlogBrief brief, BlogProduct a, BlogProduct b)
     {
-        var seed = a.Slug + b.Slug;
+        var seed = a.Slug + b.Slug + VariantTag(brief);
         var keyword = Keyword(brief, $"مقایسه {Short(a)} و {Short(b)}");
         var title = Title(brief, $"{keyword}؛ کدام را بخریم؟");
         var html = new StringBuilder();
@@ -492,7 +497,7 @@ public static class BlogWriter
     /// </summary>
     private static BlogArticle Review(BlogBrief brief, BlogProduct product)
     {
-        var seed = product.Slug + "rv";
+        var seed = product.Slug + "rv" + VariantTag(brief);
         var keyword = Keyword(brief, $"بررسی {Short(product)}");
         var hasOpinions = product.ReviewCount >= 3 || product.Pros.Count > 0 || product.Cons.Count > 0;
         var title = hasOpinions ? $"{keyword}؛ نقاط قوت و ضعف از نگاه خریداران" : $"{keyword}؛ مشخصات کلیدی و ویژگی‌های برجسته";
