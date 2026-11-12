@@ -261,13 +261,27 @@ public static class ImageCleanup
             .First().Id;
     }
 
-    /// <summary>رتبهٔ زمینه برای عکس اصلی: ۳ سفید سالم، ۲ یکدست سالم، ۱ بررسی‌نشده، ۰ مشکل‌دار (آدم/واترمارک/صحنه).</summary>
+    /// <summary>بیت «تمیزکاری لوگو/واترمارک این عکس انجام شد» روی ProductImages.SubjectFlags (دوباره بررسی نمی‌شود).</summary>
+    public const byte CareDone = 32;
+
+    /// <summary>بیت «این عکس اصلیِ دوربری‌شده (زمینهٔ شفاف) است» روی ProductImages.SubjectFlags.</summary>
+    public const byte CutoutDone = 64;
+
+    /// <summary>بیت‌های مشکل (آدم ۴، واترمارک ۸، صحنه ۱۶).</summary>
+    public const byte ProblemBits = 4 | 8 | 16;
+
+    /// <summary>
+    /// رتبهٔ زمینه برای عکس اصلی: ۴ دوربری‌شدهٔ سالم (زمینهٔ شفاف؛ خواستهٔ دور ۲۹)، ۳ سفید سالم، ۲ یکدست سالم، ۱ بررسی‌نشده،
+    /// ۰ مشکل‌دار (آدم/واترمارک/صحنه).
+    /// </summary>
     public static int Tier(byte? flags)
     {
         if (flags is not { } f)
             return 1;
-        if ((f & (4 | 8 | 16)) != 0)
+        if ((f & ProblemBits) != 0)
             return 0;
+        if ((f & CutoutDone) != 0)
+            return 4;
         if ((f & 1) != 0)
             return 3;
         return (f & 2) != 0 ? 2 : 1;

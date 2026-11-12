@@ -382,6 +382,15 @@ public sealed class SmartOptions
         return this;
     }
 
+    /// <summary>
+    /// دور ۲۹: کپی مستقل. GetAsync نسخهٔ مشترک کش‌شده را برمی‌گرداند؛ هر جا قرار است تغییرش دهیم (فرم تنظیمات، پاک‌سازی اعلان‌ها)
+    /// اول کپی می‌گیریم تا درخواست‌های هم‌زمان دیگر نسخهٔ نیمه‌کاره را نبینند.
+    /// </summary>
+    public SmartOptions Clone() =>
+        JsonSerializer.Deserialize<SmartOptions>(JsonSerializer.Serialize(this, CloneJson), CloneJson) ?? new SmartOptions();
+
+    private static readonly JsonSerializerOptions CloneJson = new(JsonSerializerDefaults.Web);
+
     /// <summary>دور ۲۹: فقط یکی از مقدارهای مجاز (کوچک‌شده)؛ بقیه ← پیش‌فرض. مثال: Pick("BR", ["br","bl"], "br") ← «br».</summary>
     private static string Pick(string? value, string[] allowed, string fallback)
     {

@@ -227,9 +227,11 @@ TOKEN=$(token)
 expect 302 /login --data-urlencode "__RequestVerificationToken=$TOKEN" \
   --data-urlencode "Input.PhoneNumber=09120000000" --data-urlencode "Input.Password=123456" --data-urlencode "Input.RememberMe=true"
 if grep -q "fratak_at" "$JAR" && grep -q "fratak_rt" "$JAR"; then pass "JWT access + refresh cookies issued"; else fail "auth cookies missing"; fi
-for path in /profile /profile/orders /profile/addresses /profile/favorites /profile/messages /profile/info /profile/password /profile/wallet /profile/sessions /profile/notifications /profile/club; do
+for path in /profile /profile/orders /profile/addresses /profile/favorites /profile/info /profile/password /profile/wallet /profile/sessions /profile/notifications /profile/club; do
   expect 200 "$path"
 done
+# دور ۲۹: «پیام‌ها» از پروفایل حذف شد (تیکت‌ها جایش را دارند) ← آدرس قدیمی ۳۰۱ به تیکت‌ها.
+expect 301 /profile/messages
 expect 200 /profile/password
 contains "ورود دو مرحله"
 expect 302 /club

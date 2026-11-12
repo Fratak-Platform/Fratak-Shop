@@ -189,6 +189,25 @@ public sealed class SmartNotifier(ISmartTaskQueue queue, IStaffNotificationServi
     }
 
     /// <summary>
+    /// دور ۲۹ (#۱۰) – نتیجهٔ «بازبینی دستهٔ کالاها»: کالاهای منتقل‌شده (از کجا به کجا) و کالاهای مشکوک بی‌مقصد. هیچ ← بی‌صدا.
+    /// اعلان قابل کلیک به صفحهٔ دسته‌های هوشمند (ادمین می‌تواند دسته را از صفحهٔ کالا برگرداند).
+    /// </summary>
+    public async Task NotifyRecategorizedAsync(Fratak_Shop.Core.Services.Smart.CategoryAuditReport report)
+    {
+        if (report.Moved.Count == 0 && report.Suspect == 0)
+            return;
+        try
+        {
+            var url = report.Moved.Count == 1 ? $"/admin/products/edit/{report.Moved[0].ProductId}" : "/admin/products";
+            await SendAsync(null, "اصلاح خودکار دستهٔ کالاها", Cut(report.Summary, 300), url, AdminPermissions.CatalogManage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Recategorize notification failed");
+        }
+    }
+
+    /// <summary>
     /// دور ۲۳ – خلاصهٔ روزانهٔ «آمادهٔ انتشار»: اگر پیش‌نویس کاملی منتظر است، یک اعلان با لینک فیلتر همان فهرست
     /// (/admin/products?missing=ready). سیستم هرگز خودش منتشر نمی‌کند. صفر ← بی‌صدا.
     /// </summary>

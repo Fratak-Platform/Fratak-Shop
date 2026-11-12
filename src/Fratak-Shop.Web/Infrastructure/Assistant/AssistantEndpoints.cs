@@ -16,6 +16,7 @@ namespace Fratak_Shop.Web.Infrastructure.Assistant;
 //                          مهلت ۱۲ ثانیه، نتیجه ۱۲ ساعت در حافظه). درخواست مشتری هرگز منتظر اینترنت نمی‌ماند.
 //   • AssistantEndpoints : POST /api/assistant/message و GET /api/assistant/lookup/{token} (برای assets/js/assistant.js).
 //   • دور ۲۴: GET /api/assistant/suggest (پرسش‌های پیشنهادی صفحه)، GET /api/assistant/handoff و POST /api/assistant/handoff/close (کارشناس).
+//   • دور ۲۹: GET /api/assistant/look (جای پیش‌فرض، رنگ، لوگو، زیرعنوان و روشن/خاموش بودن صدا؛ قابل کش ۵ دقیقه).
 //  ثبت: Extensions/WebServiceCollectionExtensions.cs (Singleton) و Program.cs (MapAssistantEndpoints).
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -130,8 +131,10 @@ public sealed class AssistantLookup(ISeoWebSource web, IMemoryCache cache, ILogg
 /// <c>{"text":"…","session":"abc123…","productId":"…","last":["…"],"action":"…"}</c>. هدر ضدجعل <c>RequestVerificationToken</c> لازم است.
 /// پاسخ: <c>{text, cards[], actions[], intent, lookup, cartChanged}</c>.</item>
 /// <item><c>GET /api/assistant/lookup/{token}</c> – نتیجهٔ جست‌وجوی اینترنت: <c>{done:false}</c> یا <c>{done:true, text}</c>.</item>
+/// <item><c>GET /api/assistant/look</c> – دور ۲۹: <c>{name, subtitle, position, draggable, logo, color, voiceIn, voiceOut}</c>؛
+/// چون برای همه یکسان است «public, max-age=300» دارد.</item>
 /// </list>
-/// همهٔ پاسخ‌ها no-store؛ محدودیت نرخ عمومی /api (۶۰ در دقیقه برای هر IP) هم اعمال می‌شود.
+/// همهٔ پاسخ‌ها (به‌جز look) no-store؛ محدودیت نرخ عمومی /api (۶۰ در دقیقه برای هر IP) هم اعمال می‌شود.
 /// </summary>
 public static partial class AssistantEndpoints
 {
@@ -214,6 +217,26 @@ public static partial class AssistantEndpoints
                 chips = Actions(suggestion.Chips),
                 greeting = suggestion.Greeting,
                 handoff = suggestion.HandoffEnabled,
+            });
+        });
+
+        // دور ۲۹: ظاهر و قابلیت‌های دکمهٔ دستیار (جای پیش‌فرض، کشیدنی بودن، نام، زیرعنوان، لوگو، رنگ، صدای ورودی/خروجی).
+        // سبک و قابل کش (۵ دقیقه): assistant.js یک بار در هر نشست می‌گیرد و در localStorage نگه می‌دارد تا صفحهٔ بعد بی‌پرش نمایش داده شود.
+        // همهٔ مقدارها در SmartOptions.Normalize پاک‌سازی شده‌اند (جای دکمه از فهرست ثابت، رنگ فقط هگز، لوگو فقط مسیر داخلی).
+        app.MapGet("/api/assistant/look", async (HttpContext http, Fratak_Shop.Core.Services.Smart.ISmartConfigService smart) =>
+        {
+            var o = await smart.GetAsync(http.RequestAborted);
+            http.Response.Headers.CacheControl = "public, max-age=300";
+            return Results.Ok(new
+            {
+                name = o.AssistantName,
+                subtitle = o.AssistantSubtitle,
+                position = o.AssistantPosition,
+                draggable = o.AssistantDraggable,
+                logo = o.AssistantLogo,
+                color = o.AssistantColor,
+                voiceIn = o.AssistantVoiceInput,
+                voiceOut = o.AssistantVoiceReply,
             });
         });
 

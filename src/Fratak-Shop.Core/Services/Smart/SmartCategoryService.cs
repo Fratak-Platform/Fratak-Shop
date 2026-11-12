@@ -53,6 +53,14 @@ public interface ISmartCategoryService
     /// یک دور دسته‌بندی. <paramref name="productIds"/> = فقط این کالاها (مثلاً تازه درون‌ریزی‌شده‌ها)؛ null = همهٔ بی‌دسته‌ها تا سقف.
     /// </summary>
     Task<CategorizeReport> RunAsync(IReadOnlyCollection<Guid>? productIds = null, int max = 300, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۹ (#۱۰): بازبینی کالاهایی که در دستهٔ «واقعی» اشتباه گذاشته شده‌اند (<see cref="CategoryAudit.IsMisplaced"/>) و انتقال به دستهٔ درست
+    /// (رأی فروشگاه‌های دیگر ← نوع کالا ← دسته‌بند آماری مطمئن/مسیر دستهٔ سایت تأمین‌کننده). حداکثر <paramref name="maxMoves"/> جابه‌جایی در هر بار.
+    /// <para><paramref name="research"/>: اگر دستهٔ مطمئنی پیدا نشد، دستهٔ همین کالا در سایت‌های دیگر پرسیده می‌شود (حداکثر ۶ کالا در هر بار؛ null = بدون شبکه).</para>
+    /// </summary>
+    Task<CategoryAuditReport> AuditAsync(int maxMoves = 25, CancellationToken cancellationToken = default,
+        Func<IntakeProduct, CancellationToken, Task<MarketLookup?>>? research = null);
 }
 
 public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryService
@@ -262,6 +270,114 @@ public class SmartCategoryService(FratakShopDbContext context) : ISmartCategoryS
         var unplaced = candidates.Where(c => catchAll.Contains(c.CategoryId) && !moves.ContainsKey(c.Id)).Select(c => c.Id).ToList();
         var general = moves.Count(m => m.Value.Source == ProductCategorySource.General);
         return new CategorizeReport(candidates.Count, moved, result, unplaced.Count, unplaced, general);
+    }
+
+    public async Task<CategoryAuditReport> AuditAsync(int maxMoves = 25, CancellationToken cancellationToken = default,
+        Func<IntakeProduct, CancellationToken, Task<MarketLookup?>>? research = null)
+    {
+        var uncategorized = await EnsureUncategorizedAsync(cancellationToken);
+        var categories = await context.Categories
+            .Select(c => new CategoryRow(c.Id, c.Name, c.Slug, c.ParentId, c.IsActive, c.IsSystem))
+            .ToListAsync(cancellationToken);
+        var catchAll = categories.Where(c => c.Id == uncategorized || c.IsSystem || CategoryClassifier.IsCatchAll(c.Name, c.Slug))
+            .Select(c => c.Id).ToHashSet();
+        var targets = categories.Where(c => !catchAll.Contains(c.Id)).ToList();
+        var targetIds = targets.Select(t => t.Id).ToList();
+        // همهٔ کالاهای دسته‌های واقعی (سقف ۸۰۰۰ برای هاست ضعیف؛ فقط چند ستون سبک).
+        var products = await context.Products.Where(p => targetIds.Contains(p.CategoryId))
+            .OrderByDescending(p => p.IsActive).ThenByDescending(p => p.SalesCount).ThenByDescending(p => p.CreatedAt)
+            .Take(8000)
+            .Select(p => new Candidate(p.Id, p.Name, p.CategoryId, p.IsActive, p.SourceCategory, p.CategorySource, p.MarketCategory))
+            .ToListAsync(cancellationToken);
+        if (products.Count == 0)
+            return CategoryAuditReport.Empty;
+        var byId = categories.ToDictionary(c => c.Id);
+        var members = products.GroupBy(p => p.CategoryId).ToDictionary(g => g.Key, g => g.ToList());
+        var brands = await context.Brands.Select(b => b.Name).Take(2000).ToListAsync(cancellationToken);
+        var brandTerms = CategoryAudit.BrandTerms(brands);
+
+        // ۱) کالاهای ناجور
+        var misplaced = new List<Candidate>();
+        foreach (var product in products)
+        {
+            var category = byId[product.CategoryId];
+            var siblings = members[product.CategoryId].Where(m => m.Id != product.Id).Select(m => m.Name).Take(300).ToList();
+            if (CategoryAudit.IsMisplaced(product.Name, category.Name, category.Slug, siblings, brandTerms))
+                misplaced.Add(product);
+        }
+        if (misplaced.Count == 0)
+            return new CategoryAuditReport(products.Count, 0, [], []);
+
+        // ۲) آموزش دسته‌بند بدون خود کالاهای ناجور (تا دستهٔ اشتباه فعلی دوباره «درست» حدس زده نشود).
+        var wrong = misplaced.Select(m => m.Id).ToHashSet();
+        var training = products.Where(p => !wrong.Contains(p.Id)).ToList();
+        var byCategory = training.GroupBy(n => n.CategoryId).ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Name).Take(200).ToList());
+        var classifier = CategoryClassifier.Train(targets.Select(t => new CategorySample(t.Id, t.Name, byCategory.GetValueOrDefault(t.Id) ?? [])));
+        var secondOpinion = CategoryConsensus.TrainSecondOpinion(training.Select(n => (n.Name, n.CategoryId)).Concat(targets.Select(t => (t.Name, t.Id))));
+
+        // ۳) دستهٔ درست: رأی فروشگاه‌های دیگر ← نوع کالا ← دسته‌بند آماری/مسیر سایت تأمین‌کننده. مقصد همان دستهٔ فعلی یا «سایر» ← بی‌تغییر.
+        var fixes = new List<(Candidate Product, Guid Target)>();
+        var suspects = new List<string>();
+        var lookups = 0;
+        foreach (var candidate in misplaced)
+        {
+            var product = candidate;
+            // «دستهٔ نامعلوم ← دستهٔ سایت‌های دیگر»: کالایی که هنوز رأی رقبا ندارد یک بار پرسیده می‌شود (مؤدب و کش‌شده).
+            if (research is not null && product.MarketCategory is null && lookups < 6)
+            {
+                lookups++;
+                try
+                {
+                    var lookup = await research(new IntakeProduct(product.Id, product.Name, null, null, product.SourceCategory), cancellationToken);
+                    var vote = CategoryNames.Truncate(CategoryNames.Proper(lookup?.MarketCategory), 150);
+                    var route = CategoryNames.Path(lookup?.Path);
+                    var joined = route.Count >= 2 ? CategoryNames.Truncate(CategoryNames.Join(route), 300) : null;
+                    if (vote is not null || joined is not null)
+                    {
+                        await context.Products.Where(p => p.Id == product.Id)
+                            .ExecuteUpdateAsync(s => s.SetProperty(p => p.MarketCategory, p => vote ?? p.MarketCategory)
+                                .SetProperty(p => p.SourceCategory, p => joined ?? p.SourceCategory), cancellationToken);
+                        product = product with { MarketCategory = vote ?? product.MarketCategory, SourceCategory = joined ?? product.SourceCategory };
+                    }
+                }
+                catch (Exception lookupError) when (lookupError is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException)
+                {
+                    // شبکه/منبع بیرونی در دسترس نبود؛ با دادهٔ داخلی ادامه می‌دهیم.
+                    _ = lookupError;
+                }
+            }
+            Guid? target = null;
+            if (CategoryNames.Proper(product.MarketCategory, brands) is { } market
+                && targets.FirstOrDefault(t => CategoryNames.Same(market, t.Name, t.Slug)) is { } same)
+                target = same.Id;
+            var type = ProductTypes.Detect(product.Name);
+            if (target is null && type is not null && targets.FirstOrDefault(t => ProductTypes.NameMatches(type, t.Name, t.Slug)) is { } typed)
+                target = typed.Id;
+            if (target is null && Decide(product, type, targets, categories, catchAll, classifier, secondOpinion) is { } found)
+                target = found.Target;
+            if (target is { } chosen && chosen != product.CategoryId && !catchAll.Contains(chosen)
+                && !CategoryAudit.IsMisplaced(product.Name, byId[chosen].Name, byId[chosen].Slug,
+                    (members.GetValueOrDefault(chosen) ?? []).Where(m => !wrong.Contains(m.Id)).Select(m => m.Name).Take(300).ToList(), brandTerms))
+                fixes.Add((product, chosen));
+            else
+                suspects.Add(product.Name);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var moved = new List<CategoryFix>();
+        foreach (var (product, target) in fixes.Take(Math.Clamp(maxMoves, 1, 200)))
+        {
+            // فقط اگر در همین فاصله کسی دسته را عوض نکرده باشد.
+            var changed = await context.Products
+                .Where(p => p.Id == product.Id && p.CategoryId == product.CategoryId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.CategoryId, target).SetProperty(p => p.CategorySource, ProductCategorySource.Smart)
+                    .SetProperty(p => p.UpdatedAt, now), cancellationToken);
+            if (changed > 0)
+                moved.Add(new CategoryFix(product.Id, product.Name, byId[product.CategoryId].Name, byId[target].Name));
+        }
+        if (moved.Count > 0)
+            DataChangeNotifier.Publish(typeof(Product), typeof(Category));
+        return new CategoryAuditReport(products.Count, suspects.Count, moved, suspects.Take(5).ToList());
     }
 
     private sealed record CategoryRow(Guid Id, string Name, string Slug, Guid? ParentId, bool IsActive, bool IsSystem);

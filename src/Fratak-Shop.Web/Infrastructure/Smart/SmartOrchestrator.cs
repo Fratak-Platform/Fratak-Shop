@@ -120,6 +120,9 @@ public sealed class SmartOrchestrator(
     ILogger<SmartOrchestrator> logger)
 {
     public const string Actor = "دستیار هوشمند";
+
+    /// <summary>دور ۲۹ (#۹): بدنهٔ کار «تکمیل روزانهٔ عکس» (SmartWorker.TopUpProductImagesAsync).</summary>
+    public const string TopUpPayload = "{\"topup\":1}";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>حداکثر فروشگاه نتایج جست‌وجو که مشخصاتشان خوانده می‌شود (هر فروشگاه یک «رأی» در ادغام مشخصات).</summary>
@@ -135,7 +138,8 @@ public sealed class SmartOrchestrator(
         var manual = PayloadInt(task.PayloadJson, "manual") == 1;
         return task.Kind switch
         {
-            SmartTaskKind.ProductImages when task.TargetId is { } id => await ProductImagesAsync(id, manual: true, PayloadInt(task.PayloadJson, "round"), cancellationToken),
+            SmartTaskKind.ProductImages when task.TargetId is { } id => await ProductImagesAsync(id, manual: true, PayloadInt(task.PayloadJson, "round"), cancellationToken,
+                topUp: PayloadInt(task.PayloadJson, "topup") == 1),
             SmartTaskKind.ProductReview when task.TargetId is { } id => await ProductReviewAsync(id, manual, cancellationToken),
             SmartTaskKind.ProductSpecs when task.TargetId is { } id => await ProductSpecsAsync(id, manual, cancellationToken),
             SmartTaskKind.ProductInsight when task.TargetId is { } id => await ProductInsightAsync(id, manual, cancellationToken),
@@ -154,20 +158,34 @@ public sealed class SmartOrchestrator(
     /// به کالا اضافه نمی‌شود و همه منتظر انتخاب کارشناس می‌مانند (مشتری نباید عکس کالای دیگری را ببیند)؛ در غیر این صورت فقط عکس‌های
     /// منابع «همان کالا» تا سقف AutoImagesMax خودکار. round = دور جست‌وجوی دوباره.
     /// </summary>
-    private async Task<SmartOutcome> ProductImagesAsync(Guid productId, bool manual, int round, CancellationToken cancellationToken)
+    private async Task<SmartOutcome> ProductImagesAsync(Guid productId, bool manual, int round, CancellationToken cancellationToken, bool topUp = false)
     {
         var subject = await catalog.GetProductAsync(productId, cancellationToken);
         if (subject is null)
             return new SmartOutcome(SmartTaskStatus.Skipped, "محصول پیدا نشد.");
         var options = await config.GetAsync(cancellationToken);
+        // دور ۲۹ (#۹): کالایی که در این فاصله به حداقل عکس رسیده دیگر جست‌وجو نمی‌شود.
+        if (topUp && subject.ImageNames.Count >= options.MinProductImages)
+            return new SmartOutcome(SmartTaskStatus.Skipped, "کالا به حداقل تعداد عکس رسیده است.");
         var want = Math.Clamp(options.ImageCandidates, 6, 15);
         if (!manual && !options.ImagesNeedApproval)
             want = Math.Max(want, options.AutoImagesMax);
         var found = await images.FindForProductAsync(subject, want, Math.Clamp(round, 0, 20), cancellationToken);
+        if (topUp)
+        {
+            // فقط «همان کالا»: منبع مطمئن یا همان مدل، با اطمینان بررسی سوژه ≥ ۰٫۷۲ و بدون آدم/واترمارک/صحنه. بقیه (طرح مشابه،
+            // نامرتبط) اصلاً پیشنهاد هم نمی‌شوند و فایلشان پاک می‌شود. سقف: تا رسیدن به حداقل تعداد عکس.
+            var exact = ExactImages(found, Math.Max(0, options.MinProductImages - subject.ImageNames.Count));
+            images.DeleteProductFiles(found.Except(exact).Select(f => f.FileName));
+            found = exact;
+        }
         var result = new SmartTaskResult { ImageRound = Math.Clamp(round, 0, 20) };
         var auto = options.ImagesNeedApproval
             ? new List<FoundImage>()
             : found.Where(f => f.Trusted).Take(Math.Max(1, options.AutoImagesMax)).ToList();
+        // دور ۲۹ (#۹): در تکمیل روزانه همهٔ عکس‌های «دقیقاً همان کالا» (که بالاتر صافی شدند) مستقیم اضافه می‌شوند.
+        if (topUp && !options.ImagesNeedApproval)
+            auto = found.ToList();
         // دور ۲۸ (#۶۰ تا #۶۶ – «هیچ کالایی آماده نمی‌شد»): پیش‌نویس هرگز منتشرنشده‌ای که هیچ عکسی ندارد، بهترین عکسِ مطمئن
         // (منبع «همان کالا» یا مدل تأییدشده، و اطمینان بررسی سوژه ≥ ۰٫۷۲) را خودکار می‌گیرد تا به «آمادهٔ انتشار» برسد.
         // مشتری هنوز چیزی نمی‌بیند (کالا منتشر نشده) و مدیر پیش از انتشار عکس را می‌بیند؛ بقیهٔ نامزدها مثل قبل منتظر انتخاب می‌مانند.
@@ -202,6 +220,19 @@ public sealed class SmartOrchestrator(
         found.Where(f => (f.Trusted || f.Model == ModelVerdict.Same) && f.Confidence >= ImageSubjectCheck.AutoAttachConfidence)
             .OrderByDescending(f => f.Confidence).ThenByDescending(f => f.Quality)
             .FirstOrDefault();
+
+    /// <summary>دور ۲۹ (#۹): بهترین عکس‌های «همان کالا» تا سقف <paramref name="max"/> (برای تکمیل روزانهٔ عکس).</summary>
+    /// <remarks>مثال: ۳ عکس دقیق و ۴ مشابه با max=۲ ← ۲ عکس دقیق با بیشترین اطمینان.</remarks>
+    public static List<FoundImage> ExactImages(IEnumerable<FoundImage> found, int max) =>
+        max <= 0 ? new List<FoundImage>() : found.Where(IsExact).OrderByDescending(f => f.Confidence).ThenByDescending(f => f.Quality).Take(max).ToList();
+
+    /// <summary>
+    /// دور ۲۹ (#۹): «دقیقاً همان کالا» (خالص؛ آزمون‌پذیر): منبع مطمئن یا مدل تأییدشده، اطمینان سوژه ≥ <see cref="ImageSubjectCheck.AutoAttachConfidence"/>
+    /// و بدون نشانهٔ آدم/واترمارک (Issues خالی یا بدون این دو). مثال: دیجی‌کالا با اطمینان ۰٫۹ ← true؛ بینگ «مدل نامعلوم» ← false.
+    /// </summary>
+    public static bool IsExact(FoundImage f) =>
+        (f.Trusted || f.Model == ModelVerdict.Same) && f.Confidence >= ImageSubjectCheck.AutoAttachConfidence
+        && (string.IsNullOrEmpty(f.Issues) || (!f.Issues.Contains("آدم", StringComparison.Ordinal) && !f.Issues.Contains("واترمارک", StringComparison.Ordinal)));
 
     // ───────────────────────────── مشخصات ─────────────────────────────
 

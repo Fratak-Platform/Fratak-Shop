@@ -189,6 +189,12 @@ public interface ISmartCatalogService
     /// (یا بدون تصویر). خروجی: نام فایل‌هایی که باید از دیسک پاک شوند (فقط فایل‌های همین فهرست).
     /// </summary>
     Task<IReadOnlyList<string>> RemoveCategoryImagesAsync(Guid categoryId, string? option, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// دور ۲۹ (#۸): کنار گذاشتن خودکار تصویرهای ردشده (مثل کلاژ قدیمی عکس کالاها). فرقش با حذف ادمین: اگر چیزی نماند فهرست «null» می‌شود
+    /// (نه «[]») تا جست‌وجوی عکس درست دوباره انجام شود؛ تا آن موقع صفحهٔ اصلی آیکن دسته را نشان می‌دهد. خروجی: نام‌های حذف‌شده.
+    /// </summary>
+    Task<IReadOnlyList<string>> DropCategoryImagesAsync(Guid categoryId, IReadOnlyCollection<string> names, CancellationToken cancellationToken = default);
 }
 
 /// <summary>نتیجهٔ <see cref="ISmartCatalogService.ApplyIdentityAsync"/>: کدام بخش‌ها عوض شدند. Slug = نامک تازه (یا null).</summary>
@@ -864,6 +870,27 @@ public sealed class SmartCatalogService(FratakShopDbContext context) : ISmartCat
         category.ImageOptionsJson = CategoryImages.Serialize(remaining);
         if (category.ImageName is { } current && removed.Contains(current, StringComparer.Ordinal))
             category.ImageName = remaining.FirstOrDefault();
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return removed;
+    }
+
+    public async Task<IReadOnlyList<string>> DropCategoryImagesAsync(Guid categoryId, IReadOnlyCollection<string> names, CancellationToken cancellationToken = default)
+    {
+        if (names.Count == 0)
+            return [];
+        var category = await context.Categories.AsTracking().FirstOrDefaultAsync(c => c.Id == categoryId, cancellationToken);
+        var options = CategoryImages.Parse(category?.ImageOptionsJson);
+        if (category is null || options is null)
+            return [];
+        var removed = options.Where(o => names.Contains(o, StringComparer.Ordinal)).ToList();
+        if (removed.Count == 0)
+            return [];
+        var remaining = options.Except(removed, StringComparer.Ordinal).ToList();
+        // چیزی نماند ← null یعنی «هنوز پیشنهادی ساخته نشده» تا BackfillCategoryPhotos دوباره دنبال عکس درست بگردد.
+        category.ImageOptionsJson = remaining.Count == 0 ? null : CategoryImages.Serialize(remaining);
+        if (category.ImageName is { } current && removed.Contains(current, StringComparer.Ordinal))
+            category.ImageName = remaining.FirstOrDefault(CategorySubjectImages.IsSubject);
         await context.SaveChangesAsync(cancellationToken);
         context.ChangeTracker.Clear();
         return removed;

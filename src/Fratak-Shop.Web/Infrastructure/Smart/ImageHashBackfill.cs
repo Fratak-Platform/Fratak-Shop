@@ -69,6 +69,9 @@ public static class ImageHashBackfill
         var switched = 0;
         foreach (var group in gallery.GroupBy(i => i.ProductId))
         {
+            // دور ۲۹: عکس اصلیِ دوربری‌شده (ProductImageCare) انتخاب نهایی است و با معیار کیفیت عوض نمی‌شود.
+            if (group.Any(i => i.IsPrimary && ((i.SubjectFlags ?? 0) & ImageCleanup.CutoutDone) != 0))
+                continue;
             var pick = Fratak_Shop.Core.Services.Smart.ImageQuality.PickPrimary(group
                 .Select(i => (i.Id, i.IsPrimary, i.Quality is null or 0 ? (int?)null : i.Quality)).ToList());
             if (pick is null)

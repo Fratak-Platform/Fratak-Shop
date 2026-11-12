@@ -230,7 +230,8 @@ public sealed class DataHealthService(FratakShopDbContext context) : IDataHealth
 
         // عکس مشکوک: نشانهٔ آدم/واترمارک/صحنه (هر نشانهٔ ۴ به بالا) یا امتیاز کمتر از حد قبول.
         var badImages = await context.ProductImages
-            .Where(i => i.SubjectFlags >= 4 || i.SubjectScore < DataConfidence.MinImageScore)
+            // دور ۲۹: بیت‌های ۳۲ و ۶۴ (تمیزکاری انجام شد / عکس اصلی دوربری‌شده) نشانهٔ مشکل نیستند؛ فقط ۴، ۸ و ۱۶.
+            .Where(i => (i.SubjectFlags != null && (i.SubjectFlags & 28) != 0) || i.SubjectScore < DataConfidence.MinImageScore)
             .OrderBy(i => i.SubjectScore)
             .Take(MaxRows)
             .Select(i => new { i.ProductId, ProductName = i.Product.Name, i.ImageName, i.SubjectScore, i.SubjectFlags })

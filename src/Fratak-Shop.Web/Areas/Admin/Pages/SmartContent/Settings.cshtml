@@ -84,7 +84,87 @@
       </div>
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantGreeting"> حباب خوش‌آمد کوتاه کنار دکمهٔ دستیار (یک بار در هر بازدید)</label>
       <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantHandoff"> «گفت‌وگو با کارشناس» از داخل چت (اعلان به کارشناسان پشتیبانی)</label>
+      @* دور ۲۹: جای دکمه، هویت و صدا *@
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div>
+          <label class="a-label" asp-for="Options.AssistantPosition">جای پیش‌فرض دکمهٔ دستیار</label>
+          <select class="a-input" asp-for="Options.AssistantPosition">
+            <option value="br">پایین سمت راست (پیشنهادی)</option>
+            <option value="bl">پایین سمت چپ</option>
+            <option value="mr">وسط سمت راست</option>
+            <option value="ml">وسط سمت چپ</option>
+          </select>
+        </div>
+        <div><label class="a-label" asp-for="Options.AssistantSubtitle">زیرعنوان پنجره (حداکثر ۴۰ نویسه)</label><input class="a-input" asp-for="Options.AssistantSubtitle" maxlength="40"></div>
+        <div><label class="a-label" asp-for="Options.AssistantLogo">لوگو/تصویر دستیار (آدرس داخلی؛ خالی = آیکون ربات)</label><input class="a-input a-ltr" asp-for="Options.AssistantLogo" maxlength="300" placeholder="/uploads/media/ava.webp"></div>
+        <div><label class="a-label" asp-for="Options.AssistantColor">رنگ دکمه و سربرگ</label><input class="a-input h-10" type="color" asp-for="Options.AssistantColor"></div>
+      </div>
+      <p class="a-muted text-xs">لوگو را از <a class="text-sky-700" href="/admin/media">کتابخانهٔ رسانه</a> بارگذاری کنید و آدرسش (با «/» شروع می‌شود) را اینجا بگذارید. آدرس سایت‌های دیگر پذیرفته نمی‌شود.</p>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantDraggable"> مشتری بتواند دکمهٔ دستیار را با کشیدن جابه‌جا کند (جای انتخابی در مرورگر خودش می‌ماند)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantVoiceInput"> پیام صوتی: دکمهٔ میکروفون در پنجرهٔ گفت‌وگو (تشخیص گفتار رایگان خود مرورگر)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.AssistantVoiceReply"> پاسخ صوتی: پاسخ‌ها با صدای فارسی مرورگر هم خوانده شوند (مشتری با دکمهٔ بلندگو روشن/خاموش می‌کند)</label>
       <p class="a-muted text-xs">پیام‌های کارشناس: <a class="text-sky-700" href="/admin/smart/assistant/handoffs">گفت‌وگوهای کارشناس</a> · گزارش: <a class="text-sky-700" href="/admin/smart/assistant">دستیار فروشگاه</a></p>
+    </div>
+  </div>
+
+  @* دور ۲۹: عکس کالاها، دسته‌بندی، جایگاه بنرها و پاک‌سازی اعلان‌ها *@
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Image", null, 18) عکس کالاها و دسته‌بندی</h3></div>
+    <div class="a-card-body a-stack">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="a-label" asp-for="Options.MinProductImages">کمترین تعداد عکس هر کالا (کمتر ← جست‌وجوی روزانه)</label><input class="a-input" asp-for="Options.MinProductImages" min="1" max="12"></div>
+      </div>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.PrimaryCutout"> عکس اصلی هر کالا یکدست شود: عکس با زمینهٔ سفید انتخاب می‌شود و اگر نبود، زمینه خودکار حذف و نسخهٔ شفاف ساخته می‌شود</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.CleanWatermarks"> حذف خودکار لوگو/واترمارک سایت‌های دیگر از عکس‌ها (برش حاشیه؛ پاک‌نشدنی ← عکس کنار گذاشته می‌شود)</label>
+      <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.Recategorize"> بازبینی و اصلاح خودکار دستهٔ کالاهای اشتباه (با دستهٔ سایت تأمین‌کننده و رأی فروشگاه‌های دیگر)</label>
+      <fieldset class="a-stack border rounded-xl p-3">
+        <legend class="px-1 text-sm font-semibold">لوگوی کم‌رنگ فروشگاه روی عکس کالاها</legend>
+        <label class="flex items-center gap-2"><input type="checkbox" asp-for="Options.ImageLogoOverlay"> روشن (فقط روی نسخه‌های نمایشی؛ فایل اصلی عکس دست نمی‌خورد)</label>
+        <div class="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label class="a-label" asp-for="Options.ImageLogoPosition">جای لوگو</label>
+            <select class="a-input" asp-for="Options.ImageLogoPosition">
+              <option value="br">پایین راست</option>
+              <option value="bl">پایین چپ</option>
+              <option value="tr">بالا راست</option>
+              <option value="tl">بالا چپ</option>
+              <option value="c">وسط</option>
+            </select>
+          </div>
+          <div><label class="a-label" asp-for="Options.ImageLogoOpacity">میزان پیدایی (۳ تا ۳۰ درصد)</label><input class="a-input" asp-for="Options.ImageLogoOpacity" min="3" max="30"></div>
+          <div>
+            <label class="a-label" asp-for="Options.ImageLogoKind">کدام لوگو</label>
+            <select class="a-input" asp-for="Options.ImageLogoKind">
+              <option value="mark">نشان برند (مربعی)</option>
+              <option value="full">لوگوی کامل (افقی)</option>
+            </select>
+          </div>
+        </div>
+        <p class="a-muted text-xs">لوگوها از <a class="text-sky-700" href="/admin/settings/brand">تنظیمات برند</a> خوانده می‌شوند.</p>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Image", null, 18) جایگاه بنرهای صفحهٔ اصلی</h3></div>
+    <div class="a-card-body a-stack">
+      <p class="a-muted text-sm">اگر بنرهای فعال یک جایگاه از سقف بیشتر باشند، بقیه به نوبت نمایش داده می‌شوند. بنر «سنجاق‌شده» همیشه می‌ماند.</p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="a-label" asp-for="Options.BannerSlotsHero">سقف اسلایدر بالای صفحه</label><input class="a-input" asp-for="Options.BannerSlotsHero" min="1" max="10"></div>
+        <div><label class="a-label" asp-for="Options.BannerSlotsWide">سقف بنر پهن</label><input class="a-input" asp-for="Options.BannerSlotsWide" min="1" max="6"></div>
+        <div><label class="a-label" asp-for="Options.BannerSlotsPromo">سقف بنر دوتایی</label><input class="a-input" asp-for="Options.BannerSlotsPromo" min="1" max="4"></div>
+        <div><label class="a-label" asp-for="Options.BannerRotateHours">چرخش بنرها هر … ساعت</label><input class="a-input" asp-for="Options.BannerRotateHours" min="1" max="72"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a-card">
+    <div class="a-card-head"><h3 class="a-card-title">@Icons.Svg("Bell", null, 18) پاک‌سازی خودکار اعلان‌ها</h3></div>
+    <div class="a-card-body a-stack">
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="a-label" asp-for="Options.NotificationPurgeDays">پاک کردن اعلان‌های مشتری قدیمی‌تر از … روز (۰ = خاموش؛ ۳۰ تا ۷۳۰)</label><input class="a-input" asp-for="Options.NotificationPurgeDays" min="0" max="730"></div>
+        <div><label class="a-label" asp-for="Options.StaffNotificationReadDays">پاک کردن اعلان‌های پنل … روز بعد از خوانده شدن (۰ = هرگز)</label><input class="a-input" asp-for="Options.StaffNotificationReadDays" min="0" max="90"></div>
+      </div>
     </div>
   </div>
 

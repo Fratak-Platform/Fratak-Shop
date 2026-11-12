@@ -14,7 +14,11 @@ namespace Fratak_Shop.Web.Areas.Admin.Pages.SmartContent;
 [AdminPermission(AdminPermissions.SettingsManage)]
 public class SettingsModel(ISmartConfigService config, ISmartCatalogService catalog, ICustomerReminderService reminders) : AdminPageModel
 {
-    [BindProperty] public SmartOptions Options { get; set; } = new();
+    /// <summary>
+    /// مقدارهای فعلی برای نمایش فرم. دور ۲۹: دیگر مستقیم Bind نمی‌شود؛ هنگام ذخیره فقط فیلدهای ارسال‌شده روی تنظیمات فعلی نوشته می‌شوند
+    /// (TryUpdateModelAsync) تا تنظیمی که در صفحهٔ دیگری ذخیره می‌شود (مثل پاک‌سازی اعلان‌ها) با ذخیرهٔ این فرم به پیش‌فرض برنگردد.
+    /// </summary>
+    public SmartOptions Options { get; set; } = new();
 
     public ReminderStats Reminders { get; private set; } = new(0, 0, 0);
 
@@ -40,8 +44,11 @@ public class SettingsModel(ISmartConfigService config, ISmartCatalogService cata
                     rules.Add(new ReplenishRule { CategoryId = ruleCategory[i], Days = ruleDays[i] });
             }
         }
-        Options.ReplenishRules = rules;
-        var result = await config.SaveAsync(Options, HttpContext.RequestAborted);
+        var current = (await config.GetAsync(HttpContext.RequestAborted)).Clone();
+        await TryUpdateModelAsync(current, nameof(Options));
+        current.ReplenishRules = rules;
+        Options = current;
+        var result = await config.SaveAsync(current, HttpContext.RequestAborted);
         SuccessMessage = result.Message;
         return BackToList();
     }

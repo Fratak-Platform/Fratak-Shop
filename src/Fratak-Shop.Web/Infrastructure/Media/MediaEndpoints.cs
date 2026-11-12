@@ -103,7 +103,8 @@ public static class MediaEndpoints
         });
 
         app.MapMethods("/media/{width:int}/{**path}", [HttpMethods.Get, HttpMethods.Head], async (int width, string path, HttpContext http,
-            IWebHostEnvironment environment, IStoreSettingService settingService, ILoggerFactory loggerFactory) =>
+            IWebHostEnvironment environment, IStoreSettingService settingService, ILoggerFactory loggerFactory,
+            Fratak_Shop.Core.Services.Smart.ISmartConfigService smartConfig) =>
         {
             if (Array.IndexOf(Widths, width) < 0 || !IsOptimizable("/" + path))
                 return Results.NotFound();
@@ -128,8 +129,12 @@ public static class MediaEndpoints
                 : SKEncodedImageFormat.Jpeg;
             var quality = Math.Clamp(settings.ImageQuality, 40, 95);
 
+            // دور ۲۹ (#۷): لوگوی کم‌رنگ فروشگاه روی عکس کالاها (اگر مدیر روشن کرده). تنظیمات لوگو در کلید کش هستند ←
+            // با تغییر جا/پیدایی/لوگو نسخهٔ تازه ساخته می‌شود و نسخهٔ قبلی دیگر استفاده نمی‌شود.
+            var overlay = LogoOverlay.For(await smartConfig.GetAsync(http.RequestAborted), settings, path, width, webRoot);
+
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-                $"{path.ToLowerInvariant()}|{width}|{quality}|{format}|{info.LastWriteTimeUtc.Ticks}|{info.Length}")))[..32].ToLowerInvariant();
+                $"{path.ToLowerInvariant()}|{width}|{quality}|{format}|{info.LastWriteTimeUtc.Ticks}|{info.Length}{overlay?.CacheKey}")))[..32].ToLowerInvariant();
             var cacheDir = Path.Combine(environment.ContentRootPath, "App_Data", "media-cache", key[..2]);
             var extension = format switch { SKEncodedImageFormat.Webp => ".webp", SKEncodedImageFormat.Png => ".png", _ => ".jpg" };
             var cached = Path.Combine(cacheDir, key + extension);
@@ -146,7 +151,7 @@ public static class MediaEndpoints
                         await Workers.WaitAsync(http.RequestAborted);
                         try
                         {
-                            var bytes = Resize(source, width, format, quality);
+                            var bytes = Resize(source, width, format, quality, overlay);
                             if (bytes is null)
                                 return Results.File(source, originalType, lastModified: info.LastWriteTimeUtc);
 
@@ -178,7 +183,7 @@ public static class MediaEndpoints
     }
 
     /// <summary>Decodes, downsizes (never upsizes) and re-encodes without metadata. Null = can't handle.</summary>
-    internal static byte[]? Resize(string source, int width, SKEncodedImageFormat format, int quality)
+    internal static byte[]? Resize(string source, int width, SKEncodedImageFormat format, int quality, LogoOverlay? overlay = null)
     {
         using var codec = SKCodec.Create(source);
         if (codec is null)
@@ -206,7 +211,10 @@ public static class MediaEndpoints
                     return null;
             }
 
-            using var image = SKImage.FromBitmap(resized ?? bitmap);
+            overlay?.Draw(resized ?? bitmap);
+            // دور ۲۹: عکس اصلی دوربری‌شده (شفاف) برای مرورگر بدون WebP به JPEG می‌رود؛ JPEG شفافیت ندارد ← روی سفید (نه سیاه).
+            using var flat = format == SKEncodedImageFormat.Jpeg && (resized ?? bitmap).AlphaType != SKAlphaType.Opaque ? OnWhite(resized ?? bitmap) : null;
+            using var image = SKImage.FromBitmap(flat ?? resized ?? bitmap);
             using var data = image.Encode(format, quality);
             return data?.ToArray();
         }
@@ -214,6 +222,17 @@ public static class MediaEndpoints
         {
             resized?.Dispose();
         }
+    }
+
+    /// <summary>کپی تصویر روی زمینهٔ سفید (برای JPEG). مثال: PNG شفاف ← همان تصویر با زمینهٔ سفید.</summary>
+    internal static SKBitmap OnWhite(SKBitmap source)
+    {
+        var result = new SKBitmap(new SKImageInfo(source.Width, source.Height, SKColorType.Rgba8888, SKAlphaType.Opaque));
+        using var canvas = new SKCanvas(result);
+        canvas.Clear(SKColors.White);
+        canvas.DrawBitmap(source, 0, 0);
+        canvas.Flush();
+        return result;
     }
 
     /// <summary>اعمال جهت EXIF (عکس موبایل). جهت عادی ← null. استفاده: Resize و WebPEncoder.</summary>
@@ -245,4 +264,83 @@ public static class MediaEndpoints
         ".png" => "image/png",
         _ => "image/jpeg",
     };
+}
+
+/// <summary>
+/// دور ۲۹ (#۷) – لوگوی کم‌رنگ فروشگاه روی نسخه‌های نمایشی عکس کالا (/media/{width}/uploads/products/…).
+/// <list type="bullet">
+/// <item>فقط عکس کالا و فقط عرض ۳۲۰ به بالا (بندانگشتی‌های ۱۶۰ پیکسلی شلوغ نمی‌شوند)؛ فایل اصلی عکس هیچ‌وقت تغییر نمی‌کند.</item>
+/// <item>لوگو: «mark» ← آیکون برند (PWA)، نبود ← لوگوی اصلی؛ «full» ← لوگوی اصلی. فقط فایل محلی همین سایت.</item>
+/// <item>اندازه: نشان ۱۴٪ و لوگوی کامل ۲۴٪ عرض عکس، با فاصلهٔ ۳٪ از لبه؛ پیدایی ۳ تا ۳۰ درصد (پیش‌فرض ۸ = خیلی کم‌رنگ).</item>
+/// </list>
+/// </summary>
+public sealed class LogoOverlay
+{
+    private LogoOverlay(string logoPath, string position, int opacity, bool full, string cacheKey)
+    {
+        LogoPath = logoPath;
+        Position = position;
+        Opacity = opacity;
+        Full = full;
+        CacheKey = cacheKey;
+    }
+
+    /// <summary>مسیر کامل فایل لوگو روی دیسک.</summary>
+    public string LogoPath { get; }
+
+    /// <summary>جای لوگو: br، bl، tr، tl یا c.</summary>
+    public string Position { get; }
+
+    /// <summary>درصد پیدایی (۳ تا ۳۰).</summary>
+    public int Opacity { get; }
+
+    /// <summary>لوگوی کامل افقی (true) یا نشان مربعی (false).</summary>
+    public bool Full { get; }
+
+    /// <summary>بخشی که به کلید کش اضافه می‌شود (لوگو + زمان تغییرش + جا + پیدایی).</summary>
+    public string CacheKey { get; }
+
+    /// <summary>
+    /// تنظیم لوگو برای این درخواست؛ خاموش، عکس غیر کالا، عرض کم یا لوگوی ناموجود ← null.
+    /// مثال: (روشن، «uploads/products/a.webp»، ۶۴۰) ← لوگو پایین راست با پیدایی ۸٪.
+    /// </summary>
+    public static LogoOverlay? For(Fratak_Shop.Core.Services.Smart.SmartOptions smart, Fratak_Shop.Core.DTOs.Settings.StoreSettingDto settings, string path, int width, string webRoot)
+    {
+        if (!smart.ImageLogoOverlay || width < 320 || !path.StartsWith("uploads/products/", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var full = smart.ImageLogoKind == "full";
+        var url = full ? settings.LogoUrl : (string.IsNullOrWhiteSpace(settings.PwaIconUrl) ? settings.LogoUrl : settings.PwaIconUrl);
+        if (string.IsNullOrWhiteSpace(url) || !MediaEndpoints.IsOptimizable(url.Trim()))
+            return null;
+        var relative = url.Trim().Split('?', '#')[0].TrimStart('/');
+        var file = Path.GetFullPath(Path.Combine(webRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
+        if (!file.StartsWith(webRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) || !File.Exists(file))
+            return null;
+        var stamp = File.GetLastWriteTimeUtc(file).Ticks;
+        return new LogoOverlay(file, smart.ImageLogoPosition, smart.ImageLogoOpacity, full,
+            $"|logo:{relative.ToLowerInvariant()}:{stamp}:{smart.ImageLogoPosition}:{smart.ImageLogoOpacity}:{(full ? "f" : "m")}");
+    }
+
+    /// <summary>لوگو را با پیدایی کم روی همان تصویر می‌کشد. لوگوی خراب ← بدون تغییر (عکس هرگز به خاطر لوگو خراب نمی‌شود).</summary>
+    public void Draw(SKBitmap target)
+    {
+        using var logo = SKBitmap.Decode(LogoPath);
+        if (logo is null || logo.Width <= 0 || logo.Height <= 0 || target.Width < 64)
+            return;
+        var w = Math.Max(24f, target.Width * (Full ? 0.24f : 0.14f));
+        var h = w * logo.Height / logo.Width;
+        if (h > target.Height * 0.3f)
+        {
+            h = target.Height * 0.3f;
+            w = h * logo.Width / logo.Height;
+        }
+        var margin = target.Width * 0.03f;
+        var x = Position is "bl" or "tl" ? margin : Position == "c" ? (target.Width - w) / 2 : target.Width - w - margin;
+        var y = Position is "tr" or "tl" ? margin : Position == "c" ? (target.Height - h) / 2 : target.Height - h - margin;
+        using var canvas = new SKCanvas(target);
+        using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Clamp(Opacity * 255 / 100, 8, 80)) };
+        using var image = SKImage.FromBitmap(logo);
+        canvas.DrawImage(image, SKRect.Create(x, y, w, h), new SKSamplingOptions(SKCubicResampler.Mitchell), paint);
+        canvas.Flush();
+    }
 }

@@ -18,6 +18,14 @@
  *  • تا مشتری پنل را باز نکند فقط یک درخواست سبک (پیشنهادهای صفحه) در هر نشست برای حباب خوش‌آمد فرستاده می‌شود.
  *  • همهٔ متن‌ها با textContent نوشته می‌شوند (هیچ HTML از سرور درج نمی‌شود)؛ لینک‌ها فقط مسیر داخلی (/…).
  *  • رمز عبور هرگز پر یا خوانده نمی‌شود؛ فقط کادر موبایل (رقم) پر می‌شود.
+ *
+ * دور ۲۹:
+ *  • جای دکمه: پیش‌فرض را مدیر انتخاب می‌کند (پایین/وسط، راست/چپ)؛ مشتری می‌تواند دکمه را بکشد و هر جا بگذارد (در همین مرورگر می‌ماند).
+ *    کشیدن با موس و انگشت (Pointer Events)؛ حرکت کمتر از ۶ پیکسل = کلیک عادی. دکمهٔ «جای پیش‌فرض» در پایین پنجره برمی‌گرداند.
+ *  • هویت از پنل مدیریت: نام، زیرعنوان، لوگو (فقط مسیر داخلی) و رنگ ← GET /api/assistant/look (کش ۵ دقیقه + localStorage تا صفحهٔ بعد بی‌پرش باشد).
+ *  • پیام صوتی: دکمهٔ میکروفون کنار «ارسال» (تشخیص گفتار خود مرورگر، فارسی، رایگان)؛ متن شنیده‌شده خودکار فرستاده می‌شود.
+ *  • پاسخ صوتی: دکمهٔ بلندگو در سربرگ؛ پاسخ متنی با صدای فارسی خود مرورگر هم خوانده می‌شود. اگر مشتری با صدا پرسیده باشد، همان پاسخ خودکار خوانده می‌شود.
+ *    هر کدام فقط وقتی مدیر روشنش کرده و مرورگر پشتیبانی می‌کند دیده می‌شود.
  * API: Web/Infrastructure/Assistant/AssistantEndpoints.cs
  */
 (function () {
@@ -116,7 +124,8 @@
   button.type = "button";
   button.setAttribute("aria-haspopup", "dialog");
   button.setAttribute("aria-expanded", "false");
-  button.appendChild(icon(ROBOT));
+  var buttonIcon = icon(ROBOT);
+  button.appendChild(buttonIcon);
   var badge = el("span", "fs-as-badge");
   badge.hidden = true;
   button.appendChild(badge);
@@ -141,7 +150,8 @@
   panel.setAttribute("role", "dialog");
   var head = el("div", "fs-as-head");
   var avatar = el("span", "fs-as-avatar");
-  avatar.appendChild(icon(ROBOT, 22));
+  var avatarIcon = icon(ROBOT, 22);
+  avatar.appendChild(avatarIcon);
   var title = el("b");
   var titleName = el("span");
   var subtitle = el("small", null, "دستیار هوشمند فروشگاه · پاسخ خودکار");
@@ -150,8 +160,15 @@
   var close = el("button", "fs-as-close", "×");
   close.type = "button";
   close.setAttribute("aria-label", "بستن");
+  // دور ۲۹: بلندگو (پاسخ صوتی) – فقط وقتی مدیر روشن کرده و مرورگر صدای فارسی دارد.
+  var SPEAKER_ON = "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.48 4.48 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z";
+  var SPEAKER_OFF = "M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.77v2.06A7 7 0 0 1 19 12zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z";
+  var speak = el("button", "fs-as-speak");
+  speak.type = "button";
+  speak.hidden = true;
   head.appendChild(avatar);
   head.appendChild(title);
+  head.appendChild(speak);
   head.appendChild(close);
   var banner = el("div", "fs-as-banner");
   banner.hidden = true;
@@ -180,9 +197,22 @@
   input.setAttribute("aria-label", "پیام شما");
   var send = el("button", null, "ارسال");
   send.type = "submit";
+  // دور ۲۹: میکروفون (پیام صوتی) – فقط وقتی مدیر روشن کرده و مرورگر تشخیص گفتار دارد.
+  var MIC = "M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z";
+  var mic = el("button", "fs-as-mic");
+  mic.type = "button";
+  mic.hidden = true;
+  mic.setAttribute("aria-label", "پیام صوتی");
+  mic.title = "پیام صوتی (صحبت کنید)";
+  mic.appendChild(icon(MIC, 20));
   form.appendChild(input);
+  form.appendChild(mic);
   form.appendChild(send);
   var note = el("div", "fs-as-note", "دستیار خودکار؛ برای صحبت با کارشناس بنویسید «کارشناس».");
+  var resetSpot = el("button", "fs-as-reset", "برگرداندن دکمه به جای پیش‌فرض");
+  resetSpot.type = "button";
+  resetSpot.hidden = true;
+  note.appendChild(resetSpot);
   panel.appendChild(head);
   panel.appendChild(banner);
   panel.appendChild(guideBar);
@@ -204,6 +234,236 @@
     panel.setAttribute("aria-label", "گفت‌وگو با " + botName + "، دستیار هوشمند فروشگاه");
   }
   applyName(botName);
+
+  // ── دور ۲۹: ظاهر از پنل مدیریت ───────────────────────────────
+  var LOOK_KEY = "fs.assist.look";
+  var LOOK_FRESH_KEY = "fs.assist.look.fresh";
+  var SPOT_KEY = "fs.assist.spot";
+  var SPEAK_KEY = "fs.assist.speak";
+  var POSITIONS = ["br", "bl", "mr", "ml"];
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var synth = window.speechSynthesis || null;
+  var look = read(LOOK_KEY, null, "local") || {};
+  var logoImg = null;
+
+  function setLogo(url) {
+    var safe = safeUrl(url);
+    if (!safe) {
+      if (logoImg) { remove(logoImg.button); remove(logoImg.avatar); logoImg = null; }
+      buttonIcon.style.display = "";
+      avatarIcon.style.display = "";
+      return;
+    }
+    if (logoImg && logoImg.src === safe) return;
+    if (logoImg) { remove(logoImg.button); remove(logoImg.avatar); }
+    function img(cls) {
+      var node = el("img", cls);
+      node.alt = "";
+      node.decoding = "async";
+      node.src = safe;
+      node.addEventListener("error", function () { setLogo(null); }, { once: true }); // لوگوی خراب ← همان آیکون ربات
+      return node;
+    }
+    logoImg = { src: safe, button: img("fs-as-logo"), avatar: img("fs-as-logo") };
+    buttonIcon.style.display = "none";
+    avatarIcon.style.display = "none";
+    button.insertBefore(logoImg.button, badge);
+    avatar.appendChild(logoImg.avatar);
+  }
+
+  function applyLook(l) {
+    look = l && typeof l === "object" ? l : {};
+    var pos = POSITIONS.indexOf(look.position) >= 0 ? look.position : "br";
+    [launcher, panel].forEach(function (node) {
+      POSITIONS.forEach(function (p) { node.classList.remove("fs-as-pos-" + p); });
+      node.classList.add("fs-as-pos-" + pos);
+    });
+    // رنگ روی ریشهٔ صفحه تا راهنمای شناور (fs-as-tip) هم همان رنگ را بگیرد؛ فقط هگز ۶ رقمی (از CSSOM، نه HTML).
+    var root = document.documentElement;
+    if (typeof look.color === "string" && /^#[0-9a-f]{6}$/i.test(look.color)) root.style.setProperty("--fs-as-color", look.color);
+    else root.style.removeProperty("--fs-as-color");
+    if (typeof look.subtitle === "string" && look.subtitle.length > 0 && look.subtitle.length <= 40) subtitle.textContent = look.subtitle;
+    if (typeof look.name === "string") applyName(look.name);
+    setLogo(look.logo);
+    mic.hidden = !(look.voiceIn !== false && Recognition);
+    updateSpeak();
+    if (look.draggable === false) write(SPOT_KEY, null, "local");
+    placeSpot();
+  }
+
+  function loadLook() {
+    if (read(LOOK_FRESH_KEY, false)) return;
+    fetch("/api/assistant/look", { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || typeof data !== "object") return;
+        write(LOOK_KEY, data, "local");
+        write(LOOK_FRESH_KEY, true);
+        applyLook(data);
+      })
+      .catch(function () { /* بی‌اهمیت؛ ظاهر قبلی می‌ماند */ });
+  }
+
+  // ── دور ۲۹: کشیدن دکمه ──────────────────────────────────────
+  // جای انتخابی به‌صورت «نسبت» ذخیره می‌شود (۰ تا ۱ از عرض/ارتفاع آزاد) تا با چرخاندن گوشی یا تغییر اندازهٔ پنجره هم داخل صفحه بماند.
+  var drag = null;
+  var suppressClick = false;
+  function placeSpot() {
+    var spot = look.draggable === false ? null : read(SPOT_KEY, null, "local");
+    var valid = spot && typeof spot.x === "number" && typeof spot.y === "number" && spot.x >= 0 && spot.x <= 1 && spot.y >= 0 && spot.y <= 1;
+    resetSpot.hidden = !valid;
+    if (!valid) {
+      launcher.classList.remove("fs-as-free");
+      launcher.style.removeProperty("left");
+      launcher.style.removeProperty("top");
+      panel.classList.remove("fs-as-side-l", "fs-as-side-r");
+      return;
+    }
+    var w = launcher.offsetWidth || 58;
+    var h = launcher.offsetHeight || 58;
+    var left = Math.round(spot.x * Math.max(0, window.innerWidth - w));
+    var top = Math.round(spot.y * Math.max(0, window.innerHeight - h));
+    launcher.classList.add("fs-as-free");
+    launcher.style.setProperty("left", left + "px");
+    launcher.style.setProperty("top", top + "px");
+    // پنجرهٔ گفت‌وگو (دسکتاپ) همان سمتی باز می‌شود که دکمه هست.
+    var leftSide = left + w / 2 < window.innerWidth / 2;
+    panel.classList.toggle("fs-as-side-l", leftSide);
+    panel.classList.toggle("fs-as-side-r", !leftSide);
+  }
+  button.addEventListener("pointerdown", function (event) {
+    if (look.draggable === false || (event.pointerType === "mouse" && event.button !== 0)) return;
+    var rect = launcher.getBoundingClientRect();
+    drag = { id: event.pointerId, sx: event.clientX, sy: event.clientY, ox: event.clientX - rect.left, oy: event.clientY - rect.top, moved: false };
+  });
+  button.addEventListener("pointermove", function (event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    if (!drag.moved && Math.abs(event.clientX - drag.sx) + Math.abs(event.clientY - drag.sy) < 6) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      try { button.setPointerCapture(event.pointerId); } catch (e) { /* مرورگر قدیمی */ }
+      launcher.classList.add("fs-as-free", "fs-as-dragging");
+      bubble.hidden = true;
+    }
+    event.preventDefault();
+    var w = launcher.offsetWidth, h = launcher.offsetHeight;
+    var left = Math.min(Math.max(0, event.clientX - drag.ox), window.innerWidth - w);
+    var top = Math.min(Math.max(0, event.clientY - drag.oy), window.innerHeight - h);
+    launcher.style.setProperty("left", left + "px");
+    launcher.style.setProperty("top", top + "px");
+  });
+  function endDrag(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    var moved = drag.moved;
+    drag = null;
+    launcher.classList.remove("fs-as-dragging");
+    if (!moved) return;
+    suppressClick = true; // کلیکی که بعد از رها کردن می‌آید پنجره را باز نکند
+    window.setTimeout(function () { suppressClick = false; }, 400);
+    var rect = launcher.getBoundingClientRect();
+    var freeW = Math.max(1, window.innerWidth - rect.width);
+    var freeH = Math.max(1, window.innerHeight - rect.height);
+    write(SPOT_KEY, { x: Math.min(1, Math.max(0, rect.left / freeW)), y: Math.min(1, Math.max(0, rect.top / freeH)) }, "local");
+    placeSpot();
+  }
+  button.addEventListener("pointerup", endDrag);
+  button.addEventListener("pointercancel", endDrag);
+  resetSpot.addEventListener("click", function () { write(SPOT_KEY, null, "local"); placeSpot(); });
+  var resizeTimer = 0;
+  window.addEventListener("resize", function () { window.clearTimeout(resizeTimer); resizeTimer = window.setTimeout(placeSpot, 150); });
+
+  // ── دور ۲۹: پاسخ صوتی ───────────────────────────────────────
+  var faVoice = null;
+  function findVoice() {
+    if (!synth) return null;
+    var voices = synth.getVoices() || [];
+    for (var i = 0; i < voices.length; i++) if (/^fa/i.test(voices[i].lang || "")) return voices[i];
+    return null;
+  }
+  function speakOn() { return read(SPEAK_KEY, false, "local") === true; }
+  function updateSpeak() {
+    faVoice = faVoice || findVoice();
+    var allowed = look.voiceOut === true && !!synth;
+    speak.hidden = !allowed;
+    if (!allowed) return;
+    while (speak.firstChild) speak.removeChild(speak.firstChild);
+    var on = speakOn() && !!faVoice;
+    speak.appendChild(icon(on ? SPEAKER_ON : SPEAKER_OFF, 20));
+    speak.setAttribute("aria-pressed", on ? "true" : "false");
+    speak.disabled = !faVoice;
+    var label = !faVoice ? "مرورگر شما صدای فارسی ندارد" : on ? "خاموش کردن پاسخ صوتی" : "روشن کردن پاسخ صوتی";
+    speak.setAttribute("aria-label", label);
+    speak.title = label;
+  }
+  if (synth && "onvoiceschanged" in synth) synth.addEventListener("voiceschanged", function () { faVoice = findVoice(); updateSpeak(); });
+  speak.addEventListener("click", function () {
+    write(SPEAK_KEY, !speakOn(), "local");
+    if (!speakOn() && synth) synth.cancel();
+    updateSpeak();
+  });
+  var voiceAsked = false;
+  function sayAloud(text) {
+    if (!synth || look.voiceOut !== true || !text) return;
+    faVoice = faVoice || findVoice();
+    if (!faVoice) return;
+    try {
+      synth.cancel();
+      var u = new SpeechSynthesisUtterance(String(text).replace(/https?:\/\/\S+/g, "").slice(0, 600));
+      u.voice = faVoice;
+      u.lang = faVoice.lang || "fa-IR";
+      u.rate = 1;
+      synth.speak(u);
+    } catch (e) { /* بی‌اهمیت */ }
+  }
+
+  // ── دور ۲۹: پیام صوتی ───────────────────────────────────────
+  var listening = null;
+  mic.addEventListener("click", function () {
+    if (!Recognition) return;
+    if (listening) { try { listening.stop(); } catch (e) { /* تمام شده */ } return; }
+    var rec;
+    try { rec = new Recognition(); } catch (e) { return; }
+    rec.lang = "fa-IR";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    listening = rec;
+    var finalText = "";
+    var placeholder = input.placeholder;
+    input.placeholder = "در حال شنیدن… صحبت کنید";
+    mic.classList.add("fs-as-listening");
+    mic.setAttribute("aria-pressed", "true");
+    var timer = window.setTimeout(function () { try { rec.stop(); } catch (e) { /* تمام شده */ } }, 12000);
+    rec.onresult = function (e) {
+      var interim = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var part = e.results[i][0] ? e.results[i][0].transcript : "";
+        if (e.results[i].isFinal) finalText += part; else interim += part;
+      }
+      input.value = (finalText + interim).trim().slice(0, 300);
+    };
+    rec.onerror = function (e) {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") input.placeholder = "اجازهٔ میکروفون داده نشده است";
+      else if (e.error === "no-speech") input.placeholder = "صدایی شنیده نشد؛ دوباره امتحان کنید";
+    };
+    rec.onend = function () {
+      window.clearTimeout(timer);
+      listening = null;
+      mic.classList.remove("fs-as-listening");
+      mic.setAttribute("aria-pressed", "false");
+      window.setTimeout(function () { input.placeholder = placeholder; }, 2500);
+      var text = finalText.trim();
+      if (text) {
+        input.value = "";
+        voiceAsked = true;
+        ask(text);
+      }
+    };
+    try { rec.start(); } catch (e) { listening = null; mic.classList.remove("fs-as-listening"); }
+  });
+
+  applyLook(look);
+  loadLook();
 
   var history = read(LOG_KEY, []);
   if (!Array.isArray(history)) history = [];
@@ -402,6 +662,9 @@
     remember(entry);
     if (rendered) typeOut(entry);
     notify(entry.text);
+    // دور ۲۹: پاسخ صوتی (اگر مشتری روشن کرده یا همین الان با صدا پرسیده).
+    if (entry.text && (speakOn() || voiceAsked)) sayAloud(entry.text);
+    voiceAsked = false;
   }
 
   function addMine(text) {
@@ -713,13 +976,17 @@
     if (!isMobile()) input.focus();
   }
   function hide() {
+    if (synth) synth.cancel();
     panel.hidden = true;
     document.body.classList.remove("fs-as-open");
     button.setAttribute("aria-expanded", "false");
     write(OPEN_KEY, false);
   }
 
-  button.addEventListener("click", function () { if (panel.hidden) open(); else hide(); });
+  button.addEventListener("click", function (event) {
+    if (suppressClick) { suppressClick = false; event.preventDefault(); return; } // پایان کشیدن، نه کلیک
+    if (panel.hidden) open(); else hide();
+  });
   close.addEventListener("click", function () { hide(); button.focus(); });
   panel.addEventListener("keydown", function (event) { if (event.key === "Escape") { hide(); button.focus(); } });
   form.addEventListener("submit", function (event) {

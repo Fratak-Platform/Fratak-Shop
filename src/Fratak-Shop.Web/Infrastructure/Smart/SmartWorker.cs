@@ -270,10 +270,150 @@ public sealed class SmartWorker(IServiceScopeFactory scopeFactory, ILogger<Smart
         {
             services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Image hash backfill failed");
         }
+        try
+        {
+            // دور ۲۹ (#۵ و #۶): پاک کردن لوگو/واترمارک عکس‌ها و یکدست کردن عکس اصلی (کم‌کم، هر ساعت).
+            var care = await ProductImageCare.RunAsync(services, cancellationToken);
+            count += care.Cleaned + care.Removed + care.Cutouts;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Product image care failed");
+        }
+        count += await TopUpProductImagesAsync(services, now, cancellationToken);
+        count += await RecategorizeAsync(services, now, cancellationToken);
         count += await PlanOccasionCouponsAsync(services, now, cancellationToken);
         count += await RefreshOldPostsAsync(services, now, cancellationToken);
+        count += await PurgeCategoryCollagesAsync(services, now, cancellationToken);
         count += await BackfillCategoryPhotosAsync(services, now, cancellationToken);
         return count;
+    }
+
+    private static long _lastRecategorizeTicks;
+
+    /// <summary>
+    /// دور ۲۹ (#۱۰): روزی یک بار «بازبینی دستهٔ کالاها» (تنظیم Recategorize): کالای ناجور (مثل «سرویس ظرف» در «چندراهی برق») به دستهٔ
+    /// درست می‌رود (حداکثر ۲۵ کالا در روز) و نتیجه با یک اعلان قابل کلیک به کارکنان گزارش می‌شود. سبک و بدون شبکه.
+    /// </summary>
+    public static async Task<int> RecategorizeAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken, bool force = false)
+    {
+        var last = Interlocked.Read(ref _lastRecategorizeTicks);
+        if (!force && last != 0 && now.UtcTicks - last < TimeSpan.FromHours(24).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastRecategorizeTicks, now.UtcTicks);
+        try
+        {
+            var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
+            if (!options.Enabled || !options.Recategorize)
+                return 0;
+            var report = await services.GetRequiredService<ISmartCategoryService>().AuditAsync(25, cancellationToken,
+                services.GetRequiredService<SmartSources>().MarketCategoryAsync);
+            await services.GetRequiredService<SmartNotifier>().NotifyRecategorizedAsync(report);
+            return report.Moved.Count;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Recategorize audit failed");
+            return 0;
+        }
+    }
+
+    private static long _lastImageTopUpTicks;
+
+    /// <summary>
+    /// دور ۲۹ (#۹): «حداقل عکس هر کالا» – روزی یک بار کالاهایی که کمتر از MinProductImages (پیش‌فرض ۵) عکس دارند در صف
+    /// «عکس هوشمند» می‌روند (حالت topup: فقط عکس‌های «همان کالا»؛ مشابه و نامرتبط کنار گذاشته می‌شوند).
+    /// هر روز حداکثر ۱۲ کالا (مؤدب با منابع بیرونی)؛ کالایی که در ۳ روز گذشته تلاش شده نمی‌آید. خطا فقط ثبت می‌شود.
+    /// </summary>
+    public static async Task<int> TopUpProductImagesAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken, bool force = false)
+    {
+        var last = Interlocked.Read(ref _lastImageTopUpTicks);
+        if (!force && last != 0 && now.UtcTicks - last < TimeSpan.FromHours(24).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastImageTopUpTicks, now.UtcTicks);
+        try
+        {
+            var options = await services.GetRequiredService<ISmartConfigService>().GetAsync(cancellationToken);
+            if (!options.Enabled)
+                return 0;
+            var queue = services.GetRequiredService<ISmartTaskQueue>();
+            var recent = (await queue.RecentTargetsAsync(SmartTaskKind.ProductImages, now.AddDays(-3), cancellationToken: cancellationToken)).ToHashSet();
+            var context = services.GetRequiredService<Fratak_Shop.Data.Contexts.FratakShopDbContext>();
+            var min = options.MinProductImages;
+            var rows = await context.Products
+                .Where(p => !p.Category.IsSystem && p.Images.Count() < min)
+                .OrderByDescending(p => p.IsActive).ThenBy(p => p.Images.Count()).ThenByDescending(p => p.CreatedAt)
+                .Select(p => new { p.Id, p.Name })
+                .Take(60)
+                .ToListAsync(cancellationToken);
+            var count = 0;
+            foreach (var row in rows)
+            {
+                if (recent.Contains(row.Id))
+                    continue;
+                await queue.EnqueueAsync(SmartTaskKind.ProductImages, SmartTarget.Product, row.Id, row.Name, SmartPriority.Nightly,
+                    SmartOrchestrator.TopUpPayload, null, SmartOrchestrator.Actor, cancellationToken);
+                if (++count >= 12)
+                    break;
+            }
+            return count;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Product image top-up failed");
+            return 0;
+        }
+    }
+
+    private static long _lastCollageSweepTicks;
+
+    /// <summary>
+    /// دور ۲۹ (#۸): «حلقهٔ بازبینی تصویر دسته‌ها» – روزی یک بار همهٔ تصویرهای پیشنهادی دسته‌ها بررسی می‌شوند و کلاژ عکس کالاها
+    /// (<see cref="CategoryComposite.IsCollage(byte[])"/>) کنار گذاشته می‌شود؛ دسته دوباره در صف جست‌وجوی عکس درست می‌رود
+    /// و تا آن موقع صفحهٔ اصلی آیکن دسته را نشان می‌دهد. تصویری که ادمین خودش آپلود کرده (خارج از فهرست پیشنهادها) دست نمی‌خورد.
+    /// سبک: تعداد دسته‌ها کم است و هر فایل فقط یک بار باز می‌شود. خروجی: تعداد تصویر حذف‌شده.
+    /// </summary>
+    public static async Task<int> PurgeCategoryCollagesAsync(IServiceProvider services, DateTimeOffset now, CancellationToken cancellationToken, bool force = false)
+    {
+        var last = Interlocked.Read(ref _lastCollageSweepTicks);
+        if (!force && last != 0 && now.UtcTicks - last < TimeSpan.FromHours(24).Ticks)
+            return 0;
+        Interlocked.Exchange(ref _lastCollageSweepTicks, now.UtcTicks);
+        try
+        {
+            var catalog = services.GetRequiredService<ISmartCatalogService>();
+            var uploads = services.GetRequiredService<Fratak_Shop.Web.Services.IUploadStore>();
+            var removed = 0;
+            foreach (var (id, state) in await catalog.ListCategoryImagesAsync(cancellationToken))
+            {
+                var bad = new List<string>();
+                foreach (var name in state.Options ?? [])
+                {
+                    var path = uploads.GetPath(Fratak_Shop.Web.Services.UploadArea.Categories, Path.GetFileName(name));
+                    // فایل گم‌شده کاری ندارد (ممکن است در حال انتقال/بازگردانی باشد)؛ فقط کلاژ کنار گذاشته می‌شود.
+                    if (path is null || !File.Exists(path))
+                        continue;
+                    if (CategoryComposite.IsCollage(await File.ReadAllBytesAsync(path, cancellationToken)))
+                        bad.Add(name);
+                }
+                if (bad.Count == 0)
+                    continue;
+                var dropped = await catalog.DropCategoryImagesAsync(id, bad, cancellationToken);
+                if (dropped.Count > 0)
+                {
+                    services.GetRequiredService<SmartImageFinder>().DeleteCategoryFiles(dropped);
+                    removed += dropped.Count;
+                }
+            }
+            if (removed > 0)
+                services.GetRequiredService<ILogger<SmartWorker>>().LogInformation("Category image sweep removed {Count} collage/missing images", removed);
+            return removed;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            services.GetRequiredService<ILogger<SmartWorker>>().LogWarning(exception, "Category collage sweep failed");
+            return 0;
+        }
     }
 
     private static long _lastCategoryPhotoTicks;

@@ -263,78 +263,59 @@ public static class SmartImageAnalyzer
 }
 
 /// <summary>
-/// دور ۲۸ – «ترکیب عکس کالاهای دسته روی سفید» (تصمیم «ج»، وقتی وب عکس سوژهٔ مناسبی نداد): ۱ تا ۴ عکس کالا، هر کدام بدون حاشیهٔ اضافه،
-/// کنار هم روی بوم سفید ۱۲۰۰×۸۰۰ با سایهٔ خیلی نرم. خروجی WebP. ورودی خراب نادیده گرفته می‌شود؛ هیچ عکس سالمی نبود ← null.
+/// دور ۲۹ (#۸) – شناسایی «کلاژ عکس کالاها»ی دور ۲۸ (ساخت آن دیگر انجام نمی‌شود) تا از تصویر دسته‌ها پاک شود.
+/// <para>نشانه‌ها (همه با هم): دقیقاً ۱۲۰۰×۸۰۰، قاب ۳۰ پیکسلی دور تصویر کاملاً سفید، و فاصلهٔ سفید بین خانه‌های چیدمان
+/// (۲ یا ۴ عکس: ستون ۵۸۵ تا ۶۱۵؛ ۳ عکس: ستون‌های ۴۰۳–۴۱۷ و ۷۸۳–۷۹۷؛ ۱ عکس: نوار ۲۴۰ پیکسلی دو طرف).</para>
+/// مثال: کلاژ دو کالا روی سفید ← true؛ عکس آشپزخانهٔ ۱۲۰۰×۸۰۰ ← false (قاب سفید ندارد).
 /// </summary>
 public static class CategoryComposite
 {
     public const int Width = 1200;
     public const int Height = 800;
 
-    public static byte[]? Create(IReadOnlyList<byte[]> sources)
+    /// <summary>آیا این بایت‌ها کلاژ قدیمی عکس کالاهاست؟ تصویر خراب ← false.</summary>
+    public static bool IsCollage(byte[] bytes)
     {
-        if (sources.Count == 0 || !WebPEncoder.Gate.Wait(TimeSpan.FromSeconds(60)))
-            return null;
-        var bitmaps = new List<SKBitmap>();
         try
         {
-            foreach (var bytes in sources.Take(4))
-            {
-                var bitmap = SKBitmap.Decode(bytes);
-                if (bitmap is null)
-                    continue;
-                if (bitmap.Width < 150 || bitmap.Height < 150 || (long)bitmap.Width * bitmap.Height > 12_000_000)
-                {
-                    bitmap.Dispose();
-                    continue;
-                }
-                bitmaps.Add(bitmap);
-            }
-            if (bitmaps.Count == 0)
-                return null;
-            using var surface = SKSurface.Create(new SKImageInfo(Width, Height, SKColorType.Rgba8888, SKAlphaType.Premul));
-            if (surface is null)
-                return null;
-            var canvas = surface.Canvas;
-            canvas.Clear(SKColors.White);
-            // چیدمان: ۱ عکس وسط؛ ۲ کنار هم؛ ۳ و ۴ در دو ردیف.
-            var cells = bitmaps.Count switch
-            {
-                1 => new[] { SKRect.Create(250, 80, 700, 640) },
-                2 => new[] { SKRect.Create(60, 120, 520, 560), SKRect.Create(620, 120, 520, 560) },
-                3 => new[] { SKRect.Create(40, 60, 360, 680), SKRect.Create(420, 60, 360, 680), SKRect.Create(800, 60, 360, 680) },
-                _ => new[] { SKRect.Create(80, 40, 500, 350), SKRect.Create(620, 40, 500, 350), SKRect.Create(80, 410, 500, 350), SKRect.Create(620, 410, 500, 350) },
-            };
-            using var shadow = new SKPaint { ImageFilter = SKImageFilter.CreateDropShadow(0, 10, 14, 14, new SKColor(0, 0, 0, 40)) };
-            for (var i = 0; i < cells.Length && i < bitmaps.Count; i++)
-            {
-                var bitmap = bitmaps[i];
-                // حاشیهٔ سفید/یکدست اطراف کالا بریده می‌شود تا کالا بزرگ و واضح دیده شود.
-                var trim = Commerce.ImageSignature.TrimBox(bitmap);
-                using var cropped = new SKBitmap();
-                var source = trim.Width >= 20 && trim.Height >= 20 && bitmap.ExtractSubset(cropped, trim) ? cropped : bitmap;
-                var cell = cells[i];
-                var fit = Math.Min(cell.Width / source.Width, cell.Height / source.Height);
-                var w = source.Width * fit;
-                var h = source.Height * fit;
-                var dest = SKRect.Create(cell.MidX - w / 2, cell.MidY - h / 2, w, h);
-                using var image = SKImage.FromBitmap(source);
-                canvas.DrawImage(image, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), shadow);
-            }
-            using var snapshot = surface.Snapshot();
-            using var data = snapshot.Encode(SKEncodedImageFormat.Webp, WebPEncoder.Quality);
-            return data?.ToArray();
+            using var codec = SKCodec.Create(new MemoryStream(bytes));
+            if (codec is null || codec.Info.Width != Width || codec.Info.Height != Height)
+                return false;
+            using var bitmap = SKBitmap.Decode(codec);
+            return bitmap is not null && IsCollage(bitmap);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            return null;
+            return false;
         }
-        finally
+    }
+
+    /// <summary>همان بررسی روی تصویر بازشده (برای آزمون).</summary>
+    public static bool IsCollage(SKBitmap bitmap)
+    {
+        if (bitmap.Width != Width || bitmap.Height != Height)
+            return false;
+        if (!White(bitmap, 0, 0, Width, 30) || !White(bitmap, 0, Height - 30, Width, Height)
+            || !White(bitmap, 0, 0, 30, Height) || !White(bitmap, Width - 30, 0, Width, Height))
+            return false;
+        return White(bitmap, 588, 40, 612, Height - 40)
+               || (White(bitmap, 404, 40, 416, Height - 40) && White(bitmap, 784, 40, 796, Height - 40))
+               || (White(bitmap, 0, 0, 236, Height) && White(bitmap, Width - 236, 0, Width, Height));
+    }
+
+    /// <summary>همهٔ پیکسل‌های مستطیل (با گام ۴ برای سرعت) تقریباً سفید باشند (هر کانال ≥ ۲۳۸؛ سایهٔ خیلی نرم مجاز است).</summary>
+    private static bool White(SKBitmap bitmap, int x0, int y0, int x1, int y1)
+    {
+        for (var y = y0; y < y1; y += 4)
         {
-            foreach (var bitmap in bitmaps)
-                bitmap.Dispose();
-            WebPEncoder.Gate.Release();
+            for (var x = x0; x < x1; x += 4)
+            {
+                var c = bitmap.GetPixel(x, y);
+                if (c.Red < 238 || c.Green < 238 || c.Blue < 238)
+                    return false;
+            }
         }
+        return true;
     }
 }
 
@@ -634,20 +615,8 @@ public sealed class SmartImageFinder(
             results.Add(RenameIn(UploadArea.Categories, stored, CategorySubjectImages.FileName(subject.Slug)));
         }
 
-        // تصمیم «ج»: وب عکس مناسبی نداد ← ترکیب عکس کالاهای خود دسته روی زمینهٔ سفید (هرگز تصویر ساده/خالی).
-        if (results.Count == 0 && productImageNames.Count > 0)
-        {
-            var sourcesBytes = new List<byte[]>();
-            foreach (var name in productImageNames.Distinct(StringComparer.Ordinal).Take(4))
-            {
-                var path = uploads.GetPath(UploadArea.Products, Path.GetFileName(name));
-                if (path is not null && File.Exists(path))
-                    sourcesBytes.Add(await File.ReadAllBytesAsync(path, cancellationToken));
-            }
-            if (CategoryComposite.Create(sourcesBytes) is { } composite
-                && await StoreAsync(composite, UploadArea.Categories, cancellationToken) is { } stored)
-                results.Add(RenameIn(UploadArea.Categories, stored, CategorySubjectImages.FileName(subject.Slug)));
-        }
+        // دور ۲۹ (#۸): «کلاژ عکس کالاها» حذف شد (خواستهٔ کاربر: عکس دسته باید شبیه آیکن و مرتبط باشد، نه ترکیب عکس کالاها).
+        // وب عکس درستی نداد ← فهرست خالی؛ صفحهٔ اصلی آیکن نوع دسته را نشان می‌دهد و دفعهٔ بعد دوباره جست‌وجو می‌شود.
         return results;
     }
 

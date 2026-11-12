@@ -229,7 +229,7 @@ public partial class IndexModel(IAdminDataService data, INotificationService not
     [AdminPermission(AdminPermissions.SettingsManage)]
     public async Task<IActionResult> OnPostRetentionAsync(int customerDays, int staffDays)
     {
-        var options = await smartConfig.GetAsync(HttpContext.RequestAborted);
+        var options = (await smartConfig.GetAsync(HttpContext.RequestAborted)).Clone();
         options.NotificationPurgeDays = customerDays;
         options.StaffNotificationReadDays = staffDays;
         var result = await smartConfig.SaveAsync(options, HttpContext.RequestAborted);
